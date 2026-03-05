@@ -266,44 +266,99 @@ export const calculateLeaveBalances = (
 /**
  * Build leave data for UI display
  */
+// export const buildLeaveData = (
+//     leavesTakenCount: Record<string, number>,
+//     proRatedBalances: Record<string, number>,
+//     leaveBalances: Record<string, number>,
+//     allowedPerMonth: number = 1
+// ) => {
+//     // debugger;
+//     // console.log("buildLeaveData called with:", { leavesTakenCount, proRatedBalances, leaveBalances });
+
+//     const paidLeaves = [
+//         {
+//             label: ANNUAL_LEAVES,
+//             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
+//             total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
+//             color: '#9D4141',
+//             allowedPerMonth, // Only for Annual leaves
+//             showAllowedPerMonth: true
+//         },
+//         {
+//             label: SICK_LEAVES,
+//             used: leavesTakenCount[SICK_LEAVES] || 0,
+//             total: leaveBalances[SICK_LEAVES] || 0,
+//             color: '#9D4141',
+//             showAllowedPerMonth: false // Not applicable for Sick leaves
+//         },
+//         {
+//             label: FLOATER_LEAVES,
+//             used: leavesTakenCount[FLOATER_LEAVES] || 0,
+//             total: leaveBalances[FLOATER_LEAVES] || 0,
+//             color: '#9D4141',
+//             showAllowedPerMonth: false // Not applicable for Floater leaves
+//         },
+//         {
+//             label: CASUAL_LEAVES,
+//             used: leavesTakenCount[CASUAL_LEAVES] || 0,
+//             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
+//             color: '#9D4141',
+//             allowedPerMonth, // Only for Casual leaves
+//             showAllowedPerMonth: true
+//         },
+//         {
+//             label: MATERNAL_LEAVES,
+//             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
+//             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
+//             color: '#9D4141',
+//             allowedPerMonth, // Only for Maternal leaves
+//             showAllowedPerMonth: true
+//         },
+
+//     ];
+//     const unpaidLeaves = [
+//         {
+//             label: UNPAID_LEAVES,
+//             used: leavesTakenCount[UNPAID_LEAVES] || 0,
+//             total: leaveBalances[UNPAID_LEAVES] || 0,
+//             color: '#9D4141',
+//             showAllowedPerMonth: false // Not applicable for Unpaid leaves
+//         },
+//     ];
+
+//     return {paidLeaves, unpaidLeaves};
+// };
+
+/**
+ * Build leave data for UI display - split into paid and unpaid
+ */
 export const buildLeaveData = (
     leavesTakenCount: Record<string, number>,
     proRatedBalances: Record<string, number>,
     leaveBalances: Record<string, number>,
     allowedPerMonth: number = 1
 ) => {
-    // debugger;
-    // console.log("buildLeaveData called with:", { leavesTakenCount, proRatedBalances, leaveBalances });
-
-    return [
-        {
-            label: ANNUAL_LEAVES,
-            used: leavesTakenCount[ANNUAL_LEAVES] || 0,
-            total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
-            color: '#9D4141',
-            allowedPerMonth, // Only for Annual leaves
-            showAllowedPerMonth: true
-        },
+    const allPaidLeaves = [
         {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
             total: leaveBalances[SICK_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false // Not applicable for Sick leaves
+            showAllowedPerMonth: false
         },
         {
-            label: FLOATER_LEAVES,
+            label: 'Paid Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
             total: leaveBalances[FLOATER_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false // Not applicable for Floater leaves
+            showAllowedPerMonth: false
         },
         {
             label: CASUAL_LEAVES,
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth, // Only for Casual leaves
+            allowedPerMonth,
             showAllowedPerMonth: true
         },
         {
@@ -311,53 +366,81 @@ export const buildLeaveData = (
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth, // Only for Maternal leaves
+            allowedPerMonth,
             showAllowedPerMonth: true
         },
+    ];
+
+    // Hide leaves where total = 0 (not allocated)
+    const paidLeaves = allPaidLeaves.filter(leave => leave.total > 0);
+
+    // Calculate paid totals
+    const totalPaidUsed = paidLeaves.reduce((sum, leave) => sum + leave.used, 0);
+    const totalPaidAssigned = paidLeaves.reduce((sum, leave) => sum + leave.total, 0);
+
+    const allUnpaidLeaves = [
         {
             label: UNPAID_LEAVES,
             used: leavesTakenCount[UNPAID_LEAVES] || 0,
             total: leaveBalances[UNPAID_LEAVES] || 0,
             color: '#9D4141',
-            showAllowedPerMonth: false // Not applicable for Unpaid leaves
+            showAllowedPerMonth: false
         },
     ];
+
+    // Hide leaves where total = 0 (not allocated)
+    const unpaidLeaves = allUnpaidLeaves.filter(leave => leave.total > 0);
+
+    // Calculate unpaid totals
+    const totalUnpaidUsed = unpaidLeaves.reduce((sum, leave) => sum + leave.used, 0);
+    const totalUnpaidAssigned = unpaidLeaves.reduce((sum, leave) => sum + leave.total, 0);
+
+    return {
+        paidLeaves,
+        unpaidLeaves,
+        totalPaidUsed,
+        totalPaidAssigned,
+        totalUnpaidUsed,
+        totalUnpaidAssigned,
+        grandTotalUsed: totalPaidUsed + totalUnpaidUsed,
+        grandTotalAssigned: totalPaidAssigned + totalUnpaidAssigned,
+    };
 };
 
 /**
  * Calculate summary counters for paid/unpaid leaves
  */
-export const calculateSummaryCounters = (
-    leaves: any[],
-    holidays: number,
-    weekendCount: number
-) => {
-    const paidLeaveTypes = [
-        "Sick Leaves",
-        "Casual Leaves",
-        "Annual Leaves",
-        "Maternal Leaves",
-        "Floater Leaves",
-    ];
-    const unpaidLeaveTypes = ["Unpaid Leaves", "Unpaid"];
+// export const calculateSummaryCounters = (
+//     leaves: any[],
+//     holidays: number,
+//     weekendCount: number
+// ) => {
+//     const paidLeaveTypes = [
+//         "Sick Leaves",
+//         "Casual Leaves",
+//         // "Annual Leaves",
+//         "Maternal Leaves",
+//         "Floater Leaves",
+//     ];
+//     const unpaidLeaveTypes = ["Unpaid Leaves", "Unpaid"];
 
-    const approvedLeaves = leaves.filter(leave => leave.status === Status.Approved);
+//     const approvedLeaves = leaves.filter(leave => leave.status === Status.Approved);
 
-    const paidCount = approvedLeaves.filter(leave =>
-        paidLeaveTypes.includes(leave.leaveOptions?.leaveType || '')
-    ).length;
+//     const paidCount = approvedLeaves.filter(leave =>
+//         paidLeaveTypes.includes(leave.leaveOptions?.leaveType || '')
+//     ).length;
 
-    const unpaidCount = approvedLeaves.filter(leave =>
-        unpaidLeaveTypes.includes(leave.leaveOptions?.leaveType || '')
-    ).length;
+//     const unpaidCount = approvedLeaves.filter(leave =>
+//         unpaidLeaveTypes.includes(leave.leaveOptions?.leaveType || '')
+//     ).length;
 
-    return [
-        { label: "Paid Leaves", value: paidCount },
-        { label: "Unpaid Leaves", value: unpaidCount },
-        { label: "Holidays", value: holidays },
-        { label: "Weekends", value: weekendCount },
-    ];
-};
+//     return [
+//         { label: "Paid Leaves", value: paidCount },
+//         { label: "Unpaid Leaves", value: unpaidCount },
+//         { label: "Holidays", value: holidays },
+//         { label: "Weekends", value: weekendCount },
+//     ];
+// };
 
 /**
  * Calculate total available leaves for modals

@@ -246,7 +246,7 @@ function OverviewView() {
 
   return (
     <>
-      <div className="d-flex flex-row justify-content-between align-items-center mb-4">
+      <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center mb-4">
         <h3 className="fw-bold fs-1 mb-0 font-barlow">Overview</h3>
         {/* Date navigation */}
         <div>

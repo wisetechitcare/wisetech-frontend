@@ -17,6 +17,8 @@ import { getAllWeekends } from "./sandwhichConfiguration";
 import { errorConfirmation, successConfirmation } from "./modal";
 import { some } from "lodash";
 import { debug, log } from "node:console";
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -3644,11 +3646,24 @@ export async function getTotalDaysInYear(year: string | number): Promise<number>
 
 
 // input: "2025-06-17T17:22:52.975Z" output: 05:22 PM, 17 Jun, 2025
+// export const formatDateFromISTString = (dateString: string | undefined | null): string => {
+//     if (!dateString) return '-';
+//     try {
+//         const cleaned = dateString.replace(/Z$/, '');
+//         return dayjs(cleaned).format('DD MMM YYYY, hh:mm A');
+//     } catch (e) {
+//         return '-';
+//     }
+// };
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 export const formatDateFromISTString = (dateString: string | undefined | null): string => {
     if (!dateString) return '-';
     try {
-        const cleaned = dateString.replace(/Z$/, '');
-        return dayjs(cleaned).format('DD MMM YYYY, hh:mm A');
+        // Parse as UTC, convert to IST for display
+        return dayjs.utc(dateString).tz('Asia/Kolkata').format('DD MMM YYYY, hh:mm A');
     } catch (e) {
         return '-';
     }

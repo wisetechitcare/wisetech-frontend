@@ -258,3 +258,12 @@ html {
   }
 }
 
+/* styles/global.css or your relevant local CSS/SCSS file */
+.sticky-overview-header {
+  position: sticky;
+  padding: 20px 10px ;
+  top: 120px;         /* Replace 56px with your navbar's actual height */
+  z-index: 10;
+  background: #fff;  /* Match your dashboard background */
+  border-radius: 10px;
+}

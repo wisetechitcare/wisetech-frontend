@@ -48,13 +48,15 @@ const PersonalLeaveView = () => {
 
     const ApplyLeaveButton = styled(Button)({
         borderColor: '#9D4141',
-        color: '#9D4141',
+        backgroundColor: '#9D4141',
+        color: 'white',
         textTransform: 'none',
         fontWeight: 'bold',
         '&:hover': {
             borderColor: '#9D4141',
-            backgroundColor: 'rgba(157, 65, 65, 0.1)',
+            backgroundColor: '#7a2124',
         }
+        // 'rgba(157, 65, 65, 0.1)'
     });
     const res = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create);
 
@@ -69,7 +71,7 @@ const PersonalLeaveView = () => {
                 </div>
                 <div className='d-flex flex-column flex-sm-row justify-content-center align-items-stretch align-items-sm-center gap-2 gap-sm-4 w-100 w-md-auto'>
                 <DateNavigation fiscalYear={fiscalYear} setYear={setYear} />
-                 {res && <ApplyLeaveButton variant="outlined" onClick={handleClickOpen}>
+                 {res && <ApplyLeaveButton variant="outlined" onClick={handleClickOpen} >
                         Apply Leave
                     </ApplyLeaveButton>}
 

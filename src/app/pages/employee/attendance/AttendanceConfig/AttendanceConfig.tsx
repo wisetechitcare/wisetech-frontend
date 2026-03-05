@@ -307,6 +307,15 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
         }}>
           Configuration
         </h4>
+        <h3 style={{
+          fontFamily: 'Barlow, sans-serif',
+          fontWeight: 600,
+          fontSize: '22px',
+          letterSpacing: '0.24px',
+          marginBottom: '16px'
+        }}>
+          Attendance
+        </h3>
 
         {/* First Row - Daily Shift Time & Other Settings */}
         <Row className="mb-3 g-3">
@@ -549,6 +558,16 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
         <div className='mb-4'>
           <Rules fromAdmin={true}  title={'Default Shift Rules'} hideGeneralSettings={true}/>
         </div>
+
+        <h3 style={{
+          fontFamily: 'Barlow, sans-serif',
+          fontWeight: 600,
+          fontSize: '22px',
+          letterSpacing: '0.24px',
+          marginBottom: '16px'
+        }}>
+          Leaves
+        </h3>
 
         {/* Second Row - Other Configuration Cards */}
         <Row className="mb-3 g-3">

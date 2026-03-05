@@ -27,7 +27,7 @@ const EmployeeListContent = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<StatusType>("all");
+  const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
   const [currentPage, setCurrentPage] = useState(() => {
     // Restore page from sessionStorage on mount
