@@ -31,13 +31,42 @@ const PrefixInlineEdit: React.FC<PrefixInlineEditProps> = ({
   });
   const [errors, setErrors] = useState<Partial<PrefixParts>>({});
 
-  // Parse prefix value into parts
+  // Parse prefix value into parts old without unique number edit 
+  // const parsePrefix = (prefixValue: string): PrefixParts => {
+  //   if (!prefixValue || !prefixValue.includes('/')) {
+  //     return { prefix: '', year: '', count: '' };
+  //   }
+    
+  //   const parts = prefixValue.split('/');
+  //   return {
+  //     prefix: parts[0] || '',
+  //     year: parts[1] || '',
+  //     count: parts[2] || '',
+  //   };
+  // };
+
+  // Parse prefix value into parts new with unique number edit
   const parsePrefix = (prefixValue: string): PrefixParts => {
     if (!prefixValue || !prefixValue.includes('/')) {
       return { prefix: '', year: '', count: '' };
     }
-    
-    const parts = prefixValue.split('/');
+
+    const parts = prefixValue.split('/').filter(Boolean);
+
+    // Support values where "prefix" itself may contain '/'.
+    // We treat the last 2 segments as year + count, everything before as prefix.
+    // Examples:
+    // - "WT/Lead/2025-26/11" => prefix="WT/Lead", year="2025-26", count="11"
+    // - "Lead/2025-26/11"   => prefix="Lead",   year="2025-26", count="11"
+    // - "X/11" (invalid)    => handled by empty fallbacks
+    if (parts.length >= 3) {
+      const count = parts[parts.length - 1] || '';
+      const year = parts[parts.length - 2] || '';
+      const prefix = parts.slice(0, parts.length - 2).join('/') || '';
+      return { prefix, year, count };
+    }
+
+    // Fallback for unexpected formats (keeps behavior safe)
     return {
       prefix: parts[0] || '',
       year: parts[1] || '',
@@ -83,12 +112,32 @@ const PrefixInlineEdit: React.FC<PrefixInlineEditProps> = ({
     setErrors({});
   };
 
+  // old save logic
+  // const handleSave = () => {
+  //   const validationErrors = validateValues(editValues);
+  //   setErrors(validationErrors);
+    
+  //   if (Object.keys(validationErrors).length === 0) {
+  //     const newPrefix = `${editValues.prefix.trim()}/${editValues.year.trim()}/${editValues.count.trim()}`;
+  //     onChange(newPrefix);
+  //     setIsEditing(false);
+  //   }
+  // };
+
+  //new save logic
   const handleSave = () => {
     const validationErrors = validateValues(editValues);
     setErrors(validationErrors);
-    
+
     if (Object.keys(validationErrors).length === 0) {
-      const newPrefix = `${editValues.prefix.trim()}/${editValues.year.trim()}/${editValues.count.trim()}`;
+      // Preserve multi-segment prefix (e.g., "WT/Lead")
+      const cleanedPrefix = editValues.prefix
+        .split('/')
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .join('/');
+
+      const newPrefix = `${cleanedPrefix}/${editValues.year.trim()}/${editValues.count.trim()}`;
       onChange(newPrefix);
       setIsEditing(false);
     }
