@@ -61,7 +61,7 @@ const EditAttendanceRequest = ({
 
     return {
       id: req?.id || null,
-      employeeId: req?.employeeId  || "",
+      employeeId: req?.employeeId || "",
       checkIn: req?.checkIn || "",
       checkOut: req?.checkOut || "",
       workingMethodId: req?.workingMethodId || "",
@@ -78,95 +78,99 @@ const EditAttendanceRequest = ({
   });
 
   // Handle form submission
-const handleSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
-  console.log("values", values);
+  const handleSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
+    console.log("values", values);
 
-  try {
-    // Validate company ID exists
-    if (!currentCompanyId) {
-      errorConfirmation("Company ID is missing. Please refresh and try again.");
-      return;
-    }
-
-    // Validate employee ID exists
-    if (!values.employeeId) {
-      errorConfirmation("Employee ID is missing. Please refresh and try again.");
-      return;
-    }
-
-    const formattedDate = dayjs(values.date).format("YYYY-MM-DD");
-    const updatedValues = { ...values };
-
-    // Validate & format Check-In
-    if (values.checkIn) {
-      if (!isValidTime(values.checkIn)) {
-        errorConfirmation("Enter Check In in HH:MM (24 hr format)");
+    try {
+      // Validate company ID exists
+      if (!currentCompanyId) {
+        errorConfirmation("Company ID is missing. Please refresh and try again.");
         return;
       }
-      const checkInUTC = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm").toISOString();
-      updatedValues.checkIn = checkInUTC;
-    }
 
-    // Validate & format Check-Out
-    if (values.checkOut && values.checkOut !== "-NA-") {
-      if (!isValidTime(values.checkOut)) {
-        errorConfirmation("Enter Check Out in HH:MM (24 hr format)");
+      // Validate employee ID exists
+      if (!values.employeeId) {
+        errorConfirmation("Employee ID is missing. Please refresh and try again.");
         return;
       }
-      const checkOutUTC = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm").toISOString();
-      updatedValues.checkOut = checkOutUTC;
-    } else {
-      delete updatedValues.checkOut;
-    }
 
-    // Validate time sequence
-    if (updatedValues.checkIn && updatedValues.checkOut) {
-      if (!dayjs(updatedValues.checkOut).isAfter(dayjs(updatedValues.checkIn))) {
-        errorConfirmation("Check Out must be after Check In");
-        return;
+      const formattedDate = dayjs(values.date).format("YYYY-MM-DD");
+      const updatedValues = { ...values };
+
+      // Validate & format Check-In
+      // Use IST (Asia/Kolkata) timezone so that "17:45" is stored as 12:15 UTC (not 17:45 UTC)
+      // which would make checkout appear as 5:45 AM instead of 5:45 PM in reports.
+      if (values.checkIn) {
+        if (!isValidTime(values.checkIn)) {
+          errorConfirmation("Enter Check In in HH:MM (24 hr format)");
+          return;
+        }
+        // const checkInUTC = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm").toISOString();
+
+        const checkInUTC = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+        updatedValues.checkIn = checkInUTC;
       }
+
+      // Validate & format Check-Out
+      if (values.checkOut && values.checkOut !== "-NA-") {
+        if (!isValidTime(values.checkOut)) {
+          errorConfirmation("Enter Check Out in HH:MM (24 hr format)");
+          return;
+        }
+        const checkOutUTC = dayjs.tz(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+        updatedValues.checkOut = checkOutUTC;
+      } else {
+        delete updatedValues.checkOut;
+      }
+
+      // Validate time sequence
+      if (updatedValues.checkIn && updatedValues.checkOut) {
+        if (!dayjs(updatedValues.checkOut).isAfter(dayjs(updatedValues.checkIn))) {
+          errorConfirmation("Check Out must be after Check In");
+          return;
+        }
+      }
+
+      //  FINAL PAYLOAD (Fixed)
+      const finalPayload: any = {
+        employeeId: updatedValues.employeeId,
+        workingMethodId: updatedValues.workingMethodId,
+        companyId: currentCompanyId,
+        checkIn: updatedValues.checkIn || null,
+        checkOut: updatedValues.checkOut || null,
+        remarks: updatedValues.remarks || "",
+        latitude: 0.0,
+        longitude: 0.0,
+        status: Number(updatedValues.status) || 0, //  added required field
+        updatedById: currentEmployeeId, // Track who updated the request
+      };
+
+      // Include the ID if it exists (for updating existing requests)
+      if (values.id) {
+        finalPayload.id = values.id;
+      }
+
+      console.log("finalPayload", finalPayload);
+
+      const response = await createUpdateAttendanceRequest(finalPayload, true);
+
+      // Emit event to refresh both tables
+      if (values.id) {
+        eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id: values.id });
+      } else {
+        eventBus.emit(EVENT_KEYS.attendanceRequestCreated, { id: response?.data?.id || finalPayload.id || "" });
+      }
+
+      successConfirmation("Attendance Request saved successfully");
+      resetForm();
+      onHide();
+    } catch (err) {
+      console.error(err);
+      errorConfirmation("Attendance Request failed. Try again later.");
+    } finally {
+      setSubmitting(false);
     }
-
-    //  FINAL PAYLOAD (Fixed)
-    const finalPayload: any = {
-      employeeId: updatedValues.employeeId,
-      workingMethodId: updatedValues.workingMethodId,
-      companyId: currentCompanyId,
-      checkIn: updatedValues.checkIn || null,
-      checkOut: updatedValues.checkOut || null,
-      remarks: updatedValues.remarks || "",
-      latitude: 0.0,
-      longitude: 0.0,
-      status: Number(updatedValues.status) || 0, //  added required field
-      updatedById: currentEmployeeId, // Track who updated the request
-    };
-
-    // Include the ID if it exists (for updating existing requests)
-    if (values.id) {
-      finalPayload.id = values.id;
-    }
-
-    console.log("finalPayload", finalPayload);
-
-    const response = await createUpdateAttendanceRequest(finalPayload, true);
-
-    // Emit event to refresh both tables
-    if (values.id) {
-      eventBus.emit(EVENT_KEYS.attendanceRequestUpdated, { id: values.id });
-    } else {
-      eventBus.emit(EVENT_KEYS.attendanceRequestCreated, { id: response?.data?.id || finalPayload.id || "" });
-    }
-
-    successConfirmation("Attendance Request saved successfully");
-    resetForm();
-    onHide();
-  } catch (err) {
-    console.error(err);
-    errorConfirmation("Attendance Request failed. Try again later.");
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   return (
     <Modal show={show} onHide={onHide} centered>
@@ -181,7 +185,7 @@ const handleSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
           enableReinitialize
           onSubmit={handleSubmit}
         >
-          {(formikProps) => (            
+          {(formikProps) => (
             <Form
               className="d-flex flex-column"
               noValidate
@@ -228,7 +232,7 @@ const handleSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
                   formikField="status"
                   inputLabel="Status"
                   options={[
-                    { label: "Pending", value:"0" },
+                    { label: "Pending", value: "0" },
                     { label: "Approved", value: "1" },
                     { label: "Rejected", value: "2" },
                   ]}
