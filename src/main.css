@@ -1,0 +1,269 @@
+ .no-scrollbar::-webkit-scrollbar {
+     display: none;
+ }
+ .custom-scroll::-webkit-scrollbar-button {
+  display: none; 
+}
+ /* styles.css */
+.responsive-gap {
+    gap: 40px;
+  }
+  @media (max-width: 1024px) {
+    .responsive-gap {
+      gap: 20px;
+    }
+  }
+  @media (max-width: 768px) {
+    .responsive-gap {
+      gap: 20px;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .responsive-gap {
+      gap: 12px;
+    }
+  }
+  .apexcharts-tooltip {
+    z-index: 200000000 !important;
+  }
+
+  .no-header-border .modal-header {
+    border-bottom: none !important;
+    margin-bottom: -20px !important;
+  }
+
+/* Enhanced FormModal and Employee Card styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+}
+
+.modal-dropdown {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.modal-dropdown:hover {
+  border-color: #9D4141 !important;
+  box-shadow: 0 2px 8px rgba(157, 65, 65, 0.15);
+}
+
+.modal-submit-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.modal-submit-button:hover:not(:disabled) {
+  background: #8a3636 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(157, 65, 65, 0.25);
+}
+
+.modal-delete-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.modal-delete-button:hover {
+  background: rgba(220, 53, 69, 0.1) !important;
+  border-color: #dc3545 !important;
+  color: #dc3545 !important;
+}
+
+/* Employee Card enhancements */
+.employee-card-container {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.employee-card-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.employee-card-container:hover::before {
+  left: 100%;
+}
+
+.employee-card-container:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.employee-action-icon {
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.employee-action-icon:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Team Form enhancements */
+.team-form-container {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Level Section animations */
+.level-section-enter {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.level-section-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Smooth scrollbar for dropdowns */
+.modal-dropdown-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-dropdown-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.modal-dropdown-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+.modal-dropdown-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Responsive modal adjustments */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 20px;
+  }
+
+  .modal-submit-button,
+  .modal-delete-button {
+    width: 100%;
+    margin-top: 10px;
+  }
+}
+
+/* Enhanced loading states */
+.loading-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Focus states for accessibility */
+.modal-dropdown:focus,
+.modal-submit-button:focus,
+.modal-delete-button:focus {
+  outline: 2px solid #9D4141;
+  outline-offset: 2px;
+}
+/* Enhanced main.css with FormModal, EmployeeCard, and team management styles */
+
+/* Global scrollbar for Webkit browsers */
+::-webkit-scrollbar {
+  width: 12px;
+   /*  transition: all 0.3s ease;
+   smooth animation */
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #9D4141;
+  border-radius: 6px;
+  border: 3px solid #f1f1f1;
+  transition: all 0.3s ease; /* smooth thumb animation */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #b25050; /* optional hover effect */
+}
+
+/* Global scrollbar for Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #9D4141 #f1f1f1;
+  /* transition: all 0.3s ease; */
+}
+
+/* Optional: smooth scrolling behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ================================================
+   Announcement Detail Modal - Ultra-Wide Displays Only
+   ================================================ */
+
+/* Only apply changes on Full HD+ screens (1920px+) */
+@media (min-width: 1920px) {
+  /* Increase modal width on ultra-wide screens */
+  .announcement-detail-modal .modal-dialog {
+    max-width: 1200px !important;
+  }
+
+  /* Increase image width on ultra-wide screens */
+  .announcement-detail-modal img {
+    width: 90% !important;
+  }
+
+  /* Increase modal body padding on ultra-wide screens */
+  .announcement-detail-modal .modal-body {
+    padding: 2.5rem !important;
+  }
+}
+
+/* styles/global.css or your relevant local CSS/SCSS file */
+.sticky-overview-header {
+  position: sticky;
+  padding: 20px 10px ;
+  top: 120px;         /* Replace 56px with your navbar's actual height */
+  z-index: 10;
+  background: #fff;  /* Match your dashboard background */
+  border-radius: 10px;
+}

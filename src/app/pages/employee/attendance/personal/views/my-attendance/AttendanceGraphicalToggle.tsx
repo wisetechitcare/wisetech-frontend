@@ -1,0 +1,503 @@
+import { toAbsoluteUrl } from "@metronic/helpers";
+import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
+import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
+import dayjs, { Dayjs } from "dayjs";
+import React, { useEffect, useState, useCallback, useMemo, Suspense, lazy } from "react";
+import { useDispatch } from "react-redux";
+import { resourseAndView } from "@models/company";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import { fetchAppSettings } from "@redux/slices/appSettings";
+import Loader from "@app/modules/common/utils/Loader";
+import { AppDispatch } from "@redux/store";
+import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
+const Daily = lazy(() => import("@pages/employee/attendance/personal/views/my-attendance/Daily"));
+// import Daily from "@pages/employee/attendance/personal/views/my-attendance/Daily"
+const Weekly = lazy(() => import("@pages/employee/attendance/personal/views/my-attendance/Weekly"));
+const Monthly = lazy(() => import("@pages/employee/attendance/personal/views/my-attendance/Monthly"));
+const Yearly = lazy(() => import("@pages/employee/attendance/personal/views/my-attendance/Yearly"));
+const Custom = lazy(() => import("./Custom").then(module => ({ default: module.Custom })));
+
+
+export type ToggleItemsCallBackFunctions = {
+  daily: (date: Dayjs) => void;
+  weekly: (startDate: Dayjs, endDate: Dayjs) => void;
+  monthly: (date: Dayjs, endDate: Dayjs) => void;
+  yearly: (date: Dayjs, endDate: Dayjs) => void;
+  custom: (startDate: Dayjs, endDate: Dayjs) => void;
+};
+
+interface MaterialToggleProps {
+  toggleItemsActions?: ToggleItemsCallBackFunctions;
+  fromAdmin?: boolean;
+  resourseAndView: resourseAndView[];
+  dateSettingsEnabled: boolean;
+  checkOwnWithOthers?: boolean;
+}
+
+const AttendanceGraphicalToggle = ({
+  toggleItemsActions,
+  fromAdmin = false,
+  resourseAndView,
+  dateSettingsEnabled,
+  checkOwnWithOthers,
+}: MaterialToggleProps) => {
+  const dispatch = useDispatch();
+  const today = dayjs();
+
+  const [alignment, setAlignment] = useState("daily");
+
+  const [day, setDay] = useState(today);
+  // week should be start from monday to sunday
+const [weekStart, setWeekStart] = useState(() => {
+
+  const dayOfWeek = today.day(); 
+  if (dayOfWeek === 0) {
+    return today.subtract(6, "day");
+  } else {
+    return today.subtract(dayOfWeek - 1, "day");
+  }
+});
+
+const [weekEnd, setWeekEnd] = useState(() => {
+  const dayOfWeek = today.day();
+  const thisWeekStart = dayOfWeek === 0 
+    ? today.subtract(6, "day") 
+    : today.subtract(dayOfWeek - 1, "day");
+  
+  if (dateSettingsEnabled) {
+    return today; 
+  } else {
+    return thisWeekStart.add(6, "day"); 
+  }
+});
+
+  const [monthStart, setMonthStart] = useState(today.startOf("month"));
+  const [monthEnd, setMonthEnd] = useState(
+    dateSettingsEnabled ? today : today.endOf("month")
+  );
+
+  const [yearStart, setYearStart] = useState<Dayjs | null>(null);
+  const [yearEnd, setYearEnd] = useState<Dayjs | null>(null);
+  const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
+    undefined
+  );
+  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(
+    undefined
+  );
+
+  const isCurrentFiscalYear = (
+    fiscalStart: Dayjs,
+    fiscalEnd: Dayjs
+  ): boolean => {
+    return (
+      today.isSameOrAfter(fiscalStart, "day") &&
+      today.isSameOrBefore(fiscalEnd, "day")
+    );
+  };
+
+  useEffect(() => {
+    const initializeData = async () => {
+      await Promise.all([
+        dispatch(fetchRolesAndPermissions() as any),
+        fetchColorAndStoreInSlice(),
+        dispatch(fetchAppSettings() as any)
+      ]);
+    };
+    initializeData();
+  }, [dispatch]);
+  
+
+  useEffect(() => {
+    if (!today) return;
+
+    async function calculateFiscalYear() {
+      const { startDate, endDate } = await generateFiscalYearFromGivenYear(
+        today
+      );
+      const fiscalStart = dayjs(startDate);
+      const fiscalEnd =
+        isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
+          ? today
+          : dayjs(endDate);
+
+      setYearStart(fiscalStart);
+      setYearEnd(fiscalEnd);
+      setFiscalYearDisplay(
+        `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format(
+          "DD MMM, YYYY"
+        )}`
+      );
+
+      if (alignment === "yearly" && toggleItemsActions?.yearly) {
+        toggleItemsActions.yearly(fiscalStart, fiscalEnd);
+      }
+    }
+
+    calculateFiscalYear();
+  }, [dateSettingsEnabled, alignment, toggleItemsActions]);
+
+  const handleChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newAlignment: string
+  ) => {
+    if (!newAlignment) return;
+
+    setAlignment(newAlignment);
+
+    switch (newAlignment) {
+      case "daily":
+        toggleItemsActions?.daily(day);
+        break;
+      case "weekly":
+        toggleItemsActions?.weekly(weekStart, weekEnd);
+        break;
+      case "monthly":
+        toggleItemsActions?.monthly(monthStart, monthEnd);
+        break;
+      case "yearly":
+        if (yearStart && yearEnd) {
+          toggleItemsActions?.yearly(yearStart, yearEnd);
+        }
+        break;
+      case "custom":
+        if (customStartDate && customEndDate) {
+          toggleItemsActions?.custom(customStartDate, customEndDate);
+        }
+        break;
+    }
+  };
+
+  // Navigate Day
+  const navigateDay = useCallback((direction: "prev" | "next") => {
+    const newDay =
+      direction === "prev" ? day.subtract(1, "day") : day.add(1, "day");
+    setDay(newDay);
+    toggleItemsActions?.daily(newDay);
+  }, [day, toggleItemsActions]);
+
+  // Navigate Week
+  const navigateWeek = useCallback((direction: "prev" | "next") => {
+    const offset = direction === "prev" ? -1 : 1;
+    const newWeekStart = weekStart.add(offset, "week");
+
+    const todayDayOfWeek = today.day();
+    const todayWeekStart = todayDayOfWeek === 0
+      ? today.subtract(6, "day")
+      : today.subtract(todayDayOfWeek - 1, "day");
+
+    const isSameWeekAsToday = newWeekStart.isSame(todayWeekStart, 'day');
+
+    let newWeekEnd;
+    if (dateSettingsEnabled && isSameWeekAsToday) {
+      newWeekEnd = today.clone();
+    } else {
+      newWeekEnd = newWeekStart.add(6, "day");
+    }
+
+    setWeekStart(newWeekStart);
+    setWeekEnd(newWeekEnd);
+    toggleItemsActions?.weekly(newWeekStart, newWeekEnd);
+  }, [weekStart, dateSettingsEnabled, today, toggleItemsActions]);
+
+  // Navigate Month
+  const navigateMonth = useCallback((direction: "prev" | "next") => {
+    const offset = direction === "prev" ? -1 : 1;
+    const newMonthStart = monthStart.add(offset, "month");
+    const newMonthEnd =
+      dateSettingsEnabled && newMonthStart.isSame(today, "month")
+        ? today
+        : newMonthStart.endOf("month");
+
+    setMonthStart(newMonthStart);
+    setMonthEnd(newMonthEnd);
+    toggleItemsActions?.monthly(newMonthStart, newMonthEnd);
+  }, [monthStart, dateSettingsEnabled, today, toggleItemsActions]);
+
+  const navigateYear = useCallback(async (direction: "prev" | "next") => {
+    const offset = direction === "prev" ? -1 : 1;
+    const base = yearStart ?? today;
+    const newFiscalYearDate = base.add(offset, "year");
+
+    const { startDate, endDate } = await generateFiscalYearFromGivenYear(
+      newFiscalYearDate
+    );
+    const fiscalStart = dayjs(startDate);
+    const fiscalEnd =
+      isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
+        ? today
+        : dayjs(endDate);
+
+    setYearStart(fiscalStart);
+    setYearEnd(fiscalEnd);
+    setFiscalYearDisplay(
+      `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format(
+        "DD MMM, YYYY"
+      )}`
+    );
+    toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
+  }, [yearStart, today, dateSettingsEnabled, toggleItemsActions, isCurrentFiscalYear]);
+
+  const NavigationButtons = useMemo(() => React.memo(({
+    onPrev,
+    onNext,
+    displayText,
+  }: {
+    onPrev: () => void;
+    onNext: () => void;
+    displayText: string;
+  }) => (
+    <div>
+      <button className="btn btn-sm p-0" onClick={onPrev}>
+        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
+      </button>
+      <span className="mx-2 my-5">{displayText}</span>
+      <button className="btn btn-sm p-0" onClick={onNext}>
+        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
+      </button>
+    </div>
+  )), []);
+
+  return (
+    <>
+      <div className="d-flex flex-row justify-content-between align-items-center">
+        <div className="d-flex flex-column d-md-block">
+
+
+          {isMobile ? (
+            <Select
+              value={alignment}
+              onChange={(e) => handleChange(e as any, e.target.value)}
+              fullWidth
+              displayEmpty
+              variant="outlined"
+              size="small"
+              sx={{
+                borderRadius: "20px",
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "20px",
+
+                },
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderRadius: "20px",
+                  borderColor: "#D2B48C",
+                  borderWidth: "3px",
+                },'& .Mui-selected': {
+                  borderColor: '#9D4141 !important',
+                  color: '#9D4141 !important',
+                },
+                '& .MuiToggleButton-root:hover': {
+                  borderColor: '#9D4141 !important',
+                  color: '#9D4141 !important',
+                }
+
+
+              }}
+
+            >
+              <MenuItem value="daily">Daily</MenuItem>
+              <MenuItem value="weekly">Weekly</MenuItem>
+              <MenuItem value="monthly">Monthly</MenuItem>
+              <MenuItem value="yearly">Yearly</MenuItem>
+              <MenuItem value="custom">Custom</MenuItem>
+            </Select>
+          ) : (
+            <ToggleButtonGroup
+              value={alignment}
+              exclusive
+              onChange={handleChange}
+              aria-label="view selection"
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                justifyContent: 'center',
+                width: '100%',
+                '& .MuiToggleButton-root': {
+                  borderRadius: '20px',
+                  borderColor: '#A0B4D2 !important',
+                  color: '#000000 !important',
+                  // paddingY: {xs:'1px',sm:'5px'},
+                  paddingX: {
+                    xs: "32px",
+                    md: "45px"
+                  },
+                  borderWidth: '2px',
+                  fontWeight: '600',
+                  width: {
+                    xs: '65px',
+                    sm: '75px'
+                  },
+                  fontSize: {
+                    xs: '10px',
+                    sm: '12px'
+                  },
+                  height: { xs: "30px", sm: '36px' },
+                  fontFamily: 'Inter',
+                },
+                '& .Mui-selected': {
+                  borderColor: '#9D4141 !important',
+                  color: '#9D4141 !important',
+                },
+                '& .MuiToggleButton-root:hover': {
+                  borderColor: '#9D4141 !important',
+                  color: '#9D4141 !important',
+                },
+              }}
+            >
+              <ToggleButton value="daily">Daily</ToggleButton>
+              <ToggleButton value="weekly">Weekly</ToggleButton>
+              <ToggleButton value="monthly">Monthly</ToggleButton>
+              <ToggleButton value="yearly">Yearly</ToggleButton>
+              <ToggleButton value="custom">Custom</ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
+
+        </div>
+
+        {alignment === "daily" && (
+          <NavigationButtons
+            onPrev={() => navigateDay("prev")}
+            onNext={() => navigateDay("next")}
+            displayText={day.format("DD MMM, YYYY")}
+          />
+        )}
+
+        {alignment === "weekly" && (
+          <NavigationButtons
+            onPrev={() => navigateWeek("prev")}
+            onNext={() => navigateWeek("next")}
+            displayText={`${weekStart.format(
+              "DD MMM "
+            )} - ${weekEnd.format("DD MMM")}`}
+          />
+        )}
+
+        {alignment === "monthly" && (
+          <NavigationButtons
+            onPrev={() => navigateMonth("prev")}
+            onNext={() => navigateMonth("next")}
+            displayText={`${monthStart.format(
+              "DD MMM"
+            )} - ${monthEnd.format("DD MMM")}`}
+          />
+        )}
+
+        {alignment === "yearly" && yearStart && yearEnd && (
+          <NavigationButtons
+            onPrev={() => navigateYear("prev")}
+            onNext={() => navigateYear("next")}
+            displayText={fiscalYearDisplay}
+          />
+        )}
+
+        {alignment === "custom" && (
+          <div className="d-flex align-items-center gap-4 mt-4">
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Start Date"
+                value={customStartDate}
+                onChange={(newValue) => {
+                  setCustomStartDate(newValue ?? undefined);
+                  if (newValue && customEndDate) {
+                    toggleItemsActions?.custom(newValue, customEndDate);
+                  }
+                }}
+                maxDate={customEndDate}
+                format="DD MMM, YYYY"
+              />
+              <DatePicker
+                label="End Date"
+                value={customEndDate}
+                onChange={(newValue) => {
+                  setCustomEndDate(newValue ?? undefined);
+                  if (customStartDate && newValue) {
+                    toggleItemsActions?.custom(customStartDate, newValue);
+                  }
+                }}
+                minDate={customStartDate}
+                format="DD MMM, YYYY"
+              />
+            </LocalizationProvider>
+          </div>
+        )}
+      </div>
+
+      <Suspense fallback={<Loader />}>
+        {alignment === "daily" && (
+          <Daily
+            day={day}
+            fromAdmin={fromAdmin}
+            resourseAndView={resourseAndView}
+            checkOwnWithOthers={checkOwnWithOthers}
+          />
+        )}
+        {alignment === "weekly" && (
+          <Weekly
+            startWeek={weekStart}
+            endWeek={weekEnd}
+            fromAdmin={fromAdmin}
+            resourseAndView={resourseAndView}
+            dateSettingsEnabled={dateSettingsEnabled}
+            checkOwnWithOthers={checkOwnWithOthers}
+          />
+        )}
+        {alignment === "monthly" && (
+          <Monthly
+            month={monthStart}
+            endDate={monthEnd}
+            fromAdmin={fromAdmin}
+            resourseAndView={resourseAndView}
+            dateSettingsEnabled={dateSettingsEnabled}
+            checkOwnWithOthers={checkOwnWithOthers}
+          />
+        )}
+        {alignment === "yearly" && yearStart && yearEnd && (
+          <Yearly
+            year={yearStart}
+            endDate={yearEnd}
+            fromAdmin={fromAdmin}
+            resourseAndView={resourseAndView}
+            dateSettingsEnabled={dateSettingsEnabled}
+            checkOwnWithOthers={checkOwnWithOthers}
+          />
+        )}
+        {alignment === "custom" && customStartDate && customEndDate && (
+          <Custom
+            startDate={customStartDate}
+            endDate={customEndDate}
+            fromAdmin={fromAdmin}
+            resourseAndView={resourseAndView}
+            checkOwnWithOthers={checkOwnWithOthers}
+          />
+        )}
+      </Suspense>
+
+      {alignment === "custom" && (!customStartDate || !customEndDate) && (
+        <Container className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+          <div className=" text-center" role="alert">
+            <h4 className="alert-heading">Custom Date Range</h4>
+            <p className="mb-2">You've selected custom date range mode.</p>
+            <p className="mb-0">
+              <strong>Missing:</strong> {!customStartDate && 'Start Date'} {!customStartDate && !customEndDate && ' & '} {!customEndDate && 'End Date'}
+            </p>
+            <hr />
+            <small className="text-muted">Please select the date range to view detailed statistics.</small>
+          </div>
+        </Container>
+      )}
+    </>
+  );
+};
+
+export default AttendanceGraphicalToggle;
