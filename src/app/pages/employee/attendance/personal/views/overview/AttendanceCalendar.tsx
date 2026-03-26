@@ -47,6 +47,7 @@ interface AttendanceCalendarProps {
 }
 
 const initialState = {
+    id: "",
     checkIn: "",
     checkOut: "",
     remarks: "",
@@ -54,6 +55,7 @@ const initialState = {
 };
 
 interface FormValues {
+    id: string;
     checkIn: string;
     checkOut: string;
     remarks: string;
@@ -433,6 +435,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 setAttendanceData((prev) => ({
                     ...prev,
                     [formattedDate]: {
+                        id: existingAttendance.id || "",
                         checkIn: existingAttendance.checkIn ? dayjs(existingAttendance.checkIn).format('HH:mm') : "",
                         checkOut: existingAttendance.checkOut ? dayjs(existingAttendance.checkOut).format('HH:mm') : "",
                         remarks: existingAttendance.remarks || "",
@@ -481,6 +484,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 setAttendanceData((prev) => ({
                     ...prev,
                     [formattedDate]: {
+                        id: "",
                         checkIn: checkInTime,
                         checkOut: checkOutTime,
                         remarks: "",
@@ -492,6 +496,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 setAttendanceData((prev) => ({
                     ...prev,
                     [formattedDate]: {
+                        id: "",
                         checkIn: "",
                         checkOut: "",
                         remarks: "",
@@ -593,70 +598,61 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             const { data: { companyOverview } } = await fetchCompanyOverview();
             const currentCompanyId = companyOverview[0].id;
 
-            // ... (rest of the code remains the same)
-            const updatedValues: {
-                checkIn?: string;
-                checkOut?: string;
-                remarks: string;
-                workingMethodId: string;
-                latitude: number;
-                longitude: number;
-                status: number;
-                companyId: string;
-                employeeId: string;
-            } = {
-                ...values,
-                latitude: 0,
-                longitude: 0,
-                status: 0,
-                companyId: currentCompanyId,
-                employeeId: employeeId
-            };
-
             const formattedDate = selectedDate;
 
-            // Validate time formats
-            let checkInDateTime, checkOutDateTime;
-            let checkInUTC, checkOutUTC;
+            // Prepare the base payload
+            const finalPayload: any = {
+                employeeId: employeeId,
+                workingMethodId: values.workingMethodId,
+                companyId: currentCompanyId,
+                remarks: values.remarks || "",
+                latitude: 0.0,
+                longitude: 0.0,
+                status: 0, // Default to pending
+            };
 
-            // Validate based on request type
+            // Include the ID if it exists (for updating existing requests)
+            if (values.id) {
+                finalPayload.id = values.id;
+            }
+
+            // Time format and validation using Asia/Kolkata timezone
             if (requestType === 'checkin') {
                 if (!values.checkIn || values.checkIn === "") {
                     errorConfirmation('Check In time is required for check-in request');
                     return;
                 }
                 if (!isValidTime(values.checkIn)) {
-                    errorConfirmation('Enter Check In in HH:MM(24 hr format)');
+                    errorConfirmation('Enter Check In in HH:MM (24 hr format)');
                     return;
                 }
-                checkInDateTime = dayjs(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
-                const checkInDateObject = new Date(checkInDateTime.toString());
-                checkInUTC = checkInDateObject.toISOString();
-                updatedValues.checkIn = checkInUTC;
-                // Remove checkout for checkin requests
-                updatedValues.checkOut = undefined;
+                
+                finalPayload.checkIn = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+                finalPayload.checkOut = null; // Explicitly null for check-in requests
             } else if (requestType === 'checkout') {
                 if (!values.checkOut || values.checkOut === "") {
                     errorConfirmation('Check Out time is required for check-out request');
                     return;
                 }
                 if (!isValidTime(values.checkOut)) {
-                    errorConfirmation('Enter Check Out in HH:MM(24 hr format)');
+                    errorConfirmation('Enter Check Out in HH:MM (24 hr format)');
                     return;
                 }
-                checkOutDateTime = dayjs(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
-                const checkOutDateObject = new Date(checkOutDateTime.toString());
-                checkOutUTC = checkOutDateObject.toISOString();
-                updatedValues.checkOut = checkOutUTC;
-                if (updatedValues?.checkIn) {
-                    let checkInDateTime = new Date(dayjs(`${formattedDate} ${updatedValues?.checkIn}`, "YYYY-MM-DD HH:mm")?.toString());
-                    updatedValues.checkIn = checkInDateTime?.toISOString();
+
+                finalPayload.checkOut = dayjs.tz(`${formattedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+                
+                // If there's an existing check-in time in Formik, include it as well
+                if (values.checkIn && values.checkIn !== "") {
+                    if (isValidTime(values.checkIn)) {
+                        finalPayload.checkIn = dayjs.tz(`${formattedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+                    }
+                } else {
+                    finalPayload.checkIn = null;
                 }
-                // Remove checkin for checkout requests
-                // updatedValues.checkIn = undefined;
             }
 
             // Time conflict validation - check against existing attendance data
+            // (Keep existing validation logic but use dayjs objects for comparison)
             const existingAttendanceForDate = attendanceData[selectedDate];
             const existingAttendanceRequest = await (async () => {
                 try {
@@ -696,7 +692,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 existingCheckOutTime = existingAttendanceForDate.checkOut || null;
             } else if (existingEmployeeAttendance) {
                 if (existingEmployeeAttendance.checkIn && existingEmployeeAttendance.checkIn !== "-NA-") {
-                    // Handle time format from employee attendance (might include seconds)
                     const timePart = existingEmployeeAttendance.checkIn.split(' ').pop();
                     if (timePart) {
                         const timeParts = timePart.split(':');
@@ -718,35 +713,32 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
 
             // Validate time conflicts
             if (requestType === 'checkin' && existingCheckOutTime) {
-                // Check if new check-in time is after existing check-out time
-                const newCheckInTime = dayjs(`${selectedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
+                const newCheckInDateTime = dayjs(`${selectedDate} ${values.checkIn}`, "YYYY-MM-DD HH:mm");
                 const existingCheckOutDateTime = dayjs(`${selectedDate} ${existingCheckOutTime}`, "YYYY-MM-DD HH:mm");
 
-                if (newCheckInTime.isAfter(existingCheckOutDateTime)) {
+                if (newCheckInDateTime.isAfter(existingCheckOutDateTime)) {
                     errorConfirmation(`Check-in time (${values.checkIn}) cannot be after the existing check-out time (${existingCheckOutTime})`);
                     return;
                 }
             } else if (requestType === 'checkout' && existingCheckInTime) {
-                // Check if new check-out time is before existing check-in time
-                const newCheckOutTime = dayjs(`${selectedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
+                const newCheckOutDateTime = dayjs(`${selectedDate} ${values.checkOut}`, "YYYY-MM-DD HH:mm");
                 const existingCheckInDateTime = dayjs(`${selectedDate} ${existingCheckInTime}`, "YYYY-MM-DD HH:mm");
 
-                if (newCheckOutTime.isBefore(existingCheckInDateTime)) {
+                if (newCheckOutDateTime.isBefore(existingCheckInDateTime)) {
                     errorConfirmation(`Check-out time (${values.checkOut}) cannot be before the existing check-in time (${existingCheckInTime})`);
                     return;
                 }
             }
 
-
             setLoading(true);
-            await createUpdateAttendanceRequest(updatedValues);
+            await createUpdateAttendanceRequest(finalPayload);
             setLoading(false);
             eventBus.emit(EVENT_KEYS.userRaisedRequestSubmitted);
-            successConfirmation('Attendance Request created successfully');
+            successConfirmation('Attendance Request saved successfully');
             setAttendanceData((prev) => ({ ...prev, [selectedDate]: values }));
             setShow(false);
         } catch (err) {
-            console.log("Error:", err);
+            console.error("Error submitting attendance request:", err);
             setLoading(false);
             errorConfirmation('Attendance Request failed. Please try again later.');
         }
