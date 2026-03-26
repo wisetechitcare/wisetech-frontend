@@ -19,6 +19,53 @@ import dayjsTimezone from "dayjs/plugin/timezone";
 import dayjsUTC from "dayjs/plugin/utc";
 dayjs.extend(dayjsUTC);
 dayjs.extend(dayjsTimezone);
+
+const normalizeAttendanceRequestTime = (value: string | undefined, dateStr: string): string | undefined => {
+    if (!value || value === "" || value === "-NA-") {
+        return undefined;
+    }
+
+    // If it is already a full ISO timestamp, keep it in ISO format.
+    if (value.includes('T') || value.includes('Z')) {
+        const parsed = new Date(value);
+        if (!isNaN(parsed.getTime())) {
+            return parsed.toISOString();
+        }
+        // fall through to additional parsing
+    }
+
+    const formattedDate = dayjs(dateStr, "DD MMM YYYY").format("YYYY-MM-DD");
+    let parsed: dayjs.Dayjs | undefined;
+    const attemptFormats = [
+        'YYYY-MM-DD HH:mm',
+        'YYYY-MM-DD HH:mm:ss',
+        'YYYY-MM-DD h:mm A',
+        'YYYY-MM-DD hh:mm A',
+        'YYYY-MM-DD h:mm:ss A',
+        'YYYY-MM-DD hh:mm:ss A',
+    ];
+
+    for (const fmt of attemptFormats) {
+        const candidate = dayjs.tz(`${formattedDate} ${value}`, fmt, 'Asia/Kolkata');
+        if (candidate.isValid()) {
+            parsed = candidate;
+            break;
+        }
+    }
+
+    if (parsed && parsed.isValid()) {
+        return parsed.toISOString();
+    }
+
+    // As last resort, attempt to parse with JS Date (assumes value may include timezone offsets)
+    const fallback = new Date(value);
+    if (!isNaN(fallback.getTime())) {
+        return fallback.toISOString();
+    }
+
+    return undefined;
+};
+
 import { useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
@@ -141,8 +188,9 @@ const OpenAttendanceRequests = () => {
             const attendance = {
                 requestId: request.id,
                 employeeId: request.employeeId,
-                checkIn: request.checkIn,
-                checkOut: request.checkOut,
+                // Prefer raw ISO timestamps when available to avoid 12-hour formatting ambiguity.
+                checkIn: request.rawCheckIn || request.checkIn,
+                checkOut: request.rawCheckOut || request.checkOut,
                 latitude: request.latitude,
                 longitude: request.longitude,
                 remarks: request.remarks,
@@ -197,29 +245,19 @@ const OpenAttendanceRequests = () => {
             // an erroneous ~20-hour duration.
             // Use the ISO values directly, only normalising to proper ISO format.
             if (attendance.checkIn && attendance.checkIn !== "" && attendance.checkIn !== "-NA-") {
-                // If it's already a full ISO string, just re-serialise cleanly.
-                // If it arrives as a bare HH:mm string (legacy path), combine with date in IST.
-                const isISOString = attendance.checkIn.includes('T') || attendance.checkIn.includes('Z');
-                if (isISOString) {
-                    attendance.checkIn = new Date(attendance.checkIn).toISOString();
+                const normalizedCheckIn = normalizeAttendanceRequestTime(attendance.checkIn, request.date);
+                if (normalizedCheckIn) {
+                    attendance.checkIn = normalizedCheckIn;
                 } else {
-                    const formattedDate = dayjs(request.date, "DD MMM YYYY").format("YYYY-MM-DD");
-                    attendance.checkIn = dayjs.tz(`${formattedDate} ${attendance.checkIn}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+                    throw new Error(`Unable to parse checkIn time: ${attendance.checkIn}`);
                 }
 
-                // if (attendance.checkOut !== "" && attendance.checkOut !== "-NA-") {
-                //     const checkOutDateTime = dayjs(`${formattedDate} ${attendance.checkOut}`, "YYYY-MM-DD HH:mm").toString();
-                //     const checkOutDateObject = new Date(checkOutDateTime);
-                //     const checkOutUTC = checkOutDateObject.toISOString();
-                //     attendance.checkOut = checkOutUTC;
-
                 if (attendance.checkOut && attendance.checkOut !== "" && attendance.checkOut !== "-NA-") {
-                    const isISOString = attendance.checkOut.includes('T') || attendance.checkOut.includes('Z');
-                    if (isISOString) {
-                        attendance.checkOut = new Date(attendance.checkOut).toISOString();
+                    const normalizedCheckOut = normalizeAttendanceRequestTime(attendance.checkOut, request.date);
+                    if (normalizedCheckOut) {
+                        attendance.checkOut = normalizedCheckOut;
                     } else {
-                        const formattedDate = dayjs(request.date, "DD MMM YYYY").format("YYYY-MM-DD");
-                        attendance.checkOut = dayjs.tz(`${formattedDate} ${attendance.checkOut}`, "YYYY-MM-DD HH:mm", "Asia/Kolkata").toISOString();
+                        delete attendance.checkOut;
                     }
                 } else {
                     delete attendance.checkOut;

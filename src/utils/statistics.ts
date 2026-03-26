@@ -2872,6 +2872,8 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             employeeCode: attendanceRequest?.employee?.employeeCode,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
+            rawCheckIn: attendanceRequest.checkIn,
+            rawCheckOut: attendanceRequest.checkOut,
             workingMethod: attendanceRequest.workingMethod.type,
             remarks: attendanceRequest?.remarks || "",
             latitude: attendanceRequest.latitude,
