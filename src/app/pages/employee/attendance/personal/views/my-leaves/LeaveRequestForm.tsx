@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Formik, Form, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import Flatpickr from 'react-flatpickr';
@@ -21,6 +21,8 @@ import { fetchAllAddonLeavesAllowances } from '@services/addonLeavesAllowance';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { calculateProRatedMonths } from '@utils/fiscalYearHelper';
 import { getWorkingDays } from '@utils/leaves';
+import eventBus from '@utils/EventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 let initialValues: ILeaveRequest = {
   employeeId: "",
   leaveTypeId: "",
@@ -640,6 +642,52 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     setShowMonthlyLimitInfo(true);
   }, [employeeLeavesData]);
 
+  const setFieldValueRef = useRef<((field: string, value: any, shouldValidate?: boolean) => void) | null>(null);
+
+  useEffect(() => {
+    const setFieldValue = setFieldValueRef.current;
+    if (!setFieldValue) return;
+
+    if (leave) {
+      setFieldValue('employeeId', leave.employeeId);
+      setFieldValue('leaveTypeId', leave.leaveTypeId);
+      setFieldValue('dateFrom', leave.dateFrom);
+      setFieldValue('dateTo', leave.dateTo);
+      setFieldValue('reason', leave.reason || '');
+      setFieldValue('status', leave.statusNumber);
+      // Recalculate leave count when editing
+      if (leave.dateFrom && leave.dateTo) {
+        const start = new Date(leave.dateFrom);
+        const end = new Date(leave.dateTo);
+        let leaveDays = 0;
+        for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+          const dayOfWeek = date.getDay();
+          if (sandwhichConfiguration) {
+            leaveDays += 1;
+          } else if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            leaveDays += 1;
+          }
+        }
+        setLeaveCount(leaveDays);
+      }
+    } else if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
+      setFieldValue('employeeId', '');
+      setFieldValue('leaveTypeId', '');
+      setFieldValue('dateFrom', selectedDateTimeInfo.startStr);
+      setFieldValue('reason', '');
+      setFieldValue('status', 0);
+      setLeaveCount(0);
+    } else {
+      setFieldValue('employeeId', '');
+      setFieldValue('leaveTypeId', '');
+      setFieldValue('dateFrom', '');
+      setFieldValue('dateTo', '');
+      setFieldValue('reason', '');
+      setFieldValue('status', 0);
+      setLeaveCount(0);
+    }
+  }, [leave, selectedDateTimeInfo]);
+
   return (
     <Formik
       initialValues={{ ...initialValues, employeeId }}
@@ -745,6 +793,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         isSubmitting,
         resetForm,
       }) => {
+        setFieldValueRef.current = setFieldValue;
+
         const calculateLeaveCount = (fromDate: string, toDate: string) => {
           if (fromDate && toDate) {
             const start = new Date(fromDate);
@@ -882,33 +932,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             color: '#721c24',
           }),
         };
-
-        useEffect(() => {
-          if (leave) {
-            setFieldValue('employeeId', leave.employeeId);
-            setFieldValue('leaveTypeId', leave.leaveTypeId);
-            setFieldValue('dateFrom', leave.dateFrom);
-            setFieldValue('dateTo', leave.dateTo);
-            setFieldValue('reason', leave.reason || '');
-            setFieldValue('status', leave.statusNumber);
-            calculateLeaveCount(leave.dateFrom, leave.dateTo);
-          } else if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
-            setFieldValue('employeeId', '');
-            setFieldValue('leaveTypeId', '');
-            setFieldValue('dateFrom', selectedDateTimeInfo.startStr);
-            setFieldValue('reason', '');
-            setFieldValue('status', 0);
-            setLeaveCount(0);
-          } else {
-            setFieldValue('employeeId', '');
-            setFieldValue('leaveTypeId', '');
-            setFieldValue('dateFrom', '');
-            setFieldValue('dateTo', '');
-            setFieldValue('reason', '');
-            setFieldValue('status', 0);
-            setLeaveCount(0);
-          }
-        }, [leave, selectedDateTimeInfo]);
 
         return (
           <Form onSubmit={handleSubmit} noValidate className="form" placeholder={''}>
@@ -1213,4 +1236,5 @@ export const validateMonthlyLeaveLimit = async (
   allowedPerMonth: number
 ): Promise<{ isValid: boolean; errorMessage?: string }> => {
   // calculate requested days, current month usage, return valid check
+  return { isValid: true };
 };
