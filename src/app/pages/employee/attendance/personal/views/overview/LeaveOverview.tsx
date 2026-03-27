@@ -22,8 +22,8 @@ function LeaveOverview() {
             const { data: { leavesTaken, totalLeaves, leavesSummary } } = await fetchEmployeeLeaveBalance(employeeId);
 
             stats.push({ type: "Total Leaves", count: totalLeaves });
-            stats.push({ type: "Leaves Taken", count: leaves.length });
-            stats.push({ type: "Leave Remaining", count: totalLeaves - leaves.length! });
+            stats.push({ type: "Leaves Taken", count: leavesTaken });
+            stats.push({ type: "Leave Remaining", count: totalLeaves - leavesTaken });
 
             setStats(stats);
             dispatch(savePersonalLeavesSummary(leavesSummary));

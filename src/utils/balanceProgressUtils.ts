@@ -340,6 +340,14 @@ export const buildLeaveData = (
 ) => {
     const allPaidLeaves = [
         {
+            label: ANNUAL_LEAVES,
+            used: leavesTakenCount[ANNUAL_LEAVES] || 0,
+            total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
+            color: '#9D4141',
+            allowedPerMonth,
+            showAllowedPerMonth: true
+        },
+        {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
             total: leaveBalances[SICK_LEAVES] || 0,

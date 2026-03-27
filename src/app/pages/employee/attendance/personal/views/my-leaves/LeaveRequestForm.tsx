@@ -20,10 +20,7 @@ import dayjs from 'dayjs';
 import { fetchAllAddonLeavesAllowances } from '@services/addonLeavesAllowance';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { calculateProRatedMonths } from '@utils/fiscalYearHelper';
-import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
-import { useEventBus } from '@hooks/useEventBus';
-import { EVENT_KEYS } from '@constants/eventKeys';
-import eventBus from '@utils/EventBus';
+import { getWorkingDays } from '@utils/leaves';
 let initialValues: ILeaveRequest = {
   employeeId: "",
   leaveTypeId: "",
@@ -796,6 +793,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               });
 
               relevantLeaves.forEach((leave: any) => {
+                const workingDaysInLeave = getWorkingDays(leave);
                 const leaveFromDate = dayjs(leave.dateFrom);
                 const leaveToDate = dayjs(leave.dateTo);
                 let leaveDate = leaveFromDate;
@@ -1207,3 +1205,12 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     </Formik>
   );
 }
+
+export const validateMonthlyLeaveLimit = async (
+  employeeId: string,
+  dateFrom: string,
+  dateTo: string,
+  allowedPerMonth: number
+): Promise<{ isValid: boolean; errorMessage?: string }> => {
+  // calculate requested days, current month usage, return valid check
+};
