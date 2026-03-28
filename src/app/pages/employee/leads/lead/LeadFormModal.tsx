@@ -2403,6 +2403,7 @@ const LeadFormModal = ({
 
                         <Grid container spacing={2} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
                           {/* Plot Area with unit dropdown */}
+                          
                           <Grid item xs={6}>
                             <div className="d-flex flex-column fv-row">
                               <label className='d-flex align-items-center fs-6 form-label mb-2'>
@@ -3566,13 +3567,6 @@ const LeadFormModal = ({
                                   />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="addresses.0.locality"
-                                    label="Locality"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
                                   <DropDownInput
                                     formikField="addresses.0.country"
                                     inputLabel="Country"
@@ -3694,6 +3688,13 @@ const LeadFormModal = ({
                                   />
                                 </Grid>
 
+                                <Grid item xs={12} md={6}>
+                                  <TextInput
+                                    formikField="addresses.0.locality"
+                                    label="Locality"
+                                    isRequired={false}
+                                  />
+                                </Grid>
                                 <Grid item xs={12} md={6}>
                                   <TextInput
                                     formikField="addresses.0.zipCode"
