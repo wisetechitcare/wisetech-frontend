@@ -2856,9 +2856,11 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
 
         // console.log("formattedCheckOut", formattedCheckOut);
 
-        const day = dayjs(attendanceRequest?.checkIn).format("dddd");
+        // Fall back to checkOut when checkIn is null (checkout-only requests)
+        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut;
+        const day = dayjs(dateSource).format("dddd");
 
-        const date = dayjs(attendanceRequest?.checkIn).format("DD MMM YYYY");
+        const date = dayjs(dateSource).format("DD MMM YYYY");
         const formattedDate = dayjs(date).format("DD/MM/YYYY");
 
         let request: IAttendanceRequests = {
