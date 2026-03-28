@@ -2844,8 +2844,11 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
 export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAttendanceRequests[] {
     const attendanceRequest = attendance.reduce((result: IAttendanceRequests[], attendanceRequest: any) => {
-        const formattedCheckIn = attendanceRequest?.checkIn
-            ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkIn))): "-NA-";
+        // For checkout-only requests checkIn is null; use actualCheckIn injected by the
+        // backend (the real check-in from the Attendance table) so the admin can see it.
+        const checkInSource = attendanceRequest?.checkIn || attendanceRequest?.actualCheckIn || null;
+        const formattedCheckIn = checkInSource
+            ? convertTo12HourFormat(convertToIST(convertToTime(checkInSource))): "-NA-";
         // console.log("attendanceRequest.checkIn",attendanceRequest.checkIn);
 
         // console.log("formattedCheckIn", formattedCheckIn);
@@ -2874,7 +2877,8 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             employeeCode: attendanceRequest?.employee?.employeeCode,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
-            rawCheckIn: attendanceRequest.checkIn,
+            // For checkout-only requests, rawCheckIn falls back to actualCheckIn (real attendance)
+            rawCheckIn: attendanceRequest.checkIn || attendanceRequest.actualCheckIn || null,
             rawCheckOut: attendanceRequest.checkOut,
             workingMethod: attendanceRequest.workingMethod.type,
             remarks: attendanceRequest?.remarks || "",
