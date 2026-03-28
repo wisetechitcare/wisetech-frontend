@@ -469,10 +469,14 @@ const LeadFormModal = ({
         plotArea: '',
         plotAreaUnit: 'sqft',
         builtUpArea: '',
+        builtUpAreaUnit: 'sqft',
         buildingDetail: '',
-        otherPoint1: '',
-        otherPoint2: '',
-        otherPoint3: '',
+        otherPoint1Heading: '',
+        otherPoint1Description: '',
+        otherPoint2Heading: '',
+        otherPoint2Description: '',
+        otherPoint3Heading: '',
+        otherPoint3Description: '',
 
         // additional details
         // Additional fields for web-dev type
@@ -773,10 +777,14 @@ const LeadFormModal = ({
       plotArea: leadData.additionalDetails?.plotArea || '',
       plotAreaUnit: leadData.additionalDetails?.plotAreaUnit || 'sqft',
       builtUpArea: leadData.additionalDetails?.builtUpArea || '',
+      builtUpAreaUnit: leadData.additionalDetails?.builtUpAreaUnit || 'sqft',
       buildingDetail: leadData.additionalDetails?.buildingDetail || '',
-      otherPoint1: leadData.additionalDetails?.otherPoint1 || '',
-      otherPoint2: leadData.additionalDetails?.otherPoint2 || '',
-      otherPoint3: leadData.additionalDetails?.otherPoint3 || '',
+      otherPoint1Heading: leadData.additionalDetails?.otherPoint1Heading || '',
+      otherPoint1Description: leadData.additionalDetails?.otherPoint1Description || '',
+      otherPoint2Heading: leadData.additionalDetails?.otherPoint2Heading || '',
+      otherPoint2Description: leadData.additionalDetails?.otherPoint2Description || '',
+      otherPoint3Heading: leadData.additionalDetails?.otherPoint3Heading || '',
+      otherPoint3Description: leadData.additionalDetails?.otherPoint3Description || '',
 
       // Additional fields for web-dev type
       ...(leadTemplateId?.toString() === leadAndProjectTemplateTypeId.webDev?.toString() && {
@@ -1933,10 +1941,14 @@ const LeadFormModal = ({
         ...(formData.plotArea !== undefined && { plotArea: formData.plotArea }),
         ...(formData.plotAreaUnit !== undefined && { plotAreaUnit: formData.plotAreaUnit }),
         ...(formData.builtUpArea !== undefined && { builtUpArea: formData.builtUpArea }),
+        ...(formData.builtUpAreaUnit !== undefined && { builtUpAreaUnit: formData.builtUpAreaUnit }),
         ...(formData.buildingDetail !== undefined && { buildingDetail: formData.buildingDetail }),
-        ...(formData.otherPoint1 !== undefined && { otherPoint1: formData.otherPoint1 }),
-        ...(formData.otherPoint2 !== undefined && { otherPoint2: formData.otherPoint2 }),
-        ...(formData.otherPoint3 !== undefined && { otherPoint3: formData.otherPoint3 }),
+        ...(formData.otherPoint1Heading !== undefined && { otherPoint1Heading: formData.otherPoint1Heading }),
+        ...(formData.otherPoint1Description !== undefined && { otherPoint1Description: formData.otherPoint1Description }),
+        ...(formData.otherPoint2Heading !== undefined && { otherPoint2Heading: formData.otherPoint2Heading }),
+        ...(formData.otherPoint2Description !== undefined && { otherPoint2Description: formData.otherPoint2Description }),
+        ...(formData.otherPoint3Heading !== undefined && { otherPoint3Heading: formData.otherPoint3Heading }),
+        ...(formData.otherPoint3Description !== undefined && { otherPoint3Description: formData.otherPoint3Description }),
       },
       // Also include addresses array for backend compatibility
       addresses: mappedAddresses || [],
@@ -2402,14 +2414,18 @@ const LeadFormModal = ({
                         </legend>
 
                         <Grid container spacing={2} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                          {/* Plot Area with unit dropdown */}
-                          
-                          <Grid item xs={6}>
+                          {/* Row 1: Plot Area + Unit | Built-Up Area + Unit */}
+                          <Grid item xs={12} md={6}>
                             <div className="d-flex flex-column fv-row">
-                              <label className='d-flex align-items-center fs-6 form-label mb-2'>
-                                <span>Plot Area</span>
-                              </label>
-                              <div className="d-flex" style={{ gap: '8px' }}>
+                              <div className="d-flex" style={{ gap: '8px', marginBottom: '8px' }}>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ flex: 1 }}>
+                                  <span>Plot Area</span>
+                                </label>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ width: '140px' }}>
+                                  <span>Unit</span>
+                                </label>
+                              </div>
+                              <div className="d-flex" style={{ gap: '8px', alignItems: 'flex-end' }}>
                                 <div style={{ flex: 1 }}>
                                   <Field name="plotArea">
                                     {({ field }: { field: any }) => (
@@ -2440,25 +2456,158 @@ const LeadFormModal = ({
                             </div>
                           </Grid>
 
-                          {/* Built-Up Area */}
                           <Grid item xs={12} md={6}>
-                            <TextInput formikField='builtUpArea' label='Built-Up Area' isRequired={false} />
+                            <div className="d-flex flex-column fv-row">
+                              <div className="d-flex" style={{ gap: '8px', marginBottom: '8px' }}>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ flex: 1 }}>
+                                  <span>Built-Up Area</span>
+                                </label>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ width: '140px' }}>
+                                  <span>Unit</span>
+                                </label>
+                              </div>
+                              <div className="d-flex" style={{ gap: '8px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                  <Field name="builtUpArea">
+                                    {({ field }: { field: any }) => (
+                                      <input
+                                        {...field}
+                                        type="text"
+                                        className="employee__form_wizard__input form-control"
+                                        placeholder="Enter Built-Up Area"
+                                      />
+                                    )}
+                                  </Field>
+                                </div>
+                                <div style={{ width: '140px' }}>
+                                  <DropDownInput
+                                    formikField="builtUpAreaUnit"
+                                    inputLabel=""
+                                    isRequired={false}
+                                    options={[
+                                      { value: 'sqft', label: 'sqft' },
+                                      { value: 'sqm', label: 'sqm' },
+                                      { value: 'acre', label: 'acre' },
+                                    ]}
+                                    placeholder="Unit"
+                                  />
+                                </div>
+                              </div>
+                              <HighlightErrors isRequired={false} formikField="builtUpArea" />
+                            </div>
                           </Grid>
 
-                          {/* Building Detail */}
-                          <Grid item xs={12} md={6}>
+                          {/* Row 2: Building Detail (full width) */}
+                          <Grid item xs={12}>
                             <TextInput formikField='buildingDetail' label='Building Detail' isRequired={false} />
                           </Grid>
 
-                          {/* Other Points */}
-                          <Grid item xs={12} md={4}>
-                            <TextInput formikField='otherPoint1' label='Other Point - 1' isRequired={false} />
+                          {/* Other Points header */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-center" style={{ gap: '8px', marginBottom: '4px' }}>
+                              <div style={{ width: '110px', fontWeight: 500, fontSize: '13px', color: '#555', fontFamily: 'Inter' }}></div>
+                              <div style={{ flex: 1, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Heading</div>
+                              <div style={{ flex: 2, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Description</div>
+                            </div>
                           </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextInput formikField='otherPoint2' label='Other Point - 2' isRequired={false} />
+
+                          {/* Other Point 1 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 1
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint1Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint1Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
                           </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextInput formikField='otherPoint3' label='Other Point - 3' isRequired={false} />
+
+                          {/* Other Point 2 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 2
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint2Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint2Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 3 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 3
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint3Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint3Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
                           </Grid>
                         </Grid>
                       </fieldset>

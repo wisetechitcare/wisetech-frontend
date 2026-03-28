@@ -62,10 +62,14 @@ interface ProjectData {
   plotArea?: string;
   plotAreaUnit?: string;
   builtUpArea?: string;
+  builtUpAreaUnit?: string;
   buildingDetail?: string;
-  otherPoint1?: string;
-  otherPoint2?: string;
-  otherPoint3?: string;
+  otherPoint1Heading?: string;
+  otherPoint1Description?: string;
+  otherPoint2Heading?: string;
+  otherPoint2Description?: string;
+  otherPoint3Heading?: string;
+  otherPoint3Description?: string;
 }
 
 const LeadOverview = ({ lead }: { lead: any }) => {
@@ -212,10 +216,14 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       plotArea: lead?.additionalDetails?.plotArea || '',
       plotAreaUnit: lead?.additionalDetails?.plotAreaUnit || 'sqft',
       builtUpArea: lead?.additionalDetails?.builtUpArea || '',
+      builtUpAreaUnit: lead?.additionalDetails?.builtUpAreaUnit || 'sqft',
       buildingDetail: lead?.additionalDetails?.buildingDetail || '',
-      otherPoint1: lead?.additionalDetails?.otherPoint1 || '',
-      otherPoint2: lead?.additionalDetails?.otherPoint2 || '',
-      otherPoint3: lead?.additionalDetails?.otherPoint3 || '',
+      otherPoint1Heading: lead?.additionalDetails?.otherPoint1Heading || '',
+      otherPoint1Description: lead?.additionalDetails?.otherPoint1Description || '',
+      otherPoint2Heading: lead?.additionalDetails?.otherPoint2Heading || '',
+      otherPoint2Description: lead?.additionalDetails?.otherPoint2Description || '',
+      otherPoint3Heading: lead?.additionalDetails?.otherPoint3Heading || '',
+      otherPoint3Description: lead?.additionalDetails?.otherPoint3Description || '',
     };
   }
     
@@ -270,10 +278,14 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     plotArea: '',
     plotAreaUnit: 'sqft',
     builtUpArea: '',
+    builtUpAreaUnit: 'sqft',
     buildingDetail: '',
-    otherPoint1: '',
-    otherPoint2: '',
-    otherPoint3: '',
+    otherPoint1Heading: '',
+    otherPoint1Description: '',
+    otherPoint2Heading: '',
+    otherPoint2Description: '',
+    otherPoint3Heading: '',
+    otherPoint3Description: '',
     ...finalMappedData
   });
 
@@ -736,12 +748,54 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         {/* Project Detail Card - always visible */}
         <div className="col-12 col-md-6">
           <InfoCard title="Project Details 1" icon="bi bi-building">
-            <InfoRow label="Plot Area" value={projectData.plotArea ? projectData.plotArea + (projectData.plotAreaUnit ? ' ' + projectData.plotAreaUnit : '') : '-'} />
-            <InfoRow label="Built-Up Area" value={projectData.builtUpArea ? projectData.builtUpArea + (projectData.plotAreaUnit ? ' ' + projectData.plotAreaUnit : '') : '-'} />
-            <InfoRow label="Building Detail" value={projectData.buildingDetail || '-'} />
-            <InfoRow label="Other Point - 1" value={projectData.otherPoint1 || '-'} />
-            <InfoRow label="Other Point - 2" value={projectData.otherPoint2 || '-'} />
-            <InfoRow label="Other Point - 3" value={projectData.otherPoint3 || '-'} />
+            {/* Plot Area row */}
+            <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+              <div style={{ fontWeight: 500 }}>Plot Area</div>
+              <div style={{ fontWeight: 400 }}>
+                {projectData.plotArea
+                  ? `${projectData.plotArea}${projectData.plotAreaUnit ? ' ' + projectData.plotAreaUnit : ''}`
+                  : '-'}
+              </div>
+            </div>
+            {/* Built-Up Area row */}
+            <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+              <div style={{ fontWeight: 500 }}>Built-Up Area</div>
+              <div style={{ fontWeight: 400 }}>
+                {projectData.builtUpArea
+                  ? `${projectData.builtUpArea}${projectData.builtUpAreaUnit ? ' ' + projectData.builtUpAreaUnit : ''}`
+                  : '-'}
+              </div>
+            </div>
+            {/* Building Detail row */}
+            <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+              <div style={{ fontWeight: 500 }}>Building Details</div>
+              <div style={{ fontWeight: 400 }}>{projectData.buildingDetail || '-'}</div>
+            </div>
+            {/* Other Points — only show when they have data; same row style as above: label left, "heading : description" right */}
+            {(projectData.otherPoint1Heading || projectData.otherPoint1Description) && (
+              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                <div style={{ fontWeight: 500 }}>Other Point - 1</div>
+                <div style={{ fontWeight: 400 }}>
+                  {[projectData.otherPoint1Heading, projectData.otherPoint1Description].filter(Boolean).join(' : ')}
+                </div>
+              </div>
+            )}
+            {(projectData.otherPoint2Heading || projectData.otherPoint2Description) && (
+              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                <div style={{ fontWeight: 500 }}>Other Point - 2</div>
+                <div style={{ fontWeight: 400 }}>
+                  {[projectData.otherPoint2Heading, projectData.otherPoint2Description].filter(Boolean).join(' : ')}
+                </div>
+              </div>
+            )}
+            {(projectData.otherPoint3Heading || projectData.otherPoint3Description) && (
+              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                <div style={{ fontWeight: 500 }}>Other Point - 3</div>
+                <div style={{ fontWeight: 400 }}>
+                  {[projectData.otherPoint3Heading, projectData.otherPoint3Description].filter(Boolean).join(' : ')}
+                </div>
+              </div>
+            )}
           </InfoCard>
         </div>
 
