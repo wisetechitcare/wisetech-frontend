@@ -443,3 +443,13 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
         throw err;
     }
 }
+
+export const deleteLeadCancellationReason = async (id: string) => {
+  try {
+    const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_LEAD_CANCELLATION_REASON.replace(':id', id)}`;
+    const { data } = await axios.delete(endpoint);
+    return data;
+  } catch (err) {
+    throw err;
+  }
+};

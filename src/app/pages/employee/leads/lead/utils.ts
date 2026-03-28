@@ -229,6 +229,14 @@ export function mapLeadToFormInitialValues(
                 companyId: lead.companyId || '',
                 contactPersonId: lead?.contactId || '',
               }),
+              // PO Status and PO File — always present for all lead types
+              poStatus: lead?.poStatus || "Pending",
+              poFile: lead?.poFile || "",
+              // PO Number and PO Date — always read from additionalDetails for all lead types
+              poNumber: additional.poNumber || firstAdditional.poNumber || "",
+              poDate: (additional.poDate || firstAdditional.poDate)
+                ? dayjs(additional.poDate || firstAdditional.poDate).format("YYYY-MM-DD")
+                : "",
               // Additional fields for web-dev
               ...(leadTemplateId == leadAndProjectTemplateTypeId.webDev && {
                 type: additional.type || firstAdditional.type || "",
@@ -241,15 +249,11 @@ export function mapLeadToFormInitialValues(
                 city: additional.city || firstAdditional.city || "",
                 locality: additional.locality || firstAdditional.locality || "",
                 zipCode: additional.zipCode || firstAdditional.zipCode || "",
-                poNumber: additional.poNumber || firstAdditional.poNumber || "",
-                poDate: additional.poDate || firstAdditional.poDate || "",
               }),
               // Additional fields for mep
               ...(leadTemplateId == leadAndProjectTemplateTypeId.mep && {
                 projectAreas: projectAreas,
                 addresses: addresses,
-                poNumber: firstAdditional.poNumber || "",
-                poDate: firstAdditional.poDate ? dayjs(firstAdditional.poDate).format("YYYY-MM-DD") : "",
                 // Legacy fields for backward compatibility
                 projectArea: additional.projectArea || firstAdditional.projectArea || "",
                 projectAddress: additional.projectAddress || firstAdditional.projectAddress || "",

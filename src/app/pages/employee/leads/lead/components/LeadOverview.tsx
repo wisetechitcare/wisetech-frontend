@@ -1,16 +1,25 @@
 import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import { projectOverviewIcons } from "@metronic/assets/sidepanelicons";
-import { getClientCompanyById, getClientContactById } from "@services/companies";
+import { getClientCompanyById, getClientContactById, getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { fetchAllCities, fetchAllCountries, fetchAllStates } from "@services/options";
 import { getAllProjectServices, getPorjectById } from "@services/projects";
 import { getAvatar } from "@utils/avatar";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-
+//new
+import { getAllLeadCancellationReasons } from "@services/lead";
+import { useSelector, useDispatch } from "react-redux";
+import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
+import type { AppDispatch, RootState } from "@redux/store";
 
 interface ProjectData {
   currentStatus: string;
+  //new
+  handledBy: string;
+  cancellationReasonId: string;
+  fileLocationCompanyType: string;
+  fileLocationCompany: string;
   projectName: string;
   service: string;
   projectCategory: string;
@@ -49,6 +58,18 @@ interface ProjectData {
   latitude?: string;
   longitude?: string;
   numberOfPages?: string;
+  // Project Detail fields
+  plotArea?: string;
+  plotAreaUnit?: string;
+  builtUpArea?: string;
+  builtUpAreaUnit?: string;
+  buildingDetail?: string;
+  otherPoint1Heading?: string;
+  otherPoint1Description?: string;
+  otherPoint2Heading?: string;
+  otherPoint2Description?: string;
+  otherPoint3Heading?: string;
+  otherPoint3Description?: string;
 }
 
 const LeadOverview = ({ lead }: { lead: any }) => {
@@ -62,7 +83,16 @@ const LeadOverview = ({ lead }: { lead: any }) => {
   const [allLocationData, setAllLocationData] = useState<any>({})
   const [contactData, setContactData] = useState(lead?.leadTeams?.[0]?.contact || {})
   const [leadServices, setLeadServices] = useState<any[]>([]);
+  const [cancellationReasons, setCancellationReasons] = useState<any[]>([]);
+  const [allCompanyTypes, setAllCompanyTypes] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const leadTemplateId = lead?.leadTemplateId;
+
+  //new
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Redux: allEmployees list shape: { employeeId, employeeName, avatar, gender, roles }
+  const allEmployeesList = useSelector((state: RootState) => state.allEmployees?.list) || [];
   
   function mapLeadToProjectData(lead: any): ProjectData {
     const start = lead?.startDate ? new Date(lead.startDate) : null;
@@ -112,8 +142,26 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       return sum + parseFloat(commercial.cost || 0);
     }, 0) || 0;
 
+    // //new
+    // // Resolve handledBy - it's stored as an employee ID string
+    // let handledByName = '-';
+    // if (lead.handledBy) {
+    //   // If handledBy is a relation object with users (future-proof)
+    //   if (lead.handledBy?.users) {
+    //     handledByName = `${lead.handledBy.users.firstName || ''} ${lead.handledBy.users.lastName || ''}`.trim();
+    //   } else {
+    //     // handledBy is a plain string (employee ID) - will be resolved later via allEmployees
+    //     handledByName = lead.handledBy; // Store the ID for now, will be resolved in render
+    //   }
+    // }
+
     return {
       currentStatus: lead.status?.name || '-',
+      //new
+      handledBy: lead.handledBy || '-', // Store the raw employee ID — resolved to a name in the component via Redux allEmployees.list
+      cancellationReasonId: lead.cancellationReasonId || '-',  // Store the raw reason ID — resolved to a name in the component via cancellationReasons state
+      fileLocationCompanyType: lead.fileLocationCompanyType || '-',  // Store the raw type ID (e.g. '1', '2', '3')
+      fileLocationCompany: lead.fileLocationCompany || '-',  // Store the raw company ID (e.g. 'arch_1', 'builder_2')
       projectName: lead.title || '-',
       service: lead?.services?.[0]?.serviceId || '-', // You'll need to map this to actual service names
       location: companyLocation,
@@ -131,7 +179,17 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         `${lead.assignedTo.users.firstName || ''} ${lead.assignedTo.users.lastName || ''}`.trim() : '-',
       leadSource: lead.leadDirectSource?.name || lead.leadSource || '-',
       referredBy: lead.referrals && lead.referrals.length > 0 ?
-        lead.referrals.map((data: any) => data?.referredByContact?.fullName).join(', ') : '-',
+        lead.referrals.map((data: any) => {
+          // Internal referral: show employee name
+          if (data?.referredByEmployee) {
+            const emp = data.referredByEmployee;
+            return emp?.users
+              ? `${emp.users.firstName || ''} ${emp.users.lastName || ''}`.trim()
+              : null;
+          }
+          // External referral: show contact name
+          return data?.referredByContact?.fullName || null;
+        }).filter(Boolean).join(', ') || '-' : '-',
       referredTo: '-',
       companyType: primaryTeam?.companyType?.name || '-',
       company: company?.companyName || '-',
@@ -154,11 +212,28 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       latitude: lead?.additionalDetails?.latitude || '',
       longitude: lead?.additionalDetails?.longitude || '',
       notes: lead.notes || '-',
+      // Project Detail fields (from additionalDetails)
+      plotArea: lead?.additionalDetails?.plotArea || '',
+      plotAreaUnit: lead?.additionalDetails?.plotAreaUnit || 'sqft',
+      builtUpArea: lead?.additionalDetails?.builtUpArea || '',
+      builtUpAreaUnit: lead?.additionalDetails?.builtUpAreaUnit || 'sqft',
+      buildingDetail: lead?.additionalDetails?.buildingDetail || '',
+      otherPoint1Heading: lead?.additionalDetails?.otherPoint1Heading || '',
+      otherPoint1Description: lead?.additionalDetails?.otherPoint1Description || '',
+      otherPoint2Heading: lead?.additionalDetails?.otherPoint2Heading || '',
+      otherPoint2Description: lead?.additionalDetails?.otherPoint2Description || '',
+      otherPoint3Heading: lead?.additionalDetails?.otherPoint3Heading || '',
+      otherPoint3Description: lead?.additionalDetails?.otherPoint3Description || '',
     };
   }
     
   const [projectData] = useState<ProjectData>({
     currentStatus: '-',
+    //new
+    handledBy: '-',
+    cancellationReasonId: '-',
+    fileLocationCompanyType: '-',
+    fileLocationCompany: '-',
     projectName: '-',
     service: '-',
     projectCategory: '-',
@@ -199,8 +274,64 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       type: "-",
       numberOfPages: "-",
     // }),
+    // Project Detail fields
+    plotArea: '',
+    plotAreaUnit: 'sqft',
+    builtUpArea: '',
+    builtUpAreaUnit: 'sqft',
+    buildingDetail: '',
+    otherPoint1Heading: '',
+    otherPoint1Description: '',
+    otherPoint2Heading: '',
+    otherPoint2Description: '',
+    otherPoint3Heading: '',
+    otherPoint3Description: '',
     ...finalMappedData
   });
+
+  //new
+  // ===== Helper: Resolve handledBy employee ID → actual employee name =====
+  // Redux allEmployees.list items have shape: { employeeId, employeeName, avatar, gender, roles }
+  const getHandledByName = (): string => {
+  const handledById = projectData.handledBy;
+  if (!handledById || handledById === '-') return '-';
+
+  if (Array.isArray(allEmployeesList) && allEmployeesList.length > 0) {
+    const employee = allEmployeesList.find((emp: any) => emp.employeeId === handledById);
+    if (employee?.employeeName) {
+      return employee.employeeName;  // e.g. "John Doe"
+    }
+  }
+  return handledById; // fallback while loading
+};
+
+  // ===== Helper: Resolve cancellation reason ID → reason name =====
+  const getCancellationReasonName = (): string => {
+    const reasonId = projectData.cancellationReasonId;
+    if (!reasonId || reasonId === '-') return '-';
+    const reason = cancellationReasons.find((r: any) => r.id === reasonId);
+    return reason?.reason || reason?.name || reasonId;
+  };
+
+  // ===== Helper: Resolve file location IDs → "CompanyTypeName - CompanyName" =====
+  const getFileLocationLabel = (): string => {
+    const typeId = projectData.fileLocationCompanyType;
+    const companyId = projectData.fileLocationCompany;
+    if (!typeId || typeId === '-') return '-';
+
+    const typeName = allCompanyTypes.find((t: any) => t.id === typeId)?.name || typeId;
+
+    if (!companyId || companyId === '-') return typeName;
+
+    const companyName = companies.find((c: any) => c.id === companyId)?.companyName || companyId;
+
+    return `${typeName} - ${companyName}`;
+  };
+
+  // ===== Determine status for conditional rendering =====
+  const currentStatusLower = projectData.currentStatus?.toLowerCase()?.trim() || '';
+  const isStatusReceived = currentStatusLower === 'received';
+  const isStatusNotReceived = currentStatusLower === 'not received';
 
   const [newNote, setNewNote] = useState<string>('');
   const [first, setfirst] = useState(false);
@@ -219,6 +350,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     setCommercialScrollTop(target.scrollTop);
   };
 
+  {/* Data Fetching */}
   const fetchCountries = useCallback(async () => {
     // if (countries.length > 0) return countries;
     try {
@@ -244,10 +376,43 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     }
   }, []);
 
+  //new
+  const fetchCancellationReasons = useCallback(async () => {
+    try {
+      const response = await getAllLeadCancellationReasons();
+      const data = response?.data?.leadCancellationReasons || response?.leadCancellationReasons || response?.data || [];
+      setCancellationReasons(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching cancellation reasons:", error);
+    }
+  }, []);
+
+  const fetchAllCompanyTypes = useCallback(async () => {
+    try {
+      const { companyTypes } = await getAllCompanyTypes();
+      setAllCompanyTypes(companyTypes || []);
+    } catch (error) {
+      console.error('Error fetching company types:', error);
+    }
+  }, []);
+
+  const fetchCompanies = useCallback(async () => {
+    try {
+      const response = await getAllClientCompanies();
+      const data = response?.data?.companies || [];
+      setCompanies(data);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  }, []);
 
   useEffect(() => {
     fetchCountries();
     fetchServices();
+    fetchCancellationReasons(); //new
+    fetchAllCompanyTypes();
+    fetchCompanies();
+    dispatch(loadAllEmployeesIfNeeded()); //new
   }, []);
 
       useEffect(() => {
@@ -470,7 +635,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     </div>
   );
 
-
   return (
     <>
       <style>
@@ -490,6 +654,53 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         <div className="col-12 col-md-6">
           <InfoCard title="Project Details" icon="bi bi-briefcase">
             <InfoRow label="Current Status" value={projectData.currentStatus} />
+            {/* new */}
+            {/* Handled By: show ONLY when status is "Received" - resolved to actual employee name */}
+            {isStatusReceived && (() => {
+              // Show new multi-entry handledByEntries if available
+              const handledByEntries = lead?.handledByEntries;
+              if (handledByEntries && Array.isArray(handledByEntries) && handledByEntries.length > 0) {
+                return (
+                  <>
+                    {handledByEntries.map((entry: any, idx: number) => {
+                      // Resolve employee name from allEmployeesList
+                      const employee = Array.isArray(allEmployeesList)
+                        ? allEmployeesList.find((emp: any) => emp.employeeId === entry.employeeId)
+                        : null;
+                      const employeeName = employee?.employeeName || entry.employeeId || '-';
+                      const handledDate = entry.handledDate
+                        ? new Date(entry.handledDate).toISOString().split('T')[0]
+                        : '-';
+                      const handledOutDate = entry.handledOutDate
+                        ? new Date(entry.handledOutDate).toISOString().split('T')[0]
+                        : '-';
+                      return (
+                        <div key={entry.id || idx}>
+                          <InfoRow label={idx === 0 ? "Handle By" : ""} value={`${employeeName}`} />
+                          <InfoRow label={idx === 0 ? "Date In" : ""} value={handledDate} />
+                          <InfoRow label={idx === 0 ? "Date Out" : ""} value={handledOutDate} />
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              }
+              // No handledByEntries: show empty rows (do NOT fall back to legacy handledBy or assignedTo)
+              return (
+                <>
+                  <InfoRow label="Handle By" value="-" />
+                  <InfoRow label="Date In" value="-" />
+                  <InfoRow label="Date Out" value="-" />
+                </>
+              );
+            })()}
+
+            {/* Cancellation Reason: show ONLY when status is "Not Received" - resolved to reason name */}
+            {isStatusNotReceived && (
+              <InfoRow label="Cancellation Reason" value={getCancellationReasonName()} />
+            )}
+
+            <InfoRow label="File Location in Computer" value={getFileLocationLabel()} />
             {/* <div className="row mb-2 ">
               <div className="col-sm-5"></div>
               <div className="col-sm-7 d-flex align-items-center justify-content-end">
@@ -515,7 +726,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         </div>
 
         <div className="col-12 col-md-6">
-          <InfoCard title="Client Details" icon="bi bi-people">
+          <InfoCard title="Team Details" icon="bi bi-people">
             <InfoRow label="Company Type" value={projectData.companyType} />
             <InfoRow label="Company" value={projectData.company} url={ lead?.leadTeams?.[0]?.company?.id ? "/companies/" + lead?.leadTeams?.[0]?.company?.id : "#"}/>
             <InfoRow label="Branch" value={projectData.branch} />
@@ -531,6 +742,60 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                 <small className="fw-semibold">{projectData.contact}</small>
               </div>
             </div> */}
+          </InfoCard>
+        </div>
+
+        {/* Project Detail Card - always visible */}
+        <div className="col-12 col-md-6">
+          <InfoCard title="Project Details 1" icon="bi bi-building">
+            {/* Plot Area row */}
+            <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+              <div style={{ fontWeight: 500 }}>Plot Area</div>
+              <div style={{ fontWeight: 400 }}>
+                {projectData.plotArea
+                  ? `${projectData.plotArea}${projectData.plotAreaUnit ? ' ' + projectData.plotAreaUnit : ''}`
+                  : '-'}
+              </div>
+            </div>
+            {/* Built-Up Area row */}
+            <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+              <div style={{ fontWeight: 500 }}>Built-Up Area</div>
+              <div style={{ fontWeight: 400 }}>
+                {projectData.builtUpArea
+                  ? `${projectData.builtUpArea}${projectData.builtUpAreaUnit ? ' ' + projectData.builtUpAreaUnit : ''}`
+                  : '-'}
+              </div>
+            </div>
+            {/* Building Detail row */}
+            <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+              <div style={{ fontWeight: 500 }}>Building Details</div>
+              <div style={{ fontWeight: 400 }}>{projectData.buildingDetail || '-'}</div>
+            </div>
+            {/* Other Points — only show when they have data; same row style as above: label left, "heading : description" right */}
+            {(projectData.otherPoint1Heading || projectData.otherPoint1Description) && (
+              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                <div style={{ fontWeight: 500 }}>Other Point - 1</div>
+                <div style={{ fontWeight: 400 }}>
+                  {[projectData.otherPoint1Heading, projectData.otherPoint1Description].filter(Boolean).join(' : ')}
+                </div>
+              </div>
+            )}
+            {(projectData.otherPoint2Heading || projectData.otherPoint2Description) && (
+              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                <div style={{ fontWeight: 500 }}>Other Point - 2</div>
+                <div style={{ fontWeight: 400 }}>
+                  {[projectData.otherPoint2Heading, projectData.otherPoint2Description].filter(Boolean).join(' : ')}
+                </div>
+              </div>
+            )}
+            {(projectData.otherPoint3Heading || projectData.otherPoint3Description) && (
+              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                <div style={{ fontWeight: 500 }}>Other Point - 3</div>
+                <div style={{ fontWeight: 400 }}>
+                  {[projectData.otherPoint3Heading, projectData.otherPoint3Description].filter(Boolean).join(' : ')}
+                </div>
+              </div>
+            )}
           </InfoCard>
         </div>
 
@@ -767,10 +1032,11 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         {leadTemplateId==leadAndProjectTemplateTypeId.mep &&  <div className="col-12 col-md-6">
           <InfoCard title="Additional Details" icon="bi bi-gear">
             <InfoRow label="Project Address" value={lead?.additionalDetails?.projectAddress || "-"} />
-            <InfoRow label="P. City" value={lead?.additionalDetails?.city || "-"} />
-            <InfoRow label="P. State" value={lead?.additionalDetails?.state || "-"} />
-            <InfoRow label="P. Country" value={lead?.additionalDetails?.country || "-"} />
-            <InfoRow label="Zip" value={lead?.additionalDetails?.zipCode || "-"} />
+            <InfoRow label="Locality" value={lead?.additionalDetails?.locality || "-"} />
+            <InfoRow label="City" value={lead?.additionalDetails?.city || "-"} />
+            <InfoRow label="State" value={lead?.additionalDetails?.state || "-"} />
+            <InfoRow label="Zip Code" value={lead?.additionalDetails?.zipCode || "-"} />
+            <InfoRow label="Country" value={lead?.additionalDetails?.country || "-"} />
             {lead?.additionalDetails?.latitude && lead?.additionalDetails?.longitude && (
               <div
                 className="d-flex align-items-center justify-content-between"

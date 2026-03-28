@@ -108,7 +108,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
     const [canSubmitRequest, setCanSubmitRequest] = useState(true);
     const [validationBlockingDate, setValidationBlockingDate] = useState('');
     const [isValidating, setIsValidating] = useState(false);
-
     // Loading states for data fetching
     const [isLoadingRestrictionData, setIsLoadingRestrictionData] = useState(false);
     const [restrictionDataLoaded, setRestrictionDataLoaded] = useState(false);
@@ -174,7 +173,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             const { data: { companyOverview } } = await fetchCompanyOverview();
             const companyId = companyOverview[0]?.id;
             const observedIn = 'India'; // Default to India
-
             if (!companyId) {
                 console.error('Company ID not found');
                 return;
@@ -251,14 +249,12 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
         loadRestrictAttendanceConfiguration();
     }, []); // Run only once on component mount
 
-
     // Update restriction state when featureConfiguration changes
     // useEffect(() => {
     //     // Check if featureConfiguration is loaded and has the restriction setting
     //     if (featureConfig && typeof featureConfig.restrictAttendanceTo7Days !== 'undefined') {
     //         const newRestrictionValue = featureConfig.restrictAttendanceTo7Days === true;
     //         setIsRestrictionEnabled(newRestrictionValue);
-
     //         // Reset data loaded state if restriction setting changes
     //         if (newRestrictionValue !== isRestrictionEnabled) {
     //             setRestrictionDataLoaded(false);
@@ -767,7 +763,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     showFixedNumberOfWeeks={true}
                     onClickDay={handleDateClick}
                 />
-
                 {/* Loading overlay when restriction data is being fetched */}
                 {/* {isRestrictionEnabled && isLoadingRestrictionData && (
                     <div 

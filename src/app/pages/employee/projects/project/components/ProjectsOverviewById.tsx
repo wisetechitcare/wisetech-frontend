@@ -64,12 +64,22 @@ const ProjectOverviewById = ({
     }) || [];
 
   const calculateTotalCost = () => {
-    return projectData?.projectCommercialMappings?.reduce((total: number, mapping: any) => {
+  return projectData?.projectCommercialMappings?.reduce(
+    (total: number, mapping: any) => {
       const rateCost = parseFloat(mapping.rateCost || 0);
       const lumpsumCost = parseFloat(mapping.lumpsumCost || 0);
-      return total + rateCost + lumpsumCost;
-    }, 0) || 0;
-  };
+
+      if (rateCost > 0) {
+        return total + rateCost;
+      } else if (lumpsumCost > 0) {
+        return total + lumpsumCost;
+      }
+
+      return total;
+    },
+    0
+  ) || 0;
+};
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;

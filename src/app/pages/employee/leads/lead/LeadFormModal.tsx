@@ -1,5 +1,5 @@
 import { IconButton, Box, Typography, Grid, Tooltip } from '@mui/material';
-import { Close, Add } from '@mui/icons-material';
+import { Close, Add, Delete } from '@mui/icons-material';
 import React, { useCallback, useEffect, useState, useRef, Fragment, useMemo } from 'react';
 import { Formik, Form as FormikForm, Field, FieldArray, useFormikContext } from "formik";
 import HighlightErrors from "@app/modules/errors/components/HighlightErrors";
@@ -35,13 +35,14 @@ import CompanyConfigForm from '@pages/employee/companies/companyConfig/component
 import FormikDropdownInput from '@app/modules/common/inputs/FormikDropdownInput';
 import SubCompanyForm from '@pages/employee/companies/companies/components/SubCompanryForm';
 import MultiSelectWithInlineCreate, { Option } from '@app/modules/common/components/MultiSelectWithInlineCreate';
-import { 
-  createNewService, 
-  createNewCategory, 
+import {
+  createNewService,
+  createNewCategory,
   createNewSubcategory,
-  transformToOptions 
+  transformToOptions
 } from '@app/modules/common/components/InlineCreateHelpers';
 import DropdownInput from '@app/modules/common/inputs/DropdownInput';
+import { getAllLeadCancellationReasons } from "@services/lead"; //new
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -67,7 +68,6 @@ interface LeadFormModalProps {
 const CompanyNameFieldWithTooltip: React.FC<{ index: number }> = ({ index }) => {
   const { values } = useFormikContext<any>();
   const companyName = values?.referrals?.[index]?.companyName || '';
-  
   return (
     <Tooltip title={companyName || ''} arrow placement="top">
       <Box>
@@ -96,13 +96,14 @@ const LeadFormModal = ({
   leadSources = [], // rm
   // referralTypes = [] // rm
 }: LeadFormModalProps) => {
-  
+
   const [selectedCompany, setSelectedCompany] = useState<boolean>(false);
-  const [referrals, setReferrals] = useState([{ 
-    id: Date.now().toString(), 
-    referralType: '', 
-    referringCompany: '', 
-    referringSubCompany: '', 
+  const [referrals, setReferrals] = useState([{
+    id: Date.now().toString(),
+    referralType: '',
+    referringCompanyType: '', // Added: For external referrals - company type filter
+    referringCompany: '',
+    referringSubCompany: '',
     referringContact: '',
     referredByEmployeeId: '', // Added: For internal referrals
     companyName: '' // Added: For internal referrals
@@ -112,6 +113,23 @@ const LeadFormModal = ({
   const createdById = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
   const allEmployees = useSelector((state: RootState) => state.allEmployees);
 
+  //new
+  const [leadCancellationReasons, setLeadCancellationReasons] = useState<Array<{ id: string, reason: string, color: string }>>([]);
+  const fetchLeadCancellationReasons = useCallback(async () => {
+    try {
+      const response = await getAllLeadCancellationReasons();
+      // Check the actual response structure
+      console.log('Cancellation Reasons Response:', response);
+
+      // Adjust based on your API response structure:
+      const data = response?.data?.leadCancellationReasons || response?.leadCancellationReasons || response?.data || [];
+
+      setLeadCancellationReasons(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching cancellation reasons:', error);
+      setLeadCancellationReasons([]); // Set empty array on error
+    }
+  }, []);
 
   // Loading states
   const [isInitialLoading, setIsInitialLoading] = useState(false);
@@ -158,15 +176,15 @@ const LeadFormModal = ({
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
   const [currLeadData, setCurrLeadData] = useState<any>();
   const [filteredSubCompanies, setFilteredSubCompanies] = useState<any[]>([])
-  const [referralSubCompanies, setReferralSubCompanies] = useState<{[key: number]: any[]}>({})
+  const [referralSubCompanies, setReferralSubCompanies] = useState<{ [key: number]: any[] }>({})
   // Added: State for filtered contacts per team
-  const [teamFilteredContacts, setTeamFilteredContacts] = useState<{[key: number]: any[]}>({})
+  const [teamFilteredContacts, setTeamFilteredContacts] = useState<{ [key: number]: any[] }>({})
   // Added: State for filtered contacts per referral (for external referrals only)
-  const [referralFilteredContacts, setReferralFilteredContacts] = useState<{[key: number]: any[]}>({})
+  const [referralFilteredContacts, setReferralFilteredContacts] = useState<{ [key: number]: any[] }>({})
   // Added: State for internal referrals feature
   const [internalEmployees, setInternalEmployees] = useState<any[]>([]); // For internal reference dropdown
   const [companyOverview, setCompanyOverview] = useState<any[]>([]); // For company name readonly field
-    // console.log("type:: ", leadTemplateId);
+  // console.log("type:: ", leadTemplateId);
 
   // Smart search helper functions for address dropdowns (country, state, city)
   // These functions provide better search experience by prioritizing matches that start with user input
@@ -185,22 +203,22 @@ const LeadFormModal = ({
   // Helper function to get match priority for sorting
   const getMatchPriority = (option: any, inputValue: string): number => {
     if (!inputValue || !inputValue.trim()) return 999; // No input, maintain original order
-    
+
     const normalizedInput = normalizeString(inputValue.trim());
     const normalizedLabel = normalizeString(option.label || '');
-    
+
     if (!normalizedLabel || !normalizedInput) return 999;
-    
+
     // Priority 1: Exact match at the beginning (highest priority)
     if (normalizedLabel.startsWith(normalizedInput)) return 1;
-    
+
     // Priority 2: Any word starts with input (second priority)
     const wordsInLabel = normalizedLabel.split(/\s+/);
     if (wordsInLabel.some(word => word.startsWith(normalizedInput))) return 2;
-    
+
     // Priority 3: Contains input anywhere (lowest priority)
     if (normalizedLabel.includes(normalizedInput)) return 3;
-    
+
     // No match
     return 999;
   };
@@ -209,10 +227,10 @@ const LeadFormModal = ({
   const createSmartFilter = (option: any, filterData: any) => {
     // Extract inputValue from the filter data object
     const inputValue = filterData?.inputValue || '';
-    
+
     // Show all options if no input is provided
     if (!inputValue || !inputValue.trim()) return true;
-    
+
     const priority = getMatchPriority(option, inputValue);
     return priority < 999; // Show only options that have a match
   };
@@ -220,22 +238,20 @@ const LeadFormModal = ({
   // Enhanced filtering that returns sorted options
   const getFilteredAndSortedOptions = (options: any[], inputValue: string) => {
     if (!inputValue || !inputValue.trim()) return options;
-    
     // Filter and sort options by priority
     const filtered = options.filter(option => {
       const priority = getMatchPriority(option, inputValue);
       return priority < 999;
     });
-    
+
     return filtered.sort((optionA, optionB) => {
       const priorityA = getMatchPriority(optionA, inputValue);
       const priorityB = getMatchPriority(optionB, inputValue);
-      
+
       // First sort by priority (lower number = higher priority)
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
-      
       // Same priority - sort alphabetically within the same priority group
       return (optionA.label || '').localeCompare(optionB.label || '');
     });
@@ -248,15 +264,14 @@ const LeadFormModal = ({
         // No input - maintain alphabetical order
         return (optionA.label || '').localeCompare(optionB.label || '');
       }
-      
+
       const priorityA = getMatchPriority(optionA, inputValue);
       const priorityB = getMatchPriority(optionB, inputValue);
-      
+
       // First sort by priority (lower number = higher priority)
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
-      
       // Same priority - sort alphabetically within the same priority group
       return (optionA.label || '').localeCompare(optionB.label || '');
     };
@@ -313,19 +328,18 @@ const LeadFormModal = ({
   };
 
   // Enhanced TextInput component with decimal validation
-  const EnhancedDecimalInput = ({ 
-    formikField, 
-    label, 
+  const EnhancedDecimalInput = ({
+    formikField,
+    label,
     isReadonly = false,
-    onCalculatedCost = null 
-  }: { 
-    formikField: string, 
-    label: string, 
+    onCalculatedCost = null
+  }: {
+    formikField: string,
+    label: string,
     isReadonly?: boolean,
     onCalculatedCost?: ((value: number) => void) | null
   }) => {
     const [validationError, setValidationError] = useState<string>('');
-    
     return (
       <div className="d-flex flex-column fv-row">
         <label className='d-flex align-items-center fs-6 form-label mb-2'>
@@ -335,11 +349,11 @@ const LeadFormModal = ({
           {({ field, form }: { field: any, form: any }) => {
             const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               const inputValue = e.target.value;
-              
+
               // Enhanced validation for decimal input with max 4 decimals and 100 Crore limit
               if (!isReadonly) {
                 const validation = validateDecimalInput(inputValue, 10000000000);
-                
+
                 if (!validation.isValid) {
                   setValidationError(validation.errorMessage);
                   return; // Don't update field if validation fails
@@ -347,9 +361,9 @@ const LeadFormModal = ({
                   setValidationError('');
                 }
               }
-              
+
               form.setFieldValue(field.name, inputValue);
-              
+
               // Call callback if provided (for calculated cost)
               if (onCalculatedCost && !isReadonly) {
                 const numericValue = parseFloat(inputValue) || 0;
@@ -388,18 +402,17 @@ const LeadFormModal = ({
       return {
         leadTemplateId,
         projectName: initialData.title || '',
-        
         // Store available states and cities for each address row
         addressStatesOptions: {},  // Format: { rowIndex: [state objects] }
         addressCitiesOptions: {},  // Format: { rowIndex: [city objects] }
         // Store selected values
         addressStateSelections: {}, // Format: { rowIndex: { id, name, iso2 } }
         addressCitySelections: {}, // Format: { rowIndex: { id, name } }
-        
-        additionalDetails: {
-          poNumber: '',
-          poDate: null
-        },
+
+        poNumber: '',
+        poDate: '',
+        poStatus: 'Pending',
+        poFile: '',
         service: '',
         category: '',
         statusId: '', // Will be set to default status after statuses are loaded
@@ -421,14 +434,19 @@ const LeadFormModal = ({
         company: '',
         contactPerson: '',
         contactRoleId: '',
-        
+        cancellationReasonId: '', //new
+        handledBy: '', //new
+        handledByEntries: [], // new: array of {id, employeeId, handledDate}
+        fileLocationCompanyType: '', //new
+        fileLocationCompany: '', //new
+
         // client teams (multiple teams support):
-        leadTeams: [{ 
-          id: Date.now().toString(), 
-          companyTypeId: '', 
-          companyId: '', 
-          subCompanyId: '', 
-          contactId: '' 
+        leadTeams: [{
+          id: Date.now().toString(),
+          companyTypeId: '',
+          companyId: '',
+          subCompanyId: '',
+          contactId: ''
         }],
         // lead details:
         // Fixed: Respect initialFormData.leadInquiryDate if provided, otherwise auto-fill with today's date
@@ -440,6 +458,19 @@ const LeadFormModal = ({
         source: '',
         fileLocation: '', // Added: File location field for lead documents/attachments
         documents: '', // Added: Field for uploaded document file paths
+
+        // Project Detail fields
+        plotArea: '',
+        plotAreaUnit: 'sqft',
+        builtUpArea: '',
+        builtUpAreaUnit: 'sqft',
+        buildingDetail: '',
+        otherPoint1Heading: '',
+        otherPoint1Description: '',
+        otherPoint2Heading: '',
+        otherPoint2Description: '',
+        otherPoint3Heading: '',
+        otherPoint3Description: '',
 
         // additional details
         // Additional fields for web-dev type
@@ -484,137 +515,161 @@ const LeadFormModal = ({
     }
 
     // Build initial values from lead data for edit mode
-    
+
     // Extract additional details - handle both array and single object formats
-    const additionalDetailsArray = Array.isArray(leadData.additionalDetails) 
-      ? leadData.additionalDetails 
-      : leadData.additionalDetails 
-        ? [leadData.additionalDetails] 
+    const additionalDetailsArray = Array.isArray(leadData.additionalDetails)
+      ? leadData.additionalDetails
+      : leadData.additionalDetails
+        ? [leadData.additionalDetails]
         : [];
-    
+
     // For MEP projects, extract project areas from commercials array (new structure)
-    const projectAreas = leadData.commercials 
+    const projectAreas = leadData.commercials
       ? leadData.commercials.map((commercial: any) => ({
-          id: commercial.id, // Include ID for edit mode
-          label: commercial.label || '',
-          projectArea: commercial.area || '',
-          costType: commercial.costType === "RATE" ? "1" : commercial.costType === "LUMPSUM" ? "2" : '',
-          rate: commercial.rate || '',
-          cost: commercial.cost || ''
-        }))
+        id: commercial.id, // Include ID for edit mode
+        label: commercial.label || '',
+        projectArea: commercial.area || '',
+        costType: commercial.costType === "RATE" ? "1" : commercial.costType === "LUMPSUM" ? "2" : '',
+        rate: commercial.rate || '',
+        cost: commercial.cost || ''
+      }))
       : additionalDetailsArray.map((detail: any) => ({
-          // Fallback for legacy data that still has projectAreas in additionalDetails
-          projectArea: detail.projectArea || '',
-          costType: detail.costType || '',
-          rate: detail.rate || '',
-          cost: detail.cost || '',
-          label: '' // Default empty label for legacy data
-        }));
-    
+        // Fallback for legacy data that still has projectAreas in additionalDetails
+        projectArea: detail.projectArea || '',
+        costType: detail.costType || '',
+        rate: detail.rate || '',
+        cost: detail.cost || '',
+        label: '' // Default empty label for legacy data
+      }));
+
     // Handle addresses from single additionalDetails object (one-to-one relationship)
     const addresses = leadData.additionalDetails && !Array.isArray(leadData.additionalDetails)
       ? [{
-          projectAddress: leadData.additionalDetails.projectAddress || '',
-          zipCode: leadData.additionalDetails.zipCode || '',
-          mapLocation: leadData.additionalDetails.mapLocation || '',
-          latitude: leadData.additionalDetails.latitude || '',
-          longitude: leadData.additionalDetails.longitude || '',
-          // Store country/state/city names - will be converted to IDs in useEffect
-          country: leadData.additionalDetails.country || '',
-          state: leadData.additionalDetails.state || '',
-          city: leadData.additionalDetails.city || '',
-          locality: leadData.additionalDetails.locality || '',
-          googleMapLink: leadData.additionalDetails.googleMapLink || '',
-          googleMyBusinessLink: leadData.additionalDetails.googleMyBusinessLink || '',
-          isDefault: false
-        }]
+        projectAddress: leadData.additionalDetails.projectAddress || '',
+        zipCode: leadData.additionalDetails.zipCode || '',
+        mapLocation: leadData.additionalDetails.mapLocation || '',
+        latitude: leadData.additionalDetails.latitude || '',
+        longitude: leadData.additionalDetails.longitude || '',
+        // Store country/state/city names - will be converted to IDs in useEffect
+        country: leadData.additionalDetails.country || '',
+        state: leadData.additionalDetails.state || '',
+        city: leadData.additionalDetails.city || '',
+        locality: leadData.additionalDetails.locality || '',
+        googleMapLink: leadData.additionalDetails.googleMapLink || '',
+        googleMyBusinessLink: leadData.additionalDetails.googleMyBusinessLink || '',
+        isDefault: false
+      }]
       : additionalDetailsArray.length > 0
         ? additionalDetailsArray.map((detail: any) => ({
-            projectAddress: detail.projectAddress || '',
-            zipCode: detail.zipCode || '',
-            mapLocation: detail.mapLocation || '',
-            latitude: detail.latitude || '',
-            longitude: detail.longitude || '',
-            // Convert country name back to ID for form dropdown
-            country: (() => {
-              const countryName = detail.country;
-              const foundCountry = countries.find(c => c.name === countryName);
-              return foundCountry ? foundCountry.id : countryName;
-            })(),
-            // Convert state name back to ID for form dropdown  
-            state: (() => {
-              const stateName = detail.state;
-              const foundState = states.find(s => s.name === stateName);
-              return foundState ? foundState.id : stateName;
-            })(),
-            // Convert city name back to ID for form dropdown
-            city: (() => {
-              const cityName = detail.city;
-              const foundCity = cities.find(c => c.name === cityName);
-              return foundCity ? foundCity.id : cityName;
-            })(),
-            locality: detail.locality || '',
-            googleMapLink: detail.googleMapLink || '',
-            googleMyBusinessLink: detail.googleMyBusinessLink || '',
-            isDefault: detail.isDefault || false
-          }))
+          projectAddress: detail.projectAddress || '',
+          zipCode: detail.zipCode || '',
+          mapLocation: detail.mapLocation || '',
+          latitude: detail.latitude || '',
+          longitude: detail.longitude || '',
+          // Convert country name back to ID for form dropdown
+          country: (() => {
+            const countryName = detail.country;
+            const foundCountry = countries.find(c => c.name === countryName);
+            return foundCountry ? foundCountry.id : countryName;
+          })(),
+          // Convert state name back to ID for form dropdown  
+          state: (() => {
+            const stateName = detail.state;
+            const foundState = states.find(s => s.name === stateName);
+            return foundState ? foundState.id : stateName;
+          })(),
+          // Convert city name back to ID for form dropdown
+          city: (() => {
+            const cityName = detail.city;
+            const foundCity = cities.find(c => c.name === cityName);
+            return foundCity ? foundCity.id : cityName;
+          })(),
+          locality: detail.locality || '',
+          googleMapLink: detail.googleMapLink || '',
+          googleMyBusinessLink: detail.googleMyBusinessLink || '',
+          isDefault: detail.isDefault || false
+        }))
         : [{
-            projectAddress: '',
-            zipCode: '',
-            mapLocation: '',
-            latitude: '',
-            longitude: '',
-            country: '',
-            state: '',
-            city: '',
-            locality: '',
-            googleMapLink: '',
-            googleMyBusinessLink: '',
-            isDefault: false
-          }];
+          projectAddress: '',
+          zipCode: '',
+          mapLocation: '',
+          latitude: '',
+          longitude: '',
+          country: '',
+          state: '',
+          city: '',
+          locality: '',
+          googleMapLink: '',
+          googleMyBusinessLink: '',
+          isDefault: false
+        }];
 
     // Process referrals for edit mode
-    const processedReferrals = leadData.referrals && leadData.referrals.length > 0 
-      ? leadData.referrals.map((ref: any) => ({
+    const processedReferrals = leadData.referrals && leadData.referrals.length > 0
+      ? leadData.referrals.map((ref: any) => {
+        const companyId = ref.referringCompany?.id || ref.companyId || '';
+        // Derive companyTypeId from the full Company object returned by backend (includes companyTypeId)
+        const companyTypeId = ref.referringCompany?.companyTypeId || ref.referringCompanyTypeId || '';
+        // For internal referrals, referredByEmployee.id is the employee's primary key (same as allEmployees.list[].employeeId)
+        const referredByEmployeeId = ref.referredByEmployee?.id || ref.referredByEmployeeId || '';
+        return {
           id: ref.id || Date.now().toString(),
           referralType: ref.referralType?.id || ref.leadReferralTypeId || '',
-          referringCompany: ref.referringCompany?.id || ref.companyId || '',
+          referringCompanyType: companyTypeId,
+          referringCompany: companyId,
           referringSubCompany: ref.referringSubCompany?.id || ref.subCompanyId || '',
           referringContact: ref.referredByContact?.id || ref.contactId || '',
-          referredByEmployeeId: ref.referredByEmployee?.id || ref.referredByEmployeeId || '',
+          referredByEmployeeId: referredByEmployeeId,
           companyName: ref.companyName || ''
-        }))
-      : [{ 
-          id: Date.now().toString(), 
-          referralType: '', 
-          referringCompany: '', 
-          referringSubCompany: '', 
-          referringContact: '',
-          referredByEmployeeId: '',
-          companyName: ''
-        }];
+        };
+      })
+      : [{
+        id: Date.now().toString(),
+        referralType: '',
+        referringCompanyType: '',
+        referringCompany: '',
+        referringSubCompany: '',
+        referringContact: '',
+        referredByEmployeeId: '',
+        companyName: ''
+      }];
 
     return {
       leadTemplateId: leadData.leadTemplateId || leadTemplateId,
       projectName: leadData.title || '',
-      
+
+
       // Store available states and cities for each address row
       addressStatesOptions: {},
       addressCitiesOptions: {},
       addressStateSelections: {},
       addressCitySelections: {},
-      
-      additionalDetails: {
-        poNumber: additionalDetailsArray[0]?.poNumber || '',
-        poDate: additionalDetailsArray[0]?.poDate || null
-      },
-      
       // Map lead data fields to form fields
       service: leadData.projectService?.id || leadData.projectServiceId || '',
       category: leadData.projectCategory?.id || leadData.projectCategoryId || '',
       statusId: leadData.status?.id || leadData.statusId || '',
+      cancellationReasonId: leadData?.cancellationReasonId || '', //new
+      handledBy: leadData?.handledBy || '', //new
+      handledByEntries: (() => {
+        // Map from backend handledByEntries array
+        if (leadData?.handledByEntries && Array.isArray(leadData.handledByEntries) && leadData.handledByEntries.length > 0) {
+          return leadData.handledByEntries.map((entry: any) => ({
+            id: entry.id || Date.now().toString(),
+            employeeId: entry.employeeId || '',
+            handledDate: entry.handledDate
+              ? new Date(entry.handledDate).toISOString().split('T')[0]
+              : new Date().toISOString().split('T')[0],
+            handledOutDate: entry.handledOutDate
+              ? new Date(entry.handledOutDate).toISOString().split('T')[0]
+              : '',
+          }));
+        }
+        return [];
+      })(), //new
+      fileLocationCompanyType: leadData.fileLocationCompanyType || '', //new
+      fileLocationCompany: leadData.fileLocationCompany || '', //new
       subCategory: leadData.projectSubCategory?.id || leadData.projectSubCategoryId || '',
-      
+
       // Multi-select arrays for new functionality
       serviceIds: (() => {
         // Handle multiple services from leadData.services array
@@ -625,7 +680,6 @@ const LeadFormModal = ({
         const singleServiceId = leadData.projectService?.id || leadData.projectServiceId;
         return singleServiceId ? [singleServiceId] : [];
       })(),
-      
       categoryIds: (() => {
         // Handle multi-select categories from junction table
         if (leadData.leadCategories && Array.isArray(leadData.leadCategories)) {
@@ -635,7 +689,6 @@ const LeadFormModal = ({
         const categoryId = leadData.projectCategory?.id || leadData.projectCategoryId;
         return categoryId ? [categoryId] : [];
       })(),
-      
       subcategoryIds: (() => {
         // Handle multi-select subcategories from junction table
         if (leadData.leadSubCategories && Array.isArray(leadData.leadSubCategories)) {
@@ -651,7 +704,6 @@ const LeadFormModal = ({
       cost: leadData.cost || '',
       description: leadData.description || '',
       budget: leadData.budget || '',
-      
       // Client details (single - keeping for backward compatibility)
       companyTypeId: leadData.company?.companyType?.id || leadData.companyTypeId || '',
       subCompanyId: leadData.subCompany?.id || leadData.subCompanyId || '',
@@ -661,7 +713,6 @@ const LeadFormModal = ({
       contactPerson: leadData.contact?.fullName || '',
       contactPersonId: leadData.contact?.id || leadData.contactId || '',
       contactRoleId: leadData.contactRole?.id || leadData.contactRoleId || '',
-      
       // Client teams (multiple teams support) - robust backward compatibility
       leadTeams: (() => {
         if (leadData.leadTeams && Array.isArray(leadData.leadTeams) && leadData.leadTeams.length > 0) {
@@ -675,32 +726,32 @@ const LeadFormModal = ({
           }));
         } else {
           // For backward compatibility: if no leadTeams exist, create one based on legacy fields
-          const legacyTeam = { 
-            id: Date.now().toString(), 
-            companyTypeId: leadData.company?.companyType?.id || leadData.companyTypeId || '', 
-            companyId: leadData.company?.id || leadData.companyId || '', 
-            subCompanyId: leadData.subCompany?.id || leadData.subCompanyId || '', 
-            contactId: leadData.contact?.id || leadData.contactId || '' 
+          const legacyTeam = {
+            id: Date.now().toString(),
+            companyTypeId: leadData.company?.companyType?.id || leadData.companyTypeId || '',
+            companyId: leadData.company?.id || leadData.companyId || '',
+            subCompanyId: leadData.subCompany?.id || leadData.subCompanyId || '',
+            contactId: leadData.contact?.id || leadData.contactId || ''
           };
-          
+
           // If all fields are empty, provide a clean empty row
           if (!legacyTeam.companyTypeId && !legacyTeam.companyId && !legacyTeam.subCompanyId && !legacyTeam.contactId) {
-            return [{ 
-              id: Date.now().toString(), 
-              companyTypeId: '', 
-              companyId: '', 
-              subCompanyId: '', 
-              contactId: '' 
+            return [{
+              id: Date.now().toString(),
+              companyTypeId: '',
+              companyId: '',
+              subCompanyId: '',
+              contactId: ''
             }];
           }
-          
+
           return [legacyTeam];
         }
       })(),
-      
+
       // Lead details
       // Fixed: Respect initialFormData.leadInquiryDate if provided, then leadData.inquiryDate, then default to today
-      leadInquiryDate: initialFormData?.leadInquiryDate || 
+      leadInquiryDate: initialFormData?.leadInquiryDate ||
         (leadData.inquiryDate ? new Date(leadData.inquiryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
       leadAssignedTo: leadData.assignedTo?.id || leadData.assignedToId || '',
       leadSourceType: leadData.leadSourceType || 'DIRECT',
@@ -709,6 +760,19 @@ const LeadFormModal = ({
       source: leadData.source?.id || leadData.sourceId || '',
       fileLocation: leadData.fileLocation || '', // Added: File location field for edit mode
       documents: leadData.documents || '', // Added: Field for uploaded document file paths in edit mode
+
+      // Project Detail fields (from additionalDetails)
+      plotArea: leadData.additionalDetails?.plotArea || '',
+      plotAreaUnit: leadData.additionalDetails?.plotAreaUnit || 'sqft',
+      builtUpArea: leadData.additionalDetails?.builtUpArea || '',
+      builtUpAreaUnit: leadData.additionalDetails?.builtUpAreaUnit || 'sqft',
+      buildingDetail: leadData.additionalDetails?.buildingDetail || '',
+      otherPoint1Heading: leadData.additionalDetails?.otherPoint1Heading || '',
+      otherPoint1Description: leadData.additionalDetails?.otherPoint1Description || '',
+      otherPoint2Heading: leadData.additionalDetails?.otherPoint2Heading || '',
+      otherPoint2Description: leadData.additionalDetails?.otherPoint2Description || '',
+      otherPoint3Heading: leadData.additionalDetails?.otherPoint3Heading || '',
+      otherPoint3Description: leadData.additionalDetails?.otherPoint3Description || '',
 
       // Additional fields for web-dev type
       ...(leadTemplateId?.toString() === leadAndProjectTemplateTypeId.webDev?.toString() && {
@@ -740,19 +804,25 @@ const LeadFormModal = ({
           isDefault: false
         }],
         poNumber: additionalDetailsArray[0]?.poNumber || '',
-        poDate: additionalDetailsArray[0]?.poDate || '',
+        poDate: additionalDetailsArray[0]?.poDate ? new Date(additionalDetailsArray[0].poDate).toISOString().split('T')[0] : '',
         useCalculatedAmount: true
       }),
-      
-      ...initialFormData
+
+      ...initialFormData,
+      // PO fields: always use fresh data from currLeadData (API) — overrides stale initialFormData
+      poNumber: additionalDetailsArray[0]?.poNumber || initialFormData?.poNumber || '',
+      poDate: additionalDetailsArray[0]?.poDate
+        ? new Date(additionalDetailsArray[0].poDate).toISOString().split('T')[0]
+        : (initialFormData?.poDate || ''),
+      poStatus: leadData?.poStatus || initialFormData?.poStatus || 'Pending',
+      poFile: leadData?.poFile || initialFormData?.poFile || '',
     };
   };
 
-  // Form initial values - memoized to prevent unnecessary form resets
-  // Stabilized to only change when absolutely necessary
+  // Form initial values - memoized, rebuilds whenever lead data is fetched
   const initialValues = useMemo(() => {
     return buildInitialValues(currLeadData);
-  }, [currLeadData?.id, initialFormData?.id, isEditMode]);
+  }, [currLeadData, initialFormData?.id, isEditMode]);
 
   // console.log("Form initial values:", initialValues);
 
@@ -816,36 +886,36 @@ const LeadFormModal = ({
   //   // description: '' // Additional description field
   // };
 
-  useEffect(()=>{
-    if(initialFormData?.id){
+  useEffect(() => {
+    if (initialFormData?.id) {
       async function fetchLeadById() {
-        const {data: {data}} = await getLeadById(initialFormData?.id);
+        const { data: { data } } = await getLeadById(initialFormData?.id);
         const leadData = data?.lead || {};
         setCurrLeadData(leadData);
         setPrefix(leadData?.prefix || '')
-        
+
         // Force re-render to update initial values when lead data is loaded
         setRefetchData(prev => !prev);
       }
       fetchLeadById();
     }
-    else{
+    else {
       async function fetchPrefixSettings() {
-        const {data: {prefixSettings}} = await fetchAllPrefixSettings();
+        const { data: { prefixSettings } } = await fetchAllPrefixSettings();
         const currentPrefix = prefixSettings.find((prefix: any) => prefix.identifier == prefixIdentifier.LEAD);
         if (Object.keys(currentPrefix)?.length) {
-            // Get current leads count
-            const {data: {count}} = await getAllLeadsCountIncludingDeleted();
-            // Generate prefix: prefix/year/count format
-            const formattedYear = convertFiscalYearToYearFormat(currentPrefix.year);
-            const generatedPrefix = `${currentPrefix.prefix}/${formattedYear}/${count + 1}`;
-            // data.prefix = generatedPrefix;
-            setPrefix(generatedPrefix);
+          // Get current leads count
+          const { data: { count } } = await getAllLeadsCountIncludingDeleted();
+          // Generate prefix: prefix/year/count format
+          const formattedYear = convertFiscalYearToYearFormat(currentPrefix.year);
+          const generatedPrefix = `${currentPrefix.prefix}/${formattedYear}/${count + 1}`;
+          // data.prefix = generatedPrefix;
+          setPrefix(generatedPrefix);
         }
       }
       fetchPrefixSettings();
     }
-  },[initialFormData?.id])
+  }, [initialFormData?.id])
   // Validation schema - Only project name and status are required
   const validationSchema = Yup.object().shape({
     projectName: Yup.string().required("Lead name is required"),
@@ -884,7 +954,6 @@ const LeadFormModal = ({
       ),
     }),
   });
- 
   // fetching all the details:
   // Fetch functionsadd an add new button 
   const fetchProjectCategories = useCallback(async () => {
@@ -945,7 +1014,6 @@ const LeadFormModal = ({
       const response = await getAllProjectServices();
       const data = response?.services || [];
       // console.log("Services data with colors:", data.map(s => ({id: s.id, name: s.name, color: s.color})));
-      
       setServices(data);
       return data;
     } catch (error) {
@@ -1037,13 +1105,13 @@ const LeadFormModal = ({
     try {
       const response = await getAllLeadStatus();
       const data = response?.leadStatuses || [];
-      
+
       setLeadStatuses(data);
-      
+
       // Set default status if form doesn't have a status value
       if (formikRef.current && data.length > 0) {
         const currentStatusValue = formikRef.current.values.statusId;
-        
+
         // Only set default if no status is currently selected
         if (!currentStatusValue) {
           const defaultStatus = data.find((status: any) => status.isDefault === true);
@@ -1052,7 +1120,6 @@ const LeadFormModal = ({
           }
         }
       }
-      
       return data;
     } catch (error) {
       console.error("Error fetching lead statuses:", error);
@@ -1093,10 +1160,10 @@ const LeadFormModal = ({
         setTeamFilteredContacts(prev => ({ ...prev, [teamIndex]: [] }));
         return [];
       }
-      
+
       const response = await getClientContactsByCompanyId(companyId);
       const data = response?.data?.contacts || [];
-      
+
       // Update contacts for this specific team
       setTeamFilteredContacts(prev => ({ ...prev, [teamIndex]: data }));
       return data;
@@ -1116,10 +1183,10 @@ const LeadFormModal = ({
         setReferralFilteredContacts(prev => ({ ...prev, [referralIndex]: [] }));
         return [];
       }
-      
+
       const response = await getClientContactsByCompanyId(companyId);
       const data = response?.data?.contacts || [];
-      
+
       // Update contacts for this specific referral
       setReferralFilteredContacts(prev => ({ ...prev, [referralIndex]: data }));
       return data;
@@ -1134,7 +1201,8 @@ const LeadFormModal = ({
   // Added: Helper function to check if referral type is internal
   const isInternalReferralType = useCallback((referralTypeId: string): boolean => {
     const referralType = referralTypes.find(type => type.id === referralTypeId);
-    return referralType?.isInternal === true;
+    // Check by isInternal flag OR by name (case-insensitive) as fallback
+    return referralType?.isInternal === true || referralType?.name?.toLowerCase().trim() === 'internal';
   }, [referralTypes]);
 
   // Added: Helper function to check if there's a default status
@@ -1207,7 +1275,6 @@ const LeadFormModal = ({
       setFieldValue('addresses.0.city', '');
       setFieldValue('addressStateSelections.0', null);
       setFieldValue('addressCitySelections.0', null);
-      
       // Clear city options for this row
       setFieldValue(`addressCitiesOptions.${index}`, []);
 
@@ -1294,7 +1361,6 @@ const LeadFormModal = ({
   const handleContactModalClose = useCallback(async () => {
     setShowContactModal(false);
     await fetchContacts();
-    
     // Added: Refresh team-specific filtered contacts for all teams that have a company selected
     if (formikRef.current?.values?.leadTeams) {
       const leadTeams = formikRef.current.values.leadTeams;
@@ -1306,7 +1372,6 @@ const LeadFormModal = ({
         }
       }
     }
-    
     // Added: Refresh referral-specific filtered contacts for all referrals that have a company selected (external referrals only)
     if (formikRef.current?.values?.referrals) {
       const referrals = formikRef.current.values.referrals;
@@ -1330,7 +1395,8 @@ const LeadFormModal = ({
   const handleStatusModalClose = useCallback(async () => {
     setShowStatusModal(false);
     await fetchLeadStatuses();
-  }, [fetchLeadStatuses]);
+    await fetchLeadCancellationReasons(); //new
+  }, [fetchLeadStatuses, fetchLeadCancellationReasons]);
 
   const handleReferralTypeModalClose = useCallback(async () => {
     setShowReferralTypeModal(false);
@@ -1357,7 +1423,8 @@ const LeadFormModal = ({
         fetchAllLeadDirectSources(),
         fetchLeadStatuses(),
         fetchEmployees(), // Added: For internal referrals
-        fetchCompanyOverviewData() // Added: For internal referrals
+        fetchCompanyOverviewData(), // Added: For internal referrals
+        fetchLeadCancellationReasons() //new
       ]);
 
       setDataLoaded(true);
@@ -1378,8 +1445,14 @@ const LeadFormModal = ({
     fetchCountries,
     fetchAllLeadReferralTypes,
     fetchAllLeadDirectSources,
-    fetchLeadStatuses
+    fetchLeadStatuses,
+    fetchLeadCancellationReasons //new
   ]);
+
+  //new
+  useEffect(() => {
+    fetchLeadCancellationReasons();
+  }, [showStatusModal]); // Or, [open]
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -1390,14 +1463,14 @@ const LeadFormModal = ({
     loadInitialData();
   }, [refetchData]);
 
-  useEffect(()=>{
-    async function fetchAndSetCompanyType(){
-      const {companyTypes} = await getAllCompanyTypes()
-      
+  useEffect(() => {
+    async function fetchAndSetCompanyType() {
+      const { companyTypes } = await getAllCompanyTypes()
+
       setAllCompanyTypes(companyTypes)
     }
     fetchAndSetCompanyType()
-  },[showCompanyTypeModal])
+  }, [showCompanyTypeModal])
 
   // This effect runs when countries array is populated and we have initialFormData
   // to load states and cities for edit mode
@@ -1449,18 +1522,15 @@ const LeadFormModal = ({
   }, [countries, initialFormData]);
 
   // Note: Referral population for edit mode is now handled in buildInitialValues function
-  
   // Added: Effect to populate filtered companies and sub-companies for edit mode
   useEffect(() => {
     if (isEditMode && currLeadData && companies.length > 0 && allCompanyTypes.length > 0) {
       const companyTypeId = currLeadData.company?.companyType?.id || currLeadData.companyTypeId;
       const companyId = currLeadData.company?.id || currLeadData.companyId;
-      
       if (companyTypeId) {
         setCurrCompanyTypeId(companyTypeId);
         const filteredCompanies = companies?.filter(ele => ele?.companyTypeId == companyTypeId);
         setFilteredCompanies(filteredCompanies);
-        
         if (companyId) {
           setSelectedCompany(true); // Enable dependent dropdowns
           const companyData = filteredCompanies?.find(ele => ele?.id == companyId);
@@ -1471,7 +1541,6 @@ const LeadFormModal = ({
       }
     }
   }, [isEditMode, currLeadData, companies, allCompanyTypes]);
-  
   // Added: Effect to populate referral sub-companies for edit mode
   useEffect(() => {
     if (isEditMode && currLeadData?.referrals && companies.length > 0) {
@@ -1490,52 +1559,65 @@ const LeadFormModal = ({
     }
   }, [isEditMode, currLeadData?.referrals, companies]);
 
+  // Added: Effect to restore referringCompanyType from company data for external referrals in edit mode
+  useEffect(() => {
+    if (isEditMode && currLeadData?.referrals && companies.length > 0 && formikRef.current) {
+      currLeadData.referrals.forEach((ref: any, index: number) => {
+        const companyTypeId = ref.referringCompany?.companyTypeId || '';
+        if (companyTypeId) {
+          // Set the referringCompanyType in formik so the company type dropdown shows the correct value
+          formikRef.current.setFieldValue(`referrals[${index}].referringCompanyType`, companyTypeId);
+        }
+      });
+    }
+  }, [isEditMode, currLeadData?.referrals, companies.length, formikRef.current?.values?.referrals?.length]);
+
   // Added: Effect to populate address location data for edit mode
   useEffect(() => {
     const loadAddressLocationData = async () => {
       if (isEditMode && currLeadData && countries.length > 0 && formikRef.current && leadTemplateId === leadAndProjectTemplateTypeId.mep) {
-        
+
         // Get the address data from additionalDetails
         const additionalDetails = currLeadData.additionalDetails;
         if (!additionalDetails) return;
-        
+
         const addressIndex = 0; // Since we're using single address object now
-        
+
         // Load country data
         const countryName = additionalDetails.country;
         if (countryName) {
           const foundCountry = countries.find(c => c.name === countryName);
           if (foundCountry) {
-            
+
             // Set country in addresses array
             formikRef.current.setFieldValue(`addresses.${addressIndex}.country`, foundCountry.id);
-            
+
             // Load states for this country
             try {
               const statesData = await fetchAllStates(foundCountry.iso2);
               formikRef.current.setFieldValue(`addressStatesOptions.${addressIndex}`, statesData);
-              
+
               // Load state data
               const stateName = additionalDetails.state;
               if (stateName) {
-                const foundState = statesData.find((s:any) => s.name === stateName);
+                const foundState = statesData.find((s: any) => s.name === stateName);
                 if (foundState) {
-                  
+
                   // Set state in addresses array and selections
                   formikRef.current.setFieldValue(`addresses.${addressIndex}.state`, foundState.id);
                   formikRef.current.setFieldValue(`addressStateSelections.${addressIndex}`, foundState);
-                  
+
                   // Load cities for this state
                   try {
                     const citiesData = await fetchAllCities(foundCountry.iso2, foundState.iso2);
                     formikRef.current.setFieldValue(`addressCitiesOptions.${addressIndex}`, citiesData);
-                    
+
                     // Load city data
                     const cityName = additionalDetails.city;
                     if (cityName) {
-                      const foundCity = citiesData.find((c:any) => c.name === cityName);
+                      const foundCity = citiesData.find((c: any) => c.name === cityName);
                       if (foundCity) {
-                        
+
                         // Set city in addresses array and selections
                         formikRef.current.setFieldValue(`addresses.${addressIndex}.city`, foundCity.id);
                         formikRef.current.setFieldValue(`addressCitySelections.${addressIndex}`, foundCity);
@@ -1584,8 +1666,8 @@ const LeadFormModal = ({
         // Only fetch contacts for external referrals
         const referralTypeId = referral.referralType?.id || referral.leadReferralTypeId;
         const referralType = referralTypes.find(type => type.id === referralTypeId);
-        const isInternal = referralType?.isInternal === true;
-        
+        const isInternal = referralType?.isInternal === true || referralType?.name?.toLowerCase().trim() === 'internal';
+
         if (!isInternal) {
           const companyId = referral.referringCompany?.id || referral.companyId;
           if (companyId) {
@@ -1610,24 +1692,22 @@ const LeadFormModal = ({
   // };
 
   const handleSubmit = async (formData: any) => {
-    
+
     const values = formData;
     // Handle addresses from both form structure and direct payload
     let allAddressDetails = formData?.addresses || formData?.additionalDetails?.addresses || [];
-    
+
     // No need to clean up address fields - Google links are now valid and handled by backend
-    
+
     // console.log("createdById:: ", createdById);
-    
+
     if (!createdById) {
       return;
     };
     const additionalDetailsFields = [
       ...(leadTemplateId === leadAndProjectTemplateTypeId.mep ? [
         "projectArea",
-        "addresses",
-        "poNumber",
-        "poDate"] :
+        "addresses"] :
         [
           "type",
           "numberOfPages"
@@ -1641,7 +1721,7 @@ const LeadFormModal = ({
     const selectedCityData = cities.find((c) => c.id === formData.city);
 
     // Extract additionalDetails from formData
-   const additionalDetails: Record<string, any> = {};
+    const additionalDetails: Record<string, any> = {};
 
     // Add other additional details
     additionalDetailsFields.forEach(field => {
@@ -1664,15 +1744,21 @@ const LeadFormModal = ({
       }
     });
 
-    const mappedReferrals = formData?.referrals?.map((ref: any) => ({
-      leadReferralTypeId: ref.referralType, // Updated: Map referralType to leadReferralTypeId
-      companyId: ref.referringCompany, // Updated: Map referringCompany to companyId
-      subCompanyId: ref.referringSubCompany, // Updated: Map referringSubCompany to subCompanyId
-      contactId: ref.referringContact, // Updated: Map referringContact to contactId
-      referredByEmployeeId: ref.referredByEmployeeId, // Added: For internal referrals
-      companyName: ref.companyName, // Added: For internal referrals
-    })) || [];
-    
+    const mappedReferrals = formData?.referrals?.map((ref: any) => {
+      // For internal referrals, don't send a fake companyId - only send referredByEmployeeId
+      const isInternal = ref.referredByEmployeeId && ref.referredByEmployeeId !== '';
+      // Only send companyId if it looks like a real UUID (not the fake 'wisetech-mep' display string)
+      const companyId = ref.referringCompany && ref.referringCompany !== 'wisetech-mep' ? ref.referringCompany : undefined;
+      return {
+        leadReferralTypeId: ref.referralType,
+        companyId: isInternal ? undefined : companyId,
+        subCompanyId: isInternal ? undefined : (ref.referringSubCompany || undefined),
+        contactId: isInternal ? undefined : (ref.referringContact || undefined),
+        referredByEmployeeId: ref.referredByEmployeeId || undefined,
+        companyName: ref.companyName || undefined,
+      };
+    }) || [];
+
     // Added: Map leadTeams for multiple team entries
     const mappedLeadTeams = formData?.leadTeams?.map((team: any) => ({
       companyTypeId: team.companyTypeId,
@@ -1680,145 +1766,175 @@ const LeadFormModal = ({
       subCompanyId: team.subCompanyId,
       contactId: team.contactId,
     }))?.filter((team: any) => team.companyTypeId || team.companyId || team.subCompanyId || team.contactId) || [];
-    
-    // Map and clean addresses - handle both IDs and string values
-  const mappedAddresses = allAddressDetails?.map((address: any, index: number) => {
-    let countryName = address.country || "";
-    let stateName = address.state || "";
-    let cityName = address.city || "";
-    
-    // If country is an ID, convert to name, otherwise use as string
-    if (address.country) {
-      const selectedCountry = countries.find((c) => c.id === address.country);
-      if (selectedCountry) {
-        countryName = selectedCountry.name;
-      } else {
-        // If not found by ID, assume it's already a string name
-        countryName = address.country;
-      }
-    }
-    
-    // If state is an ID, convert to name, otherwise use as string
-    if (address.state) {
-      const addressIndex = allAddressDetails.indexOf(address);
-      const statesOptions = values.addressStatesOptions?.[addressIndex] || [];
-      const selectedState = statesOptions.find((s: any) => s.id === address.state);
-      if (selectedState) {
-        stateName = selectedState.name;
-      } else {
-        // If not found by ID, assume it's already a string name
-        stateName = address.state;
-      }
-    }
-    
-    // If city is an ID, convert to name, otherwise use as string
-    if (address.city) {
-      const addressIndex = allAddressDetails.indexOf(address);
-      const citiesOptions = values.addressCitiesOptions?.[addressIndex] || [];
-      const selectedCity = citiesOptions.find((c: any) => c.id === address.city);
-      if (selectedCity) {
-        cityName = selectedCity.name;
-      } else {
-        // If not found by ID, assume it's already a string name
-        cityName = address.city;
-      }
-    }
-    
-    // Include additional details ID for upsert operations in edit mode
-    const additionalDetailsId = isEditMode && currLeadData?.additionalDetails?.[index]?.id 
-      ? currLeadData.additionalDetails[index].id 
-      : undefined;
-    
-    return {
-      ...(additionalDetailsId && { id: additionalDetailsId }),
-      projectAddress: address.projectAddress || "",
-      country: countryName,
-      state: stateName,
-      city: cityName,
-      zipCode: address.zipCode || "",
-      mapLocation: address.mapLocation || "",
-      latitude: address.latitude || "",
-      longitude: address.longitude || "",
-      locality: address.locality || "",
-      googleMapLink: address.googleMapLink || "", // Added: Google Map Link
-      googleMyBusinessLink: address.googleMyBusinessLink || "", // Added: Google My Business Link
-      isDefault: !!address.isDefault
-    };
-  }) || [];
 
-  
+    // Map and clean addresses - handle both IDs and string values
+    const mappedAddresses = allAddressDetails?.map((address: any, index: number) => {
+      let countryName = address.country || "";
+      let stateName = address.state || "";
+      let cityName = address.city || "";
+
+      // If country is an ID, convert to name, otherwise use as string
+      if (address.country) {
+        const selectedCountry = countries.find((c) => c.id === address.country);
+        if (selectedCountry) {
+          countryName = selectedCountry.name;
+        } else {
+          // If not found by ID, assume it's already a string name
+          countryName = address.country;
+        }
+      }
+
+      // If state is an ID, convert to name, otherwise use as string
+      if (address.state) {
+        const addressIndex = allAddressDetails.indexOf(address);
+        const statesOptions = values.addressStatesOptions?.[addressIndex] || [];
+        const selectedState = statesOptions.find((s: any) => s.id === address.state);
+        if (selectedState) {
+          stateName = selectedState.name;
+        } else {
+          // If not found by ID, assume it's already a string name
+          stateName = address.state;
+        }
+      }
+
+      // If city is an ID, convert to name, otherwise use as string
+      if (address.city) {
+        const addressIndex = allAddressDetails.indexOf(address);
+        const citiesOptions = values.addressCitiesOptions?.[addressIndex] || [];
+        const selectedCity = citiesOptions.find((c: any) => c.id === address.city);
+        if (selectedCity) {
+          cityName = selectedCity.name;
+        } else {
+          // If not found by ID, assume it's already a string name
+          cityName = address.city;
+        }
+      }
+
+      // Include additional details ID for upsert operations in edit mode
+      const additionalDetailsId = isEditMode && currLeadData?.additionalDetails?.[index]?.id
+        ? currLeadData.additionalDetails[index].id
+        : undefined;
+
+      return {
+        ...(additionalDetailsId && { id: additionalDetailsId }),
+        projectAddress: address.projectAddress || "",
+        country: countryName,
+        state: stateName,
+        city: cityName,
+        zipCode: address.zipCode || "",
+        mapLocation: address.mapLocation || "",
+        latitude: address.latitude || "",
+        longitude: address.longitude || "",
+        locality: address.locality || "",
+        googleMapLink: address.googleMapLink || "", // Added: Google Map Link
+        googleMyBusinessLink: address.googleMyBusinessLink || "", // Added: Google My Business Link
+        isDefault: !!address.isDefault
+      };
+    }) || [];
+
+
     const finalData = {
-        ...formData,
-        createdById: createdById,
-        leadTemplateId: formData.leadTemplateId,
-        title: formData.title || formData.projectName,
-        statusId: formData.statusId,
-        // Comment: Removed projectAreas from additionalDetails - moved to separate commercials array
-        // projectAreas: (formData.projectAreas || formData.additionalDetails?.projectAreas || [])?.map((area: any, index: number) => {
-        //     // Include additional details ID for upsert operations in edit mode
-        //     const additionalDetailsId = isEditMode && currLeadData?.additionalDetails?.[index]?.id 
-        //       ? currLeadData.additionalDetails[index].id 
-        //       : undefined;
-        //     
-        //     return {
-        //         ...(additionalDetailsId && { id: additionalDetailsId }),
-        //         projectArea: Number(area.projectArea),
-        //         costType: area.costType,
-        //         rate: Number(area.rate),
-        //         cost: area.cost
-        //     };
-        // }) || [],
-        
-        // Added: Commercials array for new LeadCommercial table
-        commercials: (formData.projectAreas || [])?.filter((area: any) => 
-            // Include areas that have meaningful data (area, rate, or cost) or an explicit label
-            area.projectArea || area.rate || area.cost || (area.label && area.label.trim())
-        ).map((area: any) => ({
-            ...(isEditMode && area.id && { id: area.id }), // Include ID for edit mode
-            label: area.label ? area.label.trim() : '', // Allow empty labels
-            area: area.projectArea ? Number(area.projectArea) : null,
-            costType: area.costType === "1" ? "RATE" : area.costType === "2" ? "LUMPSUM" : area.costType || "RATE",
-            rate: area.rate ? Number(area.rate) : null,
-            cost: area.cost ? Number(area.cost) : null
-        })) || [],
-        // Handle multi-select arrays (always include arrays, even if empty, to ensure proper clearing)
-        ...(formData?.serviceIds && Array.isArray(formData.serviceIds)
-          ? { serviceIds: formData.serviceIds }
-          : formData?.service 
+      ...formData,
+      ...(isEditMode ? {} : { createdById: createdById }),
+      leadTemplateId: formData.leadTemplateId,
+      title: formData.title || formData.projectName,
+      statusId: formData.statusId,
+      // Comment: Removed projectAreas from additionalDetails - moved to separate commercials array
+      // projectAreas: (formData.projectAreas || formData.additionalDetails?.projectAreas || [])?.map((area: any, index: number) => {
+      //     // Include additional details ID for upsert operations in edit mode
+      //     const additionalDetailsId = isEditMode && currLeadData?.additionalDetails?.[index]?.id 
+      //       ? currLeadData.additionalDetails[index].id 
+      //       : undefined;
+      //     
+      //     return {
+      //         ...(additionalDetailsId && { id: additionalDetailsId }),
+      //         projectArea: Number(area.projectArea),
+      //         costType: area.costType,
+      //         rate: Number(area.rate),
+      //         cost: area.cost
+      //     };
+      // }) || [],
+
+      // Added: Commercials array for new LeadCommercial table
+      commercials: (formData.projectAreas || [])?.filter((area: any) =>
+        // Include areas that have meaningful data (area, rate, or cost) or an explicit label
+        area.projectArea || area.rate || area.cost || (area.label && area.label.trim())
+      ).map((area: any) => ({
+        ...(isEditMode && area.id && { id: area.id }), // Include ID for edit mode
+        label: area.label ? area.label.trim() : '', // Allow empty labels
+        area: area.projectArea ? Number(area.projectArea) : null,
+        costType: area.costType === "1" ? "RATE" : area.costType === "2" ? "LUMPSUM" : area.costType || "RATE",
+        rate: area.rate ? Number(area.rate) : null,
+        cost: area.cost ? Number(area.cost) : null
+      })) || [],
+      // Handle multi-select arrays (always include arrays, even if empty, to ensure proper clearing)
+      ...(formData?.serviceIds && Array.isArray(formData.serviceIds)
+        ? { serviceIds: formData.serviceIds }
+        : formData?.service
           ? { projectServiceId: formData?.service }
           : {}),
-        ...(formData?.categoryIds && Array.isArray(formData.categoryIds)
-          ? { categoryIds: formData.categoryIds }
-          : formData?.category 
+      ...(formData?.categoryIds && Array.isArray(formData.categoryIds)
+        ? { categoryIds: formData.categoryIds }
+        : formData?.category
           ? { projectCategoryId: formData?.category }
           : {}),
-        ...(formData?.subcategoryIds && Array.isArray(formData.subcategoryIds)
-          ? { subcategoryIds: formData.subcategoryIds }
-          : formData?.subCategory 
+      ...(formData?.subcategoryIds && Array.isArray(formData.subcategoryIds)
+        ? { subcategoryIds: formData.subcategoryIds }
+        : formData?.subCategory
           ? { projectSubCategoryId: formData?.subCategory }
           : {}),
-        
-        // Keep existing fields for backward compatibility
-        ...(formData?.contactPersonId && { contactId: formData?.contactPersonId }),
-        ...(formData?.startDate && { startDate: formData?.startDate }),
-        ...(formData?.endDate && { endDate: formData?.endDate }),
-        ...(formData?.leadInquiryDate && { inquiryDate: formData?.leadInquiryDate }),
-        ...(formData?.subCompanyId && { subCompanyId: formData?.subCompanyId }),
-        ...(formData?.branchId && { leadBranchMapping: { branchId: formData?.branchId } }),
-        ...(formData?.leadDirectSource && { leadDirectSourceId: formData?.leadDirectSource }),
-        additionalDetails: {
+      ...(formData?.cancellationReasonId && { cancellationReasonId: formData?.cancellationReasonId }), //new
+      ...(formData?.handledBy && { handledBy: formData?.handledBy }), //new
+      // handledByEntries: map and include all entries
+      handledByEntries: (formData?.handledByEntries || [])
+        .filter((entry: any) => entry.employeeId)
+        .map((entry: any) => ({
+          employeeId: entry.employeeId,
+          handledDate: entry.handledDate || new Date().toISOString().split('T')[0],
+          handledOutDate: entry.handledOutDate || null,
+        })),
+
+      // Keep existing fields for backward compatibility
+      ...(formData?.contactPersonId && { contactId: formData?.contactPersonId }),
+      ...(formData?.startDate && { startDate: formData?.startDate }),
+      ...(formData?.endDate && { endDate: formData?.endDate }),
+      ...(formData?.leadInquiryDate && { inquiryDate: formData?.leadInquiryDate }),
+      ...(formData?.subCompanyId && { subCompanyId: formData?.subCompanyId }),
+      ...(formData?.branchId && { leadBranchMapping: { branchId: formData?.branchId } }),
+      ...(formData?.leadDirectSource && { leadDirectSourceId: formData?.leadDirectSource }),
+      additionalDetails: {
         ...additionalDetails,
+        // Always carry flat Formik values into additionalDetails for backend persistence
+        poNumber: formData.poNumber || null,
+        poDate: (() => {
+          const d = formData.poDate;
+          if (!d) return null;
+          const parsed = new Date(d);
+          return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+        })(),
         // Comment: Removed projectAreas - now handled by separate commercials array
         // projectAreas: formData?.projectAreas || [],
         ...(mappedAddresses && mappedAddresses.length > 0 ? mappedAddresses[0] : {}), // Single address object for one-to-one relationship
-        },
-        // Also include addresses array for backend compatibility
-        addresses: mappedAddresses || [],
-        referrals: mappedReferrals?.filter((ref: any) => 
-            ref.leadReferralTypeId || ref.companyId || ref.contactId || ref.referredByEmployeeId
-        ) || [],
-        // Added: Include leadTeams in the payload
-        leadTeams: mappedLeadTeams || []
+        // Project Detail fields
+        ...(formData.plotArea !== undefined && { plotArea: formData.plotArea }),
+        ...(formData.plotAreaUnit !== undefined && { plotAreaUnit: formData.plotAreaUnit }),
+        ...(formData.builtUpArea !== undefined && { builtUpArea: formData.builtUpArea }),
+        ...(formData.builtUpAreaUnit !== undefined && { builtUpAreaUnit: formData.builtUpAreaUnit }),
+        ...(formData.buildingDetail !== undefined && { buildingDetail: formData.buildingDetail }),
+        ...(formData.otherPoint1Heading !== undefined && { otherPoint1Heading: formData.otherPoint1Heading }),
+        ...(formData.otherPoint1Description !== undefined && { otherPoint1Description: formData.otherPoint1Description }),
+        ...(formData.otherPoint2Heading !== undefined && { otherPoint2Heading: formData.otherPoint2Heading }),
+        ...(formData.otherPoint2Description !== undefined && { otherPoint2Description: formData.otherPoint2Description }),
+        ...(formData.otherPoint3Heading !== undefined && { otherPoint3Heading: formData.otherPoint3Heading }),
+        ...(formData.otherPoint3Description !== undefined && { otherPoint3Description: formData.otherPoint3Description }),
+      },
+      // Also include addresses array for backend compatibility
+      addresses: mappedAddresses || [],
+      referrals: mappedReferrals?.filter((ref: any) =>
+        ref.leadReferralTypeId || ref.companyId || ref.contactId || ref.referredByEmployeeId
+      ) || [],
+      // Added: Include leadTeams in the payload
+      leadTeams: mappedLeadTeams || []
     }
     // Remove unnecessary fields
     delete finalData.category;
@@ -1840,39 +1956,47 @@ const LeadFormModal = ({
     delete finalData.addressCitiesOptions;
     delete finalData.addressStateSelections;
     delete finalData.addressCitySelections;
-    delete finalData.addresses;  
+    delete finalData.addresses;
+    // poNumber/poDate are now inside additionalDetails — remove from root to avoid confusion
+    delete finalData.poNumber;
+    delete finalData.poDate;
     delete finalData?.projectArea;
     delete finalData?.companyTypeId;
     delete finalData?.companyId;
     delete finalData.googleMapLink;
     delete finalData.googleMyBusinessLink;
-    
-    if(finalData?.useCalculatedAmount === false || finalData?.useCalculatedAmount === true) {
+    // delete finalData.cancellationReasonId; //new
+    // delete finalData.handledBy; // This will be handled before the delete //new
+    // delete finalData.fileLocationCompanyType;//new
+    // delete finalData.fileLocationCompany; //new
+
+    if (finalData?.useCalculatedAmount === false || finalData?.useCalculatedAmount === true) {
       delete finalData.useCalculatedAmount;
     }
     // console.log('Form data:', finalData);
     const finalCleanPayload = Object.keys(finalData).reduce((acc, key) => {
       const value = finalData[key];
-      
+
       // Special handling for fields that should be included even if empty to allow clearing
-      if (key === "documents" || key === "description" || key === "fileLocation") {
-        acc[key] = value || ""; // Ensure it's included even if empty string
+      if (key === "documents" || key === "description" || key === "fileLocation"
+        || key === "cancellationReasonId" || key === "handledBy"
+        || key === "fileLocationCompanyType" || key === "fileLocationCompany"
+        || key === "handledByEntries" || key === "poStatus" || key === "poFile") {
+        acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
-        // For all other fields, only include if they have a value
         acc[key] = value;
       }
       return acc;
     }, {} as any);
-     
-    if(finalCleanPayload?.projectAreas){
+
+    if (finalCleanPayload?.projectAreas) {
       delete finalCleanPayload?.projectAreas;
     }
-    
+
     // Add prefix to payload for backend to use
     if (prefix && prefix.trim()) {
       finalCleanPayload.prefix = prefix.trim();
     }
-    
     try {
       if (isEditMode) {
         finalCleanPayload.id = initialFormData.id;
@@ -1880,9 +2004,9 @@ const LeadFormModal = ({
           finalCleanPayload.updatedById = employeeId;
         }
         const result = await customConfirmation()
-                  
-        if(result){
-          finalCleanPayload.revisionCount = Number(currLeadData?.revisionCount  || 0 )+ 1;
+
+        if (result) {
+          finalCleanPayload.revisionCount = Number(currLeadData?.revisionCount || 0) + 1;
         }
 
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload)
@@ -1912,11 +2036,12 @@ const LeadFormModal = ({
     // You can then send it to your API or process it as needed
   };
   const addReferral = () => {
-    setReferrals([...referrals, { 
-      id: Date.now().toString(), 
-      referralType: '', 
-      referringCompany: '', 
-      referringSubCompany: '', 
+    setReferrals([...referrals, {
+      id: Date.now().toString(),
+      referralType: '',
+      referringCompanyType: '',
+      referringCompany: '',
+      referringSubCompany: '',
       referringContact: '',
       referredByEmployeeId: '', // Added: For internal referrals
       companyName: '' // Added: For internal referrals
@@ -1976,16 +2101,16 @@ const LeadFormModal = ({
               {title}
             </Typography>
             <div className='d-flex flex-row align-items-center justify-content-between mx-5'>
-              <PrefixInlineEdit
+              {/* <PrefixInlineEdit
                 value={prefix}
                 label="INQUIRY NO."
                 onChange={setPrefix}
                 disabled={false}
-              />
+              /> */}
               {isEditMode && currLeadData?.revisionCount !== undefined && (
                 <div className='d-flex flex-column align-items-end mx-5'>
-                  <span style={{fontSize: "14px", fontFamily:"Inter",color:"#798DB3"}}>{prefix && `Rev No.`}</span>
-                  <span style={{fontSize: "14px", fontFamily:"Inter",color:"#00000"}}>{prefix && `${currLeadData?.revisionCount || 0}`}</span>
+                  <span style={{ fontSize: "14px", fontFamily: "Inter", color: "#798DB3" }}>{prefix && `Rev No.`}</span>
+                  <span style={{ fontSize: "14px", fontFamily: "Inter", color: "#00000" }}>{prefix && `${currLeadData?.revisionCount || 0}`}</span>
                 </div>
               )}
             </div>
@@ -2001,7 +2126,6 @@ const LeadFormModal = ({
             >
               {(formikProps) => {
                 const { values, setFieldValue, errors, touched, isSubmitting, validateForm } = formikProps;
-                
                 useEffect(() => {
                   if (leadTemplateId === leadAndProjectTemplateTypeId.mep && useCalculatedAmount) {
                     const cost = Number(values.rate || 0) * Number(values.projectArea || 0);
@@ -2012,7 +2136,7 @@ const LeadFormModal = ({
                 // Set default direct source when leadSource is DIRECT
                 useEffect(() => {
                   if (values.leadSourceType === 'DIRECT' && leadDirectSources.length > 0 && !values.leadDirectSource) {
-                    const defaultDirectSource = leadDirectSources.find(source => 
+                    const defaultDirectSource = leadDirectSources.find(source =>
                       source.name?.toLowerCase() === 'direct'
                     );
                     if (defaultDirectSource && defaultDirectSource.id !== values.leadDirectSource) {
@@ -2032,6 +2156,34 @@ const LeadFormModal = ({
                     }
                   }
                 }, [leadStatuses, values.statusId, setFieldValue]);
+
+                // Auto-add a default handledBy entry when status becomes "Received"
+                useEffect(() => {
+                  if (!values.statusId) return;
+                  const selectedStatus = leadStatuses.find((s: any) => s.id === values.statusId);
+                  const isReceived = selectedStatus?.name?.toLowerCase().trim() === 'received';
+                  if (isReceived && (!values.handledByEntries || values.handledByEntries.length === 0)) {
+                    const today = values.leadInquiryDate || new Date().toISOString().split('T')[0];
+                    setFieldValue('handledByEntries', [{
+                      id: Date.now().toString(),
+                      employeeId: '',
+                      handledDate: today,
+                      handledOutDate: '',
+                    }]);
+                  }
+                  // Clear handledByEntries when status is no longer Received
+                  if (!isReceived && values.handledByEntries && values.handledByEntries.length > 0) {
+                    setFieldValue('handledByEntries', []);
+                  }
+                  // Clear poStatus, poNumber, poDate, poFile when status is no longer Received
+                  if (!isReceived && values.poStatus) {
+                    setFieldValue('poStatus', 'Pending');
+                    setFieldValue('poNumber', '');
+                    setFieldValue('poDate', '');
+                    setFieldValue('poFile', '');
+                  }
+                }, [values.statusId, leadStatuses]);
+
                 return (
                   <FormikForm placeholder={""}>
                     {/* Project Details Section */}
@@ -2059,21 +2211,68 @@ const LeadFormModal = ({
                         </legend>
 
                         <Grid container spacing={1} className='card-body  p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                          {/* Row 1: Lead Inquiry Date, Assigned To, Lead Source */}
                           <Grid item xs={12} md={6}>
-                            <TextInput formikField='projectName' label='Lead Name' isRequired={true} />
-                          </Grid>
+                            {/* Top Label (same pattern as Lead Inquiry Date) */}
+                            <Typography
+                              sx={{
+                                mb: 0.8,
+                                fontSize: "14px",
+                                fontFamily: "Inter",
+                                fontWeight: 500,
+                                color: "black",
+                              }}
+                            >
+                              Inquiry No.
+                            </Typography>
 
-                          <Grid item xs={12} md={6}>
-                            {/* Added: File Location field for lead documents/attachments */}
-                            <TextInput 
-                              formikField='fileLocation' 
-                              label='File Location' 
-                              isRequired={false}
-                              placeholder='Enter file location or path (max 250 characters)'
-                            />
-                          </Grid>
+                            {/* Input Box */}
+                            <Box
+                              sx={{
+                                border: "1px solid #D0D5DD",
+                                borderRadius: "5px",
+                                px: 2,
+                                py: 1.6,
+                                height: "45px", // match MUI input height
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                "&:hover": {
+                                  borderColor: "black",
+                                },
+                              }}
+                            >
+                              <PrefixInlineEdit
+                                value={prefix}
+                                label="" // remove internal label
+                                onChange={setPrefix}
+                                disabled={false}
+                              />
 
+                              {isEditMode && currLeadData?.revisionCount !== undefined && (
+                                <Box className="d-flex flex-column align-items-end">
+                                  {/* <Typography
+          sx={{
+            fontSize: "12px",
+            color: "#798DB3",
+            lineHeight: 1,
+          }}
+        >
+          Rev No.
+        </Typography>
+
+        <Typography
+          sx={{
+            fontSize: "14px",
+            fontWeight: 500,
+            lineHeight: 1.4,
+          }}
+        >
+          {currLeadData?.revisionCount || 0}
+        </Typography> */}
+                                </Box>
+                              )}
+                            </Box>
+                          </Grid>
                           <Grid item xs={12} md={6}>
                             {/* <TextInput
                             formikField='leadInquiryDate'
@@ -2089,6 +2288,11 @@ const LeadFormModal = ({
                             />
                           </Grid>
 
+                          {/* Row 1: Lead Inquiry Date, Assigned To, Lead Source */}
+                          <Grid item xs={12} md={15}>
+                            <TextInput formikField='projectName' label='Lead Name' isRequired={true} />
+                          </Grid>
+
                           {/* <Grid item xs={12} md={6}>
                             <FormikDropdownInput
                               formikField="statusId"
@@ -2098,23 +2302,6 @@ const LeadFormModal = ({
                               placeholder="Select status"
                             />
                           </Grid> */}
-
-                          <Grid item xs={12} md={6}>
-                            <DropDownInput
-                              formikField='leadAssignedTo'
-                              inputLabel='Lead Assigned To'
-                              isRequired={false}
-                              options={allEmployees?.list?.map((item: any) => ({
-                                value: item.employeeId,
-                                label: item.employeeName,
-                                avatar: item.avatar,
-                              })) || []}
-                              showColor={true}
-                              // value={values.leadAssignedTo}
-                              placeholder='Select employee'
-                            />
-
-                          </Grid>
 
                           <Grid item xs={12} md={4}>
                             <MultiSelectWithInlineCreate
@@ -2132,7 +2319,7 @@ const LeadFormModal = ({
                             />
                           </Grid>
 
-                           <Grid item xs={12} md={4}>
+                          <Grid item xs={12} md={4}>
                             <MultiSelectWithInlineCreate
                               formikField="categoryIds"
                               inputLabel="Lead Categories"
@@ -2159,11 +2346,11 @@ const LeadFormModal = ({
                                 // For subcategories, we need to pass the first selected category
                                 const categoryIds = values.categoryIds || [];
                                 const firstCategoryId = categoryIds.length > 0 ? categoryIds[0] : undefined;
-                                
+
                                 if (!firstCategoryId) {
                                   throw new Error('Please select a category first before creating a subcategory');
                                 }
-                                
+
                                 return createNewSubcategory(name, firstCategoryId);
                               }}
                               onRefreshOptions={fetchProjectSubcategories}
@@ -2173,276 +2360,18 @@ const LeadFormModal = ({
                               createFieldPlaceholder="Enter subcategory name..."
                             />
                           </Grid>
-                          
+                          <h5 style={{ color: "#9D4141", marginTop: "8px" }}>
+                            Note: You can add more then one categories
+                          </h5>
                         </Grid>
-
                         {/* Warning message for missing default status */}
-                       
+
                       </fieldset>
 
-                      {leadTemplateId === leadAndProjectTemplateTypeId.mep && (
-                        <fieldset style={{ borderTop: '1px solid #9D4141', padding: '14px' }} className='mt-7'>
-                          <legend style={{
-                            fontSize: '17px',
-                            fontWeight: 600,
-                            fontFamily: 'Inter',
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px"
-                          }}>
-                            <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                            COMMERCIALS
-                          </legend>
-                          <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                            {/* Show message when no project areas exist */}
-                            {(!values.projectAreas || values.projectAreas.length === 0) && (
-                              <Grid item xs={12}>
-                                <Box sx={{ 
-                                  textAlign: 'center', 
-                                  py: 3, 
-                                  color: '#666',
-                                  fontStyle: 'italic'
-                                }}>
-                                  No project areas added yet. Click "Add New Project Area" to get started.
-                                </Box>
-                              </Grid>
-                            )}
-                            
-                            {(values.projectAreas || []).map((area: any, index: number) => (
-                              <Grid container spacing={1} key={area.id || index} sx={{ position: 'relative', mb: 4 }}>
-                                <Box sx={{ 
-                                  width: '100%', 
-                                  display: 'flex', 
-                                  justifyContent: 'space-between', 
-                                  alignItems: 'center',
-                                  mb: 2,
-                                  px: 2
-                                }}>
-                                  <Typography style={{
-                                    color:"#798DB3",
-                                    fontSize: "14px",
-                                    fontFamily:"Inter"
-                                  }}>Project Area {index + 1}</Typography>
-                                  {(values.projectAreas || []).length > 1 && (
-                                    <IconButton
-                                      onClick={() => {
-                                        const newAreas = values.projectAreas.filter((_: any, i: number) => i !== index);
-                                        // Note: Removed address manipulation - addresses should remain independent
-                                        setFieldValue('projectAreas', newAreas);
-                                      }}
-                                      sx={{ color: '#d32f2f' }}
-                                      title="Remove this project area"
-                                    >
-                                      <Close />
-                                    </IconButton>
-                                  )}
-                                  {(values.projectAreas || []).length === 1 && (
-                                    <IconButton
-                                      onClick={() => {
-                                        // Allow removing the last project area - but keep addresses intact
-                                        setFieldValue('projectAreas', []);
-                                        // Note: Addresses remain untouched as they are independent of project areas
-                                      }}
-                                      sx={{ color: '#d32f2f' }}
-                                      title="Remove all project areas"
-                                    >
-                                      <Close />
-                                    </IconButton>
-                                  )}
-                                </Box>
-
-                                <Grid item xs={12} md={3}>
-                                  <TextInput 
-                                    formikField={`projectAreas.${index}.label`}
-                                    label="Label"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                
-                                <Grid item xs={12} md={values.projectAreas[index].costType === "2" ? 3 : 2}>
-                                  <EnhancedDecimalInput 
-                                    formikField={`projectAreas.${index}.projectArea`}
-                                    label="Area (sqft)"
-                                    onCalculatedCost={(area) => {
-                                      // If cost type is Rate, calculate total cost and validate it
-                                      if (values.projectAreas[index].costType === "1") {
-                                        const rate = parseFloat(values.projectAreas[index].rate) || 0;
-                                        const totalCost = area * rate;
-                                        const roundedCost = parseFloat(totalCost.toFixed(4));
-                                        setFieldValue(`projectAreas.${index}.cost`, roundedCost.toString());
-                                        
-                                        // Validate calculated cost using Formik's setFieldError
-                                        if (roundedCost > 10000000000) {
-                                          formikProps.setFieldError(`projectAreas.${index}.cost`, 'Calculated cost exceeds 100 Crores limit');
-                                        } else {
-                                          formikProps.setFieldError(`projectAreas.${index}.cost`, '');
-                                        }
-                                      }
-                                    }}
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={values.projectAreas[index].costType === "2" ? 3 : 2}>
-                                  <DropDownInput
-                                    formikField={`projectAreas.${index}.costType`}
-                                    inputLabel="Cost Type"
-                                    isRequired={false}
-                                    options={[{value: "1", label: "Rate"},{value: "2", label: "Lumpsum"}]}
-                                    onChange={(val: any)=>{
-                                      setFieldValue(`projectAreas.${index}.costType`, val?.value);
-                                      
-                                      if (val?.value === "1") {
-                                        // If switching to Rate, calculate cost based on current area and rate
-                                        const area = parseFloat(values.projectAreas[index].projectArea) || 0;
-                                        const rate = parseFloat(values.projectAreas[index].rate) || 0;
-                                        const totalCost = area * rate;
-                                        const roundedCost = parseFloat(totalCost.toFixed(4));
-                                        setFieldValue(`projectAreas.${index}.cost`, roundedCost.toString());
-                                      } else if (val?.value === "2") {
-                                        // If switching to Lumpsum, set rate to 0 (hidden field) and clear cost
-                                        setFieldValue(`projectAreas.${index}.rate`, 0);
-                                        setFieldValue(`projectAreas.${index}.cost`, '');
-                                      }
-                                    }}
-                                  />
-                                </Grid>
-                                
-                                {values.projectAreas[index].costType !== "2" && (
-                                  <Grid item xs={12} md={2}>
-                                    <EnhancedDecimalInput 
-                                      formikField={`projectAreas.${index}.rate`}
-                                      label="Rate"
-                                      onCalculatedCost={(rate) => {
-                                        // If cost type is Rate, calculate total cost and validate it
-                                        if (values.projectAreas[index].costType === "1") {
-                                          const area = parseFloat(values.projectAreas[index].projectArea) || 0;
-                                          const totalCost = area * rate;
-                                          const roundedCost = parseFloat(totalCost.toFixed(4));
-                                          setFieldValue(`projectAreas.${index}.cost`, roundedCost.toString());
-                                          
-                                          // Validate calculated cost using Formik's setFieldError
-                                          if (roundedCost > 10000000000) {
-                                            formikProps.setFieldError(`projectAreas.${index}.cost`, 'Calculated cost exceeds 100 Crores limit');
-                                          } else {
-                                            formikProps.setFieldError(`projectAreas.${index}.cost`, '');
-                                          }
-                                        }
-                                      }}
-                                    />
-                                  </Grid>
-                                )}
-                                
-                                <Grid item xs={12} md={values.projectAreas[index].costType === "2" ? 3 : 2}>
-                                  <EnhancedDecimalInput 
-                                    formikField={`projectAreas.${index}.cost`}
-                                    label="Cost"
-                                    isReadonly={values.projectAreas[index].costType === "1"}
-                                  />
-                                </Grid>
-                              </Grid>
-                            ))}
-                            
-                            {/* Total Cost Display */}
-                            {values.projectAreas && values.projectAreas.length > 0 && (
-                              <Grid item xs={12}>
-                                <div className="d-flex justify-content-end align-items-center mt-4 mb-3">
-                                  <span style={{
-                                    fontFamily: 'Inter',
-                                    fontSize: '14px',
-                                    fontWeight: '400',
-                                    color: '#666666',
-                                    marginRight: '8px'
-                                  }}>
-                                    Total Cost:
-                                  </span>
-                                  <span style={{
-                                    fontFamily: 'Inter',
-                                    fontSize: '16px',
-                                    fontWeight: '600',
-                                    color: 'black'
-                                  }}>
-                                    ₹ {(values.projectAreas || [])
-                                      .reduce((total: any, area: any) => {
-                                        const cost = parseFloat(area.cost) || 0;
-                                        return total + cost;
-                                      }, 0)
-                                      .toLocaleString('en-IN', { 
-                                        minimumFractionDigits: 2, 
-                                        maximumFractionDigits: 4
-                                      })
-                                    }
-                                  </span>
-                                </div>
-                              </Grid>
-                            )}
-                            
-                            {/* Add New Project Area Button */}
-                            <Grid item xs={12}>
-                              <div
-                                onClick={() => {
-                                  const projectAreas = values.projectAreas || [];
-                                  const addresses = values.addresses || [];
-                                  
-                                  // Add new project area with unique ID for tracking
-                                  const newProjectArea = {
-                                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // Unique ID for new items
-                                    label: '',
-                                    projectArea: '',
-                                    costType: '1', // Default to Rate type
-                                    rate: '',
-                                    cost: ''
-                                  };
-                                  
-                                  const newAddress = {
-                                    projectAddress: '',
-                                    zipCode: '',
-                                    mapLocation: '',
-                                    latitude: '',
-                                    longitude: '',
-                                    country: '',
-                                    state: '',
-                                    city: '',
-                                    locality: '',
-                                    googleMapLink: '',
-                                    googleMyBusinessLink: '',
-                                    isDefault: false
-                                  };
-                                  
-                                  setFieldValue('projectAreas', [...projectAreas, newProjectArea]);
-                                  setFieldValue('addresses', [...addresses, newAddress]);
-                                }}
-                                style={{
-                                  marginTop: "10px",
-                                  width: "100%",
-                                  padding: "10px 0px",
-                                  borderStyle: 'dotted',
-                                  borderColor: '#DBB3B3',
-                                  borderWidth: '1px',
-                                  borderRadius: '12px',
-                                  color: "#9D4141",
-                                  cursor: "pointer"
-                                }}
-                                className='justify-content-center align-items-center d-flex text-center'
-                              >
-                                Add New Project Area
-                              </div>
-                            </Grid>
-                          </Grid>
-                        </fieldset>
-                      )}
-
-                      {/* Client Details Section - Multiple Teams */}
-                      <fieldset style={{ borderTop: '1px solid #9D4141', padding: '14px' }} className='mt-7'>
+                      <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
                         <legend style={{
                           fontSize: '17px',
-                          fontWeight: 500,
+                          fontWeight: 600,
                           fontFamily: 'Inter',
                           marginTop: "-25px",
                           marginLeft: "-17px",
@@ -2457,252 +2386,319 @@ const LeadFormModal = ({
                           gap: "8px"
                         }}>
                           <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                          TEAM DETAILS
+                          PROJECT DETAILS 1
                         </legend>
-                        <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                          
-                          <FieldArray name="leadTeams">
-                            {({ push, remove }) => (
-                              <>
-                                {/* Show message when no teams exist */}
-                                {(!values.leadTeams || values.leadTeams.length === 0) && (
-                                  <Grid item xs={12}>
-                                    <Box sx={{ 
-                                      textAlign: 'center', 
-                                      py: 3, 
-                                      color: '#666',
-                                      fontStyle: 'italic'
-                                    }}>
-                                      No teams added yet. Click "Add Another Team" to get started.
-                                    </Box>
-                                  </Grid>
-                                )}
-                                
-                                {values.leadTeams && values.leadTeams.map((team: any, index: number) => (
-                                  <Grid container spacing={1} key={team.id || index} sx={{ position: 'relative', mb: 3 }}>
-                                    <Box sx={{ 
-                                      width: '100%', 
-                                      display: 'flex', 
-                                      justifyContent: 'space-between', 
-                                      alignItems: 'center',
-                                      mb: 2,
-                                      px: 2
-                                    }}>
-                                      <Typography style={{
-                                        color:"#798DB3",
-                                        fontSize: "14px",
-                                        fontFamily:"Inter"
-                                      }}>Team {index + 1}</Typography>
-                                      {(values.leadTeams || []).length > 1 && (
-                                        <IconButton
-                                          onClick={() => remove(index)}
-                                          sx={{ color: '#d32f2f' }}
-                                          title="Remove this team"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
-                                      {(values.leadTeams || []).length === 1 && (
-                                        <IconButton
-                                          onClick={() => {
-                                            // Allow removing the last team - set to empty array
-                                            setFieldValue('leadTeams', []);
-                                          }}
-                                          sx={{ color: '#d32f2f' }}
-                                          title="Remove all teams"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
-                                    </Box>
 
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.companyTypeId`}
-                                        inputLabel="Company Type"
-                                        isRequired={false}
-                                        onChange={(val: any) => {
-                                          const newCompanyTypeId = val?.value || "";
-                                          setFieldValue(`leadTeams.${index}.companyTypeId`, newCompanyTypeId);
-                                          
-                                          // Only clear dependent fields if the company type actually changed
-                                          if (team.companyTypeId !== newCompanyTypeId) {
-                                            setFieldValue(`leadTeams.${index}.companyId`, "");
-                                            setFieldValue(`leadTeams.${index}.subCompanyId`, "");
-                                            setFieldValue(`leadTeams.${index}.contactId`, "");
-                                          }
-                                        }}
-                                        options={allCompanyTypes.map((c:any) => ({ value: c.id, label: c.name }))}
+                        <Grid container spacing={2} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                          {/* Row 1: Plot Area + Unit | Built-Up Area + Unit */}
+                          <Grid item xs={12} md={6}>
+                            <div className="d-flex flex-column fv-row">
+                              <div className="d-flex" style={{ gap: '8px', marginBottom: '8px' }}>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ flex: 1 }}>
+                                  <span>Plot Area</span>
+                                </label>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ width: '140px' }}>
+                                  <span>Unit</span>
+                                </label>
+                              </div>
+                              <div className="d-flex" style={{ gap: '8px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                  <Field name="plotArea">
+                                    {({ field }: { field: any }) => (
+                                      <input
+                                        {...field}
+                                        type="text"
+                                        className="employee__form_wizard__input form-control"
+                                        placeholder="Enter Plot Area"
                                       />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowCompanyTypeModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
+                                    )}
+                                  </Field>
+                                </div>
+                                <div style={{ width: '140px' }}>
+                                  <DropDownInput
+                                    formikField="plotAreaUnit"
+                                    inputLabel=""
+                                    isRequired={false}
+                                    options={[
+                                      { value: 'sqft', label: 'sqft' },
+                                      { value: 'sqm', label: 'sqm' },
+                                      { value: 'acre', label: 'acre' },
+                                    ]}
+                                    placeholder="Unit"
+                                  />
+                                </div>
+                              </div>
+                              <HighlightErrors isRequired={false} formikField="plotArea" />
+                            </div>
+                          </Grid>
 
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.companyId`}
-                                        inputLabel="Company"
-                                        isRequired={false}
-                                        disabled={!team.companyTypeId}
-                                        options={companies
-                                          ?.filter(c => c.companyTypeId === team.companyTypeId)
-                                          ?.map(c => ({ value: c.id, label: c.companyName })) || []}
-                                        onChange={(val: any) => {
-                                          const companyId = val?.value || "";
-                                          setFieldValue(`leadTeams.${index}.companyId`, companyId);
-                                          
-                                          // Only clear dependent fields if the company actually changed
-                                          if (team.companyId !== companyId) {
-                                            setFieldValue(`leadTeams.${index}.subCompanyId`, "");
-                                            setFieldValue(`leadTeams.${index}.contactId`, "");
-                                          }
-                                          
-                                          // Fetch contacts for the selected company
-                                          if (companyId) {
-                                            fetchContactsByCompanyId(companyId, index);
-                                          } else {
-                                            // Clear contacts if no company selected
-                                            setTeamFilteredContacts(prev => ({ ...prev, [index]: [] }));
-                                          }
-                                        }}
+                          <Grid item xs={12} md={6}>
+                            <div className="d-flex flex-column fv-row">
+                              <div className="d-flex" style={{ gap: '8px', marginBottom: '8px' }}>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ flex: 1 }}>
+                                  <span>Built-Up Area</span>
+                                </label>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ width: '140px' }}>
+                                  <span>Unit</span>
+                                </label>
+                              </div>
+                              <div className="d-flex" style={{ gap: '8px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                  <Field name="builtUpArea">
+                                    {({ field }: { field: any }) => (
+                                      <input
+                                        {...field}
+                                        type="text"
+                                        className="employee__form_wizard__input form-control"
+                                        placeholder="Enter Built-Up Area"
                                       />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowCompanyModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
+                                    )}
+                                  </Field>
+                                </div>
+                                <div style={{ width: '140px' }}>
+                                  <DropDownInput
+                                    formikField="builtUpAreaUnit"
+                                    inputLabel=""
+                                    isRequired={false}
+                                    options={[
+                                      { value: 'sqft', label: 'sqft' },
+                                      { value: 'sqm', label: 'sqm' },
+                                      { value: 'acre', label: 'acre' },
+                                    ]}
+                                    placeholder="Unit"
+                                  />
+                                </div>
+                              </div>
+                              <HighlightErrors isRequired={false} formikField="builtUpArea" />
+                            </div>
+                          </Grid>
 
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.subCompanyId`}
-                                        inputLabel="Sub Company"
-                                        isRequired={false}
-                                        disabled={!team.companyId}
-                                        options={(() => {
-                                          const selectedCompany = companies?.find(c => c.id === team.companyId);
-                                          return selectedCompany?.subCompanies?.map((c:any) => ({ 
-                                            value: c.id, 
-                                            label: c.subCompanyName 
-                                          })) || [];
-                                        })()}
-                                        onChange={(val: any) => {
-                                          setFieldValue(`leadTeams.${index}.subCompanyId`, val?.value || "");
-                                        }}
-                                      />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowSubCompanyModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
+                          {/* Row 2: Building Detail (full width) */}
+                          <Grid item xs={12}>
+                            <TextInput formikField='buildingDetail' label='Building Detail' isRequired={false} />
+                          </Grid>
 
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.contactId`}
-                                        inputLabel="Contact Person"
-                                        isRequired={false}
-                                        disabled={!team.companyId}
-                                        options={(teamFilteredContacts[index] || []).map((contact) => ({
-                                          value: contact.id,
-                                          label: contact.fullName,
-                                          avatar: contact.profilePhoto
-                                        }))}
-                                        showColor={true}
-                                        onChange={(val: any) => {
-                                          setFieldValue(`leadTeams.${index}.contactId`, val?.value || "");
-                                        }}
-                                      />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowContactModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
-                                  </Grid>
-                                ))}
-                                
-                                {/* Add Another Team Button */}
-                                <Grid item xs={12}>
-                                  <div
-                                    onClick={() => push({ 
-                                      id: Date.now().toString(), 
-                                      companyTypeId: '', 
-                                      companyId: '', 
-                                      subCompanyId: '', 
-                                      contactId: '' 
-                                    })}
-                                    style={{
-                                      marginTop: "10px",
-                                      width: "100%",
-                                      padding: "10px 0px",
-                                      borderStyle: 'dotted',
-                                      borderColor: '#DBB3B3',
-                                      borderWidth: '1px',
-                                      borderRadius: '12px',
-                                      color: "#9D4141",
-                                      cursor: "pointer"
-                                    }}
-                                    className='justify-content-center align-items-center d-flex text-center'
-                                  >
-                                    Add Another Team
-                                  </div>
-                                </Grid>
-                              </>
-                            )}
-                          </FieldArray>
-                          
+                          {/* Other Points header */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-center" style={{ gap: '8px', marginBottom: '4px' }}>
+                              <div style={{ width: '110px', fontWeight: 500, fontSize: '13px', color: '#555', fontFamily: 'Inter' }}></div>
+                              <div style={{ flex: 1, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Heading</div>
+                              <div style={{ flex: 2, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Description</div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 1 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 1
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint1Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint1Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 2 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 2
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint2Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint2Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 3 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 3
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint3Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint3Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
                         </Grid>
+                      </fieldset>
 
-                        {/* Single Team (Legacy - Commented for backward compatibility) */}
-                        {/* 
+                      <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
+                        <legend style={{
+                          fontSize: '17px',
+                          fontWeight: 600,
+                          fontFamily: 'Inter',
+                          marginTop: "-25px",
+                          marginLeft: "-17px",
+                          backgroundColor: "#F3F4F7",
+                          width: "auto",
+                          lineHeight: "1",
+                          letterSpacing: 0,
+                          color: "#9D4141",
+                          padding: "2px 2px 8px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                          LEAD ASSIGNED
+                        </legend>
+
                         <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                          <Grid item xs={12} md={4} lg={3}>
+                          <Grid item xs={12} md={6}>
                             <DropDownInput
-                              formikField="companyTypeId"
-                              inputLabel="Company Type"
+                              formikField='leadAssignedTo'
+                              inputLabel='Lead Assigned To'
                               isRequired={false}
-                              options={allCompanyTypes.map((c:any) => ({ value: c.id, label: c.name }))}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="companyId"
-                              inputLabel="Company"
-                              isRequired={false}
-                              options={filteredCompanies.map(c => ({ value: c.id, label: c.companyName }))}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="subCompanyId"
-                              inputLabel="Sub Company"
-                              isRequired={false}
-                              options={(filteredSubCompanies || [])?.map((c:any) => ({ value: c.id, label: c.subCompanyName }))}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="contactPersonId"
-                              inputLabel="Contact Person"
-                              isRequired={false}
-                              options={contacts.map((contact) => ({ value: contact.id, label: contact.fullName }))}
+                              options={allEmployees?.list?.map((item: any) => ({
+                                value: item.employeeId,
+                                label: item.employeeName,
+                                avatar: item.avatar,
+                              })) || []}
+                              showColor={true}
+                              // value={values.leadAssignedTo}
+                              placeholder='Select employee'
                             />
                           </Grid>
                         </Grid>
-                        */}
+                      </fieldset>
 
+                      <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
+                        <legend style={{
+                          fontSize: '17px',
+                          fontWeight: 600,
+                          fontFamily: 'Inter',
+                          marginTop: "-25px",
+                          marginLeft: "-17px",
+                          backgroundColor: "#F3F4F7",
+                          width: "auto",
+                          lineHeight: "1",
+                          letterSpacing: 0,
+                          color: "#9D4141",
+                          padding: "2px 2px 8px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                          FILE LOCATION IN COMPUTER
+                        </legend>
+
+                        <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                          <Grid item xs={12} md={6}>
+                            <DropDownInput
+                              formikField='fileLocationCompanyType'
+                              inputLabel='Company Type'
+                              isRequired={false}
+                              onChange={(val: any) => {
+                                const newCompanyType = val?.value || "";
+                                setFieldValue('fileLocationCompanyType', newCompanyType);
+
+                                // Clear company when type changes
+                                if (values.fileLocationCompanyType !== newCompanyType) {
+                                  setFieldValue('fileLocationCompany', "");
+                                }
+                              }}
+                              options={allCompanyTypes.map((type: any) => ({
+                                value: type.id,
+                                label: type.name
+                              }))}
+                              placeholder='Select company type'
+                            />
+                            <small
+                              className="text-primary"
+                              onClick={() => setShowCompanyTypeModal(true)}
+                              style={{ cursor: "pointer" }}
+                            >
+                              + New
+                            </small>
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <DropDownInput
+                              formikField='fileLocationCompany'
+                              inputLabel='Company'
+                              isRequired={false}
+                              disabled={!values.fileLocationCompanyType}
+                              options={companies
+                                ?.filter((c: any) => c.companyTypeId === values.fileLocationCompanyType)
+                                ?.map((c: any) => ({ value: c.id, label: c.companyName })) || []}
+                              placeholder={!values.fileLocationCompanyType ? "Select company type first" : "Select company"}
+                            />
+                            <small
+                              className="text-primary"
+                              onClick={() => setShowCompanyModal(true)}
+                              style={{ cursor: "pointer" }}
+                            >
+                              + New
+                            </small>
+                          </Grid>
+                        </Grid>
                       </fieldset>
 
                       <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
@@ -2726,8 +2722,8 @@ const LeadFormModal = ({
                           REFERRAL DETAILS
                         </legend>
                         <Grid container spacing={1} className='card-body  p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                        {/* Lead Source dropdown - conditional sizing based on source type */}
-                        <Grid item xs={12} md={values.leadSourceType === 'DIRECT' ? 6 : 12}>
+                          {/* Lead Source dropdown - conditional sizing based on source type */}
+                          <Grid item xs={12} md={values.leadSourceType === 'DIRECT' ? 6 : 12}>
                             <DropDownInput
                               formikField="leadSourceType"
                               inputLabel="Lead Source"
@@ -2759,9 +2755,9 @@ const LeadFormModal = ({
                               {/* Show message when no referrals exist */}
                               {(!values.referrals || values.referrals.length === 0) && (
                                 <Grid item xs={12}>
-                                  <Box sx={{ 
-                                    textAlign: 'center', 
-                                    py: 3, 
+                                  <Box sx={{
+                                    textAlign: 'center',
+                                    py: 3,
                                     color: '#666',
                                     fontStyle: 'italic'
                                   }}>
@@ -2769,23 +2765,22 @@ const LeadFormModal = ({
                                   </Box>
                                 </Grid>
                               )}
-                              
                               {/* Dynamic Referral Rows */}
                               {(values.referrals || []).map((referral: any, index: any) => (
                                 <Grid container spacing={1} sx={{ margin: "auto", position: 'relative', mb: 2 }} key={referral.id}>
                                   {/* Add header with cross button for each referral */}
-                                  <Box sx={{ 
-                                    width: '100%', 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
+                                  <Box sx={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
                                     mb: 2,
                                     px: 2
                                   }}>
                                     <Typography style={{
-                                      color:"#798DB3",
+                                      color: "#798DB3",
                                       fontSize: "14px",
-                                      fontFamily:"Inter"
+                                      fontFamily: "Inter"
                                     }}>Referral {index + 1}</Typography>
                                     {(values.referrals || []).length > 1 && (
                                       <IconButton
@@ -2827,7 +2822,6 @@ const LeadFormModal = ({
                                         onChange={(val: any) => {
                                           const newReferralTypeId = val?.value || "";
                                           setFieldValue(`referrals[${index}].referralType`, newReferralTypeId);
-                                          
                                           // Only clear dependent fields if the referral type actually changed
                                           if (values.referrals[index]?.referralType !== newReferralTypeId) {
                                             // Clear all referral fields when type changes
@@ -2852,23 +2846,40 @@ const LeadFormModal = ({
                                   {isInternalReferralType(values.referrals?.[index]?.referralType) ? (
                                     <>
                                       {/* Internal Referral Fields */}
+                                      {/* Referring Company - fixed to Wisetech MEP */}
                                       <Grid item xs={12} md={3}>
                                         <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
                                           <DropDownInput
-                                            inputLabel="Internal Reference"
+                                            inputLabel="Referring Company"
+                                            placeholder="Wisetech MEP"
+                                            isRequired={false}
+                                            formikField={`referrals[${index}].referringCompany`}
+                                            disabled={true}
+                                            options={[{ value: 'wisetech-mep', label: 'Wisetech MEP' }]}
+                                            value={{ value: 'wisetech-mep', label: 'Wisetech MEP' }}
+                                          />
+                                        </Box>
+                                      </Grid>
+                                      {/* Referring Contact - all employees (same as Lead Assigned To) */}
+                                      <Grid item xs={12} md={6}>
+                                        <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
+                                          <DropDownInput
+                                            inputLabel="Referring Contact"
                                             placeholder="Select employee"
                                             isRequired={false}
                                             formikField={`referrals[${index}].referredByEmployeeId`}
-                                            options={internalEmployees.map((emp: any) => ({
-                                              value: emp.id,
-                                              label: `${emp.users?.firstName || ''} ${emp.users?.lastName || ''}`.trim() || 'Unnamed Employee',
-                                            }))}
+                                            options={allEmployees?.list?.map((item: any) => ({
+                                              value: item.employeeId,
+                                              label: item.employeeName,
+                                              avatar: item.avatar,
+                                            })) || []}
+                                            showColor={true}
                                             onChange={(value: any) => {
                                               const employeeId = value?.value || value;
                                               setFieldValue(`referrals[${index}].referredByEmployeeId`, employeeId);
-                                              // Auto-fill company name when employee is selected
+                                              // Auto-fill company name
                                               if (employeeId && companyOverview.length > 0) {
-                                                const companyName = companyOverview[0]?.name || '';
+                                                const companyName = companyOverview[0]?.name || 'Wisetech MEP';
                                                 setFieldValue(`referrals[${index}].companyName`, companyName);
                                               }
                                             }}
@@ -2876,59 +2887,82 @@ const LeadFormModal = ({
                                               values.referrals[index]?.referredByEmployeeId
                                                 ? {
                                                   value: values.referrals[index].referredByEmployeeId,
-                                                  label: internalEmployees.find((emp: any) => emp.id === values.referrals[index].referredByEmployeeId)
-                                                    ? (() => {
-                                                      const emp = internalEmployees.find((emp: any) => emp.id === values.referrals[index].referredByEmployeeId);
-                                                      return `${emp?.users?.firstName || ''} ${emp?.users?.lastName || ''}`.trim();
-                                                    })()
-                                                    : "",
+                                                  label: allEmployees?.list?.find((item: any) => item.employeeId === values.referrals[index].referredByEmployeeId)?.employeeName || "",
+                                                  avatar: allEmployees?.list?.find((item: any) => item.employeeId === values.referrals[index].referredByEmployeeId)?.avatar,
                                                 }
                                                 : null
                                             }
                                           />
                                         </Box>
                                       </Grid>
-                                      <Grid item xs={12} md={3}>
-                                        <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
-                                          <CompanyNameFieldWithTooltip index={index} />
-                                        </Box>
-                                      </Grid>
-                                      <Grid item xs={12} md={3}>
-                                        {/* Empty grid item to maintain layout */}
-                                      </Grid>
                                     </>
                                   ) : (
                                     <>
-                                      {/* External Referral Fields - Original Implementation */}
+                                      {/* External Referral Fields */}
+                                      {/* Referring Company Type - new field */}
+                                      <Grid item xs={12} md={3}>
+                                        <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
+                                          <DropDownInput
+                                            formikField={`referrals[${index}].referringCompanyType`}
+                                            inputLabel="Referring Company Type"
+                                            isRequired={false}
+                                            onChange={(val: any) => {
+                                              const newTypeId = val?.value || "";
+                                              setFieldValue(`referrals[${index}].referringCompanyType`, newTypeId);
+                                              // Clear company, sub-company and contact when type changes
+                                              if (values.referrals[index]?.referringCompanyType !== newTypeId) {
+                                                setFieldValue(`referrals[${index}].referringCompany`, "");
+                                                setFieldValue(`referrals[${index}].referringSubCompany`, "");
+                                                setFieldValue(`referrals[${index}].referringContact`, "");
+                                                setReferralSubCompanies(prev => ({ ...prev, [index]: [] }));
+                                                setReferralFilteredContacts(prev => ({ ...prev, [index]: [] }));
+                                              }
+                                            }}
+                                            options={allCompanyTypes.map((type: any) => ({
+                                              value: type.id,
+                                              label: type.name
+                                            }))}
+                                            placeholder="Select company type"
+                                          />
+                                          <small
+                                            className="text-primary"
+                                            onClick={() => setShowCompanyTypeModal(true)}
+                                            style={{ cursor: "pointer" }}
+                                          >
+                                            + New Company Type
+                                          </small>
+                                        </Box>
+                                      </Grid>
+                                      {/* Referring Company - filtered by company type */}
                                       <Grid item xs={12} md={3}>
                                         <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
                                           <DropDownInput
                                             inputLabel="Referring Company"
-                                            placeholder="Select company"
+                                            placeholder={!values.referrals[index]?.referringCompanyType ? "Select company type first" : "Select company"}
                                             isRequired={false}
+                                            disabled={!values.referrals[index]?.referringCompanyType}
                                             formikField={`referrals[${index}].referringCompany`}
-                                            options={companies.map((c) => ({
-                                              value: c.id,
-                                              label: c.companyName,
-                                            }))}
+                                            options={companies
+                                              .filter((c: any) => !values.referrals[index]?.referringCompanyType || c.companyTypeId === values.referrals[index]?.referringCompanyType)
+                                              .map((c) => ({
+                                                value: c.id,
+                                                label: c.companyName,
+                                              }))}
                                             onChange={async (value: any) => {
                                               const companyValue = value?.value || value;
                                               setFieldValue(`referrals[${index}].referringCompany`, companyValue);
-                                              
+
                                               // Only clear sub company and contact when company actually changes
                                               if (values.referrals[index]?.referringCompany !== companyValue) {
                                                 setFieldValue(`referrals[${index}].referringSubCompany`, '');
                                                 setFieldValue(`referrals[${index}].referringContact`, '');
                                               }
-                                              
+
                                               if (companyValue) {
                                                 try {
-                                                  // Fetch sub companies for the selected company
                                                   const response = await fetchSubCompaniesByMainCompanyId(companyValue);
                                                   const subCompanyData = response?.data?.subCompanies || response?.subCompanies || [];
                                                   setReferralSubCompanies(prev => ({ ...prev, [index]: subCompanyData }));
-                                                  
-                                                  // Fetch contacts for the selected company (for external referrals only)
                                                   await fetchContactsByCompanyIdForReferral(companyValue, index);
                                                 } catch (error) {
                                                   console.error('Error fetching sub companies or contacts:', error);
@@ -3049,6 +3083,7 @@ const LeadFormModal = ({
                                     const newReferral = {
                                       id: Date.now().toString(),
                                       referralType: '',
+                                      referringCompanyType: '',
                                       referringCompany: '',
                                       referringSubCompany: '',
                                       referringContact: '',
@@ -3077,13 +3112,269 @@ const LeadFormModal = ({
                         </Grid>
                       </fieldset>
 
-                      {/* Address Details Section */}
                       {leadTemplateId === leadAndProjectTemplateTypeId.mep && (
-                        <>
-                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
+                        <fieldset style={{ borderTop: '1px solid #9D4141', padding: '14px' }} className='mt-7'>
+                          <legend style={{
+                            fontSize: '17px',
+                            fontWeight: 600,
+                            fontFamily: 'Inter',
+                            marginTop: "-25px",
+                            marginLeft: "-17px",
+                            backgroundColor: "#F3F4F7",
+                            width: "auto",
+                            lineHeight: "1",
+                            letterSpacing: 0,
+                            color: "#9D4141",
+                            padding: "2px 2px 8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px"
+                          }}>
+                            <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                            COMMERCIALS
+                          </legend>
+                          <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                            {/* Show message when no project areas exist */}
+                            {(!values.projectAreas || values.projectAreas.length === 0) && (
+                              <Grid item xs={12}>
+                                <Box sx={{
+                                  textAlign: 'center',
+                                  py: 3,
+                                  color: '#666',
+                                  fontStyle: 'italic'
+                                }}>
+                                  No project areas added yet. Click "Add New Project Area" to get started.
+                                </Box>
+                              </Grid>
+                            )}
+
+                            {(values.projectAreas || []).map((area: any, index: number) => (
+                              <Grid container spacing={1} key={area.id || index} sx={{ position: 'relative', mb: 4 }}>
+                                <Box sx={{
+                                  width: '100%',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  mb: 2,
+                                  px: 2
+                                }}>
+                                  <Typography style={{
+                                    color: "#798DB3",
+                                    fontSize: "14px",
+                                    fontFamily: "Inter"
+                                  }}>Project Area {index + 1}</Typography>
+                                  {(values.projectAreas || []).length > 1 && (
+                                    <IconButton
+                                      onClick={() => {
+                                        const newAreas = values.projectAreas.filter((_: any, i: number) => i !== index);
+                                        // Note: Removed address manipulation - addresses should remain independent
+                                        setFieldValue('projectAreas', newAreas);
+                                      }}
+                                      sx={{ color: '#d32f2f' }}
+                                      title="Remove this project area"
+                                    >
+                                      <Close />
+                                    </IconButton>
+                                  )}
+                                  {(values.projectAreas || []).length === 1 && (
+                                    <IconButton
+                                      onClick={() => {
+                                        // Allow removing the last project area - but keep addresses intact
+                                        setFieldValue('projectAreas', []);
+                                        // Note: Addresses remain untouched as they are independent of project areas
+                                      }}
+                                      sx={{ color: '#d32f2f' }}
+                                      title="Remove all project areas"
+                                    >
+                                      <Close />
+                                    </IconButton>
+                                  )}
+                                </Box>
+
+                                <Grid item xs={12} md={3}>
+                                  <TextInput
+                                    formikField={`projectAreas.${index}.label`}
+                                    label="Label"
+                                    isRequired={false}
+                                  />
+                                </Grid>
+
+                                <Grid item xs={12} md={values.projectAreas[index].costType === "2" ? 3 : 2}>
+                                  <EnhancedDecimalInput
+                                    formikField={`projectAreas.${index}.projectArea`}
+                                    label="Area (sqft)"
+                                    onCalculatedCost={(area) => {
+                                      // If cost type is Rate, calculate total cost and validate it
+                                      if (values.projectAreas[index].costType === "1") {
+                                        const rate = parseFloat(values.projectAreas[index].rate) || 0;
+                                        const totalCost = area * rate;
+                                        const roundedCost = parseFloat(totalCost.toFixed(4));
+                                        setFieldValue(`projectAreas.${index}.cost`, roundedCost.toString());
+
+                                        // Validate calculated cost using Formik's setFieldError
+                                        if (roundedCost > 10000000000) {
+                                          formikProps.setFieldError(`projectAreas.${index}.cost`, 'Calculated cost exceeds 100 Crores limit');
+                                        } else {
+                                          formikProps.setFieldError(`projectAreas.${index}.cost`, '');
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={values.projectAreas[index].costType === "2" ? 3 : 2}>
+                                  <DropDownInput
+                                    formikField={`projectAreas.${index}.costType`}
+                                    inputLabel="Cost Type"
+                                    isRequired={false}
+                                    options={[{ value: "1", label: "Rate" }, { value: "2", label: "Lumpsum" }]}
+                                    onChange={(val: any) => {
+                                      setFieldValue(`projectAreas.${index}.costType`, val?.value);
+
+                                      if (val?.value === "1") {
+                                        // If switching to Rate, calculate cost based on current area and rate
+                                        const area = parseFloat(values.projectAreas[index].projectArea) || 0;
+                                        const rate = parseFloat(values.projectAreas[index].rate) || 0;
+                                        const totalCost = area * rate;
+                                        const roundedCost = parseFloat(totalCost.toFixed(4));
+                                        setFieldValue(`projectAreas.${index}.cost`, roundedCost.toString());
+                                      } else if (val?.value === "2") {
+                                        // If switching to Lumpsum, set rate to 0 (hidden field) and clear cost
+                                        setFieldValue(`projectAreas.${index}.rate`, 0);
+                                        setFieldValue(`projectAreas.${index}.cost`, '');
+                                      }
+                                    }}
+                                  />
+                                </Grid>
+
+                                {values.projectAreas[index].costType !== "2" && (
+                                  <Grid item xs={12} md={2}>
+                                    <EnhancedDecimalInput
+                                      formikField={`projectAreas.${index}.rate`}
+                                      label="Rate"
+                                      onCalculatedCost={(rate) => {
+                                        // If cost type is Rate, calculate total cost and validate it
+                                        if (values.projectAreas[index].costType === "1") {
+                                          const area = parseFloat(values.projectAreas[index].projectArea) || 0;
+                                          const totalCost = area * rate;
+                                          const roundedCost = parseFloat(totalCost.toFixed(4));
+                                          setFieldValue(`projectAreas.${index}.cost`, roundedCost.toString());
+
+                                          // Validate calculated cost using Formik's setFieldError
+                                          if (roundedCost > 10000000000) {
+                                            formikProps.setFieldError(`projectAreas.${index}.cost`, 'Calculated cost exceeds 100 Crores limit');
+                                          } else {
+                                            formikProps.setFieldError(`projectAreas.${index}.cost`, '');
+                                          }
+                                        }
+                                      }}
+                                    />
+                                  </Grid>
+                                )}
+
+                                <Grid item xs={12} md={values.projectAreas[index].costType === "2" ? 3 : 2}>
+                                  <EnhancedDecimalInput
+                                    formikField={`projectAreas.${index}.cost`}
+                                    label="Cost"
+                                    isReadonly={values.projectAreas[index].costType === "1"}
+                                  />
+                                </Grid>
+                              </Grid>
+                            ))}
+
+                            {/* Total Cost Display */}
+                            {values.projectAreas && values.projectAreas.length > 0 && (
+                              <Grid item xs={12}>
+                                <div className="d-flex justify-content-end align-items-center mt-4 mb-3">
+                                  <span style={{
+                                    fontFamily: 'Inter',
+                                    fontSize: '14px',
+                                    fontWeight: '400',
+                                    color: '#666666',
+                                    marginRight: '8px'
+                                  }}>
+                                    Total Cost:
+                                  </span>
+                                  <span style={{
+                                    fontFamily: 'Inter',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    color: 'black'
+                                  }}>
+                                    ₹ {(values.projectAreas || [])
+                                      .reduce((total: any, area: any) => {
+                                        const cost = parseFloat(area.cost) || 0;
+                                        return total + cost;
+                                      }, 0)
+                                      .toLocaleString('en-IN', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 4
+                                      })
+                                    }
+                                  </span>
+                                </div>
+                              </Grid>
+                            )}
+
+                            {/* Add New Project Area Button */}
+                            <Grid item xs={12}>
+                              <div
+                                onClick={() => {
+                                  const projectAreas = values.projectAreas || [];
+                                  const addresses = values.addresses || [];
+
+                                  // Add new project area with unique ID for tracking
+                                  const newProjectArea = {
+                                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // Unique ID for new items
+                                    label: '',
+                                    projectArea: '',
+                                    costType: '1', // Default to Rate type
+                                    rate: '',
+                                    cost: ''
+                                  };
+
+                                  const newAddress = {
+                                    projectAddress: '',
+                                    zipCode: '',
+                                    mapLocation: '',
+                                    latitude: '',
+                                    longitude: '',
+                                    country: '',
+                                    state: '',
+                                    city: '',
+                                    locality: '',
+                                    googleMapLink: '',
+                                    googleMyBusinessLink: '',
+                                    isDefault: false
+                                  };
+
+                                  setFieldValue('projectAreas', [...projectAreas, newProjectArea]);
+                                  setFieldValue('addresses', [...addresses, newAddress]);
+                                }}
+                                style={{
+                                  marginTop: "10px",
+                                  width: "100%",
+                                  padding: "10px 0px",
+                                  borderStyle: 'dotted',
+                                  borderColor: '#DBB3B3',
+                                  borderWidth: '1px',
+                                  borderRadius: '12px',
+                                  color: "#9D4141",
+                                  cursor: "pointer"
+                                }}
+                                className='justify-content-center align-items-center d-flex text-center'
+                              >
+                                Add New Project Area
+                              </div>
+                            </Grid>
+                          </Grid>
+                        </fieldset>
+                      )}
+
+                      {/* Client Details Section - Multiple Teams */}
+                      <fieldset style={{ borderTop: '1px solid #9D4141', padding: '14px' }} className='mt-7'>
                         <legend style={{
                           fontSize: '17px',
-                          fontWeight: 600,
+                          fontWeight: 500,
                           fontFamily: 'Inter',
                           marginTop: "-25px",
                           marginLeft: "-17px",
@@ -3098,18 +3389,289 @@ const LeadFormModal = ({
                           gap: "8px"
                         }}>
                           <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                          ADDRESS DETAILS
+                          TEAM DETAILS
                         </legend>
-                      <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                        {/* Direct rendering of single address - no mapping/filtering needed */}
-                        <Grid container spacing={1} className='card-body p-md-10 mb-4' 
-                            sx={{ 
-                              backgroundColor: { xs: 'transparent', md: 'white' }, 
-                              borderRadius: '8px',
-                              position: 'relative'
-                            }}
-                          >
-                            {/* <Box sx={{ 
+                        <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+
+                          <FieldArray name="leadTeams">
+                            {({ push, remove }) => (
+                              <>
+                                {/* Show message when no teams exist */}
+                                {(!values.leadTeams || values.leadTeams.length === 0) && (
+                                  <Grid item xs={12}>
+                                    <Box sx={{
+                                      textAlign: 'center',
+                                      py: 3,
+                                      color: '#666',
+                                      fontStyle: 'italic'
+                                    }}>
+                                      No teams added yet. Click "Add Another Team" to get started.
+                                    </Box>
+                                  </Grid>
+                                )}
+
+                                {values.leadTeams && values.leadTeams.map((team: any, index: number) => (
+                                  <Grid container spacing={1} key={team.id || index} sx={{ position: 'relative', mb: 3 }}>
+                                    <Box sx={{
+                                      width: '100%',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      mb: 2,
+                                      px: 2
+                                    }}>
+                                      <Typography style={{
+                                        color: "#798DB3",
+                                        fontSize: "14px",
+                                        fontFamily: "Inter"
+                                      }}>Team {index + 1}</Typography>
+                                      {(values.leadTeams || []).length > 1 && (
+                                        <IconButton
+                                          onClick={() => remove(index)}
+                                          sx={{ color: '#d32f2f' }}
+                                          title="Remove this team"
+                                        >
+                                          <Close />
+                                        </IconButton>
+                                      )}
+                                      {(values.leadTeams || []).length === 1 && (
+                                        <IconButton
+                                          onClick={() => {
+                                            // Allow removing the last team - set to empty array
+                                            setFieldValue('leadTeams', []);
+                                          }}
+                                          sx={{ color: '#d32f2f' }}
+                                          title="Remove all teams"
+                                        >
+                                          <Close />
+                                        </IconButton>
+                                      )}
+                                    </Box>
+
+                                    <Grid item xs={12} md={6} lg={3}>
+                                      <DropDownInput
+                                        formikField={`leadTeams.${index}.companyTypeId`}
+                                        inputLabel="Company Type"
+                                        isRequired={false}
+                                        onChange={(val: any) => {
+                                          const newCompanyTypeId = val?.value || "";
+                                          setFieldValue(`leadTeams.${index}.companyTypeId`, newCompanyTypeId);
+
+                                          // Only clear dependent fields if the company type actually changed
+                                          if (team.companyTypeId !== newCompanyTypeId) {
+                                            setFieldValue(`leadTeams.${index}.companyId`, "");
+                                            setFieldValue(`leadTeams.${index}.subCompanyId`, "");
+                                            setFieldValue(`leadTeams.${index}.contactId`, "");
+                                          }
+                                        }}
+                                        options={allCompanyTypes.map((c: any) => ({ value: c.id, label: c.name }))}
+                                      />
+                                      <small
+                                        className="text-primary"
+                                        onClick={() => setShowCompanyTypeModal(true)}
+                                        style={{ cursor: "pointer" }}
+                                      >
+                                        + New
+                                      </small>
+                                    </Grid>
+
+                                    <Grid item xs={12} md={6} lg={3}>
+                                      <DropDownInput
+                                        formikField={`leadTeams.${index}.companyId`}
+                                        inputLabel="Company"
+                                        isRequired={false}
+                                        disabled={!team.companyTypeId}
+                                        options={companies
+                                          ?.filter(c => c.companyTypeId === team.companyTypeId)
+                                          ?.map(c => ({ value: c.id, label: c.companyName })) || []}
+                                        onChange={(val: any) => {
+                                          const companyId = val?.value || "";
+                                          setFieldValue(`leadTeams.${index}.companyId`, companyId);
+
+                                          // Only clear dependent fields if the company actually changed
+                                          if (team.companyId !== companyId) {
+                                            setFieldValue(`leadTeams.${index}.subCompanyId`, "");
+                                            setFieldValue(`leadTeams.${index}.contactId`, "");
+                                          }
+
+                                          // Fetch contacts for the selected company
+                                          if (companyId) {
+                                            fetchContactsByCompanyId(companyId, index);
+                                          } else {
+                                            // Clear contacts if no company selected
+                                            setTeamFilteredContacts(prev => ({ ...prev, [index]: [] }));
+                                          }
+                                        }}
+                                      />
+                                      <small
+                                        className="text-primary"
+                                        onClick={() => setShowCompanyModal(true)}
+                                        style={{ cursor: "pointer" }}
+                                      >
+                                        + New
+                                      </small>
+                                    </Grid>
+
+                                    <Grid item xs={12} md={6} lg={3}>
+                                      <DropDownInput
+                                        formikField={`leadTeams.${index}.subCompanyId`}
+                                        inputLabel="Sub Company"
+                                        isRequired={false}
+                                        disabled={!team.companyId}
+                                        options={(() => {
+                                          const selectedCompany = companies?.find(c => c.id === team.companyId);
+                                          return selectedCompany?.subCompanies?.map((c: any) => ({
+                                            value: c.id,
+                                            label: c.subCompanyName
+                                          })) || [];
+                                        })()}
+                                        onChange={(val: any) => {
+                                          setFieldValue(`leadTeams.${index}.subCompanyId`, val?.value || "");
+                                        }}
+                                      />
+                                      <small
+                                        className="text-primary"
+                                        onClick={() => setShowSubCompanyModal(true)}
+                                        style={{ cursor: "pointer" }}
+                                      >
+                                        + New
+                                      </small>
+                                    </Grid>
+
+                                    <Grid item xs={12} md={6} lg={3}>
+                                      <DropDownInput
+                                        formikField={`leadTeams.${index}.contactId`}
+                                        inputLabel="Contact Person"
+                                        isRequired={false}
+                                        disabled={!team.companyId}
+                                        options={(teamFilteredContacts[index] || []).map((contact) => ({
+                                          value: contact.id,
+                                          label: contact.fullName,
+                                          avatar: contact.profilePhoto
+                                        }))}
+                                        showColor={true}
+                                        onChange={(val: any) => {
+                                          setFieldValue(`leadTeams.${index}.contactId`, val?.value || "");
+                                        }}
+                                      />
+                                      <small
+                                        className="text-primary"
+                                        onClick={() => setShowContactModal(true)}
+                                        style={{ cursor: "pointer" }}
+                                      >
+                                        + New
+                                      </small>
+                                    </Grid>
+                                  </Grid>
+                                ))}
+
+                                {/* Add Another Team Button */}
+                                <Grid item xs={12}>
+                                  <div
+                                    onClick={() => push({
+                                      id: Date.now().toString(),
+                                      companyTypeId: '',
+                                      companyId: '',
+                                      subCompanyId: '',
+                                      contactId: ''
+                                    })}
+                                    style={{
+                                      marginTop: "10px",
+                                      width: "100%",
+                                      padding: "10px 0px",
+                                      borderStyle: 'dotted',
+                                      borderColor: '#DBB3B3',
+                                      borderWidth: '1px',
+                                      borderRadius: '12px',
+                                      color: "#9D4141",
+                                      cursor: "pointer"
+                                    }}
+                                    className='justify-content-center align-items-center d-flex text-center'
+                                  >
+                                    Add Another Team
+                                  </div>
+                                </Grid>
+                              </>
+                            )}
+                          </FieldArray>
+
+                        </Grid>
+
+                        {/* Single Team (Legacy - Commented for backward compatibility) */}
+                        {/* 
+                        <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                          <Grid item xs={12} md={4} lg={3}>
+                            <DropDownInput
+                              formikField="companyTypeId"
+                              inputLabel="Company Type"
+                              isRequired={false}
+                              options={allCompanyTypes.map((c:any) => ({ value: c.id, label: c.name }))}
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4} lg={3}>
+                            <DropDownInput
+                              formikField="companyId"
+                              inputLabel="Company"
+                              isRequired={false}
+                              options={filteredCompanies.map(c => ({ value: c.id, label: c.companyName }))}
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4} lg={3}>
+                            <DropDownInput
+                              formikField="subCompanyId"
+                              inputLabel="Sub Company"
+                              isRequired={false}
+                              options={(filteredSubCompanies || [])?.map((c:any) => ({ value: c.id, label: c.subCompanyName }))}
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4} lg={3}>
+                            <DropDownInput
+                              formikField="contactPersonId"
+                              inputLabel="Contact Person"
+                              isRequired={false}
+                              options={contacts.map((contact) => ({ value: contact.id, label: contact.fullName }))}
+                            />
+                          </Grid>
+                        </Grid>
+                        */}
+
+                      </fieldset>
+
+
+
+                      {/* Address Details Section */}
+                      {leadTemplateId === leadAndProjectTemplateTypeId.mep && (
+                        <>
+                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
+                            <legend style={{
+                              fontSize: '17px',
+                              fontWeight: 600,
+                              fontFamily: 'Inter',
+                              marginTop: "-25px",
+                              marginLeft: "-17px",
+                              backgroundColor: "#F3F4F7",
+                              width: "auto",
+                              lineHeight: "1",
+                              letterSpacing: 0,
+                              color: "#9D4141",
+                              padding: "2px 2px 8px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px"
+                            }}>
+                              <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                              ADDRESS DETAILS
+                            </legend>
+                            <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                              {/* Direct rendering of single address - no mapping/filtering needed */}
+                              <Grid container spacing={1} className='card-body p-md-10 mb-4'
+                                sx={{
+                                  backgroundColor: { xs: 'transparent', md: 'white' },
+                                  borderRadius: '8px',
+                                  position: 'relative'
+                                }}
+                              >
+                                {/* <Box sx={{ 
                               width: '100%', 
                               display: 'flex', 
                               justifyContent: 'space-between', 
@@ -3119,201 +3681,202 @@ const LeadFormModal = ({
                             }}>
                               <Typography variant="h6">Project Address</Typography>
                             </Box> */}
-                            
-                            <Grid item xs={12} md={6}>
-                              <TextInput 
-                                formikField="addresses.0.projectAddress" 
-                                label="Address" 
-                                isRequired={false} 
-                              />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                              <DropDownInput
-                                formikField="addresses.0.country"
-                                inputLabel="Country"
-                                options={countries.map((c) => ({
-                                  label: c.name,
-                                  value: c.id,
-                                }))}
-                                isRequired={false}
-                                enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
-                                onChange={(option: any) => {
-                                  if (option?.value) {
-                                    // Set the country value in addresses array
-                                    setFieldValue("addresses.0.country", option.value);
-                                    
-                                    // Update the state options
-                                    handleAddressCountryChange(0, option.value, setFieldValue);
-                                    
-                                    // Clear dependent fields
-                                    setFieldValue("addresses.0.state", '');
-                                    setFieldValue("addresses.0.city", '');
-                                  } else {
-                                    // Handle clearing the country selection
-                                    setFieldValue("addresses.0.country", '');
-                                    setFieldValue("addresses.0.state", '');
-                                    setFieldValue("addresses.0.city", '');
-                                    
-                                    // Clear dependent options
-                                    setFieldValue('addressStatesOptions.0', []);
-                                    setFieldValue('addressCitiesOptions.0', []);
-                                    setFieldValue('addressStateSelections.0', null);
-                                    setFieldValue('addressCitySelections.0', null);
-                                  }
-                                }}
-                                value={
-                                  values.addresses?.[0]?.country
-                                    ? {
-                                      label:
-                                        countries.find(
-                                          (c) => c.id === values.addresses[0].country
-                                        )?.name || values.addresses[0].country,
-                                      value: values.addresses[0].country,
-                                    }
-                                    : null
-                                }
-                              />
-                              </Grid>
-                              <Grid item xs={12} md={6}>
-                                <DropDownInput
-                                  formikField="addresses.0.state"
-                                  inputLabel="State"
-                                  options={(values.addressStatesOptions?.[0] || []).map((s: any) => ({
-                                    label: s.name,
-                                    value: s.id
-                                  }))}
-                                  isRequired={false}
-                                  disabled={!values.addresses?.[0]?.country}
-                                  enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                  smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
-                                  onChange={(option: any) => {
-                                    if (option?.value) {
-                                      // Set the state value in addresses array
-                                      setFieldValue("addresses.0.state", option.value);
-                                      
-                                      // Update city options
-                                      handleAddressStateChange(
-                                        0,
-                                        option.value,
-                                        values.addresses[0].country,
-                                        setFieldValue
-                                      );
-                                      
-                                      // Clear city
-                                      setFieldValue("addresses.0.city", '');
-                                    } else {
-                                      // Clear state and city values
-                                      setFieldValue("addresses.0.state", '');
-                                      setFieldValue("addresses.0.city", '');
-                                      setFieldValue("addressStateSelections.0", null);
-                                      setFieldValue("addressCitySelections.0", null);
-                                      setFieldValue("addressCitiesOptions.0", []);
-                                    }
-                                  }}
-                                  value={values.addressStateSelections?.[0] ? {
-                                    label: values.addressStateSelections[0].name,
-                                    value: values.addressStateSelections[0].id
-                                  } : null}
-                                  placeholder={values.addresses?.[0]?.country ? "Select state" : "Select country first"}
-                                />
-                              </Grid>
-                              <Grid item xs={12} md={6}>
-                                <DropDownInput
-                                  formikField="addresses.0.city"
-                                  inputLabel="City"
-                                  options={(values.addressCitiesOptions?.[0] || []).map((c: any) => ({
-                                    label: c.name,
-                                    value: c.id
-                                  }))}
-                                  isRequired={false}
-                                  disabled={!values.addresses?.[0]?.state}
-                                  enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                  smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
-                                  onChange={(option: any) => {
-                                    setFieldValue("addresses.0.city", option?.value || "");
-                                    if (option?.value) {
-                                      const selectedCity = values.addressCitiesOptions[0].find(
-                                        (c: any) => c.id === option.value
-                                      );
-                                      setFieldValue("addressCitySelections.0", selectedCity);
-                                    } else {
-                                      setFieldValue("addressCitySelections.0", null);
-                                    }
-                                  }} 
-                                  value={values.addressCitySelections?.[0] ? {
-                                    label: values.addressCitySelections[0].name,
-                                    value: values.addressCitySelections[0].id
-                                  } : null}
-                                  placeholder={values.addresses?.[0]?.state ? "Select city" : "Select state first"}
-                                />
-                              </Grid>
-                              <Grid item xs={12} md={6}>
-                                <TextInput
-                                  formikField="addresses.0.locality"
-                                  label="Locality"
-                                isRequired={false}
-                              />
-                            </Grid>
-                              <Grid item xs={12} md={6}>
-                                <TextInput
-                                  formikField="addresses.0.zipCode"
-                                  label="Zip Code"
-                                isRequired={false}
-                              />
-                            </Grid>
-                            {/* Location on Map Card */}
-                            <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa'}}>
-                              <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#9D4141'}}>LOCATION ON MAP</div>
-                              <Row className="mb-3">
-                                <Col md={3}>
-                                  <TextInput
-                                    formikField="addresses.0.googleMapLink"
-                                    label="Google Map Link"
-                                    isRequired={false}
-                                  />
-                                </Col>
-                                <Col md={3}>
-                                  <TextInput
-                                    formikField="addresses.0.googleMyBusinessLink"
-                                    label="Google Business Link"
-                                    isRequired={false}
-                                  />
-                                </Col>
-                                <Col md={3}>
-                                  <TextInput
-                                    formikField="addresses.0.latitude"
-                                    label="Latitude"
-                                    isRequired={false}
-                                    inputValidation='decimal'
-                                  />
-                                </Col>
-                                <Col md={3}>
-                                  <TextInput
-                                    formikField="addresses.0.longitude"
-                                    label="Longitude"
-                                    isRequired={false}
-                                    inputValidation='decimal'
-                                  />
-                                </Col>
-                                <div 
-                                  className="d-flex justify-content-end mt-4" 
-                                  onClick={() => viewLocation(
-                                    values.addresses[0]?.latitude || '', 
-                                    values.addresses[0]?.longitude || ''
-                                  )}
-                                  style={{
-                                    cursor: 'pointer',
-                                    color: '#9D4141',
-                                    // textDecoration: 'underline'
-                                  }}
-                                >
-                                  View Location On Map
-                                </div>
-                              </Row>
-                            </div>
 
-                            {/* <div
+                                <Grid item xs={12} md={6}>
+                                  <TextInput
+                                    formikField="addresses.0.projectAddress"
+                                    label="Address"
+                                    isRequired={false}
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <DropDownInput
+                                    formikField="addresses.0.country"
+                                    inputLabel="Country"
+                                    options={countries.map((c) => ({
+                                      label: c.name,
+                                      value: c.id,
+                                    }))}
+                                    isRequired={false}
+                                    enableSmartSort={true} // Added: Enable smart priority-based sorting
+                                    smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
+                                    onChange={(option: any) => {
+                                      if (option?.value) {
+                                        // Set the country value in addresses array
+                                        setFieldValue("addresses.0.country", option.value);
+
+                                        // Update the state options
+                                        handleAddressCountryChange(0, option.value, setFieldValue);
+
+                                        // Clear dependent fields
+                                        setFieldValue("addresses.0.state", '');
+                                        setFieldValue("addresses.0.city", '');
+                                      } else {
+                                        // Handle clearing the country selection
+                                        setFieldValue("addresses.0.country", '');
+                                        setFieldValue("addresses.0.state", '');
+                                        setFieldValue("addresses.0.city", '');
+
+                                        // Clear dependent options
+                                        setFieldValue('addressStatesOptions.0', []);
+                                        setFieldValue('addressCitiesOptions.0', []);
+                                        setFieldValue('addressStateSelections.0', null);
+                                        setFieldValue('addressCitySelections.0', null);
+                                      }
+                                    }}
+                                    value={
+                                      values.addresses?.[0]?.country
+                                        ? {
+                                          label:
+                                            countries.find(
+                                              (c) => c.id === values.addresses[0].country
+                                            )?.name || values.addresses[0].country,
+                                          value: values.addresses[0].country,
+                                        }
+                                        : null
+                                    }
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <DropDownInput
+                                    formikField="addresses.0.state"
+                                    inputLabel="State"
+                                    options={(values.addressStatesOptions?.[0] || []).map((s: any) => ({
+                                      label: s.name,
+                                      value: s.id
+                                    }))}
+                                    isRequired={false}
+                                    disabled={!values.addresses?.[0]?.country}
+                                    enableSmartSort={true} // Added: Enable smart priority-based sorting
+                                    smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
+                                    onChange={(option: any) => {
+                                      if (option?.value) {
+                                        // Set the state value in addresses array
+                                        setFieldValue("addresses.0.state", option.value);
+
+                                        // Update city options
+                                        handleAddressStateChange(
+                                          0,
+                                          option.value,
+                                          values.addresses[0].country,
+                                          setFieldValue
+                                        );
+
+                                        // Clear city
+                                        setFieldValue("addresses.0.city", '');
+                                      } else {
+                                        // Clear state and city values
+                                        setFieldValue("addresses.0.state", '');
+                                        setFieldValue("addresses.0.city", '');
+                                        setFieldValue("addressStateSelections.0", null);
+                                        setFieldValue("addressCitySelections.0", null);
+                                        setFieldValue("addressCitiesOptions.0", []);
+                                      }
+                                    }}
+                                    value={values.addressStateSelections?.[0] ? {
+                                      label: values.addressStateSelections[0].name,
+                                      value: values.addressStateSelections[0].id
+                                    } : null}
+                                    placeholder={values.addresses?.[0]?.country ? "Select state" : "Select country first"}
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <DropDownInput
+                                    formikField="addresses.0.city"
+                                    inputLabel="City"
+                                    options={(values.addressCitiesOptions?.[0] || []).map((c: any) => ({
+                                      label: c.name,
+                                      value: c.id
+                                    }))}
+                                    isRequired={false}
+                                    disabled={!values.addresses?.[0]?.state}
+                                    enableSmartSort={true} // Added: Enable smart priority-based sorting
+                                    smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
+                                    onChange={(option: any) => {
+                                      setFieldValue("addresses.0.city", option?.value || "");
+                                      if (option?.value) {
+                                        const selectedCity = values.addressCitiesOptions[0].find(
+                                          (c: any) => c.id === option.value
+                                        );
+                                        setFieldValue("addressCitySelections.0", selectedCity);
+                                      } else {
+                                        setFieldValue("addressCitySelections.0", null);
+                                      }
+                                    }}
+                                    value={values.addressCitySelections?.[0] ? {
+                                      label: values.addressCitySelections[0].name,
+                                      value: values.addressCitySelections[0].id
+                                    } : null}
+                                    placeholder={values.addresses?.[0]?.state ? "Select city" : "Select state first"}
+                                  />
+                                </Grid>
+
+                                <Grid item xs={12} md={6}>
+                                  <TextInput
+                                    formikField="addresses.0.locality"
+                                    label="Locality"
+                                    isRequired={false}
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <TextInput
+                                    formikField="addresses.0.zipCode"
+                                    label="Zip Code"
+                                    isRequired={false}
+                                  />
+                                </Grid>
+                                {/* Location on Map Card */}
+                                <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa' }}>
+                                  <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#9D4141' }}>LOCATION ON MAP</div>
+                                  <Row className="mb-3">
+                                    <Col md={3}>
+                                      <TextInput
+                                        formikField="addresses.0.googleMapLink"
+                                        label="Google Map Link"
+                                        isRequired={false}
+                                      />
+                                    </Col>
+                                    <Col md={3}>
+                                      <TextInput
+                                        formikField="addresses.0.googleMyBusinessLink"
+                                        label="Google Business Link"
+                                        isRequired={false}
+                                      />
+                                    </Col>
+                                    <Col md={3}>
+                                      <TextInput
+                                        formikField="addresses.0.latitude"
+                                        label="Latitude"
+                                        isRequired={false}
+                                        inputValidation='decimal'
+                                      />
+                                    </Col>
+                                    <Col md={3}>
+                                      <TextInput
+                                        formikField="addresses.0.longitude"
+                                        label="Longitude"
+                                        isRequired={false}
+                                        inputValidation='decimal'
+                                      />
+                                    </Col>
+                                    <div
+                                      className="d-flex justify-content-end mt-4"
+                                      onClick={() => viewLocation(
+                                        values.addresses[0]?.latitude || '',
+                                        values.addresses[0]?.longitude || ''
+                                      )}
+                                      style={{
+                                        cursor: 'pointer',
+                                        color: '#9D4141',
+                                        // textDecoration: 'underline'
+                                      }}
+                                    >
+                                      View Location On Map
+                                    </div>
+                                  </Row>
+                                </div>
+
+                                {/* <div
                               onClick={() => {
                                 const newReferral = {
                                   id: Date.now().toString(),
@@ -3363,49 +3926,48 @@ const LeadFormModal = ({
                           </IconButton>
                           </div>
                            */}
-                      </Grid>
-                      </Grid>
+                              </Grid>
+                            </Grid>
                           </fieldset>
                         </>
                       )}
-                      
-                      {/* {(leadTemplateId === leadAndProjectTemplateTypeId.mep || leadTemplateId === leadAndProjectTemplateTypeId.webDev) && ( */}
-                        <>
-                          {/* Floating Title with Line */}
-                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
-                            <legend style={{
-                              fontSize: '17px',
-                              fontWeight: 600,
-                              fontFamily: 'Inter',
-                              marginTop: "-25px",
-                              marginLeft: "-17px",
-                              backgroundColor: "#F3F4F7",
-                              width: "auto",
-                              lineHeight: "1",
-                              letterSpacing: 0,
-                              color: "#9D4141",
-                              padding: "2px 2px 8px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px"
-                            }}>
-                              <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                              ADDITIONAL INFO
-                            </legend>
-                          </fieldset>
 
-                          {/* Card content below the title */}
-                          {/* <div className="card">
+                      {/* {(leadTemplateId === leadAndProjectTemplateTypeId.mep || leadTemplateId === leadAndProjectTemplateTypeId.webDev) && ( */}
+                      <>
+                        {/* Floating Title with Line */}
+                        <fieldset style={{ borderTop: '1px solid #9D4141', padding: '16px' }} className='mt-7' >
+                          <legend style={{
+                            fontSize: '17px',
+                            fontWeight: 600,
+                            fontFamily: 'Inter',
+                            marginTop: "-25px",
+                            marginLeft: "-17px",
+                            backgroundColor: "#F3F4F7",
+                            width: "auto",
+                            lineHeight: "1",
+                            letterSpacing: 0,
+                            color: "#9D4141",
+                            padding: "2px 2px 8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px"
+                          }}>
+                            <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                            ADDITIONAL INFO
+                          </legend>
+                        </fieldset>
+
+                        {/* Card content below the title */}
+                        {/* <div className="card">
                             <div className="card-body"> */}
-                          <Grid container spacing={1} className='card-body p-8  p-md-16' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                        
+                        <Grid container spacing={1} className='card-body p-8  p-md-16' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+
                           <Row>
                             <Col>
                               <div className="col-lg-12">
                                 <label className="mb-3 fw-bold">
                                   Upload Document File
                                 </label>
-                                
                                 {/* Show existing document if available */}
                                 {values.documents && (
                                   <div className="mb-3 p-3 bg-light rounded">
@@ -3417,9 +3979,9 @@ const LeadFormModal = ({
                                         </div>
                                       </div>
                                       <div>
-                                        <a 
-                                          href={values.documents} 
-                                          target="_blank" 
+                                        <a
+                                          href={values.documents}
+                                          target="_blank"
                                           rel="noopener noreferrer"
                                           className="btn btn-sm btn-outline-primary me-2"
                                         >
@@ -3436,7 +3998,6 @@ const LeadFormModal = ({
                                     </div>
                                   </div>
                                 )}
-                                
                                 <input
                                   type="file"
                                   accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
@@ -3450,32 +4011,32 @@ const LeadFormModal = ({
                               </div>
                             </Col>
                           </Row>
-                            {leadTemplateId === leadAndProjectTemplateTypeId.webDev && (
-                              <Grid container spacing={1}>
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="type"
-                                    label="Type"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="numberOfPages"
-                                    label="Number of Page"
-                                    isRequired={false}
-                                    inputTypeNumber={true}
-                                    inputValidation="numbers"
-                                  />
-                                </Grid>
+                          {leadTemplateId === leadAndProjectTemplateTypeId.webDev && (
+                            <Grid container spacing={1}>
+                              <Grid item xs={12} md={6}>
+                                <TextInput
+                                  formikField="type"
+                                  label="Type"
+                                  isRequired={false}
+                                />
                               </Grid>
-                            )}
+                              <Grid item xs={12} md={6}>
+                                <TextInput
+                                  formikField="numberOfPages"
+                                  label="Number of Page"
+                                  isRequired={false}
+                                  inputTypeNumber={true}
+                                  inputValidation="numbers"
+                                />
+                              </Grid>
+                            </Grid>
+                          )}
 
-                            {/* {leadTemplateId === leadAndProjectTemplateTypeId.mep && ( */}
-                              <>
-                                {/* <Grid container spacing={1}>                                                               */}
-                                  
-                                  {/* <Grid item xs={12} md={6}>
+                          {/* {leadTemplateId === leadAndProjectTemplateTypeId.mep && ( */}
+                          <>
+                            {/* <Grid container spacing={1}>                                                               */}
+
+                            {/* <Grid item xs={12} md={6}>
                                     <DropDownInput
                                       formikField="locality"
                                       inputLabel="Locality"
@@ -3487,9 +4048,9 @@ const LeadFormModal = ({
                                       ]}
                                     />
                                   </Grid> */}
-                                {/* </Grid> */}
+                            {/* </Grid> */}
 
-                                {/* <Grid container spacing={1} className="mt-2">
+                            {/* <Grid container spacing={1} className="mt-2">
                                   <Grid item xs={12} md={6}>
                                     <TextInput formikField="poNumber" label="PO Number" isRequired={false} inputValidation="numbers-space" />
                                   </Grid>
@@ -3504,34 +4065,34 @@ const LeadFormModal = ({
                                   </Grid>
                                 </Grid> */}
 
-                                <div className="form-section mb-4 mt-2 w-100">
-                                  <Row>
-                                    <Col md={12}>
-                                      <Form.Group>
-                                        <Form.Label>Description</Form.Label>
-                                        <Form.Control
-                                          as="textarea"
-                                          rows={4}
-                                          name="description"
-                                          value={values.description}
-                                          onChange={(e) =>
-                                            setFieldValue("description", e.target.value)
-                                          }
-                                        // style={{
-                                        //   backgroundColor: "#F3F4F7",
-                                        // }}
-                                        />
-                                        <Form.Text className="text-muted">
-                                          {(values.description || '').length}/200 characters
-                                        </Form.Text>
-                                      </Form.Group>
-                                    </Col>
-                                  </Row>
-                                </div>
-                              </>
-                            {/* )} */}
-                          </Grid>
-                        </>
+                            <div className="form-section mb-4 mt-2 w-100">
+                              <Row>
+                                <Col md={12}>
+                                  <Form.Group>
+                                    <Form.Label>Description</Form.Label>
+                                    <Form.Control
+                                      as="textarea"
+                                      rows={4}
+                                      name="description"
+                                      value={values.description}
+                                      onChange={(e) =>
+                                        setFieldValue("description", e.target.value)
+                                      }
+                                    // style={{
+                                    //   backgroundColor: "#F3F4F7",
+                                    // }}
+                                    />
+                                    <Form.Text className="text-muted">
+                                      {(values.description || '').length}/200 characters
+                                    </Form.Text>
+                                  </Form.Group>
+                                </Col>
+                              </Row>
+                            </div>
+                          </>
+                          {/* )} */}
+                        </Grid>
+                      </>
                       {/* )} */}
 
                       {/* Status Section */}
@@ -3552,10 +4113,9 @@ const LeadFormModal = ({
                           alignItems: "center",
                           gap: "8px"
                         }}>
-                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
                           STATUS
                         </legend>
-
                         <div className="card-body card responsive-card p-md-10 p-3">
                           <Row>
                             <Col md={6}>
@@ -3563,7 +4123,9 @@ const LeadFormModal = ({
                                 formikField="statusId"
                                 inputLabel="Status"
                                 isRequired={false}
-                                options={leadStatuses.map((s: any) => ({ value: s.id, label: s.name, color: s.color }))}
+                                options={leadStatuses.map(s => ({
+                                  value: s.id, label: s.name, color: s.color
+                                }))}
                                 placeholder="Select status"
                                 showColor={true}
                               />
@@ -3573,10 +4135,340 @@ const LeadFormModal = ({
                               >
                                 + New Status
                               </div>
+
+
+                              {/* Render handled by for "Received" status */}
+                              {values.statusId && (() => {
+                                const selectedStatus = leadStatuses.find(s => s.id === values.statusId);
+                                const statusName = selectedStatus?.name?.toLowerCase().trim();
+
+                                return statusName === "received" ? null : null;
+                              })()}
+
                             </Col>
                           </Row>
                         </div>
                       </fieldset>
+
+                      {/* CANCELLATION REASON Card - only visible when lead Status is "Not Received" */}
+                      {(() => {
+                        const selectedStatus = leadStatuses.find((s: any) => s.id === values.statusId);
+                        const isStatusNotReceived = selectedStatus?.name?.toLowerCase().trim() === 'not received';
+                        if (!isStatusNotReceived) return null;
+                        return (
+                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: 'clamp(14px, 2vw, 15px)' }} className='mt-7'>
+                            <legend style={{
+                              fontSize: '17px',
+                              fontWeight: 600,
+                              fontFamily: 'Inter',
+                              marginTop: "-25px",
+                              marginLeft: "-17px",
+                              backgroundColor: "#F3F4F7",
+                              width: "auto",
+                              lineHeight: "1",
+                              letterSpacing: 0,
+                              color: "#9D4141",
+                              padding: "2px 2px 8px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px"
+                            }}>
+                              <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                              CANCELLATION REASON
+                            </legend>
+                            <div className="card-body card responsive-card p-md-10 p-3">
+                              <Row>
+                                <Col md={6}>
+                                  <DropdownInput
+                                    formikField="cancellationReasonId"
+                                    inputLabel="Cancellation Reason"
+                                    isRequired={true}
+                                    options={(leadCancellationReasons || []).map(reason => ({
+                                      value: reason.id,
+                                      label: reason.reason,
+                                      color: reason.color
+                                    }))}
+                                    placeholder="Select cancellation reason"
+                                    showColor={true}
+                                  />
+                                </Col>
+                              </Row>
+                            </div>
+                          </fieldset>
+                        );
+                      })()}
+
+                      {/* HANDLE BY Card - only visible when lead Status is "Received" */}
+                      {(() => {
+                        const selectedStatus = leadStatuses.find((s: any) => s.id === values.statusId);
+                        const isStatusReceived = selectedStatus?.name?.toLowerCase().trim() === 'received';
+                        if (!isStatusReceived) return null;
+                        return (
+                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: 'clamp(14px, 2vw, 15px)' }} className='mt-7'>
+                            <legend style={{
+                              fontSize: '17px',
+                              fontWeight: 600,
+                              fontFamily: 'Inter',
+                              marginTop: "-25px",
+                              marginLeft: "-17px",
+                              backgroundColor: "#F3F4F7",
+                              width: "auto",
+                              lineHeight: "1",
+                              letterSpacing: 0,
+                              color: "#9D4141",
+                              padding: "2px 2px 8px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px"
+                            }}>
+                              <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                              HANDLE BY
+                            </legend>
+                            <div className="card-body card responsive-card p-md-10 p-3">
+                              {/* Column headers */}
+                              {(values.handledByEntries || []).length > 0 && (
+                                <Row className="mb-1">
+                                  <Col md={4}>
+                                    <label className="d-flex align-items-center fs-6 form-label mb-1">
+                                      Handle By
+                                    </label>
+                                  </Col>
+                                  <Col md={4}>
+                                    <label className="d-flex align-items-center fs-6 form-label mb-1">
+                                      Date In
+                                    </label>
+                                  </Col>
+                                  <Col md={4}>
+                                    <label className="d-flex align-items-center fs-6 form-label mb-1">
+                                      Date Out
+                                    </label>
+                                  </Col>
+                                </Row>
+                              )}
+
+                              {/* Empty state */}
+                              {(!values.handledByEntries || values.handledByEntries.length === 0) && (
+                                <Box sx={{
+                                  textAlign: 'center',
+                                  py: 3,
+                                  color: '#666',
+                                  fontStyle: 'italic',
+                                  fontSize: '14px',
+                                  fontFamily: 'Inter',
+                                }}>
+                                  No handled by added yet. Click "+ Add Handle By" to get started.
+                                </Box>
+                              )}
+
+                              {/* Dynamic Handled By entries */}
+                              {(values.handledByEntries || []).map((entry: any, idx: number) => (
+                                <Row key={entry.id || idx} className="mb-2 align-items-center">
+                                  <Col md={4}>
+                                    <DropdownInput
+                                      formikField={`handledByEntries[${idx}].employeeId`}
+                                      inputLabel=""
+                                      isRequired={false}
+                                      options={allEmployees?.list?.map((item: any) => ({
+                                        value: item.employeeId,
+                                        label: item.employeeName,
+                                        avatar: item.avatar,
+                                      })) || []}
+                                      placeholder="Select employee"
+                                      showColor={true}
+                                    />
+                                  </Col>
+                                  <Col md={4}>
+                                    <DateInput
+                                      formikField={`handledByEntries[${idx}].handledDate`}
+                                      inputLabel=""
+                                      formikProps={formikProps}
+                                      placeHolder="DD-MM-YYYY"
+                                      isRequired={false}
+                                    />
+                                  </Col>
+                                  <Col md={3}>
+                                    <DateInput
+                                      formikField={`handledByEntries[${idx}].handledOutDate`}
+                                      inputLabel=""
+                                      formikProps={formikProps}
+                                      placeHolder="DD-MM-YYYY"
+                                      isRequired={false}
+                                    />
+                                  </Col>
+                                  <Col md={1} className="d-flex justify-content-center">
+                                    <IconButton
+                                      onClick={() => {
+                                        const updated = (values.handledByEntries || []).filter((_: any, i: number) => i !== idx);
+                                        setFieldValue('handledByEntries', updated);
+                                      }}
+                                      sx={{ color: '#d32f2f', padding: '6px' }}
+                                      title="Remove"
+                                    >
+                                      <Delete fontSize="small" />
+                                    </IconButton>
+                                  </Col>
+                                </Row>
+                              ))}
+
+                              {/* + Add Handle By button */}
+                              <div
+                                onClick={() => {
+                                  const today = values.leadInquiryDate || new Date().toISOString().split('T')[0];
+                                  const newEntry = {
+                                    id: Date.now().toString(),
+                                    employeeId: '',
+                                    handledDate: today,
+                                    handledOutDate: '',
+                                  };
+                                  setFieldValue('handledByEntries', [...(values.handledByEntries || []), newEntry]);
+                                }}
+                                style={{
+                                  marginTop: '8px',
+                                  padding: '8px 12px',
+                                  borderStyle: 'dotted',
+                                  borderColor: '#DBB3B3',
+                                  borderWidth: '1px',
+                                  borderRadius: '8px',
+                                  color: '#9D4141',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontSize: '13px',
+                                  fontFamily: 'Inter',
+                                  width: '100%',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <Add fontSize="small" />
+                                Add Handle By
+                              </div>
+                            </div>
+                          </fieldset>
+                        );
+                      })()}
+
+                      {/* PO STATUS Card - only visible when lead Status is "Received" */}
+                      {(() => {
+                        const selectedStatus = leadStatuses.find((s: any) => s.id === values.statusId);
+                        const isStatusReceived = selectedStatus?.name?.toLowerCase().trim() === 'received';
+                        if (!isStatusReceived) return null;
+                        return (
+                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: 'clamp(14px, 2vw, 15px)' }} className='mt-7'>
+                            <legend style={{
+                              fontSize: '17px', fontWeight: 600, fontFamily: 'Inter',
+                              marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                              width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                              padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                            }}>
+                              <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                              PO STATUS
+                            </legend>
+                            <div className="card-body card responsive-card p-md-10 p-3">
+                              <Row>
+                                <Col md={6}>
+                                  <DropdownInput
+                                    formikField="poStatus"
+                                    inputLabel="PO Status"
+                                    isRequired={false}
+                                    options={[
+                                      { value: 'Pending', label: 'Pending', color: '#FFC107' },
+                                      { value: 'Received', label: 'Received', color: '#28A745' },
+                                    ]}
+                                    placeholder="Select PO status"
+                                    showColor={true}
+                                  />
+                                </Col>
+                              </Row>
+                            </div>
+                          </fieldset>
+                        );
+                      })()}
+
+                      {/* PO DETAILS Card - only visible when lead Status is "Received" AND PO Status is "Received" */}
+                      {(() => {
+                        const selectedStatus = leadStatuses.find((s: any) => s.id === values.statusId);
+                        const isStatusReceived = selectedStatus?.name?.toLowerCase().trim() === 'received';
+                        if (!isStatusReceived || values.poStatus !== 'Received') return null;
+                        return (
+                          <fieldset style={{ borderTop: '1px solid #9D4141', padding: 'clamp(14px, 2vw, 15px)' }} className='mt-7'>
+                            <legend style={{
+                              fontSize: '17px', fontWeight: 600, fontFamily: 'Inter',
+                              marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                              width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                              padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                            }}>
+                              <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                              PO DETAILS
+                            </legend>
+                            <div className="card-body card responsive-card p-md-10 p-3">
+                              <Row>
+                                <Col md={6}>
+                                  <TextInput formikField="poNumber" label="PO Number" isRequired={false} inputValidation="numbers-space" />
+                                </Col>
+                                <Col md={6}>
+                                  <DateInput
+                                    formikField="poDate"
+                                    inputLabel="PO Date"
+                                    formikProps={formikProps}
+                                    placeHolder="1/3/2025"
+                                    isRequired={false}
+                                  />
+                                </Col>
+                              </Row>
+                              <Row className="mt-3">
+                                <Col md={12}>
+                                  <label className="mb-2 fw-bold" style={{ fontSize: '14px', fontFamily: 'Inter' }}>
+                                    Attach PO File
+                                  </label>
+                                  {values.poFile && (
+                                    <div className="mb-3 p-3 bg-light rounded">
+                                      <div className="d-flex align-items-center justify-content-between">
+                                        <div>
+                                          <small className="text-muted">Current PO file:</small>
+                                          <div className="fw-bold text-primary">
+                                            📎 {getFileNameFromUrl(values.poFile)}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <a href={values.poFile} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary me-2">View</a>
+                                          <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setFieldValue("poFile", "")}>Remove</button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <input
+                                    type="file"
+                                    accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                                    className="form-control form-control-lg form-control-solid"
+                                    onChange={async (event) => {
+                                      const files = event.target.files;
+                                      if (files && files[0]) {
+                                        if (files[0].size > 5 * 1024 * 1024) {
+                                          alert("File size should not exceed 5 MB");
+                                          event.target.value = "";
+                                          return;
+                                        }
+                                        const form = new FormData();
+                                        form.append("file", files[0]);
+                                        try {
+                                          const { data: { path } } = await uploadUserAsset(form, userId, "leads/po");
+                                          setFieldValue("poFile", path, true);
+                                        } catch (error) {
+                                          console.error("Failed to upload PO file. Please try again.");
+                                        }
+                                      }
+                                    }}
+                                  />
+                                  <small className="text-muted">
+                                    {values.poFile ? "Upload a new file to replace the current PO document" : "Select a PO document to upload"}
+                                  </small>
+                                </Col>
+                              </Row>
+                            </div>
+                          </fieldset>
+                        );
+                      })()}
 
                       {/* Upload Document File Section */}
                       {/* <fieldset style={{ borderTop: '1px solid #9D4141', padding: 'clamp(14px, 2vw, 15px)' }} className='mt-7'>
@@ -3604,7 +4496,7 @@ const LeadFormModal = ({
                       </fieldset> */}
 
                       <div>
-                         {!hasDefaultStatus() && (
+                        {!hasDefaultStatus() && (
                           <Box sx={{
                             mt: 2,
                             p: 2,
@@ -3636,8 +4528,8 @@ const LeadFormModal = ({
                             cursor: (!hasDefaultStatus()) ? 'not-allowed' : 'pointer'
                           }}
                         >
-                          {isSubmitting 
-                            ? (isEditMode ? 'Updating...' : 'Submitting...') 
+                          {isSubmitting
+                            ? (isEditMode ? 'Updating...' : 'Submitting...')
                             : (isEditMode ? 'Update' : 'Submit')
                           }
                         </Button>

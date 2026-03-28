@@ -284,6 +284,23 @@ const LeadDetails = () => {
 
                 // file location
                 fileLocation: lead?.fileLocation || "",
+                fileLocationCompanyType: lead?.fileLocationCompanyType || "",
+                fileLocationCompany: lead?.fileLocationCompany || "",
+
+                // PO details
+                poFile: lead?.poFile || lead?.additionalDetails?.poFile || "",
+                poNumber: lead?.additionalDetails?.poNumber || lead?.poNumber || "",
+                poDate: lead?.additionalDetails?.poDate || lead?.poDate || null,
+
+                // Handle By entries
+                handledByEntries: Array.isArray(lead?.handledByEntries) && lead.handledByEntries.length > 0
+                    ? lead.handledByEntries.map((entry: any) => ({
+                        id: entry.id || Date.now().toString(),
+                        employeeId: entry.employeeId || "",
+                        handledDate: entry.handledDate ? new Date(entry.handledDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                        handledOutDate: entry.handledOutDate ? new Date(entry.handledOutDate).toISOString().split('T')[0] : "",
+                    }))
+                    : [],
                 
                 // Lead metadata
                 ...(lead?.id && { leadId: lead.id }),
@@ -645,14 +662,31 @@ const LeadDetails = () => {
                         </div>
                     </div>
                     <div className="d-flex align-items-center gap-1 flex-wrap">
-                        {!lead?.projectId && <Button
-                            variant="primary"
-                            onClick={() => setShowConvertModal(true)}
-                            className="me-2"
-                        >
-                            <KTIcon iconName="files" className="fs-2" />
-                            Convert to Client Project
-                        </Button>}
+                        {(() => {
+                            const isReceived = lead?.status?.name?.toLowerCase() === 'received';
+                            const hasProject = !!lead?.projectId;
+                            const canConvert = isReceived || hasProject;
+                            return (
+                                <span
+                                    title={!canConvert ? "Lead must be in 'Received' status to convert to a Client Project" : ""}
+                                    style={{ display: 'inline-block', cursor: !canConvert ? 'not-allowed' : 'default' }}
+                                >
+                                    <Button
+                                        variant={hasProject ? "success" : "primary"}
+                                        onClick={() => canConvert && setShowConvertModal(true)}
+                                        className="me-2"
+                                        disabled={!canConvert}
+                                        style={{
+                                            ...(hasProject ? { backgroundColor: '#28a745', borderColor: '#28a745' } : {}),
+                                            ...(!canConvert ? { pointerEvents: 'none', opacity: 0.6 } : {}),
+                                        }}
+                                    >
+                                        <KTIcon iconName="files" className="fs-2" />
+                                        {hasProject ? "View/Edit Client Project" : "Convert to Client Project"}
+                                    </Button>
+                                </span>
+                            );
+                        })()}
                         <Button
                             variant="primary"
                             className="me-2"
@@ -727,6 +761,7 @@ const LeadDetails = () => {
             {showConvertModal && <BlankBasicProjectForm showBlankProjectForm={showConvertModal} onHide={() => setShowConvertModal(false)} intitalDataForLeadToProjectConversion={leadDetailsForConvertToProject}
                 selectedProjectType={leadTemplateId}
                 setRefreshData={setRefreshData}
+                editingProjectId={lead?.projectId || null}
                 />}
         </div>
     );

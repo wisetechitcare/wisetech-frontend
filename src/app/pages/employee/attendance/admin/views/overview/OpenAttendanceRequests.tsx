@@ -134,7 +134,6 @@ const OpenAttendanceRequests = () => {
             const { data: { attendanceRequests } } = await getPendingAttendanceRequests(companyId);
             console.log("attendanceRequests", attendanceRequests);
 
-
             // Transform the data
             const transformed = transformAttendanceRequest(attendanceRequests);
 

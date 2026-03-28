@@ -87,12 +87,14 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
       if (type === "cancellation-reason") {
         submitValues = {
           reason: values.name,
+          color: values.color,
           isActive: values.isActive
         };
       } else {
         // Filter out fields that don't belong to this type
         submitValues = {
           name: values.name,
+          color: values.color,
           isActive: values.isActive
         };
         
@@ -284,7 +286,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
               )}
 
               {/* Color Picker - Hide for cancellation-reason type */}
-              {type !== "cancellation-reason" && (
+              {/* {type !== "cancellation-reason" && ( */}
               <div className="mb-4">
                 <label 
                   className="form-label" 
@@ -357,7 +359,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
                   />
                 </div>
               </div>
-              )}
+              {/* )}  */}
             </Modal.Body>
             
             <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>

@@ -29,6 +29,7 @@ export interface LeadDirectSource {
 export interface LeadCancellationReason {
   id?: string;
   reason: string;
+  color: string;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;

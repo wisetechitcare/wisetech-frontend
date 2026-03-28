@@ -305,7 +305,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
                 {/* Color Picker */}
                 {
-                  title === "Subcategory" ? null : (
+                  // title === "Subcategory" ? null : (
                     <div className="mb-4">
                       <label
                         className="form-label"
@@ -370,7 +370,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                       </div>
                       <ErrorMessage name="color" component="div" className="text-danger mt-1" />
                     </div>
-                  )
+                  // )
                 }
 
 

@@ -36,14 +36,15 @@ import {
   fetchAllStates,
   fetchAllCities,
 } from "@services/options";
-import { Close } from "@mui/icons-material";
-import { Dialog, Box, IconButton, Typography } from "@mui/material";
+import { Close, Add, Delete } from "@mui/icons-material";
+import { Dialog, Box, IconButton, Typography, Grid } from "@mui/material";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import Loader from "@app/modules/common/utils/Loader";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import { fetchSubCompanies } from "@services/company";
 import { uploadUserAsset } from "@services/uploader";
 import SubCompanyForm from "@pages/employee/companies/companies/components/SubCompanryForm";
+import CompanyConfigForm from "@pages/employee/companies/companyConfig/components/CompanyConfigForm";
 import { fetchAllPrefixSettings } from "@services/options";
 import { getAllProjectCountForPrefix } from "@services/projects";
 import dayjs from "dayjs";
@@ -140,6 +141,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
   const [showContactModal, setShowContactModal] = useState(false);
   const [editingContactId, setEditingContactId] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showCompanyTypeModal, setShowCompanyTypeModal] = useState(false);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
   // Memoized validation schema
   const validationSchema = useMemo(
@@ -1118,8 +1120,45 @@ const getInitialTeamDetails = useCallback(() => {
         longitude: leadData?.longitude || projectData?.longitude || null,
         
         // PO details
-        poNumber: leadData?.poNumber || projectData?.poNumber || "",
-        poDate: leadData?.poDate || projectData?.poDate || null,
+        poNumber: leadData?.poNumber || leadData?.additionalDetails?.poNumber || projectData?.poNumber || "",
+        poDate: (() => {
+          const raw = leadData?.poDate || leadData?.additionalDetails?.poDate || projectData?.poDate;
+          if (!raw) return null;
+          try { return new Date(raw).toISOString().split('T')[0]; } catch { return null; }
+        })(),
+        poFile: leadData?.poFile || projectData?.poFile || "",
+        
+        // Handle By entries
+        handledByEntries: (() => {
+          if (leadData?.handledByEntries && Array.isArray(leadData.handledByEntries)) {
+            return leadData.handledByEntries.map((entry: any) => ({
+              id: entry.id || Date.now().toString(),
+              employeeId: entry.employeeId || '',
+              handledDate: entry.handledDate ? new Date(entry.handledDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              handledOutDate: entry.handledOutDate ? new Date(entry.handledOutDate).toISOString().split('T')[0] : '',
+            }));
+          }
+          // Default: one empty entry
+          return [{
+            id: Date.now().toString(),
+            employeeId: '',
+            handledDate: new Date().toISOString().split('T')[0],
+            handledOutDate: '',
+          }];
+        })(),
+
+        // File location with company type/company
+        fileLocationCompanyType: leadData?.fileLocationCompanyType || projectData?.fileLocationCompanyType || "",
+        fileLocationCompany: leadData?.fileLocationCompany || projectData?.fileLocationCompany || "",
+
+        // Project Details 1 fields
+        plotArea: leadData?.additionalDetails?.plotArea || projectData?.plotArea || "",
+        plotAreaUnit: leadData?.additionalDetails?.plotAreaUnit || projectData?.plotAreaUnit || "sqft",
+        builtUpArea: leadData?.additionalDetails?.builtUpArea || projectData?.builtUpArea || "",
+        buildingDetail: leadData?.additionalDetails?.buildingDetail || projectData?.buildingDetail || "",
+        otherPoint1: leadData?.additionalDetails?.otherPoint1 || projectData?.otherPoint1 || "",
+        otherPoint2: leadData?.additionalDetails?.otherPoint2 || projectData?.otherPoint2 || "",
+        otherPoint3: leadData?.additionalDetails?.otherPoint3 || projectData?.otherPoint3 || "",
         
         // Arrays with lead data priority
         companies: getLeadConvertedCompanies(),
@@ -1362,7 +1401,7 @@ const handleSubmit = useCallback(
       }
 
       // Remove empty fields (preserve multi-select arrays even if empty)
-      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds'];
+      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds', 'handledByEntries'];
       const cleanPayload = Object.keys(payload).reduce((acc: any, key: string) => {
         const v = payload[key];
         const isEmptyArray = Array.isArray(v) && v.length === 0;
@@ -1378,6 +1417,11 @@ const handleSubmit = useCallback(
       // Add prefix to payload for backend to use
       if (editablePrefix && editablePrefix.trim()) {
         cleanPayload.prefix = editablePrefix.trim();
+      }
+
+      // Add leadId to payload if this is a lead-to-project conversion (only for new projects)
+      if (!editingProjectId && intitalDataForLeadToProjectConversion?.leadId) {
+        cleanPayload.leadId = intitalDataForLeadToProjectConversion.leadId;
       }
 
 
@@ -1444,6 +1488,13 @@ const handleSubmit = useCallback(
     () => setShowStatusModal(false),
     []
   );
+  const handleCompanyTypeModalClose = useCallback(
+    () => {
+      setShowCompanyTypeModal(false);
+      fetchCompanyTypeData();
+    },
+    [fetchCompanyTypeData]
+  );
 
   // Show modal when requested, but show loading state if data isn't ready
   const shouldShowModal = showBlankProjectForm;
@@ -1494,12 +1545,12 @@ const handleSubmit = useCallback(
             </Typography>
             
             <div className="d-flex flex-row align-items-center justify-content-between mx-5">
-              <PrefixInlineEdit
+              {/* <PrefixInlineEdit
                 value={editablePrefix}
                 label="PROJECT NO"
                 onChange={setEditablePrefix}
                 disabled={false}
-              />
+              /> */}
               {editingProjectId && projectData?.revisionCount !== undefined && (
                 <div className="d-flex flex-column align-items-end mx-5">
                   <span style={{fontSize: "14px", fontFamily:"Inter",color:"#798DB3"}}>{editablePrefix && `Rev No.`}</span>
@@ -1678,37 +1729,41 @@ const handleSubmit = useCallback(
                             PROJECT DETAILS
                           </legend>
                           <div className="card-body card responsive-card p-md-10 p-3 ">
-                            <Row className="">
-                              <Col md={6}>
-                                <TextInput
-                                  formikField="title"
-                                  label="Title"
-                                  placeholder="GYM React bangUou"
-                                  isRequired={true}
-                                />
+                            {/* Project No */}
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <div className="d-flex flex-column fv-row">
+                                  <label className="d-flex align-items-center fs-6 form-label mb-2">
+                                    <span>Project No.</span>
+                                  </label>
+                                  <Box
+                                    sx={{
+                                      border: "1px solid #D0D5DD",
+                                      borderRadius: "5px",
+                                      px: 2,
+                                      py: 1.6,
+                                      height: "45px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      "&:hover": { borderColor: "black" },
+                                    }}
+                                  >
+                                    <PrefixInlineEdit
+                                      value={editablePrefix}
+                                      label=""
+                                      onChange={setEditablePrefix}
+                                      disabled={false}
+                                    />
+                                    {editingProjectId && projectData?.revisionCount !== undefined && (
+                                      <Box className="d-flex flex-column align-items-end">
+                                        {/* <Typography sx={{ fontSize: "12px", color: "#798DB3", lineHeight: 1 }}>Rev No.</Typography>
+                                        <Typography sx={{ fontSize: "14px", fontWeight: 500, lineHeight: 1.4 }}>{projectData?.revisionCount || 0}</Typography> */}
+                                      </Box>
+                                    )}
+                                  </Box>
+                                </div>
                               </Col>
-                              <Col md={6}>
-                                <Form.Group>
-                                  <Form.Label>File Location</Form.Label>
-                                  <Form.Control
-                                    type="text"
-                                    name="fileLocation"
-                                    value={values.fileLocation}
-                                    onChange={(e) =>
-                                      setFieldValue(
-                                        "fileLocation",
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder="Enter file location or path (max 250 characters)"
-                                  />
-                                  <Form.Text className="text-muted">
-                                    {values.fileLocation.length}/250 characters
-                                  </Form.Text>
-                                </Form.Group>
-                              </Col>
-                              </Row>
-                              <Row className="mt-5">
                               <Col md={4}>
                                 <DateInput
                                   formikField="startDate"
@@ -1727,20 +1782,15 @@ const handleSubmit = useCallback(
                                   isRequired={false}
                                 />
                               </Col>
-                              
-                              {/* Date Validation Warning - shows immediately when both dates are present and invalid */}
+                              {/* Date Validation Warning */}
                               {isDatesInvalid() && (
                                 <Col md={12} className="mt-3">
-                                  <div 
-                                    className="alert alert-warning d-flex align-items-center" 
+                                  <div
+                                    className="alert alert-warning d-flex align-items-center"
                                     style={{
-                                      backgroundColor: "#fff3cd",
-                                      borderColor: "#ffeaa7",
-                                      color: "#856404",
-                                      padding: "8px 12px",
-                                      borderRadius: "4px",
-                                      fontSize: "14px",
-                                      marginBottom: "10px"
+                                      backgroundColor: "#fff3cd", borderColor: "#ffeaa7",
+                                      color: "#856404", padding: "8px 12px",
+                                      borderRadius: "4px", fontSize: "14px", marginBottom: "10px"
                                     }}
                                   >
                                     <i className="fas fa-exclamation-triangle me-2" style={{color: "#856404"}}></i>
@@ -1748,49 +1798,17 @@ const handleSubmit = useCallback(
                                   </div>
                                 </Col>
                               )}
-                              </Row>
-                              <Row className="mt-3">
-                              <Col md={4}>
-                              <DropDownInput
-                                formikField="projectManagerId"
-                                inputLabel="Assigned To"
-                                options={
-                                  allEmployees?.list?.map((item: any) => ({
-                                    value: item.employeeId,
-                                    label: item.employeeName,
-                                    avatar: item.avatar,
-                                  })) || []
-                                }
-                                onChange={(option: any) => {
-                                  setFieldValue("projectManagerId", option?.value || "");
-                                }}
-                                value={(() => {
-                                  if (!values.projectManagerId) return null;
-                                  
-                                  const foundEmployee = allEmployees?.list?.find(
-                                    (emp: any) => emp.employeeId === values.projectManagerId
-                                  );
-                                  
-                                  if (foundEmployee) {
-                                    return {
-                                      value: values.projectManagerId,
-                                      label: foundEmployee.employeeName || "",
-                                      avatar: foundEmployee.avatar || "",
-                                    };
-                                  }
-                                  
-                                  // If employee not found in list, still show the value but with a placeholder label
-                                  return {
-                                    value: values.projectManagerId,
-                                    label: "Employee Not Found",
-                                    avatar: "",
-                                  };
-                                })()}
-                                isRequired={false}
-                                showColor={true}
-                              />
-                            </Col>
                             </Row>
+                            <Row className="">
+                              <Col md={12}>
+                                <TextInput
+                                  formikField="title"
+                                  label="Project Name"
+                                  placeholder="GYM React bangUou"
+                                  isRequired={true}
+                                />
+                              </Col>
+                              </Row>
                               <Row className="mt-5">
                               <Col md={4}>
                                 <MultiSelectWithInlineCreate
@@ -1826,35 +1844,187 @@ const handleSubmit = useCallback(
                                 />
                               </Col>
                             </Row>
-
-                            {/* <Row className="mt-5">
-                            <Col md={4}>
-                              <DropDownInput
-                                formikField="statusId"
-                                inputLabel="Project Status"
-                                options={
-                                  statuses?.map((status: any) => ({
-                                    value: status.id,
-                                    label: status.name,
-                                    // in dropdwon show status color of each satus
-                                    color: status.color,
-                                  })) || []
-                                }
-                                showColor={true}
-                                isRequired={false}
-                              />
-                              <div
-                                onClick={() => setShowStatusModal(true)}
-                                style={{ cursor: "pointer", color: "#9D4141" }}
-                                className="ms-2"
-                              >
-                                + New Status
-                              </div>
-                            </Col>
-                            </Row> */}
                           </div>
                         </fieldset>
                       </Box>
+                    </div>
+
+                    {/* Lead Assigned Section */}
+                    <div className="form-section mb-4">
+                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                        <legend style={{
+                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
+                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          LEAD ASSIGNED
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          <Row>
+                            <Col md={6}>
+                              <DropDownInput
+                                formikField="projectManagerId"
+                                inputLabel="Assigned To"
+                                options={allEmployees?.list?.map((item: any) => ({
+                                  value: item.employeeId,
+                                  label: item.employeeName,
+                                  avatar: item.avatar,
+                                })) || []}
+                                onChange={(option: any) => {
+                                  setFieldValue("projectManagerId", option?.value || "");
+                                }}
+                                value={(() => {
+                                  if (!values.projectManagerId) return null;
+                                  const foundEmployee = allEmployees?.list?.find((emp: any) => emp.employeeId === values.projectManagerId);
+                                  if (foundEmployee) {
+                                    return { value: values.projectManagerId, label: foundEmployee.employeeName || "", avatar: foundEmployee.avatar || "" };
+                                  }
+                                  return { value: values.projectManagerId, label: "Employee Not Found", avatar: "" };
+                                })()}
+                                isRequired={false}
+                                showColor={true}
+                              />
+                            </Col>
+                          </Row>
+                        </div>
+                      </fieldset>
+                    </div>
+
+                    {/* Project Details 1 Section - Plot Area, Built-Up Area, etc. */}
+                    <div className="form-section mb-4">
+                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                        <legend style={{
+                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
+                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          PROJECT DETAILS 1
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          {/* Plot Area with unit dropdown */}
+                          <Row className="mb-3">
+                            <Col md={12}>
+                              <div className="d-flex flex-column fv-row">
+                                <label className="d-flex align-items-center fs-6 form-label mb-2">
+                                  <span>Plot Area</span>
+                                </label>
+                                <div className="d-flex" style={{ gap: '8px' }}>
+                                  <div style={{ flex: 1 }}>
+                                    <Field name="plotArea">
+                                      {({ field }: { field: any }) => (
+                                        <input
+                                          {...field}
+                                          type="text"
+                                          className="employee__form_wizard__input form-control"
+                                          placeholder="Enter Plot Area"
+                                        />
+                                      )}
+                                    </Field>
+                                  </div>
+                                  <div style={{ width: '160px' }}>
+                                    <DropDownInput
+                                      formikField="plotAreaUnit"
+                                      inputLabel=""
+                                      isRequired={false}
+                                      options={[
+                                        { value: 'sqft', label: 'sqft' },
+                                        { value: 'sqm', label: 'sqm' },
+                                        { value: 'acre', label: 'acre' },
+                                      ]}
+                                      placeholder="Unit"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </Col>
+                          </Row>
+                          <Row className="mb-3">
+                            <Col md={6}>
+                              <TextInput formikField="builtUpArea" label="Built-Up Area" isRequired={false} />
+                            </Col>
+                            <Col md={6}>
+                              <TextInput formikField="buildingDetail" label="Building Detail" isRequired={false} />
+                            </Col>
+                          </Row>
+                          <Row>
+                            <Col md={4}>
+                              <TextInput formikField="otherPoint1" label="Other Point - 1" isRequired={false} />
+                            </Col>
+                            <Col md={4}>
+                              <TextInput formikField="otherPoint2" label="Other Point - 2" isRequired={false} />
+                            </Col>
+                            <Col md={4}>
+                              <TextInput formikField="otherPoint3" label="Other Point - 3" isRequired={false} />
+                            </Col>
+                          </Row>
+                        </div>
+                      </fieldset>
+                    </div>
+
+                    {/* File Location In Computer Section */}
+                    <div className="form-section mb-4">
+                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                        <legend style={{
+                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
+                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          FILE LOCATION IN COMPUTER
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          <Row>
+                            <Col md={6}>
+                              <DropDownInput
+                                formikField="fileLocationCompanyType"
+                                inputLabel="Company Type"
+                                isRequired={false}
+                                onChange={(val: any) => {
+                                  const newType = val?.value || "";
+                                  setFieldValue('fileLocationCompanyType', newType);
+                                  if (values.fileLocationCompanyType !== newType) {
+                                    setFieldValue('fileLocationCompany', "");
+                                  }
+                                }}
+                                options={companyTypes.map((type: any) => ({ value: type.id, label: type.name }))}
+                                placeholder="Select company type"
+                              />
+                            </Col>
+                            <Col md={6}>
+                              <DropDownInput
+                                formikField="fileLocationCompany"
+                                inputLabel="Company"
+                                isRequired={false}
+                                disabled={!values.fileLocationCompanyType}
+                                options={companies
+                                  ?.filter((c: any) => c.companyTypeId === values.fileLocationCompanyType)
+                                  ?.map((c: any) => ({ value: c.id, label: c.companyName })) || []}
+                                placeholder={!values.fileLocationCompanyType ? "Select company type first" : "Select company"}
+                              />
+                            </Col>
+                            {/* <Col md={4}>
+                              <Form.Group>
+                                <Form.Label>File Path</Form.Label>
+                                <Form.Control
+                                  type="text"
+                                  name="fileLocation"
+                                  value={values.fileLocation}
+                                  onChange={(e) => setFieldValue("fileLocation", e.target.value)}
+                                  placeholder="Enter file location or path (max 250 characters)"
+                                />
+                                <Form.Text className="text-muted">
+                                  {values.fileLocation.length}/250 characters
+                                </Form.Text>
+                              </Form.Group>
+                            </Col> */}
+                          </Row>
+                        </div>
+                      </fieldset>
                     </div>
 
                     {/* PO Details Section */}
@@ -1909,6 +2079,141 @@ const handleSubmit = useCallback(
                               />
                             </Col>
                           </Row>
+                          <Row className="mt-3">
+                            <Col md={12}>
+                              <label className="mb-2 fw-bold" style={{ fontSize: '14px', fontFamily: 'Inter' }}>
+                                Attach PO File
+                              </label>
+                              {values.poFile && (
+                                <div className="mb-3 p-3 bg-light rounded">
+                                  <div className="d-flex align-items-center justify-content-between">
+                                    <div>
+                                      <small className="text-muted">Current PO file:</small>
+                                      <div className="fw-bold text-primary">
+                                        📎 {getFileNameFromUrl(values.poFile)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <a href={values.poFile} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary me-2">View</a>
+                                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setFieldValue("poFile", "")}>Remove</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              <input
+                                type="file"
+                                accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                                className="form-control form-control-lg form-control-solid"
+                                onChange={async (event) => {
+                                  const files = event.target.files;
+                                  if (files && files[0]) {
+                                    if (files[0].size > 5 * 1024 * 1024) {
+                                      alert("File size should not exceed 5 MB");
+                                      event.target.value = "";
+                                      return;
+                                    }
+                                    const form = new FormData();
+                                    form.append("file", files[0]);
+                                    try {
+                                      const { data: { path } } = await uploadUserAsset(form, userId, "projects/po");
+                                      setFieldValue("poFile", path, true);
+                                    } catch (error) {
+                                      console.error("Failed to upload PO file. Please try again.");
+                                    }
+                                  }
+                                }}
+                              />
+                              <small className="text-muted">
+                                {values.poFile ? "Upload a new file to replace the current PO document" : "Select a PO document to upload"}
+                              </small>
+                            </Col>
+                          </Row>
+                        </div>
+                      </fieldset>
+                    </div>
+
+                    {/* Handle By Section */}
+                    <div className="form-section mb-4">
+                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                        <legend style={{
+                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
+                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          HANDLE BY
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          {(!values.handledByEntries || values.handledByEntries.length === 0) && (
+                            <Box sx={{ textAlign: 'center', py: 3, color: '#666', fontStyle: 'italic' }}>
+                              No entries yet. Click "Add Handle By" to get started.
+                            </Box>
+                          )}
+                          {(values.handledByEntries || []).map((entry: any, idx: number) => (
+                            <div key={entry.id || idx} className="d-flex align-items-end gap-2 mb-2" style={{ gap: '8px' }}>
+                              <div style={{ flex: 1 }}>
+                                <DropDownInput
+                                  formikField={`handledByEntries[${idx}].employeeId`}
+                                  inputLabel={idx === 0 ? "Handle By" : ""}
+                                  isRequired={false}
+                                  options={allEmployees?.list?.map((item: any) => ({
+                                    value: item.employeeId,
+                                    label: item.employeeName,
+                                    avatar: item.avatar,
+                                  })) || []}
+                                  placeholder="Select employee"
+                                  showColor={true}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <DateInput
+                                  formikField={`handledByEntries[${idx}].handledDate`}
+                                  inputLabel={idx === 0 ? "Date In" : ""}
+                                  formikProps={formikProps}
+                                  placeHolder="DD-MM-YYYY"
+                                  isRequired={false}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <DateInput
+                                  formikField={`handledByEntries[${idx}].handledOutDate`}
+                                  inputLabel={idx === 0 ? "Date Out" : ""}
+                                  formikProps={formikProps}
+                                  placeHolder="DD-MM-YYYY"
+                                  isRequired={false}
+                                />
+                              </div>
+                              <div style={{ paddingBottom: '4px' }}>
+                                <IconButton
+                                  onClick={() => {
+                                    const updated = (values.handledByEntries || []).filter((_: any, i: number) => i !== idx);
+                                    setFieldValue('handledByEntries', updated);
+                                  }}
+                                  sx={{ color: '#d32f2f', padding: '6px' }}
+                                  title="Remove"
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </div>
+                            </div>
+                          ))}
+                          <div
+                            onClick={() => {
+                              const today = new Date().toISOString().split('T')[0];
+                              const newEntry = { id: Date.now().toString(), employeeId: '', handledDate: today, handledOutDate: '' };
+                              setFieldValue('handledByEntries', [...(values.handledByEntries || []), newEntry]);
+                            }}
+                            style={{
+                              marginTop: '8px', padding: '8px 12px', borderStyle: 'dotted',
+                              borderColor: '#DBB3B3', borderWidth: '1px', borderRadius: '8px',
+                              color: '#9D4141', cursor: 'pointer', display: 'inline-flex',
+                              alignItems: 'center', gap: '6px', fontSize: '13px', fontFamily: 'Inter',
+                            }}
+                          >
+                            <Add fontSize="small" />
+                            Add Handle By
+                          </div>
                         </div>
                       </fieldset>
                     </div>
@@ -2165,16 +2470,16 @@ const handleSubmit = useCallback(
                                       <Row>
                                         <Col md={3}>
                                           <DropDownInput
-                                            formikField={`companies.${index}.service`}
-                                            inputLabel="Service"
-                                            options={services.map((service) => ({
-                                              value: service.id,
-                                              label: service.name,
+                                            formikField={`companies.${index}.companyTypeId`}
+                                            inputLabel="Company Type"
+                                            options={companyTypes.map((type: any) => ({
+                                              value: type.id,
+                                              label: type.name,
                                             }))}
                                             isRequired={false}
                                             onChange={(option: any) => {
-                                              setFieldValue(`companies.${index}.service`, option?.value || "");
-                                              // Reset dependent fields when service changes
+                                              setFieldValue(`companies.${index}.companyTypeId`, option?.value || "");
+                                              // Reset dependent fields when company type changes
                                               setFieldValue(`companies.${index}.company`, "");
                                               setFieldValue(`companies.${index}.subCompanyId`, "");
                                               setFieldValue(`companies.${index}.contactPerson`, "");
@@ -2182,7 +2487,7 @@ const handleSubmit = useCallback(
                                           />
                                           <div
                                             onClick={() =>
-                                              setShowServiceModal(true)
+                                              setShowCompanyTypeModal(true)
                                             }
                                             style={{
                                               cursor: "pointer",
@@ -2190,7 +2495,7 @@ const handleSubmit = useCallback(
                                             }}
                                             className="ms-2"
                                           >
-                                            + New Service
+                                            + New Company Type
                                           </div>
                                         </Col>
 
@@ -2664,6 +2969,15 @@ const handleSubmit = useCallback(
                                         />
                                       </Col>
                                       <Col md={6}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.locality`}
+                                          label="Locality"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                    </Row>
+                                    <Row className="mb-3">
+                                      <Col md={6}>
                                         <DropDownInput
                                           formikField={`addresses.${index}.country`}
                                           inputLabel="Country"
@@ -2672,8 +2986,8 @@ const handleSubmit = useCallback(
                                             value: c.id,
                                           }))}
                                           isRequired={false}
-                                          enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                          smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
+                                          enableSmartSort={true}
+                                          smartFilterFunction={getFilteredAndSortedOptions}
                                           onChange={(option: any) => {
                                             setFieldValue(
                                               `addresses.${index}.country`,
@@ -2698,8 +3012,6 @@ const handleSubmit = useCallback(
                                           }
                                         />
                                       </Col>
-                                    </Row>
-                                    <Row className="mb-3">
                                       <Col md={6}>
                                         <DropDownInput
                                           formikField={`addresses.${index}.state`}
@@ -2711,8 +3023,8 @@ const handleSubmit = useCallback(
                                           placeholder={!values.addresses[index]?.country ? "Please select country first" : "Select State"}
                                           disabled={!values.addresses[index]?.country}
                                           isRequired={false}
-                                          enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                          smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
+                                          enableSmartSort={true}
+                                          smartFilterFunction={getFilteredAndSortedOptions}
                                           onChange={(option: any) => {
                                             setFieldValue(`addresses.${index}.state`, option?.value || "");
                                             setFieldValue(`addresses.${index}.city`, "");
@@ -2736,6 +3048,8 @@ const handleSubmit = useCallback(
                                           }
                                         />
                                       </Col>
+                                    </Row>
+                                    <Row className="mb-3">
                                       <Col md={6}>
                                         <DropDownInput
                                           formikField={`addresses.${index}.city`}
@@ -2745,7 +3059,6 @@ const handleSubmit = useCallback(
                                               label: c.name,
                                               value: c.id,
                                             })),
-                                            // Add custom city if it's not in the list
                                             ...(values.addresses[index]?.city &&
                                             !cities.find((c) => c.id === values.addresses[index].city)
                                               ? [
@@ -2759,8 +3072,8 @@ const handleSubmit = useCallback(
                                           placeholder={!values.addresses[index]?.state ? "Please select state first" : "Select City"}
                                           disabled={!values.addresses[index]?.state}
                                           isRequired={false}
-                                          enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                          smartFilterFunction={getFilteredAndSortedOptions} // Added: Smart filter and sort function
+                                          enableSmartSort={true}
+                                          smartFilterFunction={getFilteredAndSortedOptions}
                                           onChange={(option: any) =>
                                             setFieldValue(`addresses.${index}.city`, option?.value || "")
                                           }
@@ -2777,19 +3090,10 @@ const handleSubmit = useCallback(
                                           }
                                         />
                                       </Col>
-                                    </Row>
-                                    <Row className="mb-3">
-                                      <Col md={6}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.locality`}
-                                          label="Locality"
-                                          isRequired={false}
-                                        />
-                                      </Col>
                                       <Col md={6}>
                                         <TextInput
                                           formikField={`addresses.${index}.zipcode`}
-                                          label="ZipCode"
+                                          label="Zip Code"
                                           isRequired={false}
                                         />
                                       </Col>
@@ -3194,6 +3498,13 @@ const handleSubmit = useCallback(
         onClose={handleContactModalClose}
         contactId={editingContactId}
       />
+
+      <CompanyConfigForm
+          show={showCompanyTypeModal}
+          onClose={() => setShowCompanyTypeModal(false)}
+          title="Company Type"
+          type="company-type"
+        />
     </div>
   );
 };

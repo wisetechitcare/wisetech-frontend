@@ -255,18 +255,21 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   id: lead.id,
                   prefix: lead?.prefix || "",
                   projectName: lead.title || "",
-                  totalCost: lead.budget || 0,
-                  client: lead?.company?.companyName || "",
-                  service: lead?.projectServiceId || "",
-                  category: lead?.projectCategoryId || "",
-                  subCategory: lead?.projectSubCategoryId || "",
+                  totalCost: Array.isArray(lead.commercials) && lead.commercials.length > 0
+                    ? lead.commercials.reduce((sum: number, c: any) => sum + (parseFloat(c.cost) || 0), 0)
+                    : (lead.budget || 0),
+                  client: lead?.company?.companyName || lead?.leadTeams?.[0]?.company?.companyName || "",
+                  service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
+                  category: lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "",
+                  subCategory: lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "",
                   status: lead?.status || null,
+                  poStatus: lead?.poStatus || null,
                   assignedTo: lead?.assignedToId || "",
                   inquiryDate: lead.inquiryDate || "",
-                  startDate: lead?.startDate || "",
+                  startDate: lead?.startDate || lead?.project?.startDate || "",
                   endDate: lead?.endDate || "",
                   duration,
-                  contact: lead?.contact?.fullName || "",
+                  contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "",
                   createdAt: lead?.createdAt || "",
                   createdBy: lead?.createdById || "",
                   updatedBy: lead?.updatedById || "",
@@ -276,14 +279,19 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   cityId: cityId,
                   state: stateName,
                   stateId: stateId,
-                  area: lead?.additionalDetails?.projectArea || "",
-                  cost: lead?.project?.cost || 0,
+                  area: (Array.isArray(lead.commercials) && lead.commercials.length > 0
+                    ? lead.commercials[0]?.area
+                    : null) || lead?.additionalDetails?.projectArea || lead?.addresses?.[0]?.projectArea || "",
+                  // cost: lead?.project?.cost || 0, //old
+                  cost: Array.isArray(lead.commercials) && lead.commercials.length > 0 ? lead.commercials.reduce((sum: number, c: any) => sum + (parseFloat(c.cost) || 0), 0) : 0, //new
                   companyId: lead.companyId || "",
                   branchId: lead.branchId || "",
                   description: lead.description || "",
                   priority: lead.priority || "",
                   estimatedHours: lead.estimatedHours || "",
-                  budget: lead.budget || "",
+                  budget: Array.isArray(lead.commercials) && lead.commercials.length > 0
+                    ? lead.commercials.reduce((sum: number, c: any) => sum + (parseFloat(c.cost) || 0), 0)
+                    : (lead.budget || ""),
                   rate: lead.rate || "",
                   leadSource: lead.source?.name || lead.sourceId || lead?.leadSource || "",
                   referrals: lead.referrals || [],
@@ -403,7 +411,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             },
             {
                 accessorKey: 'status',
-                header: 'Status',
+                header: 'Lead Status',
                 size: 130,
                 Cell: ({ row }: any) => {
 
@@ -417,6 +425,25 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         >
                             {statusName}
                         </div> : "N/A"
+                    );
+                },
+            },
+            {
+                accessorKey: 'poStatus',
+                header: 'PO Status',
+                size: 130,
+                Cell: ({ row }: any) => {
+                    const poStatus = row?.original?.poStatus;
+                    const leadStatusName = row?.original?.status?.name;
+                    if (leadStatusName !== 'Received' || !poStatus) return <span>N/A</span>;
+                    const color = poStatus === 'Received' ? '#28A745' : '#FFC107';
+                    return (
+                        <div
+                            className="badge badge-light"
+                            style={{ backgroundColor: color, color: poStatus === 'Received' ? 'white' : '#333' }}
+                        >
+                            {poStatus}
+                        </div>
                     );
                 },
             },
@@ -876,6 +903,20 @@ const filteredData = (() => {
                             <path d="M10.5 6H20.25M10.5 6C10.5 6.39782 10.342 6.77936 10.0607 7.06066C9.77936 7.34196 9.39782 7.5 9 7.5C8.60218 7.5 8.22064 7.34196 7.93934 7.06066C7.65804 6.77936 7.5 6.39782 7.5 6M10.5 6C10.5 5.60218 10.342 5.22064 10.0607 4.93934C9.77936 4.65804 9.39782 4.5 9 4.5C8.60218 4.5 8.22064 4.65804 7.93934 4.93934C7.65804 5.22064 7.5 5.60218 7.5 6M7.5 6H3.75M10.5 18H20.25M10.5 18C10.5 18.3978 10.342 18.7794 10.0607 19.0607C9.77936 19.342 9.39782 19.5 9 19.5C8.60218 19.5 8.22064 19.342 7.93934 19.0607C7.65804 18.7794 7.5 18.3978 7.5 18M10.5 18C10.5 17.6022 10.342 17.2206 10.0607 16.9393C9.77936 16.658 9.39782 16.5 9 16.5C8.60218 16.5 8.22064 16.658 7.93934 16.9393C7.65804 17.2206 7.5 17.6022 7.5 18M7.5 18H3.75M16.5 12H20.25M16.5 12C16.5 12.3978 16.342 12.7794 16.0607 13.0607C15.7794 13.342 15.3978 13.5 15 13.5C14.6022 13.5 14.2206 13.342 13.9393 13.0607C13.658 12.7794 13.5 12.3978 13.5 12M16.5 12C16.5 11.6022 16.342 11.2206 16.0607 10.9393C15.7794 10.658 15.3978 10.5 15 10.5C14.6022 10.5 14.2206 10.658 13.9393 10.9393C13.658 11.2206 13.5 11.6022 13.5 12M13.5 12H3.75" stroke="#7A2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg> */}
                         <Button variant="contained"
+                            onClick={handleOpenModal}
+                            sx={{
+                                backgroundColor: '#9D4141',
+                                '&:hover': {
+                                    backgroundColor: '#7e3434'
+                                },
+                                textTransform: 'none',
+                                px: 3,
+                                py: 1,
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: 500
+                            }}>Old Lead</Button>
+                            <Button variant="contained"
                             onClick={handleOpenModal}
                             sx={{
                                 backgroundColor: '#9D4141',

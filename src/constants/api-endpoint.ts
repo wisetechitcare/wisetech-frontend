@@ -496,6 +496,7 @@ export const CLIENT_COMPANIES = {
     GET_LEAD_CANCELLATION_REASON_BY_ID: "api/lead-project-companies/client-companies/lead-cancellation-reasons/:id",
     CREATE_LEAD_CANCELLATION_REASON: "api/lead-project-companies/client-companies/lead-cancellation-reasons",
     UPDATE_LEAD_CANCELLATION_REASON: "api/lead-project-companies/client-companies/lead-cancellation-reasons/:id",
+    DELETE_LEAD_CANCELLATION_REASON: "api/lead-project-companies/client-companies/lead-cancellation-reasons/:id",
 
     GET_ALL_CONTACT_STATUSES: 'api/lead-project-companies/client-companies/contact-statuses',
     GET_CONTACT_STATUS_BY_ID: 'api/lead-project-companies/client-companies/contact-statuses/:id',

@@ -1,4 +1,4 @@
-import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons } from "@services/lead";
+import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason } from "@services/lead";
 import PrefixSettingsForm, { PrefixSetting, PrefixSettingsFormValues } from "@app/modules/common/components/PrefixSettingsForm";
 import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from "@services/options";
 
@@ -16,7 +16,12 @@ import { DropdownOption } from "../../../../../types/deleteConfirmation";
 import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import ProjectConfigForm from "../../projects/configure/components/ProjectConfigForm";
-
+import {
+  getAllProjectCategories,
+  getAllProjectSubcategories,
+  deleteProjectCategory,
+  deleteProjectSubcategory,
+} from "@services/projects";
 
 // Common button styles
 const buttonStyles = {
@@ -57,6 +62,31 @@ const LeadsConfigurationMain = () => {
   const [projectServices, setProjectServices] = useState<ProjectItem[]>([]);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editingService, setEditingService] = useState<ProjectItem | null>(null);
+  // Project Categories
+const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
+const [showCategoryModal, setShowCategoryModal] = useState(false);
+const [editingCategory, setEditingCategory] = useState<ProjectItem | null>(null);
+
+// Project Subcategories
+const [projectSubcategories, setProjectSubcategories] = useState<ProjectItem[]>([]);
+const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
+
+
+// Modal Handlers
+const handleCategoryModalOpen = () => setShowCategoryModal(true);
+const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
+
+// Edit Handlers
+const handleCategoryEdit = (category: ProjectItem) => {
+  setEditingCategory(category);
+  setShowCategoryModal(true);
+};
+
+const handleSubcategoryEdit = (subcategory: ProjectItem) => {
+  setEditingSubcategory(subcategory);
+  setShowSubcategoryModal(true);
+};
 
   const handleModalClose = () => {
     setShowModal(false);
@@ -140,11 +170,60 @@ const LeadsConfigurationMain = () => {
     }
   };
 
+  // fetch project category
+  const fetchProjectCategories = async () => {
+  try {
+    setLoading(true);
+    const response = await getAllProjectCategories();
+    if (response?.projectCategories) {
+      setProjectCategories(response.projectCategories);
+    }
+  } catch (error) {
+    console.error("Error fetching project categories:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// fetch project sub category
+const fetchProjectSubcategories = async () => {
+  try {
+    setLoading(true);
+    const response = await getAllProjectSubcategories();
+    if (response?.projectSubCategories) {
+      setProjectSubcategories(response.projectSubCategories);
+    }
+  } catch (error) {
+    console.error("Error fetching project subcategories:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchProjectCategories();
+  fetchProjectSubcategories();
+}, []);
+
+
 
 
   useEventBus(EVENT_KEYS.leadStatusCreated, () => {
     fetchLeadStatuses();
   });
+
+  useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
+useEventBus(EVENT_KEYS.projectCategoryUpdated, fetchProjectCategories);
+
+useEventBus(EVENT_KEYS.projectSubcategoryCreated, () => {
+  fetchProjectSubcategories();
+  fetchProjectCategories();
+});
+useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => {
+  fetchProjectSubcategories();
+  fetchProjectCategories();
+});
+
 
   // Delete confirmation hook for Project Services
   const serviceDeleteConfirmation = useDeleteConfirmation({
@@ -185,6 +264,45 @@ const LeadsConfigurationMain = () => {
       setLoading(false);
     }
   };
+
+  const handleCategoryDelete = async (id: string) => {
+  try {
+    const category = projectCategories.find((c) => c.id === id);
+    if (category && category.subCategories && category.subCategories > 0) {
+      const Swal = (await import("sweetalert2")).default;
+      await Swal.fire({
+        icon: "warning",
+        title: "Cannot Delete",
+        text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
+        confirmButtonColor: "#9D4141",
+      });
+      return;
+    }
+
+    const confirmed = await deleteConfirmation("Category deleted successfully");
+    if (!confirmed) return;
+
+    await deleteProjectCategory(id);
+    fetchProjectCategories();
+  } catch (error) {
+    console.error("Error deleting category:", error);
+  }
+};
+
+const handleSubcategoryDelete = async (id: string) => {
+  try {
+    const confirmed = await deleteConfirmation("Subcategory deleted successfully");
+    if (!confirmed) return;
+
+    await deleteProjectSubcategory(id);
+    // Refresh BOTH lists: subcategories (to remove item) AND categories
+    // (to update the subCategories count so the "Cannot Delete" guard is accurate)
+    await Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
+  } catch (error) {
+    console.error("Error deleting subcategory:", error);
+  }
+};
+
 
   useEventBus(EVENT_KEYS.leadReferralTypeCreated, () => {
     fetchLeadReferralTypes();
@@ -237,6 +355,18 @@ const LeadsConfigurationMain = () => {
         console.error("Error fetching lead cancellation reasons:", error);
       } finally {
         setLoading(false);
+      }
+    };
+
+    const handleCancellationReasonDelete = async (id: string) => {
+      try {
+        const confirmed = await deleteConfirmation("Cancellation reason deleted successfully");
+        if (!confirmed) return;
+
+        await deleteLeadCancellationReason(id);
+        fetchLeadCancellationReasons();
+      } catch (error) {
+        console.error("Error deleting cancellation reason:", error);
       }
     };
 
@@ -361,7 +491,6 @@ const LeadsConfigurationMain = () => {
       });
     };
   
-
   if (loading) {
     return (
       <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: "300px" }}>
@@ -448,10 +577,10 @@ const LeadsConfigurationMain = () => {
                       className="fa fa-pencil cursor-pointer"
                       onClick={() => handleEdit(status)}
                     ></i>
-                    {/* <i
+                    <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleDelete(status.id)}
-                    ></i> */}
+                    ></i>
                   </div>
                 </div>
               </div>
@@ -523,10 +652,10 @@ const LeadsConfigurationMain = () => {
                       className="fa fa-pencil cursor-pointer"
                       onClick={() => handleReferralTypeEdit(status)}
                     ></i>
-                    {/* <i
+                    <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleReferralTypeDelete(status.id)}
-                    ></i> */}
+                    ></i>
                   </div>
                 </div>
               </div>
@@ -732,7 +861,87 @@ const LeadsConfigurationMain = () => {
                       style={{
                         width: "18px",
                         height: "18px",
-                        backgroundColor: "#9D4141",
+                        backgroundColor: reason.color,
+                      }}
+                      
+                    ></div>
+                    <div style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 400,
+                      fontStyle: 'normal',
+                      fontSize: '14px',
+                      lineHeight: '100%',
+                      letterSpacing: '0',
+                      cursor: "pointer",
+                    }}>{reason.reason}</div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleCancellationReasonEdit(reason)}
+                    ></i>
+                    <i
+                  className="fa fa-trash cursor-pointer"
+                  onClick={() => handleCancellationReasonDelete(reason.id!)}
+                ></i>
+                    {/* No delete functionality as per backend routes */}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Category Card */}
+      <div
+        className="card mt-5"
+        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
+      >
+        <div className="card-body">
+          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5 className="card-title" style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontStyle: "normal",
+              fontSize: "16px",
+              lineHeight: "100%",
+              letterSpacing: "0"
+            }}>Project Categories and Project Subcategories</h5>
+            <button
+              onClick={handleCategoryModalOpen}
+              className="btn"
+              style={buttonStyles.base}
+              onMouseEnter={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.hover)
+              }
+              onMouseLeave={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.base)
+              }
+            >
+              New Category
+            </button>
+          </div>
+
+          <div className="row mt-4">
+            {projectCategories.map((category) => (
+              <div key={category.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between"
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div
+                      className="rounded-circle"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        backgroundColor: category.color,
                       }}
                     ></div>
                     <div style={{
@@ -742,14 +951,102 @@ const LeadsConfigurationMain = () => {
                       fontSize: '14px',
                       lineHeight: '100%',
                       letterSpacing: '0',
-                    }}>{reason.reason}</div>
+                      cursor: "pointer"
+                    }} title={category.name}>{category.name.length > 10 ? `${category.name.slice(0, 14)}...` : category.name}</div>
                   </div>
                   <div className="ms-4 d-flex gap-3">
                     <i
                       className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCancellationReasonEdit(reason)}
+                      onClick={() => handleCategoryEdit(category)}
                     ></i>
-                    {/* No delete functionality as per backend routes */}
+                    <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() => handleCategoryDelete(category.id)}
+
+
+                    ></i>
+                    {category.subCategories}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Subcategory Card */}
+      <div
+        className="card mt-5"
+        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
+      >
+        <div className="card-body">
+          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5 className="card-title" style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontStyle: "normal",
+              fontSize: "16px",
+              lineHeight: "100%",
+              letterSpacing: "0"
+            }}>Project Subcategories</h5>
+            <button
+              onClick={handleSubcategoryModalOpen}
+              className="btn"
+              style={buttonStyles.base}
+              onMouseEnter={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.hover)
+              }
+              onMouseLeave={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.base)
+              }
+            >
+              New Subcategory
+            </button>
+          </div>
+
+          <div className="row mt-4">
+            {projectSubcategories.map((subcategory) => (
+              <div key={subcategory.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between"
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div
+                      className="rounded-circle"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        backgroundColor: subcategory.color,
+                      }}
+                    ></div>
+                    <div style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 400,
+                      fontStyle: 'normal',
+                      fontSize: '14px',
+                      lineHeight: '100%',
+                      letterSpacing: '0',
+                      cursor: "pointer"
+                    }} title={subcategory.name}>{subcategory.name.length > 10 ? `${subcategory.name.slice(0, 14)}...` : subcategory.name}</div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleSubcategoryEdit(subcategory)}
+                    ></i>
+                    <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() =>
+                        handleSubcategoryDelete(subcategory.id)
+                      }
+                    ></i>
+                    {/* {subcategory.subCategories} */}
                   </div>
                 </div>
               </div>
@@ -793,7 +1090,7 @@ const LeadsConfigurationMain = () => {
         initialData={editingCancellationReason ? {
           ...editingCancellationReason,
           name: editingCancellationReason.reason,
-          color: "#8B4444"
+          color: editingCancellationReason.color
         } : null}
         isEditing={!!editingCancellationReason}
         type="cancellation-reason"
@@ -809,6 +1106,38 @@ const LeadsConfigurationMain = () => {
         isEditing={!!editingService}
         initialData={editingService}
       />
+
+      {/* Category Modal */}
+<ProjectConfigForm
+  show={showCategoryModal}
+  onClose={() => {
+    setShowCategoryModal(false);
+    setEditingCategory(null);
+  }}
+  onSuccess={fetchProjectCategories}
+  type="category"
+  title="Category"
+  isEditing={!!editingCategory}
+  initialData={editingCategory}
+/>
+
+{/* Subcategory Modal */}
+<ProjectConfigForm
+  show={showSubcategoryModal}
+  onClose={() => {
+    setShowSubcategoryModal(false);
+    setEditingSubcategory(null);
+  }}
+  onSuccess={() => {
+    fetchProjectSubcategories();
+    fetchProjectCategories();
+  }}
+  type="subcategory"
+  title="Subcategory"
+  isEditing={!!editingSubcategory}
+  initialData={editingSubcategory}
+/>
+
       
       {/* Delete Confirmation Modal */}
       {directSourceDeleteConfirmation.DeleteModal}
