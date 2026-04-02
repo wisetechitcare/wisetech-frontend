@@ -252,7 +252,17 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         //   : Yup.string(),
         // state: (projectType?.id === "mep" || selectedProjectType === "mep") ? Yup.string().required("State is required for MEP projects") : Yup.string(),
         // city: (projectType?.id === "mep" || selectedProjectType === "mep") ? Yup.string().required("City is required for MEP projects") : Yup.string(),
-        town: Yup.string(),
+        plotArea: Yup.string(),
+        plotAreaUnit: Yup.string(),
+        builtUpArea: Yup.string(),
+        builtUpAreaUnit: Yup.string(),
+        buildingDetail: Yup.string(),
+        otherPoint1Heading: Yup.string(),
+        otherPoint1Description: Yup.string(),
+        otherPoint2Heading: Yup.string(),
+        otherPoint2Description: Yup.string(),
+        otherPoint3Heading: Yup.string(),
+        otherPoint3Description: Yup.string(),
         zipcode: Yup.string(),
         projectAddress: Yup.string(),
         poNumber: Yup.string(),
@@ -745,14 +755,13 @@ const getInitialAddresses = useCallback(() => {
   }];
 }, [projectData?.addresses, countries, states, cities]);
 
-// Get initial companies for main client details section
+// Get initial companies for main client details section (TEAM DETAILS)
 const getInitialCompanies = useCallback(() => {
   const mappings = projectData?.projectCompanyMappings || [];
-  // Filter for main client companies (not relation companies)
-  const clientCompanies = mappings.filter((m: any) => 
-    m.serviceId || (!m.companyTypeId && !m.refferingSubCompanyId)
-  );
-  
+  // In TEAM DETAILS: show ALL company mappings that have a company selected
+  // Both service-based and type-based entries belong here
+  const clientCompanies = mappings.filter((m: any) => m.companyId);
+
   if (clientCompanies.length > 0) {
     return clientCompanies.map((m: any) => ({
       company: m.companyId || "",
@@ -773,45 +782,49 @@ const getInitialCompanies = useCallback(() => {
 
 // Get initial relation companies for relation companies section
 const getInitialRelationCompanies = useCallback(() => {
+  // EDIT MODE: always read from saved projectData — do NOT fall through to lead conversion data
+  if (editingProjectId && projectData?.projectCompanyMappings) {
+    // In edit mode, all company mappings are shown in TEAM DETAILS.
+    // ADD OTHER RELATION COMPANIES section starts with one blank row.
+    return [{
+      companyTypeId: "",
+      company: "",
+      refferingSubCompanyId: "",
+      contactPerson: "",
+    }];
+  }
+
+  // LEAD CONVERSION MODE: build from lead data
   const leadRelationCompanies: any = [];
-  
-  // For lead conversion, check if leadTeams exist in lead data
+
   if (intitalDataForLeadToProjectConversion?.companies && Array.isArray(intitalDataForLeadToProjectConversion.companies)) {
-    // Filter out main companies (those with serviceId) and map remaining to relation companies
-    const relationTeams = intitalDataForLeadToProjectConversion.companies.filter((company: any) => 
+    // Only include entries that are relation entries (no serviceId) and have some company info
+    const relationTeams = intitalDataForLeadToProjectConversion.companies.filter((company: any) =>
       !company.serviceId && !company.service && (company.companyTypeId || company.companyId)
     );
-    
+
     relationTeams.forEach((team: any) => {
       leadRelationCompanies.push({
         companyTypeId: (() => {
           const value = team.companyTypeId || "";
-          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
         company: (() => {
           const value = team.companyId || team.company || "";
-          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
         refferingSubCompanyId: (() => {
           const value = team.subCompanyId || team.branchId || "";
-          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
         contactPerson: (() => {
           const value = team.contactPersonId || team.contactPerson || "";
-          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
-        // Fixed: Only store IDs, not full objects to avoid Prisma errors
-        // subCompany: team.subCompany || null,
-        // companyType: team.companyType || null,
-        // contact: team.contact || null,
       });
     });
   }
-  
+
   // Also check for referrals in lead data
   if (intitalDataForLeadToProjectConversion?.referrals && Array.isArray(intitalDataForLeadToProjectConversion.referrals)) {
     intitalDataForLeadToProjectConversion.referrals.forEach((referral: any) => {
@@ -819,55 +832,37 @@ const getInitialRelationCompanies = useCallback(() => {
         leadRelationCompanies.push({
           companyTypeId: (() => {
             const value = referral.referralTypeId || referral.referralType || "";
-            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
           company: (() => {
             const value = referral.referringCompanyId || referral.referringCompany || "";
-            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
           refferingSubCompanyId: (() => {
             const value = referral.referringSubCompanyId || "";
-            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
           contactPerson: (() => {
             const value = referral.referredByContactId || referral.referringContact || "";
-            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
         });
       }
     });
   }
-  
+
   if (leadRelationCompanies.length > 0) {
     return leadRelationCompanies;
   }
 
-  // For regular project editing
-  const mappings = projectData?.projectCompanyMappings || [];
-  // Filter for relation companies (those with companyTypeId and refferingSubCompanyId)
-  const projectRelationCompanies = mappings.filter((m: any) => 
-    m.companyTypeId && m.refferingSubCompanyId
-  );
-  
-  if (projectRelationCompanies.length > 0) {
-    return projectRelationCompanies.map((m: any) => ({
-      companyTypeId: m.companyTypeId || "",
-      company: m.companyId || "",
-      refferingSubCompanyId: m.refferingSubCompanyId || "",
-      contactPerson: m.contactPersonId || "",
-    }));
-  }
+  // Default: one empty row
   return [{
     companyTypeId: "",
     company: "",
     refferingSubCompanyId: "",
     contactPerson: "",
   }];
-}, [projectData?.projectCompanyMappings, intitalDataForLeadToProjectConversion?.companies]);
+}, [editingProjectId, projectData?.projectCompanyMappings, intitalDataForLeadToProjectConversion?.companies, intitalDataForLeadToProjectConversion?.referrals]);
 
 
 // Get initial commercials for edit mode
@@ -1031,10 +1026,13 @@ const getInitialTeamDetails = useCallback(() => {
   // Memoized initial values
   const initialValues = useMemo(
     () => {
-      const leadData = intitalDataForLeadToProjectConversion;
+      // IMPORTANT: In edit mode (editingProjectId is set), NEVER use leadData for field values.
+      // leadData contains lead statuses, lead assignees etc. that are incompatible with project fields.
+      // Only use leadData when creating a NEW project from a lead conversion.
+      const leadData = editingProjectId ? null : intitalDataForLeadToProjectConversion;
       
       return {
-        // Basic project details - use lead data if available
+        // Basic project details
         title: leadData?.title || projectData?.title || "",
         projectTempletId: selectedProjectType
           ? selectedProjectType
@@ -1043,7 +1041,7 @@ const getInitialTeamDetails = useCallback(() => {
         projectCategoryId: projectData?.projectCategoryId || "",
         projectSubCategoryId: projectData?.projectSubCategoryId || "",
         
-        // Multi-select arrays - prioritize lead data
+        // Multi-select arrays - prioritize lead data (only in create/convert mode)
         serviceIds: (() => {
           if (leadData?.serviceIds && Array.isArray(leadData.serviceIds)) {
             return leadData.serviceIds;
@@ -1095,7 +1093,9 @@ const getInitialTeamDetails = useCallback(() => {
         
         rate: projectData?.rate || "",
         cost: projectData?.cost || "",
-        statusId: leadData?.statusId || projectData?.statusId || "",
+        // Always use projectData.statusId — leadData.statusId is a LeadStatus ID (different table)
+        // and fails backend validation, causing the status to be wiped on every save
+        statusId: projectData?.statusId || "",
         
         // Location fields - prioritize lead data, check additionalDetails too
         country: "",  // Will be handled by addresses array
@@ -1130,7 +1130,17 @@ const getInitialTeamDetails = useCallback(() => {
         
         // Handle By entries
         handledByEntries: (() => {
-          if (leadData?.handledByEntries && Array.isArray(leadData.handledByEntries)) {
+          // EDIT MODE: load existing handledByEntries from saved project data
+          if (editingProjectId && projectData?.handledByEntries && Array.isArray(projectData.handledByEntries) && projectData.handledByEntries.length > 0) {
+            return projectData.handledByEntries.map((entry: any) => ({
+              id: entry.id || Date.now().toString(),
+              employeeId: entry.employeeId || '',
+              handledDate: entry.handledDate ? new Date(entry.handledDate).toISOString().split('T')[0] : '',
+              handledOutDate: entry.handledOutDate ? new Date(entry.handledOutDate).toISOString().split('T')[0] : '',
+            }));
+          }
+          // LEAD CONVERSION: load from lead data
+          if (leadData?.handledByEntries && Array.isArray(leadData.handledByEntries) && leadData.handledByEntries.length > 0) {
             return leadData.handledByEntries.map((entry: any) => ({
               id: entry.id || Date.now().toString(),
               employeeId: entry.employeeId || '',
@@ -1138,7 +1148,7 @@ const getInitialTeamDetails = useCallback(() => {
               handledOutDate: entry.handledOutDate ? new Date(entry.handledOutDate).toISOString().split('T')[0] : '',
             }));
           }
-          // Default: one empty entry
+          // Default: one empty entry for new projects
           return [{
             id: Date.now().toString(),
             employeeId: '',
@@ -1155,17 +1165,21 @@ const getInitialTeamDetails = useCallback(() => {
         plotArea: leadData?.additionalDetails?.plotArea || projectData?.plotArea || "",
         plotAreaUnit: leadData?.additionalDetails?.plotAreaUnit || projectData?.plotAreaUnit || "sqft",
         builtUpArea: leadData?.additionalDetails?.builtUpArea || projectData?.builtUpArea || "",
+        builtUpAreaUnit: leadData?.additionalDetails?.builtUpAreaUnit || projectData?.builtUpAreaUnit || "sqft",
         buildingDetail: leadData?.additionalDetails?.buildingDetail || projectData?.buildingDetail || "",
-        otherPoint1: leadData?.additionalDetails?.otherPoint1 || projectData?.otherPoint1 || "",
-        otherPoint2: leadData?.additionalDetails?.otherPoint2 || projectData?.otherPoint2 || "",
-        otherPoint3: leadData?.additionalDetails?.otherPoint3 || projectData?.otherPoint3 || "",
+        otherPoint1Heading: leadData?.additionalDetails?.otherPoint1Heading || projectData?.otherPoint1Heading || "",
+        otherPoint1Description: leadData?.additionalDetails?.otherPoint1Description || projectData?.otherPoint1Description || "",
+        otherPoint2Heading: leadData?.additionalDetails?.otherPoint2Heading || projectData?.otherPoint2Heading || "",
+        otherPoint2Description: leadData?.additionalDetails?.otherPoint2Description || projectData?.otherPoint2Description || "",
+        otherPoint3Heading: leadData?.additionalDetails?.otherPoint3Heading || projectData?.otherPoint3Heading || "",
+        otherPoint3Description: leadData?.additionalDetails?.otherPoint3Description || projectData?.otherPoint3Description || "",
         
-        // Arrays with lead data priority
-        companies: getLeadConvertedCompanies(),
+        // Arrays: in edit mode always use projectData, in create/convert mode use lead conversion helpers
+        companies: editingProjectId ? getInitialCompanies() : getLeadConvertedCompanies(),
         projectCompanyMappings: getInitialRelationCompanies(),
-        commercials: getLeadConvertedCommercials(),
+        commercials: editingProjectId ? getInitialCommercials() : getLeadConvertedCommercials(),
         teamDetails: getInitialTeamDetails(),
-        addresses: getLeadConvertedAddresses(),
+        addresses: editingProjectId ? getInitialAddresses() : getLeadConvertedAddresses(),
         
         // Additional fields
         documents: projectData?.documents || "",
@@ -1181,6 +1195,7 @@ const getInitialTeamDetails = useCallback(() => {
       };
     },
     [
+      editingProjectId,
       projectData,
       selectedProjectType,
       countries,
@@ -1188,12 +1203,15 @@ const getInitialTeamDetails = useCallback(() => {
       cities,
       getInitialCompanies,
       getInitialRelationCompanies,
+      getInitialCommercials,
+      getInitialAddresses,
       getLeadConvertedCommercials,
       getLeadConvertedCompanies,
       getLeadConvertedAddresses,
       getInitialTeamDetails,
       intitalDataForLeadToProjectConversion,
-      createdById
+      createdById,
+      projectData?.handledByEntries,
     ]
   );
 
@@ -1401,7 +1419,7 @@ const handleSubmit = useCallback(
       }
 
       // Remove empty fields (preserve multi-select arrays even if empty)
-      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds', 'handledByEntries'];
+      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds'];
       const cleanPayload = Object.keys(payload).reduce((acc: any, key: string) => {
         const v = payload[key];
         const isEmptyArray = Array.isArray(v) && v.length === 0;
@@ -1413,6 +1431,16 @@ const handleSubmit = useCallback(
         }
         return acc;
       }, {});
+
+      // Clean handledByEntries: strip frontend-only `id` field, filter out empty entries
+      if (payload.handledByEntries && Array.isArray(payload.handledByEntries)) {
+        const validEntries = payload.handledByEntries
+          .filter((e: any) => e.employeeId && e.handledDate)
+          .map(({ id: _id, ...rest }: any) => rest); // remove local id
+        if (validEntries.length > 0) {
+          cleanPayload.handledByEntries = validEntries;
+        }
+      }
 
       // Add prefix to payload for backend to use
       if (editablePrefix && editablePrefix.trim()) {
@@ -1904,64 +1932,201 @@ const handleSubmit = useCallback(
                           <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
                           PROJECT DETAILS 1
                         </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3">
-                          {/* Plot Area with unit dropdown */}
-                          <Row className="mb-3">
-                            <Col md={12}>
-                              <div className="d-flex flex-column fv-row">
-                                <label className="d-flex align-items-center fs-6 form-label mb-2">
+                        <Grid container spacing={2} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
+                          {/* Row 1: Plot Area + Unit | Built-Up Area + Unit */}
+                          <Grid item xs={12} md={6}>
+                            <div className="d-flex flex-column fv-row">
+                              <div className="d-flex" style={{ gap: '8px', marginBottom: '8px' }}>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ flex: 1 }}>
                                   <span>Plot Area</span>
                                 </label>
-                                <div className="d-flex" style={{ gap: '8px' }}>
-                                  <div style={{ flex: 1 }}>
-                                    <Field name="plotArea">
-                                      {({ field }: { field: any }) => (
-                                        <input
-                                          {...field}
-                                          type="text"
-                                          className="employee__form_wizard__input form-control"
-                                          placeholder="Enter Plot Area"
-                                        />
-                                      )}
-                                    </Field>
-                                  </div>
-                                  <div style={{ width: '160px' }}>
-                                    <DropDownInput
-                                      formikField="plotAreaUnit"
-                                      inputLabel=""
-                                      isRequired={false}
-                                      options={[
-                                        { value: 'sqft', label: 'sqft' },
-                                        { value: 'sqm', label: 'sqm' },
-                                        { value: 'acre', label: 'acre' },
-                                      ]}
-                                      placeholder="Unit"
-                                    />
-                                  </div>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ width: '140px' }}>
+                                  <span>Unit</span>
+                                </label>
+                              </div>
+                              <div className="d-flex" style={{ gap: '8px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                  <Field name="plotArea">
+                                    {({ field }: { field: any }) => (
+                                      <input
+                                        {...field}
+                                        type="text"
+                                        className="employee__form_wizard__input form-control"
+                                        placeholder="Enter Plot Area"
+                                      />
+                                    )}
+                                  </Field>
+                                </div>
+                                <div style={{ width: '140px' }}>
+                                  <DropDownInput
+                                    formikField="plotAreaUnit"
+                                    inputLabel=""
+                                    isRequired={false}
+                                    options={[
+                                      { value: 'sqft', label: 'sqft' },
+                                      { value: 'sqm', label: 'sqm' },
+                                      { value: 'acre', label: 'acre' },
+                                    ]}
+                                    placeholder="Unit"
+                                  />
                                 </div>
                               </div>
-                            </Col>
-                          </Row>
-                          <Row className="mb-3">
-                            <Col md={6}>
-                              <TextInput formikField="builtUpArea" label="Built-Up Area" isRequired={false} />
-                            </Col>
-                            <Col md={6}>
-                              <TextInput formikField="buildingDetail" label="Building Detail" isRequired={false} />
-                            </Col>
-                          </Row>
-                          <Row>
-                            <Col md={4}>
-                              <TextInput formikField="otherPoint1" label="Other Point - 1" isRequired={false} />
-                            </Col>
-                            <Col md={4}>
-                              <TextInput formikField="otherPoint2" label="Other Point - 2" isRequired={false} />
-                            </Col>
-                            <Col md={4}>
-                              <TextInput formikField="otherPoint3" label="Other Point - 3" isRequired={false} />
-                            </Col>
-                          </Row>
-                        </div>
+                            </div>
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <div className="d-flex flex-column fv-row">
+                              <div className="d-flex" style={{ gap: '8px', marginBottom: '8px' }}>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ flex: 1 }}>
+                                  <span>Built-Up Area</span>
+                                </label>
+                                <label className='d-flex align-items-center fs-6 form-label mb-0' style={{ width: '140px' }}>
+                                  <span>Unit</span>
+                                </label>
+                              </div>
+                              <div className="d-flex" style={{ gap: '8px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                  <Field name="builtUpArea">
+                                    {({ field }: { field: any }) => (
+                                      <input
+                                        {...field}
+                                        type="text"
+                                        className="employee__form_wizard__input form-control"
+                                        placeholder="Enter Built-Up Area"
+                                      />
+                                    )}
+                                  </Field>
+                                </div>
+                                <div style={{ width: '140px' }}>
+                                  <DropDownInput
+                                    formikField="builtUpAreaUnit"
+                                    inputLabel=""
+                                    isRequired={false}
+                                    options={[
+                                      { value: 'sqft', label: 'sqft' },
+                                      { value: 'sqm', label: 'sqm' },
+                                      { value: 'acre', label: 'acre' },
+                                    ]}
+                                    placeholder="Unit"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </Grid>
+
+                          {/* Row 2: Building Detail (full width) */}
+                          <Grid item xs={12}>
+                            <TextInput formikField='buildingDetail' label='Building Detail' isRequired={false} />
+                          </Grid>
+
+                          {/* Other Points header */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-center" style={{ gap: '8px', marginBottom: '4px' }}>
+                              <div style={{ width: '110px', fontWeight: 500, fontSize: '13px', color: '#555', fontFamily: 'Inter' }}></div>
+                              <div style={{ flex: 1, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Heading</div>
+                              <div style={{ flex: 2, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Description</div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 1 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 1
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint1Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint1Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 2 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 2
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint2Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint2Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
+
+                          {/* Other Point 3 */}
+                          <Grid item xs={12}>
+                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
+                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
+                                Other Point - 3
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Field name="otherPoint3Heading">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Heading"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                              <div style={{ flex: 2 }}>
+                                <Field name="otherPoint3Description">
+                                  {({ field }: { field: any }) => (
+                                    <input
+                                      {...field}
+                                      type="text"
+                                      className="employee__form_wizard__input form-control"
+                                      placeholder="Description"
+                                    />
+                                  )}
+                                </Field>
+                              </div>
+                            </div>
+                          </Grid>
+                        </Grid>
                       </fieldset>
                     </div>
 
