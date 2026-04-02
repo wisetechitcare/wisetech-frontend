@@ -1,0 +1,142 @@
+//
+// Main init file of global bootstrap and theme functions, mixins, variables and config
+//
+
+
+// Custom functions & mixins
+@import "./core/base/functions";
+@import "./core/base/mixins";
+@import "./core/components/mixins";
+@import "./core/vendors/plugins/mixins";
+
+// Custom variables
+@import "components/variables.custom";
+@import "./core/components/variables";
+@import "./core/components/variables-dark";
+@import "components/variables.override";
+
+// Bootstrap initializaton
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/variables-dark";
+@import "bootstrap/scss/maps";
+@import "bootstrap/scss/mixins";
+@import "bootstrap/scss/utilities";
+
+// 3rd-Party plugins variables
+@import "./core/vendors/plugins/variables";
+@import "./core/vendors/plugins/variables-dark";
+
+// Custom layout variables
+@import "layout/variables";
+
+@import "react-calendar/dist/Calendar.css";
+
+@import 'leaflet/dist/leaflet.css';
+
+@import 'react-pdf/dist/Page/AnnotationLayer.css';
+
+@import 'react-pdf/dist/Page/TextLayer.css';
+
+// Internal custom SCSS
+@import "./pages/employees/step-form";
+@import "./pages/employees/full-calendar";
+
+/* Custom CSS for Full Width Modal */
+.full-width-modal > .modal {
+    --bs-modal-width: 100vw !important;
+}
+
+.full-width-modal .modal-dialog {
+	max-width: 100vw;
+	margin: 0;
+	height: 100vh !important;
+}
+  
+.full-width-modal .modal-content {
+	height: 100vh;
+	border-radius: 0;
+}
+  
+.full-width-modal .modal-body {
+	overflow-y: auto;
+}
+  
+.full-width-modal .modal {
+	--bs-modal-zindex: 1055;
+	--bs-modal-padding: 1.75rem;
+}
+
+.leaflet-container { 
+	height: 100% !important;
+}
+
+.bg-primary-red {
+	background-color: $primary-red !important;
+}
+
+.circle {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+}
+
+.present {
+    background-color: #58AC9D;
+}
+
+.absent {
+	background-color: #BB6565;
+}
+
+.working-weekend{
+	background-color: #80ABEC;
+}
+
+.working-method-on-site{
+	background-color: #E2D77B;
+}
+.working-method-office{
+	background-color: #7FC5D4;
+}
+.working-method-remote{
+	background-color: #AD876C;
+}
+.check-in-out {
+	border: 3px solid #58AC9D;
+}
+
+.weekend {
+	background-color: #E5E8ED;
+}
+
+.leave {
+	background-color: #D68F4E;
+}
+
+.font-barlow {
+	font-family: "Barlow" !important;
+}
+.font-inter {
+	font-family: "Inter" !important;
+}
+
+.attendance-modal .modal-dialog {
+	max-width: 900px;
+}
+
+.location-circle {
+	width: 50px;
+	height: 50px;
+	border-radius: 50%;
+}
+
+
+@media (max-width: 576px) {
+    .truncate-text-mobile {
+      width: 10ch;              
+      white-space: nowrap;
+      overflow: hidden;          
+      text-overflow: ellipsis;   
+    }
+}

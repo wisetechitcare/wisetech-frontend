@@ -1,0 +1,94 @@
+//
+// Main
+//
+@import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+// Body
+body {
+	font-family: "Inter";
+	background-color: var(--#{$prefix}page-bg);
+}
+
+// Font color from Content background color
+.text-page-bg {
+	color: $page-bg;
+}
+
+.app-blank {
+	background-color: var(--#{$prefix}app-blank-bg) !important;
+}
+
+// Desktop Mode
+@include media-breakpoint-up(lg) {
+	// Containers
+	.container,
+	.container-fluid {
+		padding: 0 get($content-spacing, desktop);
+	}
+
+	// Wrapper
+	.wrapper {
+		transition: padding-left get($aside-config, transition-speed) ease;
+		padding-top: get($header-config, height, desktop);
+		padding-left: get($aside-config, width);
+
+		// Aside default enabled, aside fixed and aside minimize modes
+		[data-kt-aside-minimize="on"] & {
+			transition: padding-left get($aside-config, transition-speed) ease;
+			padding-left: 0;
+		}
+	}
+}
+
+// Tablet & mobile modes
+@include media-breakpoint-down(lg) {
+	// Containers
+	.container,
+	.container-fluid {
+		max-width: none;
+		padding: 0 get($content-spacing, tablet-and-mobile);
+	}
+
+	// Wrapper
+	.wrapper {
+		// Fixed header mode
+		.header-tablet-and-mobile-fixed & {
+			padding-top: get($header-config, height, tablet-and-mobile);
+		}
+	}
+}
+
+.calendar-light {
+	--calendar-bg-color: white;
+	--calendar-text-color: black;
+  }
+  
+.calendar-dark {
+	--calendar-bg-color: #333;
+	--calendar-text-color: white;
+  }
+  
+.react-calendar {
+	background: var(--calendar-bg-color);
+	color: var(--calendar-text-color);
+	width: 100%;
+  	max-width: 600px;
+}
+  
+.react-calendar__tile {
+	color: var(--calendar-text-color);
+}
+  
+.react-calendar__navigation button {
+	color: var(--calendar-text-color);
+}
+
+.signature-container {
+	max-width: 600px;
+	margin: 0;
+}
+  
+.signature-canvas {
+    height: 300px;
+}

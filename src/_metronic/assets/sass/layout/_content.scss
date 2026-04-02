@@ -1,0 +1,19 @@
+//
+// Content
+//
+
+// Desktop mode
+@include media-breakpoint-up(lg) {
+	.content {
+		padding: get($content-spacing, desktop) 0 0 0;
+		background-color: $content-background;
+	}
+}
+
+// Tablet & mobile modes
+@include media-breakpoint-down(lg) {
+	.content {
+		padding: get($content-spacing, tablet-and-mobile) 0 0 0;
+		background-color: $content-background;
+	}
+}
