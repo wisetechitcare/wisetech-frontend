@@ -667,7 +667,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                       color: "#9CAFC9"
                     }}>
                     {title?.toLowerCase().includes('status') ? 'Create leads to see status breakdown' :
-                     title?.toLowerCase().includes('service') ? 'Add services to see lead distribution' :
+                     title?.toLowerCase().includes('service') ? ' to see lead distribution' :
                      title?.toLowerCase().includes('category') ? 'Create project categories to view lead breakdown' :
                      title?.toLowerCase().includes('source') && !title?.toLowerCase().includes('referral') && !title?.toLowerCase().includes('direct') ? 'Add lead sources to see distribution' :
                      title?.toLowerCase().includes('referral') ? 'Add referral sources to see lead origins' :

@@ -69,8 +69,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       branchId: Yup.string().required("Branch is required"),
       roleInCompany: Yup.string(),
       fullName: Yup.string().required("Full name is required"),
-      phone: Yup.string().required("Phone is required"),
-      email: Yup.string().email("Invalid email format").required("Email is required"),
+      phone: Yup.string(),
+      email: Yup.string().email("Invalid email format"),
       country: isAdd ? Yup.string() : Yup.string(),
       state: isAdd ? Yup.string() : Yup.string(),
       city: isAdd ? Yup.string() : Yup.string(),
@@ -1071,7 +1071,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <TextInput
                                 label="Phone"
                                 placeholder="Enter phone"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="phone"
                                 inputValidation="numbers"
                               />
@@ -1089,7 +1089,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <TextInput
                                 label="Email"
                                 placeholder="Enter email"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="email"
                               />
                             </Col>
@@ -1319,11 +1319,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               View Location On Map
                             </div>
                           </Row>
-                          <Row>
-                           
-                          </Row>
                             </div>
-
                         </div>
                       </fieldset>
                     </div>
