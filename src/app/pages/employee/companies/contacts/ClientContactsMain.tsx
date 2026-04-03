@@ -14,7 +14,6 @@ import { getAllClientCompanies, getAllSubCompanies } from "@services/companies";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
-import { current } from "@reduxjs/toolkit";
 interface Props {
   contactByRolesId?: string;
   startDate?: Dayjs;
