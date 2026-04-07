@@ -20,37 +20,31 @@ export const badgeMapping: Record<string, string> = {
   Critical: CriticalBadge,
 };
 
-// Helper to add ordinal suffix to rank number
 function getOrdinalSuffix(rank: number): string {
-  const j = rank % 10,
-    k = rank % 100;
-
-  if (j === 1 && k !== 11) {
-    return rank + "st";
-  }
-  if (j === 2 && k !== 12) {
-    return rank + "nd";
-  }
-  if (j === 3 && k !== 13) {
-    return rank + "rd";
-  }
+  const j = rank % 10;
+  const k = rank % 100;
+  if (j === 1 && k !== 11) return rank + "st";
+  if (j === 2 && k !== 12) return rank + "nd";
+  if (j === 3 && k !== 13) return rank + "rd";
   return rank + "th";
 }
 
 interface PerformanceBadgeProps {
   remark: string;
-  rank: number;
+  rank: number | null;
   maxTotal: number;
   yourPoints: number;
   fromAdmin?: boolean;
+  rankLoading?: boolean;
 }
 
 const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
   remark,
-  rank,
+  rank,           // ✅ Fixed — no JSX default value here, receives from parent
   yourPoints,
   maxTotal,
   fromAdmin = false,
+  rankLoading = false,
 }) => {
   const employee = useSelector((state: RootState) =>
     fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee
@@ -61,7 +55,15 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
     employee.gender as unknown as Gender
   );
 
-const badgeImage = useMemo(() => badgeMapping[remark] || GoodBadge, [remark]);
+  const badgeImage = useMemo(() => badgeMapping[remark] || GoodBadge, [remark]);
+
+  const rankLabel =
+    rankLoading
+      ? "Loading..."
+      : typeof rank === "number" && rank > 0
+      ? getOrdinalSuffix(rank)
+      : "-";
+
   const CommonCard: React.FC<{
     children?: React.ReactNode;
     styles?: React.CSSProperties;
@@ -82,22 +84,21 @@ const badgeImage = useMemo(() => badgeMapping[remark] || GoodBadge, [remark]);
   return (
     <div className="d-flex flex-column flex-lg-row gap-3 sticky-responsive">
       <style jsx>{`
-                    .sticky-responsive {
-                        position: static;
-                        background-color: white;
-                        padding: 10px;
-                    }
-                    
-                    @media (min-width: 992px) {
-                        .sticky-responsive {
-                            position: sticky;
-                            top: 125px;
-                            z-index: 50;
-                        }
-                    }
-                `}</style>
+        .sticky-responsive {
+          position: static;
+          background-color: white;
+          padding: 10px;
+        }
+        @media (min-width: 992px) {
+          .sticky-responsive {
+            position: sticky;
+            top: 125px;
+            z-index: 50;
+          }
+        }
+      `}</style>
+
       <div style={{ flex: 3 }}>
-        
         <CommonCard styles={{ width: "100%" }}>
           <Row className="flex-column flex-lg-row justify-content-center justify-content-lg-start text-center text-lg-start align-items-center">
             <Col
@@ -117,7 +118,7 @@ const badgeImage = useMemo(() => badgeMapping[remark] || GoodBadge, [remark]);
               md={2}
               className="d-flex flex-column justify-content-center align-items-center align-items-md-start mb-3 mb-lg-0"
             >
-              <h5 className="mb-1">{getOrdinalSuffix(rank)}</h5>
+              <h5 className="mb-1">{rankLabel}</h5>
               <small className="text-muted">Rank</small>
             </Col>
 
@@ -133,7 +134,7 @@ const badgeImage = useMemo(() => badgeMapping[remark] || GoodBadge, [remark]);
               md={5}
               className="d-flex align-items-center justify-content-center justify-content-lg-start"
             >
-              <ScoreBar score={yourPoints} maxScore={maxTotal} />
+              <ScoreBar score={yourPoints} maxScore={Math.abs(maxTotal)} />
             </Col>
           </Row>
         </CommonCard>

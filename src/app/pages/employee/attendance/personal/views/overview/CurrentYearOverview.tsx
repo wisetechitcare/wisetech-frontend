@@ -36,6 +36,14 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     
     const totalWorkingDay = getWorkingDaysInRange(dayjs(startDate), dayjs(endDate), true, allWeekends, holidays );
 
+    console.log("=== ATTENDANCE MODULE ===");
+    console.log("WorkingDays:", totalWorkingDay);
+    console.log("StartDate:", dayjs(startDate).format('YYYY-MM-DD'));
+    console.log("EndDate:", dayjs(endDate).format('YYYY-MM-DD'));
+    console.log("Holidays:", holidays);
+    console.log("WorkingConfig:", allWeekends);
+    console.log("=========================");
+
     const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee?.id);
     const currentEmployeeId = useSelector((state:RootState) => state?.employee?.currentEmployee?.id);
 
