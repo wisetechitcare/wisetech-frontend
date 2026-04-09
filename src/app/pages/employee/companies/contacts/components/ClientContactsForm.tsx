@@ -65,8 +65,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const validationSchema = useMemo(() => {
     const isAdd = !contactId;
     return Yup.object().shape({
-      companyId: Yup.string().required("Company is required"),
-      branchId: Yup.string().required("Branch is required"),
       roleInCompany: Yup.string(),
       fullName: Yup.string().required("Full name is required"),
       phone: Yup.string(),
@@ -692,7 +690,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <DropDownInput
                                 inputLabel="Choose Company"
                                 placeholder="Select company"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="companyId"
                                 options={companies.map((c) => ({
                                   value: c.id,
@@ -752,7 +750,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <DropDownInput
                                 inputLabel="Choose Branch"
                                 placeholder="Select branch"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="branchId"
                                 options={branches.map((b) => ({
                                   value: b.id,
@@ -996,7 +994,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 placeholder="Enter full name"
                                 isRequired={true}
                                 formikField="fullName"
-                                inputValidation="letters-space"
                               />
                             </Col>
                             <Col md={6}>
@@ -1070,7 +1067,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#b82525ff",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",

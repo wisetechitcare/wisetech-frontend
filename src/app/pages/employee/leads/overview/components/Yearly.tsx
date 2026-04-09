@@ -38,10 +38,13 @@ import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/Ye
 import LocationProjectChart from "@pages/employee/projects/commonComponents/ProjectByLocationChart";
 import LeadByLocationChart from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
+import YearlyPerformanceAnalytics from "./charts/YearlyPerformanceAnalytics";
 interface Props {
   startDate: dayjs.Dayjs;
   endDate: dayjs.Dayjs;
 }
+
+const USE_MOCK = true;
 
 const Yearly = ({ startDate, endDate }: Props) => {
   const [chartData, setChartData] = useState<any>({
@@ -89,26 +92,25 @@ const Yearly = ({ startDate, endDate }: Props) => {
   const [locationRes, setLocationRes] = useState<any>(null);
   const [monthlyTopLeadsRes, setMonthlyTopLeadsRes] = useState<any>(null);
   const [leadStatusesID, setLeadStatusesID] = useState<any>([]);
-  
+
   const [open, setOpen] = useState(false);
-  const [statusId, setStatusId] = useState('');
-  const [serviceId, setServiceId] = useState('');
+  const [statusId, setStatusId] = useState("");
+  const [serviceId, setServiceId] = useState("");
   const [openService, setOpenService] = useState(false);
   const [serviceData, setServiceData] = useState<any>([]);
   const [categoryData, setCategoryData] = useState<any>([]);
-  const [categoryId, setCategoryId] = useState('');
+  const [categoryId, setCategoryId] = useState("");
   const [openCategory, setOpenCategory] = useState(false);
   const [openReferral, setOpenReferral] = useState(false);
-  const [referralId, setReferralId] = useState('');
-  const [sourceId, setSourceId] = useState('');
+  const [referralId, setReferralId] = useState("");
+  const [sourceId, setSourceId] = useState("");
   const [openSource, setOpenSource] = useState(false);
-  const [subCategoryId, setSubCategoryId] = useState('');
+  const [subCategoryId, setSubCategoryId] = useState("");
   const [openSubCategory, setOpenSubCategory] = useState(false);
-  const [companyTypeId, setCompanyTypeId] = useState('');
+  const [companyTypeId, setCompanyTypeId] = useState("");
   const [openCompanyType, setOpenCompanyType] = useState(false);
   const [topLeadsId, setTopLeadsId] = useState<string[] | null>(null);
   const [openTopLeads, setOpenTopLeads] = useState(false);
-
 
   const [openModal, setOpenModal] = useState(false);
   const settings = useSelector((state: any) => state.chartSettings);
@@ -138,11 +140,9 @@ const Yearly = ({ startDate, endDate }: Props) => {
     }));
   };
 
-  
   const handleStatusChartClick = (selectedLabel: string) => {
-    
     const selectedStatus = leadStatusesID.find(
-      (status: any) => status.name === selectedLabel
+      (status: any) => status.name === selectedLabel,
     );
 
     if (selectedStatus) {
@@ -155,7 +155,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
   const handleServiceChartClick = (selectedLabel: string) => {
     const selectedService = serviceData.find(
-      (service: any) => service.service === selectedLabel
+      (service: any) => service.service === selectedLabel,
     );
     if (selectedService) {
       setServiceId(selectedService.serviceId);
@@ -167,7 +167,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
   const handleCategoryChartClick = (selectedLabel: string) => {
     const selectedCategory = categoryData.find(
-      (category: any) => category.category === selectedLabel
+      (category: any) => category.category === selectedLabel,
     );
     if (selectedCategory) {
       setCategoryId(selectedCategory.categoryId);
@@ -179,18 +179,19 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
   const handleReferralChartClick = (selectedLabel: string) => {
     const allLeads =
-      referralSourceRes?.data?.flatMap((referral: any) => referral.leadsData) ?? [];
-    
+      referralSourceRes?.data?.flatMap((referral: any) => referral.leadsData) ??
+      [];
+
     let selectedReferral = allLeads.find(
-      (referral: any) => referral.name === selectedLabel
+      (referral: any) => referral.name === selectedLabel,
     );
-    
+
     if (!selectedReferral) {
       selectedReferral = allLeads.find(
-        (referral: any) => referral.id === selectedLabel
+        (referral: any) => referral.id === selectedLabel,
       );
     }
-    
+
     if (selectedReferral) {
       setReferralId(selectedReferral.id);
       handleFilterChange("referralStatus", selectedReferral.name);
@@ -198,13 +199,13 @@ const Yearly = ({ startDate, endDate }: Props) => {
       setReferralId(selectedLabel);
       handleFilterChange("referralStatus", selectedLabel);
     }
-    
+
     setOpenReferral(true);
   };
 
   const handleSourceChartClick = (selectedLabel: string) => {
     const selectedSource = sourceRes?.data?.find(
-      (source: any) => source.source === selectedLabel
+      (source: any) => source.source === selectedLabel,
     );
     if (selectedSource) {
       setSourceId(selectedSource.source);
@@ -214,19 +215,19 @@ const Yearly = ({ startDate, endDate }: Props) => {
     setOpenSource(true);
   };
 
-  const handleSubCategoryChartClick = (selectedLabel: string) => {    
+  const handleSubCategoryChartClick = (selectedLabel: string) => {
     let selectedSubCategory: any = null;
     subcategoryRes?.data?.forEach((category: any) => {
       if (category.subCategories) {
         const found = category.subCategories.find(
-          (subcat: any) => subcat.name === selectedLabel
+          (subcat: any) => subcat.name === selectedLabel,
         );
         if (found) {
           selectedSubCategory = found;
         }
       }
     });
-    
+
     if (selectedSubCategory) {
       setSubCategoryId(selectedSubCategory.id);
     } else {
@@ -236,19 +237,19 @@ const Yearly = ({ startDate, endDate }: Props) => {
   };
 
   const handleCompanyTypeChartClick = (selectedLabel: string) => {
-    let selectedCompanyType:any = null;
-    
+    let selectedCompanyType: any = null;
+
     companyTypeRes?.data?.forEach((statusGroup: any) => {
       if (statusGroup.allLeadsByAllCompanyType) {
         const found = statusGroup.allLeadsByAllCompanyType.find(
-          (companyType: any) => companyType.name === selectedLabel
+          (companyType: any) => companyType.name === selectedLabel,
         );
         if (found) {
           selectedCompanyType = found;
         }
       }
-    });    
-    
+    });
+
     if (selectedCompanyType) {
       setCompanyTypeId(selectedCompanyType.id);
       handleFilterChange("companyType", selectedCompanyType.name);
@@ -260,7 +261,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
   const handleTopLeadsChartClick = (selectedLabel?: string) => {
     let ids: string[] = [];
-  
+
     monthlyTopLeadsRes?.data?.forEach((status: any) => {
       Object.values(status.data).forEach((sections: any) => {
         sections.forEach((entry: any) => {
@@ -274,14 +275,13 @@ const Yearly = ({ startDate, endDate }: Props) => {
         });
       });
     });
-  
+
     setTopLeadsId(ids);
     setOpenTopLeads(true);
     return ids;
   };
 
   const handleCategoryFilterChange = async (value: string) => {
-
     setFilters((prev: any) => ({ ...prev, category: value }));
 
     if (value === "All") {
@@ -290,9 +290,8 @@ const Yearly = ({ startDate, endDate }: Props) => {
     } else {
       // Find the selected status and get its ID
       const selectedStatus = leadStatusesID.find(
-        (status: any) => status.name === value
+        (status: any) => status.name === value,
       );
-
 
       if (selectedStatus) {
         await fetchCategoryAnalytics(selectedStatus.id.toString());
@@ -303,7 +302,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
       }
     }
   };
-
 
   const applyFilter = (data: ChartData[], filterKey: string) => {
     const filterValue = filters[filterKey];
@@ -345,7 +343,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
     }
 
     const statusOptions = monthlyTopLeadsRes.data.map(
-      (status: any) => status.name
+      (status: any) => status.name,
     );
 
     let referralTypeOptions: string[] = [];
@@ -377,50 +375,150 @@ const Yearly = ({ startDate, endDate }: Props) => {
     };
   };
 
-     const fetchCategoryAnalytics = useCallback(
-        async (statusId?: string | null) => {
-          try {
-            setLoading(true); // Add loading state for this specific chart
-    
-            const data = await getLeadsByProjectCategoryAnalytics(
-              startDate.format("YYYY-MM-DD"),
-              endDate.format("YYYY-MM-DD"),
-              statusId || ""
-            );
-    
-    
-            // Update only the categoryData, preserving other chart data
-            setChartData((prevData: any) => ({
-              ...prevData,
-              categoryData: convertToChartData(
-                data?.data || [],
-                "count",
-                "category",
-                "totalBudget"
-              ),
-            }));
-          } catch (error) {
-            console.error("Error fetching category analytics:", error);
-            setError(
-              `Failed to fetch category data: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`
-            );
-    
-            // Set empty data on error to show no data state
-            setChartData((prevData: any) => ({
-              ...prevData,
-              categoryData: [],
-            }));
-          } finally {
-            setLoading(false);
-          }
-        },
-        [startDate, endDate]
-      );
+  const fetchCategoryAnalytics = useCallback(
+    async (statusId?: string | null) => {
+      try {
+        setLoading(true); // Add loading state for this specific chart
+
+        const data = await getLeadsByProjectCategoryAnalytics(
+          startDate.format("YYYY-MM-DD"),
+          endDate.format("YYYY-MM-DD"),
+          statusId || "",
+        );
+
+        // Update only the categoryData, preserving other chart data
+        setChartData((prevData: any) => ({
+          ...prevData,
+          categoryData: convertToChartData(
+            data?.data || [],
+            "count",
+            "category",
+            "totalBudget",
+          ),
+        }));
+      } catch (error) {
+        console.error("Error fetching category analytics:", error);
+        setError(
+          `Failed to fetch category data: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+        );
+
+        // Set empty data on error to show no data state
+        setChartData((prevData: any) => ({
+          ...prevData,
+          categoryData: [],
+        }));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [startDate, endDate],
+  );
 
   useEffect(() => {
     const fetchData = async () => {
+      if (USE_MOCK) {
+        console.log(
+          "[DASHBOARD MOCK MODE] Using synthetic data for Yearly dashboard",
+        );
+        setLoading(false);
+        setError("");
+
+        const mockSegments = [
+          {
+            name: "Global Segment A",
+            count: 1200,
+            budget: 150000,
+            color: "#4287f5",
+            status: "Active",
+            service: "Development",
+          },
+          {
+            name: "Global Segment B",
+            count: 850,
+            budget: 110000,
+            color: "#42f5a7",
+            status: "On-Hold",
+            service: "Testing",
+          },
+        ];
+
+        const chartReadyData = mockSegments.map((i) => ({
+          label: i.name,
+          value: i.count,
+          budget: i.budget,
+          color: i.color,
+          status: i.status,
+          service: i.service,
+        }));
+
+        const mockStatusSeries = [
+          {
+            label: "In Progress",
+            color: "#4287f5",
+            data: [
+              "Jan",
+              "Feb",
+              "Mar",
+              "Apr",
+              "May",
+              "Jun",
+              "Jul",
+              "Aug",
+              "Sep",
+              "Oct",
+              "Nov",
+              "Dec",
+            ].map((m) => ({ x: m, y: Math.floor(Math.random() * 50) + 20 })),
+          },
+          {
+            label: "Completed",
+            color: "#42f5a7",
+            data: [
+              "Jan",
+              "Feb",
+              "Mar",
+              "Apr",
+              "May",
+              "Jun",
+              "Jul",
+              "Aug",
+              "Sep",
+              "Oct",
+              "Nov",
+              "Dec",
+            ].map((m) => ({ x: m, y: Math.floor(Math.random() * 40) + 10 })),
+          },
+        ];
+
+        setChartData({
+          statusData: chartReadyData,
+          serviceData: chartReadyData,
+          categoryData: chartReadyData,
+          subcategoryData: chartReadyData,
+          directSourceData: chartReadyData,
+          referralSourceData: chartReadyData,
+          sourceData: chartReadyData,
+          companyTypeData: chartReadyData,
+          yearlyData: mockStatusSeries,
+          yearlyReferralSourceData: mockStatusSeries.map((s) => ({
+            ...s,
+            label: "Ref: " + s.label,
+          })),
+          yearlyDirectSourceData: mockStatusSeries.map((s) => ({
+            ...s,
+            label: "Direct: " + s.label,
+          })),
+          topLeadsData: [],
+          locationData: chartReadyData,
+        });
+
+        setServiceData(mockSegments);
+        setCategoryData(mockSegments);
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
@@ -445,7 +543,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
           getLeadsByProjectCategoryAnalytics(
             startDates,
             endDates,
-            filters.category === "All" ? "" : filters.category
+            filters.category === "All" ? "" : filters.category,
           ),
           getLeadsBySubcategoryAnalytics(startDates, endDates),
           getLeadsByDirectSourceAnalytics(startDates, endDates),
@@ -469,71 +567,69 @@ const Yearly = ({ startDate, endDate }: Props) => {
         setLocationRes(locationRes);
         setMonthlyTopLeadsRes(monthlyTopLeadsRes);
         setCategoryData(categoryRes?.data || []);
-        setServiceData(serviceRes?.data || []),
-
-        setChartData({
-          statusData: convertToChartData(
-            statusRes?.data || [],
-            "count",
-            "status",
-            "budget"
-          ),
-          serviceData: convertToChartData(
-            serviceRes?.data || [],
-            "count",
-            "service",
-            "budget"
-          ),
-          categoryData: convertToChartData(
-            categoryRes?.data || [],
-            "count",
-            "category",
-            "totalBudget"
-          ),
-          subcategoryData: convertSubcategoryData(
-            subcategoryApiRes?.data || [],
-            filters.subcategoryCategory
-          ),
-          directSourceData: convertDirectSourceData(
-            directSourceApiRes?.data || [],
-            filters.directSource
-          ),
-          referralSourceData: convertToChartData(
-            (referralSourceRes?.data || []).flatMap(
-              (source: any) => source.leadsData || []
+        (setServiceData(serviceRes?.data || []),
+          setChartData({
+            statusData: convertToChartData(
+              statusRes?.data || [],
+              "count",
+              "status",
+              "budget",
             ),
-            "count",
-            "name",
-            "budget"
-          ),
-          sourceData: convertToChartData(
-            sourceRes?.data || [],
-            "count",
-            "source",
-            "budget"
-          ),
-          companyTypeData: convertToChartData(
-            (companyTypeRes?.data || []).flatMap(
-              (source: any) => source.allLeadsByAllCompanyType || []
+            serviceData: convertToChartData(
+              serviceRes?.data || [],
+              "count",
+              "service",
+              "budget",
             ),
-            "count",
-            "name",
-            "budget"
-          ),
-          yearlyData: transformYearlyDatas(monthlyLeadsRes?.data || []),
-          yearlyReferralSourceData: transformYearlyDataReferralSources(
-            yearlyReferralSourceRes?.data || []
-          ),
-          yearlyDirectSourceData: transformYearlyDataDirectSources(
-            yearlyDirectSourceRes?.data || []
-          ),
-          topLeadsData: getFilteredTopLeadsData(),
-        });
-        
+            categoryData: convertToChartData(
+              categoryRes?.data || [],
+              "count",
+              "category",
+              "totalBudget",
+            ),
+            subcategoryData: convertSubcategoryData(
+              subcategoryApiRes?.data || [],
+              filters.subcategoryCategory,
+            ),
+            directSourceData: convertDirectSourceData(
+              directSourceApiRes?.data || [],
+              filters.directSource,
+            ),
+            referralSourceData: convertToChartData(
+              (referralSourceRes?.data || []).flatMap(
+                (source: any) => source.leadsData || [],
+              ),
+              "count",
+              "name",
+              "budget",
+            ),
+            sourceData: convertToChartData(
+              sourceRes?.data || [],
+              "count",
+              "source",
+              "budget",
+            ),
+            companyTypeData: convertToChartData(
+              (companyTypeRes?.data || []).flatMap(
+                (source: any) => source.allLeadsByAllCompanyType || [],
+              ),
+              "count",
+              "name",
+              "budget",
+            ),
+            yearlyData: transformYearlyDatas(monthlyLeadsRes?.data || []),
+            yearlyReferralSourceData: transformYearlyDataReferralSources(
+              yearlyReferralSourceRes?.data || [],
+            ),
+            yearlyDirectSourceData: transformYearlyDataDirectSources(
+              yearlyDirectSourceRes?.data || [],
+            ),
+            topLeadsData: getFilteredTopLeadsData(),
+          }));
       } catch (error) {
         console.error("Error fetching chart data:", error);
         setError(
-          error instanceof Error ? error.message : "Failed to fetch data"
+          error instanceof Error ? error.message : "Failed to fetch data",
         );
       } finally {
         setLoading(false);
@@ -543,24 +639,33 @@ const Yearly = ({ startDate, endDate }: Props) => {
     fetchData();
   }, [startDate, endDate, filters.topLeadsType]);
 
-    useEffect(() => {
-      const fetchLeadStatuses = async () => {
-        try {
-          const leadStatusesData = await getAllLeadStatus();
-          // map name and id
-          const leadStatuses = leadStatusesData.leadStatuses.map(
-            (status: any) => ({
-              name: status.name,
-              id: status.id,
-            })
-          );
-          setLeadStatusesID(leadStatuses);
-        } catch (err) {
-          console.error("Error fetching lead statuses:", err);
-        }
-      };
-      fetchLeadStatuses();
-    }, []);
+  useEffect(() => {
+    const fetchLeadStatuses = async () => {
+      if (USE_MOCK) {
+        setLeadStatusesID([
+          { name: "In Progress", id: 1 },
+          { name: "Completed", id: 2 },
+          { name: "Draft", id: 3 },
+          { name: "On-Hold", id: 4 },
+        ]);
+        return;
+      }
+      try {
+        const leadStatusesData = await getAllLeadStatus();
+        // map name and id
+        const leadStatuses = leadStatusesData.leadStatuses.map(
+          (status: any) => ({
+            name: status.name,
+            id: status.id,
+          }),
+        );
+        setLeadStatusesID(leadStatuses);
+      } catch (err) {
+        console.error("Error fetching lead statuses:", err);
+      }
+    };
+    fetchLeadStatuses();
+  }, []);
 
   useEffect(() => {
     if (monthlyTopLeadsRes?.data) {
@@ -583,7 +688,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         ...prevData,
         subcategoryData: convertSubcategoryData(
           subcategoryRes.data,
-          filters.subcategoryCategory
+          filters.subcategoryCategory,
         ),
       }));
     }
@@ -596,7 +701,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         ...prevData,
         directSourceData: convertDirectSourceData(
           directSourceRes.data,
-          filters.directSource
+          filters.directSource,
         ),
       }));
     }
@@ -607,7 +712,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
     if (referralSourceRes?.data) {
       const newReferralSourceData = convertReferralSourceData(
         referralSourceRes.data,
-        filters.referralStatus
+        filters.referralStatus,
       );
 
       setChartData((prevData: any) => ({
@@ -622,7 +727,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
     if (companyTypeRes?.data) {
       const newCompanyTypeData = convertCompanyTypeData(
         companyTypeRes?.data,
-        filters.companyType
+        filters.companyType,
       );
 
       setChartData((prevData: any) => ({
@@ -662,10 +767,14 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
   const topLeadsFilterOptions = getTopLeadsFilterOptions();
 
-
   return (
     <div className="">
       <div className="row g-3">
+        {/* Premium Yearly Performance Analytics */}
+        <div className="col-12 mb-2">
+          <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
+        </div>
+
         {/* Lead By Status */}
         {settings?.showLeadsStatusChart && (
           <div className="col-12 col-md-6">
@@ -692,62 +801,64 @@ const Yearly = ({ startDate, endDate }: Props) => {
 
         {/* Lead By Service */}
         {settings?.showLeadsByServiceChart && (
-            <div className="col-12 col-md-6">
-              <CustomPieCharts
-                data={chartData.serviceData}
-                title="Lead By Service"
-                width={250}
-                height={250}
-                chartType="donut"
-                showFilter={true}
-                filterOptions={chartData.serviceData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.service || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("service", value)
-                }
-                filterPlaceholder="All Services"
-                key="service-chart"
-                onChartClick={handleServiceChartClick}
-              />
-            </div>
-          )}
+          <div className="col-12 col-md-6">
+            <CustomPieCharts
+              data={chartData.serviceData}
+              title="Lead By Service"
+              width={250}
+              height={250}
+              chartType="donut"
+              showFilter={true}
+              filterOptions={chartData.serviceData
+                .map((item: any) => item.label)
+                .sort((a: string, b: string) => a.localeCompare(b))}
+              filterValue={filters.service || ""}
+              onFilterChange={(value: string) =>
+                handleFilterChange("service", value)
+              }
+              filterPlaceholder="All Services"
+              key="service-chart"
+              onChartClick={handleServiceChartClick}
+            />
+          </div>
+        )}
 
         {/* Leads by Monthly chart */}
-        {settings?.showLeadsMonthlyByStatus && <div className="col-12">
-          <YearlyStatusCountChart
-            data={chartData.yearlyData}
-            title="Monthly Leads By Status"
-            height={400}
-            stacked={true}
-            isThisBelongsToLead={true}
-          />
-        </div>}
+        {settings?.showLeadsMonthlyByStatus && (
+          <div className="col-12">
+            <YearlyStatusCountChart
+              data={chartData.yearlyData}
+              title="Monthly Leads By Status"
+              height={400}
+              stacked={true}
+              isThisBelongsToLead={true}
+            />
+          </div>
+        )}
 
         {/* Lead By Project Category */}
         {settings?.showLeadsByProjectCategory && (
-            <div className="col-12 col-md-6">
-              <CustomPieCharts
-                data={chartData.categoryData}
-                title="Lead By Project Category"
-                width={250}
-                height={250}
-                chartType="pie"
-                showFilter={true}
-                filterOptions={chartData.categoryData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.category || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("category", value)
-                }
-                filterPlaceholder="All Categories"
-                key="category-chart"
-                onChartClick={handleCategoryChartClick}
-              />
-            </div>
-          )}
+          <div className="col-12 col-md-6">
+            <CustomPieCharts
+              data={chartData.categoryData}
+              title="Lead By Project Category"
+              width={250}
+              height={250}
+              chartType="pie"
+              showFilter={true}
+              filterOptions={chartData.categoryData
+                .map((item: any) => item.label)
+                .sort((a: string, b: string) => a.localeCompare(b))}
+              filterValue={filters.category || ""}
+              onFilterChange={(value: string) =>
+                handleFilterChange("category", value)
+              }
+              filterPlaceholder="All Categories"
+              key="category-chart"
+              onChartClick={handleCategoryChartClick}
+            />
+          </div>
+        )}
 
         {/* Lead By Source */}
         {settings?.showLeadsBySource && (
@@ -760,7 +871,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
               chartType="donut"
               showFilter={true}
               filterOptions={chartData.sourceData.map(
-                (item: any) => item.label
+                (item: any) => item.label,
               )}
               filterValue={filters.source || ""}
               onFilterChange={(value: string) => {
@@ -796,7 +907,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
               filterPlaceholder="All Status"
               key={`direct-source-chart-${filters.directSource || "all"}`}
               filterMode="external"
-              
             />
           </div>
         )}
@@ -821,83 +931,84 @@ const Yearly = ({ startDate, endDate }: Props) => {
               key={`referral-source-chart-${filters.referralStatus || "all"}`}
               filterMode="external"
               onChartClick={handleReferralChartClick}
-
             />
           </div>
         )}
 
         {/* Lead By Company Type */}
-        {settings?.showLeadsByCompanyType && <div className="col-12 col-md-6">
-          <CustomPieCharts
-            data={chartData.companyTypeData}
-            title="Lead By Company Type"
-            width={250}
-            height={250}
-            showFilter={true}
-            filterOptions={companyTypeFilterOptions}
-            filterValue={filters.companyType || ""}
-            onFilterChange={(value: string) => {
-              handleFilterChange("companyType", value);
-            }}
-            filterPlaceholder="All Status"
-            key={`company-type-chart`}
-            // isThisProjectToolTip={false}
-            onChartClick={handleCompanyTypeChartClick}
-          />
-        </div>}
-
-        
+        {settings?.showLeadsByCompanyType && (
+          <div className="col-12 col-md-6">
+            <CustomPieCharts
+              data={chartData.companyTypeData}
+              title="Lead By Company Type"
+              width={250}
+              height={250}
+              showFilter={true}
+              filterOptions={companyTypeFilterOptions}
+              filterValue={filters.companyType || ""}
+              onFilterChange={(value: string) => {
+                handleFilterChange("companyType", value);
+              }}
+              filterPlaceholder="All Status"
+              key={`company-type-chart`}
+              // isThisProjectToolTip={false}
+              onChartClick={handleCompanyTypeChartClick}
+            />
+          </div>
+        )}
 
         {/* Lead By Subcategory - Enhanced with Category Filtering */}
         {settings?.showLeadsBySubCategory && (
-            <div className="col-12">
-              <CustomBarChart
-                data={chartData.subcategoryData}
-                title={
-                  filters.subcategoryCategory &&
-                  filters.subcategoryCategory !== "" &&
-                  filters.subcategoryCategory !== "all"
-                    ? `Projects By Subcategory - ${filters.subcategoryCategory}`
-                    : "Projects By Subcategory"
-                }
-                height={400}
-                showFilter={true}
-                filterKey="subcategoryCategory" // Using separate filter key
-                filterOptions={categoryFilterOptions.sort(
-                  (a: string, b: string) => a.localeCompare(b)
-                )}
-                filterValue={filters.subcategoryCategory || ""}
-                onFilterChange={(value: string) => {
-                  handleFilterChange("subcategoryCategory", value);
-                }}
-                filterPlaceholder="All Categories"
-                key={`subcategory-chart-${
-                  filters.subcategoryCategory || "all"
-                }`}
-                onChartClick={handleSubCategoryChartClick}
-              />
-            </div>
-          )}
+          <div className="col-12">
+            <CustomBarChart
+              data={chartData.subcategoryData}
+              title={
+                filters.subcategoryCategory &&
+                filters.subcategoryCategory !== "" &&
+                filters.subcategoryCategory !== "all"
+                  ? `Projects By Subcategory - ${filters.subcategoryCategory}`
+                  : "Projects By Subcategory"
+              }
+              height={400}
+              showFilter={true}
+              filterKey="subcategoryCategory" // Using separate filter key
+              filterOptions={categoryFilterOptions.sort(
+                (a: string, b: string) => a.localeCompare(b),
+              )}
+              filterValue={filters.subcategoryCategory || ""}
+              onFilterChange={(value: string) => {
+                handleFilterChange("subcategoryCategory", value);
+              }}
+              filterPlaceholder="All Categories"
+              key={`subcategory-chart-${filters.subcategoryCategory || "all"}`}
+              onChartClick={handleSubCategoryChartClick}
+            />
+          </div>
+        )}
 
         {/* Lead By Yearly refferal sources */}
-        {settings?.showLeadsByYearlyReferralSource && <YearlyStatusCountChart
-          data={chartData.yearlyReferralSourceData}
-          title="Yearly Referral Sources"
-          height={400}
-          stacked={true}
-          showBudget={true}
-          isThisLead={true}
-        />}
+        {settings?.showLeadsByYearlyReferralSource && (
+          <YearlyStatusCountChart
+            data={chartData.yearlyReferralSourceData}
+            title="Yearly Referral Sources"
+            height={400}
+            stacked={true}
+            showBudget={true}
+            isThisLead={true}
+          />
+        )}
 
         {/* Lead By Yearly direct sources */}
-        {settings?.showLeadsFromDirect  && <YearlyStatusCountChart
-          data={chartData.yearlyDirectSourceData}
-          title="Yearly Direct Sources"
-          height={400}
-          stacked={true}
-          showBudget={true}
-          isThisLead={true}
-        />}
+        {settings?.showLeadsFromDirect && (
+          <YearlyStatusCountChart
+            data={chartData.yearlyDirectSourceData}
+            title="Yearly Direct Sources"
+            height={400}
+            stacked={true}
+            showBudget={true}
+            isThisLead={true}
+          />
+        )}
 
         {/* Top Leads - Fixed with Dynamic Filtering */}
         {settings?.showTopLeads && (
@@ -927,7 +1038,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
                     onChange={(e) =>
                       handleTopLeadsFilterChange(
                         "topLeadsStatus",
-                        e.target.value
+                        e.target.value,
                       )
                     }
                     style={{ minWidth: "120px" }}
@@ -938,7 +1049,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
                         <option key={status} value={status}>
                           {status}
                         </option>
-                      )
+                      ),
                     )}
                   </select>
 
@@ -950,7 +1061,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
                       onChange={(e) =>
                         handleTopLeadsFilterChange(
                           "topLeadsReferralType",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       style={{ minWidth: "150px" }}
@@ -961,7 +1072,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
                           <option key={type} value={type}>
                             {type}
                           </option>
-                        )
+                        ),
                       )}
                     </select>
                   )}
@@ -974,7 +1085,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
                       onChange={(e) =>
                         handleTopLeadsFilterChange(
                           "topLeadsDirectSource",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       style={{ minWidth: "150px" }}
@@ -985,7 +1096,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
                           <option key={source} value={source}>
                             {source}
                           </option>
-                        )
+                        ),
                       )}
                     </select>
                   )}
