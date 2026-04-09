@@ -1,4 +1,5 @@
 import { styled, SvgIconProps, Tab, Tabs } from '@mui/material';
+import zIndex from '@mui/material/styles/zIndex';
 import React, { useState } from 'react';
 
 export type TabItem = {
@@ -18,11 +19,11 @@ const CustomizedTabs = styled(Tabs)({
     top: '0px',
     zIndex: 1000,
     backgroundColor: '#9D4141',
-    scrollbarWidth: 'none',
-    msOverflowStyle: 'none',
-    '&::-webkit-scrollbar': {
-        display: 'none',
-    },
+    scrollbarWidth: "none",
+    "-ms-overflow-style": "none",
+    "&::-webkit-scrollbar": {
+    display: "none",
+  },
     '& .MuiTabs-indicator': {
         backgroundColor: '#9D4141',
     },
@@ -48,24 +49,20 @@ const CustomizedTabs = styled(Tabs)({
             // borderBottom: '4px solid white',
         }
     },
-    '@media (min-width: 480px)': {
-        position: 'sticky',
-        top: '74px',
+    "@media (min-width: 480px)": {
+        position: "sticky",
+        top: "74px",
     },
-    '@media (max-width: 1024px)': {
-        position: 'sticky',
-        top: '0px',
+    "@media (max-width: 1024px)": {
+        position: "sticky",
+        top: "0px",
     },
 });
 
-const MaterialHeaderTab = ({ tabItems, activeTab = 0, onTabChange }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange }: MaterialTabProps) => {
     const [value, setValue] = useState(0);
 
-    React.useEffect(() => {
-        setValue(activeTab);
-    }, [activeTab]);
-
-    const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
+    const handleChange = (event: React.SyntheticEvent, newValue: number) => {
         setValue(newValue);
         if (onTabChange) {
             onTabChange(newValue);
@@ -81,18 +78,13 @@ const MaterialHeaderTab = ({ tabItems, activeTab = 0, onTabChange }: MaterialTab
                 indicatorColor="primary"
                 variant="scrollable"
                 scrollButtons="auto"
-                style={{ zIndex: 50 }}
+                style={{"zIndex":"50"}}
             >
-                {tabItems.map((tabItem, index) => (
-                    <Tab
-                        key={`${tabItem.title}-${index}`}
-                        label={tabItem.title}
-                        icon={
-                            tabItem.icon
-                                ? typeof tabItem.icon === 'string'
+                {tabItems.map((tabItem, index) => (<Tab key={index} label={tabItem.title} icon={tabItem.icon ? (typeof tabItem.icon === 'string'
                                     ? <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />
-                                    : React.createElement(tabItem.icon)
-                                : undefined
+                                    // : <tabItem.icon /> )
+                                    :"")
+                                    : undefined
                         }
                     />
                 ))}
@@ -102,13 +94,15 @@ const MaterialHeaderTab = ({ tabItems, activeTab = 0, onTabChange }: MaterialTab
 
             {tabItems.map((tabItem, index) => {
                 return (
-                    <div key={`${tabItem.title}-panel-${index}`} className='px-lg-9 px-5 py-0'>
-                        {value === index && tabItem.component}
-                    </div>
-                );
+                    <>
+                        <div key={index} className='px-lg-9 px-5 py-0'>
+                            {value === index && tabItem.component}
+                        </div>
+                    </>
+                )
             })}
         </>
     );
-};
+}
 
 export default MaterialHeaderTab;

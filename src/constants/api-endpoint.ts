@@ -441,6 +441,8 @@ export const LEAD_PROJECT_COMPANY = {
     GET_LEADS_BY_COMPANY_TYPE_ANALYTICS: "api/lead-project-companies/lead-analytics/company-type",
     GET_MONTHLY_TOP_LEADS: "api/lead-project-companies/lead-analytics/monthly-top-leads",
     GET_MONTHLY_LEAD_ANALYTICS: "api/lead-project-companies/lead-analytics/monthly",
+    GET_MONTHLY_TARGETS: "api/lead-project-companies/lead-analytics/monthly-targets",
+    GET_DAILY_MONTHLY_RUN_RATE: "api/lead-project-companies/lead-analytics/daily-monthly-run-rate",
     GET_MONTHLY_LEADS_BY_REFERRAL_SOURCES: "api/lead-project-companies/lead-analytics/monthly-leads-referral-sources",
     GET_MONTHLY_LEADS_BY_DIRECT_SOURCES: "api/lead-project-companies/lead-analytics/monthly-leads-direct-sources",
     GET_LEADS_BY_LOCATION_ANALYTICS: "api/lead-project-companies/lead-analytics/location",

@@ -109,7 +109,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
   const [topLeadsId, setTopLeadsId] = useState<string[] | null>(null);
   const [openTopLeads, setOpenTopLeads] = useState(false);
 
-
   const [openModal, setOpenModal] = useState(false);
   const settings = useSelector((state: any) => state.chartSettings);
 
@@ -281,7 +280,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
   };
 
   const handleCategoryFilterChange = async (value: string) => {
-
     setFilters((prev: any) => ({ ...prev, category: value }));
 
     if (value === "All") {
@@ -303,7 +301,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
       }
     }
   };
-
 
   const applyFilter = (data: ChartData[], filterKey: string) => {
     const filterValue = filters[filterKey];
@@ -821,7 +818,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
               key={`referral-source-chart-${filters.referralStatus || "all"}`}
               filterMode="external"
               onChartClick={handleReferralChartClick}
-
             />
           </div>
         )}

@@ -37,12 +37,38 @@ const COUNTED_LEAVE_TYPES = [
 ];
 
 /**
- * Calculate how many working days are being requested in each month
+ * Determines whether a given day name is an off day based on branch config.
+ * branchWorkingDays: e.g. { monday: "1", tuesday: "1", ..., saturday: "0", sunday: "0" }
+ */
+const isOffDay = (date: dayjs.Dayjs, branchOffDayNames: Set<string>): boolean => {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return branchOffDayNames.has(dayNames[date.day()]);
+};
+
+/**
+ * Build a Set of off-day names from branch working days config.
+ * B9: Replaces hardcoded Sat/Sun check with branch-configured off days.
+ */
+const buildOffDaySet = (branchWorkingDays?: Record<string, string>): Set<string> => {
+    if (!branchWorkingDays) {
+        // Fallback to standard Sat/Sun if no branch config available
+        return new Set(['saturday', 'sunday']);
+    }
+    return new Set(
+        Object.keys(branchWorkingDays).filter(day => branchWorkingDays[day] === '0')
+    );
+};
+
+/**
+ * Calculate how many working days are being requested in each month.
+ * B8/B9: Excludes branch-configured off days AND public holidays.
  * Returns a map of month (YYYY-MM) to number of working days
  */
 const calculateRequestedDaysPerMonth = (
     dateFrom: string,
-    dateTo: string
+    dateTo: string,
+    branchOffDayNames: Set<string>,
+    publicHolidays: Set<string>
 ): Record<string, number> => {
     const monthlyRequestedLeaves: Record<string, number> = {};
     let currentDate = dayjs(dateFrom);
@@ -50,10 +76,10 @@ const calculateRequestedDaysPerMonth = (
 
     while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, 'day')) {
         const monthKey = currentDate.format('YYYY-MM');
-        const dayOfWeek = currentDate.day();
+        const dateStr = currentDate.format('YYYY-MM-DD');
 
-        // Count only working days (exclude weekends)
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        // Count only working days (not branch off days, not public holidays)
+        if (!isOffDay(currentDate, branchOffDayNames) && !publicHolidays.has(dateStr)) {
             monthlyRequestedLeaves[monthKey] = (monthlyRequestedLeaves[monthKey] || 0) + 1;
         }
 
@@ -64,19 +90,23 @@ const calculateRequestedDaysPerMonth = (
 };
 
 /**
- * Calculate how many leaves (working days) the employee has already taken/pending per month
- * Includes both approved and pending leaves for all counted leave types
+ * Calculate how many leaves (working days) the employee has already taken/pending per month.
+ * B8/B9: Excludes branch-configured off days AND public holidays.
+ * F1: Only counts approved leaves (not pending), to avoid blocking on rejected pending leaves.
  */
 const calculateTakenDaysPerMonth = (
-    employeeLeavesData: any[]
+    employeeLeavesData: any[],
+    branchOffDayNames: Set<string>,
+    publicHolidays: Set<string>
 ): Record<string, number> => {
     const monthlyTakenLeaves: Record<string, number> = {};
 
     employeeLeavesData
         .filter((leave: any) => {
             const isCountedType = COUNTED_LEAVE_TYPES.includes(leave.leaveOptions?.leaveType);
-            const isApprovedOrPending = leave.status === Status.Approved || leave.status === Status.ApprovalNeeded;
-            return isCountedType && isApprovedOrPending;
+            // F1: Count only approved leaves — pending ones may be rejected, shouldn't block new requests
+            const isApproved = leave.status === Status.Approved;
+            return isCountedType && isApproved;
         })
         .forEach((leave: any) => {
             const leaveFromDate = dayjs(leave.dateFrom);
@@ -85,10 +115,10 @@ const calculateTakenDaysPerMonth = (
 
             while (leaveDate.isBefore(leaveToDate) || leaveDate.isSame(leaveToDate, 'day')) {
                 const monthKey = leaveDate.format('YYYY-MM');
-                const dayOfWeek = leaveDate.day();
+                const dateStr = leaveDate.format('YYYY-MM-DD');
 
-                // Count only working days
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                // Count only working days (not branch off days, not public holidays)
+                if (!isOffDay(leaveDate, branchOffDayNames) && !publicHolidays.has(dateStr)) {
                     monthlyTakenLeaves[monthKey] = (monthlyTakenLeaves[monthKey] || 0) + 1;
                 }
 
@@ -100,44 +130,46 @@ const calculateTakenDaysPerMonth = (
 };
 
 /**
- * Validates if an employee can take leave based on monthly limit
+ * Validates if an employee can take leave based on monthly limit.
+ * B8/B9: Now accepts publicHolidays (string[] of 'YYYY-MM-DD') and branchWorkingDays config
+ *         so off-day detection uses branch settings instead of hardcoded Sat/Sun.
  *
  * @param employeeId - The ID of the employee
  * @param dateFrom - Start date of the leave request
  * @param dateTo - End date of the leave request
  * @param allowedPerMonth - Maximum leaves allowed per month (combined across all paid leave types)
+ * @param publicHolidays - Array of public holiday dates ('YYYY-MM-DD') to exclude from counts
+ * @param branchWorkingDays - Branch working days config; keys are day names, values '0'=off/'1'=on
  * @returns Validation result with details about exceeded months
  */
 export const validateMonthlyLeaveLimit = async (
     employeeId: string,
     dateFrom: string,
     dateTo: string,
-    allowedPerMonth: number
+    allowedPerMonth: number,
+    publicHolidays: string[] = [],
+    branchWorkingDays?: Record<string, string>
 ): Promise<MonthlyLeaveValidationResult> => {
     try {
         // Fetch employee's complete leave track using the comprehensive function
         const completeLeaveTrack = await fetchCompleteLeaveTrack(employeeId);
 
         if (completeLeaveTrack.hasError || !completeLeaveTrack.data) {
-            console.error('[MonthlyLeaveValidator] Failed to fetch complete leave track');
             throw new Error('Failed to fetch employee leave data');
         }
 
         // Use the all leaves from the complete track
         const employeeLeavesData = completeLeaveTrack.data.leaves.all || [];
 
-
-        // Count approved and pending leaves separately for clarity
-        const approvedCount = employeeLeavesData.filter((l: any) => l.status === Status.Approved).length;
-        const pendingCount = employeeLeavesData.filter((l: any) => l.status === Status.ApprovalNeeded).length;
-        const rejectedCount = employeeLeavesData.filter((l: any) => l.status === Status.Rejected).length;
-
+        // Build branch-aware off-day set and holiday set (B8/B9)
+        const offDayNames = buildOffDaySet(branchWorkingDays);
+        const holidaySet = new Set(publicHolidays);
 
         // Calculate leaves being requested per month
-        const requestedPerMonth = calculateRequestedDaysPerMonth(dateFrom, dateTo);
+        const requestedPerMonth = calculateRequestedDaysPerMonth(dateFrom, dateTo, offDayNames, holidaySet);
 
         // Calculate leaves already taken/pending per month
-        const takenPerMonth = calculateTakenDaysPerMonth(employeeLeavesData);
+        const takenPerMonth = calculateTakenDaysPerMonth(employeeLeavesData, offDayNames, holidaySet);
 
         // Check each month for violations
         const exceededMonths: MonthlyLeaveValidationResult['exceededMonths'] = [];
@@ -320,7 +352,9 @@ export const validateMonthlyLeaveLimit = async (
  */
 export const getCurrentMonthLeaveUsage = async (
     employeeId: string,
-    allowedPerMonth: number
+    allowedPerMonth: number,
+    publicHolidays: string[] = [],
+    branchWorkingDays?: Record<string, string>
 ): Promise<{
     hasError: boolean;
     data: {
@@ -337,7 +371,6 @@ export const getCurrentMonthLeaveUsage = async (
         const completeLeaveTrack = await fetchCompleteLeaveTrack(employeeId);
 
         if (completeLeaveTrack.hasError || !completeLeaveTrack.data) {
-            console.error('[MonthlyLeaveValidator] Failed to fetch complete leave track');
             return {
                 hasError: true,
                 data: null
@@ -350,7 +383,9 @@ export const getCurrentMonthLeaveUsage = async (
         const currentMonth = dayjs().format('YYYY-MM');
         const monthName = dayjs().format('MMMM YYYY');
 
-        const takenPerMonth = calculateTakenDaysPerMonth(employeeLeavesData);
+        const offDayNames = buildOffDaySet(branchWorkingDays);
+        const holidaySet = new Set(publicHolidays);
+        const takenPerMonth = calculateTakenDaysPerMonth(employeeLeavesData, offDayNames, holidaySet);
         const used = takenPerMonth[currentMonth] || 0;
         const remaining = Math.max(0, allowedPerMonth - used);
         const percentage = (used / allowedPerMonth) * 100;

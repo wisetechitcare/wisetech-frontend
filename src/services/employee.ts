@@ -586,8 +586,15 @@ export const fetchEmployeeLeaves = async (employeeId: string) => {
     }
 }
 
+/**
+ * Fetches complete leave track for a specific employee
+ * Includes all leave records, balances, and comprehensive statistics
+ * @param employeeId - The ID of the employee
+ * @returns Complete leave track with all details
+ */
 export const fetchCompleteLeaveTrack = async (employeeId: string) => {
     try {
+        // Fetch all leave-related data in parallel
         const [leavesResponse, balanceResponse] = await Promise.all([
             fetchEmployeeLeaves(employeeId),
             fetchEmployeeLeaveBalance(employeeId)
@@ -867,7 +874,6 @@ export const fetchAllEmployeeSalaryAllTimeDateRage = async (employeeId: string) 
         throw err;
     }
 }
-
 export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}`;
@@ -888,7 +894,6 @@ export const fetchSalaryRecordsForAllActiveEmployees = async (startDate: string,
         throw err;
     }
 }
-
 export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, startYear: string, endYear: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_Total_salary_By_Year}?companyId=${companyId}&startYear=${startYear}&endYear=${endYear}`;

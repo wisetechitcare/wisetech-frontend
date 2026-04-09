@@ -267,3 +267,57 @@ html {
   background: #fff;  /* Match your dashboard background */
   border-radius: 10px;
 }
+/* Dashboard Premium Styles */
+.hover-elevate {
+  transition: all 0.3s ease;
+}
+
+.hover-elevate:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important;
+}
+
+.recharts-responsive-container {
+  overflow: visible !important;
+}
+
+.card-label {
+  letter-spacing: -0.02em;
+}
+
+/* Custom Tooltip Animation */
+.recharts-tooltip-wrapper {
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1) !important;
+}
+
+/* Animation for Area Charts */
+@keyframes dash {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Utility Classes */
+.transition-all {
+  transition: all 0.2s ease-in-out !important;
+}
+
+.hover-bg-white:hover {
+  background-color: white !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+.hover-opacity:hover {
+  opacity: 0.8;
+}
+
+.bg-slate-50 {
+  background-color: #f8fafc !important;
+}

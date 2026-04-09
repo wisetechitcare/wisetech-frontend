@@ -75,5 +75,4 @@ const ScoreOverview: React.FC<{ data: OverviewData[] }> = ({ data }) => {
   );
 };
 
-
 export default ScoreOverview;

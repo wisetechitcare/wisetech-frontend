@@ -10,42 +10,83 @@ import { useEffect, useMemo, useState } from "react";
 import ClientContactsForm from "./components/ClientContactsForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { getAllClientBranches } from "@services/lead";
-import { getAllClientCompanies } from "@services/companies";
+import { getAllClientCompanies, getAllSubCompanies } from "@services/companies";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
-
 interface Props {
   contactByRolesId?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
 }
-
+ 
 const ClientContactsMain = ({ contactByRolesId, startDate, endDate }: Props) => {
   const employeeId = useSelector(
     (state: RootState) => state.auth.currentUser?.id
   );
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [allContacts, setAllContacts] = useState<any>([]);
   const [allBranches, setAllBranches] = useState<any>([]);
   const [allCompanies, setAllCompanies] = useState<any>([]);
+  const [allSubCompanies, setAllSubCompanies] = useState<any>([]);
   const [newContactModal, setNewContactModal] = useState(false);
-
   const loadAllContacts = async () => {
     try {
-      const contactsData = await getAllClientContacts();
-      setAllContacts(contactsData?.data?.contacts || []);
-      const branchesData = await getAllClientBranches();
-      setAllBranches(branchesData?.data?.leadBranches);
-      const companiesData = await getAllClientCompanies();
-      setAllCompanies(companiesData?.data?.companies);
+const contactsData = await getAllClientContacts();
+const companiesData = await getAllClientCompanies();
+
+const contacts = contactsData?.data?.contacts || [];
+const companies = companiesData?.data?.companies || [];
+
+// Map companyId → companyName
+const companyMap = Object.fromEntries(
+  companies.map((c: any) => [c.id, c.companyName])
+);
+
+// Sort contacts by company name (ascending)
+const sortedContacts = contacts.sort((a: any, b: any) => {
+  const nameA = companyMap[a.companyId] || "";
+  const nameB = companyMap[b.companyId] || "";
+  return nameA.localeCompare(nameB);
+});
+
+setAllContacts(sortedContacts);
+
+// keep other states same
+const branchesData = await getAllClientBranches();
+setAllBranches(branchesData?.data?.leadBranches || []);
+
+setAllCompanies(companies);
+
+const subCompaniesData = await getAllSubCompanies();
+setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
     } catch (error) {
       console.error("Error loading contacts:", error);
     }
   };
 
+  const companyMap = useMemo(() => {
+    const map = new Map();
+    allCompanies.forEach((c: any) => map.set(c.id, c.companyName));
+    return map;
+  }, [allCompanies]);
+
+  const branchMap = useMemo(() => {
+    const map = new Map();
+    allBranches.forEach((b: any) => map.set(b.id, b.name));
+    return map;
+  }, [allBranches]);
+
+  const subCompanyMap = useMemo(() => {
+    const map = new Map();
+    allSubCompanies.forEach((s: any) => map.set(s.id, s));
+    return map;
+  }, [allSubCompanies]);
+  
   useEventBus("clientContactUpdated", () => {
     loadAllContacts();
   });
@@ -130,9 +171,17 @@ const ClientContactsMain = ({ contactByRolesId, startDate, endDate }: Props) => 
         accessorKey: "companyName",
         header: "Company Name",
         Cell: ({ row }) => {
-          const { companyId } = row.original;
+          const { companyId, subCompanyId } = row.original;
           
-          const companyName = allCompanies.find((companies: any) => companies.id === companyId)?.companyName;
+          let companyName = companyMap.get(companyId);
+          
+          if (!companyName && subCompanyId) {
+             const subCompany = subCompanyMap.get(subCompanyId);
+             if (subCompany) {
+                const mainCompName = companyMap.get(subCompany.mainCompanyId);
+                companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
+             }
+          }
           
           return companyName || 'NA';
         },
@@ -142,9 +191,7 @@ const ClientContactsMain = ({ contactByRolesId, startDate, endDate }: Props) => 
         header: "Branch",
         Cell: ({ row }) => {
           const { branch } = row.original;
-          
-          const branchName = allBranches.find((branchs: any) => branchs.id === branch)?.name;
-          
+          const branchName = branchMap.get(branch);
           return branchName || 'NA';
         },
       },
@@ -256,26 +303,30 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
         },
       },
     ],
-    [allBranches, allCompanies,employeeId,allContacts]
+    [branchMap, companyMap, subCompanyMap, employeeId, allContacts]
   );
 
   const hideNewContactButton = contactByRolesId ? true : false;
-  const startDates = startDate ? dayjs(startDate).startOf("day") : null;
-  const endDates = endDate ? dayjs(endDate).endOf("day") : null;
+  const startDates = useMemo(() => startDate ? dayjs(startDate).startOf("day") : null, [startDate]);
+  const endDates = useMemo(() => endDate ? dayjs(endDate).endOf("day") : null, [endDate]);
   
-  const filterData = allContacts
-    ?.filter((item: any) => {
-      const createdAt = dayjs(item.createdAt);
-      if (startDates && createdAt.isBefore(dayjs(startDates).startOf('day'))) return false;
-      if (endDates && createdAt.isAfter(dayjs(endDates).endOf('day'))) return false;
-      return true;
-    })
-    ?.filter((item: any) => {
-      if (contactByRolesId) {
-        return item.contactRoleId === contactByRolesId;
-      }
-      return true;
-    });
+  const filterData = useMemo(() => {
+    const start = startDates;
+    const end = endDates;
+    return allContacts
+      ?.filter((item: any) => {
+        const createdAt = dayjs(item.createdAt);
+        if (start && createdAt.isBefore(start)) return false;
+        if (end && createdAt.isAfter(end)) return false;
+        return true;
+      })
+      ?.filter((item: any) => {
+        if (contactByRolesId) {
+          return item.contactRoleId === contactByRolesId;
+        }
+        return true;
+      });
+  }, [allContacts, startDates, endDates, contactByRolesId]);
   
 
   return (
@@ -285,8 +336,9 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
           className=""
           style={{ fontFamily: "Barlow", fontWeight: "600", fontSize: "24px" }}
         >
-          Contacts
+           Contacts
         </div>
+        
         { !hideNewContactButton && (
           <button className="btn btn-primary" onClick={() => addNewContact(true)}>
             Add New Contact

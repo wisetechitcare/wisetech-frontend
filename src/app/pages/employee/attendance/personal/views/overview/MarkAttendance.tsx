@@ -40,7 +40,7 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
             userName: auth.currentUser.firstName,
             btnText: attendance.btnText,
             locationEnabled: attendance.locationEnabled,
-        }   
+        }
     });
     const [latitudeNew, setLatitudeNew] = useState(0)
     const [longitudeNew, setLongitudeNew] = useState(0)

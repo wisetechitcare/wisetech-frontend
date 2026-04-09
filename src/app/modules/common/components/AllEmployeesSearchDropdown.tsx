@@ -77,7 +77,7 @@ const AllEmployeesSearchDropdown = () => {
 
       // Only set logged-in employee on initial load (when statusFilter is 'all')
       // For other filters or filter changes, show placeholder
-      if ((statusFilter === 'all' || statusFilter === 'active') && selectedDropdownEmployee.id === "") {
+      if (statusFilter === 'all' && selectedDropdownEmployee.id === "") {
         setSelectedDropdownEmployee(loggedInEmployee);
         dispatch(saveSelectedEmployee(loggedInEmployee));
       }

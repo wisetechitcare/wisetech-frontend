@@ -65,7 +65,7 @@ export const SingleValue = (props: any) => (
     >
       {renderIcon(props.data)}
       <span style={{
-        color: props.data.color ? "#ffffff" : "inherit",
+        color: props.data.color ? "#000000" : "inherit",
         fontWeight: "inherit"
       }}>
         {props.data.label}
@@ -87,7 +87,7 @@ export const DropdownIndicator = (props: any) => {
       >
         <path
           d="M5 7.5L10 12.5L15 7.5"
-          stroke={selectedColor ? "#ffffff" : "#999"}
+          stroke={selectedColor ? "#000000" : "#999"}
           strokeWidth="1.67"
           strokeLinecap="round"
           strokeLinejoin="round"

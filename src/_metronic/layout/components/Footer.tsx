@@ -15,11 +15,11 @@ const Footer: FC = () => {
         <div className='text-gray-900 order-2 order-md-1'>
           <span className='text-gray-500 me-1'>Build with ❤️ by</span>
           <a
-            href='https://adscult.com/'
+            href='https://wisetech-mep.com/'
             target='_blank'
             className='text-muted text-hover-primary me-2 fs-6'
           >
-            AdsCult
+            WISETECH MEP
           </a>
         </div>
         {/*end::Copyright*/}

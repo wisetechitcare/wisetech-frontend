@@ -356,6 +356,36 @@ export const getMonthlyLeadAnalytics = async (startDate: string, endDate: string
     }
 }
 
+export const getMonthlyTargets = async (year: number, type: string = "inquiry") => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_MONTHLY_TARGETS}?year=${year}&type=${type}`;
+        const { data } = await axios.get(endpoint);
+        return data.data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const saveMonthlyTargets = async (year: number, targets: any[], type: string = "inquiry") => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_MONTHLY_TARGETS}`;
+        const { data } = await axios.post(endpoint, { year, targets, type });
+        return data; 
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const getDailyMonthlyRunRate = async (year: number, month: number) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_DAILY_MONTHLY_RUN_RATE}?year=${year}&month=${month}`;
+        const { data } = await axios.get(endpoint);
+        return data.data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Get Monthly Leads By Referral Sources
 export const getMonthlyLeadsByReferralSources = async (startDate: string, endDate: string) => {
     try {
@@ -445,11 +475,11 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
 }
 
 export const deleteLeadCancellationReason = async (id: string) => {
-  try {
-    const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_LEAD_CANCELLATION_REASON.replace(':id', id)}`;
-    const { data } = await axios.delete(endpoint);
-    return data;
-  } catch (err) {
-    throw err;
-  }
+    try {
+        const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_LEAD_CANCELLATION_REASON.replace(':id', id)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
 };

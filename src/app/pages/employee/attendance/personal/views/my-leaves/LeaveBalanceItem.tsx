@@ -1,5 +1,6 @@
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { CASUAL_LEAVES } from "@constants/statistics";
+import { getLeaveTypeDisplayName } from "@utils/balanceProgressUtils";
 
 interface LeaveBalanceItemProps {
     label: string;
@@ -64,7 +65,7 @@ const LeaveBalanceItem = ({
                 alignItems: 'center',
                 gap: '6px'
             }}>
-                {label=="Floater Leaves" ? "Paid Leaves" : label}
+                {getLeaveTypeDisplayName(label)}
                 <i className="bi bi-info-circle" style={{ fontSize: '12px', color: '#6b7280' }}></i>
             </p>
         </OverlayTrigger>

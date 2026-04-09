@@ -1280,7 +1280,6 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     }, [employeeId])
 
     const [isWorkingMethodSelected, setIsWorkingMethodSelected] = useState(false);
-
     function parseGraceTime(graceTime: string | null) {
         if (!graceTime) {
           return {

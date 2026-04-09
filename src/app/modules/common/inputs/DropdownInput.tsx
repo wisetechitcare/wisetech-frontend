@@ -96,15 +96,9 @@ function DropDownInput({
     const getCustomStyles = (selectedColor: string) => ({
         control: (provided: any, state: any) => ({
             ...provided,
-            // borderColor: `${selectedColor || provided.borderColor} !important`,
-            borderWidth: selectedColor ? '2px !important' : provided.borderWidth,
-            backgroundColor: `${selectedColor || provided.backgroundColor} !important`,
-            // opacity: 0.8, // 🔥 reduces overall opacity (control + text + border)
-            '&:hover': {
-                borderColor: `${selectedColor || provided.borderColor} !important`,
-                backgroundColor: `${selectedColor || provided.backgroundColor} !important`,
-                // opacity: 0.8, // little less transparent on hover
-            },
+            borderColor: selectedColor ? `${selectedColor} !important` : provided.borderColor,
+            borderWidth: selectedColor ? '1px !important' : provided.borderWidth,
+            backgroundColor: selectedColor ? `color-mix(in srgb, ${selectedColor} 15%, white) !important` : provided.backgroundColor,
             boxShadow: state.isFocused
             ? `0 0 0 1px ${selectedColor || '#9D4141'}`
             : provided.boxShadow,
@@ -112,22 +106,28 @@ function DropDownInput({
 
         indicatorSeparator: (provided: any) => ({
             ...provided,
-            backgroundColor: selectedColor ? '#ffffff80' : provided.backgroundColor,
+            backgroundColor: selectedColor ? `color-mix(in srgb, ${selectedColor} 30%, transparent)` : provided.backgroundColor,
         }),
         singleValue: (provided: any) => ({
             ...provided,
-            color: selectedColor ? '#ffffff' : provided.color,
-            fontWeight: selectedColor ? '500' : provided.fontWeight,
+            color: selectedColor ? selectedColor : provided.color,
+            fontWeight: provided.fontWeight,
         }),
         placeholder: (provided: any) => ({
             ...provided,
-            // color: selectedColor ? '#ffffff80' : provided.color,
         }),
         clearIndicator: (provided: any) => ({
             ...provided,
-            color: selectedColor ? '#ffffff' : provided.color,
+            color: selectedColor ? '#000000' : provided.color,
             '&:hover': {
-                color: selectedColor ? '#ffffff' : provided.color,
+                color: selectedColor ? '#000000' : provided.color,
+            }
+        }),
+        dropdownIndicator: (provided: any) => ({
+            ...provided,
+            color: selectedColor ? selectedColor : provided.color,
+            '&:hover': {
+                color: selectedColor ? selectedColor : provided.color,
             }
         }),
     });
