@@ -850,7 +850,6 @@ const getInitialRelationCompanies = useCallback(() => {
       }
     });
   }
-
   if (leadRelationCompanies.length > 0) {
     return leadRelationCompanies;
   }
