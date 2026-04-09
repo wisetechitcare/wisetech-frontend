@@ -3,6 +3,17 @@ import { Modal, Button, Form, Spinner } from "react-bootstrap";
 import { getMonthlyTargets, saveMonthlyTargets } from "@services/lead";
 import dayjs from "dayjs";
 
+const modalStyles = `
+  .no-spinner::-webkit-inner-spin-button,
+  .no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .no-spinner {
+    -moz-appearance: textfield;
+  }
+`;
+
 interface ManageTargetModalProps {
   show: boolean;
   onHide: () => void;
@@ -45,9 +56,20 @@ const ManageTargetModal: React.FC<ManageTargetModalProps> = ({ show, onHide, onS
   }, [show, currentYear, targetType]);
 
   const handleInputChange = (index: number, value: string) => {
-    const newData = [...targetData];
-    newData[index] = parseInt(value) || 0;
-    setTargetData(newData);
+    // If empty or null, treat as 0
+    if (value === "") {
+      const newData = [...targetData];
+      newData[index] = 0;
+      setTargetData(newData);
+      return;
+    }
+
+    const val = parseInt(value, 10);
+    if (!isNaN(val)) {
+      const newData = [...targetData];
+      newData[index] = val;
+      setTargetData(newData);
+    }
   };
 
   const handleSave = async () => {
@@ -99,12 +121,14 @@ const ManageTargetModal: React.FC<ManageTargetModalProps> = ({ show, onHide, onS
             {months.map((month, index) => (
               <div className="col-6" key={month}>
                 <Form.Group>
+                  <style>{modalStyles}</style>
                   <Form.Label className="x-small fw-bold text-muted uppercase mb-1" style={{ fontSize: '10px' }}>{month}</Form.Label>
                   <Form.Control
                     type="number"
                     size="sm"
-                    className="bg-light border-0 shadow-none fw-semibold"
-                    value={targetData[index]}
+                    className="bg-light border-0 shadow-none fw-semibold no-spinner"
+                    value={targetData[index] === 0 ? "" : targetData[index]}
+                    placeholder="0"
                     onChange={(e) => handleInputChange(index, e.target.value)}
                   />
                 </Form.Group>
