@@ -60,6 +60,8 @@ rowCount?: number;
 onPaginationChange?: (pagination: any) => void;
 paginationState?: { pageIndex: number; pageSize: number };
 isLoading?: boolean;
+layoutMode?: 'grid' | 'grid-no-grow' | 'semantic';
+muiTableContainerProps?: any;
 }
 
 const defaultColumnSizes = {
@@ -101,6 +103,8 @@ function MaterialTable({
     onPaginationChange,
     paginationState,
     isLoading = false,
+    layoutMode = 'semantic',
+    muiTableContainerProps: customMuiTableContainerProps,
 }: MaterialTableProps) {    
     // Apply default sizing if not set
     const finalColumns = useMemo(() => 
@@ -682,8 +686,13 @@ function MaterialTable({
                     }}
                     muiTableContainerProps={{
                         ref: tableContainerRef,
-                        style: { overflowX: 'auto' }
+                        ...customMuiTableContainerProps,
+                        sx: {
+                            overflowX: 'auto',
+                            ...(customMuiTableContainerProps?.sx || {}),
+                        }
                     }}
+                    layoutMode={layoutMode}
                     {...muiTableProps}
                     muiTableBodyRowProps={muiTableProps?.muiTableBodyRowProps || {}}
                     enableDensityToggle={false}

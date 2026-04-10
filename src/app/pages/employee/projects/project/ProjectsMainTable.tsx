@@ -266,13 +266,16 @@ const ProjectsMainTable = ({
     {
       accessorKey: "title",
       header: "Project Name",
+      size: 400,
+      minSize: 400,
       Cell: ({ row }: any) => (
         <span
-          className="cursor-pointer "
+          className="cursor-pointer"
           style={{
             color: "inherit",
             fontWeight: "600",
-            fontSize: "14px",
+            fontSize: "15.5px",
+            whiteSpace: "nowrap",
           }}
           onClick={() => {
             navigate(`/projects/${row.original.id}`);
@@ -285,12 +288,18 @@ const ProjectsMainTable = ({
     {
       accessorKey: "clientCompanies",
       header: "Client Companies",
+      size: 300,
+      minSize: 300,
       Cell: ({ row }: any) => {
         const companies = row.original.projectCompanyMappings || [];
         const companyNames = companies
           .map((mapping: any) => findClientCompanyName(mapping.companyId))
           .filter(Boolean);
-        return companyNames.length ? companyNames.join(", ") : "-NA-";
+        return (
+          <span style={{ whiteSpace: "nowrap" }}>
+            {companyNames.length ? companyNames.join(", ") : "-NA-"}
+          </span>
+        );
       },
     },
     {
@@ -776,66 +785,54 @@ const ProjectsMainTable = ({
         columns={columns}
         tableName="Projects"
         employeeId={employeeId}
-        // muiTableProps={{
-        //   muiTableBodyRowProps: ({ row }) => {
-        //     const status = row.original?.status ?? "";
-        //     return {
-        //       sx: {
-        //         backgroundColor: `${status.color}40`,
-        //         color: "#333",
-        //       },
-        //     };
-        //   },
-        // }}
+        enableColumnResizing={true}
+        layoutMode="grid"
+        muiTableContainerProps={{
+          sx: {
+            maxHeight: "700px",
+            overflowX: "auto",
+          },
+        }}
         muiTableProps={{
           sx: {
             borderCollapse: "separate",
-            borderSpacing: "0 8px !important", // 20px vertical spacing between rows
+            borderSpacing: "0 12px !important", // Spacing between rows
           },
 
           muiTableBodyRowProps: ({ row }) => ({
-            // sx: {
-            //     cursor: 'pointer',
-            //     backgroundColor: `${row.original?.status?.color}`,
-            //     // borderRadius: '8px',
-            //     // margin:"20px !important"
-            // },
             sx: {
               cursor: "pointer",
               backgroundColor: `${row.original?.status?.color}20`,
-              // borderBottom:"5px solid red !important",
-              padding: "10px !important",
+              transition: "all 0.2s ease",
 
               "& .MuiTableCell-root": {
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontSize: "14px",
+                fontSize: "15.5px",
                 fontFamily: "Inter",
-                fontWeight: "400",
-                padding: "8px 16px !important",
-                borderBottom: "2px solid white",
-                borderTop: "2px solid white",
-                // borderLeft:"5px solid white"
-                // margin:"20px !important"
+                fontWeight: "500",
+                padding: "16px 20px !important",
+                border: "none",
+                color: "#333",
+                whiteSpace: "nowrap",
               },
               "& .MuiTableCell-root:first-of-type": {
                 borderTopLeftRadius: "12px",
                 borderBottomLeftRadius: "12px",
-                // marginTop:"40px !important"
-                borderLeft: "3px solid white",
               },
               "& .MuiTableCell-root:last-of-type": {
                 borderTopRightRadius: "12px",
                 borderBottomRightRadius: "12px",
-                borderRight: "3px solid white",
               },
               "&:hover": {
-                backgroundColor: `${row.original?.status?.color}99`,
-                "& td": {
-                  color: "black",
-                },
+                backgroundColor: `${row.original?.status?.color}40`,
+                transform: "translateY(-2px)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               },
+            },
+
+            onClick: () => {
+              navigate(`/projects/${row.original.id}`, {
+                state: { projectData: row.original.id },
+              });
             },
           }),
         }}
