@@ -35,8 +35,6 @@ interface Props {
   endDate: dayjs.Dayjs;
 }
 
-const USE_MOCK = false;
-
 const Monthly = ({ month, endDate }: Props) => {
   const [chartData, setChartData] = useState<any>({
     statusData: [],
@@ -352,24 +350,24 @@ const Monthly = ({ month, endDate }: Props) => {
   };
 
   useEffect(() => {
-    const fetchStatuses = async () => {
-      if (USE_MOCK) {
-        setLeadStatusesID([
-          { name: "In Progress", id: 1 },
-          { name: "Completed", id: 2 },
-          { name: "Draft", id: 3 },
-          { name: "On-Hold", id: 4 }
-        ]);
-        return;
-      }
+    const fetchLeadStatuses = async () => {
       try {
-        const statuses = await getAllLeadStatus();
-        setLeadStatusesID(statuses);
-      } catch (error) {
-        console.error("Error fetching lead statuses:", error);
+        const leadStatusesData = await getAllLeadStatus();
+
+        // map name and id
+        const leadStatuses = leadStatusesData.leadStatuses.map(
+          (status: any) => ({
+            name: status.name,
+            id: status.id,
+          })
+        );
+
+        setLeadStatusesID(leadStatuses);
+      } catch (err) {
+        console.error("Error fetching lead statuses:", err);
       }
     };
-    fetchStatuses();
+    fetchLeadStatuses();
   }, []);
 
   const fetchCategoryAnalytics = useCallback(
@@ -425,53 +423,22 @@ const Monthly = ({ month, endDate }: Props) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (USE_MOCK) {
-        console.log("[DASHBOARD MOCK MODE] Rendering Monthly Leads dashboard with static data");
-        // Remove loading delay for instant feel
-        setLoading(false);
-        setError("");
-
-        const mockSegments = [
-          { name: "Segment A", count: 120, budget: 15000, color: "#4287f5", status: "Active", service: "Development", category: "Web" },
-          { name: "Segment B", count: 85, budget: 11000, color: "#42f5a7", status: "On-Hold", service: "Testing", category: "Mobile" },
-          { name: "Segment C", count: 45, budget: 6000, color: "#f5d442", status: "Completed", service: "Maintenance", category: "Cloud" }
-        ];
-
-        const chartReadyData = mockSegments.map(i => ({ 
-          label: i.name, 
-          value: i.count, 
-          budget: i.budget, 
-          color: i.color,
-          status: i.status,
-          service: i.service,
-          category: i.category
-        }));
-
-        setChartData({
-          statusData: chartReadyData,
-          serviceData: chartReadyData,
-          categoryData: chartReadyData,
-          subcategoryData: chartReadyData,
-          directSourceData: chartReadyData,
-          referralSourceData: chartReadyData,
-          sourceData: chartReadyData,
-          companyTypeData: chartReadyData,
-          topLeadsData: [],
-          locationData: chartReadyData
-        });
-
-        // Populate helper states for filters/modals
-        setServiceData(mockSegments);
-        setCategoryData(mockSegments);
-        setLocationRes(mockSegments);
-        return;
-      }
-
       try {
         setLoading(true);
         setError("");
 
-        const results = await Promise.allSettled([
+        const [
+          statusRes,
+          serviceRes,
+          categoryRes,
+          subcategoryApiRes,
+          directSourceApiRes,
+          referralSourceRes,
+          sourceRes,
+          companyTypeRes,
+          monthlyTopLeadsRes,
+          locationRes,
+        ] = await Promise.all([
           getLeadsByStatusAnalytics(startDate, endDates),
           getLeadsByServiceAnalytics(startDate, endDates),
           getLeadsByProjectCategoryAnalytics(
@@ -488,32 +455,8 @@ const Monthly = ({ month, endDate }: Props) => {
           getLeadsByLocationAnalytics(startDate, endDates),
         ]);
 
-        const [
-          statusRes,
-          serviceRes,
-          categoryRes,
-          subcategoryApiRes,
-          directSourceApiRes,
-          referralSourceRes,
-          sourceRes,
-          companyTypeRes,
-          monthlyTopLeadsRes,
-          locationRes,
-        ] = results.map((result, index) => {
-          if (result.status === "fulfilled") {
-            return result.value;
-          } else {
-            const labels = [
-              "Status", "Service", "Category", "Subcategory", 
-              "Direct Source", "Referral Source", "Source", 
-              "Company Type", "Top Leads", "Location"
-            ];
-            console.error(`${labels[index]} Analytics failed to fetch:`, result.reason);
-            return { data: [] };
-          }
-        });
-
         setDirectSourceRes(directSourceApiRes);
+
         setReferralSourceRes(referralSourceRes);
         setSourceRes(sourceRes);
         setCompanyTypeRes(companyTypeRes);
@@ -575,9 +518,9 @@ const Monthly = ({ month, endDate }: Props) => {
             topLeadsData: getFilteredTopLeadsData(),
           });
       } catch (error) {
-        console.error("Critical error fetching chart data:", error);
+        console.error("Error fetching chart data:", error);
         setError(
-          error instanceof Error ? error.message : "A critical error occurred while loading dashboard data"
+          error instanceof Error ? error.message : "Failed to fetch data"
         );
       } finally {
         setLoading(false);

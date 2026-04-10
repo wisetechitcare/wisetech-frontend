@@ -10,7 +10,7 @@ import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import ScoreOverview from "../../components/ScoreOverview";
 import { Container, Spinner } from "react-bootstrap";
 import PerformanceBadge from "../../components/PerformanceBadge";
-
+import { useLeaderboardRank } from "../../hooks/useLeaderboardRank";
 
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
@@ -46,6 +46,15 @@ const Daily = ({
   const [data, setData] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
+  // FIX: Pass the same date as both startDate and endDate — the leaderboard
+  // must be fetched for the EXACT same period as the KPI data so rank matches.
+  const formattedDay = day.format("YYYY-MM-DD");
+  const { rank, rankLoading } = useLeaderboardRank({
+    employeeId: selectedEmployeeId,
+    startDate: formattedDay,
+    endDate: formattedDay,
+  });
+
   useEffect(() => {
     if (!selectedEmployeeId) return;
 
@@ -54,7 +63,6 @@ const Daily = ({
       try {
         const response = await fetchEmpDailyKpiStatistics(day, fromAdmin);
         if (response) {
-   
           setData(response);
         }
       } catch (error) {
@@ -65,7 +73,7 @@ const Daily = ({
     };
 
     loadData();
-  }, [day, selectedEmployeeId]);
+  }, [day, selectedEmployeeId, toggleChange]);
 
   const overviewData = [
     "Attendance",
@@ -76,49 +84,56 @@ const Daily = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
-  ].map((label) => ({
-    icon: iconMapping[label],
-    label,
-    score:
-      data?.modules?.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
-  }));
+  ].map((label) => {
+    const moduleData = data?.modules?.find((m: any) => m.moduleName === label);
+    return {
+      icon: iconMapping[label],
+      label,
+      score: moduleData?.totalScore ?? 0,
+      maxScore: moduleData?.maxScore ?? 0,
+    };
+  });
 
-  const yourPoints = data?.yourPoints ?? 0;
-  const rank = data?.rank ?? "-";
-  const remark = data?.remark ?? "";
-  const maxTotal = data?.maxTotal ?? "-";
- 
+  // FIX: daily API also returns yourPoints, remark, maxTotal — use them.
+  // Fallback safely if the response shape is missing these fields.
+  const yourPoints: number = data?.yourPoints ?? 0;
+  const remark: string = data?.remark ?? "";
+  const maxTotal: number = data?.maxTotal ?? 0;
 
-  if(dataLoaded){
+  if (dataLoaded) {
     return (
       <Container
-      fluid
-      className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-      style={{ minHeight: "300px" }}
-    >
-      <Spinner animation="border" variant="primary" />
-    </Container>
-    )
+        fluid
+        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
+        style={{ minHeight: "300px" }}
+      >
+        <Spinner animation="border" variant="primary" />
+      </Container>
+    );
   }
-
 
   return (
     <>
-     {remark && (
+      {remark && (
         <PerformanceBadge
           remark={remark}
+          // FIX: rank comes ONLY from the leaderboard hook (backend-authoritative).
+          // The backend `getKpiScoresForDay` also returns a rank field, but it uses
+          // a different sort (percentage-based) vs the leaderboard API (score-based).
+          // We use leaderboard rank everywhere for consistency with the Leaderboard tab.
           rank={rank}
+          rankLoading={rankLoading}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
         />
-     )}
+      )}
 
       <ScoreOverview data={overviewData} />
-      {
-        dashboardView ? <Container fluid className="my-4 px-0">
-        <KpiStatisticsTable data={data?.modules ?? []} />
-      </Container> : null
-      }
+      {dashboardView ? (
+        <Container fluid className="my-4 px-0">
+          <KpiStatisticsTable data={data?.modules ?? []} />
+        </Container>
+      ) : null}
     </>
   );
 };

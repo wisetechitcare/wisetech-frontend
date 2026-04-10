@@ -1,38 +1,14 @@
-import CommonCard from "@app/modules/common/components/CommonCard";
-import {
-  Polar,
-  ProgessBar,
-  ReportsTable,
-  StatisticsTable,
-  TotalWorkingTime,
-} from "@app/modules/common/components/Graphs";
-import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { resourseAndView } from "@models/company";
 import { RootState } from "@redux/store";
-import { fetchConfiguration } from "@services/company";
-import {
-  fetchAllStarEmployeeByStartAndEndDate,
-  getAllKPIModules,
-} from "@services/employee";
-import { getAvatar } from "@utils/avatar";
-import { convertToTimeZone, formatTime } from "@utils/date";
-import {
-  currentDayWorkingHours,
-  fetchEmpDailyKpiStatistics,
-  fetchEmpDailyStatistics,
-  pieAreaData,
-  pieAreaLabels,
-  todayProgressPercent,
-} from "@utils/statistics";
 import { Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
-import { Container, Row } from "react-bootstrap";
+import { fetchEmpDailyKpiStatistics } from "@utils/statistics";
 import { useSelector } from "react-redux";
-import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
-import SVG from "react-inlinesvg";
-import LeaderBoardCore from "./LeaderBoardCore";
 import AttendanceIcon from "@metronic/assets/miscellaneousicons/attendance.svg";
 import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
+import { Container, Spinner } from "react-bootstrap";
+import { useLeaderboardRank } from "../personal/hooks/useLeaderboardRank";
+import LeaderBoardCore from "./LeaderBoardCore";
 
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
@@ -49,100 +25,99 @@ const Daily = ({
   day,
   fromAdmin = false,
   resourseAndView,
+  dashboardView = true,
 }: {
   day: Dayjs;
   fromAdmin?: boolean;
   resourseAndView: resourseAndView[];
+  dashboardView?: boolean;
 }) => {
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange
   );
+
   const selectedEmployeeId = useSelector(
     (state: RootState) =>
+      state.employee.selectedEmployee?.id ||
       state.employee.currentEmployee.id
   );
+
   const [data, setData] = useState<any>(null);
-  const [dataLoaded, setDataLoaded] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // FIX: Pass the same date as both startDate and endDate — the leaderboard
+  // must be fetched for the EXACT same period as the KPI data so rank matches.
+  const formattedDay = day.format("YYYY-MM-DD");
+  const { rank, rankLoading } = useLeaderboardRank({
+    employeeId: selectedEmployeeId,
+    startDate: formattedDay,
+    endDate: formattedDay,
+  });
 
   useEffect(() => {
     if (!selectedEmployeeId) return;
 
     const loadData = async () => {
-      setDataLoaded(false);
-
+      setDataLoaded(true);
       try {
         const response = await fetchEmpDailyKpiStatistics(day, fromAdmin);
-
         if (response) {
-          setData(response.modules);
+          setData(response);
         }
       } catch (error) {
         console.error("Error fetching Daily KPI Statistics:", error);
       } finally {
-        setDataLoaded(true);
+        setDataLoaded(false);
       }
     };
 
     loadData();
-  }, [day, fromAdmin, toggleChange, selectedEmployeeId]);
+  }, [day, selectedEmployeeId, toggleChange]);
 
   const overviewData = [
-    {
-      icon: iconMapping["Attendance"],
-      label: "Attendance",
-      score:
-        data?.find((m: any) => m.moduleName === "Attendance")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Leaves"],
-      label: "Leaves",
-      score: data?.find((m: any) => m.moduleName === "Leaves")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Projects"],
-      label: "Projects",
-      score:
-        data?.find((m: any) => m.moduleName === "Projects")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Tasks"],
-      label: "Tasks",
-      score: data?.find((m: any) => m.moduleName === "Tasks")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Sale"],
-      label: "Sale",
-      score: data?.find((m: any) => m.moduleName === "Sale")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Target"],
-      label: "Target",
-      score: data?.find((m: any) => m.moduleName === "Target")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Performance"],
-      label: "Performance",
-      score:
-        data?.find((m: any) => m.moduleName === "Performance")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Ratings & Reviews"],
-      label: "Ratings & Reviews",
-      score:
-        data?.find((m: any) => m.moduleName === "Ratings & Reviews")
-          ?.totalScore ?? 0,
-    },
-  ];
+    "Attendance",
+    "Leaves",
+    "Projects",
+    "Tasks",
+    "Sale",
+    "Target",
+    "Performance",
+    "Ratings & Reviews",
+  ].map((label) => ({
+    icon: iconMapping[label],
+    label,
+    totalScore:
+      data?.modules?.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
+  }));
 
-  if (!dataLoaded) {
-    return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-      <div className="spinner-border text-primary" role="status">
-        <span className="visually-hidden">Loading...</span>
-      </div>
-    </Container>
+  // FIX: daily API also returns yourPoints, remark, maxTotal — use them.
+  // Fallback safely if the response shape is missing these fields.
+  const yourPoints: number = data?.yourPoints ?? 0;
+  const remark: string = data?.remark ?? "";
+  const maxTotal: number = data?.maxTotal ?? 0;
+
+  if (dataLoaded) {
+    return (
+      <Container
+        fluid
+        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
+        style={{ minHeight: "300px" }}
+      >
+        <Spinner animation="border" variant="primary" />
+      </Container>
+    );
   }
+
   return (
-    <LeaderBoardCore overviewData={overviewData} startDate={day} endDate={day} fromAdmin={fromAdmin} resourseAndView={resourseAndView} />
+    <>
+      <LeaderBoardCore
+        overviewData={overviewData}
+        startDate={day}
+        endDate={day}
+        fromAdmin={fromAdmin}
+        resourseAndView={resourseAndView}
+      />
+    </>
   );
 };
 

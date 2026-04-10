@@ -14,6 +14,7 @@ import PerformanceBadge from "../../components/PerformanceBadge";
 import { Container, Spinner } from "react-bootstrap";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { useLeaderboardRank } from "../../hooks/useLeaderboardRank";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -50,31 +51,44 @@ const Yearly: React.FC<YearlyProps> = ({
     (state: RootState) => state.attendanceStats.toggleChange
   );
 
-  const selectedEmployeeId = useSelector((state:RootState)=> fromAdmin? state.employee.selectedEmployee.id : state?.employee?.currentEmployee.id)
+  const selectedEmployeeId = useSelector((state: RootState) =>
+    fromAdmin
+      ? state.employee.selectedEmployee?.id
+      : state.employee?.currentEmployee?.id
+  );
 
   const [data, setData] = useState<any[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const employeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
-  const [showData, setShowData] = useState(false)
-
+  const employeeId = useSelector(
+    (state: RootState) => state.employee.currentEmployee?.id
+  );
+  const [showData, setShowData] = useState(false);
   const [remark, setRemark] = useState<string>("");
-  const [rank, setRank] = useState<number>(0);
   const [yourPoints, setYourPoints] = useState<number>(0);
   const [maxTotal, setMaxTotal] = useState<number>(0);
 
-  // Use fiscal dates directly from toggle (toggle already handles dateSettingsEnabled)
+  // Memoize to stable strings — KpiGraphicalToggle already passes the correct
+  // fiscal dates via `year` and `endDate`, so we use them directly.
   const startDateStr = useMemo(
-    () => year.format("YYYY-MM-DD"),  // Fiscal year start as-is
+    () => year.format("YYYY-MM-DD"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [year.format("YYYY-MM-DD")]
   );
-
   const endDateStr = useMemo(
-    () => endDate.format("YYYY-MM-DD"),  // Toggle already calculated correct endDate
+    () => endDate.format("YYYY-MM-DD"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [endDate.format("YYYY-MM-DD")]
   );
 
+  // FIX: Rank hook uses the SAME date range as the KPI data fetch.
+  const { rank, rankLoading } = useLeaderboardRank({
+    employeeId: selectedEmployeeId,
+    startDate: startDateStr,
+    endDate: endDateStr,
+  });
+
   useEffect(() => {
-    if(!selectedEmployeeId) return;
+    if (!selectedEmployeeId) return;
     const loadData = async () => {
       setLoading(true);
       try {
@@ -85,7 +99,6 @@ const Yearly: React.FC<YearlyProps> = ({
         if (response) {
           setData(response.modules);
           setRemark(response.remark || "");
-          setRank(response.rank || 0);
           setYourPoints(response.yourPoints || 0);
           setMaxTotal(response.maxTotal || 0);
         }
@@ -97,17 +110,15 @@ const Yearly: React.FC<YearlyProps> = ({
     };
 
     loadData();
-  }, [startDateStr, endDateStr, toggleChange, selectedEmployeeId ]);
+  }, [startDateStr, endDateStr, toggleChange, selectedEmployeeId]);
 
-  
   useEffect(() => {
-    if (!employeeId) {
-      return;
-    }
-    const res = hasPermission(resourseAndView[0]?.resource, permissionConstToUseWithHasPermission.readOthers)
-    if(res){
-      setShowData(true)
-    }
+    if (!employeeId) return;
+    const res = hasPermission(
+      resourseAndView[0]?.resource,
+      permissionConstToUseWithHasPermission.readOthers
+    );
+    if (res) setShowData(true);
   }, [employeeId]);
 
   const overviewData = [
@@ -137,7 +148,6 @@ const Yearly: React.FC<YearlyProps> = ({
     );
   }
 
-
   if (!data || data.length === 0) {
     return (
       <Container fluid className="my-4 px-0">
@@ -146,24 +156,26 @@ const Yearly: React.FC<YearlyProps> = ({
     );
   }
 
-  if(!showData) return <h2 className="text-center">Not Allowed To View</h2>
+  if (!showData) return <h2 className="text-center">Not Allowed To View</h2>;
+
   return (
     <>
       {remark && (
         <PerformanceBadge
           remark={remark}
           rank={rank}
+          rankLoading={rankLoading}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
           fromAdmin={fromAdmin}
         />
       )}
       <ScoreOverview data={overviewData} />
-      {
-        dashboardView ? <Container fluid className="my-4 px-0">
-        <KpiStatisticsTable data={data} />
-      </Container> : null
-      }
+      {dashboardView ? (
+        <Container fluid className="my-4 px-0">
+          <KpiStatisticsTable data={data} />
+        </Container>
+      ) : null}
     </>
   );
 };

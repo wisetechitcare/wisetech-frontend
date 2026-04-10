@@ -6,3 +6,4 @@ dist
 # Claude Code agents and configuration
 .claude/
 .claude/agents/
+.github/agents
