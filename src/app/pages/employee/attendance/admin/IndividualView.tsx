@@ -18,6 +18,7 @@ import { DateNavigation } from '../personal/MyLeaveView';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { fetchConfiguration } from '@services/company';
 import { DATE_SETTINGS_KEY } from '@constants/configurations-key';
+import { clearPersonalLeaves } from '@redux/slices/leaves';
 
 const IndividualView = () => {
     const dispatch = useDispatch();
@@ -122,10 +123,21 @@ const IndividualView = () => {
 
     const [yearlyStats, setYearlyStats] = useState<Attendance[]>([]);
 
+    // FIX: Split into two effects so clearPersonalLeaves() only fires on employee change.
+    // Previously a single effect on [selectedEmployeeId, yearStart, yearEnd] caused
+    // clearPersonalLeaves() to run when yearStart/yearEnd resolved asynchronously after
+    // fetchDateSettings() completed — wiping already-fetched leave records and producing
+    // a permanent "No records to display" in the Leaves table.
     useEffect(() => {
+        if (!selectedEmployeeId) return;
+        dispatch(clearPersonalLeaves());
+    }, [selectedEmployeeId]);
+
+    useEffect(() => {
+        if (!selectedEmployeeId || !yearStart || !yearEnd) return;
+
         async function fetchStats() {
-            if (!yearStart || !yearEnd) return;
-            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(selectedEmployeeId, yearStart?.format("YYYY-MM-DD"), yearEnd?.format("YYYY-MM-DD"));
+            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(selectedEmployeeId!, yearStart?.format("YYYY-MM-DD"), yearEnd?.format("YYYY-MM-DD"));
             setYearlyStats(empAttendanceStatistics);
         }
 

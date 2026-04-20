@@ -7,7 +7,7 @@ import Papa from 'papaparse';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import {KTIcon} from "@metronic/helpers"
+import {KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption} from "@metronic/helpers"
 import SelectInput from "@app/modules/common/inputs/SelectInput"
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
@@ -903,15 +903,15 @@ function MaterialTable({
                                         )}
 
                                         {/* Rows per page */}
-                                        {/* <Box sx={{
+                                        <Box sx={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: { xs: '4px', md: '8px' },
-                                            ml: { xs: 0, lg: 'auto' },
+                                            ml: { xs: 0, lg: 1 },
                                             flexShrink: 0
                                         }}>
                                             <span style={{
-                                                fontSize: isMobile ? '11px' : '14px',
+                                                fontSize: isMobile ? '11px' : '13px',
                                                 fontWeight: 400,
                                                 color: '#1a1a1a',
                                                 whiteSpace: 'nowrap',
@@ -920,21 +920,34 @@ function MaterialTable({
                                             </span>
                                             <select
                                                 value={pageSize}
-                                                onChange={(e) => table.setPageSize(Number(e.target.value))}
+                                                onChange={(e) => {
+                                                    table.setPageSize(Number(e.target.value) as PageSizeOption)
+                                                    table.setPageIndex(0)
+                                                }}
                                                 style={{
-                                                    padding: isMobile ? '4px 8px' : '6px 12px',
-                                                    fontSize: isMobile ? '11px' : '14px',
+                                                    padding: isMobile ? '4px 8px' : '5px 10px',
+                                                    fontSize: isMobile ? '11px' : '13px',
                                                     border: '1px solid #E1E8F0',
                                                     borderRadius: '6px',
                                                     cursor: 'pointer',
                                                     backgroundColor: '#fff',
                                                 }}
                                             >
-                                                {[10, 20, 50, 100].map((size) => (
+                                                {PAGE_SIZE_OPTIONS.map((size) => (
                                                     <option key={size} value={size}>{size}</option>
                                                 ))}
                                             </select>
-                                        </Box> */}
+                                            {!isMobile && totalRows > 0 && (
+                                                <span style={{
+                                                    fontSize: '13px',
+                                                    color: '#7A8597',
+                                                    whiteSpace: 'nowrap',
+                                                    marginLeft: '8px',
+                                                }}>
+                                                    {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)} of {totalRows}
+                                                </span>
+                                            )}
+                                        </Box>
                                     </Box>
 
                                     {/* Center: Scroll arrows */}

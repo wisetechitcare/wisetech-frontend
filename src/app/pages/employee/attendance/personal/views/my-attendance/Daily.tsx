@@ -19,12 +19,15 @@ import { saveFilteredPublicHolidays } from '@redux/slices/attendanceStats';
 
 const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = false }: { day: Dayjs, fromAdmin?: boolean, resourseAndView: resourseAndView[], checkOwnWithOthers?: boolean }) => {
     const dispatch = useDispatch<any>();
-    // If no working days found or branch return message
-    const workingAndOffDaysStr = useSelector((state: RootState) =>state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // NOTE: early return moved BELOW all hooks — React rules of hooks forbid returning before hooks
+    const currentEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const selectedEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.selectedEmployee?.branches?.workingAndOffDays);
+    // FIX: selectedEmployee may not have branches loaded — fall back to currentEmployee branch
+    const workingAndOffDaysStr = fromAdmin
+        ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
+        : currentEmployeeWorkingAndOffDaysStr;
     const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
-    if (shouldShowBranchSetupGuide(workingAndOffDays)) {
-        return <BranchSetupGuide />;
-    }
+    const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
@@ -35,7 +38,7 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
         const { attendanceStats } = state;
         return attendanceStats.daily;
     });
-    
+
     const attendance = useSelector((state: RootState) => {
         const { attendanceStats } = state;
         return attendanceStats.dailyTable;
@@ -47,7 +50,7 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
     });
     const filteredLeaves = useSelector((state: RootState) => {
         const { attendanceStats } = state;
-        return attendanceStats.filteredLeaves.filter((leave: any) => 
+        return attendanceStats.filteredLeaves.filter((leave: any) =>
             dayjs(leave.date).format('YYYY-MM-DD') == day.format('YYYY-MM-DD')
         );
     });
@@ -65,7 +68,6 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
         const jsonObject = JSON.parse(configuration.configuration.configuration);
 
         const totalWorkingHoursString = jsonObject["Working time"];
-        const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]);
 
         setTotalWorkingHours(formatDisplay(totalWorkingHoursString));
 
@@ -73,6 +75,11 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
     useEffect(() => {
         fetchWorkingHours();
     }, []);
+
+    // All hooks have run — safe to conditionally render
+    if (showBranchSetupGuide) {
+        return <BranchSetupGuide />;
+    }
 
 
 

@@ -140,20 +140,38 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     const selectedEmployeeLeaves = useSelector((state: RootState) => state.leaves.personalLeaves); 
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id); 
     
-    const filteredLeaves = (!startDateNew || !endDateNew) ? [] : selectedEmployeeLeaves.filter((leave: any) => {
-        const leaveDate = leave.dateFrom || leave.dateTo;
-        return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
-    });
+    // datesReady: true once the parent has resolved the fiscal-year start/end strings.
+    // When false (e.g. IndividualView is still awaiting fetchDateSettings), we show the
+    // MRT loading skeleton rather than "No records to display" — this fixes the race
+    // condition where the admin view briefly (or permanently) renders an empty table.
+    const datesReady = Boolean(startDateNew && endDateNew);
+
+    const filteredLeaves = datesReady
+        ? selectedEmployeeLeaves.filter((leave: any) => {
+            const leaveDate = leave.dateFrom || leave.dateTo;
+            return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
+          })
+        : [];
 
     
     const [leave, setLeave] = useState();
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const [showLeaveRequestForm, setShowLeaveRequestForm] = useState(false);
+    const [isFetchingLeaves, setIsFetchingLeaves] = useState(false);
 
     async function fetchLeaves() {
-        const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
-        const personalLeaves = transformLeaves(leaves);
-        dispatch(savePersonalLeaves(personalLeaves));
+        if (!selectedEmployeeId) return;
+        setIsFetchingLeaves(true);
+        try {
+            const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
+            const personalLeaves = transformLeaves(leaves);
+            dispatch(savePersonalLeaves(personalLeaves));
+        } catch (err) {
+            console.error('Error fetching leaves:', err);
+            dispatch(savePersonalLeaves([]));
+        } finally {
+            setIsFetchingLeaves(false);
+        }
     }
 
     const handleShowLeaveRequestForm = async (row: any) => {
@@ -182,11 +200,12 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             <MaterialTable
                 columns={columns}
                 data={filteredLeaves}
-                tableName="Leaves" 
-                resource={resource}
+                tableName="Leaves"
+                resource={fromAdmin ? "" : resource}
                 viewOwn={viewOwn}
                 viewOthers={viewOthers}
                 employeeId={employeeIdCurrent}
+                isLoading={isFetchingLeaves || !datesReady}
             />
 
             <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered>

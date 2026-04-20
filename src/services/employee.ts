@@ -575,6 +575,34 @@ export const fetchEmployeeLeaveBalance = async (employeeId: string) => {
     }
 }
 
+export const fetchLeaveAllocations = async (employeeId: string, fiscalYear?: string) => {
+    try {
+        const params = new URLSearchParams({ employeeId });
+        if (fiscalYear) params.append('fiscalYear', fiscalYear);
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_ALLOCATION}?${params.toString()}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
+export const upsertLeaveAllocation = async (payload: {
+    employeeId: string;
+    leaveTypeId: string;
+    allocatedDays: number;
+    fiscalYear?: string;
+    note?: string;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_ALLOCATION}`;
+        const { data } = await axios.put(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 export const fetchEmployeeLeaves = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVES}?employeeId=${employeeId}`;

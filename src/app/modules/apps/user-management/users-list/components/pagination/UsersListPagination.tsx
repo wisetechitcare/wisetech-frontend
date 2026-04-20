@@ -2,8 +2,9 @@
 import clsx from 'clsx'
 import {useQueryResponseLoading, useQueryResponsePagination} from '../../core/QueryResponseProvider'
 import {useQueryRequest} from '../../core/QueryRequestProvider'
-import {PaginationState} from '../../../../../../../_metronic/helpers'
+import {PageSizeOption, PaginationState} from '../../../../../../../_metronic/helpers'
 import {useMemo} from 'react'
+import RowsPerPage from '../../../../../common/components/RowsPerPage'
 
 const mappedLabel = (label: string): string => {
   if (label === '&laquo; Previous') {
@@ -21,13 +22,26 @@ const UsersListPagination = () => {
   const pagination = useQueryResponsePagination()
   const isLoading = useQueryResponseLoading()
   const {updateState} = useQueryRequest()
+
   const updatePage = (page: number | undefined | null) => {
     if (!page || isLoading || pagination.page === page) {
       return
     }
-
     updateState({page, items_per_page: pagination.items_per_page || 10})
   }
+
+  const updateLimit = (items_per_page: PageSizeOption) => {
+    if (isLoading) return
+    updateState({page: 1, items_per_page})
+  }
+
+  const totalPages = (pagination.links?.length || 3) - 2
+  const currentPage = pagination.page
+  const limit = pagination.items_per_page || 10
+  const total = pagination.total
+
+  const rangeStart = total != null ? (currentPage - 1) * limit + 1 : null
+  const rangeEnd = total != null ? Math.min(currentPage * limit, total) : null
 
   const PAGINATION_PAGES_COUNT = 5
   const sliceLinks = (pagination?: PaginationState) => {
@@ -93,9 +107,16 @@ const UsersListPagination = () => {
   const paginationLinks = useMemo(() => sliceLinks(pagination), [pagination])
 
   return (
-    <div className='row'>
-      <div className='col-sm-12 col-md-5 d-flex align-items-center justify-content-center justify-content-md-start'></div>
-      <div className='col-sm-12 col-md-7 d-flex align-items-center justify-content-center justify-content-md-end'>
+    <div className='row py-3'>
+      <div className='col-sm-12 col-md-6 d-flex align-items-center justify-content-center justify-content-md-start gap-4'>
+        <RowsPerPage value={limit} onChange={updateLimit} disabled={isLoading} />
+        {total != null && rangeStart != null && rangeEnd != null && (
+          <span style={{fontSize: '13px', color: '#7A8597', whiteSpace: 'nowrap'}}>
+            Showing {rangeStart}–{rangeEnd} of {total} records
+          </span>
+        )}
+      </div>
+      <div className='col-sm-12 col-md-6 d-flex align-items-center justify-content-center justify-content-md-end'>
         <div id='kt_table_users_paginate'>
           <ul className='pagination'>
             <li
@@ -135,11 +156,11 @@ const UsersListPagination = () => {
               ))}
             <li
               className={clsx('page-item', {
-                disabled: isLoading || pagination.page === (pagination.links?.length || 3) - 2,
+                disabled: isLoading || pagination.page === totalPages,
               })}
             >
               <a
-                onClick={() => updatePage((pagination.links?.length || 3) - 2)}
+                onClick={() => updatePage(totalPages)}
                 style={{cursor: 'pointer'}}
                 className='page-link'
               >

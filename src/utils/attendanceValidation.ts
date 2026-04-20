@@ -3,7 +3,6 @@ import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import { fetchCompanyOverview, fetchAllPublicHolidays } from "@services/company";
 import { fetchEmployeeLeaves, fetchEmpAttendanceStatistics, getAttendanceRequest } from "@services/employee";
 import { customLeaves, filterLeavesPublicHolidays } from "@utils/statistics";
-import { Status } from "@constants/statistics";
 
 dayjs.extend(isSameOrBefore);
 
@@ -22,41 +21,46 @@ interface ValidationParams {
 }
 
 /**
- * Validates if a user can raise an attendance request for a given date
- * by checking if all previous days' attendance conditions are met.
- * This mirrors the logic in checkPreviousAttendanceAndSetStateNew() from MarkAttendance.tsx
+ * Validates if a user can raise an attendance request for a given date.
+ *
+ * Rule: For every previous working day (going back from selectedDate − 1),
+ * the day must have EITHER:
+ *   - An attendance record (check-in present), OR
+ *   - Any attendance request (pending OR approved — status doesn't matter), OR
+ *   - Be a non-working day (weekend / public holiday / branch off-day / approved leave)
+ *
+ * A working day with NO attendance AND NO request at all blocks the new request.
+ * Having a pending request is sufficient — approval is not required.
  */
 export async function validatePreviousDaysAttendance(params: ValidationParams): Promise<ValidationResult> {
   const { employeeId, selectedDate, dateOfJoining, workingAndOfDays, offDaysForTheBranch } = params;
 
   try {
-    // 1. Fetch required data
     const { data: { companyOverview } } = await fetchCompanyOverview();
     const companyId = companyOverview[0].id;
 
     const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
     const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
- 
+
     const totalLeaves = await customLeaves(leaves);
     const startDate = dayjs().startOf('year').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('year').format('YYYY-MM-DD');
     const filteredLeavesHolidays = filterLeavesPublicHolidays(startDate, endDate, true, false, true);
- 
+
     const leavesDates = filteredLeavesHolidays?.customLeaves?.map((leave: any) =>
       dayjs(leave.date).format('YYYY-MM-DD')
     ) || [];
- 
+
     const holidaysDates = filteredLeavesHolidays?.publicHolidays?.map((holiday: any) =>
       dayjs(holiday.date).format('YYYY-MM-DD')
     ) || [];
 
-    // Create publicHolidaysMap for isWeekend property check
     const publicHolidaysMap = new Map();
     publicHolidays.forEach((holiday: any) => {
       publicHolidaysMap.set(dayjs(holiday.date).format('YYYY-MM-DD'), holiday);
     });
 
-    // Helper: isNonWorkingDay
+    // Returns true for weekends, branch off-days, public holidays, and approved leaves.
     const isNonWorkingDay = (date: string) => {
       const dayName = dayjs(date).format('dddd').toLowerCase();
       const isWeekend = workingAndOfDays?.[dayName] === "0";
@@ -68,117 +72,65 @@ export async function validatePreviousDaysAttendance(params: ValidationParams): 
       return isWeekend || isOffDay || isHoliday || isLeave || isHolidayMarkedAsWeekend;
     };
 
-    // Helper: checkAttendanceStatus for a given date
-    const checkAttendanceStatus = async (date: string) => {
-      const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, date, date);
-      const { data: { attendanceRequests } } = await getAttendanceRequest(employeeId, date, date);
-
-      const hasPendingRequest = attendanceRequests.some((req: any) => {
-        return Number(req?.status) == Status.ApprovalNeeded;
-      });
-
-      const hasCompleteRequest = attendanceRequests.some((req: any) =>
-        Number(req?.status) == Status.Approved && (req.checkIn !== null && req.checkOut !== null)
-      );
-
+    // Returns whether the day has any attendance record OR any request (any status).
+    const checkDayHasData = async (date: string): Promise<{ hasCheckIn: boolean; hasAnyRequest: boolean }> => {
+      const [attendanceRes, requestsRes] = await Promise.all([
+        fetchEmpAttendanceStatistics(employeeId, date, date),
+        getAttendanceRequest(employeeId, date, date),
+      ]);
+      const empAttendanceStatistics = attendanceRes?.data?.empAttendanceStatistics ?? [];
+      const attendanceRequests = requestsRes?.data?.attendanceRequests ?? [];
       return {
-        hasAttendanceRecord: empAttendanceStatistics.length > 0,
         hasCheckIn: empAttendanceStatistics.length > 0 && empAttendanceStatistics[0].checkIn !== null,
-        hasCheckOut: empAttendanceStatistics.length > 0 && empAttendanceStatistics[0].checkOut !== null,
-        hasAttendanceRequest: attendanceRequests.length > 0,
-        hasRequestCheckIn: attendanceRequests.length > 0 && attendanceRequests[0].checkIn !== null,
-        hasRequestCheckOut: attendanceRequests.length > 0 && attendanceRequests[0].checkOut !== null,
-        hasPendingRequest: hasPendingRequest || hasCompleteRequest,
+        hasAnyRequest: attendanceRequests.length > 0,
       };
     };
 
-    // Main validation loop - start from selectedDate - 1 (day before the selected date)
     let dateToCheck = dayjs(selectedDate).subtract(1, 'day').format('YYYY-MM-DD');
     let canRaiseRequest = true;
     let blockingDate = '';
     let blockingReason = '';
 
     while (true) {
-
+      // Don't check across month boundaries
       if (dayjs(dateToCheck).format('YYYY-MM') !== dayjs().format('YYYY-MM')) {
         canRaiseRequest = true;
-        blockingDate = "";
+        blockingDate = '';
         break;
       }
 
-      const attendanceStatus = await checkAttendanceStatus(dateToCheck);
-      const isNonWorking = isNonWorkingDay(dateToCheck);
-
-      // Rule: If date <= dateOfJoining, allow (no previous days to check)
+      // Don't check before date of joining
       if (dayjs(dateToCheck).isSameOrBefore(dayjs(dateOfJoining))) {
         canRaiseRequest = true;
         break;
       }
 
-      // Rule: If has both checkIn AND checkOut in attendance, allow
-      if (attendanceStatus?.hasCheckIn && attendanceStatus?.hasCheckOut) {
+      // Safety: limit to 30 days to avoid excessive API calls
+      if (dayjs(selectedDate).diff(dayjs(dateToCheck), 'days') > 30) {
         canRaiseRequest = true;
         break;
       }
 
-      // Rule: If has request with both checkIn AND checkOut, continue checking previous day
-      if (attendanceStatus?.hasRequestCheckIn && attendanceStatus?.hasRequestCheckOut) {
-        blockingDate = dateToCheck;
-        canRaiseRequest = false;
+      // Non-working days (weekends, holidays, off-days, leaves) are always fine
+      if (isNonWorkingDay(dateToCheck)) {
         dateToCheck = dayjs(dateToCheck).subtract(1, 'day').format('YYYY-MM-DD');
         continue;
       }
 
-      // Rule: Non-working day checks
-      if (isNonWorking) {
-        if (attendanceStatus?.hasCheckIn || attendanceStatus?.hasRequestCheckIn) {
-          // Has check-in but missing check-out on non-working day
-          canRaiseRequest = false;
-          blockingDate = dateToCheck;
-          blockingReason = 'Incomplete check-out on non-working day';
-          break;
-        } else if (attendanceStatus?.hasCheckOut || attendanceStatus?.hasRequestCheckOut) {
-          // Has check-out but missing check-in on non-working day
-          canRaiseRequest = false;
-          blockingDate = dateToCheck;
-          blockingReason = 'Incomplete check-in on non-working day';
-          break;
-        } else {
-          // No attendance on non-working day - continue checking previous day
-          blockingDate = dateToCheck;
-          canRaiseRequest = false;
-          dateToCheck = dayjs(dateToCheck).subtract(1, 'day').format('YYYY-MM-DD');
-          continue;
-        }
+      // Working day — check if there is any attendance or any request
+      const { hasCheckIn, hasAnyRequest } = await checkDayHasData(dateToCheck);
+
+      if (hasCheckIn || hasAnyRequest) {
+        // Day has data (attendance or request, any status) → OK, check the day before
+        dateToCheck = dayjs(dateToCheck).subtract(1, 'day').format('YYYY-MM-DD');
+        continue;
       }
 
-      // Rule: Working day checks
-      if (attendanceStatus?.hasCheckIn || attendanceStatus?.hasRequestCheckIn) {
-        // Has check-in but missing check-out on working day
-        canRaiseRequest = false;
-        blockingDate = dateToCheck;
-        blockingReason = 'Incomplete check-out on working day';
-        break;
-      } else if (attendanceStatus?.hasCheckOut || attendanceStatus?.hasRequestCheckOut) {
-        // Has check-out but missing check-in on working day
-        canRaiseRequest = false;
-        blockingDate = dateToCheck;
-        blockingReason = 'Incomplete check-in on working day';
-        break;
-      } else if (!isNonWorking) {
-        // Missing attendance entirely on working day
-        canRaiseRequest = false;
-        blockingDate = dateToCheck;
-        blockingReason = 'Missing attendance on working day';
-        break;
-      }
-
-      dateToCheck = dayjs(dateToCheck).subtract(1, 'day').format('YYYY-MM-DD');
-
-      // Safety: limit to 30 days to avoid infinite loop
-      if (dayjs(selectedDate).diff(dayjs(dateToCheck), 'days') > 30) {
-        break;
-      }
+      // Working day with no attendance and no request → block
+      canRaiseRequest = false;
+      blockingDate = dateToCheck;
+      blockingReason = 'No attendance or request found for this working day';
+      break;
     }
 
     return { canRaiseRequest, blockingDate, blockingReason };

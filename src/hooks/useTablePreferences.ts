@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { upsertUserTablePreferences, getUserTablePreferences } from "@services/users"
+import { DEFAULT_PAGE_SIZE } from '@metronic/helpers'
 
 interface TablePreferences {
     columnVisibility: Record<string, boolean>;
@@ -38,7 +39,8 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
     const defaultPreferences = useMemo((): TablePreferences => {
         const columnVisibility = columns.reduce((acc: any, col: any) => {
             if (col.accessorKey) {
-                acc[col.accessorKey] = true;
+                // Honour meta.defaultVisible === false to hide columns by default
+                acc[col.accessorKey] = col.meta?.defaultVisible !== false;
             }
             return acc;
         }, {});
@@ -53,7 +55,7 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
             // globalFilter: '',
             pagination: {
                 pageIndex: 0,
-                pageSize: 10
+                pageSize: DEFAULT_PAGE_SIZE
             },
             density: 'comfortable',
             grouping: [],
@@ -110,10 +112,30 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                     const dbPreferences = await getUserTablePreferences(employeeId, tableName);
                     
                     if (!isCancelled && dbPreferences?.data?.preferences) {
-                        // Merge with defaults to ensure all properties exist
+                        const dbColVis: Record<string, boolean> = dbPreferences.data.preferences.columnVisibility ?? {};
+
+                        // Property-level merge for columnVisibility.
+                        // Rule: if code default is 'true' but DB has 'false', the code wins.
+                        // This handles the case where meta.defaultVisible was changed from false→true
+                        // in code — the DB has a stale 'false' that should no longer hide the column.
+                        // When DB has 'true' but code has 'false', the DB wins (user explicitly showed
+                        // a column that is hidden by default).
+                        const mergedColumnVisibility: Record<string, boolean> = {
+                            ...defaultPreferences.columnVisibility,   // start with code defaults
+                            ...Object.fromEntries(
+                                Object.entries(dbColVis).filter(([key, dbVal]) => {
+                                    const codeDefault = defaultPreferences.columnVisibility[key];
+                                    // Drop DB 'false' entries where code now says 'true' (stale default)
+                                    return !(dbVal === false && codeDefault === true);
+                                })
+                            )
+                        };
+
+                        // Merge with defaults to ensure all properties exist; use deep-merged visibility
                         loadedPreferences = {
                             ...defaultPreferences,
-                            ...dbPreferences.data.preferences
+                            ...dbPreferences.data.preferences,
+                            columnVisibility: mergedColumnVisibility
                         };
                     }
                 }

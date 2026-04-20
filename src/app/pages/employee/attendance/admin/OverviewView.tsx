@@ -33,6 +33,7 @@ const OpenLeaveRequests = lazy(() => import("./views/overview/OpenLeaveRequests"
 const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
 const AttendanceRequestLimitReset = lazy(() => import("./views/overview/AttendanceRequestLimitReset"));
 const LeaveManagementRequests = lazy(() => import("./views/overview/LeaveManagementRequests"));
+const HRPendingLeaveRequests = lazy(() => import("./views/overview/HRPendingLeaveRequests"));
 
 interface LeaveRequestResponse {
   id: string;
@@ -148,6 +149,13 @@ function OverviewView() {
 
   const selectedEmployeeId = useSelector(
     (state: RootState) => state.employee.selectedEmployee?.id
+  );
+
+  // Role-based access: determine if current user is HR/admin to show HR approval queue
+  const isAdminUser = useSelector((state: RootState) => state.auth.currentUser?.isAdmin);
+  const currentEmployeeRoles: any[] = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
+  const userIsHROrAdmin = isAdminUser || currentEmployeeRoles.some((r: any) =>
+    ['hr', 'admin', 'super_admin', 'superadmin'].includes((r?.name || r?.role || '').toLowerCase())
   );
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange
@@ -300,6 +308,14 @@ function OverviewView() {
           <OpenLeaveRequests />
         </Suspense>
       </LazySection>
+
+      {userIsHROrAdmin && (
+        <LazySection minHeight="400px" rootMargin="300px">
+          <Suspense fallback={<Loader />}>
+            <HRPendingLeaveRequests />
+          </Suspense>
+        </LazySection>
+      )}
 
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>

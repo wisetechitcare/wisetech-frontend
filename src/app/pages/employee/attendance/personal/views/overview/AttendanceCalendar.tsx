@@ -422,7 +422,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                 setValidationBlockingDate(validationResult.blockingDate);
             } catch (validationError) {
                 console.error('Validation error:', validationError);
-                setCanSubmitRequest(true); // Allow on error to not block user
+                setCanSubmitRequest(true);
             } finally {
                 setIsValidating(false);
             }
@@ -957,10 +957,9 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                     {limitMessage && <div className="alert mt-8" role="alert" style={{ backgroundColor: "#FCEDDF", color: '#DD700C', borderColor: '#DD700C' }}>
                                         {REQUEST_RAISE_DISABLE_MESSAGE}
                                     </div>}
-                                    {/* Validation warning for previous days attendance */}
                                     {!canSubmitRequest && validationBlockingDate && (
                                         <div className="alert mt-3" role="alert" style={{ backgroundColor: "#FCEDDF", color: '#DD700C', borderColor: '#DD700C' }}>
-                                            Please raise an attendance request for the previous day ({dayjs(validationBlockingDate).format("DD-MM-YYYY")}) including check-in and check-out before raising request for this date.
+                                            No attendance or request found for {dayjs(validationBlockingDate).format("DD-MM-YYYY")}. Please mark attendance or raise a request for that day before proceeding.
                                         </div>
                                     )}
                                     {isValidating && (
