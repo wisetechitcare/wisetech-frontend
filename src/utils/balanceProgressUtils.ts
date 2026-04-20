@@ -388,37 +388,37 @@ export const buildLeaveData = (
         },
     ];
 
-    // Hide leaves where total = 0 (not allocated)
-    const paidLeaves = allPaidLeaves.filter(leave => leave.total > 0);
+    const paidLeaves = [...allPaidLeaves].sort((a, b) => a.label.localeCompare(b.label));
 
     // Calculate paid totals
     const totalPaidUsed = paidLeaves.reduce((sum, leave) => sum + leave.used, 0);
     const totalPaidAssigned = paidLeaves.reduce((sum, leave) => sum + leave.total, 0);
 
-    const allUnpaidLeaves = [
+    // Unpaid leave total is ALWAYS derived — never read from leaveBalances.
+    // leaveBalances is now built from leavesSummary (paid types only from the backend),
+    // so leaveBalances[UNPAID_LEAVES] will always be 0/undefined. The correct unpaid
+    // total is computed below as: 365 − totalPaidAssigned.
+    const TOTAL_YEAR_DAYS = 365;
+    const derivedUnpaidAssigned = Math.max(0, TOTAL_YEAR_DAYS - totalPaidAssigned);
+
+    // Always show the Unpaid Leaves row — its total is patched to derivedUnpaidAssigned.
+    // Do NOT filter by total > 0 before patching (the row starts at 0 since it's not in
+    // leavesSummary, but must always be visible as the derived remainder of the year).
+    const unpaidLeaves = [
         {
             label: UNPAID_LEAVES,
             used: leavesTakenCount[UNPAID_LEAVES] || 0,
-            total: leaveBalances[UNPAID_LEAVES] || 0,
+            total: derivedUnpaidAssigned,   // always derived: 365 − totalPaidAssigned
             color: '#9D4141',
             showAllowedPerMonth: false
         },
     ];
 
-    // Hide leaves where total = 0 (not allocated)
-    const unpaidLeaves = allUnpaidLeaves.filter(leave => leave.total > 0);
-
     // Calculate unpaid totals
     const totalUnpaidUsed = unpaidLeaves.reduce((sum, leave) => sum + leave.used, 0);
 
-    // Grand total must always be capped at 365 — a year has only 365 days.
-    // Unpaid leave "budget" is the remaining days after all paid leaves are accounted for.
-    // Without this cap, paid (e.g. 14) + unpaid (365 raw) = 379 which is nonsensical.
-    const TOTAL_YEAR_DAYS = 365;
-    const derivedUnpaidAssigned = Math.max(0, TOTAL_YEAR_DAYS - totalPaidAssigned);
-
-    // Patch each unpaid leave row's `total` to reflect the derived cap
-    const cappedUnpaidLeaves = unpaidLeaves.map(l => ({ ...l, total: derivedUnpaidAssigned }));
+    // cappedUnpaidLeaves kept for API compat — total is already correct
+    const cappedUnpaidLeaves = unpaidLeaves;
 
     return {
         paidLeaves,

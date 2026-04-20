@@ -1,4 +1,5 @@
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+import AttendanceStatusBadge from './AttendanceStatusBadge';
 import { RootState, store } from '@redux/store';
 import ReactApexChart from 'react-apexcharts';
 import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
@@ -1115,7 +1116,7 @@ export const StatisticsTable = ({
                 setValidationBlockingDate(validationResult.blockingDate);
             } catch (validationError) {
                 console.error('Validation error:', validationError);
-                setCanSubmitRequest(true); // Allow on error to not block user
+                setCanSubmitRequest(true);
             } finally {
                 setIsValidating(false);
             }
@@ -1449,7 +1450,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }: any) => {
                 const renderedCellValue = row.original.workingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
@@ -1482,7 +1483,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }: any) => {
                 const currentId = row.original.id;
                 const workingMethod = row.original.workingMethod;
@@ -1608,7 +1609,7 @@ export const StatisticsTable = ({
             header: "Checkout Working Method",
             size: 120,
             minSize: 100,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }: any) => {
                 const renderedCellValue = row.original.checkoutWorkingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
@@ -1700,7 +1701,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }: any) => {
                 const currentId = row.original.id;
                 const workingMethod = row.original.workingMethod;
@@ -1872,22 +1873,7 @@ export const StatisticsTable = ({
                 };
 
                 const color = statusColors[renderedCellValue] || "#6c757d";
-                return (
-                    <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '2px 10px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        color: color,
-                        backgroundColor: `${color}20`,
-                        border: `1px solid ${color}40`,
-                        whiteSpace: 'nowrap',
-                    }}>
-                        {renderedCellValue}
-                    </span>
-                );
+                return <AttendanceStatusBadge status={renderedCellValue} color={color} />;
             }
         },
 
@@ -2006,22 +1992,43 @@ export const StatisticsTable = ({
                             [ATTENDANCE_STATUS.RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
                             [ATTENDANCE_STATUS.LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || '#6610f2',
                             [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
+                            // Singular keys (ATTENDANCE_STATUS.LEAVE_TYPE constants)
                             [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
                             [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
                             [FLOATER_LEAVE]: leaveTypesColor?.floaterLeaveColor || "#F39C12",
                             [SICK_LEAVE]: leaveTypesColor?.sickLeaveColor || "#E74C3C",
                             [UNPAID_LEAVE]: leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
                             [MATERNAL_LEAVE]: leaveTypesColor?.maternalLeaveColor || "#9B59B6",
+                            // Plural keys — DB stores "Annual Leaves", "Sick Leaves" etc. (with trailing 's').
+                            // Both singular and plural must be present so row background works regardless of source.
+                            'Annual Leaves': leaveTypesColor?.annualLeaveColor || "#2ECC71",
+                            'Casual Leaves': leaveTypesColor?.casualLeaveColor || "#3498DB",
+                            'Floater Leaves': leaveTypesColor?.floaterLeaveColor || "#F39C12",
+                            'Sick Leaves': leaveTypesColor?.sickLeaveColor || "#E74C3C",
+                            'Unpaid Leaves': leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
+                            'Maternal Leaves': leaveTypesColor?.maternalLeaveColor || "#9B59B6",
                             [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
-                            // [ATTENDANCE_STATUS.ON_LEAVE]: colorValuesForAttendanceCalendar.onLeaveColor || "#dc3545",
+                            [ATTENDANCE_STATUS.ON_LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || "#dc3545",
                         };
+
+                        // Get background color based on status (subtle tint at 15% opacity)
+                        const bgColor = statusColors[status] || "#ffffff";
+                        const backgroundColor = status === ATTENDANCE_STATUS.CHECK_OUT_MISSING ? '#ffffff' : `${bgColor}26`;
 
                         return {
                             sx: {
-                                backgroundColor: "#ffffff",
+                                backgroundColor,
                                 borderLeft: `4px solid ${statusColors[status] ?? "transparent"}`,
-                                '&:hover': { backgroundColor: '#f8fafc' },
+                                '&:hover': { backgroundColor: `${bgColor}40` },
                                 color: "#333",
+                                transition: 'background-color 0.15s ease-in-out',
+                                '& .MuiTableCell-root': {
+                                    padding: '12px 16px',
+                                    verticalAlign: 'middle',
+                                    textAlign: 'left',
+                                    fontSize: '13px',
+                                    color: '#334155',
+                                },
                             }
                         };
                     }
@@ -2151,7 +2158,7 @@ export const StatisticsTable = ({
                                         </div>}
                                         {!canSubmitRequest && validationBlockingDate && (
                                             <div className="alert mt-3" role="alert" style={{ backgroundColor: "#FCEDDF", color: '#DD700C', borderColor: '#DD700C' }}>
-                                                Please raise an attendance request for the previous day ({dayjs(validationBlockingDate).format("DD-MM-YYYY")}) including check-in and check-out before raising request for this date.
+                                                No attendance or request found for {dayjs(validationBlockingDate).format("DD-MM-YYYY")}. Please mark attendance or raise a request for that day before proceeding.
                                             </div>
                                         )}
                                         <div className='d-flex flex-wrap justify-content-between mt-3'>
@@ -2489,7 +2496,7 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }: any) => {
                 const renderedCellValue = row.original.workingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;

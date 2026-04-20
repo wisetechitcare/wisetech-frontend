@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
 import { ATTENDANCE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from "@constants/attendance";
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { IEmployeesAttendance } from "@models/employee";
@@ -323,22 +324,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         };
 
         const color = resolveStatusColor(status);
-        return (
-            <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '2px 10px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: color,
-                backgroundColor: `${color}20`,
-                border: `1px solid ${color}40`,
-                whiteSpace: 'nowrap',
-            }}>
-                {status}
-            </span>
-        );
+        return <AttendanceStatusBadge status={status} color={color} />;
     }, [colorValues, missingColor, workingOnWeekendColor, attendanceCalendarColor, leaveTypesColor]);
 
     const WorkTypeCell = useCallback(({ workingMethod, latitude, longitude }: {
@@ -463,7 +449,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "workingMethod",
             header: "Check-In Work",
             size: 120,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }) => (
                 <WorkTypeCell
                     workingMethod={typeof row.original.workingMethod === 'object' ? (row.original.workingMethod as any)?.type : row.original.workingMethod}
@@ -476,7 +462,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkInLocation",
             header: "Check-In Location",
             size: 120,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }) => {
                 // Show location whenever any location data exists — biometric employees have
                 // a checkInLocation string; GPS-based check-ins have lat/lng coordinates.
@@ -524,7 +510,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkoutWorkingMethod",
             header: "Check-Out Work",
             size: 120,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }) => (
                 <WorkTypeCell
                     workingMethod={typeof row.original.checkoutWorkingMethod === 'object' ? (row.original.checkoutWorkingMethod as any)?.type : (row.original.checkoutWorkingMethod || '-NA-')}
@@ -537,7 +523,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkOutLocation",
             header: "Check-Out Location",
             size: 120,
-            meta: { defaultVisible: false },
+            meta: { defaultVisible: true },
             Cell: ({ row }) => {
                 // if ((row.original.workingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (row.original.workingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
 
@@ -609,6 +595,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 });
 
                 const transformedWithLeaveOverride = transformed.map((att) => {
+                    if (!att.employeeId) return att;
                     const leaveTypeName = approvedLeaveTypeByEmployeeId.get(att.employeeId);
                     if (!leaveTypeName) return att;
 
@@ -757,12 +744,29 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                             [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
                         };
 
+                        // Get background color based on status (subtle tint at 15% opacity)
+                        const bgColor = statusColors[status] || "#ffffff";
+                        const backgroundColor = status === ATTENDANCE_STATUS.CHECK_OUT_MISSING ? '#ffffff' : `${bgColor}26`;
+
                         return {
                             sx: {
-                                backgroundColor: "#ffffff",
+                                backgroundColor,
                                 borderLeft: `4px solid ${statusColors[status] ?? "transparent"}`,
-                                '&:hover': { backgroundColor: '#f8fafc' },
+                                '&:hover': { backgroundColor: `${bgColor}40` },
                                 color: "#333",
+                                transition: 'background-color 0.15s ease-in-out',
+                                // Ensure consistent cell padding and alignment
+                                '& .MuiTableCell-root': {
+                                    padding: '12px 16px',
+                                    verticalAlign: 'middle',
+                                    textAlign: 'left',
+                                    fontSize: '13px',
+                                    color: '#334155',
+                                },
+                                // Align status column to center
+                                '& .MuiTableCell-root:nth-child(3)': {
+                                    textAlign: 'center',
+                                },
                             }
                         };
                     }

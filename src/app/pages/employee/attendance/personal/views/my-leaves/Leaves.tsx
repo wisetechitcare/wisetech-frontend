@@ -140,10 +140,18 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     const selectedEmployeeLeaves = useSelector((state: RootState) => state.leaves.personalLeaves); 
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id); 
     
-    const filteredLeaves = (!startDateNew || !endDateNew) ? [] : selectedEmployeeLeaves.filter((leave: any) => {
-        const leaveDate = leave.dateFrom || leave.dateTo;
-        return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
-    });
+    // datesReady: true once the parent has resolved the fiscal-year start/end strings.
+    // When false (e.g. IndividualView is still awaiting fetchDateSettings), we show the
+    // MRT loading skeleton rather than "No records to display" — this fixes the race
+    // condition where the admin view briefly (or permanently) renders an empty table.
+    const datesReady = Boolean(startDateNew && endDateNew);
+
+    const filteredLeaves = datesReady
+        ? selectedEmployeeLeaves.filter((leave: any) => {
+            const leaveDate = leave.dateFrom || leave.dateTo;
+            return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
+          })
+        : [];
 
     
     const [leave, setLeave] = useState();
@@ -193,11 +201,11 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                 columns={columns}
                 data={filteredLeaves}
                 tableName="Leaves"
-                resource={resource}
+                resource={fromAdmin ? "" : resource}
                 viewOwn={viewOwn}
                 viewOthers={viewOthers}
                 employeeId={employeeIdCurrent}
-                state={{ isLoading: isFetchingLeaves }}
+                isLoading={isFetchingLeaves || !datesReady}
             />
 
             <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered>

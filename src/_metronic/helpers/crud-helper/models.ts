@@ -4,7 +4,8 @@ export type ID = undefined | null | number
 
 export type PaginationState = {
   page: number
-  items_per_page: 10 | 30 | 50 | 100
+  items_per_page: 10 | 25 | 50 | 100 | 500 | 1000
+  total?: number
   links?: Array<{label: string; active: boolean; url: string | null; page: number | null}>
 }
 
