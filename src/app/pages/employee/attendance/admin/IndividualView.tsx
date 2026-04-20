@@ -135,9 +135,12 @@ const IndividualView = () => {
 
     useEffect(() => {
         if (!selectedEmployeeId || !yearStart || !yearEnd) return;
+        const employeeId = selectedEmployeeId;
+        const startDate = yearStart.format("YYYY-MM-DD");
+        const endDate = yearEnd.format("YYYY-MM-DD");
 
         async function fetchStats() {
-            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(selectedEmployeeId!, yearStart?.format("YYYY-MM-DD"), yearEnd?.format("YYYY-MM-DD"));
+            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, startDate, endDate);
             setYearlyStats(empAttendanceStatistics);
         }
 
