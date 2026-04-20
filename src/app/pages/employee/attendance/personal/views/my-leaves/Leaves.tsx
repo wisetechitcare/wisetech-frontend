@@ -144,12 +144,15 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     // When false (e.g. IndividualView is still awaiting fetchDateSettings), we show the
     // MRT loading skeleton rather than "No records to display" — this fixes the race
     // condition where the admin view briefly (or permanently) renders an empty table.
-    const datesReady = Boolean(startDateNew && endDateNew);
+    const startDate = startDateNew?.toString();
+    const endDate = endDateNew?.toString();
+    const dateRange = startDate && endDate ? { startDate, endDate } : null;
+    const datesReady = Boolean(dateRange);
 
-    const filteredLeaves = datesReady
+    const filteredLeaves = dateRange
         ? selectedEmployeeLeaves.filter((leave: any) => {
             const leaveDate = leave.dateFrom || leave.dateTo;
-            return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
+            return leaveDate && leaveDate >= dateRange.startDate && leaveDate <= dateRange.endDate;
           })
         : [];
 
@@ -216,8 +219,8 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                     <LeaveRequestForm
                         onClose={handleCloseLeaveRequestForm}
                         leave={leave}
-                        startDateNew={startDateNew?.toString()}
-                        endDateNew={endDateNew?.toString()}
+                        startDateNew={startDate}
+                        endDateNew={endDate}
                     />
                 </Modal.Body>
             </Modal>
