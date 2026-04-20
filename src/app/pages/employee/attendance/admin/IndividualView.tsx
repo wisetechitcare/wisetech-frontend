@@ -18,6 +18,7 @@ import { DateNavigation } from '../personal/MyLeaveView';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { fetchConfiguration } from '@services/company';
 import { DATE_SETTINGS_KEY } from '@constants/configurations-key';
+import { clearPersonalLeaves } from '@redux/slices/leaves';
 
 const IndividualView = () => {
     const dispatch = useDispatch();
@@ -123,6 +124,9 @@ const IndividualView = () => {
     const [yearlyStats, setYearlyStats] = useState<Attendance[]>([]);
 
     useEffect(() => {
+        if (!selectedEmployeeId) return;
+        dispatch(clearPersonalLeaves());
+
         async function fetchStats() {
             if (!yearStart || !yearEnd) return;
             const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(selectedEmployeeId, yearStart?.format("YYYY-MM-DD"), yearEnd?.format("YYYY-MM-DD"));

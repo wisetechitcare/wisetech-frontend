@@ -131,14 +131,12 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         );
 
         const allLeaveOption = leaveOptionsData.map((option: any) => {
-          
+
         const isCasual = discretionaryLeaveBoolean && option.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase());
         const discretionaryExtra = isCasual ? Number(discretionaryLeaveBalance ?? 0) : 0;
         const finalNumberOfDays = (Number(option.numberOfDays) || 0) + discretionaryExtra;
-        // debugger;
           return {
             ...option,
-            ...({leaveType: option?.leaveType?.toLowerCase().includes("floater leave") ? "Paid Leaves" : option?.leaveType}), 
             numberOfDays: finalNumberOfDays,
             isDiscretionaryApplied: isCasual,
           };
@@ -393,6 +391,16 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           // console.log("Total leaves to subtract (transfer + encash):", currentFiscalTransferredLeaves);
         }
 
+        // Derive the effective unpaid leave allocation.
+        // Unpaid leaves are NOT a separate 365-day bucket — they represent the remaining days
+        // of the year after all paid leave types are accounted for.
+        // Formula: unpaidBudget = 365 - sum(all paid leave type allocations)
+        // This keeps the dropdown consistent with the Balance page (balanceProgressUtils.ts buildLeaveData).
+        const totalPaidAllocated = allLeaveOption
+            .filter((opt: any) => opt.leaveType !== UNPAID_LEAVES)
+            .reduce((sum: number, opt: any) => sum + (Number(opt.numberOfDays) || 0), 0);
+        const derivedUnpaidDays = Math.max(0, 365 - totalPaidAllocated);
+
         // Process leave options
         setStatusOptions(
           allLeaveOption
@@ -500,7 +508,12 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 // For other leave types (Sick, Floater, Unpaid) - no pro-rating
                 const transferredOther = transferredLeaves[option.leaveType] || 0;
                 const transferringOther = currentFiscalTransferredLeaves[option.leaveType] || 0;
-                const totalWithTransferred = option.numberOfDays + transferredOther;
+                // For Unpaid Leaves, use the derived cap (365 - paid) instead of the raw DB value (365).
+                // This ensures the dropdown is consistent with the Balance page calculation.
+                const effectiveNumberOfDays = option.leaveType === UNPAID_LEAVES
+                    ? derivedUnpaidDays
+                    : option.numberOfDays;
+                const totalWithTransferred = effectiveNumberOfDays + transferredOther;
 
                 // Get days taken for this specific leave type
                 let daysTaken = 0;
@@ -508,8 +521,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   daysTaken = sickDaysTaken;
                 } else if (option.leaveType === FLOATER_LEAVES) {
                   daysTaken = floaterDaysTaken;
-                }
-                 else if (option.leaveType === UNPAID_LEAVES) {
+                } else if (option.leaveType === UNPAID_LEAVES) {
                   daysTaken = unpaidDaysTaken;
                 }
 

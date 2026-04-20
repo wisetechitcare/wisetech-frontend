@@ -38,19 +38,26 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     checkOwnWithOthers?: boolean
 }) => {
 
-    // if no branch found  or no working day set return message.
-    const workingAndOffDaysStr = useSelector((state: RootState) =>state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // NOTE: early return moved BELOW all hooks — React rules of hooks forbid returning before hooks
+    const currentEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const selectedEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.selectedEmployee?.branches?.workingAndOffDays);
+    // FIX: selectedEmployee may not have branches loaded in Redux when chosen from dropdown —
+    // fall back to currentEmployee's branch to avoid false "Branch Setup Required" screen.
+    const workingAndOffDaysStr = fromAdmin
+        ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
+        : currentEmployeeWorkingAndOffDaysStr;
     const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
-    if (shouldShowBranchSetupGuide(workingAndOffDays)) {
-        return <BranchSetupGuide />;
-    }
-
+    const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     const dispatch = useDispatch();
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const dateOfJoining = useSelector((state: RootState) => fromAdmin? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
-    const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
+    // FIX: fall back to currentEmployee branch when selectedEmployee branch not loaded
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
@@ -355,8 +362,13 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         [filteredAttendance]
     );
 
+    // All hooks have run — safe to conditionally render
+    if (showBranchSetupGuide) {
+        return <BranchSetupGuide />;
+    }
+
     if (!dataLoaded) {
-        return <Loader/>
+        return <Loader />;
     }
 
 

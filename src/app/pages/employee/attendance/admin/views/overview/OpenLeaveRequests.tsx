@@ -18,11 +18,14 @@ import { fetchColorAndStoreInSlice } from "@utils/file";
 import dayjs from "dayjs";
 
 function OpenLeaveRequests() {
-    let userRoles = "HR";
-
-    // let sickLeaves = ["HR", "Manager"];
-    // let floaterLeaves = ["HR", "Manager", "Director"];
-    // let annualLeaves = ["HR", "Manager", "Director"];
+    // FIX: state.auth.currentUser has no `role` field — use isAdmin flag + roles[] array instead
+    const isAdminUser = useSelector((state: RootState) => state.auth.currentUser?.isAdmin);
+    const currentEmployeeRoles: any[] = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
+    const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee?.id || '');
+    // Admin/HR bypass: they can see and act on all pending leave requests
+    const hasAdminOrHRAccess = isAdminUser || currentEmployeeRoles.some((r: any) =>
+        ['hr', 'admin', 'super_admin', 'superadmin'].includes((r?.name || r?.role || '').toLowerCase())
+    );
 
     const [sickLeaves, setSickLeaves] = useState<string[]>([]);
     const [floaterLeaves, setFloaterLeaves] = useState<string[]>([]);
@@ -87,23 +90,27 @@ function OpenLeaveRequests() {
         return {
             employeeId: employee.currentEmployee.id,
             openLeaveRequests: attendance.leaveRequests.filter((el: any) => {
+                // FIX: Admin/HR see all pending requests unconditionally
+                if (hasAdminOrHRAccess) return el.status == 0;
+
+                // FIX: canApprove stores employee IDs — compare against current employee's ID, not a role string
                 let isAccessible = false;
-               
-                if (el.type == LeaveTypes.SICK_LEAVE) {                 
-                    isAccessible = Array.isArray(sickLeaves) ? sickLeaves.includes(userRoles) : false;
+                const empId = employee.currentEmployee.id;
+                if (el.type == LeaveTypes.SICK_LEAVE) {
+                    isAccessible = Array.isArray(sickLeaves) && sickLeaves.includes(empId);
                 } else if (el.type == LeaveTypes.FLOATER_LEAVE) {
-                    isAccessible = Array.isArray(floaterLeaves) ? floaterLeaves.includes(userRoles) : false;
+                    isAccessible = Array.isArray(floaterLeaves) && floaterLeaves.includes(empId);
                 } else if (el.type == LeaveTypes.ANNUAL_LEAVE) {
-                    isAccessible = Array.isArray(annualLeaves) ? annualLeaves.includes(userRoles) : false;
+                    isAccessible = Array.isArray(annualLeaves) && annualLeaves.includes(empId);
                 } else if (el.type == LeaveTypes.UNPAID_LEAVE) {
-                    isAccessible = Array.isArray(unpaidLeaves) ? unpaidLeaves.includes(userRoles) : false;
+                    isAccessible = Array.isArray(unpaidLeaves) && unpaidLeaves.includes(empId);
                 } else if (el.type == LeaveTypes.CASUAL_LEAVE) {
-                    isAccessible = Array.isArray(casualLeaves) ? casualLeaves.includes(userRoles) : false;
-                } else if(el.type == LeaveTypes.MATERNAL_LEAVE) {
-                    isAccessible = Array.isArray(maternal) ? maternal.includes(userRoles) : false;
+                    isAccessible = Array.isArray(casualLeaves) && casualLeaves.includes(empId);
+                } else if (el.type == LeaveTypes.MATERNAL_LEAVE) {
+                    isAccessible = Array.isArray(maternal) && maternal.includes(empId);
                 }
- 
-                return el.status == 0;
+
+                return isAccessible && el.status == 0;
             }),
         }
  
@@ -196,12 +203,12 @@ function OpenLeaveRequests() {
         
         const res = await createKpiScore(workingDaysPayload)
         
-        approvedBy.push(userRoles);
+        approvedBy.push(employeeIdCurrent); // FIX: push employee ID, not undefined role string
         await updateLeaveStatus({ id: leave.id, status: LeaveStatus.Approved, approvedBy, approvedById: employeeIdCurrent });
         successConfirmation('Leave request approved successfully');
 
         setLeaveActionId(leave.id);
-        const { data: { leaveRequest } } = await fetchLeaveRequest();
+        const { data: { leaveRequest } } = await fetchLeaveRequest(selectedEmployeeId || undefined);
         dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));
     } finally {
         setLoading(false);
@@ -221,10 +228,10 @@ function OpenLeaveRequests() {
                 await updateLeaveStatus({ id: leaveId, status: LeaveStatus.Rejected, rejectedById: employeeIdCurrent });
                 successConfirmation('Leave request rejected successfully');
                 setLeaveActionId(leaveId);
-                const { data: { leaveRequest } } = await fetchLeaveRequest();
+                const { data: { leaveRequest } } = await fetchLeaveRequest(selectedEmployeeId || undefined);
                 dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));
             }
-           
+
         } finally {
             setLoading(false);
             setProcessingRowId(null);
@@ -354,7 +361,7 @@ function OpenLeaveRequests() {
 
     useEffect(() => {
         async function callEndpoint() {
-            const { data: { leaveRequest } } = await fetchLeaveRequest();
+            const { data: { leaveRequest } } = await fetchLeaveRequest(selectedEmployeeId || undefined);
             dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));
         }
 
@@ -384,7 +391,7 @@ function OpenLeaveRequests() {
 
         fetchOptions();
         callEndpoint();
-    }, [leaveActionId]);
+    }, [leaveActionId, selectedEmployeeId]); // FIX: refresh when admin switches to a different employee
 
     return (
         <>

@@ -149,11 +149,21 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     const [leave, setLeave] = useState();
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const [showLeaveRequestForm, setShowLeaveRequestForm] = useState(false);
+    const [isFetchingLeaves, setIsFetchingLeaves] = useState(false);
 
     async function fetchLeaves() {
-        const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
-        const personalLeaves = transformLeaves(leaves);
-        dispatch(savePersonalLeaves(personalLeaves));
+        if (!selectedEmployeeId) return;
+        setIsFetchingLeaves(true);
+        try {
+            const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
+            const personalLeaves = transformLeaves(leaves);
+            dispatch(savePersonalLeaves(personalLeaves));
+        } catch (err) {
+            console.error('Error fetching leaves:', err);
+            dispatch(savePersonalLeaves([]));
+        } finally {
+            setIsFetchingLeaves(false);
+        }
     }
 
     const handleShowLeaveRequestForm = async (row: any) => {
@@ -182,11 +192,12 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             <MaterialTable
                 columns={columns}
                 data={filteredLeaves}
-                tableName="Leaves" 
+                tableName="Leaves"
                 resource={resource}
                 viewOwn={viewOwn}
                 viewOthers={viewOthers}
                 employeeId={employeeIdCurrent}
+                state={{ isLoading: isFetchingLeaves }}
             />
 
             <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered>

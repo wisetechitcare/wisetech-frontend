@@ -1449,6 +1449,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
+            meta: { defaultVisible: false },
             Cell: ({ row }: any) => {
                 const renderedCellValue = row.original.workingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
@@ -1481,6 +1482,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
+            meta: { defaultVisible: false },
             Cell: ({ row }: any) => {
                 const currentId = row.original.id;
                 const workingMethod = row.original.workingMethod;
@@ -1602,12 +1604,13 @@ export const StatisticsTable = ({
             }
         },
         {
-            accessorKey: "checkoutWokringMethod",
+            accessorKey: "checkoutWorkingMethod",
             header: "Checkout Working Method",
             size: 120,
             minSize: 100,
+            meta: { defaultVisible: false },
             Cell: ({ row }: any) => {
-                const renderedCellValue = row.original.checkoutWokringMethod;
+                const renderedCellValue = row.original.checkoutWorkingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
 
                 const colorMap: Record<string, string> = {
@@ -1697,6 +1700,7 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
+            meta: { defaultVisible: false },
             Cell: ({ row }: any) => {
                 const currentId = row.original.id;
                 const workingMethod = row.original.workingMethod;
@@ -1867,18 +1871,22 @@ export const StatisticsTable = ({
                     [LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || "#17a2b8", // Default Cyan
                 };
 
+                const color = statusColors[renderedCellValue] || "#6c757d";
                 return (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span
-                            style={{
-                                width: "12px",
-                                height: "12px",
-                                borderRadius: "50%",
-                                backgroundColor: statusColors[renderedCellValue] || "transparent"
-                            }}
-                        ></span>
+                    <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '2px 10px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: color,
+                        backgroundColor: `${color}20`,
+                        border: `1px solid ${color}40`,
+                        whiteSpace: 'nowrap',
+                    }}>
                         {renderedCellValue}
-                    </div>
+                    </span>
                 );
             }
         },
@@ -2010,7 +2018,9 @@ export const StatisticsTable = ({
 
                         return {
                             sx: {
-                                backgroundColor: `${statusColors[status] ?? "#ffffff"}25`,
+                                backgroundColor: "#ffffff",
+                                borderLeft: `4px solid ${statusColors[status] ?? "transparent"}`,
+                                '&:hover': { backgroundColor: '#f8fafc' },
                                 color: "#333",
                             }
                         };
@@ -2479,6 +2489,7 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
+            meta: { defaultVisible: false },
             Cell: ({ row }: any) => {
                 const renderedCellValue = row.original.workingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;

@@ -23,6 +23,20 @@ import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slice
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { fetchColorAndStoreInSlice } from "@utils/file";
 // TODO: Pull timezone and date format settings from db
+
+/**
+ * Returns true when the formatted duration string represents < 8 working hours.
+ * Format expected: "8H 30M" or "6H 0M" (produced by convertMinutesIntoHrMinFormats).
+ * Returns false for missing / '-NA-' values so absent rows are never falsely flagged.
+ */
+function isDurationUnderEightHours(durationStr: string | undefined): boolean {
+    if (!durationStr || durationStr === '-NA-') return false;
+    const hoursMatch = durationStr.match(/(\d+)H/i);
+    const minutesMatch = durationStr.match(/(\d+)M/i);
+    const totalMinutes = (hoursMatch ? parseInt(hoursMatch[1], 10) * 60 : 0)
+        + (minutesMatch ? parseInt(minutesMatch[1], 10) : 0);
+    return totalMinutes > 0 && totalMinutes < 480; // 8h = 480 min
+}
 const MUMBAI_TZ = 'Asia/Kolkata';
 
 interface IEmployeesAttendanceResponse {
@@ -58,30 +72,10 @@ export const fetchEmpsAttendance = async (date: Dayjs) => {
 
 // Transform leave data to match attendance structure
 const transformLeaveToAttendance = (leave: any, weekends: any): IEmployeesAttendance => {
-    const { LEAVE, WEEKEND, LEAVE_TYPE } = ATTENDANCE_STATUS;
+    const { LEAVE } = ATTENDANCE_STATUS;
 
-    // Get leave type
-    const tempLeaveType = leave?.leaveType || "";
-    let leaveType = LEAVE;
-
-    if (tempLeaveType?.toLowerCase().includes('annual')) {
-        leaveType = LEAVE_TYPE.ANNUAL_LEAVE;
-    }
-    else if (tempLeaveType?.toLowerCase().includes('maternal')) {
-        leaveType = LEAVE_TYPE.MATERNAL_LEAVE;
-    }
-    else if (tempLeaveType?.toLowerCase().includes('floater')) {
-        leaveType = LEAVE_TYPE.FLOATER_LEAVE;
-    }
-    else if (tempLeaveType?.toLowerCase().includes('casual')) {
-        leaveType = LEAVE_TYPE.CASUAL_LEAVE;
-    }
-    else if (tempLeaveType?.toLowerCase().includes('sick')) {
-        leaveType = LEAVE_TYPE.SICK_LEAVE;
-    }
-    else if (tempLeaveType?.toLowerCase().includes('unpaid')) {
-        leaveType = LEAVE_TYPE.UNPAID_LEAVE;
-    }
+    // Use the exact leave type string from backend (e.g., "Paid Leave")
+    const leaveTypeName: string = leave?.leaveType || LEAVE;
 
     const leaveDate = dayjs(leave.date);
     const weekDay = leaveDate.format('dddd');
@@ -100,13 +94,13 @@ const transformLeaveToAttendance = (leave: any, weekends: any): IEmployeesAttend
         day: weekDay,
         latitude: 0,
         longitude: 0,
-        status: leaveType,
+        status: leaveTypeName,
         date: leaveDate.format('YYYY-MM-DD'),
         checkInLocation: '-NA-',
         checkOutLocation: '-NA-',
         checkOutLatitude: 0,
         checkOutLongitude: 0,
-        leaveType: leaveType,
+        leaveType: leaveTypeName,
     };
 };
 
@@ -310,18 +304,40 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             [LEAVE]: attendanceCalendarColor?.onLeaveColor || "#FFC300", // Default Cyan
         };
 
+        const resolveStatusColor = (statusValue: string): string => {
+            const direct = statusColors[statusValue];
+            if (direct) return direct;
+
+            const normalizedStatus = (statusValue || '').toLowerCase();
+            if (normalizedStatus.includes('annual')) return leaveTypesColor?.annualLeaveColor || statusColors[LEAVE_TYPE.ANNUAL_LEAVE];
+            if (normalizedStatus.includes('sick')) return leaveTypesColor?.sickLeaveColor || statusColors[LEAVE_TYPE.SICK_LEAVE];
+            if (normalizedStatus.includes('casual')) return leaveTypesColor?.casualLeaveColor || statusColors[LEAVE_TYPE.CASUAL_LEAVE];
+            if (normalizedStatus.includes('maternal') || normalizedStatus.includes('maternity')) return leaveTypesColor?.maternalLeaveColor || statusColors[LEAVE_TYPE.MATERNAL_LEAVE];
+            if (normalizedStatus.includes('floater')) return leaveTypesColor?.floaterLeaveColor || statusColors[LEAVE_TYPE.FLOATER_LEAVE];
+            if (normalizedStatus.includes('unpaid')) return leaveTypesColor?.unpaidLeaveColor || statusColors[LEAVE_TYPE.UNPAID_LEAVE];
+
+            // Any other custom leave type (e.g., "Paid Leave")
+            if (normalizedStatus.includes('leave')) return attendanceCalendarColor?.onLeaveColor || statusColors[LEAVE];
+
+            return "#000";
+        };
+
+        const color = resolveStatusColor(status);
         return (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span
-                    style={{
-                        width: "12px",
-                        height: "12px",
-                        borderRadius: "50%",
-                        backgroundColor: statusColors[status] || "#000"
-                    }}
-                />
+            <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '2px 10px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: color,
+                backgroundColor: `${color}20`,
+                border: `1px solid ${color}40`,
+                whiteSpace: 'nowrap',
+            }}>
                 {status}
-            </div>
+            </span>
         );
     }, [colorValues, missingColor, workingOnWeekendColor, attendanceCalendarColor, leaveTypesColor]);
 
@@ -404,6 +420,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkIn",
             header: "Check-In",
             size: 120,
+            minSize: 80,
             Cell: ({ row }) => {
                 const employee = row.original;
                 const isWeekendOrHolidays = employee.isWeekendOrHoliday;
@@ -431,9 +448,11 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
                 const finalCheckIn = convertTo12HourFormat(checkIn);
 
+                // RED if: late check-in OR worked less than 8 hours (absent rows excluded via isDurationUnderEightHours)
+                const isShortDuration = isDurationUnderEightHours(employee.duration);
                 return (
                     <span style={{
-                        color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isLateCheckIn ? 'red' : 'green',
+                        color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : (isLateCheckIn || isShortDuration) ? 'red' : 'green',
                     }}>
                         {finalCheckIn}
                     </span>
@@ -444,6 +463,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "workingMethod",
             header: "Check-In Work",
             size: 120,
+            meta: { defaultVisible: false },
             Cell: ({ row }) => (
                 <WorkTypeCell
                     workingMethod={typeof row.original.workingMethod === 'object' ? (row.original.workingMethod as any)?.type : row.original.workingMethod}
@@ -456,8 +476,15 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkInLocation",
             header: "Check-In Location",
             size: 120,
+            meta: { defaultVisible: false },
             Cell: ({ row }) => {
-                if ((row.original.workingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (row.original.workingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
+                // Show location whenever any location data exists — biometric employees have
+                // a checkInLocation string; GPS-based check-ins have lat/lng coordinates.
+                // The old working-method guard was incorrectly hiding locations for Office-method
+                // employees who checked in via app (GPS present but working method not On-site/Hybrid).
+                const hasLocation = row.original.checkInLocation ||
+                    (row.original.latitude && row.original.longitude);
+                if (!hasLocation) return "-NA-";
 
                 return <LocationCell latitude={row.original.latitude} longitude={row.original.longitude} location={row.original.checkInLocation} />;
             }
@@ -497,6 +524,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkoutWorkingMethod",
             header: "Check-Out Work",
             size: 120,
+            meta: { defaultVisible: false },
             Cell: ({ row }) => (
                 <WorkTypeCell
                     workingMethod={typeof row.original.checkoutWorkingMethod === 'object' ? (row.original.checkoutWorkingMethod as any)?.type : (row.original.checkoutWorkingMethod || '-NA-')}
@@ -509,6 +537,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "checkOutLocation",
             header: "Check-Out Location",
             size: 120,
+            meta: { defaultVisible: false },
             Cell: ({ row }) => {
                 // if ((row.original.workingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (row.original.workingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
 
@@ -522,6 +551,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             accessorKey: "duration",
             header: "Duration",
             size: 120,
+            minSize: 80,
         },
 
         // {
@@ -568,13 +598,38 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 );
 
                 // Merge attendance and leave data
-                // Priority: attendance records take precedence over leave records for the same employee
-                const attendanceEmployeeIds = new Set(transformed.map(att => att.employeeId));
+                // Priority: valid attendance (Present/Working Weekend) takes precedence,
+                // but approved leaves must override "Absent / missing" statuses to prevent showing Absent incorrectly.
+                const { ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE } = ATTENDANCE_STATUS;
+                const approvedLeaveTypeByEmployeeId = new Map<string, string>();
+                selectedDateLeaves.forEach((leave: any) => {
+                    if (!leave?.employeeId) return;
+                    if (approvedLeaveTypeByEmployeeId.has(leave.employeeId)) return;
+                    approvedLeaveTypeByEmployeeId.set(leave.employeeId, leave?.leaveType || LEAVE);
+                });
+
+                const transformedWithLeaveOverride = transformed.map((att) => {
+                    const leaveTypeName = approvedLeaveTypeByEmployeeId.get(att.employeeId);
+                    if (!leaveTypeName) return att;
+
+                    if (
+                        att.status === ABSENT ||
+                        att.status === CHECK_IN_MISSING ||
+                        att.status === CHECK_OUT_MISSING ||
+                        att.status === LEAVE
+                    ) {
+                        return { ...att, status: leaveTypeName, leaveType: leaveTypeName };
+                    }
+
+                    return att;
+                });
+
+                const attendanceEmployeeIds = new Set(transformedWithLeaveOverride.map(att => att.employeeId));
                 const leavesForMissingEmployees = transformedLeaves.filter((leave: IEmployeesAttendance) =>
                     !attendanceEmployeeIds.has(leave.employeeId)
                 );
 
-                const mergedData = [...transformed, ...leavesForMissingEmployees];
+                const mergedData = [...transformedWithLeaveOverride, ...leavesForMissingEmployees];
 
                 // Store merged data in local state
                 setMergedAttendanceData(mergedData);
@@ -683,19 +738,30 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                             [ATTENDANCE_STATUS.RAISE_REQUEST]: attendanceCalendarColor?.markedPresentViaRequestRaisedColor || '#6610f2',
                             [ATTENDANCE_STATUS.LEAVE]: attendanceCalendarColor?.onLeaveColor || '#6610f2',
                             [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
+                            // Singular keys (ATTENDANCE_STATUS.LEAVE_TYPE constants)
                             [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
                             [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
                             [FLOATER_LEAVE]: leaveTypesColor?.floaterLeaveColor || "#F39C12",
                             [SICK_LEAVE]: leaveTypesColor?.sickLeaveColor || "#E74C3C",
                             [UNPAID_LEAVE]: leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
                             [MATERNAL_LEAVE]: leaveTypesColor?.maternalLeaveColor || "#9B59B6",
+                            // Plural keys — DB stores "Annual Leaves", "Sick Leaves" etc. (with trailing 's').
+                            // Both singular and plural must be present so row background works regardless of source.
+                            'Annual Leaves': leaveTypesColor?.annualLeaveColor || "#2ECC71",
+                            'Casual Leaves': leaveTypesColor?.casualLeaveColor || "#3498DB",
+                            'Floater Leaves': leaveTypesColor?.floaterLeaveColor || "#F39C12",
+                            'Sick Leaves': leaveTypesColor?.sickLeaveColor || "#E74C3C",
+                            'Unpaid Leaves': leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
+                            'Maternal Leaves': leaveTypesColor?.maternalLeaveColor || "#9B59B6",
                             [ATTENDANCE_STATUS.ON_LEAVE]: attendanceCalendarColor.onLeaveColor || "#dc3545",
                             [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
                         };
 
                         return {
                             sx: {
-                                backgroundColor: `${statusColors[status] ?? "#ffffff"}25`,
+                                backgroundColor: "#ffffff",
+                                borderLeft: `4px solid ${statusColors[status] ?? "transparent"}`,
+                                '&:hover': { backgroundColor: '#f8fafc' },
                                 color: "#333",
                             }
                         };

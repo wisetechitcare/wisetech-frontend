@@ -4,11 +4,10 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { useState } from "react";
 
 /**
- * F2: Map internal leave type names (from DB) to their display names.
- * 'Floater Leaves' is marketed to employees as 'Paid Leaves'.
+ * Returns the leave type name as stored in the DB.
+ * No display-level renaming — "Floater Leaves" is shown as "Floater Leaves" everywhere.
  */
 export const getLeaveTypeDisplayName = (leaveType: string): string => {
-    if (leaveType === FLOATER_LEAVES) return 'Paid Leaves';
     return leaveType;
 };
 
@@ -364,7 +363,8 @@ export const buildLeaveData = (
             showAllowedPerMonth: false
         },
         {
-            label: 'Paid Leaves',  // Renamed from Floater Leaves
+            // label: 'Paid Leaves',  // Renamed from Floater Leaves
+            label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
             total: leaveBalances[FLOATER_LEAVES] || 0,
             color: '#9D4141',
@@ -410,17 +410,25 @@ export const buildLeaveData = (
 
     // Calculate unpaid totals
     const totalUnpaidUsed = unpaidLeaves.reduce((sum, leave) => sum + leave.used, 0);
-    const totalUnpaidAssigned = unpaidLeaves.reduce((sum, leave) => sum + leave.total, 0);
+
+    // Grand total must always be capped at 365 — a year has only 365 days.
+    // Unpaid leave "budget" is the remaining days after all paid leaves are accounted for.
+    // Without this cap, paid (e.g. 14) + unpaid (365 raw) = 379 which is nonsensical.
+    const TOTAL_YEAR_DAYS = 365;
+    const derivedUnpaidAssigned = Math.max(0, TOTAL_YEAR_DAYS - totalPaidAssigned);
+
+    // Patch each unpaid leave row's `total` to reflect the derived cap
+    const cappedUnpaidLeaves = unpaidLeaves.map(l => ({ ...l, total: derivedUnpaidAssigned }));
 
     return {
         paidLeaves,
-        unpaidLeaves,
+        unpaidLeaves: cappedUnpaidLeaves,
         totalPaidUsed,
         totalPaidAssigned,
         totalUnpaidUsed,
-        totalUnpaidAssigned,
+        totalUnpaidAssigned: derivedUnpaidAssigned,
         grandTotalUsed: totalPaidUsed + totalUnpaidUsed,
-        grandTotalAssigned: totalPaidAssigned + totalUnpaidAssigned,
+        grandTotalAssigned: TOTAL_YEAR_DAYS,  // Always 365 — never paid+unpaid sum
     };
 };
 

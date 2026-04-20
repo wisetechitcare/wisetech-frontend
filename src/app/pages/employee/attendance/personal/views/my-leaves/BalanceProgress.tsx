@@ -1635,7 +1635,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                             lineHeight: '1.6',
                             paddingLeft: '32px'
                         }}>
-                            Combined across all paid leave types (Annual, Sick, Casual, Paid, Maternal)
+                            Combined across all paid leave types (Annual, Sick, Casual, Floater, Maternal)
                         </p>
                     </div>
 

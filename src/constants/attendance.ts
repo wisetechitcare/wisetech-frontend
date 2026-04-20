@@ -23,13 +23,17 @@ export const ATTENDANCE_STATUS = {
 export enum LeaveStatus {
     ApprovalPending = 0,
     Approved = 1,
-    Rejected = 2
+    Rejected = 2,
+    Revoked = 3,
+    PendingHR = 4, // Team Lead approved; awaiting final HR sign-off
 }
 
 export const LEAVE_STATUS: { [key in LeaveStatus]: string } = {
     [LeaveStatus.ApprovalPending]: 'Approval Pending',
     [LeaveStatus.Approved]: 'Approved',
-    [LeaveStatus.Rejected]: 'Rejected'
+    [LeaveStatus.Rejected]: 'Rejected',
+    [LeaveStatus.Revoked]: 'Revoked',
+    [LeaveStatus.PendingHR]: 'Pending HR Approval',
 };
 
 export enum LeaveTypes {
