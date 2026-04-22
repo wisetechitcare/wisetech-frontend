@@ -117,8 +117,11 @@ const ProjectsMainTable = ({
       const response9 = await fetchAllCountries();
       const response10 = await getAllCompanyTypes();
       const response11 = await getAllTeams(1, 9999); // Get all teams for dropdown
-      setAllProjects(response.data?.projects);
-      
+      setAllProjects(
+        (response.data?.projects || []).filter(
+          (project: any) => project.isProjectOpen === true
+        )
+      );      
       setAllProjectCategories(response2?.projectCategories);
       setAllProjectSubcategories(response3?.projectSubCategories);
       setAllProjectStatuses(response4?.projectStatuses);
@@ -743,7 +746,7 @@ const ProjectsMainTable = ({
             fontWeight: "600",
           }}
         >
-          Projects
+          Project
         </div>
         {(!hideNewProjectButton) && (
           <div className="d-flex align-items-center gap-3">

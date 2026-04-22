@@ -464,7 +464,7 @@ const LeadFormModal = ({
         plotAreaUnit: 'sqft',
         builtUpArea: '',
         builtUpAreaUnit: 'sqft',
-        buildingDetail: '',
+        buildingDetail: '', 
         otherPoint1Heading: '',
         otherPoint1Description: '',
         otherPoint2Heading: '',
@@ -2251,24 +2251,24 @@ const LeadFormModal = ({
                               {isEditMode && currLeadData?.revisionCount !== undefined && (
                                 <Box className="d-flex flex-column align-items-end">
                                   {/* <Typography
-          sx={{
-            fontSize: "12px",
-            color: "#798DB3",
-            lineHeight: 1,
-          }}
-        >
-          Rev No.
-        </Typography>
+                                  sx={{
+                                    fontSize: "12px",
+                                    color: "#798DB3",
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  Rev No.
+                                </Typography>
 
-        <Typography
-          sx={{
-            fontSize: "14px",
-            fontWeight: 500,
-            lineHeight: 1.4,
-          }}
-        >
-          {currLeadData?.revisionCount || 0}
-        </Typography> */}
+                                <Typography
+                                  sx={{
+                                    fontSize: "14px",
+                                    fontWeight: 500,
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  {currLeadData?.revisionCount || 0}
+                                </Typography> */}
                                 </Box>
                               )}
                             </Box>
