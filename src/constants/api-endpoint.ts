@@ -126,6 +126,7 @@ export const EMPLOYEE = {
     MARK_CHECKOUT_ATTENDANCE: "api/employee/attendance",
     VALIDATE_IN_OUT_TOKEN: "api/employee/validate-token-in-out",
     LEAVE_BALANCE: "api/employee/leave-balance",
+    LEAVE_ALLOCATION: "api/employee/leave-allocation",
     LEAVES: "api/employee/leaves",
     GET_WIZARD_DATA: "api/employee/wizard",
     GET_ADDRESS_DETAILS: "api/employee/address-details?employeeId=",

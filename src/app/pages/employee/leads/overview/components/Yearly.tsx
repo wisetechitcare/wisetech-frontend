@@ -38,6 +38,8 @@ import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/Ye
 import LocationProjectChart from "@pages/employee/projects/commonComponents/ProjectByLocationChart";
 import LeadByLocationChart from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
+import YearlyPerformanceAnalytics from "./charts/YearlyPerformanceAnalytics";
+import MonthlyBarWithTarget from "./charts/MonthlyBarWithTarget";
 interface Props {
   startDate: dayjs.Dayjs;
   endDate: dayjs.Dayjs;
@@ -663,6 +665,17 @@ const Yearly = ({ startDate, endDate }: Props) => {
   return (
     <div className="">
       <div className="row g-3">
+        {/* Premium Yearly Performance Analytics */}
+        <div className="col-12 col-xl-6 mb-2">
+          <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
+        </div>
+        <div className="col-12 col-xl-6 mb-2">
+          <MonthlyBarWithTarget 
+            startDate={startDates} 
+            endDate={endDates} 
+          />
+        </div>
+
         {/* Lead By Status */}
         {settings?.showLeadsStatusChart && (
           <div className="col-12 col-md-6">
