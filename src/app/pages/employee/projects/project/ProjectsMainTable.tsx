@@ -345,16 +345,18 @@ const ProjectsMainTable = ({
       accessorKey: "startDate",
       header: "Start Date",
       Cell: ({ renderedCellValue }: any) => {
+        if (!renderedCellValue) return "N/A";
         const startDate = new Date(renderedCellValue);
-        return dayjs(startDate).format("DD-MM-YYYY") || "-NA-";
+        return dayjs(startDate).format("DD-MM-YYYY");
       },
     },
     {
       accessorKey: "endDate",
       header: "End Date",
       Cell: ({ renderedCellValue }: any) => {
+        if (!renderedCellValue) return "N/A";
         const endDate = new Date(renderedCellValue);
-        return dayjs(endDate).format("DD-MM-YYYY") || "-NA-";
+        return dayjs(endDate).format("DD-MM-YYYY");
       },
     },
     {

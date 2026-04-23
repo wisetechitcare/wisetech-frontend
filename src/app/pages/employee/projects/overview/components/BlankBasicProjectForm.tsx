@@ -168,6 +168,19 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
           }),
         statusId: Yup.string(),
         endDate: Yup.date()
+          .nullable()
+          .test('end-date-required-when-completed', 'End date is required when status is Completed', function(value) {
+            const { statusId } = this.parent;
+            // Find the status to check if it's "Completed"
+            const selectedStatus = statuses.find((s: any) => s.id === statusId);
+            const isCompleted = selectedStatus?.name?.toLowerCase() === 'completed';
+            
+            // If status is Completed, end date is required
+            if (isCompleted && !value) {
+              return false;
+            }
+            return true;
+          })
           .test('end-date-validation', function(value) {
             const { startDate } = this.parent;
             if (!value || !startDate) return true; // Skip validation if either date is missing
@@ -270,7 +283,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         teamId: Yup.string(),
         isProjectOpen: Yup.string().oneOf(['true', 'false']).default('true'),
       }),
-    [projectType, selectedProjectType]
+    [projectType, selectedProjectType, statuses]
   );
 
   const fetchPrefixAllSettings = useCallback(async () => {
@@ -399,19 +412,43 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
     }
   }, [contacts.length]);
 
-  const fetchProjectStatuses = useCallback(async () => {
-    if (statuses.length > 0) return statuses;
-    try {
-      const response = await getAllProjectStatuses();
-      const data = response?.projectStatuses || [];    
+  // no default status for project
+//   const fetchProjectStatuses = useCallback(async () => {
+//   if (statuses.length > 0) return statuses;
+//   try {
+//     const response = await getAllProjectStatuses();
+//     const data = response?.projectStatuses || [];    
         
-      setStatuses(data);
-      return data;
-    } catch (error) {
-      console.error("Error fetching project statuses:", error);
-      return [];
+//     setStatuses(data);
+//     return data;
+//   } catch (error) {
+//     console.error("Error fetching project statuses:", error);
+//     return [];
+//   }
+// }, [statuses.length]);
+
+  const fetchProjectStatuses = useCallback(async (setFieldValue?: any) => {
+  if (statuses.length > 0) return statuses;
+
+  try {
+    const response = await getAllProjectStatuses();
+    const data = response?.projectStatuses || [];
+
+    setStatuses(data);
+
+    // ✅ NEW: Auto-select default status (same as LeadForm behavior)
+    const defaultStatus = data.find((s: any) => s.isDefault);
+
+    if (defaultStatus && setFieldValue) {
+      setFieldValue("statusId", defaultStatus.id);
     }
-  }, [statuses.length]);
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching project statuses:", error);
+    return [];
+  }
+}, [statuses.length]);
 
   const fetchTeams = useCallback(async () => {
     if (teams.length > 0) return teams;
@@ -1089,7 +1126,10 @@ const getInitialTeamDetails = useCallback(() => {
         endDate: leadData?.endDate || projectData?.endDate || "",
         
         // Project manager (assigned to)
-        projectManagerId: leadData?.assignedToId || projectData?.projectManagerId || "",
+        // FIX: "Lead Assigned" maps to project.assignedToId, NOT project.projectManagerId.
+        // projectManagerId is a separate "Project Manager" field. The sync engine writes
+        // lead.assignedToId ↔ project.assignedToId, so the form must use assignedToId here.
+        projectManagerId: leadData?.assignedToId || projectData?.assignedToId || projectData?.projectManagerId || "",
         
         rate: projectData?.rate || "",
         cost: projectData?.cost || "",
@@ -1129,32 +1169,29 @@ const getInitialTeamDetails = useCallback(() => {
         poFile: leadData?.poFile || projectData?.poFile || "",
         
         // Handle By entries
+        // FIX: Always read from projectData when editing an existing project first,
+        // then fall back to leadData, then default to one empty entry.
         handledByEntries: (() => {
-          // EDIT MODE: load existing handledByEntries from saved project data
-          if (editingProjectId && projectData?.handledByEntries && Array.isArray(projectData.handledByEntries) && projectData.handledByEntries.length > 0) {
-            return projectData.handledByEntries.map((entry: any) => ({
-              id: entry.id || Date.now().toString(),
-              employeeId: entry.employeeId || '',
-              handledDate: entry.handledDate ? new Date(entry.handledDate).toISOString().split('T')[0] : '',
-              handledOutDate: entry.handledOutDate ? new Date(entry.handledOutDate).toISOString().split('T')[0] : '',
-            }));
+          const mapEntry = (entry: any, i: number) => ({
+            id: entry.id || `hb-${Date.now()}-${i}`,
+            employeeId: entry.employeeId || '',
+            handledDate: entry.handledDate
+              ? new Date(entry.handledDate).toISOString().split('T')[0]
+              : new Date().toISOString().split('T')[0],
+            handledOutDate: entry.handledOutDate
+              ? new Date(entry.handledOutDate).toISOString().split('T')[0]
+              : '',
+          });
+          // 1. Project being edited — use its saved handledByEntries
+          if (projectData?.handledByEntries && Array.isArray(projectData.handledByEntries) && projectData.handledByEntries.length > 0) {
+            return projectData.handledByEntries.map(mapEntry);
           }
-          // LEAD CONVERSION: load from lead data
+          // 2. Lead-to-project conversion — use lead's handledByEntries
           if (leadData?.handledByEntries && Array.isArray(leadData.handledByEntries) && leadData.handledByEntries.length > 0) {
-            return leadData.handledByEntries.map((entry: any) => ({
-              id: entry.id || Date.now().toString(),
-              employeeId: entry.employeeId || '',
-              handledDate: entry.handledDate ? new Date(entry.handledDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-              handledOutDate: entry.handledOutDate ? new Date(entry.handledOutDate).toISOString().split('T')[0] : '',
-            }));
+            return leadData.handledByEntries.map(mapEntry);
           }
-          // Default: one empty entry for new projects
-          return [{
-            id: Date.now().toString(),
-            employeeId: '',
-            handledDate: new Date().toISOString().split('T')[0],
-            handledOutDate: '',
-          }];
+          // 3. Default: start with one empty row (user can fill it in or delete it)
+          return [];
         })(),
 
         // File location with company type/company
@@ -1418,29 +1455,71 @@ const handleSubmit = useCallback(
         payload.subcategoryIds = [];
       }
 
-      // Remove empty fields (preserve multi-select arrays even if empty)
-      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds'];
+      // Build cleanPayload:
+      // - Always include multi-select arrays (even []) so clearing propagates
+      // - Always include clearable scalar fields as-is (empty string = user cleared it;
+      //   the backend scalarFields loop converts '' → null)
+      // - Skip only undefined values (field was never in the form)
+      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds', 'handledByEntries'];
+      // Fields that should be sent even when empty so the backend can clear them
+      const clearableFields = [
+        'plotArea', 'plotAreaUnit', 'builtUpArea', 'builtUpAreaUnit', 'buildingDetail',
+        'otherPoint1Heading', 'otherPoint1Description',
+        'otherPoint2Heading', 'otherPoint2Description',
+        'otherPoint3Heading', 'otherPoint3Description',
+        'poNumber', 'poDate', 'poFile', 'description', 'title',
+        'country', 'state', 'city', 'locality', 'zipcode', 'projectAddress',
+        'mapLocation', 'latitude', 'longitude',
+        'fileLocation', 'fileLocationCompanyType', 'fileLocationCompany',
+        'assignedToId', 'projectManagerId', 'inquiryDate', 'startDate', 'endDate',
+      ];
       const cleanPayload = Object.keys(payload).reduce((acc: any, key: string) => {
         const v = payload[key];
-        const isEmptyArray = Array.isArray(v) && v.length === 0;
-        const isMultiSelectArray = multiSelectArrays.includes(key);
-        
-        // Always include multi-select arrays (even if empty) or non-empty values
-        if (isMultiSelectArray || (v !== "" && v !== null && v !== undefined && !isEmptyArray)) {
-          acc[key] = v;
-        }
+        // Always include multi-select arrays
+        if (multiSelectArrays.includes(key)) { acc[key] = v; return acc; }
+        // Always include clearable fields (even if empty string or null)
+        if (clearableFields.includes(key)) { acc[key] = v; return acc; }
+        // Skip undefined
+        if (v === undefined) return acc;
+        // Skip null and empty string for non-clearable fields
+        if (v === null || v === '') return acc;
+        // Skip empty non-multiselect arrays
+        if (Array.isArray(v) && v.length === 0) return acc;
+        acc[key] = v;
         return acc;
       }, {});
 
-      // Clean handledByEntries: strip frontend-only `id` field, filter out empty entries
-      if (payload.handledByEntries && Array.isArray(payload.handledByEntries)) {
-        const validEntries = payload.handledByEntries
-          .filter((e: any) => e.employeeId && e.handledDate)
-          .map(({ id: _id, ...rest }: any) => rest); // remove local id
-        if (validEntries.length > 0) {
-          cleanPayload.handledByEntries = validEntries;
-        }
+      // FIX: Clean handledByEntries before sending:
+      // - Remove entries that have no employeeId selected (user added a row but left it blank)
+      // - Strip the client-side temp `id` field (backend generates its own DB id)
+      if (Array.isArray(cleanPayload.handledByEntries)) {
+        cleanPayload.handledByEntries = cleanPayload.handledByEntries
+          .filter((e: any) => e.employeeId && e.employeeId !== '')
+          .map(({ id: _id, ...rest }: any) => rest);
       }
+
+      // FIX: "Lead Assigned" field uses projectManagerId in Formik for backward compat,
+      // but the sync engine uses assignedToId ↔ lead.assignedToId.
+      // Map projectManagerId → assignedToId so the sync always works correctly.
+      // Also keep leadAssignedTo in sync (project has both columns).
+      if (cleanPayload.projectManagerId !== undefined) {
+        cleanPayload.assignedToId   = cleanPayload.projectManagerId || null;
+        cleanPayload.leadAssignedTo = cleanPayload.projectManagerId || null;
+      }
+
+      // Handle date fields - convert empty strings to null
+      if (cleanPayload.startDate === '' || cleanPayload.startDate === undefined) {
+        cleanPayload.startDate = null;
+      }
+      if (cleanPayload.endDate === '' || cleanPayload.endDate === undefined) {
+        cleanPayload.endDate = null;
+      }
+      // if (cleanPayload.poDate === '' || cleanPayload.poDate === undefined) {
+      //   cleanPayload.poDate = null;
+      // }
+      // if (cleanPayload.inquiryDate === '' || cleanPayload.inquiryDate === undefined) {
+      //   cleanPayload.inquiryDate = null;
+      // }
 
       // Add prefix to payload for backend to use
       if (editablePrefix && editablePrefix.trim()) {
@@ -1614,6 +1693,16 @@ const handleSubmit = useCallback(
                 if (Object.keys(errors).length > 0) {
                   console.error("Form validation errors:", errors);
                 }
+
+                // added for default status
+                useEffect(() => {
+  if (statuses.length > 0 && !values.statusId) {
+    const defaultStatus = statuses.find((s: any) => s.isDefault);
+    if (defaultStatus) {
+      setFieldValue("statusId", defaultStatus.id);
+    }
+  }
+}, [statuses, values.statusId, setFieldValue]);
 
                 // Auto-populate address fields for MEP projects from additionalDetails
                 useEffect(() => {
@@ -1798,7 +1887,7 @@ const handleSubmit = useCallback(
                                   inputLabel="Start Date"
                                   formikProps={formikProps}
                                   placeHolder="1/3/2025"
-                                  isRequired={false}
+                                  isRequired={true}
                                 />
                               </Col>
                               <Col md={4}>
@@ -1807,7 +1896,7 @@ const handleSubmit = useCallback(
                                   inputLabel="End Date"
                                   formikProps={formikProps}
                                   placeHolder="1/3/2025"
-                                  isRequired={false}
+                                  isRequired={true}
                                 />
                               </Col>
                               {/* Date Validation Warning */}
@@ -1877,48 +1966,7 @@ const handleSubmit = useCallback(
                       </Box>
                     </div>
 
-                    {/* Lead Assigned Section */}
-                    <div className="form-section mb-4">
-                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
-                        <legend style={{
-                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
-                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
-                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
-                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
-                        }}>
-                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
-                          LEAD ASSIGNED
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3">
-                          <Row>
-                            <Col md={6}>
-                              <DropDownInput
-                                formikField="projectManagerId"
-                                inputLabel="Assigned To"
-                                options={allEmployees?.list?.map((item: any) => ({
-                                  value: item.employeeId,
-                                  label: item.employeeName,
-                                  avatar: item.avatar,
-                                })) || []}
-                                onChange={(option: any) => {
-                                  setFieldValue("projectManagerId", option?.value || "");
-                                }}
-                                value={(() => {
-                                  if (!values.projectManagerId) return null;
-                                  const foundEmployee = allEmployees?.list?.find((emp: any) => emp.employeeId === values.projectManagerId);
-                                  if (foundEmployee) {
-                                    return { value: values.projectManagerId, label: foundEmployee.employeeName || "", avatar: foundEmployee.avatar || "" };
-                                  }
-                                  return { value: values.projectManagerId, label: "Employee Not Found", avatar: "" };
-                                })()}
-                                isRequired={false}
-                                showColor={true}
-                              />
-                            </Col>
-                          </Row>
-                        </div>
-                      </fieldset>
-                    </div>
+                    
 
                     {/* Project Details 1 Section - Plot Area, Built-Up Area, etc. */}
                     <div className="form-section mb-4">
@@ -2130,6 +2178,49 @@ const handleSubmit = useCallback(
                       </fieldset>
                     </div>
 
+                    {/* Lead Assigned Section */}
+                    <div className="form-section mb-4">
+                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                        <legend style={{
+                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
+                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          LEAD ASSIGNED
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          <Row>
+                            <Col md={6}>
+                              <DropDownInput
+                                formikField="projectManagerId"
+                                inputLabel="Assigned To"
+                                options={allEmployees?.list?.map((item: any) => ({
+                                  value: item.employeeId,
+                                  label: item.employeeName,
+                                  avatar: item.avatar,
+                                })) || []}
+                                onChange={(option: any) => {
+                                  setFieldValue("projectManagerId", option?.value || "");
+                                }}
+                                value={(() => {
+                                  if (!values.projectManagerId) return null;
+                                  const foundEmployee = allEmployees?.list?.find((emp: any) => emp.employeeId === values.projectManagerId);
+                                  if (foundEmployee) {
+                                    return { value: values.projectManagerId, label: foundEmployee.employeeName || "", avatar: foundEmployee.avatar || "" };
+                                  }
+                                  return { value: values.projectManagerId, label: "Employee Not Found", avatar: "" };
+                                })()}
+                                isRequired={false}
+                                showColor={true}
+                              />
+                            </Col>
+                          </Row>
+                        </div>
+                      </fieldset>
+                    </div>
+
                     {/* File Location In Computer Section */}
                     <div className="form-section mb-4">
                       <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
@@ -2192,198 +2283,7 @@ const handleSubmit = useCallback(
                       </fieldset>
                     </div>
 
-                    {/* PO Details Section */}
-                    <div className="form-section mb-4">
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px"
-                          }}
-                        >
-                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
-                          PO DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3">
-                          <Row>
-                            <Col md={6}>
-                              <TextInput
-                                formikField="poNumber"
-                                label="PO Number"
-                                placeholder="0"
-                                isRequired={false}
-                                type="number"
-                                inputValidation="decimal"
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DateInput
-                                formikField="poDate"
-                                inputLabel="PO Date"
-                                isRequired={false}
-                                formikProps={formikProps}
-                                placeHolder="1/3/2025"
-                              />
-                            </Col>
-                          </Row>
-                          <Row className="mt-3">
-                            <Col md={12}>
-                              <label className="mb-2 fw-bold" style={{ fontSize: '14px', fontFamily: 'Inter' }}>
-                                Attach PO File
-                              </label>
-                              {values.poFile && (
-                                <div className="mb-3 p-3 bg-light rounded">
-                                  <div className="d-flex align-items-center justify-content-between">
-                                    <div>
-                                      <small className="text-muted">Current PO file:</small>
-                                      <div className="fw-bold text-primary">
-                                        📎 {getFileNameFromUrl(values.poFile)}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <a href={values.poFile} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary me-2">View</a>
-                                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setFieldValue("poFile", "")}>Remove</button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              <input
-                                type="file"
-                                accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
-                                className="form-control form-control-lg form-control-solid"
-                                onChange={async (event) => {
-                                  const files = event.target.files;
-                                  if (files && files[0]) {
-                                    if (files[0].size > 5 * 1024 * 1024) {
-                                      alert("File size should not exceed 5 MB");
-                                      event.target.value = "";
-                                      return;
-                                    }
-                                    const form = new FormData();
-                                    form.append("file", files[0]);
-                                    try {
-                                      const { data: { path } } = await uploadUserAsset(form, userId, "projects/po");
-                                      setFieldValue("poFile", path, true);
-                                    } catch (error) {
-                                      console.error("Failed to upload PO file. Please try again.");
-                                    }
-                                  }
-                                }}
-                              />
-                              <small className="text-muted">
-                                {values.poFile ? "Upload a new file to replace the current PO document" : "Select a PO document to upload"}
-                              </small>
-                            </Col>
-                          </Row>
-                        </div>
-                      </fieldset>
-                    </div>
-
-                    {/* Handle By Section */}
-                    <div className="form-section mb-4">
-                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
-                        <legend style={{
-                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
-                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
-                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
-                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
-                        }}>
-                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
-                          HANDLE BY
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3">
-                          {(!values.handledByEntries || values.handledByEntries.length === 0) && (
-                            <Box sx={{ textAlign: 'center', py: 3, color: '#666', fontStyle: 'italic' }}>
-                              No entries yet. Click "Add Handle By" to get started.
-                            </Box>
-                          )}
-                          {(values.handledByEntries || []).map((entry: any, idx: number) => (
-                            <div key={entry.id || idx} className="d-flex align-items-end gap-2 mb-2" style={{ gap: '8px' }}>
-                              <div style={{ flex: 1 }}>
-                                <DropDownInput
-                                  formikField={`handledByEntries[${idx}].employeeId`}
-                                  inputLabel={idx === 0 ? "Handle By" : ""}
-                                  isRequired={false}
-                                  options={allEmployees?.list?.map((item: any) => ({
-                                    value: item.employeeId,
-                                    label: item.employeeName,
-                                    avatar: item.avatar,
-                                  })) || []}
-                                  placeholder="Select employee"
-                                  showColor={true}
-                                />
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <DateInput
-                                  formikField={`handledByEntries[${idx}].handledDate`}
-                                  inputLabel={idx === 0 ? "Date In" : ""}
-                                  formikProps={formikProps}
-                                  placeHolder="DD-MM-YYYY"
-                                  isRequired={false}
-                                />
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <DateInput
-                                  formikField={`handledByEntries[${idx}].handledOutDate`}
-                                  inputLabel={idx === 0 ? "Date Out" : ""}
-                                  formikProps={formikProps}
-                                  placeHolder="DD-MM-YYYY"
-                                  isRequired={false}
-                                />
-                              </div>
-                              <div style={{ paddingBottom: '4px' }}>
-                                <IconButton
-                                  onClick={() => {
-                                    const updated = (values.handledByEntries || []).filter((_: any, i: number) => i !== idx);
-                                    setFieldValue('handledByEntries', updated);
-                                  }}
-                                  sx={{ color: '#d32f2f', padding: '6px' }}
-                                  title="Remove"
-                                >
-                                  <Delete fontSize="small" />
-                                </IconButton>
-                              </div>
-                            </div>
-                          ))}
-                          <div
-                            onClick={() => {
-                              const today = new Date().toISOString().split('T')[0];
-                              const newEntry = { id: Date.now().toString(), employeeId: '', handledDate: today, handledOutDate: '' };
-                              setFieldValue('handledByEntries', [...(values.handledByEntries || []), newEntry]);
-                            }}
-                            style={{
-                              marginTop: '8px', padding: '8px 12px', borderStyle: 'dotted',
-                              borderColor: '#DBB3B3', borderWidth: '1px', borderRadius: '8px',
-                              color: '#9D4141', cursor: 'pointer', display: 'inline-flex',
-                              alignItems: 'center', gap: '6px', fontSize: '13px', fontFamily: 'Inter',
-                            }}
-                          >
-                            <Add fontSize="small" />
-                            Add Handle By
-                          </div>
-                        </div>
-                      </fieldset>
-                    </div>
-
-                  {/* Commercial  Section, Area(Sqft), costType(Rate or Lumpsum), cost(Rate or Lumpsum), totalCost */}
+                    {/* Commercial  Section, Area(Sqft), costType(Rate or Lumpsum), cost(Rate or Lumpsum), totalCost */}
                     
                     <div className="form-section mb-4">
                       <fieldset
@@ -2567,6 +2467,485 @@ const handleSubmit = useCallback(
                         </FieldArray>
                       </fieldset>
                     </div>
+
+                    {/* If Project Type is MEP then, area(sqft), add country, state, city, town, Zipcode, address, PoNumber, PoDate, latitude, longitude */}
+                    {/* {(projectType?.id === "mep" ||
+                      selectedProjectType === "mep") && ( */}
+                      <div className="form-section mb-4">
+                        <fieldset
+                          style={{
+                            borderTop: "1px solid #9D4141",
+                            padding: "clamp(14px, 2vw, 15px)",
+                          }}
+                          className="mt-7"
+                        >
+                          <legend
+                            style={{
+                              fontSize: "17px",
+                              fontWeight: 600,
+                              fontFamily: "Inter",
+                              marginTop: "-25px",
+                              marginLeft: "-17px",
+                              backgroundColor: "#F3F4F7",
+                              width: "auto",
+                              lineHeight: "1",
+                              letterSpacing: 0,
+                              color: "#9D4141",
+                              padding: "2px 2px 8px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px"
+                            }}
+                          >
+                            <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                            ADDRESS DETAILS
+                          </legend>
+                          <FieldArray name="addresses">
+                            {({ push, remove }) => (
+                              <>
+                                {values.addresses?.map((address: any, index: any) => (
+                                  <div key={index} className="card-body card responsive-card p-md-10 p-3">
+                                    <Row className="mb-3">
+                                      <Col md={6}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.fullAddress`}
+                                          label="Address"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                      <Col md={6}>
+                                        <DropDownInput
+                                          formikField={`addresses.${index}.country`}
+                                          inputLabel="Country"
+                                          options={countries.map((c) => ({
+                                            label: c.name,
+                                            value: c.id,
+                                          }))}
+                                          isRequired={false}
+                                          enableSmartSort={true}
+                                          smartFilterFunction={getFilteredAndSortedOptions}
+                                          onChange={(option: any) => {
+                                            setFieldValue(
+                                              `addresses.${index}.country`,
+                                              option?.value || ""
+                                            );
+                                            setFieldValue(`addresses.${index}.state`, "");
+                                            setFieldValue(`addresses.${index}.city`, "");
+                                            if (option?.value) {
+                                              handleCountryChange(option.value);
+                                            }
+                                          }}
+                                          value={
+                                            values.addresses[index]?.country
+                                              ? {
+                                                  label:
+                                                    countries.find(
+                                                      (c) => c.id === values.addresses[index].country
+                                                    )?.name || "",
+                                                  value: values.addresses[index].country,
+                                                }
+                                              : null
+                                          }
+                                        />
+                                      </Col>
+                                    </Row>
+                                    <Row className="mb-3">
+                                      <Col md={6}>
+                                        <DropDownInput
+                                          formikField={`addresses.${index}.state`}
+                                          inputLabel="State"
+                                          options={values.addresses[index]?.country ? states.map((s) => ({
+                                            label: s.name,
+                                            value: s.id,
+                                          })) : []}
+                                          placeholder={!values.addresses[index]?.country ? "Please select country first" : "Select State"}
+                                          disabled={!values.addresses[index]?.country}
+                                          isRequired={false}
+                                          enableSmartSort={true}
+                                          smartFilterFunction={getFilteredAndSortedOptions}
+                                          onChange={(option: any) => {
+                                            setFieldValue(`addresses.${index}.state`, option?.value || "");
+                                            setFieldValue(`addresses.${index}.city`, "");
+                                            if (option?.value && values.addresses[index]?.country) {
+                                              handleStateChange(
+                                                values.addresses[index].country,
+                                                option.value
+                                              );
+                                            }
+                                          }}
+                                          value={
+                                            values.addresses[index]?.state
+                                              ? {
+                                                  label:
+                                                    states.find(
+                                                      (s) => s.id === values.addresses[index].state || s.name === values.addresses[index].state
+                                                    )?.name || values.addresses[index].state,
+                                                  value: values.addresses[index].state,
+                                                }
+                                              : null
+                                          }
+                                        />
+                                      </Col>
+                                      <Col md={6}>
+                                        <DropDownInput
+                                          formikField={`addresses.${index}.city`}
+                                          inputLabel="City"
+                                          options={values.addresses[index]?.state ? [
+                                            ...cities.map((c) => ({
+                                              label: c.name,
+                                              value: c.id,
+                                            })),
+                                            ...(values.addresses[index]?.city &&
+                                            !cities.find((c) => c.id === values.addresses[index].city)
+                                              ? [
+                                                  {
+                                                    label: values.addresses[index].city,
+                                                    value: values.addresses[index].city,
+                                                  },
+                                                ]
+                                              : []),
+                                          ] : []}
+                                          placeholder={!values.addresses[index]?.state ? "Please select state first" : "Select City"}
+                                          disabled={!values.addresses[index]?.state}
+                                          isRequired={false}
+                                          enableSmartSort={true}
+                                          smartFilterFunction={getFilteredAndSortedOptions}
+                                          onChange={(option: any) =>
+                                            setFieldValue(`addresses.${index}.city`, option?.value || "")
+                                          }
+                                          value={
+                                            values.addresses[index]?.city
+                                              ? {
+                                                  label:
+                                                    cities.find(
+                                                      (c) => c.id === values.addresses[index].city
+                                                    )?.name || values.addresses[index].city,
+                                                  value: values.addresses[index].city,
+                                                }
+                                              : null
+                                          }
+                                        />
+                                      </Col>
+                                    </Row>
+                                    <Row className="mb-3">
+                                      <Col md={6}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.locality`}
+                                          label="Locality"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                      <Col md={6}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.zipcode`}
+                                          label="Zip Code"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                    </Row>
+
+                                    {/* Location on Map Card */}
+                                    <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491'}}>
+                                      <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#0D47A1'}}>LOCATION ON MAP</div>
+                                      <Row className="mb-3">
+                                    <Col md={3}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.googleMapLink`}
+                                          label="Google Map Link"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                      <Col md={3}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.gmbLink`}
+                                          label="Google Business Link"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                      <Col md={3}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.latitude`}
+                                          label="Latitude"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                      <Col md={3}>
+                                        <TextInput
+                                          formikField={`addresses.${index}.longitude`}
+                                          label="Longitude"
+                                          isRequired={false}
+                                        />
+                                      </Col>
+                                      <div 
+                                        className="d-flex justify-content-end mt-4" 
+                                        onClick={() => viewLocation(
+                                          values.addresses[index]?.latitude || '', 
+                                          values.addresses[index]?.longitude || ''
+                                        )}
+                                        style={{
+                                          cursor: 'pointer',
+                                          color: '#0D47A1',
+                                          // textDecoration: 'underline'
+                                        }}
+                                      >
+                                        View Location On Map
+                                      </div>
+                                    </Row>
+                                    </div>
+                                    <Row>
+                                      <Col md={12}>
+                                        {values.addresses.length > 1 && (
+                                          <div
+                                            onClick={() => remove(index)}
+                                            style={{
+                                              cursor: "pointer",
+                                              color: "#9D4141",
+                                              fontSize: "20px",
+                                              textAlign: "right",
+                                              position: "absolute",
+                                              right: "10px",
+                                              top: "10px",
+                                              padding: "10px",
+                                            }}
+                                          >
+                                            ×
+                                          </div>
+                                        )}
+                                      </Col>
+                                    </Row>
+
+                                    {/* Add More Button Inside the Last Card */}
+                                    {/* Commented out to limit users to one address only */}
+                                    {/* {index === values.addresses.length - 1 && (
+                                      <div
+                                        onClick={() =>
+                                          push({
+                                            fullAddress: "",
+                                            country: "",
+                                            state: "",
+                                            city: "",
+                                            locality: "",
+                                            zipcode: "",
+                                            latitude: "",
+                                            longitude: "",
+                                            gmbLink: "",
+                                            googleMapLink: "",
+                                          })
+                                        }
+                                        style={{
+                                          cursor: "pointer",
+                                          color: "#9D4141",
+                                          border: "1px dotted #9D4141",
+                                          borderRadius: "5px",
+                                          padding: "8px 10px",
+                                          marginTop: "15px",
+                                          textAlign: "center",
+                                        }}
+                                        className="justify-content-center align-items-center"
+                                      >
+                                        + Add More Address
+                                      </div>
+                                    )} */}
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </FieldArray>
+                        </fieldset>
+                      </div>
+                    {/* )} */}
+
+                    {/* Handle By Section */}
+                    <div className="form-section mb-4">
+                      <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                        <legend style={{
+                          fontSize: "17px", fontWeight: 600, fontFamily: "Inter",
+                          marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7",
+                          width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141",
+                          padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px"
+                        }}>
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          HANDLE BY
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          {(!values.handledByEntries || values.handledByEntries.length === 0) && (
+                            <Box sx={{ textAlign: 'center', py: 3, color: '#666', fontStyle: 'italic' }}>
+                              No entries yet. Click "Add Handle By" to get started.
+                            </Box>
+                          )}
+                          {(values.handledByEntries || []).map((entry: any, idx: number) => (
+                            <div key={entry.id || idx} className="d-flex align-items-end gap-2 mb-2" style={{ gap: '8px' }}>
+                              <div style={{ flex: 1 }}>
+                                <DropDownInput
+                                  formikField={`handledByEntries[${idx}].employeeId`}
+                                  inputLabel={idx === 0 ? "Handle By" : ""}
+                                  isRequired={false}
+                                  options={allEmployees?.list?.map((item: any) => ({
+                                    value: item.employeeId,
+                                    label: item.employeeName,
+                                    avatar: item.avatar,
+                                  })) || []}
+                                  placeholder="Select employee"
+                                  showColor={true}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <DateInput
+                                  formikField={`handledByEntries[${idx}].handledDate`}
+                                  inputLabel={idx === 0 ? "Date In" : ""}
+                                  formikProps={formikProps}
+                                  placeHolder="DD-MM-YYYY"
+                                  isRequired={false}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <DateInput
+                                  formikField={`handledByEntries[${idx}].handledOutDate`}
+                                  inputLabel={idx === 0 ? "Date Out" : ""}
+                                  formikProps={formikProps}
+                                  placeHolder="DD-MM-YYYY"
+                                  isRequired={false}
+                                />
+                              </div>
+                              <div style={{ paddingBottom: '4px' }}>
+                                <IconButton
+                                  onClick={() => {
+                                    const updated = (values.handledByEntries || []).filter((_: any, i: number) => i !== idx);
+                                    setFieldValue('handledByEntries', updated);
+                                  }}
+                                  sx={{ color: '#d32f2f', padding: '6px' }}
+                                  title="Remove"
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </div>
+                            </div>
+                          ))}
+                          <div
+                            onClick={() => {
+                              const today = new Date().toISOString().split('T')[0];
+                              const newEntry = { id: Date.now().toString(), employeeId: '', handledDate: today, handledOutDate: '' };
+                              setFieldValue('handledByEntries', [...(values.handledByEntries || []), newEntry]);
+                            }}
+                            style={{
+                              marginTop: '8px', padding: '8px 12px', borderStyle: 'dotted',
+                              borderColor: '#DBB3B3', borderWidth: '1px', borderRadius: '8px',
+                              color: '#9D4141', cursor: 'pointer', display: 'inline-flex',
+                              alignItems: 'center', gap: '6px', fontSize: '13px', fontFamily: 'Inter',
+                            }}
+                          >
+                            <Add fontSize="small" />
+                            Add Handle By
+                          </div>
+                        </div>
+                      </fieldset>
+                    </div>
+
+                    {/* PO Details Section */}
+                    <div className="form-section mb-4">
+                      <fieldset
+                        style={{
+                          borderTop: "1px solid #9D4141",
+                          padding: "clamp(14px, 2vw, 15px)",
+                        }}
+                        className="mt-7"
+                      >
+                        <legend
+                          style={{
+                            fontSize: "17px",
+                            fontWeight: 600,
+                            fontFamily: "Inter",
+                            marginTop: "-25px",
+                            marginLeft: "-17px",
+                            backgroundColor: "#F3F4F7",
+                            width: "auto",
+                            lineHeight: "1",
+                            letterSpacing: 0,
+                            color: "#9D4141",
+                            padding: "2px 2px 8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px"
+                          }}
+                        >
+                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                          PO DETAILS
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3">
+                          <Row>
+                            <Col md={6}>
+                              <TextInput
+                                formikField="poNumber"
+                                label="PO Number"
+                                placeholder="0"
+                                isRequired={false}
+                                inputValidation="numbers-space"
+                              />
+                            </Col>
+                            <Col md={6}>
+                              <DateInput
+                                formikField="poDate"
+                                inputLabel="PO Date"
+                                isRequired={false}
+                                formikProps={formikProps}
+                                placeHolder="1/3/2025"
+                              />
+                            </Col>
+                          </Row>
+                          <Row className="mt-3">
+                            <Col md={12}>
+                              <label className="mb-2 fw-bold" style={{ fontSize: '14px', fontFamily: 'Inter' }}>
+                                Attach PO File
+                              </label>
+                              {values.poFile && (
+                                <div className="mb-3 p-3 bg-light rounded">
+                                  <div className="d-flex align-items-center justify-content-between">
+                                    <div>
+                                      <small className="text-muted">Current PO file:</small>
+                                      <div className="fw-bold text-primary">
+                                        📎 {getFileNameFromUrl(values.poFile)}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <a href={values.poFile} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary me-2">View</a>
+                                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setFieldValue("poFile", "")}>Remove</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              <input
+                                type="file"
+                                accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
+                                className="form-control form-control-lg form-control-solid"
+                                onChange={async (event) => {
+                                  const files = event.target.files;
+                                  if (files && files[0]) {
+                                    if (files[0].size > 5 * 1024 * 1024) {
+                                      alert("File size should not exceed 5 MB");
+                                      event.target.value = "";
+                                      return;
+                                    }
+                                    const form = new FormData();
+                                    form.append("file", files[0]);
+                                    try {
+                                      const { data: { path } } = await uploadUserAsset(form, userId, "projects/po");
+                                      setFieldValue("poFile", path, true);
+                                    } catch (error) {
+                                      console.error("Failed to upload PO file. Please try again.");
+                                    }
+                                  }
+                                }}
+                              />
+                              <small className="text-muted">
+                                {values.poFile ? "Upload a new file to replace the current PO document" : "Select a PO document to upload"}
+                              </small>
+                            </Col>
+                          </Row>
+                        </div>
+                      </fieldset>
+                    </div>
+
+                    
 
                     {/* Client Details Section */}
                     <div className="form-section mb-4">
@@ -3088,292 +3467,7 @@ const handleSubmit = useCallback(
                       </fieldset>
                     </div>
 
-                    {/* If Project Type is MEP then, area(sqft), add country, state, city, town, Zipcode, address, PoNumber, PoDate, latitude, longitude */}
-                    {(projectType?.id === "mep" ||
-                      selectedProjectType === "mep") && (
-                      <div className="form-section mb-4">
-                        <fieldset
-                          style={{
-                            borderTop: "1px solid #9D4141",
-                            padding: "clamp(14px, 2vw, 15px)",
-                          }}
-                          className="mt-7"
-                        >
-                          <legend
-                            style={{
-                              fontSize: "17px",
-                              fontWeight: 600,
-                              fontFamily: "Inter",
-                              marginTop: "-25px",
-                              marginLeft: "-17px",
-                              backgroundColor: "#F3F4F7",
-                              width: "auto",
-                              lineHeight: "1",
-                              letterSpacing: 0,
-                              color: "#9D4141",
-                              padding: "2px 2px 8px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px"
-                            }}
-                          >
-                            <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
-                            ADDRESS DETAILS
-                          </legend>
-                          <FieldArray name="addresses">
-                            {({ push, remove }) => (
-                              <>
-                                {values.addresses?.map((address: any, index: any) => (
-                                  <div key={index} className="card-body card responsive-card p-md-10 p-3">
-                                    <Row className="mb-3">
-                                      <Col md={6}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.fullAddress`}
-                                          label="Address"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                      <Col md={6}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.locality`}
-                                          label="Locality"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                    </Row>
-                                    <Row className="mb-3">
-                                      <Col md={6}>
-                                        <DropDownInput
-                                          formikField={`addresses.${index}.country`}
-                                          inputLabel="Country"
-                                          options={countries.map((c) => ({
-                                            label: c.name,
-                                            value: c.id,
-                                          }))}
-                                          isRequired={false}
-                                          enableSmartSort={true}
-                                          smartFilterFunction={getFilteredAndSortedOptions}
-                                          onChange={(option: any) => {
-                                            setFieldValue(
-                                              `addresses.${index}.country`,
-                                              option?.value || ""
-                                            );
-                                            setFieldValue(`addresses.${index}.state`, "");
-                                            setFieldValue(`addresses.${index}.city`, "");
-                                            if (option?.value) {
-                                              handleCountryChange(option.value);
-                                            }
-                                          }}
-                                          value={
-                                            values.addresses[index]?.country
-                                              ? {
-                                                  label:
-                                                    countries.find(
-                                                      (c) => c.id === values.addresses[index].country
-                                                    )?.name || "",
-                                                  value: values.addresses[index].country,
-                                                }
-                                              : null
-                                          }
-                                        />
-                                      </Col>
-                                      <Col md={6}>
-                                        <DropDownInput
-                                          formikField={`addresses.${index}.state`}
-                                          inputLabel="State"
-                                          options={values.addresses[index]?.country ? states.map((s) => ({
-                                            label: s.name,
-                                            value: s.id,
-                                          })) : []}
-                                          placeholder={!values.addresses[index]?.country ? "Please select country first" : "Select State"}
-                                          disabled={!values.addresses[index]?.country}
-                                          isRequired={false}
-                                          enableSmartSort={true}
-                                          smartFilterFunction={getFilteredAndSortedOptions}
-                                          onChange={(option: any) => {
-                                            setFieldValue(`addresses.${index}.state`, option?.value || "");
-                                            setFieldValue(`addresses.${index}.city`, "");
-                                            if (option?.value && values.addresses[index]?.country) {
-                                              handleStateChange(
-                                                values.addresses[index].country,
-                                                option.value
-                                              );
-                                            }
-                                          }}
-                                          value={
-                                            values.addresses[index]?.state
-                                              ? {
-                                                  label:
-                                                    states.find(
-                                                      (s) => s.id === values.addresses[index].state || s.name === values.addresses[index].state
-                                                    )?.name || values.addresses[index].state,
-                                                  value: values.addresses[index].state,
-                                                }
-                                              : null
-                                          }
-                                        />
-                                      </Col>
-                                    </Row>
-                                    <Row className="mb-3">
-                                      <Col md={6}>
-                                        <DropDownInput
-                                          formikField={`addresses.${index}.city`}
-                                          inputLabel="City"
-                                          options={values.addresses[index]?.state ? [
-                                            ...cities.map((c) => ({
-                                              label: c.name,
-                                              value: c.id,
-                                            })),
-                                            ...(values.addresses[index]?.city &&
-                                            !cities.find((c) => c.id === values.addresses[index].city)
-                                              ? [
-                                                  {
-                                                    label: values.addresses[index].city,
-                                                    value: values.addresses[index].city,
-                                                  },
-                                                ]
-                                              : []),
-                                          ] : []}
-                                          placeholder={!values.addresses[index]?.state ? "Please select state first" : "Select City"}
-                                          disabled={!values.addresses[index]?.state}
-                                          isRequired={false}
-                                          enableSmartSort={true}
-                                          smartFilterFunction={getFilteredAndSortedOptions}
-                                          onChange={(option: any) =>
-                                            setFieldValue(`addresses.${index}.city`, option?.value || "")
-                                          }
-                                          value={
-                                            values.addresses[index]?.city
-                                              ? {
-                                                  label:
-                                                    cities.find(
-                                                      (c) => c.id === values.addresses[index].city
-                                                    )?.name || values.addresses[index].city,
-                                                  value: values.addresses[index].city,
-                                                }
-                                              : null
-                                          }
-                                        />
-                                      </Col>
-                                      <Col md={6}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.zipcode`}
-                                          label="Zip Code"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                    </Row>
-
-                                    {/* Location on Map Card */}
-                                    <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa'}}>
-                                      <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#9D4141'}}>LOCATION ON MAP</div>
-                                      <Row className="mb-3">
-                                    <Col md={3}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.googleMapLink`}
-                                          label="Google Map Link"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                      <Col md={3}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.gmbLink`}
-                                          label="Google Business Link"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                      <Col md={3}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.latitude`}
-                                          label="Latitude"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                      <Col md={3}>
-                                        <TextInput
-                                          formikField={`addresses.${index}.longitude`}
-                                          label="Longitude"
-                                          isRequired={false}
-                                        />
-                                      </Col>
-                                      <div 
-                                        className="d-flex justify-content-end mt-4" 
-                                        onClick={() => viewLocation(
-                                          values.addresses[index]?.latitude || '', 
-                                          values.addresses[index]?.longitude || ''
-                                        )}
-                                        style={{
-                                          cursor: 'pointer',
-                                          color: '#9D4141',
-                                          // textDecoration: 'underline'
-                                        }}
-                                      >
-                                        View Location On Map
-                                      </div>
-                                    </Row>
-                                    </div>
-                                    <Row>
-                                      <Col md={12}>
-                                        {values.addresses.length > 1 && (
-                                          <div
-                                            onClick={() => remove(index)}
-                                            style={{
-                                              cursor: "pointer",
-                                              color: "#9D4141",
-                                              fontSize: "20px",
-                                              textAlign: "right",
-                                              position: "absolute",
-                                              right: "10px",
-                                              top: "10px",
-                                              padding: "10px",
-                                            }}
-                                          >
-                                            ×
-                                          </div>
-                                        )}
-                                      </Col>
-                                    </Row>
-
-                                    {/* Add More Button Inside the Last Card */}
-                                    {/* Commented out to limit users to one address only */}
-                                    {/* {index === values.addresses.length - 1 && (
-                                      <div
-                                        onClick={() =>
-                                          push({
-                                            fullAddress: "",
-                                            country: "",
-                                            state: "",
-                                            city: "",
-                                            locality: "",
-                                            zipcode: "",
-                                            latitude: "",
-                                            longitude: "",
-                                            gmbLink: "",
-                                            googleMapLink: "",
-                                          })
-                                        }
-                                        style={{
-                                          cursor: "pointer",
-                                          color: "#9D4141",
-                                          border: "1px dotted #9D4141",
-                                          borderRadius: "5px",
-                                          padding: "8px 10px",
-                                          marginTop: "15px",
-                                          textAlign: "center",
-                                        }}
-                                        className="justify-content-center align-items-center"
-                                      >
-                                        + Add More Address
-                                      </div>
-                                    )} */}
-                                  </div>
-                                ))}
-                              </>
-                            )}
-                          </FieldArray>
-                        </fieldset>
-                      </div>
-                    )}
+                    
 
                 
 

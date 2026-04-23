@@ -429,6 +429,22 @@ export const getAllLeadsCountIncludingDeleted = async () => {
     }
 };
 
+//get leads count by fiscal year
+/**
+ * Returns count of leads created within a specific fiscal year.
+ * Used to generate sequential inquiry numbers that reset each year.
+ * @param formattedYear  e.g. "2026-27" or "2026"
+ */
+export const getLeadsCountByFiscalYear = async (formattedYear: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_COUNT_BY_FISCAL_YEAR}?year=${encodeURIComponent(formattedYear)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 // Get All Lead Cancellation Reasons
 export const getAllLeadCancellationReasons = async () => {
     try {
@@ -475,11 +491,11 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
 }
 
 export const deleteLeadCancellationReason = async (id: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_LEAD_CANCELLATION_REASON.replace(':id', id)}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
+  try {
+    const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_LEAD_CANCELLATION_REASON.replace(':id', id)}`;
+    const { data } = await axios.delete(endpoint);
+    return data;
+  } catch (err) {
+    throw err;
+  }
 };
