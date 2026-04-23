@@ -319,6 +319,8 @@ export const DAY_WISE_SHIFT = {
 
 export const LEAD_PROJECT_COMPANY = {
     GET_ALL_LEADS_COUNT_INCLUDING_DELETED: "api/lead-project-companies/leads/count-including-deleted",
+    //get leads count by fiscal year
+    GET_LEADS_COUNT_BY_FISCAL_YEAR: "api/lead-project-companies/leads/count-by-fiscal-year",
     GET_PROJECT_COUNT_BY_STATUS: "api/lead-project-companies/projects/overview/status-count",
     GET_PROJECT_COUNT_BY_SERVICES: "api/lead-project-companies/projects/overview/services-count",
     GET_PROJECT_COUNT_BY_TEAM: "api/lead-project-companies/projects/overview/teams-count",
