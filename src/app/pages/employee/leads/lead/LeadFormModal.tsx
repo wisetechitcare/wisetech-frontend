@@ -68,6 +68,7 @@ interface LeadFormModalProps {
 const CompanyNameFieldWithTooltip: React.FC<{ index: number }> = ({ index }) => {
   const { values } = useFormikContext<any>();
   const companyName = values?.referrals?.[index]?.companyName || '';
+
   return (
     <Tooltip title={companyName || ''} arrow placement="top">
       <Box>
@@ -267,6 +268,7 @@ const LeadFormModal = ({
   // Enhanced filtering that returns sorted options
   const getFilteredAndSortedOptions = (options: any[], inputValue: string) => {
     if (!inputValue || !inputValue.trim()) return options;
+
     // Filter and sort options by priority
     const filtered = options.filter(option => {
       const priority = getMatchPriority(option, inputValue);
@@ -281,6 +283,7 @@ const LeadFormModal = ({
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
+
       // Same priority - sort alphabetically within the same priority group
       return (optionA.label || '').localeCompare(optionB.label || '');
     });
@@ -301,6 +304,7 @@ const LeadFormModal = ({
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
+
       // Same priority - sort alphabetically within the same priority group
       return (optionA.label || '').localeCompare(optionB.label || '');
     };
@@ -369,6 +373,7 @@ const LeadFormModal = ({
     onCalculatedCost?: ((value: number) => void) | null
   }) => {
     const [validationError, setValidationError] = useState<string>('');
+
     return (
       <div className="d-flex flex-column fv-row">
         <label className='d-flex align-items-center fs-6 form-label mb-2'>
@@ -431,6 +436,7 @@ const LeadFormModal = ({
       return {
         leadTemplateId,
         projectName: initialData.title || '',
+
         // Store available states and cities for each address row
         addressStatesOptions: {},  // Format: { rowIndex: [state objects] }
         addressCitiesOptions: {},  // Format: { rowIndex: [city objects] }
@@ -540,6 +546,7 @@ const LeadFormModal = ({
         budget: '',
         ...(initialData?.id && { leadTemplateId: initialData.id }),
         ...initialFormData
+
       };
     }
 
@@ -673,6 +680,7 @@ const LeadFormModal = ({
       addressCitiesOptions: {},
       addressStateSelections: {},
       addressCitySelections: {},
+
       // Map lead data fields to form fields
       service: leadData.projectService?.id || leadData.projectServiceId || '',
       category: leadData.projectCategory?.id || leadData.projectCategoryId || '',
@@ -709,6 +717,7 @@ const LeadFormModal = ({
         const singleServiceId = leadData.projectService?.id || leadData.projectServiceId;
         return singleServiceId ? [singleServiceId] : [];
       })(),
+
       categoryIds: (() => {
         // Handle multi-select categories from junction table
         if (leadData.leadCategories && Array.isArray(leadData.leadCategories)) {
@@ -718,6 +727,7 @@ const LeadFormModal = ({
         const categoryId = leadData.projectCategory?.id || leadData.projectCategoryId;
         return categoryId ? [categoryId] : [];
       })(),
+
       subcategoryIds: (() => {
         // Handle multi-select subcategories from junction table
         if (leadData.leadSubCategories && Array.isArray(leadData.leadSubCategories)) {
@@ -733,6 +743,7 @@ const LeadFormModal = ({
       cost: leadData.cost || '',
       description: leadData.description || '',
       budget: leadData.budget || '',
+
       // Client details (single - keeping for backward compatibility)
       companyTypeId: leadData.company?.companyType?.id || leadData.companyTypeId || '',
       subCompanyId: leadData.subCompany?.id || leadData.subCompanyId || '',
@@ -742,6 +753,7 @@ const LeadFormModal = ({
       contactPerson: leadData.contact?.fullName || '',
       contactPersonId: leadData.contact?.id || leadData.contactId || '',
       contactRoleId: leadData.contactRole?.id || leadData.contactRoleId || '',
+
       // Client teams (multiple teams support) - robust backward compatibility
       leadTeams: (() => {
         if (leadData.leadTeams && Array.isArray(leadData.leadTeams) && leadData.leadTeams.length > 0) {
@@ -983,6 +995,7 @@ const LeadFormModal = ({
       ),
     }),
   });
+
   // fetching all the details:
   // Fetch functionsadd an add new button 
   const fetchProjectCategories = useCallback(async () => {
@@ -1157,6 +1170,7 @@ const LeadFormModal = ({
           }
         }
       }
+
       return data;
     } catch (error) {
       console.error("Error fetching lead statuses:", error);
@@ -1315,6 +1329,7 @@ const LeadFormModal = ({
       setFieldValue('addresses.0.city', '');
       setFieldValue('addressStateSelections.0', null);
       setFieldValue('addressCitySelections.0', null);
+
       // Clear city options for this row
       setFieldValue(`addressCitiesOptions.${index}`, []);
 
@@ -1401,6 +1416,7 @@ const LeadFormModal = ({
   const handleContactModalClose = useCallback(async () => {
     setShowContactModal(false);
     await fetchContacts();
+
     // Added: Refresh team-specific filtered contacts for all teams that have a company selected
     if (formikRef.current?.values?.leadTeams) {
       const leadTeams = formikRef.current.values.leadTeams;
@@ -1412,6 +1428,7 @@ const LeadFormModal = ({
         }
       }
     }
+
     // Added: Refresh referral-specific filtered contacts for all referrals that have a company selected (external referrals only)
     if (formikRef.current?.values?.referrals) {
       const referrals = formikRef.current.values.referrals;
@@ -1589,15 +1606,18 @@ const LeadFormModal = ({
   }, [formikRef.current?.values?.statusId, leadStatuses]);
 
   // Note: Referral population for edit mode is now handled in buildInitialValues function
+
   // Added: Effect to populate filtered companies and sub-companies for edit mode
   useEffect(() => {
     if (isEditMode && currLeadData && companies.length > 0 && allCompanyTypes.length > 0) {
       const companyTypeId = currLeadData.company?.companyType?.id || currLeadData.companyTypeId;
       const companyId = currLeadData.company?.id || currLeadData.companyId;
+
       if (companyTypeId) {
         setCurrCompanyTypeId(companyTypeId);
         const filteredCompanies = companies?.filter(ele => ele?.companyTypeId == companyTypeId);
         setFilteredCompanies(filteredCompanies);
+
         if (companyId) {
           setSelectedCompany(true); // Enable dependent dropdowns
           const companyData = filteredCompanies?.find(ele => ele?.id == companyId);
@@ -1608,6 +1628,7 @@ const LeadFormModal = ({
       }
     }
   }, [isEditMode, currLeadData, companies, allCompanyTypes]);
+
   // Added: Effect to populate referral sub-companies for edit mode
   useEffect(() => {
     if (isEditMode && currLeadData?.referrals && companies.length > 0) {
@@ -2064,6 +2085,7 @@ const LeadFormModal = ({
     if (prefix && prefix.trim()) {
       finalCleanPayload.prefix = prefix.trim();
     }
+
     try {
       if (isEditMode) {
         finalCleanPayload.id = initialFormData.id;
@@ -2193,6 +2215,7 @@ const LeadFormModal = ({
             >
               {(formikProps) => {
                 const { values, setFieldValue, errors, touched, isSubmitting, validateForm } = formikProps;
+
                 useEffect(() => {
                   if (leadTemplateId === leadAndProjectTemplateTypeId.mep && useCalculatedAmount) {
                     const cost = Number(values.rate || 0) * Number(values.projectArea || 0);
@@ -2838,6 +2861,7 @@ const LeadFormModal = ({
                                   </Box>
                                 </Grid>
                               )}
+
                               {/* Dynamic Referral Rows */}
                               {(values.referrals || []).map((referral: any, index: any) => (
                                 <Grid container spacing={1} sx={{ margin: "auto", position: 'relative', mb: 2 }} key={referral.id}>
@@ -2895,6 +2919,7 @@ const LeadFormModal = ({
                                         onChange={(val: any) => {
                                           const newReferralTypeId = val?.value || "";
                                           setFieldValue(`referrals[${index}].referralType`, newReferralTypeId);
+
                                           // Only clear dependent fields if the referral type actually changed
                                           if (values.referrals[index]?.referralType !== newReferralTypeId) {
                                             // Clear all referral fields when type changes
@@ -3772,6 +3797,7 @@ const LeadFormModal = ({
                                 <label className="mb-3 fw-bold">
                                   Upload Document File
                                 </label>
+
                                 {/* Show existing document if available */}
                                 {values.documents && (
                                   <div className="mb-3 p-3 bg-light rounded">
@@ -3802,6 +3828,7 @@ const LeadFormModal = ({
                                     </div>
                                   </div>
                                 )}
+
                                 <input
                                   type="file"
                                   accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
