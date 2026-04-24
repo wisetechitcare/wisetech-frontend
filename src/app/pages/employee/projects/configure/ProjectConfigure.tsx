@@ -586,7 +586,7 @@ const ProjectConfiguration = () => {
                         className="fa fa-pencil cursor-pointer"
                         onClick={() => handleStatusEdit(status)}
                       ></i>
-                    )}
+                    {/* )} */}
                     <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleDelete(status.id, "status")}
