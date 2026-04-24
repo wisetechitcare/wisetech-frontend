@@ -7,7 +7,16 @@ import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from
 import { fetchCompanyOverview } from '@services/company';
 import { successConfirmation } from '@utils/modal';
 import Flatpickr from "react-flatpickr";
-import { dateFormatter } from '@utils/date';
+
+// Format a Date object to "YYYY-MM-DD" — used when storing fiscal year range in the DB.
+// We do NOT use Intl.DateTimeFormat here because en-IN locale produces "DD/MM/YYYY"
+// which cannot be parsed back by new Date() reliably.
+const toISODateString = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 // Props interface simplified - parent only needs to provide type information
 interface PrefixSettingsFormProps {
@@ -36,7 +45,7 @@ export interface PrefixSettingsFormValues {
 const getDefaultFiscalYear = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1; // getMonth() returns 0-11, so add 1
-  
+
   if (currentMonth >= 4) {
     // Current fiscal year: April current year to March next year
     return `${currentYear}-04-01 to ${currentYear + 1}-03-31`;
@@ -46,23 +55,55 @@ const getDefaultFiscalYear = () => {
   }
 };
 
+// Parse a date string to a Date object, handling both storage formats:
+//   "YYYY-MM-DD"  (correct format, what we save now)
+//   "DD/MM/YYYY"  (legacy format saved by en-IN dateFormatter bug)
+const parseDateString = (str: string): Date => {
+  const trimmed = str.trim();
+  // DD/MM/YYYY  e.g. "01/04/2026"
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [dd, mm, yyyy] = trimmed.split('/');
+    return new Date(`${yyyy}-${mm}-${dd}`);
+  }
+  // YYYY-MM-DD  e.g. "2026-04-01"
+  return new Date(trimmed);
+};
+
 // Utility function: Convert full fiscal year date range to year format for display
 export const convertFiscalYearToYearFormat = (fiscalYear: string) => {
+  if (!fiscalYear) return '';
+
   if (fiscalYear.includes(' to ')) {
-    // Convert "2024-04-01 to 2025-03-31" to "2024-25" or "2025-01-01 to 2025-12-31" to "2025"
-    const [startDate, endDate] = fiscalYear.split(' to ');
-    const startYear = new Date(startDate).getFullYear();
-    const endYear = new Date(endDate).getFullYear();
-    
-    // If both years are the same, return only the year
+    // Supports both "2026-04-01 to 2027-03-31" (correct) and
+    // "01/04/2026 to 31/03/2027" (legacy en-IN bug) formats
+    const [startPart, endPart] = fiscalYear.split(' to ');
+    const startYear = parseDateString(startPart).getFullYear();
+    const endYear = parseDateString(endPart).getFullYear();
+
+    // Guard: if either date is invalid, return as-is
+    if (isNaN(startYear) || isNaN(endYear)) return fiscalYear;
+
     if (startYear === endYear) {
-      return startYear.toString();
+      // Same year: return last 2 digits only
+      return startYear.toString().slice(-2);
     }
-    
-    const shortEndYear = endYear.toString().slice(-2); // Get last 2 digits
-    return `${startYear}-${shortEndYear}`;
+
+    // Different years: return both years in short format (26-27)
+    const shortStartYear = startYear.toString().slice(-2);
+    const shortEndYear = endYear.toString().slice(-2);
+    return `${shortStartYear}-${shortEndYear}`;
   }
-  // If already in year format, return as is
+
+  // Already in short format like "2026-27" or "26-27"
+  // If it's "2026-27", convert to "26-27"
+  if (fiscalYear.includes('-')) {
+    const [start, end] = fiscalYear.split('-');
+    if (start.length === 4) {
+      // "2026-27" format, convert to "26-27"
+      return `${start.slice(-2)}-${end}`;
+    }
+  }
+  
   return fiscalYear;
 };
 
@@ -70,10 +111,7 @@ export const convertFiscalYearToYearFormat = (fiscalYear: string) => {
 const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
   if (fiscalYear.includes(' to ')) {
     const [startDate, endDate] = fiscalYear.split(' to ');
-    return [
-      new Date(startDate),
-      new Date(endDate)
-    ];
+    return [parseDateString(startDate), parseDateString(endDate)];
   }
   return [];
 };
@@ -114,18 +152,18 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
       try {
         setIsLoading(true);
         setError(null);
-        
+
         // Fetch both prefix settings and company overview
         const [prefixResponse, companyResponse] = await Promise.all([
           fetchAllPrefixSettings(),
           fetchCompanyOverview()
         ]);
-        
+
         const prefixForType = prefixResponse.data?.prefixSettings.find(
           (prefix: PrefixSetting) => prefix.identifier === typeValue
         );
         setCurrentPrefix(prefixForType || null);
-        
+
         // Set company fiscal year (keep in full date format)
         if (companyResponse.data?.companyOverview?.fiscalYear) {
           setCompanyFiscalYear(companyResponse.data.companyOverview.fiscalYear);
@@ -153,9 +191,9 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
         // Create new
         await createPrefixSetting(values);
       }
-      if(onSuccess){
-          onSuccess?.(); // Call success callback if provided
-      }else{
+      if (onSuccess) {
+        onSuccess?.(); // Call success callback if provided
+      } else {
         successConfirmation('Prefix settings saved successfully');
       }
     } catch (err) {
@@ -168,8 +206,8 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
   };
 
   const initialValues: PrefixSettingsFormValues = {
-    year: currentPrefix?.year 
-      ? convertOldYearFormatToFullDate(currentPrefix.year) 
+    year: currentPrefix?.year
+      ? convertOldYearFormatToFullDate(currentPrefix.year)
       : companyFiscalYear || getDefaultFiscalYear(),
     prefix: currentPrefix?.prefix || '',
     identifier: typeValue,
@@ -222,11 +260,11 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
                     <Flatpickr
                       value={field.value ? convertFiscalYearToDates(field.value) : (companyFiscalYear ? convertFiscalYearToDates(companyFiscalYear) : [])}
                       className={`form-control ${errors.year && touched.year ? 'is-invalid' : ''}`}
-                      placeholder={companyFiscalYear ? `Current: ${convertFiscalYearToYearFormat(companyFiscalYear)}` : "Set fiscal year"}
+                      placeholder={companyFiscalYear ? `Current: ${convertFiscalYearToYearFormat(companyFiscalYear)}` : "Set Fiscal Year"}
                       onChange={(selectedDates: Date[]) => {
                         if (selectedDates.length === 2) {
-                          const startDate = dateFormatter.format(selectedDates[0]);
-                          const endDate = dateFormatter.format(selectedDates[1]);
+                          const startDate = toISODateString(selectedDates[0]);
+                          const endDate = toISODateString(selectedDates[1]);
                           form.setFieldValue("year", `${startDate} to ${endDate}`);
                           form.setFieldTouched("year", false);
                         }
@@ -237,7 +275,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
                       options={{
                         dateFormat: "Y-m-d",
                         altInput: true,
-                        altFormat: "Y",
+                        altFormat: "d/m/Y", // ← shows "01/04/2026 to 31/03/2027"
                         enableTime: false,
                         mode: 'range'
                       }}

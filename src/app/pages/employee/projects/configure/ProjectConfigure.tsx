@@ -414,12 +414,12 @@ const ProjectConfiguration = () => {
                       className="fa fa-pencil cursor-pointer"
                       onClick={() => handleStakeholderEdit(stakeholder)}
                     ></i>
-                    {/* <i
+                    <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() =>
                         handleDelete(stakeholder.id, "stakeholder")
                       }
-                    ></i> */}
+                    ></i>
                   </div>
                 </div>
               </div>
@@ -429,7 +429,7 @@ const ProjectConfiguration = () => {
       </div>
 
       {/* Project Services */}
-      <div
+      {/* <div
         className="card mt-5"
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
@@ -503,7 +503,7 @@ const ProjectConfiguration = () => {
             ))}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Project Status Section */}
       <div
@@ -564,18 +564,33 @@ const ProjectConfiguration = () => {
                       letterSpacing: '0',
                       cursor: "pointer"
                     }} title={status.name}>{status.name.length > 10 ? `${status.name.slice(0, 14)}...` : status.name}</div>
+                    { /* when need a deafult mark */ }
+                    {/* {(status as any).isDefault && (
+                      <span style={{
+                        fontSize: '10px',
+                        backgroundColor: '#8B4444',
+                        color: 'white',
+                        borderRadius: '4px',
+                        padding: '1px 6px',
+                        marginLeft: '4px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        Default
+                      </span>
+                    )} */}
                   </div>
                   <div className="ms-4 d-flex gap-3">
-                    {!["completed"].includes(status.name.toLowerCase()) && (
+                    {/* {!["completed"].includes(status.name.toLowerCase()) && (   */}
                       <i
                         className="fa fa-pencil cursor-pointer"
                         onClick={() => handleStatusEdit(status)}
                       ></i>
-                    )}
-                    {/* <i
+                    {/* )} */}
+                    <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleDelete(status.id, "status")}
-                    ></i> */}
+                    ></i>
                   </div>
                 </div>
               </div>

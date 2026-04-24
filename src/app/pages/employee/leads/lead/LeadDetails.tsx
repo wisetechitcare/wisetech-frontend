@@ -758,7 +758,12 @@ const LeadDetails = () => {
                     isEditMode={true}
                 />
             }
-            {showConvertModal && <BlankBasicProjectForm showBlankProjectForm={showConvertModal} onHide={() => setShowConvertModal(false)} intitalDataForLeadToProjectConversion={leadDetailsForConvertToProject}
+            {showConvertModal && <BlankBasicProjectForm
+                showBlankProjectForm={showConvertModal}
+                onHide={() => setShowConvertModal(false)}
+                // Only pass lead conversion data when creating a NEW project (not editing an existing one)
+                // When hasProject is true the user clicked "View/Edit Client Project" — load from projectData only
+                intitalDataForLeadToProjectConversion={lead?.projectId ? undefined : leadDetailsForConvertToProject}
                 selectedProjectType={leadTemplateId}
                 setRefreshData={setRefreshData}
                 editingProjectId={lead?.projectId || null}
