@@ -105,9 +105,9 @@ const TaskForm = ({
     status: status || '',
     priority: priority || '',
     startDate: startDate || '',
-    startTime: startTime || '',
+    startTime: startTime || '00:00',
     dueDate: dueDate || '',
-    dueTime: dueTime || '',
+    dueTime: dueTime || '00:00',
     logTime: logTime || '',
     billable: billable ?? 'BILLABLE',
   }

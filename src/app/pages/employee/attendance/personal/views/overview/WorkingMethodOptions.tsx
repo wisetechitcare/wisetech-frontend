@@ -3,7 +3,10 @@ import { RootState, store } from '@redux/store';
 import { Field, Form, Formik, FormikValues } from 'formik';
 import { useDispatch, useSelector } from 'react-redux';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { checkAttendanceMarked, createKpiScore, fetchAttendanceDetails, getAllKpiFactors, getAttendanceRequest, saveCheckIn, saveCheckOut, validateTokenInOut, fetchEmployeesOnLeaveToday } from '@services/employee';
+import { fetchPublicHolidays, fetchConfiguration } from "@services/company";
+import eventBus from "@utils/EventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
+import { createKpiScore, checkAttendanceMarked, fetchAttendanceDetails, getAllKpiFactors, getAttendanceRequest, saveCheckIn, saveCheckOut, validateTokenInOut, fetchEmployeesOnLeaveToday } from "@services/employee";
 import { saveBtnText, savePersonalAttendance, toggleDisableBtn, toggleOpenModal } from '@redux/slices/attendance';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import dayjs from 'dayjs';
@@ -14,7 +17,6 @@ import { toAbsoluteUrl } from '@metronic/helpers';
 import { transformAttendance } from '../../OverviewView';
 import { distanceInMeters } from '@utils/file';
 import { fetchCompanySettings } from '@services/options';
-import { fetchConfiguration } from '@services/company';
 
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { fetchAppSettings } from '@redux/slices/appSettings';
@@ -138,7 +140,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     }, []);
 
     // Helper function: Safe KPI score creation with duplicate prevention
-    const safeCreateKpiScore = async (payload: any, factorName: string) => {
+    const safeCreateKpiScore = async (payload: any, factorName: string, allowUpdate: boolean = false) => {
         try {
             // Generate unique key for today's KPI
             const today = dayjs().format('YYYY-MM-DD');
@@ -146,8 +148,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
 
             // Check if already created today (prevents duplicates)
             const alreadyCreated = localStorage.getItem(kpiKey);
-            if (alreadyCreated) {
-                console.log(`⏭Skipping duplicate KPI for ${factorName} - already created today`);
+            if (alreadyCreated && !allowUpdate) {
+                console.log(`向Skipping duplicate KPI for ${factorName} - already created today`);
                 return;
             }
 
@@ -505,6 +507,7 @@ const handleCheckIn = async (values: any) => {
 
         await fetchAttendance();
         if(sendNotification) sendNotification();
+        eventBus.emit(EVENT_KEYS.userRaisedRequestSubmitted);
         successConfirmation(data.message);
         dispatch(toggleOpenModal(false));
     }
@@ -560,7 +563,7 @@ const handleCheckIn = async (values: any) => {
                 checkOut: checkoutTimeToUse,
                 employeeId,
                 checkOutLocation: currentAddress,
-                checkoutWokringMethodId:values.workingMethod
+                checkoutWorkingMethodId:values.workingMethod
             }
 
             // Check if today's check-in exists before proceeding
@@ -631,7 +634,7 @@ const handleCheckIn = async (values: any) => {
                 score: totalWorkingHoursScore.toString(),
             }
 
-            await safeCreateKpiScore(totalWorkingHoursPayload, 'Total Working Hours');
+                await safeCreateKpiScore(totalWorkingHoursPayload, 'Total Working Hours', true); // allowUpdate = true
 
             // calculation for extra days (commented out)
             const today = dayjs().format('DD/MM/YYYY');
@@ -804,6 +807,7 @@ const handleCheckIn = async (values: any) => {
                 sendNotification();
             }
 
+            eventBus.emit(EVENT_KEYS.userRaisedRequestSubmitted);
             successConfirmation(res.data.message);
             dispatch(toggleOpenModal(false));
         }

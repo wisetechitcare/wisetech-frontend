@@ -407,6 +407,9 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
             {title}
           </h1>
           <div className="mt-4 d-flex gap-3 align-items-start justify-content-center">
+
+
+            {/* leads by status graph */}
             {title.toLowerCase().includes("status") && (
               <button
                 style={{
@@ -441,6 +444,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
 
 
             )}
+            {/* Leads by service graph */}
             {(title.toLowerCase().includes("service") || title.toLowerCase().includes("services")) && (
               <button
                 style={{
@@ -468,6 +472,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 New Services
               </button>
             )}
+            {/* leads by category graph */}
             {
               title.toLowerCase().includes("category") && (
                 <button
@@ -497,6 +502,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
+            {/* leads by source graph  */}
             {
               title.toLowerCase().includes("direct sources")  && (
                 <button
@@ -526,6 +532,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
+            {/* leads by referral source graph */}
             {
               title.toLowerCase().includes("referral source") && (
                 <button
@@ -555,7 +562,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
-
+            {/* leads by direct source graph  */}
             {
               title.toLowerCase().includes("by source") && (
                 <button
@@ -585,6 +592,8 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
+
+              {/* leads by company type graph  */}
             {
               title.toLowerCase().includes("by company type") && (
                 <button
@@ -614,6 +623,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
+            
             {showFilter && filterOptions.length > 0 && (
               <FilterDropdown
                 filterKey={filterKey || "defaultFilter"}
@@ -667,7 +677,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                       color: "#9CAFC9"
                     }}>
                     {title?.toLowerCase().includes('status') ? 'Create leads to see status breakdown' :
-                     title?.toLowerCase().includes('service') ? 'Add services to see lead distribution' :
+                     title?.toLowerCase().includes('service') ? ' to see lead distribution' :
                      title?.toLowerCase().includes('category') ? 'Create project categories to view lead breakdown' :
                      title?.toLowerCase().includes('source') && !title?.toLowerCase().includes('referral') && !title?.toLowerCase().includes('direct') ? 'Add lead sources to see distribution' :
                      title?.toLowerCase().includes('referral') ? 'Add referral sources to see lead origins' :

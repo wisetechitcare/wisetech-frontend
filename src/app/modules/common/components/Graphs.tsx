@@ -1591,7 +1591,7 @@ export const StatisticsTable = ({
 
                     let finalCheckout = convertTo12HourFormat(checkOut);
                     return (
-                        <span style={{ color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isEarlyCheckOut ? 'red' : 'green' }}>
+                        <span style={{ color: 'green' }}>
                             {finalCheckout}
                         </span>
                     );
@@ -1812,7 +1812,30 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            Cell: ({ row, renderedCellValue }: any) => {
+                const employee = row.original;
+                const isWeekendOrHoliday = employee.isWeekendOrHoliday;
+                const duration = renderedCellValue as string | undefined;
+
+                if (!duration || duration === '-NA-' || isWeekendOrHoliday) {
+                    return <span>{duration || '-NA-'}</span>;
+                }
+
+                // Parse "XH YM" format (e.g. "8H 30M", "9H 15M")
+                const hoursMatch = duration.match(/(\d+)H/i);
+                const minutesMatch = duration.match(/(\d+)M/i);
+                const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
+                const minutes = minutesMatch ? parseInt(minutesMatch[1], 10) : 0;
+                const totalMinutes = hours * 60 + minutes;
+
+                const isUnderEightHours = totalMinutes < 8 * 60; // < 480 min
+
+                return (
+                    <span style={{ color: isUnderEightHours ? 'red' : 'inherit' }}>
+                        {duration}
+                    </span>
+                );
+            }
         },
         {
             accessorKey: "status",
@@ -2440,7 +2463,7 @@ export const ReportsTable = ({
 
 
                     return (
-                        <span style={{ color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isEarlyCheckOut ? 'red' : 'green' }}>
+                        <span style={{ color: 'green' }}>
                             {finalCheckout}
                         </span>
                     );
