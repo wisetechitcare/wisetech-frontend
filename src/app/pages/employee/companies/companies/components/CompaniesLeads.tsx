@@ -6,6 +6,7 @@ import { getLeadsByCompanyId } from "@services/lead";
 import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import { getAllClientContacts } from "@services/companies";
+import { useNavigate } from "react-router-dom";
 
 type Lead = {
   budget: string;
@@ -19,6 +20,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
   const employeeId = useSelector(
     (s: RootState) => s.auth?.currentUser?.id
   );
@@ -43,7 +45,25 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
   }, [companyId]);
 
   const columns = [
-    { accessorKey: "title", header: "Title" },
+    {
+  accessorKey: "title",
+  header: "Title",
+  Cell: ({ row }: any) => (
+    <button
+      className="btn btn-link p-0 text-start text-decoration-none"
+      style={{
+        color: "inherit",
+        fontWeight: "600",
+        fontSize: "14px",
+      }}
+      onClick={() => {
+        navigate(`/employee/lead/${row.original.id}`);
+      }}
+    >
+      {row.original.title}
+    </button>
+  ),
+},
     { accessorKey: "description", header: "Description" },
     { accessorKey: "assignedToId", header: "Assigned To", Cell: ({ row }: any) => {
       const employee = allEmplooyees?.find((e: any) => e.employeeId === row.original.assignedToId);

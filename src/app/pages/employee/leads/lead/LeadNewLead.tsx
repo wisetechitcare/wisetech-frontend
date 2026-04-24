@@ -296,6 +296,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   leadSource: lead.source?.name || lead.sourceId || lead?.leadSource || "",
                   referrals: lead.referrals || [],
                   companyType: lead.company?.companyTypeId || "",
+                  receivedDate: lead?.receivedDate || "",
                 };
               });
               
@@ -436,6 +437,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 },
             },
             {
+                accessorKey: 'receivedDate',
+                header: 'Received Date',
+                size: 150,
+                Cell: ({ cell }: { cell: any }) => {
+                    const value = cell.getValue();
+                    return value ? dayjs(value).format('DD-MM-YYYY') : 'N/A';
+                }
+            },
+            {
                 accessorKey: 'poStatus',
                 header: 'PO Status',
                 size: 130,
@@ -510,7 +520,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             },
             {
                 accessorKey: 'createdAt',
-                header: 'Created Time',
+                header: 'Created Date',
                 size: 150,
                 Cell: ({ cell }: { cell: any }) =>
                     cell.getValue() ? dayjs(cell.getValue()).format('DD-MM-YYYY') : 'N/A'
