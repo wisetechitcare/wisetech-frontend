@@ -65,12 +65,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const validationSchema = useMemo(() => {
     const isAdd = !contactId;
     return Yup.object().shape({
-      companyId: Yup.string().required("Company is required"),
-      branchId: Yup.string().required("Branch is required"),
       roleInCompany: Yup.string(),
       fullName: Yup.string().required("Full name is required"),
-      phone: Yup.string().required("Phone is required"),
-      email: Yup.string().email("Invalid email format").required("Email is required"),
+      phone: Yup.string(),
+      email: Yup.string().email("Invalid email format"),
       country: isAdd ? Yup.string() : Yup.string(),
       state: isAdd ? Yup.string() : Yup.string(),
       city: isAdd ? Yup.string() : Yup.string(),
@@ -161,36 +159,48 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   };
 
   // Use initialData if provided, otherwise use empty values
-  const initialValues: ContactFormValues = key === "add-new" ? emptyInitialValues : initialData ? {
-    companyId: initialData.companyId || "",
-    branchId: (initialData.branchId) ?? (initialData.branch || ""),
-    roleInCompany: initialData.roleInCompany || "",
-    contactRoleId: initialData.contactRoleId || "",
-    statusId: initialData.statusId || "",
-    isPrimaryContact: initialData.isPrimaryContact || false,
-    fullName: initialData.fullName || "",
-    dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth): "",
-    anniversary: initialData.anniversary ? formatDateForInput(initialData.anniversary): "",
-    gender: initialData.gender || "",
-    phone: initialData.phone || "",
-    phone2: initialData.phone2 || "",
-    email: initialData.email || "",
-    country: initialData.country || "",
-    zipCode: initialData.zipCode || "",
-    area: initialData.area || "",
-    city: initialData.city || "",
-    state: initialData.state || "",
-    address: initialData.address || "",
-    locationOnMap: initialData.locationOnMap || "",
-    latitude: initialData.latitude || "",
-    longitude: initialData.longitude || "",
-    visibility: initialData.visibility || "Only Me",
-    note: initialData.note || "",
-    profilePhoto: null,
-    isContactActive: initialData.isContactActive || true,
-    gmbLink: initialData.gmbLink || "",
-    googleMapLink: initialData.googleMapLink || "",
-  } : emptyInitialValues;
+  const initialValues: ContactFormValues = useMemo(() => {
+    let values = key === "add-new" ? { ...emptyInitialValues } : initialData ? {
+      companyId: initialData.companyId || "",
+      branchId: (initialData.branchId) ?? (initialData.branch || ""),
+      roleInCompany: initialData.roleInCompany || "",
+      contactRoleId: initialData.contactRoleId || "",
+      statusId: initialData.statusId || "",
+      isPrimaryContact: initialData.isPrimaryContact || false,
+      fullName: initialData.fullName || "",
+      dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth) : "",
+      anniversary: initialData.anniversary ? formatDateForInput(initialData.anniversary) : "",
+      gender: initialData.gender || "",
+      phone: initialData.phone || "",
+      phone2: initialData.phone2 || "",
+      email: initialData.email || "",
+      country: initialData.country || "",
+      zipCode: initialData.zipCode || "",
+      area: initialData.area || "",
+      city: initialData.city || "",
+      state: initialData.state || "",
+      address: initialData.address || "",
+      locationOnMap: initialData.locationOnMap || "",
+      latitude: initialData.latitude || "",
+      longitude: initialData.longitude || "",
+      visibility: initialData.visibility || "Only Me",
+      note: initialData.note || "",
+      profilePhoto: null,
+      isContactActive: initialData.isContactActive ?? true,
+      gmbLink: initialData.gmbLink || "",
+      googleMapLink: initialData.googleMapLink || "",
+    } : { ...emptyInitialValues };
+
+    // Default status to 'Active' for new contacts if available
+    if (!contactId && contactStatuses.length > 0 && !values.statusId) {
+      const activeStatus = contactStatuses.find(s => s.name?.toLowerCase() === 'active');
+      if (activeStatus) {
+        values.statusId = activeStatus.id;
+      }
+    }
+
+    return values;
+  }, [key, initialData, contactId, contactStatuses]);
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -680,7 +690,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <DropDownInput
                                 inputLabel="Choose Company"
                                 placeholder="Select company"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="companyId"
                                 options={companies.map((c) => ({
                                   value: c.id,
@@ -740,7 +750,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <DropDownInput
                                 inputLabel="Choose Branch"
                                 placeholder="Select branch"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="branchId"
                                 options={branches.map((b) => ({
                                   value: b.id,
@@ -914,16 +924,26 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               />
                             </div>
                           </div>
-                          {/* <Form.Check
-                            label="Is Contact Active"
-                            checked={values.isContactActive}
-                            onChange={(e) =>
-                              setFieldValue("isContactActive", e.target.checked)
-                            }
-                            type="checkbox"
-                            className="mt-3"
-                            reverse
-                          /> */}
+                            <div className="d-flex align-items-center gap-2">
+                              <label
+                                className="form-check-label"
+                                htmlFor="activeContactToggle"
+                              >
+                                Is Contact Active
+                              </label>
+                              <div className="form-check form-switch m-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  role="switch"
+                                  id="activeContactToggle"
+                                  checked={values.isContactActive}
+                                  onChange={(e) =>
+                                    setFieldValue("isContactActive", e.target.checked)
+                                  }
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </fieldset>
@@ -974,7 +994,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 placeholder="Enter full name"
                                 isRequired={true}
                                 formikField="fullName"
-                                inputValidation="letters-space"
                               />
                             </Col>
                             <Col md={6}>
@@ -1048,7 +1067,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             width: "auto",
                             lineHeight: "1",
                             letterSpacing: 0,
-                            color: "#9D4141",
+                            color: "#b82525ff",
                             padding: "2px 2px 8px",
                             display: "flex",
                             alignItems: "center",
@@ -1071,7 +1090,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <TextInput
                                 label="Phone"
                                 placeholder="Enter phone"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="phone"
                                 inputValidation="numbers"
                               />
@@ -1089,7 +1108,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <TextInput
                                 label="Email"
                                 placeholder="Enter email"
-                                isRequired={true}
+                                isRequired={false}
                                 formikField="email"
                               />
                             </Col>
@@ -1319,11 +1338,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               View Location On Map
                             </div>
                           </Row>
-                          <Row>
-                           
-                          </Row>
                             </div>
-
                         </div>
                       </fieldset>
                     </div>

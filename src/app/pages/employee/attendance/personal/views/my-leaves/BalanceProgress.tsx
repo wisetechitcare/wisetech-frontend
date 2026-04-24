@@ -1527,9 +1527,11 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         fetchData();
     }, [selectedEmployeeId, startDateNew, endDateNew, currentYear, country, dispatch, employeeBranchId, dateOfJoining, refreshTrigger]);
 
+    // BUG 3 FIX: was depending on [totalLeaves] but computing from `leaves` (fiscal-filtered).
+    // Changed dependency to [leaves] so the memo recalculates correctly on fiscal year change.
     const balanceLeaveMap = useMemo(() =>
         leavesBalance(leaves.filter(leave => leave.status === Status.Approved)),
-        [totalLeaves]);
+        [leaves]);
 
     const {
         paidLeaves,

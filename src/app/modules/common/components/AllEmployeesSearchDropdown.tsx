@@ -12,7 +12,7 @@ type EmployeeStatus = 'all' | 'active' | 'inactive';
 const AllEmployeesSearchDropdown = () => {
   const autoCompleteRef = useRef<HTMLDivElement>(null);
   const [scrollY, setScrollY] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<EmployeeStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<EmployeeStatus>('active');
 
   useEffect(() => {
     const handleScroll = () => {

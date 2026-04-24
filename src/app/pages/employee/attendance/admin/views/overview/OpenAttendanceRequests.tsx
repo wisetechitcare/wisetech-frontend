@@ -243,6 +243,9 @@ const OpenAttendanceRequests = () => {
             // checkout times like 17:45 (5:45 PM) to be interpreted as 05:45 AM, producing
             // an erroneous ~20-hour duration.
             // Use the ISO values directly, only normalising to proper ISO format.
+            // NOTE: attendance.checkIn is now populated from the actual Attendance table record
+            // (via actualCheckIn → rawCheckIn) so this gate correctly blocks requests where the
+            // employee genuinely has no check-in at all.
             if (attendance.checkIn && attendance.checkIn !== "" && attendance.checkIn !== "-NA-") {
                 const normalizedCheckIn = normalizeAttendanceRequestTime(attendance.checkIn, request.date);
                 if (normalizedCheckIn) {
@@ -268,6 +271,8 @@ const OpenAttendanceRequests = () => {
                 setAttendanceActionId(request.id);
                 fetchOpenRequests();
                 refetch();
+            } else {
+                errorConfirmation('Cannot approve: employee has no check-in record for this day.');
             }
         } catch (error) {
             console.log("approveRequest error", error);
