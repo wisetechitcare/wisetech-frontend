@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, Container, Table, Spinner } from "react-bootstrap";
+import { getFactorUnit } from "../../common/kpiUtils";
 
 interface Factor {
   factor: string;
@@ -8,12 +9,14 @@ interface Factor {
   employeesValue: number;
   weightage: number;
   score: number;
+  maxScore?: number;
   unit?: string;
 }
 
 interface Module {
   moduleName: string;
   totalScore: number;
+  maxScore?: number;
   factors: Factor[];
 }
 
@@ -35,18 +38,6 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({
     fontWeight: 500,
   };
 
-  // if (isLoading) {
-  //   return (
-  //     <Container
-  //       fluid
-  //       className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-  //       style={{ minHeight: "300px" }}
-  //     >
-  //       <Spinner animation="border" variant="primary" />
-  //     </Container>
-  //   );
-  // }
-
   if (!data || data.length === 0) {
     return (
       <Container fluid className="my-4 px-0">
@@ -60,12 +51,12 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({
     if (b.moduleName === "Attendance") return 1;
     return 0;
   });
-  
+
   return (
     <Container fluid className="my-4 px-0 ">
-      <Card 
+      <Card
         className="p-lg-10 p-5 mx-lg-3 mx-0"
-        style={{ borderRadius: "12px",backgroundColor:"#fff"}}
+        style={{ borderRadius: "12px", backgroundColor: "#fff" }}
       >
         <h2 className="mb-6">Report </h2>
 
@@ -88,60 +79,67 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({
                     <th style={headerStyle}>Factors</th>
                     <th style={headerStyle}>Calculated From</th>
                     <th style={headerStyle}>Weightage</th>
-                    <th style={headerStyle}>Max Value</th>
-                    <th style={headerStyle}>Value</th>
-                    <th style={headerStyle}>Score</th>
+                    <th style={headerStyle}>Value / Max</th>
+                    <th style={headerStyle}>Score / Max</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {module.factors.map((factor, index) => (
-                    <tr key={index}>
-                      <td style={factorsStyle}>{factor.factor} </td>
-                      <td>{factor.calculatedFrom}</td>
-                      <td>
-                        {factor.weightage}
-                        {factor.unit ? ` / ${factor.unit}` : ""}
-                      </td>
-                      <td>{factor.maxValue}  {factor.unit ? `  ${factor.unit}` : ""}</td>
-                      <td>
-                        {factor.employeesValue.toFixed(2)}
-                        {/* {factor.unit ? ` / ${factor.unit}` : ""} */}
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            color: factor.score >= 0 ? "#42A121" : "#B32828",
-                            fontFamily: "Inter, sans-serif",
-                            fontWeight: 600,
-                            fontSize: "14px",
-                          }}
-                        >
-                          {factor.score >= 0
-                            ? `+${factor.score.toFixed(2)}/${factor.maxValue ?? 0}`
-                            : factor.score.toFixed(2) + `/${factor.maxValue ?? 0}`}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {module.factors.map((factor, index) => {
+                    const unit = getFactorUnit(factor.factor);
+                    return (
+                      <tr key={index}>
+                        <td style={factorsStyle}>{factor.factor} </td>
+                        <td>{factor.calculatedFrom}</td>
+                        <td>
+                          {factor.weightage}
+                          {unit ? ` / ${unit}` : ""}
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{factor.employeesValue.toFixed(2)}</span>
+                          <span style={{ color: "#295d8e", fontSize: "12px", marginLeft: "4px" }}>
+                            / {factor.maxValue ?? 0} {unit}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              color: factor.score >= 0 ? "#42A121" : "#B32828",
+                              fontFamily: "Inter, sans-serif",
+                              fontWeight: 600,
+                              fontSize: "14px",
+                            }}
+                          >
+                            {factor.score >= 0 ? `+${factor.score.toFixed(2)}` : factor.score.toFixed(2)}
+                          </span>
+                          <span style={{ color: "#295d8e", fontSize: "12px", marginLeft: "4px", fontWeight: 600 }}>
+                            / {factor.maxScore?.toFixed(2) ?? 0}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
-              <div className="text-end ">
-                  <strong >
-                    Total :
-                    <span
-                      style={{
-                   //   color: module.totalScore >= 0 ? "#42A121" : "#B32828",
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 600,
-                        fontSize: "14px",
-                      }}
-                    >
-                      {module.totalScore >= 0
-                        ? `${module.totalScore.toFixed(2)}`
-                        : module.totalScore.toFixed(2)}
+              <div className="text-end">
+                <strong>
+                  Total Score:{" "}
+                  <span
+                    style={{
+                      fontFamily: "Inter, sans-serif",
+                      fontWeight: 700,
+                      fontSize: "16px",
+                      color: "#000",
+                    }}
+                  >
+                    {module.totalScore.toFixed(2)}
+                  </span>
+                  {module.maxScore !== undefined && (
+                    <span style={{ color: "#295d8e", fontSize: "14px", fontWeight: 600, marginLeft: "4px" }}>
+                      / {module.maxScore.toFixed(2)}
                     </span>
-                  </strong>
-                </div>
+                  )}
+                </strong>
+              </div>
             </Card.Body>
           </div>
         ))}

@@ -21,33 +21,27 @@ import Loader from "@app/modules/common/utils/Loader";
 
 export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSettingsEnabled = false, checkOwnWithOthers = false}: {startDate?: Dayjs; endDate?: Dayjs; fromAdmin?: boolean; resourseAndView: resourseAndView[]; dateSettingsEnabled?: boolean; checkOwnWithOthers?: boolean}) => {
     
-    // If no working days found or branch return message
-    const workingAndOffDaysStr = useSelector((state: RootState) =>state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // NOTE: early returns moved BELOW all hooks — React rules of hooks forbid returning before hooks
+    const currentEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const selectedEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.selectedEmployee?.branches?.workingAndOffDays);
+    const workingAndOffDaysStr = fromAdmin
+        ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
+        : currentEmployeeWorkingAndOffDaysStr;
     const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
-    if (shouldShowBranchSetupGuide(workingAndOffDays)) {
-        return <BranchSetupGuide />;
-    }
+    const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
+    // Use safe fallbacks so hooks below don't crash when dates are missing
+    const safeStartDate = startDate ?? dayjs();
+    const safeEndDate = endDate ?? dayjs();
 
-    // Show warning if required dates are not provided
-    if (!startDate || !endDate) {
-            console.warn("Missing dates - showing warning");
-            return (
-                <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-                    <div className="alert alert-warning text-center" role="alert">
-                        <h4 className="alert-heading">Missing Date Range</h4>
-                        <p className="mb-0">Please provide both start date and end date to view the statistics.</p>
-                    </div>
-                </Container>
-            );
-        }
-        
      // Rest of component...
     const dispatch = useDispatch();
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee?.id);
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
-    const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
+    const weekends = fromAdmin
+        ? store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
 
     // filter yearly stats according to DateOfJoining
@@ -55,8 +49,8 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
             const { attendanceStats } = state;
             return attendanceStats.yearly.filter((stat: any) => {
                 const checkInDate = dayjs(stat.checkIn);
-                return checkInDate.isSameOrAfter(dateOfJoining, 'day') && 
-                       checkInDate.isSameOrBefore(endDate, 'day');
+                return checkInDate.isSameOrAfter(dateOfJoining, 'day') &&
+                       checkInDate.isSameOrBefore(safeEndDate, 'day');
             });
         });
     
@@ -73,48 +67,48 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     // filter attendance requests according to start date and end date
     const filteredAttendanceRequests = useMemo(() => {
         if (!attendanceRequests?.length) return [];
-    
+
         return attendanceRequests.filter((day) => {
             const attendanceDate = dayjs(day.date);
-            return attendanceDate.isSameOrAfter(startDate, 'day') && 
-                   attendanceDate.isSameOrBefore(endDate, 'day') && 
+            return attendanceDate.isSameOrAfter(safeStartDate, 'day') &&
+                   attendanceDate.isSameOrBefore(safeEndDate, 'day') &&
                    attendanceDate.isSameOrAfter(dateOfJoining, 'day');
         });
-    }, [attendanceRequests, startDate, endDate, dateOfJoining]);
+    }, [attendanceRequests, safeStartDate, safeEndDate, dateOfJoining]);
 
     // filter attendance according to start date and end date
     const filteredAttendance = useMemo(() => {
         if (!attendance?.length) return [];
-    
+
         return attendance.filter((day) => {
             const attendanceDate = dayjs(day.date);
-            return attendanceDate.isSameOrAfter(startDate, 'day') && 
-                   attendanceDate.isSameOrBefore(endDate, 'day') && 
+            return attendanceDate.isSameOrAfter(safeStartDate, 'day') &&
+                   attendanceDate.isSameOrBefore(safeEndDate, 'day') &&
                    attendanceDate.isSameOrAfter(dateOfJoining, 'day');
         });
-    }, [attendance, startDate, endDate, dateOfJoining]);
+    }, [attendance, safeStartDate, safeEndDate, dateOfJoining]);
 
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
 
-    const year = dayjs(startDate).get('year');
+    const year = safeStartDate.get('year');
 
     // filter leaves according to start date and end date
-     const filteredLeaves = useSelector((state: RootState) => {
+    const filteredLeaves = useSelector((state: RootState) => {
             const { attendanceStats } = state;
-            return attendanceStats.filteredLeaves.filter((leave: any) => 
-                dayjs(leave.date).isSameOrAfter(startDate, 'day') && 
-                dayjs(leave.date).isSameOrBefore(endDate, 'day')
+            return attendanceStats.filteredLeaves.filter((leave: any) =>
+                dayjs(leave.date).isSameOrAfter(safeStartDate, 'day') &&
+                dayjs(leave.date).isSameOrBefore(safeEndDate, 'day')
             );
         });
     const approvedLeaves = filteredLeaves.filter((leave: any) => leave.status === LeaveStatus.Approved);
 
     const filteredPublicHolidays = useSelector((state: RootState) => {
         const { attendanceStats } = state;
-        return attendanceStats.filteredPublicHolidays.filter((holiday: any) => 
-            dayjs(holiday.date).isSameOrAfter(startDate, 'day') && 
-            dayjs(holiday.date).isSameOrBefore(endDate, 'day')
+        return attendanceStats.filteredPublicHolidays.filter((holiday: any) =>
+            dayjs(holiday.date).isSameOrAfter(safeStartDate, 'day') &&
+            dayjs(holiday.date).isSameOrBefore(safeEndDate, 'day')
         );
     });
 
@@ -142,24 +136,23 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     
     useEffect(() => {
         if (!selectedEmployeeId) return;
-        
+
         const loadData = async () => {
             setDataLoaded(false);
-            
+
             if (fromAdmin) {
                 await fetchLeavesPublicHolidays();
             }
-            await fetchEmpYearlyStatistics(startDate, fromAdmin, {
-                startDate,
-                endDate
+            await fetchEmpYearlyStatistics(safeStartDate, fromAdmin, {
+                startDate: safeStartDate,
+                endDate: safeEndDate
             });
-            
-            
+
             setDataLoaded(true);
         };
-        
+
         loadData();
-    }, [selectedEmployeeId, startDate, endDate, fromAdmin, toggleChange, dateSettingsEnabled]);
+    }, [selectedEmployeeId, safeStartDate, safeEndDate, fromAdmin, toggleChange, dateSettingsEnabled]);
 
     // Fetch working hours configuration
     useEffect(() => {
@@ -201,12 +194,12 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
 
       const totalWeekendCount = useMemo(() => {
             return countTotalWeekends(
-                startDate.format('YYYY-MM-DD'),
-                endDate.format('YYYY-MM-DD'),
+                safeStartDate.format('YYYY-MM-DD'),
+                safeEndDate.format('YYYY-MM-DD'),
                 filteredPublicHolidays,
                 allWeekends
             );
-        }, [startDate, endDate, filteredPublicHolidays, allWeekends]);
+        }, [safeStartDate, safeEndDate, filteredPublicHolidays, allWeekends]);
 
         
     const donutData = useMemo(() => donutaDataLabel(filteredAttendance, filteredLeaves, filteredPublicHolidays, fromAdmin, totalWeekendCount), 
@@ -223,8 +216,8 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
 
     // Calculate working days
     const totalWorkingDayInYear = useMemo(() => {
-        return getWorkingDaysInRange(startDate, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays);
-    }, [startDate, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays]);
+        return getWorkingDaysInRange(safeStartDate, safeEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays);
+    }, [safeStartDate, safeEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays]);
 
     const findIsWeekendTrueAndCount = filteredPublicHolidays.filter((holiday: any) => holiday.isWeekend === true).length;
 
@@ -241,9 +234,9 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
 
     const barOptions = months;
     const barSeriesData = useMemo(() => barYearlyData(yearlyStats), [yearlyStats]);
-    const heatMapSeries = useMemo(() => 
-        customHeatMap(filteredAttendance, startDate, endDate, fromAdmin, totalWeekendCount),
-        [filteredAttendance, startDate, endDate, fromAdmin, totalWeekendCount]
+    const heatMapSeries = useMemo(() =>
+        customHeatMap(filteredAttendance, safeStartDate, safeEndDate, fromAdmin, totalWeekendCount),
+        [filteredAttendance, safeStartDate, safeEndDate, fromAdmin, totalWeekendCount]
     );
 
     const [hoursPart, minutesPart] = totalWorkingHours.split(" ");
@@ -254,15 +247,15 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const totalMinutes = hours * 60 + minutes;
     
     const totalAllowedTimeForOutOffValue = useMemo(() => {
-        const days  =  getWorkingDaysInRangeForTotalTime(startDate, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays) || 0;
-        const totalMinutesFinal = days*totalMinutes || 0;
+        const days = getWorkingDaysInRangeForTotalTime(safeStartDate, safeEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays) || 0;
+        const totalMinutesFinal = days * totalMinutes || 0;
         // convert back to h m format
         const finalHours = Math.floor(totalMinutesFinal / 60);
         const finalMinutes = totalMinutesFinal % 60;
-        const totalAllowedTime = `${finalHours}h ${finalMinutes}m`;   
+        const totalAllowedTime = `${finalHours}h ${finalMinutes}m`;
         return totalAllowedTime;
     },
-        [startDate, endDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays, totalMinutes]
+        [safeStartDate, safeEndDate, dateSettingsEnabled, allWeekends, filteredPublicHolidays, totalMinutes]
     );
 
     const totalAllowedMinutes = (actualTotalWorkingDay - leaves) * totalMinutes;
@@ -281,6 +274,23 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     };
 
     const totalWorkedDays = calculateWorkedDays(filteredAttendance);
+
+    // All hooks have run — safe to conditionally render
+    if (showBranchSetupGuide) {
+        return <BranchSetupGuide />;
+    }
+
+    if (!startDate || !endDate) {
+        console.warn("Missing dates - showing warning");
+        return (
+            <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+                <div className="alert alert-warning text-center" role="alert">
+                    <h4 className="alert-heading">Missing Date Range</h4>
+                    <p className="mb-0">Please provide both start date and end date to view the statistics.</p>
+                </div>
+            </Container>
+        );
+    }
 
     if (!dataLoaded) {
         return <Loader/>

@@ -2723,7 +2723,9 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
     const getAllAttnedanceRequest = requests
 
-    const branches = store.getState().employee?.currentEmployee.branches?.workingAndOffDays;
+    const selectedBranches = store.getState().employee?.selectedEmployee?.branches?.workingAndOffDays;
+    const currentBranches = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays;
+    const branches = selectedBranches || currentBranches;
     const workingAndOffDays = JSON.parse(branches || "{}");
 
     const publicHolidays = store.getState().attendanceStats?.publicHolidays;
@@ -2835,7 +2837,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             status: status,
             checkInLocation: attendanceRecord?.checkInLocation || '-NA-',
             checkOutLocation: attendanceRecord?.checkOutLocation || '-NA-',
-            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
+            checkoutWorkingMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
         };
     });
 

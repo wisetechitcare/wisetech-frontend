@@ -26,10 +26,13 @@ export const leavesSlice = createSlice({
         },
         savePersonalLeavesSummary: (state, action: PayloadAction<ILeaveSummary[]>) => {
             state.personalLeavesSummary = action.payload;
+        },
+        clearPersonalLeaves: (state) => {
+            state.personalLeaves = [];
         }
     }
 });
 
-export const { savePersonalLeaves, savePersonalLeavesSummary } = leavesSlice.actions;
+export const { savePersonalLeaves, savePersonalLeavesSummary, clearPersonalLeaves } = leavesSlice.actions;
 
 export default leavesSlice.reducer;

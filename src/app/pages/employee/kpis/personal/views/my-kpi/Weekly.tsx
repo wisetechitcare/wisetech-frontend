@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Container, Spinner } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import dayjs, { Dayjs } from "dayjs";
 
 import { RootState } from "@redux/store";
@@ -13,6 +13,7 @@ import AttendanceIcon from "@metronic/assets/miscellaneousicons/attendance.svg";
 import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { useLeaderboardRank } from "../../hooks/useLeaderboardRank";
 
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
@@ -30,7 +31,7 @@ interface WeeklyProps {
   endWeek: Dayjs;
   fromAdmin?: boolean;
   dateSettingsEnabled?: boolean;
-  resourseAndView: any[]; // adjust type as needed
+  resourseAndView: any[];
   dashboardView?: boolean;
 }
 
@@ -42,38 +43,60 @@ const Weekly: React.FC<WeeklyProps> = ({
   dateSettingsEnabled = false,
   dashboardView = true,
 }) => {
-  const dispatch = useDispatch();
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange
   );
-  
-  const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
+
+  const selectedEmployeeId = useSelector((state: RootState) =>
+    fromAdmin
+      ? state.employee.selectedEmployee?.id
+      : state.employee.currentEmployee.id
+  );
 
   const [data, setData] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const employeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
-  const [showData, setShowData] = useState(false)
-  // KPI specific props to pass to PerformanceBadge
+  const employeeId = useSelector(
+    (state: RootState) => state.employee.currentEmployee?.id
+  );
+  const [showData, setShowData] = useState(false);
   const [remark, setRemark] = useState<string>("");
-  const [rank, setRank] = useState<number>(0);
   const [yourPoints, setYourPoints] = useState<number>(0);
   const [maxTotal, setMaxTotal] = useState<number>(0);
+
+  const today = dayjs();
+  const isCurrentWeek =
+    (today.isAfter(startWeek, "day") && today.isBefore(endWeek, "day")) ||
+    today.isSame(startWeek, "day") ||
+    today.isSame(endWeek, "day");
+  const effectiveEndDate = dateSettingsEnabled && isCurrentWeek ? today : endWeek;
+
+  // FIX: Memoize date strings so useLeaderboardRank deps are stable strings,
+  // not Dayjs objects (which create new references on every render).
+  const startDateStr = useMemo(
+    () => startWeek.format("YYYY-MM-DD"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [startWeek.format("YYYY-MM-DD")]
+  );
+  const endDateStr = useMemo(
+    () => effectiveEndDate.format("YYYY-MM-DD"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [effectiveEndDate.format("YYYY-MM-DD")]
+  );
+
+  // FIX: useLeaderboardRank must use the SAME date range as the KPI data fetch.
+  // Previously effectiveEndDate was computed inside a closure but the hook
+  // received a potentially stale value. Now both use the memoized string.
+  const { rank, rankLoading } = useLeaderboardRank({
+    employeeId: selectedEmployeeId,
+    startDate: startDateStr,
+    endDate: endDateStr,
+  });
 
   useEffect(() => {
     if (!selectedEmployeeId) return;
 
     const loadData = async () => {
       setDataLoaded(true);
-
-      const today = dayjs();
-      const isCurrentWeek =
-        (today.isAfter(startWeek, "day") && today.isBefore(endWeek, "day")) ||
-        today.isSame(startWeek, "day") ||
-        today.isSame(endWeek, "day");
-
-      const effectiveEndDate =
-        dateSettingsEnabled && isCurrentWeek ? today : endWeek;
-
       try {
         const response = await fetchEmpWeeklyKpiStatistics(
           startWeek,
@@ -83,9 +106,8 @@ const Weekly: React.FC<WeeklyProps> = ({
         if (response) {
           setData(response.modules || []);
           setRemark(response.remark || "");
-          setRank(response.rank || 0);
           setYourPoints(response.yourPoints || 0);
-           setMaxTotal(response.maxTotal || 0);
+          setMaxTotal(response.maxTotal || 0);
         }
       } catch (error) {
         console.error("Error fetching Weekly KPI Statistics:", error);
@@ -95,91 +117,64 @@ const Weekly: React.FC<WeeklyProps> = ({
     };
 
     loadData();
-  }, [selectedEmployeeId, startWeek, endWeek, dateSettingsEnabled]);
-   
-   useEffect(() => {
-     if (!employeeId) {
-       return;
-     }
-     const res = hasPermission(resourseAndView[0]?.resource, permissionConstToUseWithHasPermission.readOthers)
-     if(res){
-       setShowData(true)
-     }
-   }, [employeeId]);
-  const overviewData = [
-    {
-      icon: iconMapping["Attendance"],
-      label: "Attendance",
-      score: data.find((m) => m.moduleName === "Attendance")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Leaves"],
-      label: "Leaves",
-      score: data.find((m) => m.moduleName === "Leaves")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Projects"],
-      label: "Projects",
-      score: data.find((m) => m.moduleName === "Projects")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Tasks"],
-      label: "Tasks",
-      score: data.find((m) => m.moduleName === "Tasks")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Sale"],
-      label: "Sale",
-      score: data.find((m) => m.moduleName === "Sale")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Target"],
-      label: "Target",
-      score: data.find((m) => m.moduleName === "Target")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Performance"],
-      label: "Performance",
-      score: data.find((m) => m.moduleName === "Performance")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Ratings & Reviews"],
-      label: "Ratings & Reviews",
-      score:
-        data.find((m) => m.moduleName === "Ratings & Reviews")?.totalScore ?? 0,
-    },
-  ];
+  }, [selectedEmployeeId, startDateStr, endDateStr, toggleChange]);
 
-  
-if(dataLoaded){
-  return <Container
-          fluid
-          className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-          style={{ minHeight: "300px" }}
-        >
-          <Spinner animation="border" variant="primary" />
-        </Container>
-}
-if(!showData) return <h2 className="text-center">Not Allowed To View</h2>
+  useEffect(() => {
+    if (!employeeId) return;
+    const res = hasPermission(
+      resourseAndView[0]?.resource,
+      permissionConstToUseWithHasPermission.readOthers
+    );
+    if (res) setShowData(true);
+  }, [employeeId]);
+
+  const overviewData = [
+    "Attendance",
+    "Leaves",
+    "Projects",
+    "Tasks",
+    "Sale",
+    "Target",
+    "Performance",
+    "Ratings & Reviews",
+  ].map((label) => ({
+    icon: iconMapping[label],
+    label,
+    score: data.find((m) => m.moduleName === label)?.totalScore ?? 0,
+  }));
+
+  if (dataLoaded) {
+    return (
+      <Container
+        fluid
+        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
+        style={{ minHeight: "300px" }}
+      >
+        <Spinner animation="border" variant="primary" />
+      </Container>
+    );
+  }
+
+  if (!showData) return <h2 className="text-center">Not Allowed To View</h2>;
+
   return (
     <>
       {remark && (
         <PerformanceBadge
           remark={remark}
           rank={rank}
+          rankLoading={rankLoading}
           yourPoints={yourPoints}
           fromAdmin={fromAdmin}
-           maxTotal={maxTotal}
+          maxTotal={maxTotal}
         />
       )}
-
       <ScoreOverview data={overviewData} />
-      {
-        dashboardView ? <Container fluid className="my-4 px-0">
-        <KpiStatisticsTable data={data} />
-      </Container>:null
-      }
-     
+      {dashboardView ? (
+        <Container fluid className="my-4 px-0">
+          <KpiStatisticsTable data={data} />
+        </Container>
+      ) : null}
     </>
   );
 };

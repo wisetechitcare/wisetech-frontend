@@ -43,6 +43,16 @@ const buttonStyles = {
   },
 };
 
+// Utility function to sort items alphabetically by name
+const sortItemsAlphabetically = <T extends { name: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name));
+};
+
+// Utility function to sort cancellation reasons by 'reason' field
+const sortCancellationReasonsAlphabetically = (reasons: any[]) => {
+  return [...reasons].sort((a, b) => a.reason.localeCompare(b.reason));
+};
+
 
 const LeadsConfigurationMain = () => {
   const [loading, setLoading] = useState(false);
@@ -63,30 +73,30 @@ const LeadsConfigurationMain = () => {
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editingService, setEditingService] = useState<ProjectItem | null>(null);
   // Project Categories
-const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
-const [showCategoryModal, setShowCategoryModal] = useState(false);
-const [editingCategory, setEditingCategory] = useState<ProjectItem | null>(null);
+  const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ProjectItem | null>(null);
 
-// Project Subcategories
-const [projectSubcategories, setProjectSubcategories] = useState<ProjectItem[]>([]);
-const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
-const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
+  // Project Subcategories
+  const [projectSubcategories, setProjectSubcategories] = useState<ProjectItem[]>([]);
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+  const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
 
 
-// Modal Handlers
-const handleCategoryModalOpen = () => setShowCategoryModal(true);
-const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
+  // Modal Handlers
+  const handleCategoryModalOpen = () => setShowCategoryModal(true);
+  const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
 
-// Edit Handlers
-const handleCategoryEdit = (category: ProjectItem) => {
-  setEditingCategory(category);
-  setShowCategoryModal(true);
-};
+  // Edit Handlers
+  const handleCategoryEdit = (category: ProjectItem) => {
+    setEditingCategory(category);
+    setShowCategoryModal(true);
+  };
 
-const handleSubcategoryEdit = (subcategory: ProjectItem) => {
-  setEditingSubcategory(subcategory);
-  setShowSubcategoryModal(true);
-};
+  const handleSubcategoryEdit = (subcategory: ProjectItem) => {
+    setEditingSubcategory(subcategory);
+    setShowSubcategoryModal(true);
+  };
 
   const handleModalClose = () => {
     setShowModal(false);
@@ -172,38 +182,38 @@ const handleSubcategoryEdit = (subcategory: ProjectItem) => {
 
   // fetch project category
   const fetchProjectCategories = async () => {
-  try {
-    setLoading(true);
-    const response = await getAllProjectCategories();
-    if (response?.projectCategories) {
-      setProjectCategories(response.projectCategories);
+    try {
+      setLoading(true);
+      const response = await getAllProjectCategories();
+      if (response?.projectCategories) {
+        setProjectCategories(response.projectCategories);
+      }
+    } catch (error) {
+      console.error("Error fetching project categories:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching project categories:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-// fetch project sub category
-const fetchProjectSubcategories = async () => {
-  try {
-    setLoading(true);
-    const response = await getAllProjectSubcategories();
-    if (response?.projectSubCategories) {
-      setProjectSubcategories(response.projectSubCategories);
+  // fetch project sub category
+  const fetchProjectSubcategories = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectSubcategories();
+      if (response?.projectSubCategories) {
+        setProjectSubcategories(response.projectSubCategories);
+      }
+    } catch (error) {
+      console.error("Error fetching project subcategories:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching project subcategories:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-useEffect(() => {
-  fetchProjectCategories();
-  fetchProjectSubcategories();
-}, []);
+  useEffect(() => {
+    fetchProjectCategories();
+    fetchProjectSubcategories();
+  }, []);
 
 
 
@@ -213,16 +223,16 @@ useEffect(() => {
   });
 
   useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
-useEventBus(EVENT_KEYS.projectCategoryUpdated, fetchProjectCategories);
+  useEventBus(EVENT_KEYS.projectCategoryUpdated, fetchProjectCategories);
 
-useEventBus(EVENT_KEYS.projectSubcategoryCreated, () => {
-  fetchProjectSubcategories();
-  fetchProjectCategories();
-});
-useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => {
-  fetchProjectSubcategories();
-  fetchProjectCategories();
-});
+  useEventBus(EVENT_KEYS.projectSubcategoryCreated, () => {
+    fetchProjectSubcategories();
+    fetchProjectCategories();
+  });
+  useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => {
+    fetchProjectSubcategories();
+    fetchProjectCategories();
+  });
 
 
   // Delete confirmation hook for Project Services
@@ -266,42 +276,42 @@ useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => {
   };
 
   const handleCategoryDelete = async (id: string) => {
-  try {
-    const category = projectCategories.find((c) => c.id === id);
-    if (category && category.subCategories && category.subCategories > 0) {
-      const Swal = (await import("sweetalert2")).default;
-      await Swal.fire({
-        icon: "warning",
-        title: "Cannot Delete",
-        text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
-        confirmButtonColor: "#9D4141",
-      });
-      return;
+    try {
+      const category = projectCategories.find((c) => c.id === id);
+      if (category && category.subCategories && category.subCategories > 0) {
+        const Swal = (await import("sweetalert2")).default;
+        await Swal.fire({
+          icon: "warning",
+          title: "Cannot Delete",
+          text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
+          confirmButtonColor: "#9D4141",
+        });
+        return;
+      }
+
+      const confirmed = await deleteConfirmation("Category deleted successfully");
+      if (!confirmed) return;
+
+      await deleteProjectCategory(id);
+      fetchProjectCategories();
+    } catch (error) {
+      console.error("Error deleting category:", error);
     }
+  };
 
-    const confirmed = await deleteConfirmation("Category deleted successfully");
-    if (!confirmed) return;
+  const handleSubcategoryDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation("Subcategory deleted successfully");
+      if (!confirmed) return;
 
-    await deleteProjectCategory(id);
-    fetchProjectCategories();
-  } catch (error) {
-    console.error("Error deleting category:", error);
-  }
-};
-
-const handleSubcategoryDelete = async (id: string) => {
-  try {
-    const confirmed = await deleteConfirmation("Subcategory deleted successfully");
-    if (!confirmed) return;
-
-    await deleteProjectSubcategory(id);
-    // Refresh BOTH lists: subcategories (to remove item) AND categories
-    // (to update the subCategories count so the "Cannot Delete" guard is accurate)
-    await Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
-  } catch (error) {
-    console.error("Error deleting subcategory:", error);
-  }
-};
+      await deleteProjectSubcategory(id);
+      // Refresh BOTH lists: subcategories (to remove item) AND categories
+      // (to update the subCategories count so the "Cannot Delete" guard is accurate)
+      await Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
+    } catch (error) {
+      console.error("Error deleting subcategory:", error);
+    }
+  };
 
 
   useEventBus(EVENT_KEYS.leadReferralTypeCreated, () => {
@@ -328,47 +338,47 @@ const handleSubcategoryDelete = async (id: string) => {
     }
   };
 
-    // Fetch project services
-    const fetchProjectServices = async () => {
-      try {
-        setLoading(true);
-        const response = await getAllProjectServices();
-        if (response?.services) {
-          setProjectServices(response.services);
-        }
-      } catch (error) {
-        console.error("Error fetching project services:", error);
-      } finally {
-        setLoading(false);
+  // Fetch project services
+  const fetchProjectServices = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectServices();
+      if (response?.services) {
+        setProjectServices(response.services);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching project services:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Fetch lead cancellation reasons
-    const fetchLeadCancellationReasons = async () => {
-      try {
-        setLoading(true);
-        const response = await getAllLeadCancellationReasons();
-        if (response?.data?.leadCancellationReasons) {
-          setLeadCancellationReasons(response.data.leadCancellationReasons);
-        }
-      } catch (error) {
-        console.error("Error fetching lead cancellation reasons:", error);
-      } finally {
-        setLoading(false);
+  // Fetch lead cancellation reasons
+  const fetchLeadCancellationReasons = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllLeadCancellationReasons();
+      if (response?.data?.leadCancellationReasons) {
+        setLeadCancellationReasons(response.data.leadCancellationReasons);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching lead cancellation reasons:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleCancellationReasonDelete = async (id: string) => {
-      try {
-        const confirmed = await deleteConfirmation("Cancellation reason deleted successfully");
-        if (!confirmed) return;
+  const handleCancellationReasonDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation("Cancellation reason deleted successfully");
+      if (!confirmed) return;
 
-        await deleteLeadCancellationReason(id);
-        fetchLeadCancellationReasons();
-      } catch (error) {
-        console.error("Error deleting cancellation reason:", error);
-      }
-    };
+      await deleteLeadCancellationReason(id);
+      fetchLeadCancellationReasons();
+    } catch (error) {
+      console.error("Error deleting cancellation reason:", error);
+    }
+  };
 
   useEventBus(EVENT_KEYS.leadDirectSourceCreated, () => {
     fetchLeadDirectSources();
@@ -448,7 +458,7 @@ const handleSubcategoryDelete = async (id: string) => {
     // Find the source being deleted to get its name
     const sourceToDelete = leadDirectSource.find(source => source.id === id);
     const sourceName = sourceToDelete?.name || 'Unknown Source';
-    
+
     // Create dropdown options from other lead direct sources (excluding the one being deleted)
     const dropdownOptions: DropdownOption[] = leadDirectSource
       .filter(source => source.id !== id && source.id && source.name)
@@ -456,41 +466,41 @@ const handleSubcategoryDelete = async (id: string) => {
         key: source.id!,
         value: source.name
       }));
-    
+
     // Show the delete confirmation modal
     directSourceDeleteConfirmation.showDeleteModal(id, sourceName, {
       dropdownOptions,
       showTransferOption: dropdownOptions.length > 0,
-      transferDescription: dropdownOptions.length > 0 
+      transferDescription: dropdownOptions.length > 0
         ? 'All leads using this direct source will be transferred to the selected source.'
         : 'This is the last direct source and cannot be transferred.'
     });
   };
 
-    // New delete handler specifically for project services using the modal
-    const handleServiceDelete = (id: string) => {
-      // Find the service being deleted to get its name
-      const serviceToDelete = projectServices.find(service => service.id === id);
-      const serviceName = serviceToDelete?.name || 'Unknown Service';
-      
-      // Create dropdown options from other project services (excluding the one being deleted)
-      const dropdownOptions: DropdownOption[] = projectServices
-        .filter(service => service.id !== id && service.id && service.name)
-        .map(service => ({
-          key: service.id!,
-          value: service.name
-        }));
-      
-      // Show the delete confirmation modal
-      serviceDeleteConfirmation.showDeleteModal(id, serviceName, {
-        dropdownOptions,
-        showTransferOption: dropdownOptions.length > 0,
-        transferDescription: dropdownOptions.length > 0 
-          ? 'All projects and leads using this service will be transferred to the selected service.'
-          : 'This is the last service and cannot be transferred.'
-      });
-    };
-  
+  // New delete handler specifically for project services using the modal
+  const handleServiceDelete = (id: string) => {
+    // Find the service being deleted to get its name
+    const serviceToDelete = projectServices.find(service => service.id === id);
+    const serviceName = serviceToDelete?.name || 'Unknown Service';
+
+    // Create dropdown options from other project services (excluding the one being deleted)
+    const dropdownOptions: DropdownOption[] = projectServices
+      .filter(service => service.id !== id && service.id && service.name)
+      .map(service => ({
+        key: service.id!,
+        value: service.name
+      }));
+
+    // Show the delete confirmation modal
+    serviceDeleteConfirmation.showDeleteModal(id, serviceName, {
+      dropdownOptions,
+      showTransferOption: dropdownOptions.length > 0,
+      transferDescription: dropdownOptions.length > 0
+        ? 'All projects and leads using this service will be transferred to the selected service.'
+        : 'This is the last service and cannot be transferred.'
+    });
+  };
+
   if (loading) {
     return (
       <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: "300px" }}>
@@ -533,7 +543,7 @@ const handleSubcategoryDelete = async (id: string) => {
             <button
               onClick={handleModalOpen}
               className="btn"
-               style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
@@ -542,7 +552,7 @@ const handleSubcategoryDelete = async (id: string) => {
           </div>
 
           <div className="row mt-4">
-            {leadStatus.map((status: any) => (
+            {sortItemsAlphabetically(leadStatus).map((status: any) => (
               <div key={status.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
@@ -604,7 +614,7 @@ const handleSubcategoryDelete = async (id: string) => {
             <button
               onClick={handleReferralTypeModalOpen}
               className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
@@ -613,7 +623,7 @@ const handleSubcategoryDelete = async (id: string) => {
           </div>
 
           <div className="row mt-4">
-            {leadReferralType.map((status: any) => (
+            {sortItemsAlphabetically(leadReferralType).map((status: any) => (
               <div key={status.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
@@ -679,7 +689,7 @@ const handleSubcategoryDelete = async (id: string) => {
             <button
               onClick={handleDirectSourceModalOpen}
               className="btn"
-               style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
@@ -687,7 +697,7 @@ const handleSubcategoryDelete = async (id: string) => {
             </button>
           </div>
           <div className="row mt-4">
-            {leadDirectSource.map((source: any) => (
+            {sortItemsAlphabetically(leadDirectSource).map((source: any) => (
               <div key={source.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between "
@@ -733,93 +743,93 @@ const handleSubcategoryDelete = async (id: string) => {
         </div>
       </div>
 
-<div>
-  {/* Project Services */}
-  <div
-    className="card mt-5"
-    style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-  >
-    <div className="card-body">
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-        <h5
-          className="card-title"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontWeight: 600,
-            fontStyle: "normal",
-            fontSize: "16px",
-            lineHeight: "100%",
-            letterSpacing: "0",
-          }}
+      <div>
+        {/* Project Services */}
+        <div
+          className="card mt-5"
+          style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
         >
-          Project Services
-        </h5>
-        <button
-          onClick={handleServiceModalOpen}
-          className="btn"
-          style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)' }}
-          onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-          onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-        >
-          New Service
-        </button>
-      </div>
+          <div className="card-body">
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+              <h5
+                className="card-title"
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 600,
+                  fontStyle: "normal",
+                  fontSize: "16px",
+                  lineHeight: "100%",
+                  letterSpacing: "0",
+                }}
+              >
+                Project Services
+              </h5>
+              <button
+                onClick={handleServiceModalOpen}
+                className="btn"
+                style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)' }}
+                onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
+                onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
+              >
+                New Service
+              </button>
+            </div>
 
-      <div className="row mt-4">
-        {projectServices.map((service) => (
-          <div key={service.id} className="col-12 col-md-3 mb-3">
-            <div
-              className="d-flex align-items-center justify-content-between"
-              style={{
-                backgroundColor: "#F2F5F8",
-                padding: "0 15px",
-                height: "40px",
-                borderRadius: "5px",
-              }}
-            >
-              <div className="d-flex align-items-center gap-2">
-                <div
-                  className="rounded-circle"
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    backgroundColor: service.color,
-                  }}
-                ></div>
-                <div
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    fontWeight: 400,
-                    fontStyle: "normal",
-                    fontSize: "14px",
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    cursor: "pointer",
-                  }}
-                  title={service.name}
-                >
-                  {service.name.length > 10
-                    ? `${service.name.slice(0, 14)}...`
-                    : service.name}
+            <div className="row mt-4">
+              {sortItemsAlphabetically(projectServices).map((service) => (
+                <div key={service.id} className="col-12 col-md-3 mb-3">
+                  <div
+                    className="d-flex align-items-center justify-content-between"
+                    style={{
+                      backgroundColor: "#F2F5F8",
+                      padding: "0 15px",
+                      height: "40px",
+                      borderRadius: "5px",
+                    }}
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      <div
+                        className="rounded-circle"
+                        style={{
+                          width: "18px",
+                          height: "18px",
+                          backgroundColor: service.color,
+                        }}
+                      ></div>
+                      <div
+                        style={{
+                          fontFamily: "Inter, sans-serif",
+                          fontWeight: 400,
+                          fontStyle: "normal",
+                          fontSize: "14px",
+                          lineHeight: "100%",
+                          letterSpacing: "0",
+                          cursor: "pointer",
+                        }}
+                        title={service.name}
+                      >
+                        {service.name.length > 10
+                          ? `${service.name.slice(0, 14)}...`
+                          : service.name}
+                      </div>
+                    </div>
+                    <div className="ms-4 d-flex gap-3">
+                      <i
+                        className="fa fa-pencil cursor-pointer"
+                        onClick={() => handleServiceEdit(service)}
+                      ></i>
+                      <i
+                        className="fa fa-trash cursor-pointer"
+                        onClick={() => handleServiceDelete(service.id!)}
+                      ></i>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="ms-4 d-flex gap-3">
-                <i
-                  className="fa fa-pencil cursor-pointer"
-                  onClick={() => handleServiceEdit(service)}
-                ></i>
-                <i
-                  className="fa fa-trash cursor-pointer"
-                  onClick={() => handleServiceDelete(service.id!)}
-                ></i>
-              </div>
+              ))}
             </div>
           </div>
-        ))}
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
       {/* Lead Cancellation Reasons Card */}
       <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
@@ -836,7 +846,7 @@ const handleSubcategoryDelete = async (id: string) => {
             <button
               onClick={handleCancellationReasonModalOpen}
               className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
@@ -844,7 +854,7 @@ const handleSubcategoryDelete = async (id: string) => {
             </button>
           </div>
           <div className="row mt-4">
-            {leadCancellationReasons.map((reason: any) => (
+            {sortCancellationReasonsAlphabetically(leadCancellationReasons).map((reason: any) => (
               <div key={reason.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
@@ -863,7 +873,7 @@ const handleSubcategoryDelete = async (id: string) => {
                         height: "18px",
                         backgroundColor: reason.color,
                       }}
-                      
+
                     ></div>
                     <div style={{
                       fontFamily: 'Inter, sans-serif',
@@ -881,9 +891,9 @@ const handleSubcategoryDelete = async (id: string) => {
                       onClick={() => handleCancellationReasonEdit(reason)}
                     ></i>
                     <i
-                  className="fa fa-trash cursor-pointer"
-                  onClick={() => handleCancellationReasonDelete(reason.id!)}
-                ></i>
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() => handleCancellationReasonDelete(reason.id!)}
+                    ></i>
                     {/* No delete functionality as per backend routes */}
                   </div>
                 </div>
@@ -899,7 +909,7 @@ const handleSubcategoryDelete = async (id: string) => {
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
         <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
             <h5 className="card-title" style={{
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
@@ -924,7 +934,7 @@ const handleSubcategoryDelete = async (id: string) => {
           </div>
 
           <div className="row mt-4">
-            {projectCategories.map((category) => (
+            {sortItemsAlphabetically(projectCategories).map((category) => (
               <div key={category.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
@@ -980,7 +990,7 @@ const handleSubcategoryDelete = async (id: string) => {
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
         <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
             <h5 className="card-title" style={{
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
@@ -1005,7 +1015,7 @@ const handleSubcategoryDelete = async (id: string) => {
           </div>
 
           <div className="row mt-4">
-            {projectSubcategories.map((subcategory) => (
+            {sortItemsAlphabetically(projectSubcategories).map((subcategory) => (
               <div key={subcategory.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
@@ -1108,42 +1118,42 @@ const handleSubcategoryDelete = async (id: string) => {
       />
 
       {/* Category Modal */}
-<ProjectConfigForm
-  show={showCategoryModal}
-  onClose={() => {
-    setShowCategoryModal(false);
-    setEditingCategory(null);
-  }}
-  onSuccess={fetchProjectCategories}
-  type="category"
-  title="Category"
-  isEditing={!!editingCategory}
-  initialData={editingCategory}
-/>
+      <ProjectConfigForm
+        show={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false);
+          setEditingCategory(null);
+        }}
+        onSuccess={fetchProjectCategories}
+        type="category"
+        title="Category"
+        isEditing={!!editingCategory}
+        initialData={editingCategory}
+      />
 
-{/* Subcategory Modal */}
-<ProjectConfigForm
-  show={showSubcategoryModal}
-  onClose={() => {
-    setShowSubcategoryModal(false);
-    setEditingSubcategory(null);
-  }}
-  onSuccess={() => {
-    fetchProjectSubcategories();
-    fetchProjectCategories();
-  }}
-  type="subcategory"
-  title="Subcategory"
-  isEditing={!!editingSubcategory}
-  initialData={editingSubcategory}
-/>
+      {/* Subcategory Modal */}
+      <ProjectConfigForm
+        show={showSubcategoryModal}
+        onClose={() => {
+          setShowSubcategoryModal(false);
+          setEditingSubcategory(null);
+        }}
+        onSuccess={() => {
+          fetchProjectSubcategories();
+          fetchProjectCategories();
+        }}
+        type="subcategory"
+        title="Subcategory"
+        isEditing={!!editingSubcategory}
+        initialData={editingSubcategory}
+      />
 
-      
+
       {/* Delete Confirmation Modal */}
       {directSourceDeleteConfirmation.DeleteModal}
       {/* Delete Confirmation Modal for Project Services */}
       {serviceDeleteConfirmation.DeleteModal}
-      
+
       {/* Chart Settings - Moved to LeadNewLead.tsx for modal access */}
       {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">  

@@ -296,6 +296,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   leadSource: lead.source?.name || lead.sourceId || lead?.leadSource || "",
                   referrals: lead.referrals || [],
                   companyType: lead.company?.companyTypeId || "",
+                  receivedDate: lead?.receivedDate || "",
                 };
               });
               
@@ -338,14 +339,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             { 
                 accessorKey: 'prefix',
                 header: 'Inquiry Id',
-                size: 80,
+                size: 250, 
+                minSize: 250, // Force minimum width
                 enableEditing: false,
                 Cell: ({ row }: { row: any }) => {
-                  return <span className="cursor-pointer "
+                  return <span className="cursor-pointer"
                       style={{
                         color: "inherit",
                         fontWeight: "600",
-                        fontSize: "14px",
+                        fontSize: "14.5px",
+                        whiteSpace: "nowrap", // Force single line
                       }}
                     >
                       {row?.original?.prefix || "N/A" }
@@ -355,10 +358,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             {
                 accessorKey: 'projectName',
                 header: 'Project Name',
-                size: 200,
+                size: 400, 
+                minSize: 400, // Force minimum width
                 Cell: ({ cell }: { cell: any }) => {
                     const value = cell.getValue();
-                    return typeof value === 'object' ? JSON.stringify(value) : value || 'N/A' ;
+                    return (
+                        <span style={{ whiteSpace: "nowrap" }}>
+                            {typeof value === 'object' ? JSON.stringify(value) : value || 'N/A'}
+                        </span>
+                    );
                 } 
             },
             {
@@ -427,6 +435,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         </div> : "N/A"
                     );
                 },
+            },
+            {
+                accessorKey: 'receivedDate',
+                header: 'Received Date',
+                size: 150,
+                Cell: ({ cell }: { cell: any }) => {
+                    const value = cell.getValue();
+                    return value ? dayjs(value).format('DD-MM-YYYY') : 'N/A';
+                }
             },
             {
                 accessorKey: 'poStatus',
@@ -503,7 +520,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             },
             {
                 accessorKey: 'createdAt',
-                header: 'Created Time',
+                header: 'Created Date',
                 size: 150,
                 Cell: ({ cell }: { cell: any }) =>
                     cell.getValue() ? dayjs(cell.getValue()).format('DD-MM-YYYY') : 'N/A'
@@ -943,6 +960,14 @@ const filteredData = (() => {
                     viewOwn={true}
                     viewOthers={true}
                     checkOwnWithOthers={true}
+                    enableColumnResizing={true}
+                    layoutMode="grid"
+                    muiTableContainerProps={{
+                        sx: {
+                            maxHeight: '700px',
+                            overflowX: 'auto',
+                        },
+                    }}
                     muiTableProps={{
                         sx: {
                             borderCollapse: 'separate',
@@ -958,40 +983,29 @@ const filteredData = (() => {
                             // },
                             sx: {
                                 cursor: 'pointer',
-                                backgroundColor: `${row.original?.status?.color}30`,
-                                // borderBottom:"5px solid red !important",
-                                padding: '10px !important',
+                                backgroundColor: `${row.original?.status?.color}20`, // Subtler background
+                                transition: 'all 0.2s ease',
                   
                                 '& .MuiTableCell-root': {
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  fontSize: '14px',
+                                  fontSize: '15.5px', // Larger, more visible font
                                   fontFamily: 'Inter',
-                                  fontWeight: '400',
-                                  padding: '8px 16px !important',
-                                  borderBottom: "2px solid white",
-                                  borderTop: "2px solid white",
-                                  // borderLeft:"5px solid white"
-                                  // margin:"20px !important"
+                                  fontWeight: '500',
+                                  padding: '16px 20px !important', // Increased padding for better spacing
+                                  border: 'none', // Removed white lines
+                                  color: '#333',
                                 },
                                 '& .MuiTableCell-root:first-of-type': {
                                   borderTopLeftRadius: '12px',
                                   borderBottomLeftRadius: '12px',
-                                  // marginTop:"40px !important"
-                                  borderLeft: "3px solid white"
-                  
                                 },
                                 '& .MuiTableCell-root:last-of-type': {
                                   borderTopRightRadius: '12px',
                                   borderBottomRightRadius: '12px',
-                                  borderRight: "3px solid white"
                                 },
                                 '&:hover': {
-                                  backgroundColor: `${row.original?.status?.color}99`,
-                                  '& td': {
-                                    color: 'black',
-                                  },
+                                  backgroundColor: `${row.original?.status?.color}40`,
+                                  transform: 'translateY(-2px)',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                                 },
                               },
 

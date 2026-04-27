@@ -4,11 +4,10 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { useState } from "react";
 
 /**
- * F2: Map internal leave type names (from DB) to their display names.
- * 'Floater Leaves' is marketed to employees as 'Paid Leaves'.
+ * Returns the leave type name as stored in the DB.
+ * No display-level renaming — "Floater Leaves" is shown as "Floater Leaves" everywhere.
  */
 export const getLeaveTypeDisplayName = (leaveType: string): string => {
-    if (leaveType === FLOATER_LEAVES) return 'Paid Leaves';
     return leaveType;
 };
 
@@ -364,7 +363,8 @@ export const buildLeaveData = (
             showAllowedPerMonth: false
         },
         {
-            label: 'Paid Leaves',  // Renamed from Floater Leaves
+            // label: 'Paid Leaves',  // Renamed from Floater Leaves
+            label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
             total: leaveBalances[FLOATER_LEAVES] || 0,
             color: '#9D4141',
@@ -388,39 +388,47 @@ export const buildLeaveData = (
         },
     ];
 
-    // Hide leaves where total = 0 (not allocated)
-    const paidLeaves = allPaidLeaves.filter(leave => leave.total > 0);
+    const paidLeaves = [...allPaidLeaves].sort((a, b) => a.label.localeCompare(b.label));
 
     // Calculate paid totals
     const totalPaidUsed = paidLeaves.reduce((sum, leave) => sum + leave.used, 0);
     const totalPaidAssigned = paidLeaves.reduce((sum, leave) => sum + leave.total, 0);
 
-    const allUnpaidLeaves = [
+    // Unpaid leave total is ALWAYS derived — never read from leaveBalances.
+    // leaveBalances is now built from leavesSummary (paid types only from the backend),
+    // so leaveBalances[UNPAID_LEAVES] will always be 0/undefined. The correct unpaid
+    // total is computed below as: 365 − totalPaidAssigned.
+    const TOTAL_YEAR_DAYS = 365;
+    const derivedUnpaidAssigned = Math.max(0, TOTAL_YEAR_DAYS - totalPaidAssigned);
+
+    // Always show the Unpaid Leaves row — its total is patched to derivedUnpaidAssigned.
+    // Do NOT filter by total > 0 before patching (the row starts at 0 since it's not in
+    // leavesSummary, but must always be visible as the derived remainder of the year).
+    const unpaidLeaves = [
         {
             label: UNPAID_LEAVES,
             used: leavesTakenCount[UNPAID_LEAVES] || 0,
-            total: leaveBalances[UNPAID_LEAVES] || 0,
+            total: derivedUnpaidAssigned,   // always derived: 365 − totalPaidAssigned
             color: '#9D4141',
             showAllowedPerMonth: false
         },
     ];
 
-    // Hide leaves where total = 0 (not allocated)
-    const unpaidLeaves = allUnpaidLeaves.filter(leave => leave.total > 0);
-
     // Calculate unpaid totals
     const totalUnpaidUsed = unpaidLeaves.reduce((sum, leave) => sum + leave.used, 0);
-    const totalUnpaidAssigned = unpaidLeaves.reduce((sum, leave) => sum + leave.total, 0);
+
+    // cappedUnpaidLeaves kept for API compat — total is already correct
+    const cappedUnpaidLeaves = unpaidLeaves;
 
     return {
         paidLeaves,
-        unpaidLeaves,
+        unpaidLeaves: cappedUnpaidLeaves,
         totalPaidUsed,
         totalPaidAssigned,
         totalUnpaidUsed,
-        totalUnpaidAssigned,
+        totalUnpaidAssigned: derivedUnpaidAssigned,
         grandTotalUsed: totalPaidUsed + totalUnpaidUsed,
-        grandTotalAssigned: totalPaidAssigned + totalUnpaidAssigned,
+        grandTotalAssigned: TOTAL_YEAR_DAYS,  // Always 365 — never paid+unpaid sum
     };
 };
 

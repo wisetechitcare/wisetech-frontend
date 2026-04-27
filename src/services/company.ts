@@ -36,9 +36,10 @@ export const deletePublicHolidayById = async (id : string) => {
     }
 }
 
-export const fetchLeaveOptions = async () => {
+export const fetchLeaveOptions = async (branchId?: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_LEAVE_OPTIONS}`;
+        const params = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_LEAVE_OPTIONS}${params}`;
         const { data } = await axios.get(endpoint);
         return data;
     }

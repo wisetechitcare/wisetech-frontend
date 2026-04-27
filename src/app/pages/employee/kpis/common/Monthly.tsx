@@ -72,45 +72,45 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         {
             icon: iconMapping["Attendance"],
             label: "Attendance",
-            score:
+            totalScore:
                 data?.find((m: any) => m.moduleName === "Attendance")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Leaves"],
             label: "Leaves",
-            score: data?.find((m: any) => m.moduleName === "Leaves")?.totalScore ?? 0,
+            totalScore: data?.find((m: any) => m.moduleName === "Leaves")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Projects"],
             label: "Projects",
-            score:
+            totalScore:
                 data?.find((m: any) => m.moduleName === "Projects")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Tasks"],
             label: "Tasks",
-            score: data?.find((m: any) => m.moduleName === "Tasks")?.totalScore ?? 0,
+            totalScore: data?.find((m: any) => m.moduleName === "Tasks")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Sale"],
             label: "Sale",
-            score: data?.find((m: any) => m.moduleName === "Sale")?.totalScore ?? 0,
+            totalScore: data?.find((m: any) => m.moduleName === "Sale")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Target"],
             label: "Target",
-            score: data?.find((m: any) => m.moduleName === "Target")?.totalScore ?? 0,
+            totalScore: data?.find((m: any) => m.moduleName === "Target")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Performance"],
             label: "Performance",
-            score:
+            totalScore:
                 data?.find((m: any) => m.moduleName === "Performance")?.totalScore ?? 0,
         },
         {
             icon: iconMapping["Ratings & Reviews"],
             label: "Ratings & Reviews",
-            score:
+            totalScore:
                 data?.find((m: any) => m.moduleName === "Ratings & Reviews")
                     ?.totalScore ?? 0,
         },

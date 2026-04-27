@@ -20,6 +20,17 @@ import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png"
 
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
 
+/**
+ * Returns true when the total worked duration is < 8 hours.
+ * Uses dayjs diff so no string parsing is needed — works directly with ISO timestamps.
+ * Returns false if either timestamp is missing (e.g. employee hasn't checked out yet).
+ */
+function isAttendanceDurationShort(checkIn: string | undefined, checkOut: string | undefined): boolean {
+    if (!checkIn || !checkOut) return false;
+    const minutes = dayjs(checkOut).diff(dayjs(checkIn), 'minute');
+    return minutes > 0 && minutes < 480; // 8h = 480 min
+}
+
 // Custom Modal Component
 interface CustomModalProps {
   show: boolean;
@@ -370,8 +381,11 @@ const DashboardDailyAttendanceOverview = () => {
     return actualCheckOut.isBefore(expectedCheckOut);
   }).length;
 
-  // Calculate absent count
-  const absentCount = Math.max(0, (totalEmployee || 0) - (employeesOnLeave?.length || 0) - (employeePresent || 0));
+  // Calculate absent count.
+  // employeesOnLeave from the API is a NUMBER (count), not an array — .length on a number
+  // returns undefined, silently making on-leave employees appear as absent.
+  // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
+  const absentCount = Math.max(0, (totalEmployee || 0) - (employesLeaveDatas?.length || 0) - (employeePresent || 0));
 
   // Modal handlers
   const handleCardClick = (type: ModalType) => {
@@ -883,9 +897,11 @@ const DashboardDailyAttendanceOverview = () => {
                           isEarlyCheckOut = actualCheckOut.isBefore(expectedCheckOut);
                         }
 
+                        // RED if: late check-in OR total worked < 8 hours
+                        const isShortDuration = isAttendanceDurationShort(emp.attendance.checkIn, emp.attendance.checkOut);
                         return (
                           <>
-                            <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                            <span className={(isLateCheckIn || isShortDuration) ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
                               <i className="bi bi-clock me-1"></i>
                               {dayjs(emp.attendance.checkIn).format('h:mm A')}
                             </span>
@@ -931,6 +947,7 @@ const DashboardDailyAttendanceOverview = () => {
                           isLateCheckIn = actualCheckIn.isAfter(expectedCheckIn);
                         }
 
+                        // Employee hasn't checked out yet — duration is unknown, so only flag late check-in
                         return (
                           <span className={isLateCheckIn ? "text-danger" : "text-success"} style={{ display: 'inline-flex', alignItems: 'center' }}>
                             <i className="bi bi-clock me-1"></i>
