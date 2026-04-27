@@ -204,8 +204,8 @@ function OpenLeaveRequests() {
         const res = await createKpiScore(workingDaysPayload)
         
         approvedBy.push(employeeIdCurrent); // FIX: push employee ID, not undefined role string
-        await updateLeaveStatus({ id: leave.id, status: LeaveStatus.Approved, approvedBy, approvedById: employeeIdCurrent });
-        successConfirmation('Leave request approved successfully');
+        await updateLeaveStatus({ id: leave.id, status: LeaveStatus.PendingHR, approvedBy, approvedById: employeeIdCurrent });
+        successConfirmation('Leave forwarded to HR for final approval.');
 
         setLeaveActionId(leave.id);
         const { data: { leaveRequest } } = await fetchLeaveRequest(selectedEmployeeId || undefined);
