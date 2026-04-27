@@ -184,7 +184,7 @@ const LeadFormModal = ({
   const [cities, setCities] = useState<any[]>([]);
   const [projectData, setProjectData] = useState<any>(null);
   const [useCalculatedAmount, setUseCalculatedAmount] = useState<boolean>(true);
-  const [allCompanyTypes, setAllCompanyTypes] = useState([]);
+  const [allCompanyTypes, setAllCompanyTypes] = useState<{ id: string | number; name: string }[]>([]);
   const [currCompanyTypeId, setCurrCompanyTypeId] = useState('')
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -1524,7 +1524,11 @@ const LeadFormModal = ({
     async function fetchAndSetCompanyType() {
       const { companyTypes } = await getAllCompanyTypes()
 
-      const sortedCompanyTypes = sortItemsAlphabetically(companyTypes)
+      const typesWithIds = companyTypes.map((ct, index: number) => ({
+        id: ct.id ?? index,
+        name: ct.name
+      }))
+      const sortedCompanyTypes = sortItemsAlphabetically(typesWithIds)
       setAllCompanyTypes(sortedCompanyTypes)
     }
     fetchAndSetCompanyType()
