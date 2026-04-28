@@ -1,5 +1,4 @@
 import { KTIcon } from "@metronic/helpers";
-import eventBus from "@utils/EventBus";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -12,6 +11,7 @@ import Timer from "./Timer";
 import { fetchWorkingMethods } from "@services/options";
 import LeaveOverview from "./LeaveOverview";
 import WorkingMethodOptions from "./WorkingMethodOptions";
+import eventBus from "@utils/EventBus";
 import dayjs from "dayjs";
 import { fetchEmpAttendanceStatistics, fetchEmployeeLeaves, getAllAttendanceRequestById, getAllKpiFactors, getAttendanceRequest } from "@services/employee";
 import { fetchAllPublicHolidays, fetchCompanyOverview } from "@services/company";
@@ -58,7 +58,8 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
     const [lengthOfAttendanceHistory, setLengthOfAttendanceHistory] = useState(5);
     const [previousAttendanceMarked, setPreviousAttendanceMarked] = useState(false);
     const [todayLeaveHoliday, setTodayLeaveHoliday] = useState(false);
-    const [hasCheckin, setHasCheckin] = useState('');
+    const [hasCheckin, setHasCheckin] = useState<string | null>(null);
+    const [hasCheckout, setHasCheckout] = useState<string | null>(null);
     const [raiseRequest, setRaiseRequest] = useState(false);
     const DateOfJoining = useSelector((state:RootState)=> state?.employee?.currentEmployee?.dateOfJoining);
     const isFirstDay = dayjs().format('YYYY-MM-DD') === dayjs(DateOfJoining).format('YYYY-MM-DD');
@@ -838,13 +839,18 @@ const getBlockingMessage = async () => {
     // checkin checkout for today
     useEffect(()=>{
         const fetchData = async () => {
+            if (!employeeId) return;
             const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD'));
             if(empAttendanceStatistics.length > 0){
                 setHasCheckin(empAttendanceStatistics[0].checkIn);
+                setHasCheckout(empAttendanceStatistics[0].checkOut);
+            } else {
+                setHasCheckin(null);
+                setHasCheckout(null);
             }
         }
         fetchData();
-    },[employeeId])
+    },[employeeId, raiseRequest])
 
 
     useEffect(() => {
@@ -949,7 +955,11 @@ const getBlockingMessage = async () => {
                 <button
                     className={`d-flex justify-content-between align-items-center bg-primary btn btn-primary w-100 ${isDashboard ? 'fs-6' : 'btn-lg fs-5'}`}
                     onClick={handleCheckClick}
-                    disabled={isLocationLoading || !(((latitudeNew && longitudeNew)) && isDeviceNotDesktop) || (!previousAttendanceMarked && lengthOfAttendanceHistory > 0 && !isFirstDay)}
+                    disabled={
+                        !!isLocationLoading || 
+                        !((!!latitudeNew && !!longitudeNew) && !!isDeviceNotDesktop) || 
+                        (!previousAttendanceMarked && lengthOfAttendanceHistory > 0 && !isFirstDay)
+                    }
                     >
                     <div className="d-flex justify-content-center">
                         <Timer />

@@ -1,9 +1,16 @@
 import axios from "axios";
-import { CLIENT_COMPANIES, LEAD_PROJECT_COMPANY, COMPANY_SERVICES } from "@constants/api-endpoint";
+import { CLIENT_COMPANIES, LEAD_PROJECT_COMPANY, COMPANY_SERVICES, COMPANY } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
+interface CompanyType {
+    id: string;
+    name: string;
+    color?: string;
+    isActive: boolean;
+}
+
 // Get All Company Types
-export const getAllCompanyTypes = async () => {
+export const getAllCompanyTypes = async (): Promise<{ companyTypes: CompanyType[] }> => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_COMPANY_TYPES}`;
         const { data } = await axios.get(endpoint);
@@ -170,11 +177,22 @@ export const getClientCompanyById = async (id: string) => {
     }
 }
 
+// Get All Sub Companies
+export const getAllSubCompanies = async () => {
+    try {
+        const finalEndpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_SUB_COMPANIES}`;
+        const { data } = await axios.get(finalEndpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Get All Client Contacts
-export const getAllClientContacts = async () => {
+export const getAllClientContacts = async (params: any = {}) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CONTACTS}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, { params });
         return data;
     } catch (err) {
         throw err;

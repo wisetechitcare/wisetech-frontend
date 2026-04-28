@@ -366,6 +366,8 @@ export interface IAttendanceRequests {
   formattedDate: string,
   checkIn: string,
   checkOut: string,
+  rawCheckIn?: string,
+  rawCheckOut?: string,
   workingMethod: string,
   workingMethodId: string,
   remarks: string,

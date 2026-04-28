@@ -7,7 +7,7 @@ import Papa from 'papaparse';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import {KTIcon} from "@metronic/helpers"
+import {KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption} from "@metronic/helpers"
 import SelectInput from "@app/modules/common/inputs/SelectInput"
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
@@ -60,6 +60,8 @@ rowCount?: number;
 onPaginationChange?: (pagination: any) => void;
 paginationState?: { pageIndex: number; pageSize: number };
 isLoading?: boolean;
+layoutMode?: 'grid' | 'grid-no-grow' | 'semantic';
+muiTableContainerProps?: any;
 }
 
 const defaultColumnSizes = {
@@ -101,6 +103,8 @@ function MaterialTable({
     onPaginationChange,
     paginationState,
     isLoading = false,
+    layoutMode = 'semantic',
+    muiTableContainerProps: customMuiTableContainerProps,
 }: MaterialTableProps) {    
     // Apply default sizing if not set
     const finalColumns = useMemo(() => 
@@ -247,13 +251,8 @@ function MaterialTable({
 
     // Apply column-specific filtering (defined first to avoid dependency issues)
     const applyColumnFilter = useCallback((searchValue: string, columnToSearch: string) => {
-        // Early return if column-specific search is disabled
         if (!enableColumnSpecificSearch) {
             return;
-        }
-        
-        if (enableColumnSpecificSearch) {
-            console.log("🔍 Applying filter:", { searchValue, columnToSearch });
         }
         
         if (!searchValue || searchValue.trim() === '') {
@@ -272,9 +271,6 @@ function MaterialTable({
                 
                 return Object.values(row).some((value: any) => {
                     if (value == null) return false;
-                    if (enableColumnSpecificSearch) {
-                        console.log("Value:: ", value);
-                    }
                     // improve this later to oly check for the values for the searchable columsn and not completely...
                     return String(value).toLowerCase().includes(searchTerm);
                 });
@@ -286,29 +282,14 @@ function MaterialTable({
             }
         });
 
-        if (enableColumnSpecificSearch) {
-            console.log("🔍 Filtered results:", { 
-                originalCount: finalData.length, 
-                filteredCount: filtered.length,
-                searchTerm,
-                columnToSearch 
-            });
-        }
-        
         setFilteredData(filtered);
     }, [finalData, enableColumnSpecificSearch]);
 
     // Handle column selector change
     const handleSearchColumnChange = useCallback((value: string) => {
-        console.log("request recieved again");
         
         if (!enableColumnSpecificSearch) {
             return;
-        }
-        console.log("request recieved");
-        
-        if (enableColumnSpecificSearch) {
-            console.log("Column selected:: ", value);
         }
         setSelectedSearchColumn(value);
         // Re-apply filter with current search value
@@ -319,11 +300,6 @@ function MaterialTable({
     const handleGlobalFilterChange = useCallback((filterValue: string) => {
         if (!enableColumnSpecificSearch) {
             return;
-        }
-        
-        if (enableColumnSpecificSearch) {
-            console.log("🌍 CUSTOM Global filter changed to:", filterValue);
-            console.log("🌍 selectedSearchColumn:", selectedSearchColumn);
         }
         setGlobalFilterValue(filterValue);
         applyColumnFilter(filterValue, selectedSearchColumn);
@@ -473,19 +449,6 @@ function MaterialTable({
     // MUST be before any early returns to comply with Rules of Hooks
     const tableData = useMemo(() => {
         const dataToUse = enableColumnSpecificSearch ? filteredData : finalData;
-        
-        // Only log when column-specific search is enabled
-        if (enableColumnSpecificSearch) {
-            console.log("📊 Data passed to MaterialReactTable:", {
-                enableColumnSpecificSearch,
-                dataLength: dataToUse.length,
-                filteredDataLength: filteredData.length,
-                finalDataLength: finalData.length,
-                selectedSearchColumn,
-                globalFilterValue
-            });
-        }
-        
         return dataToUse;
     }, [enableColumnSpecificSearch, filteredData, finalData, selectedSearchColumn, globalFilterValue]);
     
@@ -564,8 +527,6 @@ function MaterialTable({
                                     <div style={{ position: 'relative', zIndex: 1001 }}>
                                         <SelectInput
                                             options={(() => {
-                                                console.log("effectiveSearchableColumns:: ",effectiveSearchableColumns);
-                                                
                                                 const columnSelectOptions = [
                                                     { label: 'All Columns', value: 'all' },
                                                     ...effectiveSearchableColumns.filter((col:any) => col.value !== 'all').map((col:any) => ({
@@ -679,7 +640,7 @@ function MaterialTable({
                         columnSizing: preferences.columnSizing,
                         columnPinning: preferences.columnPinning,
                         sorting: preferences.sorting,
-                        ...(manualPagination && paginationState && { pagination: paginationState }),
+                        pagination: paginationState || preferences.pagination,
                         density: preferences.density,
                         expanded: preferences.expanded,
                         isLoading: isLoading,
@@ -690,7 +651,7 @@ function MaterialTable({
                     onColumnSizingChange={updateColumnSizing}
                     onColumnPinningChange={updateColumnPinning}
                     onSortingChange={updateSorting}
-                    {...(manualPagination && { onPaginationChange: handlePaginationChange })}
+                    onPaginationChange={onPaginationChange || updatePagination}
                     onDensityChange={updateDensity}
                     onExpandedChange={updateExpanded}
                     manualPagination={manualPagination}
@@ -701,6 +662,7 @@ function MaterialTable({
                     enableGrouping={enableGrouping ?? true}
                     enableSorting={enableSorting ?? true}
                     enableExpandAll={enableExpandAll ?? true}
+                    enableRowVirtualization
                     enableStickyHeader
                     enableBottomToolbar={enableBottomToolbar ?? true}
                     enableTableHead={enableTableHead ?? true}
@@ -724,8 +686,13 @@ function MaterialTable({
                     }}
                     muiTableContainerProps={{
                         ref: tableContainerRef,
-                        style: { overflowX: 'auto' }
+                        ...customMuiTableContainerProps,
+                        sx: {
+                            overflowX: 'auto',
+                            ...(customMuiTableContainerProps?.sx || {}),
+                        }
                     }}
+                    layoutMode={layoutMode}
                     {...muiTableProps}
                     muiTableBodyRowProps={muiTableProps?.muiTableBodyRowProps || {}}
                     enableDensityToggle={false}
@@ -936,15 +903,15 @@ function MaterialTable({
                                         )}
 
                                         {/* Rows per page */}
-                                        {/* <Box sx={{
+                                        <Box sx={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: { xs: '4px', md: '8px' },
-                                            ml: { xs: 0, lg: 'auto' },
+                                            ml: { xs: 0, lg: 1 },
                                             flexShrink: 0
                                         }}>
                                             <span style={{
-                                                fontSize: isMobile ? '11px' : '14px',
+                                                fontSize: isMobile ? '11px' : '13px',
                                                 fontWeight: 400,
                                                 color: '#1a1a1a',
                                                 whiteSpace: 'nowrap',
@@ -953,21 +920,34 @@ function MaterialTable({
                                             </span>
                                             <select
                                                 value={pageSize}
-                                                onChange={(e) => table.setPageSize(Number(e.target.value))}
+                                                onChange={(e) => {
+                                                    table.setPageSize(Number(e.target.value) as PageSizeOption)
+                                                    table.setPageIndex(0)
+                                                }}
                                                 style={{
-                                                    padding: isMobile ? '4px 8px' : '6px 12px',
-                                                    fontSize: isMobile ? '11px' : '14px',
+                                                    padding: isMobile ? '4px 8px' : '5px 10px',
+                                                    fontSize: isMobile ? '11px' : '13px',
                                                     border: '1px solid #E1E8F0',
                                                     borderRadius: '6px',
                                                     cursor: 'pointer',
                                                     backgroundColor: '#fff',
                                                 }}
                                             >
-                                                {[10, 20, 50, 100].map((size) => (
+                                                {PAGE_SIZE_OPTIONS.map((size) => (
                                                     <option key={size} value={size}>{size}</option>
                                                 ))}
                                             </select>
-                                        </Box> */}
+                                            {!isMobile && totalRows > 0 && (
+                                                <span style={{
+                                                    fontSize: '13px',
+                                                    color: '#7A8597',
+                                                    whiteSpace: 'nowrap',
+                                                    marginLeft: '8px',
+                                                }}>
+                                                    {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)} of {totalRows}
+                                                </span>
+                                            )}
+                                        </Box>
                                     </Box>
 
                                     {/* Center: Scroll arrows */}

@@ -12,7 +12,7 @@ export const fetchCurrentUser = async (id: string) => {
     catch (err) {
         throw err;
     }
-}
+} 
 
 export const createNewUser = async (payload: any) => {
     try {

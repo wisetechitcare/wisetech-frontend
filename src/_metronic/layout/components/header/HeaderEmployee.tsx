@@ -66,7 +66,7 @@ export const HeaderEmployee = () => {
           {avatarUrl ? (<img src={`${avatarUrl}`} alt='Avatar' style={{ objectFit: "cover" }} />) : null}
         </div>
         <div>
-          <span className='fw-bold fs-6 text-dark px-3 d-none d-lg-block'>
+          <span className='fw-bold ${fontSize} text-dark px-3 d-none d-lg-block'>
             {currEmployee.users?.firstName} {currEmployee.users?.lastName}
           </span>
         </div>

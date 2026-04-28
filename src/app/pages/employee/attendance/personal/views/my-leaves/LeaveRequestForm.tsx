@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Formik, Form, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import Flatpickr from 'react-flatpickr';
@@ -6,7 +6,8 @@ import Select from 'react-select';
 import { KTCardBody } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeDiscretionaryBalanceById } from '@services/employee';
+import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeDiscretionaryBalanceById, fetchEmployeeLeaveBalance } from '@services/employee';
+import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
 import { ILeaveRequest } from '@models/employee';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -20,10 +21,9 @@ import dayjs from 'dayjs';
 import { fetchAllAddonLeavesAllowances } from '@services/addonLeavesAllowance';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { calculateProRatedMonths } from '@utils/fiscalYearHelper';
-import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
-import { useEventBus } from '@hooks/useEventBus';
-import { EVENT_KEYS } from '@constants/eventKeys';
+import { getWorkingDays } from '@utils/leaves';
 import eventBus from '@utils/EventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 let initialValues: ILeaveRequest = {
   employeeId: "",
   leaveTypeId: "",
@@ -85,6 +85,9 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   const [allowedPerMonth, setAllowedPerMonth] = useState(allowedPerMonthFromRedux || 1);
   const [currentMonthUsage, setCurrentMonthUsage] = useState<number>(0);
   const [showMonthlyLimitInfo, setShowMonthlyLimitInfo] = useState(false);
+  const [cumulativeSummary, setCumulativeSummary] = useState<{
+    total: number; used: number; allowedTillNow: number; remaining: number;
+  } | null>(null);
 
   // Update allowedPerMonth when Redux value changes
   useEffect(() => {
@@ -97,6 +100,10 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   const userAgent = useSelector((state: RootState) => state.userAgent.userAgent);
   const isIosAndDeviceIsMobile = userAgent.os.name === 'iOS' && userAgent.device.type === 'Mobile';
 
+  // F4: Track the last fetch context to avoid redundant API calls when only the
+  //     `leave` prop reference changes (e.g. parent re-renders with new object identity).
+  const lastFetchKey = useRef<string | null>(null);
+
   useEffect(() => {
     const fetchOptions = async () => {
       if (!startDateNew || !endDateNew || !employeeId || !employeeBranchId) return;
@@ -105,6 +112,12 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
         const { data: { leaveOptions } } = await fetchLeaveOptions();
         const result = await fetchEmployeeDiscretionaryBalanceById(employeeId);
+
+        // Fetch per-employee LeaveBalance (same source as BalanceProgress dashboard).
+        // leaveOptions.numberOfDays is a branch-wide default and can differ from the
+        // employee's actual allocation stored in LeaveBalance.totalAllocated.
+        const balanceResponse = await fetchEmployeeLeaveBalance(employeeId);
+        const leavesSummary: any[] = balanceResponse?.data?.leavesSummary || [];
 
         // Transform and store fetched leaves (for both admin AND employee mode)
         const transformedLeaves = transformLeaves(leaves || []);
@@ -120,21 +133,32 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
         const discretionaryLeaveBalance = result?.data?.employee?.discretionaryLeaveBalance;
         const discretionaryLeaveBoolean = result?.data?.employee?.discretionaryLeaveBoolean;
-        
+
+        // Build a map of leaveType → actual allocated days (from LeaveBalance.totalAllocated).
+        // This is the per-employee value, identical to what BalanceProgress displays.
+        // leaveOptions.numberOfDays is a branch-wide default and diverges when an employee
+        // has a custom allocation or addon leaves merged by the backend.
+        const leaveBalanceMap: Record<string, number> = {};
+        leavesSummary.forEach((summary: any) => {
+          let days = Number(summary.numberOfDays) || 0;
+          if (discretionaryLeaveBoolean && summary.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase())) {
+            days += Number(discretionaryLeaveBalance ?? 0);
+          }
+          leaveBalanceMap[summary.leaveType] = days;
+        });
+
         // Filter options by branch
         const leaveOptionsData = leaveOptions.filter(
           (option: any) => option.branchId === employeeBranchId
         );
 
         const allLeaveOption = leaveOptionsData.map((option: any) => {
-          
+
         const isCasual = discretionaryLeaveBoolean && option.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase());
         const discretionaryExtra = isCasual ? Number(discretionaryLeaveBalance ?? 0) : 0;
         const finalNumberOfDays = (Number(option.numberOfDays) || 0) + discretionaryExtra;
-        // debugger;
           return {
             ...option,
-            ...({leaveType: option?.leaveType?.toLowerCase().includes("floater leave") ? "Paid Leaves" : option?.leaveType}), 
             numberOfDays: finalNumberOfDays,
             isDiscretionaryApplied: isCasual,
           };
@@ -231,27 +255,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           dayjs()
         );
 
-        // Calculate tenure months (for Annual Leaves)
-        // If employee joined before fiscal year start, count from fiscal year start
-        // If employee joined after fiscal year start, count from joining date
-        // This ensures the count resets every April 1st
-        // For past/future fiscal years, calculate as of the fiscal year end date
-        const joiningDate = dayjs(dateOfJoiningInString);
-        const fiscalStart = dayjs(actualCurrentFiscalStart);
-        const fiscalEnd = dayjs(actualCurrentFiscalEnd);
-        const today = dayjs();
-
-        // Use the appropriate end date for calculation
-        // If viewing current fiscal year and it's not ended yet, use today
-        // Otherwise, use the fiscal year end date
-        const calculationDate = fiscalEnd.isAfter(today) && fiscalStart.isBefore(today)
-            ? today
-            : fiscalEnd;
-
-        const startDate = joiningDate.isAfter(fiscalStart) ? joiningDate : fiscalStart;
-        const tenureMonths = calculationDate.diff(startDate, 'month') + 1;
-
         const monthsInYear = 12;
+
 
         // Helper function to calculate total leave days for a leave record
         // Uses branch working/off days config and excludes holidays with isWeekend=true
@@ -408,6 +413,32 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           // console.log("Total leaves to subtract (transfer + encash):", currentFiscalTransferredLeaves);
         }
 
+        // Derive the effective unpaid leave allocation.
+        // Unpaid leaves are NOT a separate 365-day bucket — they represent the remaining days
+        // of the year after all paid leave types are accounted for.
+        // Formula: unpaidBudget = 365 - sum(all paid leave type allocations)
+        // This keeps the dropdown consistent with the Balance page (balanceProgressUtils.ts buildLeaveData).
+        const totalPaidAllocated = allLeaveOption
+            .filter((opt: any) => opt.leaveType !== UNPAID_LEAVES)
+            .reduce((sum: number, opt: any) => sum + (leaveBalanceMap[opt.leaveType] ?? (Number(opt.numberOfDays) || 0)), 0);
+        const derivedUnpaidDays = Math.max(0, 365 - totalPaidAllocated);
+
+        // Cumulative allowance summary for the modal info block
+        {
+          const today = dayjs();
+          const month = today.month() + 1; // 1-based
+          const fiscalMonthIdx = month >= 4 ? month - 3 : month + 9;
+          const allowedTillNow = Math.round((totalPaidAllocated / 12) * fiscalMonthIdx);
+          const totalPaidUsed = casualDaysTaken + annualDaysTaken + sickDaysTaken + floaterDaysTaken + maternalDaysTaken;
+          const remaining = Math.max(0, allowedTillNow - Math.round(totalPaidUsed));
+          setCumulativeSummary({
+            total: totalPaidAllocated,
+            used: Math.round(totalPaidUsed),
+            allowedTillNow,
+            remaining,
+          });
+        }
+
         // Process leave options
         setStatusOptions(
           allLeaveOption
@@ -417,39 +448,20 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 const casualLeaveOption = allLeaveOption.find(
                   (opt: any) => opt.leaveType === CASUAL_LEAVES
                 );
-                const totalYearlyCasualLeaves = Number(casualLeaveOption?.numberOfDays) || 0;
+                const totalYearlyCasualLeaves = leaveBalanceMap[CASUAL_LEAVES] ?? (Number(casualLeaveOption?.numberOfDays) || 0);
                 const transferredCasual = transferredLeaves[CASUAL_LEAVES] || 0;
                 const transferringCasual = currentFiscalTransferredLeaves[CASUAL_LEAVES] || 0;
-                // console.log("totalYearlyCasualLeaves",totalYearlyCasualLeaves);
-                // console.log("transferredCasual",transferredCasual);
-                // console.log("transferringCasual",transferringCasual);
 
-                const monthlyCasualLeave = totalYearlyCasualLeaves / monthsInYear;
+                // Use full-year allocation (not pro-rated) so the option stays visible throughout
+                // the fiscal year. Cumulative backend validation governs actual eligibility.
+                const totalWithTransferred = totalYearlyCasualLeaves + transferredCasual;
+                const availableLeaves = Math.max(0, totalWithTransferred - casualDaysTaken - transferringCasual);
 
-                // Calculate pro-rated leaves based on pro-rated months (considers mid-year joining)
-                let proRatedLeaves = Math.floor((monthlyCasualLeave * proRatedMonths * 10) / 10);
-                // Apply allowedPerMonth cap
-                proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
-
-                // Add transferred leaves to pro-rated amount
-                const totalWithTransferred = proRatedLeaves + transferredCasual;
-                // Calculate available leaves (subtract taken leaves AND leaves being transferred)
-                const availableLeaves = Math.max(
-                  0,
-                  totalWithTransferred - casualDaysTaken - transferringCasual
-                );
-
-                // Only show if at least 0.5 days available
-                if (availableLeaves >= 1) {
-                  // Format to show .0 for whole numbers, otherwise show 1 decimal
-                  const displayDays = Number.isInteger(availableLeaves)
-                    ? availableLeaves.toFixed(0)
-                    : availableLeaves.toFixed(1);
-
+                if (totalWithTransferred > 0) {
                   return {
                     value: option.id,
-                    label: `${option.leaveType} (${Math.floor(Number(displayDays))} days)`,
-                    limit: Math.floor(totalWithTransferred) // Use total with transferred as the limit
+                    label: `${option.leaveType} (${availableLeaves} days left)`,
+                    limit: Math.floor(totalWithTransferred)
                   };
                 }
                 return null;
@@ -458,28 +470,16 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 const transferredAnnual = transferredLeaves[ANNUAL_LEAVES] || 0;
                 const transferringAnnual = currentFiscalTransferredLeaves[ANNUAL_LEAVES] || 0;
 
-                // NEW LOGIC: Based on tenure (months since joining or fiscal year start)
-                // Employee gets 1 leave at start, then +1 for each month
-                // Resets every April 1st (fiscal year start)
-                let proRatedLeaves = tenureMonths;
+                // leaveBalanceMap already includes addon leaves (backend merges them into totalAllocated).
+                // Fall back to leaveOptions + addon if the employee has no LeaveBalance record yet.
+                const fullYearAllocation = leaveBalanceMap[ANNUAL_LEAVES] ?? ((Number(option.numberOfDays) || 0) + (Number(addonLeaveAllowanceCount) || 0));
+                const totalWithTransferred = fullYearAllocation + transferredAnnual;
+                const availableLeaves = Math.max(0, totalWithTransferred - annualDaysTaken - transferringAnnual);
 
-                // Apply allowedPerMonth cap
-                proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * tenureMonths);
-
-                // Add addon leave allowance (experience-based leaves) and transferred leaves
-                const totalWithAddon = proRatedLeaves + (+ Number(addonLeaveAllowanceCount) || 0);
-                const totalWithTransferred = totalWithAddon + transferredAnnual;
-
-                // Calculate available leaves (subtract taken leaves AND leaves being transferred)
-                const availableLeaves = Math.max(
-                  0,
-                  totalWithTransferred - annualDaysTaken - transferringAnnual
-                );
-
-                if (availableLeaves >= 1) {
+                if (totalWithTransferred > 0) {
                   return {
                     value: option.id,
-                    label: `${option.leaveType} (${availableLeaves} days)`,
+                    label: `${option.leaveType} (${availableLeaves} days left)`,
                     limit: Math.floor(totalWithTransferred)
                   };
                 }
@@ -490,7 +490,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 // Maternal leave - no pro-rating, full allocation available (special-purpose leave)
                 const transferredMaternal = transferredLeaves[MATERNAL_LEAVES] || 0;
                 const transferringMaternal = currentFiscalTransferredLeaves[MATERNAL_LEAVES] || 0;
-                const totalWithTransferred = option.numberOfDays + transferredMaternal;
+                const totalWithTransferred = (leaveBalanceMap[MATERNAL_LEAVES] ?? option.numberOfDays) + transferredMaternal;
 
                 // Calculate available leaves (subtract taken leaves AND leaves being transferred)
                 const availableLeaves = Math.max(
@@ -498,10 +498,10 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   totalWithTransferred - maternalDaysTaken - transferringMaternal
                 );
 
-                if (availableLeaves >= 1) {
+                if (totalWithTransferred > 0) {
                   return {
                     value: option.id,
-                    label: `${option.leaveType} (${availableLeaves} days)`,
+                    label: `${option.leaveType} (${availableLeaves} days left)`,
                     limit: Math.floor(totalWithTransferred)
                   };
                 }
@@ -511,7 +511,12 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 // For other leave types (Sick, Floater, Unpaid) - no pro-rating
                 const transferredOther = transferredLeaves[option.leaveType] || 0;
                 const transferringOther = currentFiscalTransferredLeaves[option.leaveType] || 0;
-                const totalWithTransferred = option.numberOfDays + transferredOther;
+                // For Unpaid Leaves, use the derived cap (365 - paid) instead of the raw DB value (365).
+                // This ensures the dropdown is consistent with the Balance page calculation.
+                const effectiveNumberOfDays = option.leaveType === UNPAID_LEAVES
+                    ? derivedUnpaidDays
+                    : (leaveBalanceMap[option.leaveType] ?? option.numberOfDays);
+                const totalWithTransferred = effectiveNumberOfDays + transferredOther;
 
                 // Get days taken for this specific leave type
                 let daysTaken = 0;
@@ -519,26 +524,32 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   daysTaken = sickDaysTaken;
                 } else if (option.leaveType === FLOATER_LEAVES) {
                   daysTaken = floaterDaysTaken;
-                }
-                 else if (option.leaveType === UNPAID_LEAVES) {
+                } else if (option.leaveType === UNPAID_LEAVES) {
                   daysTaken = unpaidDaysTaken;
                 }
 
                 // Calculate available leaves (subtract taken leaves AND leaves being transferred)
                 const availableLeaves = Math.max(0, totalWithTransferred - daysTaken - transferringOther);
 
-                // Only show if at least 1 day available
-                if (availableLeaves >= 1) {
+                if (totalWithTransferred > 0) {
                   return {
                     value: option.id,
-                    label: `${option.leaveType} (${availableLeaves} days)`,
+                    label: `${option.leaveType} (${availableLeaves} days left)`,
                     limit: Math.floor(totalWithTransferred)
                   };
                 }
                 return null;
               }
             })
-            .filter((option: any) => option !== null) // Remove null entries
+            .filter((option: any) => option !== null)
+            .sort((a: any, b: any) => {
+              // Unpaid always last; all other types alphabetically
+              const aUnpaid = a.label.toLowerCase().includes('unpaid');
+              const bUnpaid = b.label.toLowerCase().includes('unpaid');
+              if (aUnpaid && !bUnpaid) return 1;
+              if (!aUnpaid && bUnpaid) return -1;
+              return a.label.localeCompare(b.label);
+            })
         );
       } catch (error) {
         console.error("❌ [LeaveRequestForm] Error fetching leave options:", error);
@@ -547,7 +558,14 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     };
 
     if (employeeId && employeeBranchId && startDateNew && endDateNew) {
-      fetchOptions();
+      // F4: Build a stable key from the context values that actually require a re-fetch.
+      //     The leave.id is included so editing a different leave triggers a fresh fetch,
+      //     but a new object reference for the same leave does not.
+      const fetchKey = `${employeeId}|${employeeBranchId}|${startDateNew}|${endDateNew}|${leave?.id ?? ''}`;
+      if (lastFetchKey.current !== fetchKey) {
+        lastFetchKey.current = fetchKey;
+        fetchOptions();
+      }
     }
   }, [employeeId, employeeBranchId, startDateNew, endDateNew, leave]); // Re-fetch when modal opens/closes
 
@@ -562,21 +580,38 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     const limit = leaveTypeSelected.limit;
     setLimit(limit);
 
-    // Only count approved leaves as "used" - pending leaves should not reduce available balance
-    const usedLeaves = employeeLeavesData.filter((leave: any) =>
-      (leave.leaveTypeId === leaveTypeSelected.value &&
-       leave.status === LeaveApprovedStatus.Approved)
-    ).length;
+    // Only count approved leaves as "used" — scoped to the CURRENT fiscal year.
+    // Previously this counted ALL leaves across all fiscal years, so 3 leaves taken
+    // in a previous FY were subtracted from this year's 12-leave balance, showing
+    // a false "Only 9 remain" warning even when nothing had been used this year.
+    const usedLeaves = employeeLeavesData
+      .filter((leave: any) => {
+        if (leave.leaveTypeId !== leaveTypeSelected.value) return false;
+        if (leave.status !== LeaveApprovedStatus.Approved) return false;
+        // Scope to current fiscal year using the same date range as the dropdown
+        const leaveDate = leave.dateFrom || leave.date;
+        if (!leaveDate) return false;
+        if (startDateNew && leaveDate < startDateNew) return false;
+        if (endDateNew && leaveDate > endDateNew) return false;
+        return true;
+      })
+      .reduce((total: number, leave: any) => total + getWorkingDays(leave), 0);
 
     const exactLeaves = Math.max(0, limit - usedLeaves);
     setUsedLeaves(usedLeaves);
     setCountTotalLeaves(exactLeaves);
 
-    // Show warning only when there are no leaves remaining
-    if (exactLeaves <= 0) {
-      setWarningMessage(`You have used all ${limit} of your allowed ${leaveTypeSelected.label.toLowerCase()}.`);
+    // Show immediate warning if cumulative balance is exhausted (before dates are picked)
+    const isUnpaidType = leaveTypeSelected?.label?.toLowerCase().includes('unpaid') || false;
+    if (cumulativeSummary && cumulativeSummary.remaining === 0 && !isUnpaidType) {
+      setWarningMessage(`⚠️ Cumulative Limit Alert: No remaining cumulative leave balance. You have used all ${cumulativeSummary.used} of ${cumulativeSummary.allowedTillNow} leaves allowed till now.`);
     }
-  }, [leaveTypeSelected, employeeLeavesData]);
+
+    // BUG 1 FIX: Do NOT show the "all used" warning here (on leave type selection).
+    // The warning is shown only after dates are picked, inside calculateLeaveCount,
+    // which already checks `leaveDays > countTotalLeaves` at that point.
+    // Showing the warning here (before any dates are selected) is premature and confusing.
+  }, [leaveTypeSelected, employeeLeavesData, startDateNew, endDateNew]);
 
   // Set leaveTypeSelected when editing existing leave and statusOptions are loaded
   useEffect(() => {
@@ -643,6 +678,52 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     setShowMonthlyLimitInfo(true);
   }, [employeeLeavesData]);
 
+  const setFieldValueRef = useRef<((field: string, value: any, shouldValidate?: boolean) => void) | null>(null);
+
+  useEffect(() => {
+    const setFieldValue = setFieldValueRef.current;
+    if (!setFieldValue) return;
+
+    if (leave) {
+      setFieldValue('employeeId', leave.employeeId);
+      setFieldValue('leaveTypeId', leave.leaveTypeId);
+      setFieldValue('dateFrom', leave.dateFrom);
+      setFieldValue('dateTo', leave.dateTo);
+      setFieldValue('reason', leave.reason || '');
+      setFieldValue('status', leave.statusNumber);
+      // Recalculate leave count when editing
+      if (leave.dateFrom && leave.dateTo) {
+        const start = new Date(leave.dateFrom);
+        const end = new Date(leave.dateTo);
+        let leaveDays = 0;
+        for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+          const dayOfWeek = date.getDay();
+          if (sandwhichConfiguration) {
+            leaveDays += 1;
+          } else if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            leaveDays += 1;
+          }
+        }
+        setLeaveCount(leaveDays);
+      }
+    } else if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
+      setFieldValue('employeeId', '');
+      setFieldValue('leaveTypeId', '');
+      setFieldValue('dateFrom', selectedDateTimeInfo.startStr);
+      setFieldValue('reason', '');
+      setFieldValue('status', 0);
+      setLeaveCount(0);
+    } else {
+      setFieldValue('employeeId', '');
+      setFieldValue('leaveTypeId', '');
+      setFieldValue('dateFrom', '');
+      setFieldValue('dateTo', '');
+      setFieldValue('reason', '');
+      setFieldValue('status', 0);
+      setLeaveCount(0);
+    }
+  }, [leave, selectedDateTimeInfo]);
+
   return (
     <Formik
       initialValues={{ ...initialValues, employeeId }}
@@ -660,11 +741,21 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           const isUnpaidLeave = leaveTypeSelected?.label?.toLowerCase().includes('unpaid') || false;
 
           if (!leave && !isUnpaidLeave) {
+            // BUG 2 FIX: Call the real validator from @utils/monthlyLeaveValidator.
+            // The previous local stub at the bottom of this file always returned { isValid: true },
+            // completely bypassing the monthly limit check on form submission.
+            // We also pass publicHolidays and branchWorkingDays for accurate off-day detection.
+            const publicHolidayDates = (publicHolidays || []).map((h: any) =>
+              typeof h === 'string' ? h : h?.date ? h.date.split('T')[0] : ''
+            ).filter(Boolean);
+
             const validationResult = await validateMonthlyLeaveLimit(
               employeeId,
               values.dateFrom,
               values.dateTo,
-              allowedPerMonth
+              allowedPerMonth,
+              publicHolidayDates,
+              workingAndOffDays
             );
 
             if (!validationResult.isValid) {
@@ -748,6 +839,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         isSubmitting,
         resetForm,
       }) => {
+        setFieldValueRef.current = setFieldValue;
+
         const calculateLeaveCount = (fromDate: string, toDate: string) => {
           if (fromDate && toDate) {
             const start = new Date(fromDate);
@@ -796,6 +889,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               });
 
               relevantLeaves.forEach((leave: any) => {
+                const workingDaysInLeave = getWorkingDays(leave);
                 const leaveFromDate = dayjs(leave.dateFrom);
                 const leaveToDate = dayjs(leave.dateTo);
                 let leaveDate = leaveFromDate;
@@ -846,17 +940,25 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             if (leaveDays === 0) {
               setWarningMessage(`⚠️ Weekend Leave Not Allowed: The selected date range contains only weekend days (Saturday/Sunday). Please select dates that include at least one working day.`);
             }
-            // Priority 2: Check monthly limit (applies to paid leave types only - skip for Unpaid Leaves)
+            // Priority 2: Cumulative fiscal-year check (source of truth for paid leave quota)
+            else if (!isUnpaidLeaveSelected && cumulativeSummary && leaveDays > cumulativeSummary.remaining) {
+              setWarningMessage(
+                cumulativeSummary.remaining === 0
+                  ? `⚠️ Cumulative Limit Alert: No remaining cumulative leave balance. You have used all ${cumulativeSummary.used} of ${cumulativeSummary.allowedTillNow} leaves allowed till now.`
+                  : `⚠️ Cumulative Limit Alert: You can only apply for ${cumulativeSummary.remaining} more leave(s). You have used ${cumulativeSummary.used} of ${cumulativeSummary.allowedTillNow} allowed till now.`
+              );
+            }
+            // Priority 3: Per-month cap (HR-configured max leaves per calendar month)
             else if (monthlyLimitExceeded && !isUnpaidLeaveSelected) {
               if (existingCount > 0) {
-                setWarningMessage(`⚠️ Monthly Limit Alert: You have already taken/requested ${existingCount} ${existingCount === 1 ? 'leave' : 'leaves'} in ${exceededMonth}. Adding ${requestingCount} more would total ${totalCount} ${totalCount === 1 ? 'leave' : 'leaves'}, exceeding your limit of ${allowedPerMonth}. Please adjust your dates.`);
+                setWarningMessage(`⚠️ Monthly Limit Alert: You have already used ${existingCount} leaves in ${exceededMonth}. Adding ${requestingCount} more would exceed your monthly limit of ${allowedPerMonth}. Please adjust your dates.`);
               } else {
-                setWarningMessage(`⚠️ Monthly Limit Alert: You are trying to request ${requestingCount} ${requestingCount === 1 ? 'leave' : 'leaves'} in ${exceededMonth}, but you are allowed only ${allowedPerMonth} ${allowedPerMonth === 1 ? 'leave' : 'leaves'} per month (combined across all leave types). Please adjust your dates.`);
+                setWarningMessage(`⚠️ Monthly Limit Alert: You are requesting ${requestingCount} ${requestingCount === 1 ? 'leave' : 'leaves'} in ${exceededMonth}, but your monthly limit is ${allowedPerMonth} day(s). Please adjust your dates.`);
               }
             }
-            // Priority 2: Check individual leave type balance
+            // Priority 4: Individual leave type balance
             else if(leaveDays > countTotalLeaves && leaveTypeSelected) {
-              setWarningMessage(`You have used ${usedLeaves} of your ${limit} allowed leaves. Only ${countTotalLeaves} leaves remain.`);
+              setWarningMessage(`⚠️ Insufficient Balance: You are requesting ${leaveDays} days, but you only have ${countTotalLeaves} ${countTotalLeaves === 1 ? 'leave' : 'leaves'} remaining.`);
             }
 
             setLeaveCount(leaveDays);
@@ -884,33 +986,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             color: '#721c24',
           }),
         };
-
-        useEffect(() => {
-          if (leave) {
-            setFieldValue('employeeId', leave.employeeId);
-            setFieldValue('leaveTypeId', leave.leaveTypeId);
-            setFieldValue('dateFrom', leave.dateFrom);
-            setFieldValue('dateTo', leave.dateTo);
-            setFieldValue('reason', leave.reason || '');
-            setFieldValue('status', leave.statusNumber);
-            calculateLeaveCount(leave.dateFrom, leave.dateTo);
-          } else if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
-            setFieldValue('employeeId', '');
-            setFieldValue('leaveTypeId', '');
-            setFieldValue('dateFrom', selectedDateTimeInfo.startStr);
-            setFieldValue('reason', '');
-            setFieldValue('status', 0);
-            setLeaveCount(0);
-          } else {
-            setFieldValue('employeeId', '');
-            setFieldValue('leaveTypeId', '');
-            setFieldValue('dateFrom', '');
-            setFieldValue('dateTo', '');
-            setFieldValue('reason', '');
-            setFieldValue('status', 0);
-            setLeaveCount(0);
-          }
-        }, [leave, selectedDateTimeInfo]);
 
         return (
           <Form onSubmit={handleSubmit} noValidate className="form" placeholder={''}>
@@ -984,6 +1059,34 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   </div>
                 </div>
               )} */}
+
+              {/* Cumulative Leave Allowance Summary */}
+              {cumulativeSummary && (
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  fontSize: '13px',
+                  fontFamily: 'Inter, sans-serif'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <i className="bi bi-info-circle" style={{ color: '#0369a1' }}></i>
+                    <span style={{ fontWeight: '600', color: '#0369a1' }}>Cumulative Leave Allowance</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#374151' }}>Allowed till now: <strong>{cumulativeSummary.allowedTillNow}</strong></span>
+                    <span style={{ color: '#374151' }}>Used: <strong>{cumulativeSummary.used}</strong></span>
+                    <span style={{ color: cumulativeSummary.remaining > 0 ? '#059669' : '#dc2626' }}>
+                      Remaining: <strong>{cumulativeSummary.remaining}</strong>
+                    </span>
+                  </div>
+                  <div style={{ marginTop: '6px', color: '#6b7280', fontSize: '12px' }}>
+                    Leave limits are applied on total paid leaves combined, not per leave type.
+                  </div>
+                </div>
+              )}
 
               <div className="row mb-9">
                 <div className="col-lg-12">
@@ -1098,6 +1201,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                         className="form-control form-control-lg form-control-solid"
                         placeholder="Select To Date"
                         onChange={(selectedDates: Date[]) => {
+                          // BUG 5 FIX: Guard against cleared date (selectedDates[0] can be undefined)
+                          if (!selectedDates?.length) return;
                           const selectedDate = selectedDates[0];
                           const formattedDate = selectedDate.toLocaleDateString('en-CA');
                           setFieldValue('dateTo', formattedDate, true);
@@ -1171,7 +1276,12 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 <button
                   type="submit"
                   className="btn btn-primary me-2"
-                  disabled={!isValid || isSubmitting || leaveCount === 0 || loading || (!isAdmin && leaveCount > countTotalLeaves) || warningMessage.includes('Monthly Limit Alert') }
+                  disabled={
+                    !isValid || isSubmitting || leaveCount === 0 || loading ||
+                    (!isAdmin && leaveCount > countTotalLeaves) ||
+                    warningMessage.includes('Cumulative Limit Alert') ||
+                    warningMessage.includes('Monthly Limit Alert')
+                  }
                 >
                   <span className="indicator-label">
                     {
@@ -1207,3 +1317,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     </Formik>
   );
 }
+
+// BUG 2 FIX: The local stub that always returned { isValid: true } has been removed.
+// The real validateMonthlyLeaveLimit is now imported from @utils/monthlyLeaveValidator
+// at the top of this file.

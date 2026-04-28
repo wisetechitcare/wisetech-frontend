@@ -1,7 +1,7 @@
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
 import { attendanceStatsSlice, saveAttendanceRequestRaiseLimit, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
+import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmpKpiStatisticsForDay, fetchEmpKpiStatisticsForPeriod, fetchEmpKpiScoresAllTime, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import { convertTo12HourFormat, convertToTimeZone, findTimeDifference, getWeekDay, isDateBeforeOrSameAsCurrDate, timeToMinutes } from "./date";
 import { ABSENT, CHECK_OUT_MISSING, checkInTime, checkOutTime, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HEATMAPLABELS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, monthDays, months, ON_LEAVE, onSiteAndHolidayWeekendSettingsOnOffName, PRESENT, TOTAL_ANNUAL_LEAVES, TOTAL_FLOATER_LEAVES, TOTAL_SICK_LEAVES, TOTAL_WORKING_DAYS, totalShiftTimeMins, week, weekDays, WEEKEND } from "@constants/statistics";
@@ -2724,7 +2724,9 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
     const getAllAttnedanceRequest = requests
 
-    const branches = store.getState().employee?.currentEmployee.branches?.workingAndOffDays;
+    const selectedBranches = store.getState().employee?.selectedEmployee?.branches?.workingAndOffDays;
+    const currentBranches = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays;
+    const branches = selectedBranches || currentBranches;
     const workingAndOffDays = JSON.parse(branches || "{}");
 
     const publicHolidays = store.getState().attendanceStats?.publicHolidays;
@@ -2836,7 +2838,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             status: status,
             checkInLocation: attendanceRecord?.checkInLocation || '-NA-',
             checkOutLocation: attendanceRecord?.checkOutLocation || '-NA-',
-            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
+            checkoutWorkingMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
         };
     });
 
@@ -2845,8 +2847,11 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
 export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAttendanceRequests[] {
     const attendanceRequest = attendance.reduce((result: IAttendanceRequests[], attendanceRequest: any) => {
-        const formattedCheckIn = attendanceRequest?.checkIn
-            ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkIn))): "-NA-";
+        // For checkout-only requests checkIn is null; use actualCheckIn injected by the
+        // backend (the real check-in from the Attendance table) so the admin can see it.
+        const checkInSource = attendanceRequest?.checkIn || attendanceRequest?.actualCheckIn || null;
+        const formattedCheckIn = checkInSource
+            ? convertTo12HourFormat(convertToIST(convertToTime(checkInSource))): "-NA-";
         // console.log("attendanceRequest.checkIn",attendanceRequest.checkIn);
 
         // console.log("formattedCheckIn", formattedCheckIn);
@@ -2857,9 +2862,11 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
 
         // console.log("formattedCheckOut", formattedCheckOut);
 
-        const day = dayjs(attendanceRequest?.checkIn).format("dddd");
+        // Fall back to checkOut when checkIn is null (checkout-only requests)
+        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut;
+        const day = dayjs(dateSource).format("dddd");
 
-        const date = dayjs(attendanceRequest?.checkIn).format("DD MMM YYYY");
+        const date = dayjs(dateSource).format("DD MMM YYYY");
         const formattedDate = dayjs(date).format("DD/MM/YYYY");
 
         let request: IAttendanceRequests = {
@@ -2873,6 +2880,9 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             employeeCode: attendanceRequest?.employee?.employeeCode,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
+            // For checkout-only requests, rawCheckIn falls back to actualCheckIn (real attendance)
+            rawCheckIn: attendanceRequest.checkIn || attendanceRequest.actualCheckIn || null,
+            rawCheckOut: attendanceRequest.checkOut,
             workingMethod: attendanceRequest.workingMethod.type,
             remarks: attendanceRequest?.remarks || "",
             latitude: attendanceRequest.latitude,

@@ -168,6 +168,19 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
           }),
         statusId: Yup.string(),
         endDate: Yup.date()
+          .nullable()
+          .test('end-date-required-when-completed', 'End date is required when status is Completed', function(value) {
+            const { statusId } = this.parent;
+            // Find the status to check if it's "Completed"
+            const selectedStatus = statuses.find((s: any) => s.id === statusId);
+            const isCompleted = selectedStatus?.name?.toLowerCase() === 'completed';
+            
+            // If status is Completed, end date is required
+            if (isCompleted && !value) {
+              return false;
+            }
+            return true;
+          })
           .test('end-date-validation', function(value) {
             const { startDate } = this.parent;
             if (!value || !startDate) return true; // Skip validation if either date is missing
@@ -270,7 +283,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         teamId: Yup.string(),
         isProjectOpen: Yup.string().oneOf(['true', 'false']).default('true'),
       }),
-    [projectType, selectedProjectType]
+    [projectType, selectedProjectType, statuses]
   );
 
   const fetchPrefixAllSettings = useCallback(async () => {
@@ -875,7 +888,6 @@ const getInitialRelationCompanies = useCallback(() => {
       }
     });
   }
-  
   if (leadRelationCompanies.length > 0) {
     return leadRelationCompanies;
   }
@@ -1500,6 +1512,20 @@ const handleSubmit = useCallback(
         cleanPayload.leadAssignedTo = cleanPayload.projectManagerId || null;
       }
 
+      // Handle date fields - convert empty strings to null
+      if (cleanPayload.startDate === '' || cleanPayload.startDate === undefined) {
+        cleanPayload.startDate = null;
+      }
+      if (cleanPayload.endDate === '' || cleanPayload.endDate === undefined) {
+        cleanPayload.endDate = null;
+      }
+      // if (cleanPayload.poDate === '' || cleanPayload.poDate === undefined) {
+      //   cleanPayload.poDate = null;
+      // }
+      // if (cleanPayload.inquiryDate === '' || cleanPayload.inquiryDate === undefined) {
+      //   cleanPayload.inquiryDate = null;
+      // }
+
       // Add prefix to payload for backend to use
       if (editablePrefix && editablePrefix.trim()) {
         cleanPayload.prefix = editablePrefix.trim();
@@ -1866,7 +1892,7 @@ const handleSubmit = useCallback(
                                   inputLabel="Start Date"
                                   formikProps={formikProps}
                                   placeHolder="1/3/2025"
-                                  isRequired={false}
+                                  isRequired={true}
                                 />
                               </Col>
                               <Col md={4}>
@@ -1875,7 +1901,7 @@ const handleSubmit = useCallback(
                                   inputLabel="End Date"
                                   formikProps={formikProps}
                                   placeHolder="1/3/2025"
-                                  isRequired={false}
+                                  isRequired={true}
                                 />
                               </Col>
                               {/* Date Validation Warning */}

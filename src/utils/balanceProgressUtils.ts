@@ -4,6 +4,14 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { useState } from "react";
 
 /**
+ * Returns the leave type name as stored in the DB.
+ * No display-level renaming — "Floater Leaves" is shown as "Floater Leaves" everywhere.
+ */
+export const getLeaveTypeDisplayName = (leaveType: string): string => {
+    return leaveType;
+};
+
+/**
  * Calculate total weekends between two dates based on branch working days
  */
 export const getTotalWeekendsBetweenDates = (
@@ -45,15 +53,15 @@ export const getTotalWeekendsBetweenDates = (
 };
 
 /**
- * Calculate total leave days for a leave record (excluding weekends)
+ * Calculate total leave days for a leave record (excluding weekends and public holidays).
+ * B5: Accepts publicHolidays to match the backend getWorkingDays logic.
  */
-export const calculateLeaveDays = (leave: any): number => {
+export const calculateLeaveDays = (leave: any, publicHolidays: string[] = []): number => {
     // Handle both formats: {dateFrom, dateTo} and {date}
     const startDate = leave.dateFrom || leave.date;
     const endDate = leave.dateTo || leave.date;
 
     if (!startDate || !endDate) {
-        console.warn("calculateLeaveDays: Missing dates", leave);
         return 0;
     }
 
@@ -63,8 +71,9 @@ export const calculateLeaveDays = (leave: any): number => {
 
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
         const dayOfWeek = date.getDay();
-        // Count weekdays (Monday to Friday)
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        const dateStr = date.toISOString().split('T')[0];
+        // Count weekdays that are not public holidays
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !publicHolidays.includes(dateStr)) {
             dayCount++;
         }
     }
@@ -73,10 +82,12 @@ export const calculateLeaveDays = (leave: any): number => {
 };
 
 /**
- * Calculate leaves taken by type from filtered leaves - ONLY count approved leaves
+ * Calculate leaves taken by type from filtered leaves - ONLY count approved leaves.
+ * B5: Accepts publicHolidays so day counting is consistent with backend getWorkingDays.
  */
 export const calculateLeavesTakenByType = (
-    fiscalYearFilteredLeaves: any[]
+    fiscalYearFilteredLeaves: any[],
+    publicHolidays: string[] = []
 ): Record<string, number> => {
     const casualLeavesTaken = fiscalYearFilteredLeaves.filter(
         (leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && leave.status === Status.Approved
@@ -98,12 +109,12 @@ export const calculateLeavesTakenByType = (
     );
 
     // Calculate total days for each leave type (not just count of records)
-    const casualDaysCount = casualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
-    const annualDaysCount = annualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
-    const maternalDaysCount = maternalLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
-    const sickDaysCount = sickLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
-    const floaterDaysCount = floaterLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
-    const unpaidDaysCount = unpaidLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
+    const casualDaysCount = casualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
+    const annualDaysCount = annualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
+    const maternalDaysCount = maternalLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
+    const sickDaysCount = sickLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
+    const floaterDaysCount = floaterLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
+    const unpaidDaysCount = unpaidLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
 
     return {
         [CASUAL_LEAVES]: casualDaysCount,
@@ -226,33 +237,30 @@ export const calculateLeaveBalances = (
         // Apply pro-rating for Casual, Annual, and Maternal leaves
         if (leaveType === CASUAL_LEAVES) {
             const monthlyLeave = totalYearlyDays / monthsInYear;
-            let proRatedLeaves = Math.floor((monthlyLeave * proRatedMonths * 10) / 10);
+            // B7: Use direct floor — multiply/divide by 10 introduces floating-point errors
+            let proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
             // Apply allowedPerMonth cap
             proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
 
             proRated[leaveType] = proRatedLeaves + transferred;
             balances[leaveType] = totalYearlyDays + transferred;
         } else if (leaveType === ANNUAL_LEAVES) {
-            // NEW LOGIC: Based on tenure (months since joining)
-            // Employee gets 1 leave at joining, then +1 for each month
-            // Month 1 since joining: 1 leave, Month 2: 2 leaves, Month 5: 5 leaves, etc.
-            // Resets every April 1st (new fiscal year)
-            let proRatedLeaves = tenureMonths;
+            // FIX: Use backend-provided `totalYearlyDays` with pro-rating rather than hardcoding with tenureMonths
+            const monthlyLeave = totalYearlyDays / monthsInYear;
+            let proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
 
             // Apply allowedPerMonth cap
-            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * tenureMonths);
+            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
 
             // Add addon leave allowance (experience-based leaves) and transferred leaves
             const totalWithAddon = proRatedLeaves + addonLeaveAllowanceCount;
             proRated[leaveType] = totalWithAddon + transferred;
             balances[leaveType] = totalYearlyDays + addonLeaveAllowanceCount + transferred;
         } else if (leaveType === MATERNAL_LEAVES) {
-            const monthlyLeave = totalYearlyDays / monthsInYear;
-            let proRatedLeaves = Math.floor((monthlyLeave * proRatedMonths * 10) / 10);
-            // Apply allowedPerMonth cap
-            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
-
-            proRated[leaveType] = proRatedLeaves + transferred;
+            // BUG 4 FIX: Maternal leave is a special-purpose leave (e.g. 90 days at once).
+            // It must NOT be pro-rated or capped by allowedPerMonth — the employee gets
+            // the full yearly allocation available from day 1.
+            proRated[leaveType] = totalYearlyDays + transferred;
             balances[leaveType] = totalYearlyDays + transferred;
         } else {
             // For other leave types, no pro-rating, just add transferred
@@ -340,6 +348,14 @@ export const buildLeaveData = (
 ) => {
     const allPaidLeaves = [
         {
+            label: ANNUAL_LEAVES,
+            used: leavesTakenCount[ANNUAL_LEAVES] || 0,
+            total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
+            color: '#9D4141',
+            allowedPerMonth,
+            showAllowedPerMonth: true
+        },
+        {
             label: SICK_LEAVES,
             used: leavesTakenCount[SICK_LEAVES] || 0,
             total: leaveBalances[SICK_LEAVES] || 0,
@@ -347,7 +363,8 @@ export const buildLeaveData = (
             showAllowedPerMonth: false
         },
         {
-            label: 'Paid Leaves',  // Renamed from Floater Leaves
+            // label: 'Paid Leaves',  // Renamed from Floater Leaves
+            label: 'Floater Leaves',  // Renamed from Floater Leaves
             used: leavesTakenCount[FLOATER_LEAVES] || 0,
             total: leaveBalances[FLOATER_LEAVES] || 0,
             color: '#9D4141',
@@ -371,39 +388,47 @@ export const buildLeaveData = (
         },
     ];
 
-    // Hide leaves where total = 0 (not allocated)
-    const paidLeaves = allPaidLeaves.filter(leave => leave.total > 0);
+    const paidLeaves = [...allPaidLeaves].sort((a, b) => a.label.localeCompare(b.label));
 
     // Calculate paid totals
     const totalPaidUsed = paidLeaves.reduce((sum, leave) => sum + leave.used, 0);
     const totalPaidAssigned = paidLeaves.reduce((sum, leave) => sum + leave.total, 0);
 
-    const allUnpaidLeaves = [
+    // Unpaid leave total is ALWAYS derived — never read from leaveBalances.
+    // leaveBalances is now built from leavesSummary (paid types only from the backend),
+    // so leaveBalances[UNPAID_LEAVES] will always be 0/undefined. The correct unpaid
+    // total is computed below as: 365 − totalPaidAssigned.
+    const TOTAL_YEAR_DAYS = 365;
+    const derivedUnpaidAssigned = Math.max(0, TOTAL_YEAR_DAYS - totalPaidAssigned);
+
+    // Always show the Unpaid Leaves row — its total is patched to derivedUnpaidAssigned.
+    // Do NOT filter by total > 0 before patching (the row starts at 0 since it's not in
+    // leavesSummary, but must always be visible as the derived remainder of the year).
+    const unpaidLeaves = [
         {
             label: UNPAID_LEAVES,
             used: leavesTakenCount[UNPAID_LEAVES] || 0,
-            total: leaveBalances[UNPAID_LEAVES] || 0,
+            total: derivedUnpaidAssigned,   // always derived: 365 − totalPaidAssigned
             color: '#9D4141',
             showAllowedPerMonth: false
         },
     ];
 
-    // Hide leaves where total = 0 (not allocated)
-    const unpaidLeaves = allUnpaidLeaves.filter(leave => leave.total > 0);
-
     // Calculate unpaid totals
     const totalUnpaidUsed = unpaidLeaves.reduce((sum, leave) => sum + leave.used, 0);
-    const totalUnpaidAssigned = unpaidLeaves.reduce((sum, leave) => sum + leave.total, 0);
+
+    // cappedUnpaidLeaves kept for API compat — total is already correct
+    const cappedUnpaidLeaves = unpaidLeaves;
 
     return {
         paidLeaves,
-        unpaidLeaves,
+        unpaidLeaves: cappedUnpaidLeaves,
         totalPaidUsed,
         totalPaidAssigned,
         totalUnpaidUsed,
-        totalUnpaidAssigned,
+        totalUnpaidAssigned: derivedUnpaidAssigned,
         grandTotalUsed: totalPaidUsed + totalUnpaidUsed,
-        grandTotalAssigned: totalPaidAssigned + totalUnpaidAssigned,
+        grandTotalAssigned: TOTAL_YEAR_DAYS,  // Always 365 — never paid+unpaid sum
     };
 };
 

@@ -103,7 +103,6 @@ const Custom: React.FC<CustomProps> = ({
 
   useEffect(() => {
     if (!employeeId) return;
-
     const res = hasPermission(
       resourseAndView[0]?.resource,
       permissionConstToUseWithHasPermission.readOthers

@@ -1165,4 +1165,8 @@ const LeadsConfigurationMain = () => {
   );
 };
 
+<<<<<<< HEAD
 export default LeadsConfigurationMain;
+=======
+export default LeadsConfigurationMain;
+>>>>>>> d6042feca22c37f2095dd47272be0da0226f612d

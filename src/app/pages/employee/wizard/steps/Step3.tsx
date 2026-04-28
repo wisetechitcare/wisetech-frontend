@@ -9,6 +9,7 @@ import FormHeading from "app/modules/common/utils/FormHeading";
 import AddAnotherBtn from "app/modules/common/utils/AddAnotherBtn";
 import "./Step2.css";
 import DiscretionaryLeave from "../forms/DiscretionaryLeave";
+import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 
 const newWorkExp = {
     companyName: "",
@@ -107,8 +108,17 @@ function Step3({ formikProps, editMode }: any) {
                 </div>
                 {/* <Divider /> */}
                 {/** Work Experience Information Ends */}
+                {/* Custom Leave Allocation Starts */}
+                <div style={{ marginBottom: '20px' }}>
+                    <FormHeading headingText="Custom Leave Allocation (Optional)" padding="mb-3" variant="decorated" />
+                    <div style={{ backgroundColor: '#ffffff', padding: '28px 25px', borderRadius: '12px' }} className="step2-section">
+                        <LeaveAllocationStep />
+                    </div>
+                </div>
+                {/* Custom Leave Allocation Ends */}
+
                 {/* DiscretionaryLeave Starts */}
-                  <div style={{ marginBottom: '20px' }}>
+                <div style={{ marginBottom: '20px' }}>
                     <FormHeading headingText="Discretionary Leave Settings" padding="mb-3" variant="decorated" />
                     <div style={{ backgroundColor: '#ffffff', padding: '28px 25px', borderRadius: '12px' }} className="step2-section">
                         <DiscretionaryLeave />
