@@ -1,0 +1,40 @@
+#kt_sign_in_submit {
+  background-color: $primary-red;
+  &:hover{
+    background-color: $primary-red !important;
+  }
+}
+#kt_sign_in_submit1 {
+  color: white;
+  font-weight: 700;
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  background-image: linear-gradient(45deg, transparent, transparent 55%, hsla(0, 0%, 100%, 0) 0, #fff 70%, hsla(0, 0%, 100%, 0) 0, transparent);
+  animation: Highlight 4s linear infinite;
+  background-size: 150px;
+  background-repeat: no-repeat;
+}
+@keyframes Highlight {
+  0% {
+    background-position: -150px 0;
+  }
+  100% {
+    background-position: calc(100% + 150px) 0;
+  }
+}
+.login__form__wrapper {
+  border-radius: 12px;
+  background: #FFF;
+  box-shadow: 8px 8px 16px 0px rgba(0, 0, 0, 0.04);
+}
+// Desktop Mode
+@include media-breakpoint-up(lg) {
+  .login__page {
+    background: url("/media/login/backgroundImage.png");
+    background-position: right;
+  }
+  .login__subtitle {
+    color: $primary-red;
+  }
+}

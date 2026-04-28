@@ -1,0 +1,16 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_3362_13478)">
+<path d="M20.25 6H12V18H20.25V6Z" fill="#FBE9EA" style="fill:#FBE9EA;fill:color(display-p3 0.9843 0.9137 0.9176);fill-opacity:1;"/>
+<path d="M12 12H20.25" stroke="#9D4141" style="stroke:#9D4141;stroke:color(display-p3 0.6157 0.2549 0.2549);stroke-opacity:1;" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 6H20.25" stroke="#9D4141" style="stroke:#9D4141;stroke:color(display-p3 0.6157 0.2549 0.2549);stroke-opacity:1;" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 18H20.25" stroke="#9D4141" style="stroke:#9D4141;stroke:color(display-p3 0.6157 0.2549 0.2549);stroke-opacity:1;" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M3.75 6L5.25 7.5L8.25 4.5" stroke="#9D4141" style="stroke:#9D4141;stroke:color(display-p3 0.6157 0.2549 0.2549);stroke-opacity:1;" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M3.75 12L5.25 13.5L8.25 10.5" stroke="#9D4141" style="stroke:#9D4141;stroke:color(display-p3 0.6157 0.2549 0.2549);stroke-opacity:1;" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M3.75 18L5.25 19.5L8.25 16.5" stroke="#9D4141" style="stroke:#9D4141;stroke:color(display-p3 0.6157 0.2549 0.2549);stroke-opacity:1;" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<defs>
+<clipPath id="clip0_3362_13478">
+<rect width="24" height="24" fill="white" style="fill:white;fill-opacity:1;"/>
+</clipPath>
+</defs>
+</svg>
