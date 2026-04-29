@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
 import { leadAndProjectTemplateTypeId } from "@constants/statistics";
-import { deleteConfirmation, errorConfirmation, successConfirmation } from "@utils/modal";
+import { deleteConfirmation, errorConfirmation, rejectConfirmation, successConfirmation } from "@utils/modal";
 import LeadFormModal from "./LeadFormModal";
 import dayjs from "dayjs";
 import { getAllProjectServices, getAllProjectSubcategories, getAllProjectCategories } from "@services/projects";
@@ -27,6 +27,7 @@ import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProje
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import { Modal } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
+import LeadBulkImport from "./LeadBulkImport";
 
 type LeadNewLeadProps = {
   statusId?: any;
@@ -63,7 +64,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedLead, setSelectedLead] = useState<any>(null);
-    const [tableData, setTableData] = useState([]);
+    const [tableData, setTableData] = useState<any[]>([]);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [leadStatuses, setLeadStatuses] = useState<any>([]);
     const [loading, setLoading] = useState(false);
@@ -76,6 +77,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     const [states, setStates] = useState<any>([]);
     const [cities, setCities] = useState<any>([]);
     const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
+    const [showBulkImport, setShowBulkImport] = useState(false);
     const dispatch = useDispatch<AppDispatch>();
     const [pagination, setPagination] = useState({
         pageIndex: 0,
@@ -320,6 +322,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     // Event bus subscriptions
     useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
     useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
+    useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
     useEventBus(EVENT_KEYS.chartSettingsUpdated, fetchAllData);
     useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
     const hideNewLeadButton = statusId || serviceId || categoryId || referralId || sourceId || subCategoryId || companyTypeId || topLeadsId  || locationId || monthlyStatusId;
@@ -682,20 +685,31 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
     const handleDeleteLead = async (id: string) => {
         try {
-            const confirm = await deleteConfirmation('Lead deleted successfully!');
+            // Use rejectConfirmation as it only shows the "Are you sure?" dialog
+            // without the premature "Deleted!" success message
+            const confirm = await rejectConfirmation('Yes, delete it!');
             if (confirm) {
                 setDeletingId(id);
+                
+                // Optimistic UI update: remove from local state immediately
+                setTableData((prev: any[]) => prev.filter((lead: any) => lead.id !== id));
+                setRawLeadsDatas((prev: any[]) => prev.filter((lead: any) => lead.id !== id));
+
+                // Perform actual deletion
                 await deleteLead(id);
 
-                // Update the UI by removing the deleted lead
-                setTableData(prev => prev.filter((lead: any) => lead.id !== id));
-
-                // Show success message (you can replace this with a toast/snackbar)
-                // successConfirmation('Lead deleted successfully!');
+                // Show real success message AFTER server confirmation
+                successConfirmation('Lead deleted successfully!');
+                
+                // Emit event to sync other components if needed
+                eventBus.emit(EVENT_KEYS.leadDeleted, { id });
             }
         } catch (error) {
             console.error('Error deleting lead:', error);
             errorConfirmation('Failed to delete lead. Please try again.');
+            
+            // Revert optimistic update by fetching fresh data
+            fetchAllData();
         } finally {
             setDeletingId(null);
         }
@@ -916,7 +930,22 @@ const filteredData = (() => {
                                 fontSize: '14px',
                                 fontWeight: 500
                             }}>Old Lead</Button>
-                            <Button variant="contained"
+                        <Button variant="contained"
+                            onClick={() => setShowBulkImport(true)}
+                            sx={{
+                                backgroundColor: '#1B84FF',
+                                '&:hover': {
+                                    backgroundColor: '#1565c0'
+                                },
+                                textTransform: 'none',
+                                px: 3,
+                                py: 1,
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                color: 'white'
+                            }}>Bulk Import</Button>
+                        <Button variant="contained"
                             onClick={handleOpenModal}
                             sx={{
                                 backgroundColor: '#9D4141',
@@ -1061,6 +1090,11 @@ const filteredData = (() => {
                     </div>
                 </Modal.Body>
             </Modal>
+
+            <LeadBulkImport 
+                show={showBulkImport} 
+                onHide={() => setShowBulkImport(false)} 
+            />
         </>
 
     );
