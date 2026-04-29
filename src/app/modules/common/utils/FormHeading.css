@@ -1,0 +1,26 @@
+/* FormHeading Responsive Styles */
+
+.form-heading-decorated {
+  font-size: 18px;
+  letter-spacing: 0.9px;
+}
+
+/* Tablet breakpoint (768px - 991px) */
+@media (max-width: 991px) {
+  .form-heading-decorated {
+    font-size: 16px;
+    letter-spacing: 0.8px;
+  }
+}
+
+/* Mobile breakpoint (below 768px) */
+@media (max-width: 767px) {
+  .form-heading-decorated {
+    font-size: 14px;
+    letter-spacing: 0.7px;
+  }
+
+  .form-heading-line {
+    display: none !important;
+  }
+}

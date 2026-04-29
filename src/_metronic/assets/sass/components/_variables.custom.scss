@@ -1,0 +1,48 @@
+//
+// To make future updates easier consider overriding the global variables from _variables.bootstrap.scss and _variables.custom.scss for current demo in this file.
+// Note that this file is included first and variables defined in _variables.bootstrap.scss and _variables.custom.scss
+// are not accessible in this file but you can override any global variable as shown below:
+//
+
+:root {
+    --present: #00CAB4;
+    --absent: #C74E52;
+    --leave: #0E61B6;
+    --weekend: #E5E8ED;
+    --holiday: #E5E8ED;
+    --working-weekend: #80ABEC;
+    --attendance-present-with-request-approved: #6b217a;
+    --react-calendar-today-color: #00CAB4;
+    --check-in-out-missing: #58AC9D;
+}
+
+$primary-red: #AA393D;
+$primary-blue: #295D8E;
+$content-background: #F6F9FC;
+$present: var(--present);
+$leave: var(--leave);
+$leave-requested: #0078e53d;
+$absent: var(--absent); 
+$holiday: var(--holiday);
+$check-in-out-missing: var(--check-in-out-missing);
+$weekend: var(--weekend);
+$working-weekend: var(--working-weekend);
+$attendance-present-with-request-approved: var(--attendance-present-with-request-approved);
+$react-calendar-today-color: var(--react-calendar-today-color);
+
+$working-method-office:#7FC5D4;
+$working-method-on-site:#E2D77B;
+$working-method-remote: #AD876C;
+
+$primary: $primary-red;
+$secondary: $primary-blue;
+$primary-active: #7a2124;
+$input-border-color: $primary-red;
+$btn-padding-x: 1rem;
+$btn-padding-x-sm: 1rem;
+$btn-padding-y: 0.5rem;
+$btn-padding-y-sm: 0.15rem;
+$attendance-present: $present;
+$attendance-leave: $leave;
+$attendance-leave-requested: $leave-requested;
+$attendance-absent: $absent;

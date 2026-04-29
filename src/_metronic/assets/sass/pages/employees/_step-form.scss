@@ -1,0 +1,36 @@
+.employee__form_wizard__modal_body {
+  background-color: $content-background;
+}
+.employee__form_wizard__input {
+  border: 0.5px solid $form-border-color !important;
+  &:focus{
+    border: 0.5px solid $primary-red !important;
+  }
+}
+.employee__form_wizard__step_title {
+  font-family: "Barlow";
+}
+.employee__form_wizard__label {
+  font-family: "Inter";
+  color: #8496A8;
+}
+.employee__form_wizard__step1__label {
+  background-color: transparent;
+  border-radius: 8px;
+  border: 2px solid #C6CFDB;
+  transition: color 0.1s ease;
+  &:hover{
+    i{
+      color: $primary-red !important;
+    }
+    background-color: $primary-red-opacity-1;
+    border: 2px solid $primary-red !important;
+    cursor: pointer;
+  }
+}
+
+input[type="radio"]:checked + .employee__form_wizard__step1__label {
+  color: $primary-red;
+  background-color: $primary-red-opacity-1;
+  border: 2px solid $primary-red;
+}

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <!-- <script type="module">
+      // first npm i react-grab
+      // then in head:
+      if (import.meta.env.DEV) {
+        import("react-grab");
+      }
+  </script> -->
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Wisetech MEP Consultant" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700" />
+  <title>Wisetech MEP Consultants Pvt Ltd</title>
+  <link rel="shortcut icon" href="media/logos/favicon.ico" />
+  <link rel="stylesheet" id="layout-styles-anchor" href="/splash-screen.css" />
+   
+</head>
+
+<body id="kt_body" class="page-loading">
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <!--begin::Theme mode setup on page load-->
+  <script>
+    let themeMode = 'system'
+
+    if (localStorage.getItem('kt_theme_mode_value')) {
+      themeMode = localStorage.getItem('kt_theme_mode_value')
+    }
+
+    if (themeMode === 'system') {
+      themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+
+    document.documentElement.setAttribute('data-bs-theme', themeMode)
+  </script>
+  <!--end::Theme mode setup on page load-->
+
+  <div id="root"></div>
+
+  <!--begin::Loading markup-->
+  <div id="splash-screen" class="splash-screen">
+    <!-- Needs to be fetched from the server in future instead of hardcoding -->
+    <img src="https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/a7d269d789106f4f0ba5d0f3f8a28532a498106f5b"
+      class="dark-logo" alt="Wisetech MEP dark logo" />
+    <img src="https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2"
+      class="light-logo" alt="Wisetech MEP light logo" />
+    <div class="loader-wrapper">
+      <span class="loader"></span>
+      <span class="loading-text">Loading...</span>
+    </div>
+  </div>
+  <!--end::Loading markup-->
+
+  <div id="root-modals"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

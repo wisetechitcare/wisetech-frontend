@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "./src",       
+    "paths": {
+      "@/*": ["*"],
+      "@redux": ["redux"],
+      "@redux/*": ["redux/*"],
+      "@services": ["services"],
+      "@services/*": ["services/*"],
+      "@utils": ["utils"],
+      "@utils/*": ["utils/*"],
+      "@app": ["app"],
+      "@app/*": ["app/*"],
+      "@metronic": ["_metronic"],
+      "@metronic/*": ["_metronic/*"],
+      "@constants": ["constants"],
+      "@constants/*": ["constants/*"],
+      "@components": ["components"],
+      "@components/*": ["components/*"],
+      "@models": ["models"],
+      "@models/*": ["models/*"],
+      "@hooks": ["hooks"],
+      "@hooks/*": ["hooks/*"],
+      "@pages": ["app/pages"],
+      "@pages/*": ["app/pages/*"]
+    },
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
