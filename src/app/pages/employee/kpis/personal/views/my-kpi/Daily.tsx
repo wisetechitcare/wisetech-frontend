@@ -10,7 +10,8 @@ import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import ScoreOverview from "../../components/ScoreOverview";
 import { Container, Spinner } from "react-bootstrap";
 import PerformanceBadge from "../../components/PerformanceBadge";
-import { useLeaderboardRank } from "../../hooks/useLeaderboardRank";
+import { hasPermission } from "@utils/authAbac";
+import { permissionConstToUseWithHasPermission } from "@constants/statistics";
 
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
@@ -26,6 +27,7 @@ const iconMapping: Record<string, string> = {
 const Daily = ({
   day,
   fromAdmin = false,
+  resourseAndView,
   dashboardView = true,
 }: {
   day: Dayjs;
@@ -37,43 +39,66 @@ const Daily = ({
     (state: RootState) => state.attendanceStats.toggleChange
   );
 
-  const selectedEmployeeId = useSelector(
-    (state: RootState) =>
-      state.employee.selectedEmployee?.id ||
-      state.employee.currentEmployee.id
+  const selectedEmployeeId = useSelector((state: RootState) =>
+    fromAdmin
+      ? state.employee.selectedEmployee?.id
+      : state.employee.currentEmployee?.id
+  );
+
+  const employeeId = useSelector(
+    (state: RootState) => state.employee.currentEmployee?.id
   );
 
   const [data, setData] = useState<any>(null);
-  const [dataLoaded, setDataLoaded] = useState(false);
-
-  // FIX: Pass the same date as both startDate and endDate — the leaderboard
-  // must be fetched for the EXACT same period as the KPI data so rank matches.
-  const formattedDay = day.format("YYYY-MM-DD");
-  const { rank, rankLoading } = useLeaderboardRank({
-    employeeId: selectedEmployeeId,
-    startDate: formattedDay,
-    endDate: formattedDay,
-  });
+  const [loading, setLoading] = useState(false);
+  const [showData, setShowData] = useState(false);
 
   useEffect(() => {
     if (!selectedEmployeeId) return;
 
     const loadData = async () => {
-      setDataLoaded(true);
+      setLoading(true);
       try {
         const response = await fetchEmpDailyKpiStatistics(day, fromAdmin);
+
+        console.log("🔥 KPI RESPONSE:", response); // ✅ MANDATORY LOG
+
         if (response) {
-          setData(response);
+          setData(response); // ✅ FIXED
         }
       } catch (error) {
         console.error("Error fetching Daily KPI Statistics:", error);
       } finally {
-        setDataLoaded(false);
+        setLoading(false);
       }
     };
 
     loadData();
   }, [day, selectedEmployeeId, toggleChange]);
+
+  useEffect(() => {
+    if (!employeeId) return;
+
+    const res = hasPermission(
+      resourseAndView[0]?.resource,
+      permissionConstToUseWithHasPermission.readOthers
+    );
+
+    if (res) setShowData(true);
+  }, [employeeId]);
+
+  // ✅ SAFE EXTRACTION
+  const modules = data?.modules || [];
+  const yourPoints = data?.yourPoints ?? 0;
+  
+  // 🔥 FINAL SAFE RANK CODE
+  const rawRank = data?.rank;
+  const rank =
+    rawRank === null || rawRank === undefined || rawRank === 0 || rawRank === "0"
+      ? null
+      : rawRank;
+  const remark = data?.remark || "";
+  const maxTotal = Number(data?.maxTotal || 0);
 
   const overviewData = [
     "Attendance",
@@ -84,23 +109,14 @@ const Daily = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
-  ].map((label) => {
-    const moduleData = data?.modules?.find((m: any) => m.moduleName === label);
-    return {
-      icon: iconMapping[label],
-      label,
-      score: moduleData?.totalScore ?? 0,
-      maxScore: moduleData?.maxScore ?? 0,
-    };
-  });
+  ].map((label) => ({
+    icon: iconMapping[label],
+    label,
+    score:
+      modules.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
+  }));
 
-  // FIX: daily API also returns yourPoints, remark, maxTotal — use them.
-  // Fallback safely if the response shape is missing these fields.
-  const yourPoints: number = data?.yourPoints ?? 0;
-  const remark: string = data?.remark ?? "";
-  const maxTotal: number = data?.maxTotal ?? 0;
-
-  if (dataLoaded) {
+  if (loading) {
     return (
       <Container
         fluid
@@ -112,28 +128,31 @@ const Daily = ({
     );
   }
 
+  if (!showData)
+    return <h2 className="text-center">Not Allowed To View</h2>;
+
   return (
     <>
+      {/* 🔥 KPI HEADER */}
       {remark && (
         <PerformanceBadge
           remark={remark}
-          // FIX: rank comes ONLY from the leaderboard hook (backend-authoritative).
-          // The backend `getKpiScoresForDay` also returns a rank field, but it uses
-          // a different sort (percentage-based) vs the leaderboard API (score-based).
-          // We use leaderboard rank everywhere for consistency with the Leaderboard tab.
           rank={rank}
-          rankLoading={rankLoading}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
+          fromAdmin={fromAdmin}
         />
       )}
 
+      {/* 🔥 OVERVIEW */}
       <ScoreOverview data={overviewData} />
-      {dashboardView ? (
+
+      {/* 🔥 REPORT */}
+      {dashboardView && (
         <Container fluid className="my-4 px-0">
-          <KpiStatisticsTable data={data?.modules ?? []} />
+          <KpiStatisticsTable data={modules} />
         </Container>
-      ) : null}
+      )}
     </>
   );
 };

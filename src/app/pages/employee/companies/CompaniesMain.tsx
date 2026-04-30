@@ -1,5 +1,5 @@
 import MaterialHeaderTab, {TabItem} from "@app/modules/common/components/MaterialHeaderTab";
-import { calenderIcons, leadsIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
+import { calenderIcons, leadsIcons, reimbursementsIcons, worldIcons } from "@metronic/assets/sidepanelicons";
 import { useState } from "react";
 import CompanyConfigMain from "./companyConfig/CompanyConfigMain";
 import CompanyOverview from "./companyOverview/CompanyOverview";
@@ -13,15 +13,33 @@ import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { useEffect } from "react";
 import { PageTitle } from "@metronic/layout/core";
 import CalenderMain from "./calender/CalenderMain";
+import Maps from "./companyOverview/components/Map";
+import { getAllClientCompanies } from "@services/companies";
 
 const CompaniesMain = () => {
   const [activeTab, setActiveTab] = useState(0);
+  const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
+  const [companyData, setCompanyData] = useState<any>([]);
 
   const dispatch = useDispatch<AppDispatch>(); 
   useEffect(() => {
     dispatch(loadAllEmployeesIfNeeded());
     dispatch(initializeChartSettings());
   }, [dispatch]);
+
+  useEffect(() => {
+    getAllClientCompanies().then((res) => {
+      setCompanyData(res?.data?.companies);
+      const allCoordinates = res?.data?.companies
+        ?.filter((item: any) => item.latitude && item.longitude)
+        ?.map((item: any) => ({
+          lat: parseFloat(item.latitude),
+          lng: parseFloat(item.longitude),
+          id: item.id
+        })) || [];
+      setCoordinates(allCoordinates);
+    });
+  }, []);
 
   const tabItems: TabItem[] = [
     {
@@ -40,20 +58,19 @@ const CompaniesMain = () => {
           ? companiesIcons.companiesIcon.active
           : companiesIcons.companiesIcon.default,
     },
-
-    // {
-    //   title: "Contacts",
-    //   component: <ClientContactsMain />,
-    //   icon:
-    //     activeTab === 2
-    //       ? reimbursementsIcons.employeesReimbursements.active
-    //       : reimbursementsIcons.employeesReimbursements.default,
-    // },
+    {
+      title: "World",
+      component: <Maps points={coordinates} companyData={companyData} />,
+      icon:
+        activeTab === 2
+          ? worldIcons.worldIcon.active
+          : worldIcons.worldIcon.default,
+    },
     {
       title: "Configure",
       component: <CompanyConfigMain />,
       icon:
-        activeTab === 2
+        activeTab === 3
           ? leadsIcons.leadsConfigIcon.active
           : leadsIcons.leadsConfigIcon.default,
     },
