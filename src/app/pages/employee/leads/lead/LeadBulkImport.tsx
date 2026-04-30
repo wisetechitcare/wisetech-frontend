@@ -277,13 +277,13 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     ? preview.newEntitySummary?.length
       ? preview.newEntitySummary
       : [
-          ...preview.newEntities.companies.map((c) => `New company: ${c}`),
-          ...preview.newEntities.statuses.map((s) => `New status: ${s}`),
-          ...preview.newEntities.categories.map((c) => `New category: ${c}`),
-          ...preview.newEntities.subCategories.map(
+          ...(preview.newEntities?.companies ?? []).map((c) => `New company: ${c}`),
+          ...(preview.newEntities?.statuses ?? []).map((s) => `New status: ${s}`),
+          ...(preview.newEntities?.categories ?? []).map((c) => `New category: ${c}`),
+          ...(preview.newEntities?.subCategories ?? []).map(
             (s) => `New subcategory: ${s}`,
           ),
-          ...preview.newEntities.services.map((s) => `New service: ${s}`),
+          ...(preview.newEntities?.services ?? []).map((s) => `New service: ${s}`),
         ]
     : [];
 
