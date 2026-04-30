@@ -80,27 +80,11 @@ function LeaderBoardCore({
   });
 
   const normalizeEmployee = (emp: any = {}) => {
-    const firstName =
-      emp?.firstName ||
-      emp?.employee?.firstName ||
-      emp?.employeeName?.split(" ")[0] ||
-      "";
-
-    const lastName =
-      emp?.lastName ||
-      emp?.employee?.lastName ||
-      emp?.employeeName?.split(" ").slice(1).join(" ") ||
-      "";
-
-    const avatar =
-      emp?.avatar ||
-      emp?.employee?.avatar ||
-      "";
-
-    const gender =
-      emp?.gender ||
-      emp?.employee?.gender ||
-      0;
+    // FIX: Support both nested users object and flattened employee object
+    const firstName = emp?.employee?.users?.firstName || emp?.employee?.firstName || "";
+    const lastName = emp?.employee?.users?.lastName || emp?.employee?.lastName || "";
+    const avatar = emp?.employee?.avatar || "";
+    const gender = emp?.employee?.gender || 0;
 
     return {
       name: `${firstName} ${lastName}`.trim() || "-NA-",
@@ -231,21 +215,18 @@ function LeaderBoardCore({
     try {
       if (!startDate || !endDate) return;
 
-      const response = await axios.get<{ data: { score: any[] } }>(
-        `${API_BASE_URL}/api/employee/kpi/score/all`,
+      const response = await axios.get(
+        `${API_BASE_URL}/api/employee/kpi/top-employees-by-factor`,
         {
           params: {
             startDate: startDate.format("YYYY-MM-DD"),
             endDate: endDate.format("YYYY-MM-DD"),
-          },
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+          }
         }
       );
       console.log("📡 RAW RESPONSE:", response);
 
-      const result = response.data?.data?.score || [];
+      const result = response.data?.data || [];
 
       if (result.length === 0) {
         console.warn("⚠️ No module-wise data received");
@@ -267,9 +248,10 @@ function LeaderBoardCore({
         endDate.format("YYYY-MM-DD")
       );
 
-      console.log("⭐ RAW KPI SCORES:", res);
+      console.log("⭐ KPI RAW:", res);
 
       const data = res?.data || [];
+      console.log("⭐ KPI DATA:", data);
 
       if (!Array.isArray(data) || data.length === 0) {
         console.warn("⚠️ No KPI score data found");
@@ -290,7 +272,7 @@ function LeaderBoardCore({
 
     data.forEach((item: any) => {
       const factor = allKPIFactors.find(
-        (f: any) => f.id === item.factor_id
+        (f: any) => f.id === item.factorId
       );
 
       if (!factor) return;

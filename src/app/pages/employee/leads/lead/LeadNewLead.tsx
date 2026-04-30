@@ -339,16 +339,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             { 
                 accessorKey: 'prefix',
                 header: 'Inquiry Id',
-<<<<<<< HEAD
-                size: 80,
-                enableEditing: false,
-                Cell: ({ row }: { row: any }) => {
-                  return <span className="cursor-pointer "
-                      style={{
-                        color: "inherit",
-                        fontWeight: "600",
-                        fontSize: "14px",
-=======
                 size: 250, 
                 minSize: 250, // Force minimum width
                 enableEditing: false,
@@ -359,7 +349,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         fontWeight: "600",
                         fontSize: "14.5px",
                         whiteSpace: "nowrap", // Force single line
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                       }}
                     >
                       {row?.original?.prefix || "N/A" }
@@ -369,12 +358,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             {
                 accessorKey: 'projectName',
                 header: 'Project Name',
-<<<<<<< HEAD
-                size: 200,
-                Cell: ({ cell }: { cell: any }) => {
-                    const value = cell.getValue();
-                    return typeof value === 'object' ? JSON.stringify(value) : value || 'N/A' ;
-=======
                 size: 400, 
                 minSize: 400, // Force minimum width
                 Cell: ({ cell }: { cell: any }) => {
@@ -384,7 +367,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                             {typeof value === 'object' ? JSON.stringify(value) : value || 'N/A'}
                         </span>
                     );
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                 } 
             },
             {
@@ -978,8 +960,6 @@ const filteredData = (() => {
                     viewOwn={true}
                     viewOthers={true}
                     checkOwnWithOthers={true}
-<<<<<<< HEAD
-=======
                     enableColumnResizing={true}
                     layoutMode="grid"
                     muiTableContainerProps={{
@@ -988,7 +968,6 @@ const filteredData = (() => {
                             overflowX: 'auto',
                         },
                     }}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                     muiTableProps={{
                         sx: {
                             borderCollapse: 'separate',
@@ -1004,24 +983,6 @@ const filteredData = (() => {
                             // },
                             sx: {
                                 cursor: 'pointer',
-<<<<<<< HEAD
-                                backgroundColor: `${row.original?.status?.color}30`,
-                                // borderBottom:"5px solid red !important",
-                                padding: '10px !important',
-                  
-                                '& .MuiTableCell-root': {
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  fontSize: '14px',
-                                  fontFamily: 'Inter',
-                                  fontWeight: '400',
-                                  padding: '8px 16px !important',
-                                  borderBottom: "2px solid white",
-                                  borderTop: "2px solid white",
-                                  // borderLeft:"5px solid white"
-                                  // margin:"20px !important"
-=======
                                 backgroundColor: `${row.original?.status?.color}20`, // Subtler background
                                 transition: 'all 0.2s ease',
                   
@@ -1032,36 +993,19 @@ const filteredData = (() => {
                                   padding: '16px 20px !important', // Increased padding for better spacing
                                   border: 'none', // Removed white lines
                                   color: '#333',
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                                 },
                                 '& .MuiTableCell-root:first-of-type': {
                                   borderTopLeftRadius: '12px',
                                   borderBottomLeftRadius: '12px',
-<<<<<<< HEAD
-                                  // marginTop:"40px !important"
-                                  borderLeft: "3px solid white"
-                  
-=======
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                                 },
                                 '& .MuiTableCell-root:last-of-type': {
                                   borderTopRightRadius: '12px',
                                   borderBottomRightRadius: '12px',
-<<<<<<< HEAD
-                                  borderRight: "3px solid white"
-                                },
-                                '&:hover': {
-                                  backgroundColor: `${row.original?.status?.color}99`,
-                                  '& td': {
-                                    color: 'black',
-                                  },
-=======
                                 },
                                 '&:hover': {
                                   backgroundColor: `${row.original?.status?.color}40`,
                                   transform: 'translateY(-2px)',
                                   boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                                 },
                               },
 

@@ -28,10 +28,7 @@ import {
 } from "@utils/leadsProjectCompaniesStatistics";
 import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
-<<<<<<< HEAD
-=======
 import MonthlyLeadsChart from "./charts/MonthlyLeadsChart";
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
 
 interface Props {
   month: dayjs.Dayjs;
@@ -641,8 +638,6 @@ const Monthly = ({ month, endDate }: Props) => {
   return (
     <div className="">
       <div className="row g-3">
-<<<<<<< HEAD
-=======
         {/* Featured Analytics Row */}
         <div className="col-12 mb-2">
           <MonthlyLeadsChart 
@@ -651,7 +646,6 @@ const Monthly = ({ month, endDate }: Props) => {
           />
         </div>
 
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
         {/* Lead By Status */}
         {/* Lead By Status */}
         {settings?.showLeadsStatusChart && (

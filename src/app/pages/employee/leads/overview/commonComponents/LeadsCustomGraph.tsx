@@ -407,12 +407,9 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
             {title}
           </h1>
           <div className="mt-4 d-flex gap-3 align-items-start justify-content-center">
-<<<<<<< HEAD
-=======
 
 
             {/* leads by status graph */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {title.toLowerCase().includes("status") && (
               <button
                 style={{
@@ -447,10 +444,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
 
 
             )}
-<<<<<<< HEAD
-=======
             {/* Leads by service graph */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {(title.toLowerCase().includes("service") || title.toLowerCase().includes("services")) && (
               <button
                 style={{
@@ -478,10 +472,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 New Services
               </button>
             )}
-<<<<<<< HEAD
-=======
             {/* leads by category graph */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {
               title.toLowerCase().includes("category") && (
                 <button
@@ -511,10 +502,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
-<<<<<<< HEAD
-=======
             {/* leads by source graph  */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {
               title.toLowerCase().includes("direct sources")  && (
                 <button
@@ -544,10 +532,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
-<<<<<<< HEAD
-=======
             {/* leads by referral source graph */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {
               title.toLowerCase().includes("referral source") && (
                 <button
@@ -577,11 +562,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
-<<<<<<< HEAD
-
-=======
             {/* leads by direct source graph  */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {
               title.toLowerCase().includes("by source") && (
                 <button
@@ -611,11 +592,8 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
-<<<<<<< HEAD
-=======
 
               {/* leads by company type graph  */}
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {
               title.toLowerCase().includes("by company type") && (
                 <button
@@ -645,10 +623,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 </button>
               )
             }
-<<<<<<< HEAD
-=======
             
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             {showFilter && filterOptions.length > 0 && (
               <FilterDropdown
                 filterKey={filterKey || "defaultFilter"}
@@ -702,11 +677,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                       color: "#9CAFC9"
                     }}>
                     {title?.toLowerCase().includes('status') ? 'Create leads to see status breakdown' :
-<<<<<<< HEAD
-                     title?.toLowerCase().includes('service') ? 'Add services to see lead distribution' :
-=======
                      title?.toLowerCase().includes('service') ? ' to see lead distribution' :
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
                      title?.toLowerCase().includes('category') ? 'Create project categories to view lead breakdown' :
                      title?.toLowerCase().includes('source') && !title?.toLowerCase().includes('referral') && !title?.toLowerCase().includes('direct') ? 'Add lead sources to see distribution' :
                      title?.toLowerCase().includes('referral') ? 'Add referral sources to see lead origins' :

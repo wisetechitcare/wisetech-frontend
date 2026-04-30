@@ -4,6 +4,18 @@ import { ICheckInPayload, ICheckOutPayload, IValidateTokenInOut, ILeaveRequest, 
 import dayjs, { Dayjs } from "dayjs";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
+export const fetchLeaveAllocations = async (employeeId?: string) => {
+  try {
+    if (!employeeId) return [];
+
+    const data = await fetchEmployeeLeaveBalance(employeeId);
+    return data;
+  } catch (err) {
+    console.error("fetchLeaveAllocations error:", err);
+    return [];
+  }
+};
+
 export const fetchAllKpiScores = async (startDate: string, endDate: string) => {
   const endpoint = `${API_BASE_URL}/api/employee/kpi/score/all`;
 
@@ -55,24 +67,24 @@ export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) 
 };
 
 
-export const createTodo=async(payload:any)=>{
-    try{
-        const endpoint= `${API_BASE_URL}/${EMPLOYEE.CREATE_TODOS}`;
-        const { data } = await axios.post(endpoint,payload);
-        return {data};
+export const createTodo = async (payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_TODOS}`;
+        const { data } = await axios.post(endpoint, payload);
+        return { data };
     }
-    catch(error){
+    catch (error) {
         throw error;
     }
 }
 
-export const getTodo=async(employeeId:string)=>{
-    try{
-        const endpoint= `${API_BASE_URL}/${EMPLOYEE.GET_TODOS}?employeeId=${employeeId}`;
+export const getTodo = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_TODOS}?employeeId=${employeeId}`;
         const { data } = await axios.get(endpoint);
-        return {data};
+        return { data };
     }
-    catch(error){
+    catch (error) {
         throw error;
     }
 }
@@ -113,7 +125,7 @@ export const createMeetings = async (payload: any) => {
     }
 }
 
-export const getMeetings = async (employeeId:string) => {
+export const getMeetings = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings?employeeId=${employeeId}`;
         const response = await axios.get(endpoint);
@@ -123,7 +135,7 @@ export const getMeetings = async (employeeId:string) => {
     }
 };
 
-export const updateMeeting = async (meetingId:string, employeeId:string, updateData:any) => {
+export const updateMeeting = async (meetingId: string, employeeId: string, updateData: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings?meetingId=${meetingId}&employeeId=${employeeId}`;
         const response = await axios.put(endpoint, updateData);
@@ -133,7 +145,7 @@ export const updateMeeting = async (meetingId:string, employeeId:string, updateD
     }
 };
 
-export const deleteMeeting = async (meetingId:string, employeeId:string) => {
+export const deleteMeeting = async (meetingId: string, employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/api/employee/meetings?meetingId=${meetingId}&employeeId=${employeeId}`;
         const response = await axios.delete(endpoint);
@@ -144,10 +156,10 @@ export const deleteMeeting = async (meetingId:string, employeeId:string) => {
 };
 
 
-export const fetchEmployeesOnLeaveToday = async (dateToday?:string) => {
+export const fetchEmployeesOnLeaveToday = async (dateToday?: string) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_LEAVES}`;
-        if(dateToday){
+        if (dateToday) {
             endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_LEAVES}?dateToday=${dateToday}`;
         }
         const { data } = await axios.get(endpoint);
@@ -168,10 +180,10 @@ export const fetchCurrentEmployeeByUserId = async (userId: string) => {
     }
 }
 
-export const sendAttendanceRequestResetLimit = async (payload:any) => {
+export const sendAttendanceRequestResetLimit = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint,payload);
+        const { data } = await axios.post(endpoint, payload);
         return data;
     }
     catch (err) {
@@ -588,34 +600,6 @@ export const fetchEmployeeLeaveBalance = async (employeeId: string) => {
     }
 }
 
-export const fetchLeaveAllocations = async (employeeId: string, fiscalYear?: string) => {
-    try {
-        const params = new URLSearchParams({ employeeId });
-        if (fiscalYear) params.append('fiscalYear', fiscalYear);
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_ALLOCATION}?${params.toString()}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const upsertLeaveAllocation = async (payload: {
-    employeeId: string;
-    leaveTypeId: string;
-    allocatedDays: number;
-    fiscalYear?: string;
-    note?: string;
-}) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVE_ALLOCATION}`;
-        const { data } = await axios.put(endpoint, payload);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
 export const fetchEmployeeLeaves = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.LEAVES}?employeeId=${employeeId}`;
@@ -644,14 +628,21 @@ export const fetchCompleteLeaveTrack = async (employeeId: string) => {
         const leaves = leavesResponse?.data?.leaves || [];
         const leavesSummary = balanceResponse?.data?.leavesSummary || {};
 
+        // Group leaves by status
         const pendingLeaves = leaves.filter((leave: any) => leave.status === 0);
         const approvedLeaves = leaves.filter((leave: any) => leave.status === 1);
         const rejectedLeaves = leaves.filter((leave: any) => leave.status === 2);
 
+        // Group leaves by type
         const leavesByType = leaves.reduce((acc: any, leave: any) => {
             const leaveType = leave.leaveOptions?.leaveType || 'Unknown';
             if (!acc[leaveType]) {
-                acc[leaveType] = { all: [], pending: [], approved: [], rejected: [] };
+                acc[leaveType] = {
+                    all: [],
+                    pending: [],
+                    approved: [],
+                    rejected: []
+                };
             }
             acc[leaveType].all.push(leave);
             if (leave.status === 0) acc[leaveType].pending.push(leave);
@@ -660,6 +651,7 @@ export const fetchCompleteLeaveTrack = async (employeeId: string) => {
             return acc;
         }, {});
 
+        // Calculate statistics
         const statistics = {
             total: leaves.length,
             pending: pendingLeaves.length,
@@ -674,6 +666,7 @@ export const fetchCompleteLeaveTrack = async (employeeId: string) => {
             }))
         };
 
+        // Calculate total days taken (only approved leaves)
         const calculateLeaveDays = (leave: any) => {
             if (!leave.dateFrom || !leave.dateTo) return 0;
             const start = new Date(leave.dateFrom);
@@ -686,29 +679,47 @@ export const fetchCompleteLeaveTrack = async (employeeId: string) => {
             return dayCount;
         };
 
-        const totalDaysTaken = approvedLeaves.reduce((sum: number, leave: any) => sum + calculateLeaveDays(leave), 0);
-        const totalPendingDays = pendingLeaves.reduce((sum: number, leave: any) => sum + calculateLeaveDays(leave), 0);
+        const totalDaysTaken = approvedLeaves.reduce((sum: number, leave: any) => {
+            return sum + calculateLeaveDays(leave);
+        }, 0);
+
+        const totalPendingDays = pendingLeaves.reduce((sum: number, leave: any) => {
+            return sum + calculateLeaveDays(leave);
+        }, 0);
 
         const completeLeaveTrack = {
             employeeId,
             fetchedAt: new Date().toISOString(),
             summary: {
                 totalLeaves: leaves.length,
-                totalDaysTaken,
-                totalPendingDays,
+                totalDaysTaken: totalDaysTaken,
+                totalPendingDays: totalPendingDays,
                 pendingRequests: pendingLeaves.length,
                 approvedRequests: approvedLeaves.length,
                 rejectedRequests: rejectedLeaves.length
             },
             balances: leavesSummary,
-            leaves: { all: leaves, pending: pendingLeaves, approved: approvedLeaves, rejected: rejectedLeaves, byType: leavesByType },
+            leaves: {
+                all: leaves,
+                pending: pendingLeaves,
+                approved: approvedLeaves,
+                rejected: rejectedLeaves,
+                byType: leavesByType
+            },
             statistics
         };
 
-        return { hasError: false, data: completeLeaveTrack };
+        return {
+            hasError: false,
+            data: completeLeaveTrack
+        };
     } catch (err) {
         console.error('❌ [CompleteLeaveTrack] Error fetching complete leave track:', err);
-        return { hasError: true, error: err, data: null };
+        return {
+            hasError: true,
+            error: err,
+            data: null
+        };
     }
 };
 
@@ -726,9 +737,11 @@ export const fetchAllEmployeesAttendance = async (date: number, month: number, y
 export const fetchEmpAttendanceStatistics = async (employeeId: string, startDate: string, endDate: string, page?: number, limit?: number) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_STATISTICS}?employeeId=${employeeId}&startDate=${startDate}&endDate=${endDate}`;
+
         if (page !== undefined && limit !== undefined) {
             endpoint += `&page=${page}&limit=${limit}`;
         }
+
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -752,11 +765,16 @@ export const fetchLeaveRequest = async (employeeId?: string, status?: number, pa
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
         const params = new URLSearchParams();
+
         if (employeeId) params.append('employeeId', employeeId);
         if (status !== undefined) params.append('status', status.toString());
         if (page !== undefined) params.append('page', page.toString());
         if (limit !== undefined) params.append('limit', limit.toString());
-        if (params.toString()) endpoint += `?${params.toString()}`;
+
+        if (params.toString()) {
+            endpoint += `?${params.toString()}`;
+        }
+
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -775,6 +793,7 @@ export const updateLeaveStatus = async (payload: any) => {
         throw err;
     }
 }
+
 
 export const fetchReimbursementsForEmployee = async (employeeId: string, startDate: string, endDate: string) => {
     try {
@@ -884,7 +903,7 @@ export const fetchAllPayments = async (employeeId: string, month?: string, year?
     }
 }
 
-export const fetchAllSalaryByFiscalYear = async (employeeId: string,companyId:string, startYear: string, endYear: string) => {
+export const fetchAllSalaryByFiscalYear = async (employeeId: string, companyId: string, startYear: string, endYear: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_BY_FISCAL_YEAR}?employeeId=${employeeId}&companyId=${companyId}&startYear=${startYear}&endYear=${endYear}`;
         const { data } = await axios.get(endpoint);
@@ -894,13 +913,14 @@ export const fetchAllSalaryByFiscalYear = async (employeeId: string,companyId:st
     }
 };
 
-export const fetchAllSalaryDataForDateRangeYearly= async (employeeId:string, startYear:string, endYear:string)=>{
-    try{
-        const endpoint= `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_DATA_FOR_DATE_RANGE_YEARLY}?employeeId=${employeeId}&startDate=${startYear}&endDate=${endYear}`;
-        const {data}= await axios.get(endpoint);
+export const fetchAllSalaryDataForDateRangeYearly = async (employeeId: string, startYear: string, endYear: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_DATA_FOR_DATE_RANGE_YEARLY}?employeeId=${employeeId}&startDate=${startYear}&endDate=${endYear}`;
+        const { data } = await axios.get(endpoint);
         return data;
+
     }
-    catch(err){
+    catch (err) {
         throw err;
     }
 }
@@ -915,6 +935,7 @@ export const fetchAllEmployeeSalaryAllTimeDateRage = async (employeeId: string) 
         throw err;
     }
 }
+// GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE
 export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}`;
@@ -926,6 +947,7 @@ export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endD
     }
 }
 
+// Fetch salary totals for all active employees in date range
 export const fetchSalaryRecordsForAllActiveEmployees = async (startDate: string, endDate: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_RECORDS_ALL_ACTIVE_EMPLOYEES}?startDate=${startDate}&endDate=${endDate}`;
@@ -946,6 +968,7 @@ export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, start
     }
 }
 
+
 export const fetchAllEmployeeMonthlySalary = async (companyId: string, year: number, month: number) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_TOTAL_MONTHLY_SALARY}?companyId=${companyId}&startYear=${year}&endYear=${month}`;
@@ -956,6 +979,7 @@ export const fetchAllEmployeeMonthlySalary = async (companyId: string, year: num
         throw err;
     }
 }
+
 
 export const createNewPayment = async (payment: IPayment) => {
     try {
@@ -1015,9 +1039,11 @@ export const getPendingAttendanceRequests = async (companyId: string) => {
 export const getAttendanceRequest = async (employeeId: string, startDate: string, endDate: string, page?: number, limit?: number) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST}?employeeId=${employeeId}&startDate=${startDate}&endDate=${endDate}`;
+
         if (page !== undefined && limit !== undefined) {
             endpoint += `&page=${page}&limit=${limit}`;
         }
+
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -1095,6 +1121,7 @@ export const fetchEmployeeMediaByUserId = async (userId: string) => {
     }
 }
 
+
 export const fetchNotificationsByEmployeeId = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_NOTIFICATIONS}?employeeId=${employeeId}`;
@@ -1105,7 +1132,11 @@ export const fetchNotificationsByEmployeeId = async (employeeId: string) => {
     }
 };
 
-export const fetchNotificationsAllByEmployeeId = async (employeeId: string, page: number = 1, limit: number = 10) => {
+export const fetchNotificationsAllByEmployeeId = async (
+    employeeId: string,
+    page: number = 1,
+    limit: number = 10
+) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_NOTIFICATIONS}?employeeId=${employeeId}&page=${page}&limit=${limit}`;
         const { data } = await axios.get(endpoint);
@@ -1124,6 +1155,14 @@ export const markAllAsRead = async (employeeId: string) => {
     }
 };
 
+
+/**
+ * Fetches the permissions for a specific employee by their ID.
+ * @param employeeId - The ID of the employee.
+ * @returns The permissions for the specified employee.
+ * @throws Throws an error if the request fails.
+ * @api "api/employee/:id/permissions"
+ */
 export const getEmployeePermissionsById = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_PERMISSIONS.replace(":id", employeeId)}`;
@@ -1144,6 +1183,14 @@ export const updateEmployeeRolesById = async (employeeId: string, roles: any) =>
     }
 }
 
+/**
+ * Creates a new permission for a specific employee by their ID.
+ * @param employeeId - The ID of the employee.
+ * @param permission - The permission to create.
+ * @returns The created permission.
+ * @throws Throws an error if the request fails.
+ * @api "api/employee/:id/permissions"
+ */
 export const createEmployeePermissionById = async (employeeId: string, permission: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_EMPLOYEE_PERMISSION.replace(":id", employeeId)}`;
@@ -1154,6 +1201,15 @@ export const createEmployeePermissionById = async (employeeId: string, permissio
     }
 }
 
+/**
+ * Updates an existing permission for a specific employee by their ID.
+ * @param employeeId - The ID of the employee.
+ * @param permissionId - The ID of the permission to update.
+ * @param permission - The updated permission.
+ * @returns The updated permission.
+ * @throws Throws an error if the request fails.
+ * @api "api/employee/:id/permissions/:permissionId"
+ */
 export const updateEmployeePermissionById = async (employeeId: string, permissionId: string, permission: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
@@ -1164,6 +1220,14 @@ export const updateEmployeePermissionById = async (employeeId: string, permissio
     }
 }
 
+/**
+ * Deletes a permission for a specific employee by their ID.
+ * @param employeeId - The ID of the employee.
+ * @param permissionId - The ID of the permission to delete.
+ * @returns The deleted permission.
+ * @throws Throws an error if the request fails.
+ * @api "api/employee/:id/permissions/:permissionId"
+ */
 export const deleteEmployeePermissionById = async (employeeId: string, permissionId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
@@ -1196,16 +1260,17 @@ export const fetchEmployeeLoans = async (id: string) => {
     }
 }
 
-export const createEmployeeLoan = async (loanData: { loanAmount: number, loanType: string, deductionMonth?: string, numberOfMonths?: number, loanReason: string })=>{
+export const createEmployeeLoan = async (loanData: { loanAmount: number, loanType: string, deductionMonth?: string, numberOfMonths?: number, loanReason: string }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_LOAN}`;
-        const { data } = await axios.post(endpoint,loanData);
+        const { data } = await axios.post(endpoint, loanData);
         return data;
     }
     catch (err) {
         throw err;
     }
 }
+
 
 export const getInstallementsById = async (id: string) => {
     try {
@@ -1282,6 +1347,7 @@ export const fetchEmployeeMonthlyInstallments = async (startDate: string, endDat
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_MONTHLY_INSTALLMENT_BY_EMPLOYEE_ID}?startDate=${startDate}&endDate=${endDate}&employeeId=${employeeId}`;
         const { data } = await axios.get(endpoint);
+
         return data;
     }
     catch (err) {
@@ -1289,11 +1355,10 @@ export const fetchEmployeeMonthlyInstallments = async (startDate: string, endDat
         throw err;
     }
 }
-
 export const updateLoanById = async ({ id, ...payload }: { id: string;[key: string]: any }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_LOAN_BY_ID}?id=${id}`;
-        const { data } = await axios.put(endpoint, payload);
+        const { data } = await axios.put(endpoint, payload); // Send the body here
         return data;
     } catch (err) {
         throw err;
@@ -1303,7 +1368,7 @@ export const updateLoanById = async ({ id, ...payload }: { id: string;[key: stri
 export const updateLoanIntallmentById = async ({ id, ...payload }: { id: string;[key: string]: any }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_LOAN_INSTALLMENT_BY_ID}?id=${id}`;
-        const { data } = await axios.put(endpoint, payload);
+        const { data } = await axios.put(endpoint, payload); // Send the body here
         return data;
     } catch (err) {
         throw err;
@@ -1359,6 +1424,7 @@ export const getAllKpiFactors = async () => {
         throw error;
     }
 }
+
 
 export const updateKpiFactors = async (id: string, payload: any) => {
     try {
@@ -1435,7 +1501,7 @@ export const createKpiScore = async (payload: any) => {
 
 export const fetchStarEmployeesByFactorId = async (factorId: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.FETCH_ALL_STAR_EMPLOYEES_BY_FACTOR_ID}?id=${factorId}`;
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.FETCH_ALL_STAR_EMPLOYEES_BY_FACTOR_ID}?factorId=${factorId}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -1457,14 +1523,18 @@ export const approveMultipleReimbursements = async (payload: any) => {
 export const getAllEmployeeWithMonthDailyHourlySalary = async (id?: string, date?: string) => {
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_WITH_MONTH_DAILY_HOURLY_SALARY}`;
+
         if (id) {
             endpoint += `/${id}`;
         }
+
         const params = new URLSearchParams();
         if (date) {
             params.append("date", date);
         }
+
         const url = params.toString() ? `${endpoint}?${params.toString()}` : endpoint;
+
         const { data } = await axios.get(url);
         return data;
     } catch (err) {
@@ -1502,6 +1572,7 @@ export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
     }
 };
 
+// Enhanced team management functions for Add Team Member functionality
 export const getAllTeamsMember = async (page: number = 1, search: string = '') => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_TEAMS_MEMBER}?page=${page}&search=${encodeURIComponent(search)}`;
@@ -1552,10 +1623,16 @@ export const getTeamMemberById = async (id: string) => {
     }
 };
 
+// Enhanced employee level management API functions
 export const getAllEmployeeLevels = async (page: number = 1, limit: number = 5) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_LEVELS}`;
-        const { data } = await axios.get(endpoint, { params: { page, limit } });
+        const { data } = await axios.get(endpoint, {
+            params: {
+                page,
+                limit
+            }
+        });
         return data;
     } catch (err) {
         throw err;
@@ -1622,6 +1699,10 @@ export const removeEmployeeFromLevel = async (levelId: string, employeeId: strin
     }
 };
 
+
+// Enhanced services/employee.ts with team management and level functionality
+
+// Employee Members management functions
 export const getAllEmployeeMembers = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_MEMBERS}`;
@@ -1682,6 +1763,7 @@ export const deleteEmployeeMember = async (id: string) => {
     }
 };
 
+// Leave Management API functions
 export const createLeaveManagement = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_LEAVE_MANAGEMENT}`;
@@ -1745,6 +1827,7 @@ export const deleteLeaveManagement = async (id: string) => {
     }
 };
 
+// Gross Pay Configuration Functions
 export const fetchGrossPayConfiguration = async (employeeId: string, month: string, year: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GROSS_PAY_CONFIG_BY_ID.replace(':employeeId', employeeId)}?month=${month}&year=${year}`;
@@ -1793,40 +1876,67 @@ export const validateGrossPayConfigurationJson = (configJson: Record<string, Dyn
     if (!configJson || typeof configJson !== 'object') {
         return { isValid: false, error: 'Configuration must be an object' };
     }
+
     if (Object.keys(configJson).length === 0) {
         return { isValid: false, error: 'Configuration cannot be empty' };
     }
+
     const fieldNames: string[] = [];
+
     for (const [key, value] of Object.entries(configJson)) {
-        if (key === '_fieldOrder') continue;
+        // Skip metadata fields
+        if (key === '_fieldOrder') {
+            continue;
+        }
+
+        // Check for required properties
         if (!value.name || typeof value.name !== 'string') {
             return { isValid: false, error: `Field ${key} must have a valid name` };
         }
+
         if (value.value === undefined || value.value === null) {
             return { isValid: false, error: `Field ${key} must have a value` };
         }
+
         if (typeof value.value !== 'number' || isNaN(value.value)) {
             return { isValid: false, error: `Field ${key} value must be a valid number` };
         }
+
         if (value.value < 0) {
             return { isValid: false, error: `Field ${key} value cannot be negative` };
         }
+
         if (!value.type || (value.type !== 'number' && value.type !== 'percentage')) {
             return { isValid: false, error: `Field ${key} type must be 'number' or 'percentage'` };
         }
+
+        // Check for duplicate field names (case-insensitive)
         const normalizedName = value.name.toLowerCase().trim();
         if (fieldNames.includes(normalizedName)) {
             return { isValid: false, error: `Duplicate field name found: ${value.name}` };
         }
         fieldNames.push(normalizedName);
     }
+
     return { isValid: true };
 }
 
+// ================================================================================
+// DEDUCTION CONFIGURATION FUNCTIONS
+// ================================================================================
+
+/**
+ * Fetch employee-specific deduction configuration for a specific month and year
+ * @param employeeId Employee ID
+ * @param month Month (1-12)
+ * @param year Year
+ * @returns Deduction configuration response
+ */
 export const fetchDeductionConfiguration = async (employeeId: string, month: string, year: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DEDUCTION_CONFIG_BY_ID.replace(':employeeId', employeeId)}?month=${month}&year=${year}`;
         const { data } = await axios.get(endpoint);
+
         return {
             hasError: false,
             data: {
@@ -1835,10 +1945,18 @@ export const fetchDeductionConfiguration = async (employeeId: string, month: str
             }
         };
     } catch (error) {
-        return { hasError: true, error: error };
+        return {
+            hasError: true,
+            error: error
+        };
     }
 }
 
+/**
+ * Create or update employee deduction configuration
+ * @param deductionConfig Deduction configuration object
+ * @returns API response
+ */
 export const createUpdateDeductionConfiguration = async (deductionConfig: IDeductionConfiguration) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DEDUCTION_CONFIG}`;
@@ -1846,6 +1964,7 @@ export const createUpdateDeductionConfiguration = async (deductionConfig: IDeduc
         return data;
     } catch (error: any) {
         console.error('❌ Error saving deduction configuration:', error);
+
         if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
@@ -1853,6 +1972,13 @@ export const createUpdateDeductionConfiguration = async (deductionConfig: IDeduc
     }
 }
 
+/**
+ * Delete employee deduction configuration for a specific month and year
+ * @param employeeId Employee ID
+ * @param month Month (1-12)
+ * @param year Year
+ * @returns API response
+ */
 export const deleteDeductionConfiguration = async (employeeId: string, month: string, year: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DEDUCTION_CONFIG_BY_ID.replace(':employeeId', employeeId)}?month=${month}&year=${year}`;
@@ -1860,6 +1986,7 @@ export const deleteDeductionConfiguration = async (employeeId: string, month: st
         return data;
     } catch (error: any) {
         console.error('❌ Error deleting deduction configuration:', error);
+
         if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
@@ -1867,44 +1994,73 @@ export const deleteDeductionConfiguration = async (employeeId: string, month: st
     }
 }
 
+/**
+ * Fetch employee deduction configuration history
+ * @param employeeId Employee ID
+ * @returns History response
+ */
 export const fetchDeductionConfigurationHistory = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DEDUCTION_CONFIG_HISTORY.replace(':employeeId', employeeId)}`;
         const { data } = await axios.get(endpoint);
-        return { hasError: false, data };
+        return {
+            hasError: false,
+            data
+        };
     } catch (error) {
         console.error('❌ Error fetching deduction configuration history:', error);
-        return { hasError: true, error: error };
+        return {
+            hasError: true,
+            error: error
+        };
     }
 }
 
+/**
+ * Validate deduction configuration JSON structure
+ * @param configJson Configuration JSON object
+ * @returns Validation result
+ */
 export const validateDeductionConfigurationJson = (configJson: Record<string, DynamicFieldConfig>): IValidationResult => {
     if (!configJson || typeof configJson !== 'object') {
         return { isValid: false, error: 'Configuration must be a valid object' };
     }
+
+    // Skip validation for _fieldOrder metadata
     const fieldsToValidate = Object.entries(configJson).filter(([key]) => key !== '_fieldOrder');
+
     if (fieldsToValidate.length === 0) {
         return { isValid: false, error: 'Configuration must have at least one field' };
     }
+
     const fieldNames: string[] = [];
+
     for (const [key, value] of fieldsToValidate) {
+        // Validate field structure
         if (!value || typeof value !== 'object') {
             return { isValid: false, error: `Field "${key}" must be a valid object` };
         }
+
+        // Required properties
         if (!value.name || typeof value.name !== 'string') {
             return { isValid: false, error: `Field "${key}" must have a valid name` };
         }
+
         if (typeof value.value !== 'number' || value.value < 0) {
             return { isValid: false, error: `Field "${key}" must have a valid value >= 0` };
         }
+
         if (!value.type || !['percentage', 'number'].includes(value.type)) {
             return { isValid: false, error: `Field "${key}" must have a valid type (percentage or number)` };
         }
+
+        // Check for duplicate field names (case-insensitive)
         const normalizedName = value.name.toLowerCase().trim();
         if (fieldNames.includes(normalizedName)) {
             return { isValid: false, error: `Duplicate field name found: ${value.name}` };
         }
         fieldNames.push(normalizedName);
     }
+
     return { isValid: true };
 }

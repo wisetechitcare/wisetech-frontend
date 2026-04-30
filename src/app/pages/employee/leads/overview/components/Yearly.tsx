@@ -38,11 +38,8 @@ import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/Ye
 import LocationProjectChart from "@pages/employee/projects/commonComponents/ProjectByLocationChart";
 import LeadByLocationChart from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
-<<<<<<< HEAD
-=======
 import YearlyPerformanceAnalytics from "./charts/YearlyPerformanceAnalytics";
 import MonthlyBarWithTarget from "./charts/MonthlyBarWithTarget";
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
 interface Props {
   startDate: dayjs.Dayjs;
   endDate: dayjs.Dayjs;
@@ -114,10 +111,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
   const [topLeadsId, setTopLeadsId] = useState<string[] | null>(null);
   const [openTopLeads, setOpenTopLeads] = useState(false);
 
-<<<<<<< HEAD
-
-=======
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
   const [openModal, setOpenModal] = useState(false);
   const settings = useSelector((state: any) => state.chartSettings);
 
@@ -289,10 +282,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
   };
 
   const handleCategoryFilterChange = async (value: string) => {
-<<<<<<< HEAD
-
-=======
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
     setFilters((prev: any) => ({ ...prev, category: value }));
 
     if (value === "All") {
@@ -315,10 +304,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
     }
   };
 
-<<<<<<< HEAD
-
-=======
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
   const applyFilter = (data: ChartData[], filterKey: string) => {
     const filterValue = filters[filterKey];
     if (!filterValue || filterValue === "all") return data;
@@ -680,8 +665,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
   return (
     <div className="">
       <div className="row g-3">
-<<<<<<< HEAD
-=======
         {/* Premium Yearly Performance Analytics */}
         <div className="col-12 col-xl-6 mb-2">
           <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
@@ -693,7 +676,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
           />
         </div>
 
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
         {/* Lead By Status */}
         {settings?.showLeadsStatusChart && (
           <div className="col-12 col-md-6">
@@ -849,10 +831,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
               key={`referral-source-chart-${filters.referralStatus || "all"}`}
               filterMode="external"
               onChartClick={handleReferralChartClick}
-<<<<<<< HEAD
-
-=======
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
             />
           </div>
         )}
@@ -1106,8 +1084,4 @@ const Yearly = ({ startDate, endDate }: Props) => {
   );
 };
 
-<<<<<<< HEAD
 export default Yearly;
-=======
-export default Yearly;
->>>>>>> d6042feca22c37f2095dd47272be0da0226f612d
