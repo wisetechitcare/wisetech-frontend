@@ -13,6 +13,16 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useNavigate } from "react-router-dom";
+import { 
+  LocationOn as MapPinIcon, 
+  Phone as PhoneIcon, 
+  Email as MailIcon, 
+  Work as BriefcaseIcon,
+  CurrencyRupee as RupeeIcon,
+  Business as CompanyIcon,
+  PushPin as PinIcon,
+  Navigation as NavigationIcon
+} from "@mui/icons-material";
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -192,11 +202,30 @@ const LocationMarker = React.memo(({
     }
   }, [initials, markerColor, imageUrl]);
 
-  const handleTitleClick = () => {
-    if (isProject && (loc.projectId || loc.item?.id)) {
-      navigate(`/projects/${loc.projectId || loc.item?.id}`);
-    }
+  const handleNavigation = () => {
+    const id = loc.projectId || loc.id || loc.item?.id;
+    if (!id) return;
+
+    if (isProject) navigate(`/projects/${id}`);
+    else if (isCompany) navigate(`/companies/${id}`);
+    else if (isContact) navigate(`/contacts/${id}`);
   };
+
+  const popupAddress = useMemo(() => {
+    const item = loc.item || {};
+    const rawAddress = item.address || item.fullAddress;
+    if (rawAddress && rawAddress.trim() !== "") return rawAddress.trim();
+
+    const parts = [
+      item.locality,
+      item.city,
+      item.state,
+      item.country,
+      item.zipCode
+    ].filter(p => p && typeof p === "string" && p.trim() !== "");
+
+    return parts.join(", ");
+  }, [loc.item]);
 
   return (
     <Marker position={position} icon={icon}>
@@ -219,153 +248,123 @@ const LocationMarker = React.memo(({
         </Tooltip>
       )}
       <Popup maxWidth={300} minWidth={280}>
-        <div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {isProject ? (
-              <h3
-                style={{
-                  cursor: "pointer",
-                  color: "#2c7be5",
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: "16px",
-                  margin: 0,
-                  paddingBottom: "8px",
-                  borderBottom: "1px solid #f0f0f0"
-                }}
-                onClick={() => loc.item?.id && navigate(`/projects/${loc.item.id}`)}
-                onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-              >
-                {loc.item?.title || "No Project Title"}
-              </h3>
-            ) : (
-              <div 
-                style={{ 
-                  fontWeight: 600, 
-                  fontSize: "16px", 
-                  color: "#2c3e50", 
-                  paddingBottom: "8px", 
-                  borderBottom: "1px solid #f0f0f0" 
-                }}
-              >
-                {isContact ? (loc.item?.fullName || loc.item?.name || "No Contact Name") : (loc.item?.companyName || loc.item?.name || "No Company Name")}
+        {isCompany ? (
+          /* Specialized Company UI */
+          <div className="company-popup">
+            <div className="company-header">
+              <div className="company-avatar">
+                {(loc.item?.companyName || loc.item?.name || "C").charAt(0).toUpperCase()}
               </div>
-            )}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {(!isCompany && !isContact) && (
-                <>
-                  {loc.item?.cost && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>💰</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Cost:</strong> ₹{loc.item.cost.toLocaleString()}
-                      </div>
-                    </div>
-                  )}
-                  {loc.item?.status?.name && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>📌</span>
-                      <span style={{ backgroundColor: loc.item.status.color || "#6c757d", color: "white", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 500 }}>
-                        {loc.item.status.name}
-                      </span>
-                    </div>
-                  )}
-                  {loc.item?.company?.companyName && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>🏢</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Company:</strong> {loc.item.company.companyName}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {isCompany && (
-                <>
-                  {loc.item?.type && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>🏢</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Type:</strong> {loc.item.type}
-                      </div>
-                    </div>
-                  )}
-                  {loc.item?.email && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>✉️</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Email:</strong> {loc.item.email}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {isContact && (
-                <>
-                  {loc.item?.phone && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>📞</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Phone:</strong> {loc.item.phone}
-                      </div>
-                    </div>
-                  )}
-                  {loc.item?.email && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>✉️</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Email:</strong> {loc.item.email}
-                      </div>
-                    </div>
-                  )}
-                  {loc.item?.roleInCompany && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "16px" }}>💼</span>
-                      <div style={{ fontSize: "14px", color: "#495057" }}>
-                        <strong>Role:</strong> {loc.item.roleInCompany}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
-                <span style={{ fontSize: "16px", marginTop: "2px" }}>📍</span>
-                <div style={{ fontSize: "14px", color: "#495057" }}>
-                  <strong>Address:</strong> {loc.name || "Unknown Address"}
-                </div>
+              <div className="company-title-block">
+                <h3 className="company-name" onClick={handleNavigation}>
+                  {loc.item?.companyName || loc.item?.name || "No Company Name"}
+                </h3>
+                <span className="company-type">Company</span>
               </div>
-
-              <button
-                onClick={() => handleGoToLocation(loc.item)}
-                style={{
-                  marginTop: "12px",
-                  padding: "10px",
-                  backgroundColor: "#3498db",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  textAlign: "center",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  boxShadow: "0 2px 4px rgba(52, 152, 219, 0.2)",
-                }}
-              >
-                <span style={{ fontSize: "16px" }}>🚗</span>
-                Go to Location
-              </button>
             </div>
+
+            <div className="company-body">
+              {loc.item?.email && (
+                <div className="company-row">
+                  <MailIcon style={{ fontSize: "14px", color: "#64748b" }} />
+                  <span style={{ fontSize: "12px" }}>{loc.item.email}</span>
+                </div>
+              )}
+
+              <div className="company-row">
+                <MapPinIcon style={{ fontSize: "16px", color: "#64748b" }} />
+                <span>
+                  {popupAddress && popupAddress.trim() !== "" 
+                    ? popupAddress 
+                    : "Address not available"}
+                </span>
+              </div>
+            </div>
+
+            <button className="go-button" onClick={() => handleGoToLocation(loc.item)}>
+              <NavigationIcon style={{ fontSize: "16px" }} />
+              Go to Location
+            </button>
           </div>
-        </div>
+        ) : (
+          /* Unified Layout for Projects and Contacts */
+          <div className="popup-card">
+            <div className="popup-header">
+              <h3 className="popup-title" onClick={handleNavigation}>
+                {isContact 
+                  ? (loc.item?.fullName || loc.item?.name || "No Contact Name") 
+                  : (loc.item?.title || "No Project Title")
+                }
+              </h3>
+            </div>
+
+            <div className="popup-body">
+              {/* Status Row */}
+              {loc.item?.status?.name && (
+                <div className="status-row">
+                  <span className="status-badge" style={{ backgroundColor: loc.item.status.color || "#3b82f6" }}>
+                    {loc.item.status.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Additional Info Rows (Compact) */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {isProject && loc.item?.cost && (
+                  <div className="info-row">
+                    <RupeeIcon style={{ fontSize: "14px", color: "#64748b" }} />
+                    <span style={{ fontWeight: 500, color: "#1e293b" }}>
+                      ₹{loc.item.cost.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                
+                {isProject && loc.item?.company?.companyName && (
+                  <div className="info-row">
+                    <CompanyIcon style={{ fontSize: "14px", color: "#64748b" }} />
+                    <span>{loc.item.company.companyName}</span>
+                  </div>
+                )}
+
+                {isContact && loc.item?.roleInCompany && (
+                  <div className="info-row">
+                    <BriefcaseIcon style={{ fontSize: "14px", color: "#64748b" }} />
+                    <span>{loc.item.roleInCompany}</span>
+                  </div>
+                )}
+
+                {isContact && loc.item?.email && (
+                  <div className="info-row">
+                    <MailIcon style={{ fontSize: "14px", color: "#64748b" }} />
+                    <span style={{ fontSize: "12px" }}>{loc.item.email}</span>
+                  </div>
+                )}
+
+                {isContact && loc.item?.phone && (
+                  <div className="info-row">
+                    <PhoneIcon style={{ fontSize: "14px", color: "#64748b" }} />
+                    <span style={{ fontSize: "12px" }}>{loc.item.phone}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Address Row */}
+              <div className="address-row">
+                <MapPinIcon style={{ fontSize: "16px" }} className="address-icon" />
+                <span>
+                  {popupAddress && popupAddress.trim() !== "" 
+                    ? popupAddress 
+                    : "Address not available"}
+                </span>
+              </div>
+            </div>
+
+            <button className="go-button" onClick={() => handleGoToLocation(loc.item)}>
+              <NavigationIcon style={{ fontSize: "16px" }} />
+              Go to Location
+            </button>
+          </div>
+        )}
       </Popup>
     </Marker>
   );
@@ -613,6 +612,143 @@ export default function Maps({
           font-weight: 600;
           white-space: nowrap;
           box-shadow: 0 4px 12px rgba(44, 123, 229, 0.3);
+        }
+
+        /* Compact Card Popup UI */
+        .popup-card {
+          padding: 8px 4px;
+        }
+        .popup-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        .popup-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #1e293b;
+          margin: 0;
+          cursor: pointer;
+          transition: color 0.2s;
+        }
+        .popup-title:hover { color: #2c7be5; }
+        
+        .popup-body {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .status-row {
+          display: flex;
+          align-items: center;
+        }
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+          background: #3b82f6;
+        }
+        .address-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.4;
+        }
+        .address-icon {
+          color: #64748b;
+          flex-shrink: 0;
+        }
+        .info-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: #475569;
+        }
+        .go-button {
+          margin-top: 12px;
+          padding: 10px;
+          background: linear-gradient(135deg, #2c7be5, #1d4ed8);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 6px -1px rgba(44, 123, 229, 0.2);
+          width: 100%;
+        }
+        .go-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 14px rgba(44, 123, 229, 0.3);
+        }
+
+        /* Company Specialized Popup UI */
+        .company-popup {
+          padding: 8px 4px;
+        }
+        .company-header {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          margin-bottom: 12px;
+        }
+        .company-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          background: #2c7be5;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          font-size: 14px;
+          flex-shrink: 0;
+          margin-bottom: 6px;
+        }
+        .company-title-block {
+          display: flex;
+          flex-direction: column;
+        }
+        .company-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1e293b;
+          margin: 0;
+          cursor: pointer;
+        }
+        .company-name:hover { color: #2c7be5; }
+        .company-type {
+          font-size: 12px;
+          color: #64748b;
+          margin-top: 1px;
+        }
+        .company-body {
+          margin-top: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .company-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #475569;
+          font-size: 13px;
         }
       `}</style>
       
