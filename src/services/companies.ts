@@ -5,8 +5,6 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 interface CompanyType {
     id: string;
     name: string;
-    color?: string;
-    isActive: boolean;
 }
 
 // Get All Company Types

@@ -130,6 +130,14 @@ function DropDownInput({
                 color: selectedColor ? selectedColor : provided.color,
             }
         }),
+        // Visually distinguish inactive (disabled) options
+        option: (provided: any, state: any) => ({
+            ...provided,
+            opacity: state.isDisabled ? 0.45 : 1,
+            // fontStyle: state.isDisabled ? 'italic' : provided.fontStyle,
+            cursor: state.isDisabled ? 'not-allowed' : 'pointer',
+            color: state.isDisabled ? '#999' : provided.color,
+        }),
     });
 
     

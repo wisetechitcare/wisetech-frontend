@@ -79,6 +79,31 @@ interface TeamMember {
   role: string;
 }
 
+// Build employee options for dropdowns.
+// Active employees are always shown. Inactive employees are shown ONLY when they
+// match `currentValueId` (i.e. they are already saved on the record) so existing
+// data is never lost. Inactive options are labelled "(Inactive)", visually dimmed,
+// and marked `isDisabled` so they cannot be chosen for new assignments.
+const buildEmployeeOptions = (
+  employees: any[],
+  currentValueId?: string,
+): { value: string; label: string; avatar?: string; isDisabled?: boolean; isInactive?: boolean }[] => {
+  const sorted = [...employees].sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  const options: { value: string; label: string; avatar?: string; isDisabled?: boolean; isInactive?: boolean }[] = [];
+  for (const emp of sorted) {
+    const isInactive = emp.isActive === false;
+    if (isInactive && emp.employeeId !== currentValueId) continue;
+    options.push({
+      value: emp.employeeId,
+      label: isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName,
+      avatar: emp.avatar,
+      isDisabled: isInactive,
+      isInactive,
+    });
+  }
+  return options;
+};
+
 const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
   showBlankProjectForm,
   onHide,
@@ -124,13 +149,19 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
   const [projectCount, setProjectCount] = useState<any>(null);
   const [editablePrefix, setEditablePrefix] = useState<string>('');
 
-  // Update editable prefix when prefix settings or count changes
+  // Update editable prefix when prefix settings or count changes.
+  // Only auto-generate during creation — never overwrite an existing project's saved number.
   useEffect(() => {
+    if (projectData?.prefix) {
+      // Edit mode: always display the saved project number, never regenerate it.
+      setEditablePrefix(projectData.prefix);
+      return;
+    }
     if (prefixSettings?.prefix && projectCount !== undefined) {
       const generatedPrefix = `${prefixSettings.prefix}/${convertFiscalYearToYearFormat(prefixSettings.year)}/${projectCount + 1}`;
       setEditablePrefix(generatedPrefix);
     }
-  }, [prefixSettings, projectCount]);
+  }, [prefixSettings, projectCount, projectData?.prefix]);
 
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -2201,19 +2232,24 @@ const handleSubmit = useCallback(
                               <DropDownInput
                                 formikField="projectManagerId"
                                 inputLabel="Assigned To"
-                                options={allEmployees?.list?.map((item: any) => ({
-                                  value: item.employeeId,
-                                  label: item.employeeName,
-                                  avatar: item.avatar,
-                                })) || []}
+                                options={buildEmployeeOptions(
+                                  allEmployees?.list || [],
+                                  values.projectManagerId || undefined,
+                                )}
                                 onChange={(option: any) => {
                                   setFieldValue("projectManagerId", option?.value || "");
                                 }}
                                 value={(() => {
                                   if (!values.projectManagerId) return null;
-                                  const foundEmployee = allEmployees?.list?.find((emp: any) => emp.employeeId === values.projectManagerId);
-                                  if (foundEmployee) {
-                                    return { value: values.projectManagerId, label: foundEmployee.employeeName || "", avatar: foundEmployee.avatar || "" };
+                                  const emp = (allEmployees?.list || []).find((e: any) => e.employeeId === values.projectManagerId);
+                                  if (emp) {
+                                    const isInactive = emp.isActive === false;
+                                    return {
+                                      value: values.projectManagerId,
+                                      label: isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName,
+                                      avatar: emp.avatar || "",
+                                      isDisabled: isInactive,
+                                    };
                                   }
                                   return { value: values.projectManagerId, label: "Employee Not Found", avatar: "" };
                                 })()}
@@ -2774,7 +2810,7 @@ const handleSubmit = useCallback(
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3">
                           {(!values.handledByEntries || values.handledByEntries.length === 0) && (
-                            <Box sx={{ textAlign: 'center', py: 3, color: '#666', fontStyle: 'italic' }}>
+                            <Box sx={{ textAlign: 'center', py: 3, color: '#666' }}>
                               No entries yet. Click "Add Handle By" to get started.
                             </Box>
                           )}
@@ -2785,11 +2821,10 @@ const handleSubmit = useCallback(
                                   formikField={`handledByEntries[${idx}].employeeId`}
                                   inputLabel={idx === 0 ? "Handle By" : ""}
                                   isRequired={false}
-                                  options={allEmployees?.list?.map((item: any) => ({
-                                    value: item.employeeId,
-                                    label: item.employeeName,
-                                    avatar: item.avatar,
-                                  })) || []}
+                                  options={buildEmployeeOptions(
+                                    allEmployees?.list || [],
+                                    entry.employeeId || undefined,
+                                  )}
                                   placeholder="Select employee"
                                   showColor={true}
                                 />
