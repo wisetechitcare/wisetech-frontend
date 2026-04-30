@@ -2860,10 +2860,10 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
 
         // console.log("formattedCheckOut", formattedCheckOut);
 
-        const day = dayjs(attendanceRequest?.checkIn).format("dddd");
-
-        const date = dayjs(attendanceRequest?.checkIn).format("DD MMM YYYY");
-        const formattedDate = dayjs(date).format("DD/MM/YYYY");
+        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut;
+        const day = dateSource ? dayjs(dateSource).format("dddd") : "-NA-";
+        const date = dateSource ? dayjs(dateSource).format("DD MMM YYYY") : "-NA-";
+        const formattedDate = dateSource ? dayjs(date).format("DD/MM/YYYY") : "-NA-";
 
         let request: IAttendanceRequests = {
             id: attendanceRequest.id,
