@@ -1037,7 +1037,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
 
         {/* Second Row - Additional Details & Portal */}
         {leadTemplateId==leadAndProjectTemplateTypeId.mep &&  <div className="col-12 col-md-6">
-          <InfoCard title="Additional Details" icon="bi bi-gear">
+          <InfoCard title="Project Address" icon="bi bi-gear">
             <InfoRow label="Project Address" value={lead?.additionalDetails?.projectAddress || "-"} />
             <InfoRow label="Locality" value={lead?.additionalDetails?.locality || "-"} />
             <InfoRow label="City" value={lead?.additionalDetails?.city || "-"} />

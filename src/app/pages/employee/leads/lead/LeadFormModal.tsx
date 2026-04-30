@@ -113,6 +113,32 @@ const sortAllEmployeesByName = <T extends { employeeName: string }>(items: T[]):
   return [...items].sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 };
 
+// Build options for employee dropdowns in lead forms.
+// Active employees are always shown. Inactive employees are shown ONLY when they
+// match `currentValueId` (i.e. they are already saved on the record) so existing
+// data is never lost. Inactive options are labelled "(Inactive)", visually dimmed,
+// and marked `isDisabled` so they cannot be chosen for new assignments.
+const buildEmployeeOptions = (
+  employees: any[],
+  currentValueId?: string,
+): { value: string; label: string; avatar?: string; isDisabled?: boolean; isInactive?: boolean }[] => {
+  const sorted = sortAllEmployeesByName(employees);
+  const options: { value: string; label: string; avatar?: string; isDisabled?: boolean; isInactive?: boolean }[] = [];
+  for (const emp of sorted) {
+    const isInactive = emp.isActive === false;
+    // Include inactive employees only if they are the currently-saved value
+    if (isInactive && emp.employeeId !== currentValueId) continue;
+    options.push({
+      value: emp.employeeId,
+      label: isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName,
+      avatar: emp.avatar,
+      isDisabled: isInactive,
+      isInactive,
+    });
+  }
+  return options;
+};
+
 const LeadFormModal = ({
   leadTemplateId,
   open,
@@ -184,7 +210,7 @@ const LeadFormModal = ({
   const [cities, setCities] = useState<any[]>([]);
   const [projectData, setProjectData] = useState<any>(null);
   const [useCalculatedAmount, setUseCalculatedAmount] = useState<boolean>(true);
-  const [allCompanyTypes, setAllCompanyTypes] = useState([]);
+  const [allCompanyTypes, setAllCompanyTypes] = useState<{ id: string | number; name: string }[]>([]); //new update of alpabetical order
   const [currCompanyTypeId, setCurrCompanyTypeId] = useState('')
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -1523,8 +1549,13 @@ const LeadFormModal = ({
   useEffect(() => {
     async function fetchAndSetCompanyType() {
       const { companyTypes } = await getAllCompanyTypes()
-
-      const sortedCompanyTypes = sortItemsAlphabetically(companyTypes)
+      
+      //new update of alpabetical order
+      const typesWithIds = companyTypes.map((ct, index: number) => ({
+        id: ct.id ?? index,
+        name: ct.name
+      }))
+      const sortedCompanyTypes = sortItemsAlphabetically(typesWithIds)
       setAllCompanyTypes(sortedCompanyTypes)
     }
     fetchAndSetCompanyType()
@@ -2711,13 +2742,11 @@ const LeadFormModal = ({
                               formikField='leadAssignedTo'
                               inputLabel='Lead Assigned To'
                               isRequired={false}
-                              options={sortAllEmployeesByName(allEmployees?.list || [])?.map((item: any) => ({
-                                value: item.employeeId,
-                                label: item.employeeName,
-                                avatar: item.avatar,
-                              })) || []}
+                              options={buildEmployeeOptions(
+                                allEmployees?.list || [],
+                                values.leadAssignedTo || undefined,
+                              )}
                               showColor={true}
-                              // value={values.leadAssignedTo}
                               placeholder='Select employee'
                             />
                           </Grid>
@@ -2855,7 +2884,7 @@ const LeadFormModal = ({
                                     textAlign: 'center',
                                     py: 3,
                                     color: '#666',
-                                    fontStyle: 'italic'
+                                    // fontStyle: 'italic'
                                   }}>
                                     No referrals added yet. Click "Add another Referral" to get started.
                                   </Box>
@@ -2966,11 +2995,10 @@ const LeadFormModal = ({
                                             placeholder="Select employee"
                                             isRequired={false}
                                             formikField={`referrals[${index}].referredByEmployeeId`}
-                                            options={sortAllEmployeesByName(allEmployees?.list || [])?.map((item: any) => ({
-                                              value: item.employeeId,
-                                              label: item.employeeName,
-                                              avatar: item.avatar,
-                                            })) || []}
+                                            options={buildEmployeeOptions(
+                                              allEmployees?.list || [],
+                                              values.referrals[index]?.referredByEmployeeId || undefined,
+                                            )}
                                             showColor={true}
                                             onChange={(value: any) => {
                                               const employeeId = value?.value || value;
@@ -2981,15 +3009,19 @@ const LeadFormModal = ({
                                                 setFieldValue(`referrals[${index}].companyName`, companyName);
                                               }
                                             }}
-                                            value={
-                                              values.referrals[index]?.referredByEmployeeId
-                                                ? {
-                                                  value: values.referrals[index].referredByEmployeeId,
-                                                  label: allEmployees?.list?.find((item: any) => item.employeeId === values.referrals[index].referredByEmployeeId)?.employeeName || "",
-                                                  avatar: allEmployees?.list?.find((item: any) => item.employeeId === values.referrals[index].referredByEmployeeId)?.avatar,
-                                                }
-                                                : null
-                                            }
+                                            value={(() => {
+                                              const empId = values.referrals[index]?.referredByEmployeeId;
+                                              if (!empId) return null;
+                                              const emp = (allEmployees?.list || []).find((item: any) => item.employeeId === empId);
+                                              if (!emp) return null;
+                                              const isInactive = emp.isActive === false;
+                                              return {
+                                                value: empId,
+                                                label: isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName,
+                                                avatar: emp.avatar,
+                                                isDisabled: isInactive,
+                                              };
+                                            })()}
                                           />
                                         </Box>
                                       </Grid>
@@ -3239,7 +3271,7 @@ const LeadFormModal = ({
                                   textAlign: 'center',
                                   py: 3,
                                   color: '#666',
-                                  fontStyle: 'italic'
+                                  // fontStyle: 'italic'
                                 }}>
                                   No project areas added yet. Click "Add New Project Area" to get started.
                                 </Box>
@@ -4108,7 +4140,7 @@ const LeadFormModal = ({
                                   textAlign: 'center',
                                   py: 3,
                                   color: '#666',
-                                  fontStyle: 'italic',
+                                  // fontStyle: 'italic',
                                   fontSize: '14px',
                                   fontFamily: 'Inter',
                                 }}>
@@ -4124,11 +4156,10 @@ const LeadFormModal = ({
                                       formikField={`handledByEntries[${idx}].employeeId`}
                                       inputLabel=""
                                       isRequired={false}
-                                      options={sortAllEmployeesByName(allEmployees?.list || [])?.map((item: any) => ({
-                                        value: item.employeeId,
-                                        label: item.employeeName,
-                                        avatar: item.avatar,
-                                      })) || []}
+                                      options={buildEmployeeOptions(
+                                        allEmployees?.list || [],
+                                        entry.employeeId || undefined,
+                                      )}
                                       placeholder="Select employee"
                                       showColor={true}
                                     />
