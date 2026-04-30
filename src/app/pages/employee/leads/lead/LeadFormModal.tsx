@@ -1524,11 +1524,7 @@ const LeadFormModal = ({
     async function fetchAndSetCompanyType() {
       const { companyTypes } = await getAllCompanyTypes()
 
-      const typesWithIds = companyTypes.map((ct, index: number) => ({
-        id: ct.id ?? index,
-        name: ct.name
-      }))
-      const sortedCompanyTypes = sortItemsAlphabetically(typesWithIds)
+      const sortedCompanyTypes = sortItemsAlphabetically(companyTypes)
       setAllCompanyTypes(sortedCompanyTypes)
     }
     fetchAndSetCompanyType()
