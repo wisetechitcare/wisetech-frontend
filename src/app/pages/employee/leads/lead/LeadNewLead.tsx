@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
 import { leadAndProjectTemplateTypeId } from "@constants/statistics";
-import { deleteConfirmation, errorConfirmation } from "@utils/modal";
+import { deleteConfirmation, errorConfirmation, rejectConfirmation, successConfirmation } from "@utils/modal";
 import LeadFormModal from "./LeadFormModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -21,6 +21,7 @@ import { getAllProjectServices, getAllProjectSubcategories, getAllProjectCategor
 import { fetchAllCountries, fetchAllStates, fetchAllCities } from "@services/options";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
+import eventBus from "@utils/EventBus";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { mapLeadToFormInitialValues } from "./utils";
@@ -33,6 +34,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import LeadBulkImport from "./LeadBulkImport";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -57,7 +59,7 @@ type LeadNewLeadProps = {
   endDate?: dayjs.Dayjs;
 };
 
-// ─── Navigation Buttons (identical to AttendanceGraphicalToggle) ───────────────
+// ─── Navigation Buttons ────────────────────────────────────────────────────────
 
 const NavigationButtons: React.FC<{
   onPrev: () => void;
@@ -108,6 +110,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
   const [rawLeadsDatas, setRawLeadsDatas] = useState<any[]>([]);
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
+  // ── Bulk import state (from file 2) ─────────────────────────────────────────
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [pagination] = useState({ pageIndex: 0, pageSize: 10 });
 
   // ── Date mode ────────────────────────────────────────────────────────────────
@@ -150,32 +154,25 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   let rawLeadsData = rawLeadsDatas;
 
   // Derive assigned-to employees directly from lead data so new assignees appear automatically.
-  // Must be declared here (before any early returns) to satisfy the Rules of Hooks.
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };
 
   const assignedEmployeesFromLeads = useMemo(() => {
     const assignedIds = new Set(tableData.map((l: any) => l.assignedTo).filter(Boolean));
-    // Include all employees (active and inactive) who have leads assigned to them.
-    // Inactive ones are shown with an "(Inactive)" suffix so existing assignments
-    // remain visible in the filter, but they cannot be selected for new assignments.
     const matched = (allemployees || []).filter((e: any) => assignedIds.has(e.employeeId));
     return [...matched]
       .sort((a: any, b: any) => a.employeeName.localeCompare(b.employeeName))
       .map((e: any) => ({
         ...e,
-        // Expose a display-safe name; keeps employeeName unchanged for lookup
         displayName: e.isActive === false ? `${e.employeeName} (Inactive)` : e.employeeName,
         isInactive: e.isActive === false,
       }));
   }, [tableData, allemployees]);
 
-  // Whether at least one lead has no assigned employee — drives N/A option visibility.
   const hasUnassignedLeads = useMemo(
     () => tableData.some((l: any) => !l.assignedTo),
     [tableData]
   );
 
-  // Combined options: real employees + optional N/A sentinel at the top.
   const assignedToOptions = useMemo(
     () => hasUnassignedLeads ? [NA_OPTION, ...assignedEmployeesFromLeads] : assignedEmployeesFromLeads,
     [hasUnassignedLeads, assignedEmployeesFromLeads]
@@ -245,7 +242,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     }
   }, [yearStart, today]);
 
-  // ── Alignment change – works for both ToggleButtonGroup and Select ───────────
   const handleAlignmentChange = (_: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}>, newVal: string) => {
     if (!newVal) return;
     setAlignment(newVal as DateMode);
@@ -391,8 +387,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   useEffect(() => { fetchAllData(); }, [fetchAllData, pagination]);
   useEffect(() => { dispatch(fetchAllEmployeesAsync()); }, []);
 
+  // ── Event bus subscriptions (merged — file 2 adds leadDeleted) ───────────────
   useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
   useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
+  useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
   useEventBus(EVENT_KEYS.chartSettingsUpdated, fetchAllData);
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
@@ -549,17 +547,28 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   ];
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
+
+  // Improved delete from file 2: optimistic update + success confirmation + eventBus emit
   const handleDeleteLead = async (id: string) => {
     try {
-      const confirmed = await deleteConfirmation('Lead deleted successfully!');
+      const confirmed = await rejectConfirmation('Yes, delete it!');
       if (confirmed) {
         setDeletingId(id);
-        await deleteLead(id);
+
+        // Optimistic UI update
         setTableData(prev => prev.filter((l: any) => l.id !== id));
+        setRawLeadsDatas(prev => prev.filter((l: any) => l.id !== id));
+
+        await deleteLead(id);
+
+        successConfirmation('Lead deleted successfully!');
+        eventBus.emit(EVENT_KEYS.leadDeleted, { id });
       }
     } catch (error) {
       console.error('Error deleting lead:', error);
       errorConfirmation('Failed to delete lead. Please try again.');
+      // Revert optimistic update
+      fetchAllData();
     } finally {
       setDeletingId(null);
     }
@@ -617,7 +626,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Quick filter: date + status + assigned (AND) ───────────────────────────────
   const quickFilteredData = filteredByProps?.filter((item: any) => {
-    // date filter on inquiryDate
     let dateMatch = true;
     const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
     if (alignment === "daily") {
@@ -629,7 +637,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     } else if (alignment === "yearly" && yearStart && yearEnd) {
       dateMatch = d ? (!d.isBefore(yearStart.startOf("day")) && !d.isAfter(yearEnd.endOf("day"))) : false;
     } else if (alignment === "allyear") {
-      dateMatch = true; // show all leads regardless of date
+      dateMatch = true;
     } else if (alignment === "custom") {
       if (customStartDate || customEndDate) {
         if (!d) dateMatch = false;
@@ -662,12 +670,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     return `₹${amount.toLocaleString("en-IN")}`;
   };
 
-  // ─────────────────────────── Shared heights ────────────────────────────────
-  // The ToggleButton is 36px tall on desktop, 30px on mobile.
-  // Status & AssignedTo must match exactly.
+  // ── Shared heights ─────────────────────────────────────────────────────────
   const FILTER_HEIGHT = isMobile ? "30px" : "36px";
 
-  // ── Toggle group sx (copied from AttendanceGraphicalToggle) ───────────────────
+  // ── Toggle group sx ───────────────────────────────────────────────────────────
   const toggleGroupSx = {
     display: "flex",
     flexWrap: "wrap" as const,
@@ -696,7 +702,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
   };
 
-  // ── Mobile select sx (same as AttendanceGraphicalToggle) ─────────────────────
+  // ── Mobile select sx ──────────────────────────────────────────────────────────
   const mobileSelectSx = {
     borderRadius: "20px",
     "& .MuiOutlinedInput-root": { borderRadius: "20px" },
@@ -708,7 +714,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     "& .Mui-selected": { borderColor: "#9D4141 !important", color: "#9D4141 !important" },
   };
 
-  // ── Pill select sx for Status & Assigned (matches toggle height exactly) ──────
+  // ── Pill select sx for Status & Assigned ──────────────────────────────────────
   const pillSelectSx = (hasValue: boolean) => ({
     borderRadius: "20px",
     fontSize: isMobile ? "10px" : "12px",
@@ -723,7 +729,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#9D4141 !important" },
     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#9D4141 !important" },
-    // keep caret but hide it when value selected (we show our own X)
     "& .MuiSelect-icon": { color: hasValue ? "#9D4141" : "#A0B4D2" },
   });
 
@@ -756,6 +761,11 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 sx={{ backgroundColor: '#9D4141', '&:hover': { backgroundColor: '#7e3434' }, textTransform: 'none', px: 3, py: 1, borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
                 Old Lead
               </Button>
+              {/* Bulk Import button from file 2 */}
+              <Button variant="contained" onClick={() => setShowBulkImport(true)}
+                sx={{ backgroundColor: '#1B84FF', '&:hover': { backgroundColor: '#1565c0' }, textTransform: 'none', px: 3, py: 1, borderRadius: '8px', fontSize: '14px', fontWeight: 500, color: 'white' }}>
+                Bulk Import
+              </Button>
               <Button variant="contained" onClick={handleOpenModal}
                 sx={{ backgroundColor: '#9D4141', '&:hover': { backgroundColor: '#7e3434' }, textTransform: 'none', px: 3, py: 1, borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
                 New Lead
@@ -774,7 +784,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               {/* LEFT: mobile → Select, desktop → ToggleButtonGroup */}
               <div className="d-flex flex-column d-md-block">
                 {isMobile ? (
-                  // ── Mobile: dropdown (same as AttendanceGraphicalToggle) ────
                   <Select
                     value={alignment}
                     onChange={(e) => handleAlignmentChange(e as any, e.target.value)}
@@ -791,7 +800,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     <MenuItem value="custom">Custom</MenuItem>
                   </Select>
                 ) : (
-                  // ── Desktop: pill toggle buttons ──────────────────────────
                   <ToggleButtonGroup
                     value={alignment}
                     exclusive
@@ -876,7 +884,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               </div>
             )}
 
-            {/* ── Row 2: Status | Assigned | spacer | count | clear ── */}
+            {/* ── Row 2: Status | Assigned | spacer | count badge | clear ── */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "4px" }}>
 
               {/* ── Status dropdown ── */}
@@ -886,7 +894,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   onChange={(e) => setStatusFilter(e.target.value)}
                   displayEmpty
                   sx={pillSelectSx(!!statusFilter)}
-                  // Use onMouseDown on the X span (fires before Select's own click handler closes menu)
                   renderValue={(val) => {
                     if (!val) {
                       return <span style={{ color: "#A0B4D2", fontFamily: "Inter", fontSize: isMobile ? "10px" : "12px", fontWeight: 600 }}>Lead Status</span>;
@@ -894,18 +901,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     const st = leadStatuses.find((s: any) => s.name === val);
                     return (
                       <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                        {/* Color dot */}
                         {st?.color && (
                           <span style={{ width: 10, height: 10, minWidth: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
                         )}
-                        {/* Label */}
                         <span style={{ fontFamily: "Inter", fontSize: isMobile ? "10px" : "12px", fontWeight: 600, color: "#9D4141", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                           {val}
                         </span>
-                        {/* Clear X — use onMouseDown so it fires before Select tries to open */}
                         <span
                           onMouseDown={(e) => {
-                            e.preventDefault();   // prevent Select from opening
+                            e.preventDefault();
                             e.stopPropagation();
                             setStatusFilter("");
                           }}
@@ -913,7 +917,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                             display: "inline-flex", alignItems: "center", justifyContent: "center",
                             width: 16, height: 16, minWidth: 16,
                             borderRadius: "50%",
-                            // backgroundColor: "rgba(157,65,65,0.12)",
                             color: "#9D4141",
                             fontSize: 10,
                             fontWeight: 700,
@@ -940,8 +943,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </Select>
               </FormControl>
 
-
-              {/* ── Assigned To — MUI Autocomplete pill (pixel-matches Lead Status) ── */}
+              {/* ── Assigned To — Autocomplete pill ── */}
               <Autocomplete
                 size="small"
                 options={assignedToOptions}
@@ -1084,11 +1086,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 }}
               />
 
-
               {/* Spacer left */}
               <div style={{ flex: 1 }} />
 
-              {/* ── Combined Stats Toggle: No. of Leads | Total Cost ── */}
+              {/* ── Combined Stats Badge: No. of Leads | Total Cost ── */}
               <div
                 style={{
                   display: "flex",
@@ -1114,23 +1115,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     gap: "1px",
                   }}
                 >
-                  <span style={{
-                    fontFamily: "Inter",
-                    fontSize: isMobile ? "9px" : "12px",
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,0.75)",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                  }}>
+                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "9px" : "12px", fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                     Leads
                   </span>
-                  <span style={{
-                    fontFamily: "Inter",
-                    fontSize: isMobile ? "13px" : "15px",
-                    fontWeight: 800,
-                    color: "#fff",
-                    lineHeight: 1.1,
-                  }}>
+                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "13px" : "15px", fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>
                     {quickFilteredData?.length ?? 0}
                     <span style={{ fontSize: isMobile ? "10px" : "12px", fontWeight: 500, color: "rgba(255,255,255,0.65)", marginLeft: 2 }}>
                       / {tableData?.length ?? 0}
@@ -1153,24 +1141,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     gap: "1px",
                   }}
                 >
-                  <span style={{
-                    fontFamily: "Inter",
-                    fontSize: isMobile ? "9px" : "12px",
-                    fontWeight: 600,
-                    color: "#b06060",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                  }}>
+                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "9px" : "12px", fontWeight: 600, color: "#b06060", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                     Total Cost
                   </span>
-                  <span style={{
-                    fontFamily: "Inter",
-                    fontSize: isMobile ? "13px" : "15px",
-                    fontWeight: 800,
-                    color: "#9D4141",
-                    lineHeight: 1.1,
-                    letterSpacing: "0.01em",
-                  }}>
+                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "13px" : "15px", fontWeight: 800, color: "#9D4141", lineHeight: 1.1, letterSpacing: "0.01em" }}>
                     {formatCost(totalFilteredCost)}
                   </span>
                 </div>
@@ -1250,6 +1224,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           </div>
         </Modal.Body>
       </Modal>
+
+      {/* Bulk Import Modal from file 2 */}
+      <LeadBulkImport
+        show={showBulkImport}
+        onHide={() => setShowBulkImport(false)}
+      />
     </>
   );
 };
