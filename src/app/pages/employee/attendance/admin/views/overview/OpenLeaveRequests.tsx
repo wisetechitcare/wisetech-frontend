@@ -148,7 +148,14 @@ function OpenLeaveRequests() {
         setLoading(true);
         setProcessingRowId(leave.id);
         setProcessingAction('approve');
-        let approvedBy: string[] = JSON.parse(leave?.approvedBy);
+
+        const currentStatus = Number(leave?.status);
+        const nextStatus =
+            currentStatus === LeaveStatus.ApprovalPending
+                ? LeaveStatus.PendingHR
+                : currentStatus === LeaveStatus.PendingHR
+                    ? LeaveStatus.Approved
+                    : LeaveStatus.Approved;
         
         const requestToHandle = leave;
         const typeOfleave = requestToHandle?.type?.toLowerCase()?.includes("unpaid") ? "total unpaid leaves taken" : "total paid leaves taken";
@@ -201,11 +208,22 @@ function OpenLeaveRequests() {
             score: workingDaysScore.toString(), // Weightage × leave days
         }
         
-        const res = await createKpiScore(workingDaysPayload)
-        
-        approvedBy.push(employeeIdCurrent); // FIX: push employee ID, not undefined role string
-        await updateLeaveStatus({ id: leave.id, status: LeaveStatus.Approved, approvedBy, approvedById: employeeIdCurrent });
-        successConfirmation('Leave request approved successfully');
+        await updateLeaveStatus({ id: leave.id, status: nextStatus });
+
+        // KPI should never block leave approval; treat KPI failures as non-fatal.
+        if (nextStatus === LeaveStatus.Approved && workingDaysFactorId) {
+            try {
+                await createKpiScore(workingDaysPayload);
+            } catch (kpiErr) {
+                console.error('[KPI] Failed to create KPI score for leave approval', kpiErr);
+            }
+        }
+
+        successConfirmation(
+            nextStatus === LeaveStatus.PendingHR
+                ? 'Leave request forwarded to HR successfully'
+                : 'Leave request approved successfully'
+        );
 
         setLeaveActionId(leave.id);
         const { data: { leaveRequest } } = await fetchLeaveRequest(selectedEmployeeId || undefined);

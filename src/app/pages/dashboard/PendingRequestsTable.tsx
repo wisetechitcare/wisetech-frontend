@@ -1527,7 +1527,13 @@ const PendingRequestsTable = () => {
       setProcessingRowId(leave.id);
       setProcessingAction('approve');
 
-      let approvedBy: string[] = JSON.parse(leave?.approvedBy || '[]');
+      const currentStatus = Number(leave?.status);
+      const nextStatus =
+        currentStatus === LeaveStatus.ApprovalPending
+          ? LeaveStatus.PendingHR
+          : currentStatus === LeaveStatus.PendingHR
+            ? LeaveStatus.Approved
+            : LeaveStatus.Approved;
 
       // KPI creation logic (same as OpenLeaveRequests.tsx)
       const requestToHandle = leave;
@@ -1586,13 +1592,31 @@ const PendingRequestsTable = () => {
           score: workingDaysScore.toString(),  // FIX: score uses normalized value × correct-sign weight
       };
 
-      await createKpiScore(workingDaysPayload);
+      await updateLeaveStatus({ id: leave.id, status: nextStatus });
 
-      approvedBy.push("HR");
-
-      await updateLeaveStatus({ id: leave.id, status: LeaveStatus.Approved, approvedBy, approvedById: employeeIdCurrent });
-      successConfirmation('Leave request approved successfully');
+      // Only create KPI score on final approval (HR stage). Stage 1 (PendingHR) is not a final decision.
+      // KPI should never block leave approval; treat KPI failures as non-fatal.
+      if (nextStatus === LeaveStatus.Approved && workingDaysFactorId) {
+        try {
+          await createKpiScore(workingDaysPayload);
+        } catch (kpiErr) {
+          console.error('[KPI] Failed to create KPI score for leave approval', kpiErr);
+        }
+      }
+      successConfirmation(
+        nextStatus === LeaveStatus.PendingHR
+          ? 'Leave request forwarded to HR successfully'
+          : 'Leave request approved successfully'
+      );
       fetchLeaveRequests();
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const validationError = error?.response?.data?.validationError;
+      const validationMsg =
+        Array.isArray(validationError) && validationError.length > 0
+          ? `${validationError?.[0]?.field ? `${validationError[0].field}: ` : ''}${(validationError[0]?.errors || []).join(', ')}`
+          : null;
+      errorConfirmation(detail || validationMsg || 'Failed to update leave status');
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);
@@ -1610,6 +1634,14 @@ const PendingRequestsTable = () => {
         successConfirmation('Leave request rejected successfully');
         fetchLeaveRequests();
       }
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const validationError = error?.response?.data?.validationError;
+      const validationMsg =
+        Array.isArray(validationError) && validationError.length > 0
+          ? `${validationError?.[0]?.field ? `${validationError[0].field}: ` : ''}${(validationError[0]?.errors || []).join(', ')}`
+          : null;
+      errorConfirmation(detail || validationMsg || 'Failed to reject leave request');
     } finally {
       setProcessingRowId(null);
       setProcessingAction(null);
