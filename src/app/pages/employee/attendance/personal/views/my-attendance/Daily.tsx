@@ -38,7 +38,6 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
         const { attendanceStats } = state;
         return attendanceStats.daily;
     });
-
     const attendance = useSelector((state: RootState) => {
         const { attendanceStats } = state;
         return attendanceStats.dailyTable;

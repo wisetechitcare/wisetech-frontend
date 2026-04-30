@@ -24,6 +24,27 @@ import { calculateProRatedMonths } from '@utils/fiscalYearHelper';
 import { getWorkingDays } from '@utils/leaves';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+
+const extractApiErrorMessage = (err: any): string | null => {
+  const data = err?.response?.data;
+
+  const detail = data?.detail;
+  if (typeof detail === 'string' && detail.trim()) return detail;
+
+  const message = data?.message;
+  if (typeof message === 'string' && message.trim()) return message;
+
+  const validationError = data?.validationError;
+  if (Array.isArray(validationError) && validationError.length > 0) {
+    const first = validationError[0];
+    const field = typeof first?.field === 'string' && first.field ? `${first.field}: ` : '';
+    const errors = Array.isArray(first?.errors) ? first.errors.filter(Boolean).join(', ') : '';
+    if (errors) return `${field}${errors}`;
+  }
+
+  if (typeof err?.message === 'string' && err.message.trim()) return err.message;
+  return null;
+};
 let initialValues: ILeaveRequest = {
   employeeId: "",
   leaveTypeId: "",
@@ -792,7 +813,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               setLeaveCount(0);
               onClose();
             } else {
-              errorConfirmation('Failed to update leave');
+              errorConfirmation(res?.detail || res?.message || 'Failed to update leave');
             }
           } else {
             const res = await createEmployeeLeaveRequest(leaveRequestData);
@@ -804,7 +825,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               setLeaveCount(0);
               onClose();
             } else {
-              errorConfirmation('Failed to apply for leave');
+              errorConfirmation(res?.detail || res?.message || 'Failed to apply for leave');
             }
           }
 
@@ -821,8 +842,9 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               eventBus.emit(EVENT_KEYS.leaveRequestCreated, { leaveId: createdLeaveId });
             }
           }
-        } catch {
-          errorConfirmation('Failed to apply for leave');
+        } catch (err: any) {
+          const fallback = leave ? 'Failed to update leave' : 'Failed to apply for leave';
+          errorConfirmation(extractApiErrorMessage(err) || fallback);
         } finally {
           setLoading(false);
           setSubmitting(false);

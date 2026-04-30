@@ -41,7 +41,6 @@ export async function validatePreviousDaysAttendance(params: ValidationParams): 
 
     const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
     const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
-
     const totalLeaves = await customLeaves(leaves);
     const startDate = dayjs().startOf('year').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('year').format('YYYY-MM-DD');

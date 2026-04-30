@@ -8,8 +8,10 @@ import ScoreOverview from "../../components/ScoreOverview";
 import AttendanceIcon from "@metronic/assets/miscellaneousicons/attendance.svg";
 import LeavesIcon from "@metronic/assets/miscellaneousicons/leaves.svg";
 import PerformanceBadge from "../../components/PerformanceBadge";
+import { Container, Spinner } from "react-bootstrap";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
+
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
   Leaves: LeavesIcon,
@@ -33,16 +35,27 @@ const AllTime: React.FC<AllTimeProps> = ({
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange
   );
-  const [data, setData] = useState<any[] | null>(null);
+
+  const employeeId = useSelector(
+    (state: RootState) => state.employee.currentEmployee?.id
+  );
+
+  const [data, setData] = useState<any>(null); // ✅ FIXED
   const [loading, setLoading] = useState<boolean>(true);
+  const [showData, setShowData] = useState(false);
 
   useEffect(() => {
+    if (!employeeId) return;
+
     const loadData = async () => {
       setLoading(true);
       try {
         const response = await fetchEmpAllTimeKpiStatistics();
+
+        console.log("🔥 KPI RESPONSE:", response); // ✅ MANDATORY LOG
+
         if (response) {
-          setData(response.modules);
+          setData(response); // ✅ FIXED
         }
       } catch (error) {
         console.error("Error fetching All Time KPI Statistics:", error);
@@ -52,71 +65,88 @@ const AllTime: React.FC<AllTimeProps> = ({
     };
 
     loadData();
-  }, [toggleChange]);
+  }, [toggleChange, employeeId]);
 
+  useEffect(() => {
+    if (!employeeId) return;
+
+    const res = hasPermission(
+      resourseAndView[0]?.resource,
+      permissionConstToUseWithHasPermission.readOthers
+    );
+
+    if (res) setShowData(true);
+  }, [employeeId]);
+
+  // ✅ SAFE EXTRACTION
+  const modules = data?.modules || [];
+  const yourPoints = data?.yourPoints ?? 0;
+  
+  // 🔥 FINAL SAFE RANK CODE
+  const rawRank = data?.rank;
+  const rank =
+    rawRank === null || rawRank === undefined || rawRank === 0 || rawRank === "0"
+      ? null
+      : rawRank;
+  const remark = data?.remark || "";
+  const maxTotal = Number(data?.maxTotal || 0);
 
   const overviewData = [
-    {
-      icon: iconMapping["Attendance"],
-      label: "Attendance",
-      score:
-        data?.find((m: any) => m.moduleName === "Attendance")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Leaves"],
-      label: "Leaves",
-      score: data?.find((m: any) => m.moduleName === "Leaves")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Projects"],
-      label: "Projects",
-      score:
-        data?.find((m: any) => m.moduleName === "Projects")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Tasks"],
-      label: "Tasks",
-      score: data?.find((m: any) => m.moduleName === "Tasks")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Sale"],
-      label: "Sale",
-      score: data?.find((m: any) => m.moduleName === "Sale")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Target"],
-      label: "Target",
-      score: data?.find((m: any) => m.moduleName === "Target")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Performance"],
-      label: "Performance",
-      score:
-        data?.find((m: any) => m.moduleName === "Performance")?.totalScore ?? 0,
-    },
-    {
-      icon: iconMapping["Ratings & Reviews"],
-      label: "Ratings & Reviews",
-      score:
-        data?.find((m: any) => m.moduleName === "Ratings & Reviews")
-          ?.totalScore ?? 0,
-    },
-  ];
-// const yourPoints = data?.yourPoints ?? 0;
-// const topModule = data?.modules?.[0];
+    "Attendance",
+    "Leaves",
+    "Projects",
+    "Tasks",
+    "Sale",
+    "Target",
+    "Performance",
+    "Ratings & Reviews",
+  ].map((label) => ({
+    icon: iconMapping[label],
+    label,
+    score:
+      modules.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
+  }));
+
+  if (loading) {
+    return (
+      <Container
+        fluid
+        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
+        style={{ minHeight: "300px" }}
+      >
+        <Spinner animation="border" variant="primary" />
+      </Container>
+    );
+  }
+
+  if (!showData)
+    return <h2 className="text-center">Not Allowed To View</h2>;
+
+  if (!modules.length) {
+    return (
+      <Container fluid className="my-4 px-0">
+        <p>No KPI data available.</p>
+      </Container>
+    );
+  }
 
   return (
     <>
-   {/* {topModule && (
-  <PerformanceBadge
-    image={badgeMapping[topModule.remark]}
-    remark={topModule.remark}
-    rank={topModule.rank}
-    yourPoints={yourPoints}
-  />
-)} */}
+      {remark && (
+        <PerformanceBadge
+          remark={remark}
+          rank={rank}
+          yourPoints={yourPoints}
+          maxTotal={maxTotal}
+          fromAdmin={fromAdmin}
+        />
+      )}
+
       <ScoreOverview data={overviewData} />
-      <KpiStatisticsTable data={data} />;
+
+      <Container fluid className="my-4 px-0">
+        <KpiStatisticsTable data={modules} />
+      </Container>
     </>
   );
 };

@@ -1,5 +1,5 @@
 import { KTIcon } from "@metronic/helpers";
-import { companiesIcons } from "@metronic/assets/sidepanelicons";
+import { companiesIcons, projectOverviewIcons } from "@metronic/assets/sidepanelicons";
 import { Company } from "@models/companies";
 import { useEffect, useState } from "react";
 import NoteModal from "./NoteModal";
@@ -247,20 +247,44 @@ const Overview = ({ company }: OverviewProps) => {
               </div>
             </div>
 
-            {company.location && (
-              <div className="row">
-                <div className="col-sm-4">
-                  <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Location</div>
-                </div>
-                <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                  <div className="d-flex align-items-center">
-                    <KTIcon iconName="geolocation" className="fs-6 text-primary me-2" />
-                    <span style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.location}</span>
-                    <a href="#" className="ms-2 text-primary">View on map</a>
+            {/* View on map link - ONLY if coordinates are valid and non-zero */}
+            {(() => {
+              const lat = parseFloat(String(company.latitude));
+              const lng = parseFloat(String(company.longitude));
+              if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                return (
+                  <div className="row mb-4">
+                    <div className="col-sm-4">
+                      <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Location</div>
+                    </div>
+                    <div className="col-sm-8 d-flex align-items-center justify-content-end">
+                      <div className="d-flex align-items-center" style={{ gap: "4px" }}>
+                        <img
+                          src={projectOverviewIcons.mapIcon?.default}
+                          alt=""
+                          style={{ width: "20px", height: "20px" }}
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#9d4141",
+                            textDecoration: "none",
+                            fontWeight: "400",
+                            fontFamily: "Inter",
+                            fontSize: "14px"
+                          }}
+                        >
+                          View on map
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                );
+              }
+              return null;
+            })()}
           </div>
         </div>
       </div>
