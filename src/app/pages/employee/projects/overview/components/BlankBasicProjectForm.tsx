@@ -792,13 +792,14 @@ const getInitialAddresses = useCallback(() => {
   }];
 }, [projectData?.addresses, countries, states, cities]);
 
-// Get initial companies for main client details section (TEAM DETAILS)
+// Get initial companies for main client details section
 const getInitialCompanies = useCallback(() => {
   const mappings = projectData?.projectCompanyMappings || [];
-  // In TEAM DETAILS: show ALL company mappings that have a company selected
-  // Both service-based and type-based entries belong here
-  const clientCompanies = mappings.filter((m: any) => m.companyId);
-
+  // Filter for main client companies (not relation companies)
+  const clientCompanies = mappings.filter((m: any) => 
+    m.serviceId || (!m.companyTypeId && !m.refferingSubCompanyId)
+  );
+  
   if (clientCompanies.length > 0) {
     return clientCompanies.map((m: any) => ({
       company: m.companyId || "",
@@ -819,49 +820,45 @@ const getInitialCompanies = useCallback(() => {
 
 // Get initial relation companies for relation companies section
 const getInitialRelationCompanies = useCallback(() => {
-  // EDIT MODE: always read from saved projectData — do NOT fall through to lead conversion data
-  if (editingProjectId && projectData?.projectCompanyMappings) {
-    // In edit mode, all company mappings are shown in TEAM DETAILS.
-    // ADD OTHER RELATION COMPANIES section starts with one blank row.
-    return [{
-      companyTypeId: "",
-      company: "",
-      refferingSubCompanyId: "",
-      contactPerson: "",
-    }];
-  }
-
-  // LEAD CONVERSION MODE: build from lead data
   const leadRelationCompanies: any = [];
-
+  
+  // For lead conversion, check if leadTeams exist in lead data
   if (intitalDataForLeadToProjectConversion?.companies && Array.isArray(intitalDataForLeadToProjectConversion.companies)) {
-    // Only include entries that are relation entries (no serviceId) and have some company info
-    const relationTeams = intitalDataForLeadToProjectConversion.companies.filter((company: any) =>
+    // Filter out main companies (those with serviceId) and map remaining to relation companies
+    const relationTeams = intitalDataForLeadToProjectConversion.companies.filter((company: any) => 
       !company.serviceId && !company.service && (company.companyTypeId || company.companyId)
     );
-
+    
     relationTeams.forEach((team: any) => {
       leadRelationCompanies.push({
         companyTypeId: (() => {
           const value = team.companyTypeId || "";
+          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
         company: (() => {
           const value = team.companyId || team.company || "";
+          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
         refferingSubCompanyId: (() => {
           const value = team.subCompanyId || team.branchId || "";
+          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
         contactPerson: (() => {
           const value = team.contactPersonId || team.contactPerson || "";
+          // Extract ID if it's an object, otherwise return the value
           return (typeof value === 'object' && value?.id) ? value.id : value;
         })(),
+        // Fixed: Only store IDs, not full objects to avoid Prisma errors
+        // subCompany: team.subCompany || null,
+        // companyType: team.companyType || null,
+        // contact: team.contact || null,
       });
     });
   }
-
+  
   // Also check for referrals in lead data
   if (intitalDataForLeadToProjectConversion?.referrals && Array.isArray(intitalDataForLeadToProjectConversion.referrals)) {
     intitalDataForLeadToProjectConversion.referrals.forEach((referral: any) => {
@@ -869,18 +866,22 @@ const getInitialRelationCompanies = useCallback(() => {
         leadRelationCompanies.push({
           companyTypeId: (() => {
             const value = referral.referralTypeId || referral.referralType || "";
+            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
           company: (() => {
             const value = referral.referringCompanyId || referral.referringCompany || "";
+            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
           refferingSubCompanyId: (() => {
             const value = referral.referringSubCompanyId || "";
+            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
           contactPerson: (() => {
             const value = referral.referredByContactId || referral.referringContact || "";
+            // Extract ID if it's an object, otherwise return the value
             return (typeof value === 'object' && value?.id) ? value.id : value;
           })(),
         });
@@ -891,14 +892,28 @@ const getInitialRelationCompanies = useCallback(() => {
     return leadRelationCompanies;
   }
 
-  // Default: one empty row
+  // For regular project editing
+  const mappings = projectData?.projectCompanyMappings || [];
+  // Filter for relation companies (those with companyTypeId and refferingSubCompanyId)
+  const projectRelationCompanies = mappings.filter((m: any) => 
+    m.companyTypeId && m.refferingSubCompanyId
+  );
+  
+  if (projectRelationCompanies.length > 0) {
+    return projectRelationCompanies.map((m: any) => ({
+      companyTypeId: m.companyTypeId || "",
+      company: m.companyId || "",
+      refferingSubCompanyId: m.refferingSubCompanyId || "",
+      contactPerson: m.contactPersonId || "",
+    }));
+  }
   return [{
     companyTypeId: "",
     company: "",
     refferingSubCompanyId: "",
     contactPerson: "",
   }];
-}, [editingProjectId, projectData?.projectCompanyMappings, intitalDataForLeadToProjectConversion?.companies, intitalDataForLeadToProjectConversion?.referrals]);
+}, [projectData?.projectCompanyMappings, intitalDataForLeadToProjectConversion?.companies]);
 
 
 // Get initial commercials for edit mode
@@ -1062,13 +1077,10 @@ const getInitialTeamDetails = useCallback(() => {
   // Memoized initial values
   const initialValues = useMemo(
     () => {
-      // IMPORTANT: In edit mode (editingProjectId is set), NEVER use leadData for field values.
-      // leadData contains lead statuses, lead assignees etc. that are incompatible with project fields.
-      // Only use leadData when creating a NEW project from a lead conversion.
-      const leadData = editingProjectId ? null : intitalDataForLeadToProjectConversion;
+      const leadData = intitalDataForLeadToProjectConversion;
       
       return {
-        // Basic project details
+        // Basic project details - use lead data if available
         title: leadData?.title || projectData?.title || "",
         projectTempletId: selectedProjectType
           ? selectedProjectType
@@ -1077,7 +1089,7 @@ const getInitialTeamDetails = useCallback(() => {
         projectCategoryId: projectData?.projectCategoryId || "",
         projectSubCategoryId: projectData?.projectSubCategoryId || "",
         
-        // Multi-select arrays - prioritize lead data (only in create/convert mode)
+        // Multi-select arrays - prioritize lead data
         serviceIds: (() => {
           if (leadData?.serviceIds && Array.isArray(leadData.serviceIds)) {
             return leadData.serviceIds;
@@ -1132,9 +1144,7 @@ const getInitialTeamDetails = useCallback(() => {
         
         rate: projectData?.rate || "",
         cost: projectData?.cost || "",
-        // Always use projectData.statusId — leadData.statusId is a LeadStatus ID (different table)
-        // and fails backend validation, causing the status to be wiped on every save
-        statusId: projectData?.statusId || "",
+        statusId: leadData?.statusId || projectData?.statusId || "",
         
         // Location fields - prioritize lead data, check additionalDetails too
         country: "",  // Will be handled by addresses array
@@ -1210,12 +1220,12 @@ const getInitialTeamDetails = useCallback(() => {
         otherPoint3Heading: leadData?.additionalDetails?.otherPoint3Heading || projectData?.otherPoint3Heading || "",
         otherPoint3Description: leadData?.additionalDetails?.otherPoint3Description || projectData?.otherPoint3Description || "",
         
-        // Arrays: in edit mode always use projectData, in create/convert mode use lead conversion helpers
-        companies: editingProjectId ? getInitialCompanies() : getLeadConvertedCompanies(),
+        // Arrays with lead data priority
+        companies: getLeadConvertedCompanies(),
         projectCompanyMappings: getInitialRelationCompanies(),
-        commercials: editingProjectId ? getInitialCommercials() : getLeadConvertedCommercials(),
+        commercials: getLeadConvertedCommercials(),
         teamDetails: getInitialTeamDetails(),
-        addresses: editingProjectId ? getInitialAddresses() : getLeadConvertedAddresses(),
+        addresses: getLeadConvertedAddresses(),
         
         // Additional fields
         documents: projectData?.documents || "",
@@ -1231,7 +1241,6 @@ const getInitialTeamDetails = useCallback(() => {
       };
     },
     [
-      editingProjectId,
       projectData,
       selectedProjectType,
       countries,
@@ -1239,15 +1248,12 @@ const getInitialTeamDetails = useCallback(() => {
       cities,
       getInitialCompanies,
       getInitialRelationCompanies,
-      getInitialCommercials,
-      getInitialAddresses,
       getLeadConvertedCommercials,
       getLeadConvertedCompanies,
       getLeadConvertedAddresses,
       getInitialTeamDetails,
       intitalDataForLeadToProjectConversion,
-      createdById,
-      projectData?.handledByEntries,
+      createdById
     ]
   );
 

@@ -1315,10 +1315,15 @@ const PendingRequestsTable = () => {
   const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
   const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
+  const isAdminUser = useSelector((state: RootState) => (state.auth as any).currentUser?.isAdmin);
+  const currentEmployeeRoles = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
+  const isHROrAdmin = isAdminUser || currentEmployeeRoles.some((r: any) =>
+    ['hr', 'admin', 'super_admin', 'superadmin', 'super admin'].includes((r?.name || r?.role || '').toLowerCase())
+  );
 
   const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
     const { attendance } = state;
-    return attendance.leaveRequests.filter((el: any) => el.status == 0);
+    return attendance.leaveRequests.filter((el: any) => el.status == 0 || el.status == 4);
   });
 
   // Fetch pending attendance requests
@@ -1947,7 +1952,29 @@ const PendingRequestsTable = () => {
             permissionConstToUseWithHasPermission.editOthers
           );
 
-          return hasEditPermission ? (
+          if (!hasEditPermission) {
+            return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;
+          }
+
+          // Status 0 + viewer is HR/admin: the reporting manager hasn't acted yet
+          if (row.original.status === 0 && isHROrAdmin) {
+            return (
+              <span style={{
+                fontSize: "11px",
+                color: "#b45309",
+                backgroundColor: "#fef3c7",
+                padding: "3px 8px",
+                borderRadius: "10px",
+                fontWeight: 500,
+              }}>
+                Awaiting Manager
+              </span>
+            );
+          }
+
+          // Status 4: manager approved, HR can give final sign-off
+          // Status 0 + viewer is the reporting manager: they can forward to HR
+          return (
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 className='btn btn-icon btn-sm'
@@ -1974,8 +2001,6 @@ const PendingRequestsTable = () => {
                 )}
               </button>
             </div>
-          ) : (
-            <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>
           );
         },
       },
