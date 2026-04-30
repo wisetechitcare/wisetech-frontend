@@ -21,6 +21,8 @@ import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 
 interface PerformanceData {
+  receivedCount: number;
+  inquiryCount: number;
   day: string;
   inquiry: number;
   received: number;
@@ -138,38 +140,72 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
     const { data, monthlyTargetInquiry, monthlyTargetReceived } = rawData;
     const monthlyTarget =
       viewMode === "inquiry" ? monthlyTargetInquiry : monthlyTargetReceived;
-    const daysInMonth = data.length;
+    const lastActiveIndex = [...data].reverse().findIndex(item => (item.inquiryCount > 0 || item.receivedCount > 0));
+    const cutoffIndex = lastActiveIndex === -1 ? -1 : data.length - 1 - lastActiveIndex;
+
     let cumulativeValue = 0;
     let cumulativeCount = 0;
+    let sumForAverage = 0;
 
-    return data.map((item: any, index: number) => {
+    const dataPoints = data.map((item: any, index: number) => {
       const dailyValue = viewMode === "inquiry" ? item.inquiry : item.received;
       const dailyCount =
         viewMode === "inquiry" ? item.inquiryCount : item.receivedCount;
       cumulativeValue += dailyValue;
       cumulativeCount += dailyCount;
 
-      // Run Rate is cumulative linear progress towards the monthly target
-      const runRate = ((index + 1) / daysInMonth) * monthlyTarget;
+      const isPastData = index > cutoffIndex;
+      if (!isPastData) {
+        sumForAverage += cumulativeValue;
+      }
 
       return {
-        label: item.day, // Show day number on X-axis
+        label: item.day,
         fullDate: item.date,
         value: dailyValue,
-        cumulativeValue: cumulativeValue,
+        cumulativeValue: isPastData ? null : cumulativeValue,
         cumulativeCount: cumulativeCount,
-        target: monthlyTarget, // Horizontal target line
-        runRate: Number(runRate.toFixed(2)),
-        gap: Number((cumulativeValue - runRate).toFixed(2)),
+        target: monthlyTarget,
+        gap: Number((cumulativeValue - monthlyTarget).toFixed(2)),
+      };
+    });
+
+    // Calculate prediction and required pace
+    const historicalAverage = cutoffIndex >= 0 ? sumForAverage / (cutoffIndex + 1) : 0;
+    let lastProjection = dataPoints[cutoffIndex]?.cumulativeValue || 0;
+    const totalDays = dataPoints.length;
+
+    return dataPoints.map((point: any, index: number) => {
+      let projectionValue = null;
+      if (index === cutoffIndex) {
+        projectionValue = point.cumulativeValue;
+      } else if (index > cutoffIndex) {
+        lastProjection += historicalAverage;
+        projectionValue = lastProjection;
+      }
+
+      // Dynamic Required Pace calculation: (Target - Current) / Remaining
+      const remainingTime = totalDays - index;
+      const progress = point.cumulativeValue ?? lastProjection;
+      const targetVal = point.target;
+      const requiredPace = remainingTime > 0 
+        ? Math.max(0, (targetVal - progress) / remainingTime)
+        : 0;
+
+      return {
+        ...point,
+        projectionValue: (projectionValue !== null && projectionValue > 0) 
+          ? Number(projectionValue.toFixed(2)) 
+          : null,
+        requiredPace: Number(requiredPace.toFixed(2)),
       };
     });
   }, [rawData, viewMode]);
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
-  const CustomTooltip = ({ active, payload, label, showFullDigits }: any) => {
+  const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      // Find the items in payload
       const actual =
         payload.find((p: any) => p.dataKey === "cumulativeValue")?.value || 0;
       const actualCount =
@@ -177,9 +213,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
           .cumulativeCount || 0;
       const target =
         payload.find((p: any) => p.dataKey === "target")?.value || 0;
-      const runRate =
-        payload.find((p: any) => p.dataKey === "runRate")?.value || 0;
-      const gap = Number((actual - runRate).toFixed(2));
+      const gap = Number((actual - target).toFixed(2));
 
       return (
         <div className="bg-white p-3 shadow-lg rounded-3 border">
@@ -188,10 +222,8 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
             {viewMode === "inquiry" ? "INQUIRY VALUE" : "RECEIVED VALUE"}
           </p>
 
-          <div className="d-flex justify-content-between gap-4 mb-1">
-            <span className="text-primary font-weight-bold">
-              Actual (Cumul.):
-            </span>
+          <div className="d-flex justify-content-between gap-4 mb-2">
+            <span className="text-primary fw-bold">Actual (Cumul.):</span>
             <div className="text-end">
               <span className="fw-bold d-block">
                 {formatIndianNumber(actual)}
@@ -202,19 +234,29 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
             </div>
           </div>
 
-          <div className="d-flex justify-content-between gap-4 mb-1">
-            <span className="text-danger font-weight-bold">
-              Current Target:
-            </span>
+          <div className="d-flex justify-content-between gap-4 mb-2">
+            <span className="text-danger fw-bold">Monthly Target:</span>
             <span className="fw-bold">{formatIndianNumber(target)}</span>
           </div>
 
-          <div className="d-flex justify-content-between gap-4 mb-1">
-            <span className="text-info font-weight-bold">
-              Revenue Projection:
+          <div className="mt-2 pt-2 border-top d-flex justify-content-between gap-4">
+            <span className="text-info fw-bold" style={{ fontSize: "11px" }}>
+              <i className="bi bi-lightning-charge-fill me-1"></i>
+              Required Daily Pace:
             </span>
-            <span className="fw-bold">{formatIndianNumber(runRate)}</span>
+            <span className="text-info fw-bold" style={{ fontSize: "11px" }}>
+              {formatIndianNumber(payload[0]?.payload.requiredPace)}
+            </span>
           </div>
+
+          {payload.find((p: any) => p.dataKey === "projectionValue") && (
+            <div className="d-flex justify-content-between gap-4 mb-2">
+              <span className="fw-bold" style={{ color: "#8B5CF6" }}>Smart Forecast:</span>
+              <span className="fw-bold" style={{ color: "#8B5CF6" }}>
+                {formatIndianNumber(payload.find((p: any) => p.dataKey === "projectionValue").value)}
+              </span>
+            </div>
+          )}
 
           <div className="mt-2 pt-2 border-top d-flex justify-content-between gap-4">
             <span
@@ -222,7 +264,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 gap >= 0 ? "text-success fw-bold" : "text-danger fw-bold"
               }
             >
-              Gap from Revenue Projection:
+              Gap to Goal:
             </span>
             <span
               className={
@@ -271,7 +313,6 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
   }
 
   const currentTarget = transformedData[0]?.target || 0;
-  const showRunRate = currentTarget > 0;
 
   return (
     <div
@@ -500,7 +541,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   />
                 )}
 
-                {/* ACTUAL LEADS - Requirement 8: Solid Line (Cumulative) */}
+                {/* ACTUAL LEADS - Solid Line (Cumulative) */}
                 <Line
                   type="monotone"
                   dataKey="cumulativeValue"
@@ -515,19 +556,16 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   animationDuration={1500}
                 />
 
-                {/* RUN RATE - Requirement 8: Blue Dashed Linear Upward */}
-                {showRunRate && (
-                  <Line
-                    type="linear"
-                    dataKey="runRate"
-                    name="Revenue Projection"
-                    stroke="#0EA5E9"
-                    strokeWidth={2}
-                    strokeDasharray="6 6"
-                    dot={false}
-                    animationDuration={2000}
-                  />
-                )}
+                <Line
+                  type="monotone"
+                  dataKey="projectionValue"
+                  name="Smart Forecast"
+                  stroke="#8B5CF6"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

@@ -1163,7 +1163,8 @@ import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements,
 import { hasPermission } from "@utils/authAbac";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
-import { fetchAllAddonLeavesAllowances } from "@services/addonLeavesAllowance";
+// fetchAllAddonLeavesAllowances removed: addon leaves are now included in LeaveBalance.totalAllocated
+// (backend single source of truth). Frontend no longer needs to fetch and add them separately.
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card } from "react-bootstrap";
@@ -1396,12 +1397,11 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
         async function fetchData() {
             try {
-                const [leavesResponse, holidaysResponse, balanceResponse, leaveOptionsResponse, addonAllowancesResponse, response] = await Promise.all([
+                const [leavesResponse, holidaysResponse, balanceResponse, leaveOptionsResponse, response] = await Promise.all([
                     fetchEmployeeLeaves(selectedEmployeeId),
                     fetchPublicHolidays(currentYear, country),
                     fetchEmployeeLeaveBalance(selectedEmployeeId),
                     fetchLeaveOptions(),
-                    fetchAllAddonLeavesAllowances(),
                     fetchEmployeeDiscretionaryBalanceById(selectedEmployeeId)
                 ]);
 
@@ -1456,18 +1456,14 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     dayjs()
                 );
 
-                let addonLeaveAllowanceCount = 0;
-                const experienceAtFiscalStart = dayjs(startDateNew).diff(dayjs(dateOfJoining).format('YYYY-MM-DD'), 'year');
-
-                if (!addonAllowancesResponse?.hasError) {
-                    const addonAllowance = addonAllowancesResponse.data.addonLeavesAllowances.find(
-                        (addon: any) => addon.experienceInCompany === experienceAtFiscalStart
-                    );
-                    if (addonAllowance) {
-                        addonLeaveAllowanceCount = addonAllowance?.addonLeavesCount || 0;
-                        setAddonLeaveAllowanceCount(addonLeaveAllowanceCount);
-                    }
-                }
+                // ADDON LEAVES: Do NOT calculate addon separately here.
+                // Addon leaves are merged into LeaveBalance.totalAllocated by the backend
+                // (in createEmployee and in the fetchLeaveBalance bootstrap path).
+                // The branchLeaveBalances map below already reflects per-employee totalAllocated
+                // (from leavesSummary). Adding addon again here would double-count for employees
+                // created with the new onboarding flow.
+                // The backend is now the single source of truth for total allocation including addon.
+                const addonLeaveAllowanceCount = 0;
 
                 const fiscalYearFilteredLeaves = processedLeaves.filter((leave: any) => {
                     const leaveDate = leave.dateFrom || leave.date;
@@ -1489,9 +1485,24 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     ? {}
                     : await calculateTransferredLeaves(transferRequests, startDateNew, endDateNew);
 
+                // ROOT CAUSE FIX: Build branchLeaveBalances from leavesSummary (per-employee
+                // LeaveBalance.totalAllocated) instead of allLeaveOption (branch-wide LeaveOptions.numberOfDays).
+                //
+                // Previously: allLeaveOption was always used here, completely ignoring custom allocations
+                // saved in EmployeeLeaveAllocation + LeaveBalance. An employee with Sick=10 (override)
+                // would always see 6 (branch default) because fetchLeaveOptions never knows about overrides.
+                //
+                // Now: leavesSummary comes from fetchEmployeeLeaveBalance → LeaveBalance table (single source
+                // of truth). It already reflects any per-employee custom allocation. Branch defaults are used
+                // automatically as fallback when no override exists (via backend bootstrap logic).
                 const branchLeaveBalances: Record<string, number> = {};
-                allLeaveOption.forEach((option: any) => {
-                    branchLeaveBalances[option.leaveType] = option.numberOfDays;
+                leavesSummary.forEach((summary: any) => {
+                    let days = Number(summary.numberOfDays) || 0;
+                    // Preserve discretionary leave bonus applied to Casual Leaves
+                    if (discretionaryLeaveBooleans && summary.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase())) {
+                        days += Number(discretionaryLeaveBalances ?? 0);
+                    }
+                    branchLeaveBalances[summary.leaveType] = days;
                 });
 
                 const joiningDate = dayjs(dateOfJoining);
@@ -1626,7 +1637,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                 fontWeight: '600',
                                 fontSize: '18px',
                                 color: '#1a1a1a'
-                            }}>Monthly Leave Limit</h5>
+                            }}>Cumulative Leave Allowance</h5>
                         </div>
                         <p className="mb-0" style={{
                             fontFamily: 'Inter, sans-serif',
@@ -1635,7 +1646,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                             lineHeight: '1.6',
                             paddingLeft: '32px'
                         }}>
-                            Combined across all paid leave types (Annual, Sick, Casual, Paid, Maternal)
+                            Leaves are distributed across the fiscal year. Allowed usage grows each month — you can use what is allowed till the current period.
                         </p>
                     </div>
 
@@ -1644,35 +1655,13 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         flex: '0 1 auto'
                     }}>
                         {(() => {
-                            const currentMonth = dayjs().format('YYYY-MM');
-                            const countedLeaveTypes = [ANNUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES, CASUAL_LEAVES, MATERNAL_LEAVES];
-                            let monthUsage = 0;
-
-                            leaves.filter((leave: any) => {
-                                const leaveType = leave.leaveOptions?.leaveType;
-                                const normalizedLeaveType = leaveType?.trim().toLowerCase();
-                                const isCountedType = countedLeaveTypes.some(
-                                    type => type.trim().toLowerCase() === normalizedLeaveType
-                                );
-                                const isApprovedOrPending = leave.status === Status.Approved || leave.status === Status.ApprovalNeeded;
-                                return isCountedType && isApprovedOrPending;
-                            }).forEach((leave: any) => {
-                                const leaveFromDate = dayjs(leave.dateFrom);
-                                const leaveToDate = dayjs(leave.dateTo);
-                                let leaveDate = leaveFromDate;
-
-                                while (leaveDate.isBefore(leaveToDate) || leaveDate.isSame(leaveToDate, 'day')) {
-                                    if (leaveDate.format('YYYY-MM') === currentMonth) {
-                                        const dayOfWeek = leaveDate.day();
-                                        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                                            monthUsage++;
-                                        }
-                                    }
-                                    leaveDate = leaveDate.add(1, 'day');
-                                }
-                            });
-
-                            const remaining = allowedPerMonth - monthUsage;
+                            const today = dayjs();
+                            const month = today.month() + 1; // 1-based
+                            // April=1 … March=12 (fiscal month index)
+                            const fiscalMonthIdx = month >= 4 ? month - 3 : month + 9;
+                            const allowedTillNow = Math.round((totalPaidAssigned / 12) * fiscalMonthIdx);
+                            const usedTillNow = Math.round(totalPaidUsed);
+                            const remaining = Math.max(0, allowedTillNow - usedTillNow);
 
                             return (
                                 <>
@@ -1684,7 +1673,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                             color: '#1a1a1a',
                                             lineHeight: '1'
                                         }}>
-                                            {monthUsage}<span style={{ fontSize: '24px', color: '#9ca3af' }}> / {allowedPerMonth}</span>
+                                            {usedTillNow}<span style={{ fontSize: '24px', color: '#9ca3af' }}> / {allowedTillNow}</span>
                                         </div>
                                         <div style={{
                                             fontFamily: 'Inter, sans-serif',
@@ -1694,7 +1683,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px'
                                         }}>
-                                            Used This Month
+                                            Used Till Date
                                         </div>
                                     </div>
 
@@ -1713,7 +1702,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                             color: remaining > 0 ? '#059669' : '#dc2626',
                                             lineHeight: '1'
                                         }}>
-                                            {remaining > 0 ? remaining : 0}
+                                            {remaining}
                                         </div>
                                         <div style={{
                                             fontFamily: 'Inter, sans-serif',
@@ -1722,7 +1711,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                             marginTop: '4px',
                                             fontWeight: '500'
                                         }}>
-                                            {remaining > 0 ? 'Remaining' : 'Limit Reached'}
+                                            {remaining > 0 ? 'Remaining Allowed' : 'Limit Reached'}
                                         </div>
                                     </div>
                                 </>
@@ -1813,6 +1802,49 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                             color: '#000'
                         }}>{totalPaidUsed}/{totalPaidAssigned}</span>
                     </div>
+
+                    {/* Cumulative Allowance Summary */}
+                    {(() => {
+                        const today = dayjs();
+                        const month = today.month() + 1;
+                        const fiscalMonthIdx = month >= 4 ? month - 3 : month + 9;
+                        const allowedTillNow = Math.round((totalPaidAssigned / 12) * fiscalMonthIdx);
+                        const usedTillNow = Math.round(totalPaidUsed);
+                        const remaining = Math.max(0, allowedTillNow - usedTillNow);
+                        return (
+                            <div style={{
+                                marginTop: '12px',
+                                padding: '12px',
+                                backgroundColor: '#f0f9ff',
+                                borderRadius: '8px',
+                                border: '1px solid #bae6fd'
+                            }}>
+                                <div style={{
+                                    fontFamily: 'Inter, sans-serif',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    color: '#0369a1',
+                                    marginBottom: '8px'
+                                }}>Cumulative Allowance</div>
+                                {[
+                                    { label: 'Allowed till now', value: allowedTillNow, color: '#1a1a1a' },
+                                    { label: 'Used till now', value: usedTillNow, color: '#1a1a1a' },
+                                    { label: 'Remaining allowed', value: remaining, color: remaining > 0 ? '#059669' : '#dc2626' },
+                                ].map(({ label, value, color }) => (
+                                    <div key={label} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        fontFamily: 'Inter, sans-serif',
+                                        fontSize: '13px',
+                                        marginTop: '4px'
+                                    }}>
+                                        <span style={{ color: '#6b7280' }}>{label}</span>
+                                        <span style={{ fontWeight: '600', color }}>{value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </Card>
 
                 {/* RIGHT CARD - Unpaid Leaves Balance */}

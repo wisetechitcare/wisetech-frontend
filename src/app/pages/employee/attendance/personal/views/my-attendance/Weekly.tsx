@@ -56,12 +56,14 @@ const Weekly = ({
     checkOwnWithOthers?: boolean
 }) => {
 
-    // If no working days found or branch return message
-    const workingAndOffDaysStr = useSelector((state: RootState) =>state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // NOTE: early return moved BELOW all hooks — React rules of hooks forbid returning before hooks
+    const currentEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const selectedEmployeeWorkingAndOffDaysStr = useSelector((state: RootState) => state.employee?.selectedEmployee?.branches?.workingAndOffDays);
+    const workingAndOffDaysStr = fromAdmin
+        ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
+        : currentEmployeeWorkingAndOffDaysStr;
     const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
-    if (shouldShowBranchSetupGuide(workingAndOffDays)) {
-        return <BranchSetupGuide />;
-    }
+    const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     const dispatch = useDispatch();
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
@@ -380,6 +382,11 @@ const Weekly = ({
         calculateWorkedDays(filteredAttendance),
         [filteredAttendance]
     );
+
+    // All hooks have run — safe to conditionally render
+    if (showBranchSetupGuide) {
+        return <BranchSetupGuide />;
+    }
 
     if (!dataLoaded) {
         return <Loader/>

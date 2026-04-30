@@ -263,6 +263,7 @@ const initialState = {
   allowOverTime: "0",
   discretionaryLeaveBoolean: "false",
   discretionaryLeaveBalance: 0,
+  leaveAllocations: [] as any[],
   workExpInfo: [{
     companyName: "",
     jobTitle: "",
@@ -407,6 +408,10 @@ const saveNewEmployee = async (values: any, userId: string) => {
     discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
     ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && {
       discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0
+    }),
+    // Always send leaveAllocations so the backend can replace-all (including resets to default).
+    ...(Array.isArray(values.leaveAllocations) && {
+      leaveAllocations: values.leaveAllocations
     })
   };
   // Clean up empty values but preserve gender, maritalStatus, and discretionaryLeaveBoolean (even if 0 or false)
@@ -702,6 +707,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
       ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && {
         discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0
+      }),
+      // Always send leaveAllocations (replace-all on backend).
+      ...(Array.isArray(values.leaveAllocations) && {
+        leaveAllocations: values.leaveAllocations
       })
     };
     // Clean up empty values but preserve gender, maritalStatus, and discretionaryLeaveBoolean (even if 0 or false)

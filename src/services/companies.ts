@@ -2,8 +2,15 @@ import axios from "axios";
 import { CLIENT_COMPANIES, LEAD_PROJECT_COMPANY, COMPANY_SERVICES, COMPANY } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
+interface CompanyType {
+    id: string;
+    name: string;
+    color?: string;
+    isActive: boolean;
+}
+
 // Get All Company Types
-export const getAllCompanyTypes = async () => {
+export const getAllCompanyTypes = async (): Promise<{ companyTypes: CompanyType[] }> => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_COMPANY_TYPES}`;
         const { data } = await axios.get(endpoint);

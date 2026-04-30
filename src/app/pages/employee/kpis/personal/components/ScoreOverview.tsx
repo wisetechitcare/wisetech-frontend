@@ -1,28 +1,24 @@
 import React from "react";
 import CommonCard from "@app/modules/common/components/CommonCard";
 import { Row, Col } from "react-bootstrap";
-import { getFactorUnit } from "../../common/kpiUtils";
 
 interface OverviewData {
   icon: string;
   label: string;
   score: number;
-  maxScore?: number; // 🔥 NEW FIELD
 }
 
 const ScoreOverview: React.FC<{ data: OverviewData[] }> = ({ data }) => {
   return (
     <div>
+     
       <CommonCard>
-        <h5 className="mb-4">Score Overview</h5>
+         <h5 className="mb-4">Score Overview</h5>
         <Row className="gy-3 gx-2">
           {data.map((item, index) => {
             const highlight =
               item.label.toLowerCase() === "attendance" ||
               item.label.toLowerCase() === "leaves";
-
-            const unit = getFactorUnit(item.label);
-
             return (
               <Col
                 key={index}
@@ -48,23 +44,9 @@ const ScoreOverview: React.FC<{ data: OverviewData[] }> = ({ data }) => {
                       alt={item.label}
                       style={{ width: "24px", height: "24px" }}
                     />
-                    <span style={{ fontSize: "14px", fontWeight: "500" }}>{item.label}</span>
+                    <span>{item.label}</span>
                   </div>
-                  <div className="d-flex flex-column align-items-end">
-                    <span style={{ fontWeight: "600", fontSize: "15px" }}>
-                      {item.score.toFixed(2)}
-                      {item.maxScore !== undefined && (
-                        <span style={{ color: "#295d8e", fontSize: "12px", marginLeft: "2px" }}>
-                          / {item.maxScore.toFixed(2)}
-                        </span>
-                      )}
-                    </span>
-                    {unit && (
-                      <span style={{ color: "#295d8e", fontSize: "11px", fontWeight: "600" }}>
-                        {unit}
-                      </span>
-                    )}
-                  </div>
+                  <span>{item.score.toFixed(2)}</span>
                 </div>
               </Col>
             );

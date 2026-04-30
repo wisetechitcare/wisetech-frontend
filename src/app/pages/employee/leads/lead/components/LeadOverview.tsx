@@ -15,6 +15,7 @@ import type { AppDispatch, RootState } from "@redux/store";
 
 interface ProjectData {
   currentStatus: string;
+  receivedDate: string;
   //new
   handledBy: string;
   cancellationReasonId: string;
@@ -157,6 +158,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
 
     return {
       currentStatus: lead.status?.name || '-',
+      receivedDate: lead.receivedDate ? dayjs(lead.receivedDate).format('DD/MM/YYYY') : '-',
       //new
       handledBy: lead.handledBy || '-', // Store the raw employee ID — resolved to a name in the component via Redux allEmployees.list
       cancellationReasonId: lead.cancellationReasonId || '-',  // Store the raw reason ID — resolved to a name in the component via cancellationReasons state
@@ -229,6 +231,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     
   const [projectData] = useState<ProjectData>({
     currentStatus: '-',
+    receivedDate: '-',
     //new
     handledBy: '-',
     cancellationReasonId: '-',
@@ -654,6 +657,10 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         <div className="col-12 col-md-6">
           <InfoCard title="Project Details" icon="bi bi-briefcase">
             <InfoRow label="Current Status" value={projectData.currentStatus} />
+            {/* Received Date: show ONLY when status is "Received" */}
+            {isStatusReceived && (
+              <InfoRow label="Received Date" value={projectData.receivedDate} />
+            )}
             {/* new */}
             {/* Handled By: show ONLY when status is "Received" - resolved to actual employee name */}
             {isStatusReceived && (() => {

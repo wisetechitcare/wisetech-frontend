@@ -81,8 +81,10 @@ const LeaveTypesBalance: React.FC = () => {
   const handleSubmit = async (values: any) => {
     setLoading(true);
     try {
-      // Update leaves limit
-      let leaveData = Object.entries(values).filter(([key, value]) => key && value);
+      // Update leaves limit — include rows where value=0 (allows resetting a leave type to 0)
+      let leaveData = Object.entries(values).filter(
+        ([key, value]) => key && value !== undefined && value !== null && value !== ''
+      );
       const allCalls: Promise<any>[] = [];
 
       leaveData.forEach(([leaveId, numberOfDays]) => {
@@ -111,6 +113,21 @@ const LeaveTypesBalance: React.FC = () => {
       }
 
       successConfirmation('Leave settings updated successfully!');
+
+      // Refresh displayed values so the admin immediately sees the saved totals without a page reload.
+      // This also ensures the Formik initial values are in sync with the DB after save.
+      try {
+        const refreshRes = await fetchLeaveOptions();
+        const refreshedData = refreshRes.data?.leaveOptions || [];
+        const refreshedFinalLeaveOptions = refreshedData.map((lo: any) => ({
+          [`${lo.id}`]: Number(lo.numberOfDays)
+        }));
+        setLeaveOptions(refreshedData);
+        setLeaveOptionInitialValues(refreshedFinalLeaveOptions);
+      } catch (refreshErr) {
+        // Non-fatal: save succeeded, the stale display doesn't block anything
+        console.error('Could not refresh leave options after save (non-fatal):', refreshErr);
+      }
     } catch (err) {
       errorConfirmation('Failed to update leave settings');
       console.error(err);
@@ -133,7 +150,7 @@ const LeaveTypesBalance: React.FC = () => {
       }
       onSubmit={handleSubmit}
     >
-      {({ setFieldValue }) => {
+      {({ setFieldValue, values }) => {
         useEffect(() => {
           if (leaveOptionInitialValues?.length > 0) {
             leaveOptionInitialValues.forEach((leaveOption: any) => {
@@ -199,9 +216,21 @@ const LeaveTypesBalance: React.FC = () => {
                             const branchData = branchNameMappedWithId?.get(key);
                             const branchName = branchData?.name;
                             const branchId = branchData?.id;
-                            const totalPaidLeaves = leaveOptionsGroupedByBranchId[key]
-                              .filter((val: any) => !val.leaveType.toLowerCase().includes('unpaid'))
-                              .reduce((acc: any, leaveOption: any) => acc + Number(leaveOption.numberOfDays), 0);
+
+                            // Split leave types into paid (editable) and unpaid (derived, read-only)
+                            const paidLeaveOptions = leaveOptionsGroupedByBranchId[key]
+                              .filter((lo: any) => !lo.leaveType.toLowerCase().includes('unpaid'));
+                            const hasUnpaid = leaveOptionsGroupedByBranchId[key]
+                              .some((lo: any) => lo.leaveType.toLowerCase().includes('unpaid'));
+
+                            // A1 FIX: Read totalPaidLeaves from live Formik values, not the DB snapshot.
+                            // Previously read from leaveOption.numberOfDays (DB value = null for new types),
+                            // so the total stayed 0 even when the user typed values into the inputs.
+                            const totalPaidLeaves = paidLeaveOptions
+                              .reduce((acc: number, lo: any) => acc + (Number(values[lo.id]) || 0), 0);
+
+                            // Unpaid days are a derived remainder — never stored, just displayed
+                            const unpaidDays = Math.max(0, 365 - totalPaidLeaves);
 
                             return (
                               <div key={branchId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -230,14 +259,19 @@ const LeaveTypesBalance: React.FC = () => {
                                     fontWeight: 500,
                                     fontFamily: 'Inter, sans-serif'
                                   }}>
-                                    <span style={{ color: '#798db3', textTransform: 'uppercase' }}>Total Leaves</span>
-                                    <span style={{ color: '#000' }}>{totalPaidLeaves}</span>
+                                    <span style={{ color: '#798db3', textTransform: 'uppercase' }}>Total Paid Leaves</span>
+                                    <span style={{ color: '#000', fontWeight: 600 }}>{totalPaidLeaves}</span>
+                                    <span style={{ color: '#6c757d', fontSize: 12 }}>
+                                      ({unpaidDays} unpaid = 365 − {totalPaidLeaves})
+                                    </span>
                                   </div>
                                 </div>
 
-                                {/* Leave Types Grid */}
+                                {/* A2 FIX: Only editable inputs for PAID leave types.
+                                    Unpaid leave is a computed remainder (365 − totalPaid) and
+                                    must never be directly configured — shown as a read-only badge below. */}
                                 <Row className="gy-3 gx-3">
-                                  {leaveOptionsGroupedByBranchId[key].map((leaveOption: any) => (
+                                  {paidLeaveOptions.map((leaveOption: any) => (
                                     <Col xs={12} sm={6} md={4} lg={2} key={leaveOption?.id}>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <label style={{
@@ -269,6 +303,30 @@ const LeaveTypesBalance: React.FC = () => {
                                     </Col>
                                   ))}
                                 </Row>
+
+                                {/* Unpaid leave — derived read-only badge */}
+                                {hasUnpaid && (
+                                  <div style={{
+                                    marginTop: 4,
+                                    padding: '8px 14px',
+                                    backgroundColor: '#fff0f0',
+                                    borderRadius: 6,
+                                    fontSize: 13,
+                                    color: '#c92a2a',
+                                    border: '1px solid #ffc9c9',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    width: 'fit-content',
+                                  }}>
+                                    <strong>Unpaid Leave</strong>
+                                    <span style={{ color: '#6c757d' }}>
+                                      — derived as 365 − {totalPaidLeaves} ={' '}
+                                      <strong style={{ color: '#c92a2a' }}>{unpaidDays} days</strong>
+                                      {' '}(not configurable)
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

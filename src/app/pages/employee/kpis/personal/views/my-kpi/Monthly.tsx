@@ -1,7 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchEmpMonthlyKpiStatistics } from "@utils/statistics";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -14,7 +14,9 @@ import PerformanceBadge from "../../components/PerformanceBadge";
 import { Container, Spinner } from "react-bootstrap";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
-import { useLeaderboardRank } from "../../hooks/useLeaderboardRank";
+
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
 
 const iconMapping: Record<string, string> = {
   Attendance: AttendanceIcon,
@@ -26,9 +28,6 @@ const iconMapping: Record<string, string> = {
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
 };
-
-dayjs.extend(isSameOrBefore);
-dayjs.extend(isSameOrAfter);
 
 interface MonthlyProps {
   month: Dayjs;
@@ -50,45 +49,25 @@ const Monthly: React.FC<MonthlyProps> = ({
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange
   );
-  const [data, setData] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
 
   const selectedEmployeeId = useSelector((state: RootState) =>
     fromAdmin
       ? state.employee.selectedEmployee?.id
-      : state.employee.currentEmployee.id
+      : state.employee.currentEmployee?.id
   );
+
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee?.id
   );
+
+  const [data, setData] = useState<any>(null); // ✅ FIXED
+  const [loading, setLoading] = useState<boolean>(false);
   const [showData, setShowData] = useState(false);
-  const [remark, setRemark] = useState<string>("");
-  const [yourPoints, setYourPoints] = useState<number>(0);
-  const [maxTotal, setMaxTotal] = useState<number>(0);
 
   const effectiveEndDate: Dayjs =
     dateSettingsEnabled && month.isSame(dayjs(), "month")
       ? endDate
       : month.endOf("month");
-
-  // FIX: Memoize to stable strings so hook dependencies don't thrash.
-  const startDateStr = useMemo(
-    () => month.startOf("month").format("YYYY-MM-DD"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [month.format("YYYY-MM")]
-  );
-  const endDateStr = useMemo(
-    () => effectiveEndDate.format("YYYY-MM-DD"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [effectiveEndDate.format("YYYY-MM-DD")]
-  );
-
-  // FIX: Rank hook uses the SAME date range as the KPI data fetch.
-  const { rank, rankLoading } = useLeaderboardRank({
-    employeeId: selectedEmployeeId,
-    startDate: startDateStr,
-    endDate: endDateStr,
-  });
 
   useEffect(() => {
     if (!selectedEmployeeId) return;
@@ -96,16 +75,19 @@ const Monthly: React.FC<MonthlyProps> = ({
     const loadData = async () => {
       setLoading(true);
       try {
-        const response = await fetchEmpMonthlyKpiStatistics(month, fromAdmin, {
-          startDate: dayjs(startDateStr),
-          endDate: dayjs(endDateStr),
-        });
+        const response = await fetchEmpMonthlyKpiStatistics(
+          month,
+          fromAdmin,
+          {
+            startDate: month.startOf("month"),
+            endDate: effectiveEndDate,
+          }
+        );
+
+        console.log("🔥 KPI RESPONSE:", response); // ✅ MANDATORY LOG
 
         if (response) {
-          setData(response.modules);
-          setRemark(response.remark || "");
-          setYourPoints(response.yourPoints || 0);
-          setMaxTotal(response.maxTotal || 0);
+          setData(response); // ✅ FIXED
         }
       } catch (error) {
         console.error("Error fetching Monthly KPI Statistics:", error);
@@ -115,16 +97,31 @@ const Monthly: React.FC<MonthlyProps> = ({
     };
 
     loadData();
-  }, [selectedEmployeeId, startDateStr, endDateStr, toggleChange]);
+  }, [selectedEmployeeId, month, endDate, toggleChange, dateSettingsEnabled]);
 
   useEffect(() => {
     if (!employeeId) return;
+
     const res = hasPermission(
       resourseAndView[0]?.resource,
       permissionConstToUseWithHasPermission.readOthers
     );
+
     if (res) setShowData(true);
   }, [employeeId]);
+
+  // ✅ SAFE EXTRACTION
+  const modules = data?.modules || [];
+  const yourPoints = data?.yourPoints ?? 0;
+  
+  // 🔥 FINAL SAFE RANK CODE
+  const rawRank = data?.rank;
+  const rank =
+    rawRank === null || rawRank === undefined || rawRank === 0 || rawRank === "0"
+      ? null
+      : rawRank;
+  const remark = data?.remark || "";
+  const maxTotal = Number(data?.maxTotal || 0);
 
   const overviewData = [
     "Attendance",
@@ -138,7 +135,8 @@ const Monthly: React.FC<MonthlyProps> = ({
   ].map((label) => ({
     icon: iconMapping[label],
     label,
-    score: data?.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
+    score:
+      modules.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
   }));
 
   if (loading) {
@@ -153,7 +151,8 @@ const Monthly: React.FC<MonthlyProps> = ({
     );
   }
 
-  if (!showData) return <h2 className="text-center">Not Allowed To View</h2>;
+  if (!showData)
+    return <h2 className="text-center">Not Allowed To View</h2>;
 
   return (
     <>
@@ -161,18 +160,19 @@ const Monthly: React.FC<MonthlyProps> = ({
         <PerformanceBadge
           remark={remark}
           rank={rank}
-          rankLoading={rankLoading}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
           fromAdmin={fromAdmin}
         />
       )}
+
       <ScoreOverview data={overviewData} />
-      {dashboardView ? (
+
+      {dashboardView && (
         <Container fluid className="my-4 px-0">
-          <KpiStatisticsTable data={data} />
+          <KpiStatisticsTable data={modules} />
         </Container>
-      ) : null}
+      )}
     </>
   );
 };
