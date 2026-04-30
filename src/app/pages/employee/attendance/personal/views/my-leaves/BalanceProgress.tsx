@@ -1470,7 +1470,16 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     return leaveDate && leaveDate >= startDateNew && leaveDate <= endDateNew;
                 });
 
-                const leavesTaken = calculateLeavesTakenByType(fiscalYearFilteredLeaves);
+                const publicHolidayDates: string[] = (publicHolidays || [])
+                    .map((h: any) => h?.date)
+                    .filter(Boolean)
+                    .map((d: any) => dayjs(d).format('YYYY-MM-DD'));
+
+                const leavesTaken = calculateLeavesTakenByType(
+                    fiscalYearFilteredLeaves,
+                    publicHolidayDates,
+                    branchWorkingDays
+                );
 
                 const transferResponse = await getAllLeaveManagements(selectedEmployeeId);
                 const transferRequests = transferResponse.data.leaveManagements || [];

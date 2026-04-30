@@ -53,10 +53,16 @@ export const getTotalWeekendsBetweenDates = (
 };
 
 /**
- * Calculate total leave days for a leave record (excluding weekends and public holidays).
+ * Calculate total leave days for a leave record (excluding off-days and public holidays).
  * B5: Accepts publicHolidays to match the backend getWorkingDays logic.
+ * Accepts workingAndOffDays (branch config) to honour branches where Saturday is a working day.
+ * Falls back to hardcoded Sat-Sun exclusion when the config is absent.
  */
-export const calculateLeaveDays = (leave: any, publicHolidays: string[] = []): number => {
+export const calculateLeaveDays = (
+    leave: any,
+    publicHolidays: string[] = [],
+    workingAndOffDays: Record<string, string> = {}
+): number => {
     // Handle both formats: {dateFrom, dateTo} and {date}
     const startDate = leave.dateFrom || leave.date;
     const endDate = leave.dateTo || leave.date;
@@ -69,11 +75,22 @@ export const calculateLeaveDays = (leave: any, publicHolidays: string[] = []): n
     const end = new Date(endDate);
     let dayCount = 0;
 
+    const dayNameMap: { [key: number]: string } = {
+        0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+        4: 'thursday', 5: 'friday', 6: 'saturday',
+    };
+    const hasWorkingDaysConfig = Object.keys(workingAndOffDays).length > 0;
+
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
         const dayOfWeek = date.getDay();
+        const dayName = dayNameMap[dayOfWeek];
         const dateStr = date.toISOString().split('T')[0];
-        // Count weekdays that are not public holidays
-        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !publicHolidays.includes(dateStr)) {
+
+        const isOffDay = hasWorkingDaysConfig
+            ? workingAndOffDays[dayName] === "0"
+            : (dayOfWeek === 0 || dayOfWeek === 6);
+
+        if (!isOffDay && !publicHolidays.includes(dateStr)) {
             dayCount++;
         }
     }
@@ -84,10 +101,12 @@ export const calculateLeaveDays = (leave: any, publicHolidays: string[] = []): n
 /**
  * Calculate leaves taken by type from filtered leaves - ONLY count approved leaves.
  * B5: Accepts publicHolidays so day counting is consistent with backend getWorkingDays.
+ * Accepts workingAndOffDays to honour branches where Saturday is a working day.
  */
 export const calculateLeavesTakenByType = (
     fiscalYearFilteredLeaves: any[],
-    publicHolidays: string[] = []
+    publicHolidays: string[] = [],
+    workingAndOffDays: Record<string, string> = {}
 ): Record<string, number> => {
     const casualLeavesTaken = fiscalYearFilteredLeaves.filter(
         (leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && leave.status === Status.Approved
@@ -109,12 +128,12 @@ export const calculateLeavesTakenByType = (
     );
 
     // Calculate total days for each leave type (not just count of records)
-    const casualDaysCount = casualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
-    const annualDaysCount = annualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
-    const maternalDaysCount = maternalLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
-    const sickDaysCount = sickLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
-    const floaterDaysCount = floaterLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
-    const unpaidDaysCount = unpaidLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays), 0);
+    const casualDaysCount = casualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays, workingAndOffDays), 0);
+    const annualDaysCount = annualLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays, workingAndOffDays), 0);
+    const maternalDaysCount = maternalLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays, workingAndOffDays), 0);
+    const sickDaysCount = sickLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays, workingAndOffDays), 0);
+    const floaterDaysCount = floaterLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays, workingAndOffDays), 0);
+    const unpaidDaysCount = unpaidLeavesTaken.reduce((total: any, leave: any) => total + calculateLeaveDays(leave, publicHolidays, workingAndOffDays), 0);
 
     return {
         [CASUAL_LEAVES]: casualDaysCount,
