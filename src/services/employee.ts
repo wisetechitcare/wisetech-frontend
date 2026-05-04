@@ -872,6 +872,9 @@ export const deleteEmployeeReimbursement = async (reimbursementId: string) => {
 
 export const fetchGrossPayDeductions = async (employeeId: string, month?: string, year?: string) => {
     try {
+        if (!employeeId) {
+            throw new Error('Employee ID is required');
+        }
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GROSS_PAY_DEDUCTIONS}?employeeId=${employeeId}&month=${month}&year=${year}`;
         const { data } = await axios.get(endpoint);
         return data;
@@ -894,6 +897,9 @@ export const createUpdateGrossPayDeductions = async (grossPayDeductions: IGrossP
 
 export const fetchAllPayments = async (employeeId: string, month?: string, year?: string) => {
     try {
+        if (!employeeId) {
+            throw new Error('Employee ID is required');
+        }
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.SALARY}?employeeId=${employeeId}&month=${month}&year=${year}`;
         const { data } = await axios.get(endpoint);
         return data;

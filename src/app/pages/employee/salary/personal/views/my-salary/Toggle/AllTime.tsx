@@ -15,6 +15,7 @@ const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: b
     const dispatch = useDispatch();
     const employeeId = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee.id : state.employee.currentEmployee.id);
     const employee = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee);
+    const toggleChange = useSelector((state: RootState) => state.attendanceStats?.toggleChange);
 
     const [allTimeSalaryData, setAllTimeSalaryData] = useState<any[]>([]);
     const [ctcGraphData, setCtcGraphData] = useState<any[]>([]);
@@ -64,7 +65,7 @@ const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: b
         };
 
         if (employeeId) fetchCTC();
-    }, [employeeId]);
+    }, [employeeId, toggleChange]);
 
     // useEffect(() => {
     //     const fetchSalaryDataForDateRangeAllTime = async () => {

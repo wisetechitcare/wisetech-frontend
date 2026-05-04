@@ -1248,6 +1248,11 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     }
 
     async function fetchPayments() {
+        if (!employee?.id) {
+            console.warn('⚠️ [SalaryReport] Cannot fetch payments: Employee ID is missing');
+            return;
+        }
+        
         try {
             const { data: { salaries } } = await fetchAllPayments(employee.id, month, year);
 
@@ -1260,6 +1265,11 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
 
     async function getGrossPayDeductions() {
+        if (!employee?.id) {
+            console.warn('⚠️ [SalaryReport] Cannot fetch gross pay deductions: Employee ID is missing');
+            return;
+        }
+        
         try {
             const { data: { gpd } } = await fetchGrossPayDeductions(employee.id, month, year);
 

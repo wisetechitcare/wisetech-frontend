@@ -1323,7 +1323,14 @@ const PendingRequestsTable = () => {
 
   const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
     const { attendance } = state;
-    return attendance.leaveRequests.filter((el: any) => el.status == 0 || el.status == 4);
+    return attendance.leaveRequests.filter((el: any) => {
+      if (el.status === 4) return true;
+      if (el.status === 0) {
+        if (isHROrAdmin) return true;
+        return el.reportsToId === employeeIdCurrent;
+      }
+      return false;
+    });
   });
 
   // Fetch pending attendance requests
@@ -1482,11 +1489,13 @@ const PendingRequestsTable = () => {
 
       const formattedDate = dayjs(request.date, "DD MMM YYYY").format("YYYY-MM-DD");
 
-      if (attendance.checkIn !== "") {
+      if (attendance.checkIn && attendance.checkIn !== "" && attendance.checkIn !== "-NA-") {
         const checkInDateTime = dayjs(`${formattedDate} ${attendance.checkIn}`, "YYYY-MM-DD HH:mm").toString();
         const checkInDateObject = new Date(checkInDateTime);
         const checkInUTC = checkInDateObject.toISOString();
         attendance.checkIn = checkInUTC;
+      } else {
+        delete attendance.checkIn;
       }
 
       if (attendance.checkOut !== "" && attendance.checkOut !== "-NA-") {
@@ -1951,8 +1960,10 @@ const PendingRequestsTable = () => {
             resourceNameMapWithCamelCase.dashboardPendingRequests,
             permissionConstToUseWithHasPermission.editOthers
           );
+          const isReportingManagerForThisLeave = row.original.reportsToId === employeeIdCurrent;
+          const canAct = hasEditPermission || isReportingManagerForThisLeave;
 
-          if (!hasEditPermission) {
+          if (!canAct) {
             return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;
           }
 
@@ -1972,8 +1983,24 @@ const PendingRequestsTable = () => {
             );
           }
 
-          // Status 4: manager approved, HR can give final sign-off
-          // Status 0 + viewer is the reporting manager: they can forward to HR
+          // Status 4 + viewer is the reporting manager: they already forwarded it, HR acts next
+          if (row.original.status === 4 && !isHROrAdmin) {
+            return (
+              <span style={{
+                fontSize: "11px",
+                color: "#166534",
+                backgroundColor: "#dcfce7",
+                padding: "3px 8px",
+                borderRadius: "10px",
+                fontWeight: 500,
+              }}>
+                Forwarded to HR
+              </span>
+            );
+          }
+
+          // Status 4 + HR: final approval
+          // Status 0 + reporting manager: forward to HR
           return (
             <div style={{ display: "flex", gap: "8px" }}>
               <button

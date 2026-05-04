@@ -52,6 +52,7 @@ interface LeaveRequestResponse {
     name: string;
     branchId?: string;
     dateOfJoining?: string;
+    reportsToId?: string | null;
   };
   leaveOptions: {
     leaveType: string;
@@ -78,7 +79,7 @@ export const transformLeaveRequests = (
   const leaveRequestData = leaveRequest.map((leave: LeaveRequestResponse) => {
     const {
       createdAt,
-      employee: { name, employeeCode, branchId, dateOfJoining },
+      employee: { name, employeeCode, branchId, dateOfJoining, reportsToId },
       employeeId,
       id,
       reason,
@@ -115,6 +116,7 @@ export const transformLeaveRequests = (
       statusNumber: status,
       branchId,
       dateOfJoining,
+      reportsToId: reportsToId ?? null,
       // Approved/Rejected by info
       approvedByName: leave.approvedByEmployee?.users ? `${leave.approvedByEmployee.users.firstName || ''} ${leave.approvedByEmployee.users.lastName || ''}`.trim() : '',
       rejectedByName: leave.rejectedByEmployee?.users ? `${leave.rejectedByEmployee.users.firstName || ''} ${leave.rejectedByEmployee.users.lastName || ''}`.trim() : '',

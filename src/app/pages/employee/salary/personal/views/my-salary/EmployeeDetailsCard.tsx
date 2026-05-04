@@ -72,6 +72,11 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     //     totalPaidamount = apiSalaryData?.paidAmount;
     // }
     async function fetchPayments() {
+        if (!employee?.id) {
+            console.warn('⚠️ [EmployeeDetailsCard] Cannot fetch payments: Employee ID is missing');
+            return;
+        }
+        
         const { data: { salaries } } = await fetchAllPayments(employee.id);
         
         const totalPaidAmount = salaries.reduce((acc: number, salary: IPayment) => Number(salary.amountPaid) + acc, 0);
