@@ -178,7 +178,8 @@ const ProjectConfiguration = () => {
       setLoading(true);
       const response = await getAllProjectServices();
       if (response?.services) {
-        setProjectServices(response.services);
+        const sorted = [...response.services].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setProjectServices(sorted);
       }
     } catch (error) {
       console.error("Error fetching project services:", error);
@@ -193,7 +194,8 @@ const ProjectConfiguration = () => {
       setLoading(true);
       const response = await getAllProjectStatuses();
       if (response?.projectStatuses) {
-        setProjectStatuses(response.projectStatuses);
+        const sorted = [...response.projectStatuses].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setProjectStatuses(sorted);
       }
     } catch (error) {
       console.error("Error fetching project statuses:", error);
@@ -208,7 +210,8 @@ const ProjectConfiguration = () => {
       setLoading(true);
       const response = await getAllStakeholders();
       if (response?.stakeholderServices) {
-        setStakeholders(response.stakeholderServices);
+        const sorted = [...response.stakeholderServices].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setStakeholders(sorted);
       }
     } catch (error) {
       console.error("Error fetching stakeholders:", error);
@@ -507,7 +510,7 @@ const ProjectConfiguration = () => {
 
       {/* Project Status Section */}
       <div
-        className="card mt-5"
+        className="card mb-5"
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
         <div className="card-body">
@@ -591,6 +594,85 @@ const ProjectConfiguration = () => {
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleDelete(status.id, "status")}
                     ></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Stakeholders services */}
+      <div
+        className="card mb-5"
+        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
+      >
+        <div className="card-body">
+           <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5 className="card-title" style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontStyle: "normal",
+              fontSize: "16px",
+              lineHeight: "100%",
+              letterSpacing: "0"
+            }}>Stakeholders Services</h5>
+            <button
+              onClick={handleStakeholderModalOpen}
+              className="btn"
+              style={buttonStyles.base}
+              onMouseEnter={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.hover)
+              }
+              onMouseLeave={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.base)
+              }
+            >
+              New Stakeholder
+            </button>
+          </div>
+          <div className="row mt-4">
+            {stakeholders.map((stakeholder) => (
+              <div key={stakeholder.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between"
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div
+                      className="rounded-circle"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        backgroundColor: stakeholder.color,
+                      }}
+                    ></div>
+                    <div style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 400,
+                      fontStyle: 'normal',
+                      fontSize: '14px',
+                      lineHeight: '100%',
+                      letterSpacing: '0',
+                      cursor: "pointer"
+                    }} title={stakeholder.name}>{stakeholder.name.length > 10 ? `${stakeholder.name.slice(0, 14)}...` : stakeholder.name}</div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleStakeholderEdit(stakeholder)}
+                    ></i>
+                    {/* <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() =>
+                        handleDelete(stakeholder.id, "stakeholder")
+                      }
+                    ></i> */}
                   </div>
                 </div>
               </div>

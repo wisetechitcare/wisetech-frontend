@@ -48,7 +48,6 @@ interface ProjectData {
   company: string;
   branch: string;
   location: string;
-  contact: string;
   visibility: string;
   createdBy: string;
   createdDate: string;
@@ -196,7 +195,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       companyType: primaryTeam?.companyType?.name || '-',
       company: company?.companyName || '-',
       branch: lead.branchMappings?.[0]?.branch?.name || '-',
-      contact: contact?.fullName ? `${contact.fullName} (${contact.roleInCompany || ''})` : '-',
       visibility: company?.visibility || '-',
       createdBy: lead.createdBy?.users?.firstName+" "+lead.createdBy?.users?.lastName || '-',
       createdDate: lead.createdAt ? dayjs(lead.createdAt).format("DD/M/YYYY, h:mmA") : '-',
@@ -264,7 +262,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     company: '-',
     branch: '-',
     location: '-',
-    contact: '-',
     visibility: '-',
     createdBy: '-',
     createdDate: '-',
@@ -741,7 +738,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
             {lead?.branchMappings?.[0]?.branch && (
               <InfoRow label="Branch Location" value={lead.branchMappings[0].branch.name || "-"} />
             )}
-            <InfoRow label="Contact" value={projectData.contact} url={ lead?.leadTeams?.[0]?.contact?.id ? "/contacts/" + lead?.leadTeams?.[0]?.contact?.id : "#"} avatar={contactData?.avatar} gender={contactData?.gender} />
             {/* <div className="row mb-2">
               <div className="col-sm-5"></div>
               <div className="col-sm-7 d-flex align-items-center justify-content-end">
