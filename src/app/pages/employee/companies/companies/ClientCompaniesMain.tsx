@@ -25,6 +25,7 @@ interface ProcessedCompany extends Company {
   referenceType?: string;
   internalReferenceEmployeeId?: string;
   externalReferenceContactId?: string;
+  totalBudget?: number;
 }
 
 interface Props {
@@ -33,9 +34,11 @@ interface Props {
   locationId?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
+  isOthersView?: boolean;
+  top10Ids?: string[];
 }
 
-const ClientCompaniesMain = ( {statusId, companyTypeId, locationId, startDate, endDate}: Props ) => {
+const ClientCompaniesMain = ( {statusId, companyTypeId, locationId, startDate, endDate, isOthersView, top10Ids}: Props ) => {
   
   const navigate = useNavigate();
   const employeeIdCurrent = useSelector(
@@ -77,6 +80,10 @@ const ClientCompaniesMain = ( {statusId, companyTypeId, locationId, startDate, e
           .map(ref => ref.externalReferenceContact?.fullName || ref.externalReferenceContactId)
           .join(', ') || 'N/A';
           
+        const totalBudget = company.projectCompanyMappings?.reduce((acc, mapping) => {
+          return acc + Number(mapping.project?.cost || 0);
+        }, 0) || 0;
+
         return {
           ...company,
           companyTypeName:
@@ -86,6 +93,7 @@ const ClientCompaniesMain = ( {statusId, companyTypeId, locationId, startDate, e
           referenceType: referenceTypes,
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
+          totalBudget: totalBudget,
         };
       });
 
@@ -199,6 +207,14 @@ const ClientCompaniesMain = ( {statusId, companyTypeId, locationId, startDate, e
           return rating ? <span className="text-warning">⭐ {rating}</span> : "N/A";
         }
       },
+      { 
+        accessorKey: "totalBudget", 
+        header: "Budget",
+        Cell: ({ cell }) => {
+          const budget = cell.getValue() as number;
+          return `₹${budget.toLocaleString("en-IN")}`;
+        }
+      },
       { accessorKey: "phone", header: "Phone" ,Cell: ({ cell }) => cell.getValue() || "N/A"},
       { accessorKey: "phone2", header: "Phone 2" ,Cell: ({ cell }) => cell.getValue() || "N/A"},
       { accessorKey: "fax", header: "Fax" ,Cell: ({ cell }) => cell.getValue() || "N/A"},
@@ -291,8 +307,13 @@ const ClientCompaniesMain = ( {statusId, companyTypeId, locationId, startDate, e
   
   
   const filteredData = dateFilteredData?.filter((item: any) => {
+    if (isOthersView && top10Ids) {
+      if (top10Ids.includes(item.companyTypeId)) return false;
+    } else {
+      if (companyTypeId && item.companyTypeId !== companyTypeId) return false;
+    }
+    
     if (statusId && item.status !== statusId) return false;
-    if (companyTypeId && item.companyTypeId !== companyTypeId) return false;
   
     if (locationId) {
       if (locationId.toLowerCase() !== "unknown") {
