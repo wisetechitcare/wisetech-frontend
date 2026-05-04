@@ -32,7 +32,7 @@
 
   const CompaniesByTypeChart: React.FC<Props> = ({ data, onBarClick }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [sortBy, setSortBy] = useState<"countDesc" | "countAsc" | "nameAZ">(
+    const [sortBy, setSortBy] = useState<"countDesc" | "countAsc" | "nameAZ" | "nameZA">(
       "nameAZ",
     );
 
@@ -46,6 +46,8 @@
         sorted.sort((a, b) => a.companyCount - b.companyCount);
       } else if (sortBy === "nameAZ") {
         sorted.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (sortBy === "nameZA") {
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
       }
 
       const top10 = sorted.slice(0, 10);
@@ -268,6 +270,7 @@
               <MenuItem value="countDesc">Sort by Count (Desc)</MenuItem>
               <MenuItem value="countAsc">Sort by Count (Asc)</MenuItem>
               <MenuItem value="nameAZ">Sort by Name (A–Z)</MenuItem>
+              <MenuItem value="nameZA">Sort by Name (Z–A)</MenuItem>
             </Select>
           </FormControl>
 
