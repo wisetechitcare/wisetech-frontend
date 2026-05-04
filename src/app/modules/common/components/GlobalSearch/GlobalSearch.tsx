@@ -2,6 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KTIcon } from '@metronic/helpers';
 import { HighlightMatch, performGlobalSearch, UnifiedSearchResult, SearchMatchField } from '@app/utils/search';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import BusinessIcon from '@mui/icons-material/Business';
+import PersonIcon from '@mui/icons-material/Person';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import PeopleIcon from '@mui/icons-material/People';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ExploreIcon from '@mui/icons-material/Explore';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
 import './GlobalSearch.css';
 
 // Shared type from search utility is used instead of local interface
@@ -95,7 +105,7 @@ const GlobalSearch: React.FC = () => {
   return (
     <div className="global-search-container" ref={dropdownRef}>
       <div className={`global-search-input-wrapper ${isOpen ? 'active' : ''}`}>
-        <KTIcon iconName="magnifier" className="search-icon fs-2 text-muted" />
+        <AutoAwesomeIcon sx={{ fontSize: '1.6rem', color: '#009ef7', position: 'absolute', left: '12px', zIndex: 2 }} />
         <input
           ref={inputRef}
           type="text"
@@ -156,7 +166,14 @@ const GlobalSearch: React.FC = () => {
                         >
                           <div className="symbol symbol-30px me-3">
                             <span className={`symbol-label bg-light-${getTypeColor(result.type)}`}>
-                              <KTIcon iconName={result.icon} className={`fs-4 text-${getTypeColor(result.type)}`} />
+                              {result.type === 'Company' && <BusinessIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'Contact' && <PersonIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'Lead' && <AssignmentIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'Project' && <AccountTreeIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'Employee' && <PeopleIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'Task' && <CheckCircleIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'Navigation' && <ExploreIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
+                              {result.type === 'KPI' && <AssessmentIcon className={`fs-4 text-${getTypeColor(result.type)}`} />}
                             </span>
                           </div>
                           <div className="d-flex flex-column flex-grow-1 overflow-hidden">
@@ -185,7 +202,7 @@ const GlobalSearch: React.FC = () => {
               })}
               <div className="search-footer" onClick={() => navigate(`/search-results?q=${encodeURIComponent(query)}`)}>
                 <span>Press Enter to see all results</span>
-                <KTIcon iconName="return" className="fs-4" />
+                <KeyboardReturnIcon className="fs-4" />
               </div>
             </div>
           ) : (
