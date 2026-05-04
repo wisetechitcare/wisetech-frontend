@@ -126,6 +126,7 @@ export const EMPLOYEE = {
     MARK_CHECKOUT_ATTENDANCE: "api/employee/attendance",
     VALIDATE_IN_OUT_TOKEN: "api/employee/validate-token-in-out",
     LEAVE_BALANCE: "api/employee/leave-balance",
+    LEAVE_ALLOCATION: "api/employee/leave-allocation",
     LEAVES: "api/employee/leaves",
     GET_WIZARD_DATA: "api/employee/wizard",
     GET_ADDRESS_DETAILS: "api/employee/address-details?employeeId=",
@@ -207,6 +208,7 @@ export const EMPLOYEE = {
     GET_KPI_SCORES_FOR_PERIOD: "api/employee/kpi/scores/period",
     GET_KPI_SCORES_ALL_TIME: 'api/employee/kpi/alltime',
     GET_ALL_STAR_EMPLOYEES_BY_EACH_FACTOR: "api/employee/kpi/star-employees/all",
+    FETCH_ALL_STAR_EMPLOYEES_BY_FACTOR_ID: "api/employee/kpi/star-employees",
     CREATE_KPI_SCORE: "api/employee/kpi/score",
     GET_ALL_EMPLOYEE_WITH_MONTH_DAILY_HOURLY_SALARY: "api/employee/all-employees-salary",
 
@@ -319,6 +321,8 @@ export const DAY_WISE_SHIFT = {
 
 export const LEAD_PROJECT_COMPANY = {
     GET_ALL_LEADS_COUNT_INCLUDING_DELETED: "api/lead-project-companies/leads/count-including-deleted",
+    //get leads count by fiscal year
+    GET_LEADS_COUNT_BY_FISCAL_YEAR: "api/lead-project-companies/leads/count-by-fiscal-year",
     GET_PROJECT_COUNT_BY_STATUS: "api/lead-project-companies/projects/overview/status-count",
     GET_PROJECT_COUNT_BY_SERVICES: "api/lead-project-companies/projects/overview/services-count",
     GET_PROJECT_COUNT_BY_TEAM: "api/lead-project-companies/projects/overview/teams-count",

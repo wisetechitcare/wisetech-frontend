@@ -14,7 +14,6 @@ import PerformanceBadge from "../../components/PerformanceBadge";
 import { Container, Spinner } from "react-bootstrap";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
-import { useLeaderboardRank } from "../../hooks/useLeaderboardRank";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -44,7 +43,6 @@ const Yearly: React.FC<YearlyProps> = ({
   endDate,
   fromAdmin = false,
   resourseAndView,
-  dateSettingsEnabled = false,
   dashboardView = true,
 }) => {
   const toggleChange = useSelector(
@@ -54,53 +52,39 @@ const Yearly: React.FC<YearlyProps> = ({
   const selectedEmployeeId = useSelector((state: RootState) =>
     fromAdmin
       ? state.employee.selectedEmployee?.id
-      : state.employee?.currentEmployee?.id
+      : state.employee.currentEmployee?.id
   );
 
-  const [data, setData] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee?.id
   );
+
+  const [data, setData] = useState<any>(null); // ✅ FIXED
+  const [loading, setLoading] = useState(true);
   const [showData, setShowData] = useState(false);
-  const [remark, setRemark] = useState<string>("");
-  const [yourPoints, setYourPoints] = useState<number>(0);
-  const [maxTotal, setMaxTotal] = useState<number>(0);
 
-  // Memoize to stable strings — KpiGraphicalToggle already passes the correct
-  // fiscal dates via `year` and `endDate`, so we use them directly.
-  const startDateStr = useMemo(
-    () => year.format("YYYY-MM-DD"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [year.format("YYYY-MM-DD")]
-  );
-  const endDateStr = useMemo(
-    () => endDate.format("YYYY-MM-DD"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [endDate.format("YYYY-MM-DD")]
-  );
-
-  // FIX: Rank hook uses the SAME date range as the KPI data fetch.
-  const { rank, rankLoading } = useLeaderboardRank({
-    employeeId: selectedEmployeeId,
-    startDate: startDateStr,
-    endDate: endDateStr,
-  });
+  const startDateStr = useMemo(() => year.format("YYYY-MM-DD"), [year]);
+  const endDateStr = useMemo(() => endDate.format("YYYY-MM-DD"), [endDate]);
 
   useEffect(() => {
     if (!selectedEmployeeId) return;
+
     const loadData = async () => {
       setLoading(true);
       try {
-        const response = await fetchEmpYearlyKpiStatistics(year, fromAdmin, {
-          startDate: dayjs(startDateStr),
-          endDate: dayjs(endDateStr),
-        });
+        const response = await fetchEmpYearlyKpiStatistics(
+          year,
+          fromAdmin,
+          {
+            startDate: dayjs(startDateStr),
+            endDate: dayjs(endDateStr),
+          }
+        );
+
+        console.log("🔥 KPI RESPONSE:", response); // ✅ MANDATORY LOG
+
         if (response) {
-          setData(response.modules);
-          setRemark(response.remark || "");
-          setYourPoints(response.yourPoints || 0);
-          setMaxTotal(response.maxTotal || 0);
+          setData(response); // ✅ FIXED
         }
       } catch (error) {
         console.error("Error fetching Yearly KPI Statistics:", error);
@@ -118,8 +102,22 @@ const Yearly: React.FC<YearlyProps> = ({
       resourseAndView[0]?.resource,
       permissionConstToUseWithHasPermission.readOthers
     );
+
     if (res) setShowData(true);
   }, [employeeId]);
+
+  // ✅ SAFE EXTRACTION
+  const modules = data?.modules || [];
+  const yourPoints = data?.yourPoints ?? 0;
+  
+  // 🔥 FINAL SAFE RANK CODE
+  const rawRank = data?.rank;
+  const rank =
+    rawRank === null || rawRank === undefined || rawRank === 0 || rawRank === "0"
+      ? null
+      : rawRank;
+  const remark = data?.remark || "";
+  const maxTotal = Number(data?.maxTotal || 0);
 
   const overviewData = [
     "Attendance",
@@ -133,7 +131,8 @@ const Yearly: React.FC<YearlyProps> = ({
   ].map((label) => ({
     icon: iconMapping[label],
     label,
-    score: data?.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
+    score:
+      modules.find((m: any) => m.moduleName === label)?.totalScore ?? 0,
   }));
 
   if (loading) {
@@ -148,15 +147,8 @@ const Yearly: React.FC<YearlyProps> = ({
     );
   }
 
-  if (!data || data.length === 0) {
-    return (
-      <Container fluid className="my-4 px-0">
-        <p>No KPI data available for the selected period.</p>
-      </Container>
-    );
-  }
-
-  if (!showData) return <h2 className="text-center">Not Allowed To View</h2>;
+  if (!showData)
+    return <h2 className="text-center">Not Allowed To View</h2>;
 
   return (
     <>
@@ -164,18 +156,19 @@ const Yearly: React.FC<YearlyProps> = ({
         <PerformanceBadge
           remark={remark}
           rank={rank}
-          rankLoading={rankLoading}
           yourPoints={yourPoints}
           maxTotal={maxTotal}
           fromAdmin={fromAdmin}
         />
       )}
+
       <ScoreOverview data={overviewData} />
-      {dashboardView ? (
+
+      {dashboardView && (
         <Container fluid className="my-4 px-0">
-          <KpiStatisticsTable data={data} />
+          <KpiStatisticsTable data={modules} />
         </Container>
-      ) : null}
+      )}
     </>
   );
 };

@@ -19,6 +19,7 @@ import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { ConfigItem, ProjectCategory } from "@models/clientProject";
+import Swal from "sweetalert2";
 
 interface ConfigFormProps {
   show: boolean;
@@ -34,6 +35,7 @@ const validationSchema = (type: string) => {
   const baseSchema = {
     name: Yup.string().required('Name is required'),
     color: Yup.string().required('Color is required'),
+    isDefault: Yup.boolean().optional(),
     isActive: Yup.boolean().required()
   };
 
@@ -89,6 +91,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
     color: initialData?.color || "#8B4444",
     isActive: initialData?.isActive ?? true,
     categoryId: initialData?.categoryId || "",
+    ...(type === 'status' && { isDefault: (initialData as any)?.isDefault ?? false }),
   };
 
   type ApiFunction = ((id: string, payload: any) => Promise<any>) | ((payload: any) => Promise<any>);
@@ -128,6 +131,22 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
   const handleSubmit = async (values: typeof initialValues) => {
     setError("");
+
+    // If setting as default status, confirm with user first
+    if (type === "status" && "isDefault" in values && (values as any).isDefault) {
+      const result = await Swal.fire({
+        title: 'Set as Default Status?',
+        text: 'There can be only 1 default status. If any previous status is set as default, it will be overwritten and this status will be set as default.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#8B4444',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Set as Default',
+        cancelButtonText: 'Cancel'
+      });
+      if (!result.isConfirmed) return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -138,7 +157,8 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         name: values.name,
         color: values.color,
         isActive: values.isActive,
-        ...(type === 'subcategory' && values.categoryId ? { categoryId: values.categoryId } : {})
+        ...(type === 'subcategory' && values.categoryId ? { categoryId: values.categoryId } : {}),
+        ...(type === 'status' && 'isDefault' in values ? { isDefault: (values as any).isDefault } : {})
       };
 
       if (isEditing && initialData?.id) {
@@ -188,7 +208,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
   return (
     <>
-      <Modal show={show} onHide={onClose} centered style={{ zIndex: 1500 }}>
+      <Modal show={show} onHide={onClose} centered>
         <Modal.Header closeButton style={{ borderBottom: 'none', paddingBottom: '8px' }}>
           <Modal.Title style={{ fontWeight: '600', fontSize: '18px', color: '#1a1a1a' }}>
             {isEditing ? "Edit" : "New"} {title}
@@ -302,6 +322,35 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                   />
                   <ErrorMessage name="name" component="div" className="text-danger mt-1" />
                 </div>
+
+                {/* Default Status Checkbox - Show only for status type */}
+                {type === "status" && (
+                  <div className="mb-4">
+                    <div className="form-check">
+                      <input
+                        type="checkbox"
+                        id="isDefault"
+                        name="isDefault"
+                        className="form-check-input"
+                        checked={(values as any).isDefault ?? false}
+                        onChange={(e) => setFieldValue("isDefault", e.target.checked)}
+                      />
+                      <label
+                        className="form-check-label"
+                        htmlFor="isDefault"
+                        style={{
+                          fontWeight: '500',
+                          color: '#1a1a1a',
+                          fontSize: '14px',
+                          fontFamily: 'Inter, sans-serif',
+                        }}
+                      >
+                        Set as Default Status
+                      </label>
+                    </div>
+                    <ErrorMessage name="isDefault" component="div" className="text-danger mt-1" />
+                  </div>
+                )}
 
                 {/* Color Picker */}
                 {
@@ -434,6 +483,16 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
         .btn-secondary:disabled {
           background-color: #ccc !important;
           opacity: 0.6 !important;
+        }
+
+        .form-check-input:checked {
+          background-color: #8B4444 !important;
+          border-color: #8B4444 !important;
+        }
+
+        .form-check-input:focus {
+          border-color: #8B4444 !important;
+          box-shadow: 0 0 0 0.2rem rgba(139, 68, 68, 0.25) !important;
         }
       `}</style>
     </>

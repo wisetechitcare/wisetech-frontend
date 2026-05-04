@@ -24,6 +24,8 @@ export interface Company {
   isActive: boolean;
   branches?: number;
   location?: string;
+  latitude?: number | string;
+  longitude?: number | string;
   references?: any[];
   referenceType?: string;
   internalReferenceEmployeeId?: string;

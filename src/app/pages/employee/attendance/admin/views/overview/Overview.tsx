@@ -401,8 +401,11 @@ function Overview({ date }: OverviewProps) {
         return actualCheckOut.isBefore(expectedCheckOut);
     }).length;
 
-    // Calculate absent count with null checks
-    const absentCount = Math.max(0, (totalEmployee || 0) - (employeesOnLeave?.length || 0) - (employeePresent || 0));
+    // Calculate absent count.
+    // employeesOnLeave from the API is a NUMBER (count), not an array — using .length on it gives
+    // undefined which silently makes on-leave employees appear as absent.
+    // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
+    const absentCount = Math.max(0, (totalEmployee || 0) - (employesLeaveDatas?.length || 0) - (employeePresent || 0));
     // console.log("lateCheckInsCount ====================================>",lateCheckInsCount, lateEarlyCheckInOut ,extraDays,absentCount)
 
     const handleCardClick = (type: ModalType) => {
@@ -537,7 +540,8 @@ function Overview({ date }: OverviewProps) {
                     break;
 
                 case 'leave':
-                    if (employeesOnLeave.length === 0) {
+                    // employeesOnLeave is a NUMBER from the API — use the array employesLeaveDatas for length check
+                    if ((employesLeaveDatas?.length ?? 0) === 0) {
                         return <div className="p-3 text-muted">No employees on leave today</div>;
                     }
 
@@ -594,7 +598,7 @@ function Overview({ date }: OverviewProps) {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td>{employeeData.designations?.role || emp.designations?.role || 'N/A'}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{employeeData.designations?.role || emp.designations?.role || 'N/A'}</td>
                                                 <td>
                                                     <span className="badge bg-warning text-dark">
                                                         {leaveType}

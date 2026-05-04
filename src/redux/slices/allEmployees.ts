@@ -8,6 +8,7 @@ interface IAllEmployees {
   avatar: string;
   gender: string;
   roles: string[];
+  isActive: boolean;
 }
 
 interface AllEmployeesState {
@@ -38,6 +39,7 @@ export const fetchAllEmployeesAsync = createAsyncThunk(
       avatar: emp?.avatar,
       gender: emp?.gender,
       roles: emp?.roles?.map((role: any) => role?.name).filter(Boolean) || [],
+      isActive: emp?.isActive ?? true,
     }));
   }
 );

@@ -14,7 +14,7 @@ import { getAllProjectCategories, getAllProjectServices, getAllProjectStatuses, 
 import { getAllClientCompanies, getAllClientContacts, getAllCompanyTypes, getClientContactsByCompanyId } from '@services/companies';
 import { fetchSubCompaniesByMainCompanyId, fetchCompanyOverview } from '@services/company'; // Added: fetchCompanyOverview for internal referrals
 import { fetchAllEmployees } from '@services/employee'; // Added: fetchAllEmployees for internal referrals
-import { getAllClientBranches, getAllLeadReferralType, getAllLeadsCountIncludingDeleted, getAllLeadStatus, getAllLeadDirectSource } from '@services/lead';
+import { getAllClientBranches, getAllLeadReferralType, getAllLeadsCountIncludingDeleted, getLeadsCountByFiscalYear, getAllLeadStatus, getAllLeadDirectSource } from '@services/lead';
 import { fetchAllCities, fetchAllCountries, fetchAllPrefixSettings, fetchAllStates } from '@services/options';
 import { convertFiscalYearToYearFormat } from '@app/modules/common/components/PrefixSettingsForm';
 import PrefixInlineEdit from '@app/modules/common/components/PrefixInlineEdit';
@@ -68,6 +68,7 @@ interface LeadFormModalProps {
 const CompanyNameFieldWithTooltip: React.FC<{ index: number }> = ({ index }) => {
   const { values } = useFormikContext<any>();
   const companyName = values?.referrals?.[index]?.companyName || '';
+
   return (
     <Tooltip title={companyName || ''} arrow placement="top">
       <Box>
@@ -81,6 +82,61 @@ const CompanyNameFieldWithTooltip: React.FC<{ index: number }> = ({ index }) => 
       </Box>
     </Tooltip>
   );
+};
+
+// Helper function to sort items alphabetically
+const sortItemsAlphabetically = <T extends { name: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name));
+};
+
+// Helper function to sort companies alphabetically by companyName
+const sortCompaniesByName = <T extends { companyName: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => a.companyName.localeCompare(b.companyName));
+};
+
+// Helper function to sort contacts alphabetically by fullName
+const sortContactsByName = <T extends { fullName: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => a.fullName.localeCompare(b.fullName));
+};
+
+// Helper function to sort employees alphabetically by full name (firstName + lastName)
+const sortEmployeesByName = <T extends { users: { firstName: string; lastName: string } }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => {
+    const nameA = `${a.users.firstName} ${a.users.lastName}`.toLowerCase();
+    const nameB = `${b.users.firstName} ${b.users.lastName}`.toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+};
+
+// Helper function to sort allEmployees list (from Redux) by employeeName
+const sortAllEmployeesByName = <T extends { employeeName: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+};
+
+// Build options for employee dropdowns in lead forms.
+// Active employees are always shown. Inactive employees are shown ONLY when they
+// match `currentValueId` (i.e. they are already saved on the record) so existing
+// data is never lost. Inactive options are labelled "(Inactive)", visually dimmed,
+// and marked `isDisabled` so they cannot be chosen for new assignments.
+const buildEmployeeOptions = (
+  employees: any[],
+  currentValueId?: string,
+): { value: string; label: string; avatar?: string; isDisabled?: boolean; isInactive?: boolean }[] => {
+  const sorted = sortAllEmployeesByName(employees);
+  const options: { value: string; label: string; avatar?: string; isDisabled?: boolean; isInactive?: boolean }[] = [];
+  for (const emp of sorted) {
+    const isInactive = emp.isActive === false;
+    // Include inactive employees only if they are the currently-saved value
+    if (isInactive && emp.employeeId !== currentValueId) continue;
+    options.push({
+      value: emp.employeeId,
+      label: isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName,
+      avatar: emp.avatar,
+      isDisabled: isInactive,
+      isInactive,
+    });
+  }
+  return options;
 };
 
 const LeadFormModal = ({
@@ -154,7 +210,7 @@ const LeadFormModal = ({
   const [cities, setCities] = useState<any[]>([]);
   const [projectData, setProjectData] = useState<any>(null);
   const [useCalculatedAmount, setUseCalculatedAmount] = useState<boolean>(true);
-  const [allCompanyTypes, setAllCompanyTypes] = useState([]);
+  const [allCompanyTypes, setAllCompanyTypes] = useState<{ id: string | number; name: string }[]>([]); //new update of alpabetical order
   const [currCompanyTypeId, setCurrCompanyTypeId] = useState('')
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -238,6 +294,7 @@ const LeadFormModal = ({
   // Enhanced filtering that returns sorted options
   const getFilteredAndSortedOptions = (options: any[], inputValue: string) => {
     if (!inputValue || !inputValue.trim()) return options;
+
     // Filter and sort options by priority
     const filtered = options.filter(option => {
       const priority = getMatchPriority(option, inputValue);
@@ -252,6 +309,7 @@ const LeadFormModal = ({
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
+
       // Same priority - sort alphabetically within the same priority group
       return (optionA.label || '').localeCompare(optionB.label || '');
     });
@@ -272,6 +330,7 @@ const LeadFormModal = ({
       if (priorityA !== priorityB) {
         return priorityA - priorityB;
       }
+
       // Same priority - sort alphabetically within the same priority group
       return (optionA.label || '').localeCompare(optionB.label || '');
     };
@@ -340,6 +399,7 @@ const LeadFormModal = ({
     onCalculatedCost?: ((value: number) => void) | null
   }) => {
     const [validationError, setValidationError] = useState<string>('');
+
     return (
       <div className="d-flex flex-column fv-row">
         <label className='d-flex align-items-center fs-6 form-label mb-2'>
@@ -402,6 +462,7 @@ const LeadFormModal = ({
       return {
         leadTemplateId,
         projectName: initialData.title || '',
+
         // Store available states and cities for each address row
         addressStatesOptions: {},  // Format: { rowIndex: [state objects] }
         addressCitiesOptions: {},  // Format: { rowIndex: [city objects] }
@@ -511,6 +572,7 @@ const LeadFormModal = ({
         budget: '',
         ...(initialData?.id && { leadTemplateId: initialData.id }),
         ...initialFormData
+
       };
     }
 
@@ -644,6 +706,7 @@ const LeadFormModal = ({
       addressCitiesOptions: {},
       addressStateSelections: {},
       addressCitySelections: {},
+
       // Map lead data fields to form fields
       service: leadData.projectService?.id || leadData.projectServiceId || '',
       category: leadData.projectCategory?.id || leadData.projectCategoryId || '',
@@ -680,6 +743,7 @@ const LeadFormModal = ({
         const singleServiceId = leadData.projectService?.id || leadData.projectServiceId;
         return singleServiceId ? [singleServiceId] : [];
       })(),
+
       categoryIds: (() => {
         // Handle multi-select categories from junction table
         if (leadData.leadCategories && Array.isArray(leadData.leadCategories)) {
@@ -689,6 +753,7 @@ const LeadFormModal = ({
         const categoryId = leadData.projectCategory?.id || leadData.projectCategoryId;
         return categoryId ? [categoryId] : [];
       })(),
+
       subcategoryIds: (() => {
         // Handle multi-select subcategories from junction table
         if (leadData.leadSubCategories && Array.isArray(leadData.leadSubCategories)) {
@@ -704,6 +769,7 @@ const LeadFormModal = ({
       cost: leadData.cost || '',
       description: leadData.description || '',
       budget: leadData.budget || '',
+
       // Client details (single - keeping for backward compatibility)
       companyTypeId: leadData.company?.companyType?.id || leadData.companyTypeId || '',
       subCompanyId: leadData.subCompany?.id || leadData.subCompanyId || '',
@@ -713,6 +779,7 @@ const LeadFormModal = ({
       contactPerson: leadData.contact?.fullName || '',
       contactPersonId: leadData.contact?.id || leadData.contactId || '',
       contactRoleId: leadData.contactRole?.id || leadData.contactRoleId || '',
+
       // Client teams (multiple teams support) - robust backward compatibility
       leadTeams: (() => {
         if (leadData.leadTeams && Array.isArray(leadData.leadTeams) && leadData.leadTeams.length > 0) {
@@ -903,13 +970,13 @@ const LeadFormModal = ({
       async function fetchPrefixSettings() {
         const { data: { prefixSettings } } = await fetchAllPrefixSettings();
         const currentPrefix = prefixSettings.find((prefix: any) => prefix.identifier == prefixIdentifier.LEAD);
-        if (Object.keys(currentPrefix)?.length) {
-          // Get current leads count
-          const { data: { count } } = await getAllLeadsCountIncludingDeleted();
-          // Generate prefix: prefix/year/count format
+        if (currentPrefix && Object.keys(currentPrefix)?.length) {
+          // Convert stored fiscal year to display format (e.g. "2026-04-01 to 2027-03-31" → "2026-27")
           const formattedYear = convertFiscalYearToYearFormat(currentPrefix.year);
-          const generatedPrefix = `${currentPrefix.prefix}/${formattedYear}/${count + 1}`;
-          // data.prefix = generatedPrefix;
+          // Count only leads in THIS fiscal year so the counter resets each new fiscal year
+          const { data: { count } } = await getLeadsCountByFiscalYear(formattedYear);
+          // Generate prefix: prefix/year/count format
+          const generatedPrefix = `${currentPrefix.prefix}/${formattedYear}/${String(count + 1).padStart(3, '0')}`;
           setPrefix(generatedPrefix);
         }
       }
@@ -954,6 +1021,7 @@ const LeadFormModal = ({
       ),
     }),
   });
+
   // fetching all the details:
   // Fetch functionsadd an add new button 
   const fetchProjectCategories = useCallback(async () => {
@@ -961,8 +1029,9 @@ const LeadFormModal = ({
     try {
       const response = await getAllProjectCategories();
       const data = response?.projectCategories || [];
-      setCategories(data);
-      return data;
+      const sortedData = sortItemsAlphabetically(data);
+      setCategories(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching categories:", error);
       return [];
@@ -975,8 +1044,9 @@ const LeadFormModal = ({
       const response = await getAllLeadReferralType();
       // console.log("responsegetAllLeadReferralType:: ", response);
       const data = response?.leadReferralTypes || [];
-      setReferralTypes(data);
-      return data;
+      const sortedData = sortItemsAlphabetically(data);
+      setReferralTypes(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching referral types:", error);
       return [];
@@ -987,8 +1057,9 @@ const LeadFormModal = ({
     try {
       const response = await getAllLeadDirectSource();
       const data = response?.leadDirectSources || [];
-      setLeadDirectSources(data);
-      return data;
+      const sortedData = sortItemsAlphabetically(data);
+      setLeadDirectSources(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching lead direct sources:", error);
       return [];
@@ -1000,8 +1071,9 @@ const LeadFormModal = ({
     try {
       const response = await getAllProjectSubcategories();
       const data = response?.projectSubCategories || [];
-      setSubcategories(data);
-      return data;
+      const sortedData = sortItemsAlphabetically(data);
+      setSubcategories(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching subcategories:", error);
       return [];
@@ -1014,8 +1086,10 @@ const LeadFormModal = ({
       const response = await getAllProjectServices();
       const data = response?.services || [];
       // console.log("Services data with colors:", data.map(s => ({id: s.id, name: s.name, color: s.color})));
-      setServices(data);
-      return data;
+
+      const sortedData = sortItemsAlphabetically(data);
+      setServices(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching services:", error);
       return [];
@@ -1027,9 +1101,10 @@ const LeadFormModal = ({
     try {
       const response = await getAllClientCompanies();
       const data = response?.data?.companies || [];
-      setCompanies(data);
-      setFilteredCompanies(data)
-      return data;
+      const sortedData = sortCompaniesByName(data);
+      setCompanies(sortedData);
+      setFilteredCompanies(sortedData)
+      return sortedData;
     } catch (error) {
       // console.error("❌ Error fetching companies:", error);
       return [];
@@ -1054,8 +1129,9 @@ const LeadFormModal = ({
     try {
       const response = await getAllClientContacts();
       const data = response?.data?.contacts || [];
-      setContacts(data);
-      return data;
+      const sortedData = sortContactsByName(data);
+      setContacts(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching contacts:", error);
       return [];
@@ -1120,6 +1196,7 @@ const LeadFormModal = ({
           }
         }
       }
+
       return data;
     } catch (error) {
       console.error("Error fetching lead statuses:", error);
@@ -1132,8 +1209,9 @@ const LeadFormModal = ({
     try {
       const response = await fetchAllEmployees();
       const data = response?.data?.employees || [];
-      setInternalEmployees(data);
-      return data;
+      const sortedData = sortEmployeesByName(data);
+      setInternalEmployees(sortedData);
+      return sortedData;
     } catch (error) {
       console.error("Error fetching employees:", error);
       return [];
@@ -1163,10 +1241,11 @@ const LeadFormModal = ({
 
       const response = await getClientContactsByCompanyId(companyId);
       const data = response?.data?.contacts || [];
+      const sortedData = sortContactsByName(data);
 
       // Update contacts for this specific team
-      setTeamFilteredContacts(prev => ({ ...prev, [teamIndex]: data }));
-      return data;
+      setTeamFilteredContacts(prev => ({ ...prev, [teamIndex]: sortedData }));
+      return sortedData;
     } catch (error) {
       console.error("Error fetching contacts for company:", error);
       // Set empty array on error
@@ -1186,10 +1265,11 @@ const LeadFormModal = ({
 
       const response = await getClientContactsByCompanyId(companyId);
       const data = response?.data?.contacts || [];
+      const sortedData = sortContactsByName(data);
 
       // Update contacts for this specific referral
-      setReferralFilteredContacts(prev => ({ ...prev, [referralIndex]: data }));
-      return data;
+      setReferralFilteredContacts(prev => ({ ...prev, [referralIndex]: sortedData }));
+      return sortedData;
     } catch (error) {
       console.error("Error fetching contacts for referral company:", error);
       // Set empty array on error
@@ -1275,6 +1355,7 @@ const LeadFormModal = ({
       setFieldValue('addresses.0.city', '');
       setFieldValue('addressStateSelections.0', null);
       setFieldValue('addressCitySelections.0', null);
+
       // Clear city options for this row
       setFieldValue(`addressCitiesOptions.${index}`, []);
 
@@ -1361,6 +1442,7 @@ const LeadFormModal = ({
   const handleContactModalClose = useCallback(async () => {
     setShowContactModal(false);
     await fetchContacts();
+
     // Added: Refresh team-specific filtered contacts for all teams that have a company selected
     if (formikRef.current?.values?.leadTeams) {
       const leadTeams = formikRef.current.values.leadTeams;
@@ -1372,6 +1454,7 @@ const LeadFormModal = ({
         }
       }
     }
+
     // Added: Refresh referral-specific filtered contacts for all referrals that have a company selected (external referrals only)
     if (formikRef.current?.values?.referrals) {
       const referrals = formikRef.current.values.referrals;
@@ -1466,8 +1549,14 @@ const LeadFormModal = ({
   useEffect(() => {
     async function fetchAndSetCompanyType() {
       const { companyTypes } = await getAllCompanyTypes()
-
-      setAllCompanyTypes(companyTypes)
+      
+      //new update of alpabetical order
+      const typesWithIds = companyTypes.map((ct, index: number) => ({
+        id: ct.id ?? index,
+        name: ct.name
+      }))
+      const sortedCompanyTypes = sortItemsAlphabetically(typesWithIds)
+      setAllCompanyTypes(sortedCompanyTypes)
     }
     fetchAndSetCompanyType()
   }, [showCompanyTypeModal])
@@ -1521,16 +1610,45 @@ const LeadFormModal = ({
     loadLocationData();
   }, [countries, initialFormData]);
 
+  useEffect(() => {
+    const receivedStatus = leadStatuses.find(
+      (s: any) => s.name?.toLowerCase() === "received"
+    );
+
+    if (!receivedStatus || !formikRef.current) return;
+
+    const currentStatus = formikRef.current.values.statusId;
+    const currentDate = formikRef.current.values.receivedDate;
+
+    if (currentStatus === receivedStatus.id) {
+      // Status is "Received" — auto-set today's date if not already set
+      if (!currentDate) {
+        formikRef.current.setFieldValue(
+          "receivedDate",
+          new Date().toISOString().split("T")[0]
+        );
+      }
+    } else {
+      // Status changed away from "Received" — clear the receivedDate
+      if (currentDate) {
+        formikRef.current.setFieldValue("receivedDate", "");
+      }
+    }
+  }, [formikRef.current?.values?.statusId, leadStatuses]);
+
   // Note: Referral population for edit mode is now handled in buildInitialValues function
+
   // Added: Effect to populate filtered companies and sub-companies for edit mode
   useEffect(() => {
     if (isEditMode && currLeadData && companies.length > 0 && allCompanyTypes.length > 0) {
       const companyTypeId = currLeadData.company?.companyType?.id || currLeadData.companyTypeId;
       const companyId = currLeadData.company?.id || currLeadData.companyId;
+
       if (companyTypeId) {
         setCurrCompanyTypeId(companyTypeId);
         const filteredCompanies = companies?.filter(ele => ele?.companyTypeId == companyTypeId);
         setFilteredCompanies(filteredCompanies);
+
         if (companyId) {
           setSelectedCompany(true); // Enable dependent dropdowns
           const companyData = filteredCompanies?.find(ele => ele?.id == companyId);
@@ -1541,6 +1659,7 @@ const LeadFormModal = ({
       }
     }
   }, [isEditMode, currLeadData, companies, allCompanyTypes]);
+
   // Added: Effect to populate referral sub-companies for edit mode
   useEffect(() => {
     if (isEditMode && currLeadData?.referrals && companies.length > 0) {
@@ -1997,6 +2116,7 @@ const LeadFormModal = ({
     if (prefix && prefix.trim()) {
       finalCleanPayload.prefix = prefix.trim();
     }
+
     try {
       if (isEditMode) {
         finalCleanPayload.id = initialFormData.id;
@@ -2126,6 +2246,7 @@ const LeadFormModal = ({
             >
               {(formikProps) => {
                 const { values, setFieldValue, errors, touched, isSubmitting, validateForm } = formikProps;
+
                 useEffect(() => {
                   if (leadTemplateId === leadAndProjectTemplateTypeId.mep && useCalculatedAmount) {
                     const cost = Number(values.rate || 0) * Number(values.projectArea || 0);
@@ -2311,7 +2432,9 @@ const LeadFormModal = ({
                               placeholder="Select services..."
                               isRequired={false}
                               onCreate={createNewService}
-                              onRefreshOptions={fetchProjectServices}
+                              onRefreshOptions={async () => {
+                                await fetchProjectServices();
+                              }}
                               createModalTitle="Create New Service"
                               createButtonText="Add New Service"
                               createFieldLabel="Service Name"
@@ -2327,7 +2450,9 @@ const LeadFormModal = ({
                               placeholder="Select categories..."
                               isRequired={false}
                               onCreate={createNewCategory}
-                              onRefreshOptions={fetchProjectCategories}
+                              onRefreshOptions={async () => {
+                                await fetchProjectCategories();
+                              }}
                               createModalTitle="Create New Category"
                               createButtonText="Add New Category"
                               createFieldLabel="Category Name"
@@ -2353,7 +2478,9 @@ const LeadFormModal = ({
 
                                 return createNewSubcategory(name, firstCategoryId);
                               }}
-                              onRefreshOptions={fetchProjectSubcategories}
+                              onRefreshOptions={async () => {
+                                await fetchProjectSubcategories();
+                              }}
                               createModalTitle="Create New Sub Category"
                               createButtonText="Add New Sub Category"
                               createFieldLabel="Sub Category Name"
@@ -2615,13 +2742,11 @@ const LeadFormModal = ({
                               formikField='leadAssignedTo'
                               inputLabel='Lead Assigned To'
                               isRequired={false}
-                              options={allEmployees?.list?.map((item: any) => ({
-                                value: item.employeeId,
-                                label: item.employeeName,
-                                avatar: item.avatar,
-                              })) || []}
+                              options={buildEmployeeOptions(
+                                allEmployees?.list || [],
+                                values.leadAssignedTo || undefined,
+                              )}
                               showColor={true}
-                              // value={values.leadAssignedTo}
                               placeholder='Select employee'
                             />
                           </Grid>
@@ -2759,12 +2884,13 @@ const LeadFormModal = ({
                                     textAlign: 'center',
                                     py: 3,
                                     color: '#666',
-                                    fontStyle: 'italic'
+                                    // fontStyle: 'italic'
                                   }}>
                                     No referrals added yet. Click "Add another Referral" to get started.
                                   </Box>
                                 </Grid>
                               )}
+
                               {/* Dynamic Referral Rows */}
                               {(values.referrals || []).map((referral: any, index: any) => (
                                 <Grid container spacing={1} sx={{ margin: "auto", position: 'relative', mb: 2 }} key={referral.id}>
@@ -2822,6 +2948,7 @@ const LeadFormModal = ({
                                         onChange={(val: any) => {
                                           const newReferralTypeId = val?.value || "";
                                           setFieldValue(`referrals[${index}].referralType`, newReferralTypeId);
+
                                           // Only clear dependent fields if the referral type actually changed
                                           if (values.referrals[index]?.referralType !== newReferralTypeId) {
                                             // Clear all referral fields when type changes
@@ -2868,11 +2995,10 @@ const LeadFormModal = ({
                                             placeholder="Select employee"
                                             isRequired={false}
                                             formikField={`referrals[${index}].referredByEmployeeId`}
-                                            options={allEmployees?.list?.map((item: any) => ({
-                                              value: item.employeeId,
-                                              label: item.employeeName,
-                                              avatar: item.avatar,
-                                            })) || []}
+                                            options={buildEmployeeOptions(
+                                              allEmployees?.list || [],
+                                              values.referrals[index]?.referredByEmployeeId || undefined,
+                                            )}
                                             showColor={true}
                                             onChange={(value: any) => {
                                               const employeeId = value?.value || value;
@@ -2883,15 +3009,19 @@ const LeadFormModal = ({
                                                 setFieldValue(`referrals[${index}].companyName`, companyName);
                                               }
                                             }}
-                                            value={
-                                              values.referrals[index]?.referredByEmployeeId
-                                                ? {
-                                                  value: values.referrals[index].referredByEmployeeId,
-                                                  label: allEmployees?.list?.find((item: any) => item.employeeId === values.referrals[index].referredByEmployeeId)?.employeeName || "",
-                                                  avatar: allEmployees?.list?.find((item: any) => item.employeeId === values.referrals[index].referredByEmployeeId)?.avatar,
-                                                }
-                                                : null
-                                            }
+                                            value={(() => {
+                                              const empId = values.referrals[index]?.referredByEmployeeId;
+                                              if (!empId) return null;
+                                              const emp = (allEmployees?.list || []).find((item: any) => item.employeeId === empId);
+                                              if (!emp) return null;
+                                              const isInactive = emp.isActive === false;
+                                              return {
+                                                value: empId,
+                                                label: isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName,
+                                                avatar: emp.avatar,
+                                                isDisabled: isInactive,
+                                              };
+                                            })()}
                                           />
                                         </Box>
                                       </Grid>
@@ -2995,7 +3125,7 @@ const LeadFormModal = ({
                                           </div>
                                         </Box>
                                       </Grid>
-                                      <Grid item xs={12} md={3}>
+                                      {/* <Grid item xs={12} md={3}>
                                         <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
                                           <DropDownInput
                                             inputLabel="Referring Sub Company"
@@ -3030,7 +3160,7 @@ const LeadFormModal = ({
                                             )}
                                           </div>
                                         </Box>
-                                      </Grid>
+                                      </Grid> */}
                                       <Grid item xs={12} md={3}>
                                         <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
                                           <DropDownInput
@@ -3141,7 +3271,7 @@ const LeadFormModal = ({
                                   textAlign: 'center',
                                   py: 3,
                                   color: '#666',
-                                  fontStyle: 'italic'
+                                  // fontStyle: 'italic'
                                 }}>
                                   No project areas added yet. Click "Add New Project Area" to get started.
                                 </Box>
@@ -3370,275 +3500,6 @@ const LeadFormModal = ({
                         </fieldset>
                       )}
 
-                      {/* Client Details Section - Multiple Teams */}
-                      <fieldset style={{ borderTop: '1px solid #9D4141', padding: '14px' }} className='mt-7'>
-                        <legend style={{
-                          fontSize: '17px',
-                          fontWeight: 500,
-                          fontFamily: 'Inter',
-                          marginTop: "-25px",
-                          marginLeft: "-17px",
-                          backgroundColor: "#F3F4F7",
-                          width: "auto",
-                          lineHeight: "1",
-                          letterSpacing: 0,
-                          color: "#9D4141",
-                          padding: "2px 2px 8px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px"
-                        }}>
-                          <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                          TEAM DETAILS
-                        </legend>
-                        <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-
-                          <FieldArray name="leadTeams">
-                            {({ push, remove }) => (
-                              <>
-                                {/* Show message when no teams exist */}
-                                {(!values.leadTeams || values.leadTeams.length === 0) && (
-                                  <Grid item xs={12}>
-                                    <Box sx={{
-                                      textAlign: 'center',
-                                      py: 3,
-                                      color: '#666',
-                                      fontStyle: 'italic'
-                                    }}>
-                                      No teams added yet. Click "Add Another Team" to get started.
-                                    </Box>
-                                  </Grid>
-                                )}
-
-                                {values.leadTeams && values.leadTeams.map((team: any, index: number) => (
-                                  <Grid container spacing={1} key={team.id || index} sx={{ position: 'relative', mb: 3 }}>
-                                    <Box sx={{
-                                      width: '100%',
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      alignItems: 'center',
-                                      mb: 2,
-                                      px: 2
-                                    }}>
-                                      <Typography style={{
-                                        color: "#798DB3",
-                                        fontSize: "14px",
-                                        fontFamily: "Inter"
-                                      }}>Team {index + 1}</Typography>
-                                      {(values.leadTeams || []).length > 1 && (
-                                        <IconButton
-                                          onClick={() => remove(index)}
-                                          sx={{ color: '#d32f2f' }}
-                                          title="Remove this team"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
-                                      {(values.leadTeams || []).length === 1 && (
-                                        <IconButton
-                                          onClick={() => {
-                                            // Allow removing the last team - set to empty array
-                                            setFieldValue('leadTeams', []);
-                                          }}
-                                          sx={{ color: '#d32f2f' }}
-                                          title="Remove all teams"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
-                                    </Box>
-
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.companyTypeId`}
-                                        inputLabel="Company Type"
-                                        isRequired={false}
-                                        onChange={(val: any) => {
-                                          const newCompanyTypeId = val?.value || "";
-                                          setFieldValue(`leadTeams.${index}.companyTypeId`, newCompanyTypeId);
-
-                                          // Only clear dependent fields if the company type actually changed
-                                          if (team.companyTypeId !== newCompanyTypeId) {
-                                            setFieldValue(`leadTeams.${index}.companyId`, "");
-                                            setFieldValue(`leadTeams.${index}.subCompanyId`, "");
-                                            setFieldValue(`leadTeams.${index}.contactId`, "");
-                                          }
-                                        }}
-                                        options={allCompanyTypes.map((c: any) => ({ value: c.id, label: c.name }))}
-                                      />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowCompanyTypeModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
-
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.companyId`}
-                                        inputLabel="Company"
-                                        isRequired={false}
-                                        disabled={!team.companyTypeId}
-                                        options={companies
-                                          ?.filter(c => c.companyTypeId === team.companyTypeId)
-                                          ?.map(c => ({ value: c.id, label: c.companyName })) || []}
-                                        onChange={(val: any) => {
-                                          const companyId = val?.value || "";
-                                          setFieldValue(`leadTeams.${index}.companyId`, companyId);
-
-                                          // Only clear dependent fields if the company actually changed
-                                          if (team.companyId !== companyId) {
-                                            setFieldValue(`leadTeams.${index}.subCompanyId`, "");
-                                            setFieldValue(`leadTeams.${index}.contactId`, "");
-                                          }
-
-                                          // Fetch contacts for the selected company
-                                          if (companyId) {
-                                            fetchContactsByCompanyId(companyId, index);
-                                          } else {
-                                            // Clear contacts if no company selected
-                                            setTeamFilteredContacts(prev => ({ ...prev, [index]: [] }));
-                                          }
-                                        }}
-                                      />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowCompanyModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
-
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.subCompanyId`}
-                                        inputLabel="Sub Company"
-                                        isRequired={false}
-                                        disabled={!team.companyId}
-                                        options={(() => {
-                                          const selectedCompany = companies?.find(c => c.id === team.companyId);
-                                          return selectedCompany?.subCompanies?.map((c: any) => ({
-                                            value: c.id,
-                                            label: c.subCompanyName
-                                          })) || [];
-                                        })()}
-                                        onChange={(val: any) => {
-                                          setFieldValue(`leadTeams.${index}.subCompanyId`, val?.value || "");
-                                        }}
-                                      />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowSubCompanyModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
-
-                                    <Grid item xs={12} md={6} lg={3}>
-                                      <DropDownInput
-                                        formikField={`leadTeams.${index}.contactId`}
-                                        inputLabel="Contact Person"
-                                        isRequired={false}
-                                        disabled={!team.companyId}
-                                        options={(teamFilteredContacts[index] || []).map((contact) => ({
-                                          value: contact.id,
-                                          label: contact.fullName,
-                                          avatar: contact.profilePhoto
-                                        }))}
-                                        showColor={true}
-                                        onChange={(val: any) => {
-                                          setFieldValue(`leadTeams.${index}.contactId`, val?.value || "");
-                                        }}
-                                      />
-                                      <small
-                                        className="text-primary"
-                                        onClick={() => setShowContactModal(true)}
-                                        style={{ cursor: "pointer" }}
-                                      >
-                                        + New
-                                      </small>
-                                    </Grid>
-                                  </Grid>
-                                ))}
-
-                                {/* Add Another Team Button */}
-                                <Grid item xs={12}>
-                                  <div
-                                    onClick={() => push({
-                                      id: Date.now().toString(),
-                                      companyTypeId: '',
-                                      companyId: '',
-                                      subCompanyId: '',
-                                      contactId: ''
-                                    })}
-                                    style={{
-                                      marginTop: "10px",
-                                      width: "100%",
-                                      padding: "10px 0px",
-                                      borderStyle: 'dotted',
-                                      borderColor: '#DBB3B3',
-                                      borderWidth: '1px',
-                                      borderRadius: '12px',
-                                      color: "#9D4141",
-                                      cursor: "pointer"
-                                    }}
-                                    className='justify-content-center align-items-center d-flex text-center'
-                                  >
-                                    Add Another Team
-                                  </div>
-                                </Grid>
-                              </>
-                            )}
-                          </FieldArray>
-
-                        </Grid>
-
-                        {/* Single Team (Legacy - Commented for backward compatibility) */}
-                        {/* 
-                        <Grid container spacing={1} className='card-body p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="companyTypeId"
-                              inputLabel="Company Type"
-                              isRequired={false}
-                              options={allCompanyTypes.map((c:any) => ({ value: c.id, label: c.name }))}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="companyId"
-                              inputLabel="Company"
-                              isRequired={false}
-                              options={filteredCompanies.map(c => ({ value: c.id, label: c.companyName }))}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="subCompanyId"
-                              inputLabel="Sub Company"
-                              isRequired={false}
-                              options={(filteredSubCompanies || [])?.map((c:any) => ({ value: c.id, label: c.subCompanyName }))}
-                            />
-                          </Grid>
-                          <Grid item xs={12} md={4} lg={3}>
-                            <DropDownInput
-                              formikField="contactPersonId"
-                              inputLabel="Contact Person"
-                              isRequired={false}
-                              options={contacts.map((contact) => ({ value: contact.id, label: contact.fullName }))}
-                            />
-                          </Grid>
-                        </Grid>
-                        */}
-
-                      </fieldset>
-
-
-
                       {/* Address Details Section */}
                       {leadTemplateId === leadAndProjectTemplateTypeId.mep && (
                         <>
@@ -3826,8 +3687,8 @@ const LeadFormModal = ({
                                   />
                                 </Grid>
                                 {/* Location on Map Card */}
-                                <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa' }}>
-                                  <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#9D4141' }}>LOCATION ON MAP</div>
+                                <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
+                                  <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
                                   <Row className="mb-3">
                                     <Col md={3}>
                                       <TextInput
@@ -3867,7 +3728,7 @@ const LeadFormModal = ({
                                       )}
                                       style={{
                                         cursor: 'pointer',
-                                        color: '#9D4141',
+                                        color: '#0D47A1',
                                         // textDecoration: 'underline'
                                       }}
                                     >
@@ -3953,7 +3814,7 @@ const LeadFormModal = ({
                             gap: "8px"
                           }}>
                             <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                            ADDITIONAL INFO
+                            ADDITIONAL DETAILS
                           </legend>
                         </fieldset>
 
@@ -3968,6 +3829,7 @@ const LeadFormModal = ({
                                 <label className="mb-3 fw-bold">
                                   Upload Document File
                                 </label>
+
                                 {/* Show existing document if available */}
                                 {values.documents && (
                                   <div className="mb-3 p-3 bg-light rounded">
@@ -3998,6 +3860,7 @@ const LeadFormModal = ({
                                     </div>
                                   </div>
                                 )}
+
                                 <input
                                   type="file"
                                   accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
@@ -4146,6 +4009,31 @@ const LeadFormModal = ({
                               })()}
 
                             </Col>
+                            {(() => {
+                              const selectedStatus = leadStatuses.find((s: any) => s.id === values.statusId);
+                              const isStatusReceived = selectedStatus?.name?.toLowerCase().trim() === 'received';
+                              if (!isStatusReceived) return null;
+                              // Auto-set today's date if not already set
+                              if (!values.receivedDate) {
+                                setTimeout(() => {
+                                  formikProps.setFieldValue('receivedDate', new Date().toISOString().split('T')[0]);
+                                }, 0);
+                              }
+                              return (
+                                <Col md={4}>
+                                  <label className="d-flex align-items-center fs-6 form-label mb-1">
+                                    Received Date
+                                  </label>
+                                  <DateInput
+                                    formikField="receivedDate"
+                                    inputLabel=""
+                                    formikProps={formikProps}
+                                    placeHolder="DD-MM-YYYY"
+                                    isRequired={false}
+                                  />
+                                </Col>
+                              );
+                            })()}
                           </Row>
                         </div>
                       </fieldset>
@@ -4252,7 +4140,7 @@ const LeadFormModal = ({
                                   textAlign: 'center',
                                   py: 3,
                                   color: '#666',
-                                  fontStyle: 'italic',
+                                  // fontStyle: 'italic',
                                   fontSize: '14px',
                                   fontFamily: 'Inter',
                                 }}>
@@ -4268,11 +4156,10 @@ const LeadFormModal = ({
                                       formikField={`handledByEntries[${idx}].employeeId`}
                                       inputLabel=""
                                       isRequired={false}
-                                      options={allEmployees?.list?.map((item: any) => ({
-                                        value: item.employeeId,
-                                        label: item.employeeName,
-                                        avatar: item.avatar,
-                                      })) || []}
+                                      options={buildEmployeeOptions(
+                                        allEmployees?.list || [],
+                                        entry.employeeId || undefined,
+                                      )}
                                       placeholder="Select employee"
                                       showColor={true}
                                     />

@@ -402,6 +402,49 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                 </div>
               </div>
 
+              {/* View on map link for Contact - ONLY if coordinates are valid and non-zero */}
+              {(() => {
+                const lat = parseFloat(String(contact?.latitude));
+                const lng = parseFloat(String(contact?.longitude));
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                  return (
+                    <div className="d-flex align-items-center justify-content-between mt-4">
+                      <div
+                        style={{
+                          fontFamily: "Inter",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        Location
+                      </div>
+                      <div className="d-flex align-items-center" style={{ gap: "4px" }}>
+                        <img
+                          src={projectOverviewIcons.mapIcon?.default}
+                          alt=""
+                          style={{ width: "20px", height: "20px" }}
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#9d4141",
+                            textDecoration: "none",
+                            fontWeight: "400",
+                            fontFamily: "Inter",
+                            fontSize: "14px"
+                          }}
+                        >
+                          View on map
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
             </div>
           </div>
         </div>
@@ -704,6 +747,49 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                   })()}
                 </div>
               </div>
+
+              {/* View on map link for Company - ONLY if coordinates are valid and non-zero */}
+              {(() => {
+                const lat = parseFloat(String(contact?.company?.latitude));
+                const lng = parseFloat(String(contact?.company?.longitude));
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                  return (
+                    <div className="d-flex align-items-center justify-content-between mt-3">
+                      <div
+                        style={{
+                          fontFamily: "Inter",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        Location
+                      </div>
+                      <div className="d-flex align-items-center" style={{ gap: "4px" }}>
+                        <img
+                          src={projectOverviewIcons.mapIcon?.default}
+                          alt=""
+                          style={{ width: "20px", height: "20px" }}
+                        />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#9d4141",
+                            textDecoration: "none",
+                            fontWeight: "400",
+                            fontFamily: "Inter",
+                            fontSize: "14px"
+                          }}
+                        >
+                          View on map
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Blacklisted */}
               <div className="d-flex align-items-center justify-content-between mt-3">

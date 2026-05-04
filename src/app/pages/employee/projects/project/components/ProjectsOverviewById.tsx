@@ -64,22 +64,22 @@ const ProjectOverviewById = ({
     }) || [];
 
   const calculateTotalCost = () => {
-  return projectData?.projectCommercialMappings?.reduce(
-    (total: number, mapping: any) => {
-      const rateCost = parseFloat(mapping.rateCost || 0);
-      const lumpsumCost = parseFloat(mapping.lumpsumCost || 0);
+    return projectData?.projectCommercialMappings?.reduce(
+      (total: number, mapping: any) => {
+        const rateCost = parseFloat(mapping.rateCost || 0);
+        const lumpsumCost = parseFloat(mapping.lumpsumCost || 0);
 
-      if (rateCost > 0) {
-        return total + rateCost;
-      } else if (lumpsumCost > 0) {
-        return total + lumpsumCost;
-      }
+        if (rateCost > 0) {
+          return total + rateCost;
+        } else if (lumpsumCost > 0) {
+          return total + lumpsumCost;
+        }
 
-      return total;
-    },
-    0
-  ) || 0;
-};
+        return total;
+      },
+      0
+    ) || 0;
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -153,7 +153,7 @@ const ProjectOverviewById = ({
                   <img
                     src={projectOverviewIcons.projectOverviewIcon.default}
                     alt=""
-                    // style={{ width: "24px", height: "24px" }}
+                  // style={{ width: "24px", height: "24px" }}
                   />
                 </div>
                 <span
@@ -378,7 +378,7 @@ const ProjectOverviewById = ({
                   <img
                     src={projectOverviewIcons.additionalDetailsIcon.default}
                     alt=""
-                    // style={{ width: "24px", height: "24px" }}
+                  // style={{ width: "24px", height: "24px" }}
                   />
                 </div>
                 <span
@@ -544,6 +544,7 @@ const ProjectOverviewById = ({
           </div>
         </div>
       </div>
+
 
       {/* Second Row - 2 Cards */}
       <div className="row mt-5">
@@ -818,7 +819,7 @@ const ProjectOverviewById = ({
                 scrollbarWidth: "thin",
                 scrollbarColor: "#9D4141 #f1f1f1"
               }}
-              className="custom-scrollbar">
+                className="custom-scrollbar">
                 <div
                   className="d-flex align-items-center justify-content-between"
                   style={{
@@ -1021,9 +1022,8 @@ const ProjectOverviewById = ({
                             </td>
                             <td>
                               <Link
-                                to={`/contacts/${
-                                  mapping?.contactPersonId ?? ""
-                                }`}
+                                to={`/contacts/${mapping?.contactPersonId ?? ""
+                                  }`}
                                 style={{ color: "#b23b3b" }}
                               >
                                 {mapping?.contactPerson?.fullName} (
@@ -1061,7 +1061,7 @@ const ProjectOverviewById = ({
         </div>
       </div>
       <div className="row mt-5">
-        
+
 
         {/* Time Log Card */}
         <div className="col-md-6">
@@ -1190,6 +1190,108 @@ const ProjectOverviewById = ({
                 className="mt-2"
               >
                 {projectData?.notes}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Details 1 Card - after address details */}
+      <div className="row mt-5">
+        <div className="col-md-6">
+          <div
+            className="card"
+            style={{
+              border: "none",
+              backgroundColor: "white",
+              borderRadius: "12px",
+              boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)"
+            }}
+          >
+            <div
+              className="card-body d-flex flex-column"
+              style={{
+                padding: "20px 20px 16px 20px",
+                gap: "16px"
+              }}
+            >
+              <div className="d-flex align-items-center" style={{ gap: "10px", flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: "44px",
+                    height: "44px",
+                    backgroundColor: "#e6eaf1",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden"
+                  }}
+                >
+                  <i className="bi bi-building" style={{ fontSize: "24px", color: "#1E1E1E" }}></i>
+                </div>
+                <span
+                  style={{
+                    fontFamily: "Barlow",
+                    fontSize: "19px",
+                    fontWeight: "600",
+                    color: "black",
+                    letterSpacing: "0.19px"
+                  }}
+                >
+                  Project Details 1
+                </span>
+              </div>
+
+              <div className="d-flex flex-column" style={{ gap: "8px", width: "100%" }}>
+                {/* Plot Area */}
+                <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                  <div style={{ fontWeight: "500" }}>Plot Area</div>
+                  <div style={{ fontWeight: "400" }}>
+                    {projectData?.plotArea
+                      ? `${projectData.plotArea}${projectData.plotAreaUnit ? ' ' + projectData.plotAreaUnit : ''}`
+                      : '-'}
+                  </div>
+                </div>
+                {/* Built-Up Area */}
+                <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                  <div style={{ fontWeight: "500" }}>Built-Up Area</div>
+                  <div style={{ fontWeight: "400" }}>
+                    {projectData?.builtUpArea
+                      ? `${projectData.builtUpArea}${projectData.builtUpAreaUnit ? ' ' + projectData.builtUpAreaUnit : ''}`
+                      : '-'}
+                  </div>
+                </div>
+                {/* Building Detail */}
+                <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                  <div style={{ fontWeight: "500" }}>Building Details</div>
+                  <div style={{ fontWeight: "400" }}>{projectData?.buildingDetail || '-'}</div>
+                </div>
+                {/* Other Points — only show when they have data */}
+                {(projectData?.otherPoint1Heading || projectData?.otherPoint1Description) && (
+                  <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                    <div style={{ fontWeight: "500" }}>Other Point - 1</div>
+                    <div style={{ fontWeight: "400" }}>
+                      {[projectData.otherPoint1Heading, projectData.otherPoint1Description].filter(Boolean).join(' : ')}
+                    </div>
+                  </div>
+                )}
+                {(projectData?.otherPoint2Heading || projectData?.otherPoint2Description) && (
+                  <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                    <div style={{ fontWeight: "500" }}>Other Point - 2</div>
+                    <div style={{ fontWeight: "400" }}>
+                      {[projectData.otherPoint2Heading, projectData.otherPoint2Description].filter(Boolean).join(' : ')}
+                    </div>
+                  </div>
+                )}
+                {(projectData?.otherPoint3Heading || projectData?.otherPoint3Description) && (
+                  <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                    <div style={{ fontWeight: "500" }}>Other Point - 3</div>
+                    <div style={{ fontWeight: "400" }}>
+                      {[projectData.otherPoint3Heading, projectData.otherPoint3Description].filter(Boolean).join(' : ')}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

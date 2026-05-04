@@ -352,9 +352,88 @@ const ProjectConfiguration = () => {
         </div>
       </div>
 
-      {/* Project Services */}
+      {/* Stakeholders services */}
       <div
-        className="card mb-5"
+        className="card mt-5"
+        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
+      >
+        <div className="card-body">
+           <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5 className="card-title" style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontStyle: "normal",
+              fontSize: "16px",
+              lineHeight: "100%",
+              letterSpacing: "0"
+            }}>Stakeholders Services</h5>
+            <button
+              onClick={handleStakeholderModalOpen}
+              className="btn"
+              style={buttonStyles.base}
+              onMouseEnter={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.hover)
+              }
+              onMouseLeave={(e) =>
+                Object.assign(e.currentTarget.style, buttonStyles.base)
+              }
+            >
+              New Stakeholder
+            </button>
+          </div>
+          <div className="row mt-4">
+            {stakeholders.map((stakeholder) => (
+              <div key={stakeholder.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between"
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div
+                      className="rounded-circle"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        backgroundColor: stakeholder.color,
+                      }}
+                    ></div>
+                    <div style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 400,
+                      fontStyle: 'normal',
+                      fontSize: '14px',
+                      lineHeight: '100%',
+                      letterSpacing: '0',
+                      cursor: "pointer"
+                    }} title={stakeholder.name}>{stakeholder.name.length > 10 ? `${stakeholder.name.slice(0, 14)}...` : stakeholder.name}</div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleStakeholderEdit(stakeholder)}
+                    ></i>
+                    <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() =>
+                        handleDelete(stakeholder.id, "stakeholder")
+                      }
+                    ></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Project Services */}
+      {/* <div
+        className="card mt-5"
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
         <div className="card-body">
@@ -427,7 +506,7 @@ const ProjectConfiguration = () => {
             ))}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Project Status Section */}
       <div
@@ -488,18 +567,33 @@ const ProjectConfiguration = () => {
                       letterSpacing: '0',
                       cursor: "pointer"
                     }} title={status.name}>{status.name.length > 10 ? `${status.name.slice(0, 14)}...` : status.name}</div>
+                    { /* when need a deafult mark */ }
+                    {/* {(status as any).isDefault && (
+                      <span style={{
+                        fontSize: '10px',
+                        backgroundColor: '#8B4444',
+                        color: 'white',
+                        borderRadius: '4px',
+                        padding: '1px 6px',
+                        marginLeft: '4px',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        Default
+                      </span>
+                    )} */}
                   </div>
                   <div className="ms-4 d-flex gap-3">
-                    {!["completed"].includes(status.name.toLowerCase()) && (
+                    {/* {!["completed"].includes(status.name.toLowerCase()) && (   */}
                       <i
                         className="fa fa-pencil cursor-pointer"
                         onClick={() => handleStatusEdit(status)}
                       ></i>
-                    )}
-                    {/* <i
+                    {/* )} */}
+                    <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleDelete(status.id, "status")}
-                    ></i> */}
+                    ></i>
                   </div>
                 </div>
               </div>

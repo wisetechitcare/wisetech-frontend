@@ -1431,8 +1431,8 @@ const NewCompanyForm: React.FC<Props> = ({
                                 isRequired={false}
                               />
                             </div>      
-                             <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa'}}>
-                              <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#9D4141'}}>LOCATION ON MAP</div>
+                              <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491'}}>
+                        <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#0D47A1'}}>LOCATION ON MAP</div>
                           <div className="row g-3">
                             <div className="col-md-3">
                               <TextInput
@@ -1473,7 +1473,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             )}
                             style={{
                               cursor: 'pointer',
-                              color: '#9D4141',
+                              color: '#0D47A1',
                             }}
                             >
                             View Location On Map
