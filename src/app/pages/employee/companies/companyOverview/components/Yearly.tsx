@@ -15,11 +15,13 @@ import CompaniesByLocationAndSatatus from "./CompaniesByLocationAndSatatus";
 import UpcomingContactsBirthdays from "./UpcomingContactsBirthdays";
 import TopCompaniesByRating from "./TopCompaniesByRating";
 import { CompanyDialogModal } from "./CompanyDialogModal";
+import CompaniesByTypeChart from "./CompaniesByTypeChart";
+
 
 // Simple types
 interface Props {
-  year: dayjs.Dayjs;
-  endDate: dayjs.Dayjs;
+  year: dayjs.Dayjs | undefined;
+  endDate: dayjs.Dayjs | undefined;
   fromAdmin?: boolean;
   dateSettingsEnabled?: boolean;
 }
@@ -60,6 +62,9 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
   const [openCompanyStatus, setOpenCompanyStatus] = useState(false);
   const [companyStatusId, setCompanyStatusId] = useState("");
   const [companyStatusData, setCompanyStatusData] = useState<any[]>([]);
+  const [isOthersView, setIsOthersView] = useState(false);
+  const [top10Ids, setTop10Ids] = useState<string[]>([]);
+
 
   // Get settings from Redux
   const settings = useSelector((state: any) => state.chartSettings);
@@ -105,17 +110,17 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
   };
 
 
-  const handleCompanyTypeChartClick = (selectedLabel: string) => {
-    const selectedCompanyType = companyTypeData.find(
-      (companyType: any) => companyType.name === selectedLabel
-    );
-    if (selectedCompanyType) {
-      setCompanyTypeId(selectedCompanyType.id);
+  const handleCompanyTypeChartClick = (typeId: string | null, isOthers?: boolean, topIds?: string[]) => {
+    if (isOthers) {
+      setIsOthersView(true);
+      setTop10Ids(topIds || []);
+      setCompanyTypeId("");
     } else {
-      setCompanyTypeId(selectedLabel);
+      setIsOthersView(false);
+      setTop10Ids([]);
+      setCompanyTypeId(typeId || "");
     }
     setOpenCompanyType(true);
-    
   };
 
   const handleContactByRolesChartClick = (selectedLabel: string) => {
@@ -147,17 +152,14 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
 
   // Fetch all data
   const fetchData = async () => {
-    if (!year || !endDate) return;
-
     setLoading(true);
     setError("");
 
     try {
-      const startDate = dayjs(year).format("YYYY-MM-DD");
-      const endDateFormatted = dayjs(endDate).format("YYYY-MM-DD");
+      const startDate = year ? dayjs(year).format("YYYY-MM-DD") : "";
+      const endDateFormatted = endDate ? dayjs(endDate).format("YYYY-MM-DD") : "";
       setStartDate(startDate)
       setEndDateFormatted(endDateFormatted)
-      const years = dayjs(year).year().toString();
 
       // Fetch all data in parallel
       const [
@@ -248,23 +250,15 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
         
         {/* Projects by Status */}
         {settings.showCompaniesByType && chartData.companiesByType.length > 0 && <div className="col-12">
-          <CustomBarChart
-            data={applyFilter(chartData.companiesByType, "subcategory")}
-            title="Companies By Type"
-            height={400}
-            showFilter={true}
-            filterKey="subcategory"
-            filterOptions={chartData.companiesByType.map(item => item.label).sort((a, b) => a.localeCompare(b))}
-            filterValue={filters.subcategory || ""}
-            onFilterChange={(value: string) => handleFilterChange("subcategory", value)}
-            filterPlaceholder="All Categories"
-            onChartClick={handleCompanyTypeChartClick}
+          <CompaniesByTypeChart
+            data={companyTypeData.map(item => ({
+              id: item.id,
+              name: item.name,
+              companyCount: item.companyCount,
+              color: item.color || "#3B82F6"
+            }))}
+            onBarClick={handleCompanyTypeChartClick}
           />
-          {/* <CustomPieChart
-            data={chartData.companiesByType}
-            title="Companies By Type"
-            height={250}
-          /> */}
         </div>
         }
 
@@ -335,7 +329,15 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
 
 
          {/* Company Dialog Modal */}
-          <CompanyDialogModal open={openCompanyType} onClose={() => setOpenCompanyType(false)} companyTypeId={companyTypeId} startDate={year} endDate={endDate}/>
+          <CompanyDialogModal 
+            open={openCompanyType} 
+            onClose={() => setOpenCompanyType(false)} 
+            companyTypeId={companyTypeId} 
+            startDate={year} 
+            endDate={endDate}
+            isOthersView={isOthersView}
+            top10Ids={top10Ids}
+          />
           <CompanyDialogModal open={openContactByRoles} onClose={() => setOpenContactByRoles(false)} contactByRolesId={contactByRolesId} startDate={year} endDate={endDate}/>
           <CompanyDialogModal open={openCompanyStatus} onClose={() => setOpenCompanyStatus(false)} statusId={companyStatusId} startDate={year} endDate={endDate}/>
     </div>

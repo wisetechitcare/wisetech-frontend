@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import NotificationBell from "../NotificationsBell";
 import BirthdayConfetti from "@app/modules/common/utils/BirthdayConfetti";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
+import GlobalSearch from "@app/modules/common/components/GlobalSearch/GlobalSearch";
 
 const HeaderToolbar = () => {
   const { classes } = useLayout();
@@ -112,33 +113,10 @@ const HeaderToolbar = () => {
         className="py-0 py-lg-0 d-flex flex-column flex-lg-row align-items-lg-stretch justify-content-lg-between container-fluid"
       >
         <DefaultTitle />
-        <div className="d-flex align-items-stretch overflow-auto pt-0 pt-lg-0">
-          {/* begin::Action wrapper */}
+        <div className="d-flex align-items-stretch overflow-visible pt-0 pt-lg-0">
           <div className="d-flex align-items-center">
-            {/* begin::Actions */}
-
-              <div className="d-flex align-items-center me-5"><BirthdayConfetti /></div>
-
+            <div className="d-flex align-items-center me-5"><BirthdayConfetti /></div>
             <div className="d-flex gap-3">
-              {/* {isAdmin && <>
-                <SelectInput
-                  options={companiesOption}
-                  placeholder="Select Company"
-                  value={selectedCompany}
-                  dropdown="company" />
-
-                <SelectInput
-                  options={branchesOption}
-                  placeholder="Select Branch"
-                  value={selectedBranch}
-                  dropdown="branch" />
-              </>} */}
-
-              {/* begin::Theme mode */}
-              {/* <div className='d-flex align-items-center'>
-                <ThemeModeSwitcher toggleBtnClass='btn btn-sm btn-icon btn-icon-muted btn-active-icon-primary' />
-              </div> */}
-              {/* end::Theme mode */}
               <div className="d-flex gap-lg-3 gap-5" >
                 {showAppSettings && <div className="d-flex align-items-center">
                   <Link to={"/company/settings"} className="menu-link p-1">
@@ -148,6 +126,9 @@ const HeaderToolbar = () => {
                     />
                   </Link>
                 </div>}
+                <div className="d-flex align-items-center">
+                  <GlobalSearch />
+                </div>
                 {/* notification */}
                 <NotificationBell employeeId={employeeId} />
 

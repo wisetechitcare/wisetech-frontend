@@ -13,6 +13,8 @@ export const CompanyDialogModal = ({
   contactByRolesId,
   startDate,
   endDate,
+  isOthersView,
+  top10Ids,
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,6 +24,8 @@ export const CompanyDialogModal = ({
   contactByRolesId?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
+  isOthersView?: boolean;
+  top10Ids?: string[];
 }) => (
   <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
     <DialogTitle
@@ -60,10 +64,13 @@ export const CompanyDialogModal = ({
               locationId={locationId || undefined}
               startDate={startDate}
               endDate={endDate}
+              isOthersView={isOthersView}
+              top10Ids={top10Ids}
             />
           )}
         </div>
       </div>
     </DialogContent>
   </Dialog>
-);   
+);
+   

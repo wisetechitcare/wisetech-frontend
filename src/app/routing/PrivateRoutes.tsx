@@ -61,6 +61,7 @@ import EmployeeTeamLevelMain from '@pages/employee/tasks/employeTeamLevel/Employ
 import ClientContactsMain from '@pages/employee/companies/contacts/ClientContactsMain'
 import ContactsNavbar from '@pages/employee/companies/contacts/contactsNavbar'
 import OrganisationInfoProfileMain from '@pages/company/organisationInfo/OrganisationInfoProfileMain'
+import SearchResultsPage from '@pages/employee/search/SearchResultsPage'
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
@@ -500,6 +501,14 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <TimeSheetByIdOverview />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path='/search-results'
+          element={
+            <SuspensedView>
+              <SearchResultsPage />
             </SuspensedView>
           }
         />

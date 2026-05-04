@@ -318,7 +318,7 @@ export const getTopCompaniesByRatingFactor = async (id: string) => {
     }
 }
 
-export const getTopCompaniesByAllRatingFactors = async (startDate: string, endDate: string) => {
+export const getTopCompaniesByAllRatingFactors = async (startDate?: string, endDate?: string) => {
     try {
         const endpoint = (startDate && endDate) ? `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_TOP_COMPANIES_BY_ALL_RATING_FACTOR}?startDate=${startDate}&endDate=${endDate}` : `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_TOP_COMPANIES_BY_ALL_RATING_FACTOR}`;
         const { data } = await axios.get(endpoint);
@@ -329,7 +329,7 @@ export const getTopCompaniesByAllRatingFactors = async (startDate: string, endDa
 }
 
 // GET company count by type 
-export const getCompanyCountByType = async (startDate: string, endDate: string) => {
+export const getCompanyCountByType = async (startDate?: string, endDate?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_COMPANY_COUNT_BY_TYPE}`;
         const { data } = await axios.get(endpoint, {
@@ -345,7 +345,7 @@ export const getCompanyCountByType = async (startDate: string, endDate: string) 
 }
 
 // Get contact count by roles
-export const getContactCountByRoles = async (startDate: string, endDate: string) => {
+export const getContactCountByRoles = async (startDate?: string, endDate?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_CONTACT_COUNT_BY_ROLES}`;
         const { data } = await axios.get(endpoint, {
@@ -361,7 +361,7 @@ export const getContactCountByRoles = async (startDate: string, endDate: string)
 }
 
 // Get company count by status
-export const getCompanyCountByStatus = async (startDate: string, endDate: string) => {
+export const getCompanyCountByStatus = async (startDate?: string, endDate?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_COMPANY_COUNT_BY_STATUS}`;
         const { data } = await axios.get(endpoint, {
@@ -376,7 +376,7 @@ export const getCompanyCountByStatus = async (startDate: string, endDate: string
     }
 }
 
-export const getCompaniesByLocationAndStatus = async (startDate: string, endDate: string) => {
+export const getCompaniesByLocationAndStatus = async (startDate?: string, endDate?: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_COMPANY_COUNT_BY_LOCATION_AND_STATUS}`;
         const { data } = await axios.get(endpoint, {

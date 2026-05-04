@@ -127,22 +127,13 @@ const CompanyOverViewToggle = ({
 
   return (
     <>
-      <div className="d-flex flex-row justify-content-end align-items-center mb-6 ">
-        <NavigationButtons
-          onPrev={() => navigateYear("prev")}
-          onNext={() => navigateYear("next")}
-          displayText={fiscalYearDisplay}
-        />
-      </div>
 
-      {yearStart && yearEnd && (
-        <Yearly
-          year={yearStart}
-          endDate={yearEnd}
-          fromAdmin={fromAdmin}
-          dateSettingsEnabled={dateSettingsEnabled}
-        />
-      )}
+      <Yearly
+        year={undefined}
+        endDate={undefined}
+        fromAdmin={fromAdmin}
+        dateSettingsEnabled={dateSettingsEnabled}
+      />
     </>
   );
 };

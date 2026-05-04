@@ -38,7 +38,6 @@ function TopCompaniesByRating({startDate, endDate}: {startDate?: string; endDate
 
     useEffect(() => {
         async function fetchAllData() {
-            if (!startDate || !endDate) return;
             try {
                 setLoading(true);
                 // Get all rating factors
@@ -63,7 +62,6 @@ function TopCompaniesByRating({startDate, endDate}: {startDate?: string; endDate
     // Handle factor change
     const handleFactorChange = async (factorId: string) => {
         try {
-            if (!startDate || !endDate) return;
             setLoading(true);
             
             if (factorId === 'overall') {

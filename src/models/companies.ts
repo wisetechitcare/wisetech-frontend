@@ -30,6 +30,11 @@ export interface Company {
   referenceType?: string;
   internalReferenceEmployeeId?: string;
   externalReferenceContactId?: string;
+  projectCompanyMappings?: {
+    project?: {
+      cost?: number | string;
+    };
+  }[];
 }
 
 
