@@ -110,7 +110,10 @@ function OpenLeaveRequests() {
                     isAccessible = Array.isArray(maternal) && maternal.includes(empId);
                 }
 
-                return isAccessible && el.status == 0;
+                // Reporting manager: visible regardless of canApprove list
+                const isReportingManager = el.reportsToId === empId;
+
+                return (isAccessible || isReportingManager) && el.status == 0;
             }),
         }
  

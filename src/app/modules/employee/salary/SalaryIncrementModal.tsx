@@ -29,6 +29,11 @@ interface FormValues {
     ctcInLpa: string;
 }
 
+const parseCtcInput = (value: string): number => {
+    const normalized = value.replace(/,/g, '').trim();
+    return Number(normalized);
+};
+
 const salaryIncrementSchema = Yup.object({
     effectiveFrom: Yup.date()
         .min(dayjs().startOf('month').toDate(), 'Please choose current month or a future month')
@@ -67,10 +72,14 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
             
             const payload = {
                 employeeId: employee.id,
-                effectiveFrom: values.effectiveFrom,
-                ctcInLpa: parseFloat(values.ctcInLpa),
+                effectiveFrom: dayjs(values.effectiveFrom).format('YYYY-MM-DD'),
+                ctcInLpa: parseCtcInput(values.ctcInLpa),
                 createdBy: undefined // This should be set from user context if available
             };
+
+            if (!Number.isFinite(payload.ctcInLpa) || payload.ctcInLpa <= 0) {
+                throw new Error('Please enter a valid CTC amount');
+            }
 
             await createSalaryHistory(payload);
             
@@ -110,6 +119,11 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
 
     useEffect(()=>{
         const fetchSalaryHistoryData = async () => {
+            if (!employee?.id) {
+                console.warn('⚠️ [SalaryIncrementModal] Cannot fetch salary history: Employee ID is missing');
+                return;
+            }
+            
             try {
                 console.log("selectedDateselectedDate:: ",selectedDate);
                 

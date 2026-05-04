@@ -557,6 +557,12 @@ export const createSalaryHistory = async (payload: { employeeId: string; effecti
 
 export const fetchSalaryHistory = async (employeeId: string, effectiveFrom: string) => {
     try {
+        if (!employeeId) {
+            throw new Error('Employee ID is required');
+        }
+        if (!effectiveFrom) {
+            throw new Error('Effective from date is required');
+        }
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_SALARY_HISTORY}?employeeId=${employeeId}&effectiveFrom=${effectiveFrom}`;
         const { data } = await axios.get(endpoint);
         return data;
@@ -578,6 +584,12 @@ export const updateSalaryHistory = async (id: string, payload: { employeeId?: st
 export const fetchSalaryDataForDateRangeMonthly = async (params: { employeeId: string; startDate: string; endDate: string }) => {
     try {
         const { employeeId, startDate, endDate } = params;
+        if (!employeeId) {
+            throw new Error('Employee ID is required');
+        }
+        if (!startDate || !endDate) {
+            throw new Error('Start date and end date are required');
+        }
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_SALARY_DATA_DATE_RANGE_MONTHLY}?employeeId=${employeeId}&startDate=${startDate}&endDate=${endDate}`;
         const { data } = await axios.get(endpoint);
         return data;
