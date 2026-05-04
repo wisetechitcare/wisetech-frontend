@@ -142,7 +142,8 @@ const CompanyConfigMain = () => {
     try {
       const response = await getAllCompanyTypes();
       if (response && response.companyTypes) {
-        setCompanyTypes(response.companyTypes);
+        const sorted = [...response.companyTypes].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        setCompanyTypes(sorted);
       }
     } catch (error) {
       console.error("Error fetching lead statuses:", error);
@@ -177,7 +178,8 @@ const CompanyConfigMain = () => {
     try {
       const response = await getAllRatingFactors();
       if (response && response.data?.ratingFactors) {
-        setRatingFactors(response.data.ratingFactors);
+        const sorted = [...response.data.ratingFactors].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        setRatingFactors(sorted);
       }
     } catch (error) {
       console.error("Error fetching rating factors:", error);
@@ -193,7 +195,9 @@ const CompanyConfigMain = () => {
     try {
       const response = await getAllCompanyServices();
       if (response && response.data) {
-        setCompanyServices(response.data?.services || []);
+        const services = response.data?.services || [];
+        const sorted = [...services].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        setCompanyServices(sorted);
       }
     } catch (error) {
       console.error("Error fetching company services:", error);
@@ -305,8 +309,71 @@ const CompanyConfigMain = () => {
         </div>
       </div>
 
+      {/* Company Services Card */}
+      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
+        <div className="card-body">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5 className="card-title" style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontStyle: "normal",
+              fontSize: "16px",
+              lineHeight: "100%",
+              letterSpacing: "0"
+            }}>Company Services</h5>
+            <button
+              onClick={handleCompanyServiceModalOpen}
+              className="btn"
+              style={buttonStyles.base}
+              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
+              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
+            >
+              New Company Service
+            </button>
+          </div>
+
+          <div className="row mt-4">
+            {companyServices.map((companyService: any) => (
+              <div key={companyService.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between"
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 400,
+                      fontStyle: 'normal',
+                      fontSize: '14px',
+                      lineHeight: '100%',
+                      letterSpacing: '0',
+                      cursor: 'pointer'
+                    }} title={companyService.name}>{companyService.name.length > 10 ? companyService.name.slice(0, 10) + '...' : companyService.name}</div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleCompanyServiceEdit(companyService)}
+                    ></i>
+                    <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() => handleCompanyServiceDelete(companyService.id)}
+                    ></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Lead Status Card */}
-      <div className="card" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
+      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center ">
             <h5 className="card-title" style={{
@@ -376,149 +443,6 @@ const CompanyConfigMain = () => {
         </div>
       </div>
 
-      {/* Contact-related configurations moved to ContactConfigMain */}
-      {/* Lead Referral Type Card - Now in ContactConfigMain */}
-      {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Contact Roles </h5>
-            <button
-              onClick={handleReferralTypeModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Contact Role Type
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {contactRoleTypes.map((contactRoleType: any) => (
-              <div key={contactRoleType.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: contactRoleType.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={contactRoleType.name}>{contactRoleType.name.length > 10 ? contactRoleType.name.slice(0, 10) + '...' : contactRoleType.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleReferralTypeEdit(contactRoleType)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleContactRoleTypeDelete(contactRoleType.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div> */}
-
-      {/* Contact Status Card - Now in ContactConfigMain */}
-      {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Contact Status</h5>
-            <button
-              onClick={handleContactStatusModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Contact Status
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {contactStatuses.map((contactStatus: any) => (
-              <div key={contactStatus.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: contactStatus.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={contactStatus.name}>{contactStatus.name.length > 10 ? contactStatus.name.slice(0, 10) + '...' : contactStatus.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleContactStatusEdit(contactStatus)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleContactStatusDelete(contactStatus.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div> */}
-
       {/* Rating Factor Card */}
       <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
@@ -581,69 +505,6 @@ const CompanyConfigMain = () => {
                     <i
                       className="fa fa-trash cursor-pointer"
                       onClick={() => handleRatingFactorDelete(ratingFactor.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Company Services Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Company Services</h5>
-            <button
-              onClick={handleCompanyServiceModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Company Service
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {companyServices.map((companyService: any) => (
-              <div key={companyService.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={companyService.name}>{companyService.name.length > 10 ? companyService.name.slice(0, 10) + '...' : companyService.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCompanyServiceEdit(companyService)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCompanyServiceDelete(companyService.id)}
                     ></i>
                   </div>
                 </div>

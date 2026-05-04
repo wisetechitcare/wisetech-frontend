@@ -161,7 +161,8 @@ const handleSubcategoryEdit = (subcategory: ProjectItem) => {
       setLoading(true);
       const response = await getAllLeadStatus();
       if (response && response.leadStatuses) {
-        setLeadStatus(response.leadStatuses);
+        const sorted = [...response.leadStatuses].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setLeadStatus(sorted);
       }
     } catch (error) {
       console.error("Error fetching lead statuses:", error);
@@ -176,7 +177,8 @@ const handleSubcategoryEdit = (subcategory: ProjectItem) => {
     setLoading(true);
     const response = await getAllProjectCategories();
     if (response?.projectCategories) {
-      setProjectCategories(response.projectCategories);
+      const sorted = [...response.projectCategories].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      setProjectCategories(sorted);
     }
   } catch (error) {
     console.error("Error fetching project categories:", error);
@@ -191,7 +193,8 @@ const fetchProjectSubcategories = async () => {
     setLoading(true);
     const response = await getAllProjectSubcategories();
     if (response?.projectSubCategories) {
-      setProjectSubcategories(response.projectSubCategories);
+      const sorted = [...response.projectSubCategories].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      setProjectSubcategories(sorted);
     }
   } catch (error) {
     console.error("Error fetching project subcategories:", error);
@@ -256,7 +259,8 @@ useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => {
       setLoading(true);
       const response = await getAllLeadReferralType();
       if (response && response.leadReferralTypes) {
-        setLeadReferralType(response.leadReferralTypes);
+        const sorted = [...response.leadReferralTypes].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setLeadReferralType(sorted);
       }
     } catch (error) {
       console.error("Error fetching lead referral types:", error);
@@ -319,7 +323,8 @@ const handleSubcategoryDelete = async (id: string) => {
       setLoading(true);
       const response = await getAllLeadDirectSource();
       if (response && response.leadDirectSources) {
-        setLeadDirectSource(response.leadDirectSources);
+        const sorted = [...response.leadDirectSources].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        setLeadDirectSource(sorted);
       }
     } catch (error) {
       console.error("Error fetching lead direct sources:", error);
@@ -334,7 +339,8 @@ const handleSubcategoryDelete = async (id: string) => {
         setLoading(true);
         const response = await getAllProjectServices();
         if (response?.services) {
-          setProjectServices(response.services);
+          const sorted = [...response.services].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+          setProjectServices(sorted);
         }
       } catch (error) {
         console.error("Error fetching project services:", error);
@@ -349,7 +355,8 @@ const handleSubcategoryDelete = async (id: string) => {
         setLoading(true);
         const response = await getAllLeadCancellationReasons();
         if (response?.data?.leadCancellationReasons) {
-          setLeadCancellationReasons(response.data.leadCancellationReasons);
+          const sorted = [...response.data.leadCancellationReasons].sort((a: any, b: any) => (a.reason || "").localeCompare(b.reason || ""));
+          setLeadCancellationReasons(sorted);
         }
       } catch (error) {
         console.error("Error fetching lead cancellation reasons:", error);
@@ -507,43 +514,31 @@ const handleSubcategoryDelete = async (id: string) => {
       {/* Configure Heading */}
       <div className="d-flex pb-4" style={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: "600" }}>Configure</div>
 
-      {/* Prefix Settings Card */}
+      {/* Lead Cancellation Reasons Card */}
       <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
-          <h5 className="card-title mb-4" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "16px" }}>Lead Prefix Settings</h5>
-          <PrefixSettingsForm
-            typeLabel="Lead"
-            typeValue="LEAD"
-          />
-        </div>
-      </div>
-
-      {/* Lead Status Card */}
-      <div className="card" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title " style={{
+            <h5 className="card-title" style={{
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontStyle: "normal",
               fontSize: "16px",
               lineHeight: "100%",
               letterSpacing: "0"
-            }}>Lead Status</h5>
+            }}>Lead Cancellation Reasons</h5>
             <button
-              onClick={handleModalOpen}
+              onClick={handleCancellationReasonModalOpen}
               className="btn"
-               style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
-              New Status
+              New Cancellation Reason
             </button>
           </div>
-
           <div className="row mt-4">
-            {leadStatus.map((status: any) => (
-              <div key={status.id} className="col-12 col-md-3 mb-3">
+            {leadCancellationReasons.map((reason: any) => (
+              <div key={reason.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
                   style={{
@@ -559,8 +554,9 @@ const handleSubcategoryDelete = async (id: string) => {
                       style={{
                         width: "18px",
                         height: "18px",
-                        backgroundColor: status.color,
+                        backgroundColor: reason.color,
                       }}
+
                     ></div>
                     <div style={{
                       fontFamily: 'Inter, sans-serif',
@@ -569,17 +565,17 @@ const handleSubcategoryDelete = async (id: string) => {
                       fontSize: '14px',
                       lineHeight: '100%',
                       letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={status.name}>{status.name.length > 10 ? `${status.name.slice(0, 15)}...` : status.name}</div>
+                      cursor: "pointer",
+                    }}>{reason.reason}</div>
                   </div>
                   <div className="ms-4 d-flex gap-3">
                     <i
                       className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleEdit(status)}
+                      onClick={() => handleCancellationReasonEdit(reason)}
                     ></i>
                     <i
                       className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(status.id)}
+                      onClick={() => handleCancellationReasonDelete(reason.id!)}
                     ></i>
                   </div>
                 </div>
@@ -589,8 +585,88 @@ const handleSubcategoryDelete = async (id: string) => {
         </div>
       </div>
 
+      {/* Lead Direct Source Card */}
+      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
+        <div className="card-body">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5 className="card-title" style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 600,
+              fontStyle: "normal",
+              fontSize: "16px",
+              lineHeight: "100%",
+              letterSpacing: "0"
+            }}>Lead Direct Source</h5>
+            <button
+              onClick={handleDirectSourceModalOpen}
+              className="btn"
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
+              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
+              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
+            >
+              New Direct Source
+            </button>
+          </div>
+          <div className="row mt-4">
+            {leadDirectSource.map((source: any) => (
+              <div key={source.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between "
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div
+                      className="rounded-circle"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        backgroundColor: source.color,
+                      }}
+                    ></div>
+                    <div style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 400,
+                      fontStyle: 'normal',
+                      fontSize: '14px',
+                      lineHeight: '100%',
+                      letterSpacing: '0',
+                    }}>{source.name}</div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleDirectSourceEdit(source)}
+                    ></i>
+                    <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() => handleDirectSourceDelete(source.id)}
+                    ></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Prefix Settings Card */}
+      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
+        <div className="card-body">
+          <h5 className="card-title mb-4" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "16px" }}>Lead Prefix Settings</h5>
+          <PrefixSettingsForm
+            typeLabel="Lead"
+            typeValue="LEAD"
+          />
+        </div>
+      </div>
+
       {/* Lead Referral Type Card */}
-      <div className="card responsive-card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
+      <div className="card responsive-card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
             <h5 className="card-title" style={{
@@ -604,7 +680,7 @@ const handleSubcategoryDelete = async (id: string) => {
             <button
               onClick={handleReferralTypeModalOpen}
               className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
@@ -664,188 +740,32 @@ const handleSubcategoryDelete = async (id: string) => {
         </div>
       </div>
 
-      {/* Lead Direct Source Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
+      {/* Lead Status Card */}
+      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
+            <h5 className="card-title " style={{
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontStyle: "normal",
               fontSize: "16px",
               lineHeight: "100%",
               letterSpacing: "0"
-            }}>Lead Direct Source</h5>
+            }}>Lead Status</h5>
             <button
-              onClick={handleDirectSourceModalOpen}
+              onClick={handleModalOpen}
               className="btn"
-               style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
               onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
             >
-              New Direct Source
+              New Status
             </button>
           </div>
+
           <div className="row mt-4">
-            {leadDirectSource.map((source: any) => (
-              <div key={source.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between "
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: source.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                    }}>{source.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleDirectSourceEdit(source)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDirectSourceDelete(source.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-<div>
-  {/* Project Services */}
-  <div
-    className="card mt-5"
-    style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-  >
-    <div className="card-body">
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-        <h5
-          className="card-title"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontWeight: 600,
-            fontStyle: "normal",
-            fontSize: "16px",
-            lineHeight: "100%",
-            letterSpacing: "0",
-          }}
-        >
-          Project Services
-        </h5>
-        <button
-          onClick={handleServiceModalOpen}
-          className="btn"
-          style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)' }}
-          onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-          onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-        >
-          New Service
-        </button>
-      </div>
-
-      <div className="row mt-4">
-        {projectServices.map((service) => (
-          <div key={service.id} className="col-12 col-md-3 mb-3">
-            <div
-              className="d-flex align-items-center justify-content-between"
-              style={{
-                backgroundColor: "#F2F5F8",
-                padding: "0 15px",
-                height: "40px",
-                borderRadius: "5px",
-              }}
-            >
-              <div className="d-flex align-items-center gap-2">
-                <div
-                  className="rounded-circle"
-                  style={{
-                    width: "18px",
-                    height: "18px",
-                    backgroundColor: service.color,
-                  }}
-                ></div>
-                <div
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    fontWeight: 400,
-                    fontStyle: "normal",
-                    fontSize: "14px",
-                    lineHeight: "100%",
-                    letterSpacing: "0",
-                    cursor: "pointer",
-                  }}
-                  title={service.name}
-                >
-                  {service.name.length > 10
-                    ? `${service.name.slice(0, 14)}...`
-                    : service.name}
-                </div>
-              </div>
-              <div className="ms-4 d-flex gap-3">
-                <i
-                  className="fa fa-pencil cursor-pointer"
-                  onClick={() => handleServiceEdit(service)}
-                ></i>
-                <i
-                  className="fa fa-trash cursor-pointer"
-                  onClick={() => handleServiceDelete(service.id!)}
-                ></i>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-</div>
-
-      {/* Lead Cancellation Reasons Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Lead Cancellation Reasons</h5>
-            <button
-              onClick={handleCancellationReasonModalOpen}
-              className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap",fontSize: 'clamp(12px, 2vw, 16px)', }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Cancellation Reason
-            </button>
-          </div>
-          <div className="row mt-4">
-            {leadCancellationReasons.map((reason: any) => (
-              <div key={reason.id} className="col-12 col-md-3 mb-3">
+            {leadStatus.map((status: any) => (
+              <div key={status.id} className="col-12 col-md-3 mb-3">
                 <div
                   className="d-flex align-items-center justify-content-between"
                   style={{
@@ -861,9 +781,8 @@ const handleSubcategoryDelete = async (id: string) => {
                       style={{
                         width: "18px",
                         height: "18px",
-                        backgroundColor: reason.color,
+                        backgroundColor: status.color,
                       }}
-                      
                     ></div>
                     <div style={{
                       fontFamily: 'Inter, sans-serif',
@@ -872,19 +791,18 @@ const handleSubcategoryDelete = async (id: string) => {
                       fontSize: '14px',
                       lineHeight: '100%',
                       letterSpacing: '0',
-                      cursor: "pointer",
-                    }}>{reason.reason}</div>
+                      cursor: "pointer"
+                    }} title={status.name}>{status.name.length > 10 ? `${status.name.slice(0, 15)}...` : status.name}</div>
                   </div>
                   <div className="ms-4 d-flex gap-3">
                     <i
                       className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCancellationReasonEdit(reason)}
+                      onClick={() => handleEdit(status)}
                     ></i>
                     <i
-                  className="fa fa-trash cursor-pointer"
-                  onClick={() => handleCancellationReasonDelete(reason.id!)}
-                ></i>
-                    {/* No delete functionality as per backend routes */}
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() => handleDelete(status.id)}
+                    ></i>
                   </div>
                 </div>
               </div>
@@ -895,11 +813,11 @@ const handleSubcategoryDelete = async (id: string) => {
 
       {/* Category Card */}
       <div
-        className="card mt-5"
+        className="card mb-5"
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
         <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
             <h5 className="card-title" style={{
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
@@ -974,13 +892,99 @@ const handleSubcategoryDelete = async (id: string) => {
         </div>
       </div>
 
-      {/* Subcategory Card */}
+      {/* Project Services */}
       <div
-        className="card mt-5"
+        className="card mb-5"
         style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
       >
         <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+            <h5
+              className="card-title"
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 600,
+                fontStyle: "normal",
+                fontSize: "16px",
+                lineHeight: "100%",
+                letterSpacing: "0",
+              }}
+            >
+              Project Services
+            </h5>
+            <button
+              onClick={handleServiceModalOpen}
+              className="btn"
+              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)' }}
+              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
+              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
+            >
+              New Service
+            </button>
+          </div>
+
+          <div className="row mt-4">
+            {projectServices.map((service) => (
+              <div key={service.id} className="col-12 col-md-3 mb-3">
+                <div
+                  className="d-flex align-items-center justify-content-between"
+                  style={{
+                    backgroundColor: "#F2F5F8",
+                    padding: "0 15px",
+                    height: "40px",
+                    borderRadius: "5px",
+                  }}
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <div
+                      className="rounded-circle"
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        backgroundColor: service.color,
+                      }}
+                    ></div>
+                    <div
+                      style={{
+                        fontFamily: "Inter, sans-serif",
+                        fontWeight: 400,
+                        fontStyle: "normal",
+                        fontSize: "14px",
+                        lineHeight: "100%",
+                        letterSpacing: "0",
+                        cursor: "pointer",
+                      }}
+                      title={service.name}
+                    >
+                      {service.name.length > 10
+                        ? `${service.name.slice(0, 14)}...`
+                        : service.name}
+                    </div>
+                  </div>
+                  <div className="ms-4 d-flex gap-3">
+                    <i
+                      className="fa fa-pencil cursor-pointer"
+                      onClick={() => handleServiceEdit(service)}
+                    ></i>
+                    <i
+                      className="fa fa-trash cursor-pointer"
+                      onClick={() => handleServiceDelete(service.id!)}
+                    ></i>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Subcategory Card */}
+      <div
+        className="card mb-5"
+        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
+      >
+        <div className="card-body">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
             <h5 className="card-title" style={{
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,

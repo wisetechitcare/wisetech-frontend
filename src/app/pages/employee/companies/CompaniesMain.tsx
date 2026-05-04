@@ -1,5 +1,11 @@
-import MaterialHeaderTab, {TabItem} from "@app/modules/common/components/MaterialHeaderTab";
-import { calenderIcons, leadsIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
+import MaterialHeaderTab, {
+  TabItem,
+} from "@app/modules/common/components/MaterialHeaderTab";
+import {
+  calenderIcons,
+  leadsIcons,
+  reimbursementsIcons,
+} from "@metronic/assets/sidepanelicons";
 import { useState } from "react";
 import CompanyConfigMain from "./companyConfig/CompanyConfigMain";
 import CompanyOverview from "./companyOverview/CompanyOverview";
@@ -8,7 +14,10 @@ import ClientCompaniesMain from "./companies/ClientCompaniesMain";
 import ClientContactsMain from "./contacts/ClientContactsMain";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "@redux/store";
-import { initializeChartSettings, selectIsInitialized } from "@redux/slices/leadProjectCompanies";
+import {
+  initializeChartSettings,
+  selectIsInitialized,
+} from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { useEffect } from "react";
 import { PageTitle } from "@metronic/layout/core";
@@ -17,7 +26,7 @@ import CalenderMain from "./calender/CalenderMain";
 const CompaniesMain = () => {
   const [activeTab, setActiveTab] = useState(0);
 
-  const dispatch = useDispatch<AppDispatch>(); 
+  const dispatch = useDispatch<AppDispatch>();
   useEffect(() => {
     dispatch(loadAllEmployeesIfNeeded());
     dispatch(initializeChartSettings());
@@ -34,7 +43,7 @@ const CompaniesMain = () => {
     },
     {
       title: "Companies",
-      component: <ClientCompaniesMain />, 
+      component: <ClientCompaniesMain />,
       icon:
         activeTab === 1
           ? companiesIcons.companiesIcon.active
@@ -60,14 +69,14 @@ const CompaniesMain = () => {
   ];
   const ProjectBreadcrumbs = [
     {
-      title: 'Companies',
-      path: '/companies',
+      title: "Companies",
+      path: "/companies",
       isSeparator: false,
       isActive: false,
     },
     {
-      title: '',
-      path: '',
+      title: "",
+      path: "",
       isSeparator: true,
       isActive: false,
     },

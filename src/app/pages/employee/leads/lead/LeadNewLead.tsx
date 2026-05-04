@@ -271,7 +271,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   startDate: lead?.startDate || lead?.project?.startDate || "",
                   endDate: lead?.endDate || "",
                   duration,
-                  contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "",
                   createdAt: lead?.createdAt || "",
                   createdBy: lead?.createdById || "",
                   updatedBy: lead?.updatedById || "",
@@ -493,15 +492,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 Cell: ({ cell }: { cell: any }) => {
                     const value = cell.getValue();
                     return value || 'N/A';
-                }
-            },
-            {
-                accessorKey: 'contact',
-                header: 'Contact',
-                size: 150,
-                Cell: ({ cell }: { cell: any }) => {
-                    const value = cell.getValue();
-                    return typeof value === 'object' ? value.name || value.email || 'N/A' : value || 'N/A';
                 }
             },
             {

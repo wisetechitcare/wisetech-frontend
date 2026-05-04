@@ -11,6 +11,11 @@ export interface PreviewRow {
   subcategory?: string | null;
   service?: string | null;
   assignedTo?: string | null;
+  createdBy?: string | null;
+  editedBy?: string | null;
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
   area?: number | null;
   rate?: number | null;
   cost?: number | null;
@@ -29,6 +34,12 @@ export interface PreviewRow {
     title?: string;
     companyName?: string;
     statusName?: string;
+    assignedTo?: string;
+    category?: string;
+    subcategory?: string;
+    country?: string;
+    state?: string;
+    city?: string;
     area?: number;
     rate?: number;
     cost?: number;

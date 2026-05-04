@@ -54,6 +54,8 @@ const OPTIONAL_COLS = [
   "state",
   "notes",
   "description",
+  "createdBy",
+  "editedBy",
 ];
 
 const RULES = [
@@ -114,7 +116,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
       setLoadingPercent(0);
       return;
     }
-    
+
     const delays = [600, 1500, 2600, 3600];
     const timers = delays.map((ms, i) =>
       setTimeout(() => setLoadingStep(i + 1), ms),
@@ -124,10 +126,10 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     let start = 0;
     const duration = 4200;
     const interval = 40;
-    const increment = (100 / (duration / interval));
-    
+    const increment = 100 / (duration / interval);
+
     const percentTimer = setInterval(() => {
-      setLoadingPercent(prev => {
+      setLoadingPercent((prev) => {
         if (prev >= 100) {
           clearInterval(percentTimer);
           return 100;
@@ -243,7 +245,6 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     }
   };
 
-
   // Progress percentage for the "Leading Bar"
   const progressPercent =
     currentScreen === "upload"
@@ -277,13 +278,18 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
     ? preview.newEntitySummary?.length
       ? preview.newEntitySummary
       : [
-          ...preview.newEntities.companies.map((c) => `New company: ${c}`),
-          ...preview.newEntities.statuses.map((s) => `New status: ${s}`),
-          ...preview.newEntities.categories.map((c) => `New category: ${c}`),
-          ...preview.newEntities.subCategories.map(
+          ...(preview.newEntities?.companies?.map((c) => `New company: ${c}`) ??
+            []),
+          ...(preview.newEntities?.statuses?.map((s) => `New status: ${s}`) ??
+            []),
+          ...(preview.newEntities?.categories?.map(
+            (c) => `New category: ${c}`,
+          ) ?? []),
+          ...(preview.newEntities?.subCategories?.map(
             (s) => `New subcategory: ${s}`,
-          ),
-          ...preview.newEntities.services.map((s) => `New service: ${s}`),
+          ) ?? []),
+          ...(preview.newEntities?.services?.map((s) => `New service: ${s}`) ??
+            []),
         ]
     : [];
 
@@ -422,7 +428,9 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                   cursor: "pointer",
                   backgroundColor: isDragOver ? "#f0f7ff" : "#fafafa",
                   transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  boxShadow: showRules ? "none" : "inset 0 0 15px rgba(0,0,0,0.02)",
+                  boxShadow: showRules
+                    ? "none"
+                    : "inset 0 0 15px rgba(0,0,0,0.02)",
                 }}
               >
                 <input
@@ -434,76 +442,75 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                 />
 
                 {file ? (
-  <div className="py-10 d-flex flex-column align-items-center text-center">
+                  <div className="py-10 d-flex flex-column align-items-center text-center">
+                    {/* File Icon Box */}
+                    <div
+                      className="d-flex align-items-center justify-content-center mb-4"
+                      style={{
+                        width: 90,
+                        height: 90,
+                        backgroundColor: "#F1F5F9",
+                        borderRadius: 16,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#1B84FF",
+                          letterSpacing: 1,
+                        }}
+                      >
+                        CSV
+                      </span>
+                    </div>
 
-    {/* File Icon Box */}
-    <div
-      className="d-flex align-items-center justify-content-center mb-4"
-      style={{
-        width: 90,
-        height: 90,
-        backgroundColor: "#F1F5F9",
-        borderRadius: 16,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 14,
-          fontWeight: 700,
-          color: "#1B84FF",
-          letterSpacing: 1,
-        }}
-      >
-        CSV
-      </span>
-    </div>
+                    {/* File Name */}
+                    <div className="fs-3 fw-semibold text-dark mb-1">
+                      {file.name}
+                    </div>
 
-    {/* File Name */}
-    <div className="fs-3 fw-semibold text-dark mb-1">
-      {file.name}
-    </div>
+                    {/* File Size */}
+                    <div className="text-muted fs-6 mb-3">
+                      {formatFileSize(file.size)}
+                    </div>
 
-    {/* File Size */}
-    <div className="text-muted fs-6 mb-3">
-      {formatFileSize(file.size)}
-    </div>
+                    {/* Status */}
+                    <div
+                      className="mb-4"
+                      style={{
+                        fontSize: 13,
+                        color: "#16a34a",
+                        fontWeight: 500,
+                      }}
+                    >
+                      ✔ Ready to process
+                    </div>
 
-    {/* Status */}
-    <div
-      className="mb-4"
-      style={{
-        fontSize: 13,
-        color: "#16a34a",
-        fontWeight: 500,
-      }}
-    >
-      ✔ Ready to process
-    </div>
+                    {/* Actions */}
+                    <div className="d-flex gap-3">
+                      <button
+                        className="btn btn-light-danger px-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFile(null);
+                        }}
+                      >
+                        Remove
+                      </button>
 
-    {/* Actions */}
-    <div className="d-flex gap-3">
-      <button
-        className="btn btn-light-danger px-4"
-        onClick={(e) => {
-          e.stopPropagation();
-          setFile(null);
-        }}
-      >
-        Remove
-      </button>
-
-      <button
-        className="btn btn-light-primary px-4"
-        onClick={(e) => {
-          e.stopPropagation();
-          fileInputRef.current?.click();
-        }}
-      >
-        Replace
-      </button>
-    </div>
-  </div>
-) : (
+                      <button
+                        className="btn btn-light-primary px-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        Replace
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                   <>
                     <div
                       className="rounded-circle mx-auto mb-4 d-flex align-items-center justify-content-center"
@@ -545,9 +552,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                         />
                       </svg>
                     </div>
-                    <div
-                      className="fw-bold text-dark mb-2 fs-4"
-                    >
+                    <div className="fw-bold text-dark mb-2 fs-4">
                       Drag &amp; drop your CSV here
                     </div>
                     <div className="text-muted fs-6">
@@ -587,7 +592,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                   >
                     title ✱
                   </span>
-                  
+
                   {/* Optional Columns */}
                   {OPTIONAL_COLS.map((col) => (
                     <span
@@ -610,12 +615,15 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
 
               {/* Rule Toggle */}
               <div className="mt-6">
-                <button 
+                <button
                   className="btn btn-sm btn-light-primary fw-bold d-flex align-items-center gap-2"
                   onClick={() => setShowRules(!showRules)}
                 >
-                  <KTIcon iconName={showRules ? 'minus' : 'plus'} className="fs-3" />
-                  {showRules ? 'Hide Import Rules' : 'Show Import Rules'}
+                  <KTIcon
+                    iconName={showRules ? "minus" : "plus"}
+                    className="fs-3"
+                  />
+                  {showRules ? "Hide Import Rules" : "Show Import Rules"}
                 </button>
               </div>
 
@@ -699,17 +707,32 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                 <div className="d-flex align-items-end justify-content-between mb-3">
                   <div>
                     <h3 className="fw-bold text-dark mb-1">Analyzing Data</h3>
-                    <p className="text-muted fs-7 mb-0">Verifying rows and matching entities...</p>
+                    <p className="text-muted fs-7 mb-0">
+                      Verifying rows and matching entities...
+                    </p>
                   </div>
-                  <div className="text-primary fw-bold fs-2">{Math.round(loadingPercent)}%</div>
+                  <div className="text-primary fw-bold fs-2">
+                    {Math.round(loadingPercent)}%
+                  </div>
                 </div>
-                
+
                 {/* Sleek horizontal progress */}
-                <div className="progress mb-8" style={{ height: 8, borderRadius: 10, backgroundColor: '#f1f1f1' }}>
-                  <div 
-                    className="progress-bar progress-bar-striped progress-bar-animated" 
-                    role="progressbar" 
-                    style={{ width: `${loadingPercent}%`, borderRadius: 10, transition: 'width 0.1s linear' }}
+                <div
+                  className="progress mb-8"
+                  style={{
+                    height: 8,
+                    borderRadius: 10,
+                    backgroundColor: "#f1f1f1",
+                  }}
+                >
+                  <div
+                    className="progress-bar progress-bar-striped progress-bar-animated"
+                    role="progressbar"
+                    style={{
+                      width: `${loadingPercent}%`,
+                      borderRadius: 10,
+                      transition: "width 0.1s linear",
+                    }}
                   />
                 </div>
 
@@ -718,25 +741,34 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                     const done = loadingStep > i;
                     const active = loadingStep === i;
                     return (
-                      <div 
-                        key={step} 
+                      <div
+                        key={step}
                         className="d-flex align-items-center gap-3 p-3 rounded-3"
-                        style={{ 
-                          backgroundColor: active ? '#f8f9fa' : 'transparent',
-                          transition: 'all 0.3s'
+                        style={{
+                          backgroundColor: active ? "#f8f9fa" : "transparent",
+                          transition: "all 0.3s",
                         }}
                       >
-                        <div 
-                          className={`rounded-circle d-flex align-items-center justify-content-center ${done ? 'bg-success' : active ? 'bg-primary' : 'bg-light'}`}
+                        <div
+                          className={`rounded-circle d-flex align-items-center justify-content-center ${done ? "bg-success" : active ? "bg-primary" : "bg-light"}`}
                           style={{ width: 24, height: 24 }}
                         >
                           {done ? (
                             <i className="fa fa-check text-white fs-9" />
                           ) : (
-                            <div className={active ? 'spinner-border spinner-border-sm text-white' : ''} style={{ width: 12, height: 12 }} />
+                            <div
+                              className={
+                                active
+                                  ? "spinner-border spinner-border-sm text-white"
+                                  : ""
+                              }
+                              style={{ width: 12, height: 12 }}
+                            />
                           )}
                         </div>
-                        <span className={`fs-6 ${done ? 'text-success' : active ? 'text-primary fw-bold' : 'text-muted'}`}>
+                        <span
+                          className={`fs-6 ${done ? "text-success" : active ? "text-primary fw-bold" : "text-muted"}`}
+                        >
                           {step}
                         </span>
                       </div>
@@ -790,18 +822,26 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                       style={{
                         backgroundColor: stat.bg,
                         border: `1px solid ${stat.border}`,
-                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+                        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
                       }}
                     >
                       <div
                         className="fw-bolder mb-1"
-                        style={{ fontSize: 32, color: stat.color, lineHeight: 1 }}
+                        style={{
+                          fontSize: 32,
+                          color: stat.color,
+                          lineHeight: 1,
+                        }}
                       >
                         {stat.value}
                       </div>
                       <div
                         className="fw-bold"
-                        style={{ fontSize: 13, color: stat.color, opacity: 0.8 }}
+                        style={{
+                          fontSize: 13,
+                          color: stat.color,
+                          opacity: 0.8,
+                        }}
                       >
                         {stat.label}
                       </div>
@@ -818,8 +858,12 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                 <table className="table table-hover align-middle mb-0">
                   <thead className="bg-light">
                     <tr className="text-muted fw-bold fs-7 text-uppercase gs-0">
-                      <th className="ps-4" style={{ width: 140 }}>Action</th>
+                      <th className="ps-4" style={{ width: 140 }}>
+                        Action
+                      </th>
                       <th>Title</th>
+                      <th>Inquiry Date</th>
+                      <th>Category / Sub</th>
                       <th>Company</th>
                       <th>Status</th>
                       <th>Assigned To</th>
@@ -828,7 +872,9 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                   </thead>
                   <tbody className="fs-6">
                     {preview.validRows.map((row, i) => {
-                      const isUpdate = row.importAction?.includes("Update") || !row.importAction?.includes("Create new lead");
+                      const isUpdate =
+                        row.importAction?.includes("Update") ||
+                        !row.importAction?.includes("Create new lead");
                       return (
                         <tr key={i} className="border-bottom border-gray-200">
                           <td className="ps-4">
@@ -841,29 +887,90 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                           </td>
                           <td>
                             <div className="d-flex flex-column">
-                              <span className="text-dark fw-bold mb-1">{row.title}</span>
-                              <span className="text-muted fs-8">{row.prefix || "Auto-gen ID"}</span>
+                              <span className="text-dark fw-bold mb-1">
+                                {row.title}
+                              </span>
+                              <span className="text-muted fs-8">
+                                {row.prefix || "Auto-gen ID"}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="text-gray-700">
+                                {row.inquiryDate ? new Date(row.inquiryDate).toLocaleDateString() : "-"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="d-flex flex-column">
+                              <span className="text-gray-800 fw-bold">
+                                {row.category || "General"}
+                              </span>
+                              {row.isNewCategory && (
+                                <span
+                                  className="badge badge-light-success fs-9 mt-1"
+                                  style={{ width: "fit-content" }}
+                                >
+                                  NEW
+                                </span>
+                              )}
+                              <span className="text-muted fs-9">
+                                {row.subcategory || "-"}
+                              </span>
+                              {row.isNewSubCategory && (
+                                <span
+                                  className="badge badge-light-success fs-9 mt-1"
+                                  style={{ width: "fit-content" }}
+                                >
+                                  NEW
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td>
                             <div className="d-flex flex-column">
-                              <span className="text-gray-800 fw-bold">{row.companyName || "N/A"}</span>
-                              {row.isNewCompany && <span className="badge badge-light-success fs-9 mt-1" style={{ width: 'fit-content' }}>NEW</span>}
+                              <span className="text-gray-800 fw-bold">
+                                {row.companyName || "N/A"}
+                              </span>
+                              {row.isNewCompany && (
+                                <span
+                                  className="badge badge-light-success fs-9 mt-1"
+                                  style={{ width: "fit-content" }}
+                                >
+                                  NEW
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td>
                             <div className="d-flex flex-column">
-                              <span className="text-gray-800">{row.statusName || "N/A"}</span>
-                              {row.isNewStatus && <span className="badge badge-light-success fs-9 mt-1" style={{ width: 'fit-content' }}>NEW</span>}
+                              <span className="text-gray-800">
+                                {row.statusName || "N/A"}
+                              </span>
+                              {row.isNewStatus && (
+                                <span
+                                  className="badge badge-light-success fs-9 mt-1"
+                                  style={{ width: "fit-content" }}
+                                >
+                                  NEW
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td>
-                            <span className="text-gray-700">{row.assignedTo || "Unassigned"}</span>
+                            <span className="text-gray-700">
+                              {row.assignedTo || "Unassigned"}
+                            </span>
                           </td>
                           <td className="pe-4 text-end">
                             <div className="d-flex flex-column align-items-end">
-                              <span className="text-dark fw-bold">{row.area ? `${row.area} sqft` : "-"}</span>
-                              <span className="text-muted fs-8">{row.cost ? `AED ${Number(row.cost).toLocaleString()}` : "-"}</span>
+                              <span className="text-dark fw-bold">
+                                {row.area ? `${row.area} sqft` : "-"}
+                              </span>
+                              <span className="text-muted fs-8">
+                                {row.cost
+                                  ? `AED ${Number(row.cost).toLocaleString()}`
+                                  : "-"}
+                              </span>
                             </div>
                           </td>
                         </tr>
@@ -876,17 +983,25 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               {/* Error list if any */}
               {preview.errors.length > 0 && (
                 <div className="alert alert-dismissible bg-light-danger d-flex flex-column p-5 mb-6 rounded-4 mx-7">
-                   <div className="d-flex align-items-center mb-3">
-                    <KTIcon iconName="information-5" className="fs-2tx text-danger me-4" />
+                  <div className="d-flex align-items-center mb-3">
+                    <KTIcon
+                      iconName="information-5"
+                      className="fs-2tx text-danger me-4"
+                    />
                     <div className="d-flex flex-column">
-                      <h4 className="fw-bold text-dark">Detected Errors ({preview.errors.length})</h4>
+                      <h4 className="fw-bold text-dark">
+                        Detected Errors ({preview.errors.length})
+                      </h4>
                       <span>These rows will be skipped during import.</span>
                     </div>
                   </div>
-                  <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                  <div style={{ maxHeight: 150, overflowY: "auto" }}>
                     {preview.errors.map((err, i) => (
                       <div key={i} className="mb-2 fs-7">
-                        <span className="text-danger fw-bold">Row {err.row}:</span> {err.errors.join(", ")}
+                        <span className="text-danger fw-bold">
+                          Row {err.row}:
+                        </span>{" "}
+                        {err.errors.join(", ")}
                       </div>
                     ))}
                   </div>
@@ -895,11 +1010,17 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
 
               {/* New Entity summary banner */}
               {entitySummary.length > 0 && (
-                <div 
+                <div
                   className="p-4 rounded-4 mb-6 d-flex align-items-center gap-3 mx-7"
-                  style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd' }}
+                  style={{
+                    backgroundColor: "#f0f9ff",
+                    border: "1px solid #bae6fd",
+                  }}
                 >
-                  <KTIcon iconName="plus-square" className="fs-2 text-primary" />
+                  <KTIcon
+                    iconName="plus-square"
+                    className="fs-2 text-primary"
+                  />
                   <div className="fs-7 text-primary fw-bold">
                     System will auto-create: {entitySummary.join(", ")}
                   </div>
@@ -907,7 +1028,10 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               )}
 
               {/* Footer */}
-              <div className="d-flex align-items-center justify-content-between pt-4 px-7" style={{ borderTop: "1px solid #f1f1f1" }}>
+              <div
+                className="d-flex align-items-center justify-content-between pt-4 px-7"
+                style={{ borderTop: "1px solid #f1f1f1" }}
+              >
                 <button
                   type="button"
                   className="btn btn-light btn-lg"
@@ -936,9 +1060,16 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               className="d-flex flex-column align-items-center justify-content-center py-10"
               style={{ minHeight: 440 }}
             >
-              <div className="spinner-border text-primary mb-6" style={{ width: '4rem', height: '4rem', borderWidth: '5px' }} />
-              <h3 className="fw-bold text-dark mb-2">{IMPORTING_LABELS[importingStep]}</h3>
-              <p className="text-muted fs-6">Creating records and linking data points...</p>
+              <div
+                className="spinner-border text-primary mb-6"
+                style={{ width: "4rem", height: "4rem", borderWidth: "5px" }}
+              />
+              <h3 className="fw-bold text-dark mb-2">
+                {IMPORTING_LABELS[importingStep]}
+              </h3>
+              <p className="text-muted fs-6">
+                Creating records and linking data points...
+              </p>
             </div>
           )}
 
@@ -950,9 +1081,9 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
               className="d-flex flex-column align-items-center justify-content-center py-10 px-7 text-center"
               style={{ minHeight: 440 }}
             >
-              <div 
+              <div
                 className="rounded-circle d-flex align-items-center justify-content-center mb-6"
-                style={{ width: 100, height: 100, backgroundColor: '#f0fdf4' }}
+                style={{ width: 100, height: 100, backgroundColor: "#f0fdf4" }}
               >
                 <svg width="60" height="60" viewBox="0 0 24 24" fill="none">
                   <path
@@ -964,31 +1095,32 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                   />
                 </svg>
               </div>
-              
+
               <h2 className="fw-bolder text-dark mb-1">Import Successful!</h2>
               <p className="text-muted fs-5 mb-8">
-                <strong>{String(importResult?.count ?? 0)}</strong> leads have been processed and updated.
+                <strong>{String(importResult?.count ?? 0)}</strong> leads have
+                been processed and updated.
               </p>
 
               <div className="row g-4 w-100 mb-8" style={{ maxWidth: 500 }}>
                 {[
                   {
                     label: "Created",
-                    value: (importResult?.created ?? 0),
+                    value: importResult?.created ?? 0,
                     color: "#16a34a",
                     bg: "#f0fdf4",
                     border: "#bbf7d0",
                   },
                   {
                     label: "Updated",
-                    value: (importResult?.updated ?? 0),
+                    value: importResult?.updated ?? 0,
                     color: "#d97706",
                     bg: "#fffbeb",
                     border: "#fde68a",
                   },
                   {
                     label: "Skipped",
-                    value: (preview?.errors.length ?? 0),
+                    value: preview?.errors.length ?? 0,
                     color: "#dc2626",
                     bg: "#fef2f2",
                     border: "#fecaca",
@@ -1000,7 +1132,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                       style={{
                         backgroundColor: card.bg,
                         border: `1px solid ${card.border}`,
-                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+                        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
                       }}
                     >
                       <div
@@ -1018,7 +1150,7 @@ const LeadBulkImport: React.FC<Props> = ({ show, onHide }) => {
                           fontSize: 14,
                           color: card.color,
                           fontWeight: 700,
-                          opacity: 0.8
+                          opacity: 0.8,
                         }}
                       >
                         {card.label}
