@@ -11,7 +11,7 @@ import {
 } from "@services/lead";
 import {
   getAllClientCompanies,
-  getAllClientContacts,
+  getClientContactsByCompanyId,
 } from "@services/companies";
 import {
   fetchAllCountries,
@@ -82,6 +82,20 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
   const [showContactModal, setShowContactModal] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
 
+  const fetchContactsByCompany = async (companyId: string) => {
+    if (!companyId) {
+      setContacts([]);
+      return;
+    }
+    try {
+      const response = await getClientContactsByCompanyId(companyId);
+      setContacts(response?.data?.contacts || []);
+    } catch (error) {
+      console.error("Failed to fetch company contacts", error);
+      setContacts([]);
+    }
+  };
+
   // Handle submit
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
@@ -124,21 +138,26 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
     if (!show) return;
     const fetchData = async () => {
       try {
-        const [companiesResponse, countriesResponse, contactsResponse] =
+        const [companiesResponse, countriesResponse] =
           await Promise.all([
             getAllClientCompanies(),
             fetchAllCountries(),
-            getAllClientContacts(),
           ]);
         setCompanies(companiesResponse?.data?.companies || []);
         setCountries(countriesResponse || []);
-        setContacts(contactsResponse?.data?.contacts || []);
       } catch (error) {
         console.error("Failed to fetch initial dropdown data", error);
       }
     };
     fetchData();
   }, [show]);
+
+  // Fetch contacts when companyId changes (for autofill/initial load)
+  useEffect(() => {
+    if (show && initialValues.companyId) {
+      fetchContactsByCompany(initialValues.companyId);
+    }
+  }, [show, initialValues.companyId]);
 
   // Load branch data when editing - FIXED VERSION
   useEffect(() => {
@@ -391,6 +410,12 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                             }))}
                             isRequired={true}
                             disabled={!!selectedCompanyId}
+                            onChange={(option: any) => {
+                              const companyId = option?.value || "";
+                              setFieldValue("companyId", companyId);
+                              setFieldValue("contactId", ""); // Reset contact when company changes
+                              fetchContactsByCompany(companyId);
+                            }}
                           />
                         </div>
                         <div className="col-md-4">
