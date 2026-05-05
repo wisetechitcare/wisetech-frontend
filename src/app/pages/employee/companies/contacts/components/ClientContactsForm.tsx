@@ -50,6 +50,7 @@ interface ClientContactsFormProps {
   initialData?: Partial<ContactFormValues>
   key?: string
   clearContactId?: () => void;
+  selectedCompanyId?: string;
 }
 
 
@@ -59,6 +60,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   contactId,
   initialData,
   clearContactId,
+  selectedCompanyId,
   key
 }) => {
   // Dynamic validation: address fields not required on Add New Contact
@@ -160,8 +162,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   // Use initialData if provided, otherwise use empty values
   const initialValues: ContactFormValues = useMemo(() => {
-    let values = key === "add-new" ? { ...emptyInitialValues } : initialData ? {
-      companyId: initialData.companyId || "",
+    let values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
+      companyId: selectedCompanyId || initialData.companyId || "",
       branchId: (initialData.branchId) ?? (initialData.branch || ""),
       roleInCompany: initialData.roleInCompany || "",
       contactRoleId: initialData.contactRoleId || "",
@@ -200,11 +202,11 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
 
     return values;
-  }, [key, initialData, contactId, contactStatuses]);
+  }, [key, initialData, contactId, contactStatuses, selectedCompanyId]);
   useEffect(() => {
     loadInitialData();
   }, []);
-  
+
   // Load initial data
   useEffect(() => {
     if (contactId) {
@@ -222,36 +224,39 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   }, [contactId]);
 
 
-  // Set initial values after data is loaded
+  // Set initial values and handle auto-fill when data is loaded
   useEffect(() => {
-    if (dataLoaded && initialData) {
-      // Set company
-      if (initialData.companyId) {
-        setSelectedCompany(initialData.companyId);
-        // Load branches for the initial company in edit mode
-        loadBranches(initialData.companyId);
+    if (dataLoaded) {
+      const companyToAutoFill = selectedCompanyId || initialData?.companyId;
+
+      if (companyToAutoFill) {
+        setSelectedCompany(companyToAutoFill);
+        // Load branches silently (no warning) for auto-fill/initial load
+        loadBranches(companyToAutoFill, false);
       }
 
-      // Set role
-      if (initialData.contactRoleId) {
-        const role = contactRoleTypes.find(
-          (r) => r.id === initialData.contactRoleId
-        );
-        if (role) {
-          setSelectedRole({ id: role.id, name: role.name });
+      // Handle other fields from initialData (Edit mode)
+      if (initialData) {
+        // Set role
+        if (initialData.contactRoleId) {
+          const role = contactRoleTypes.find(
+            (r) => r.id === initialData.contactRoleId
+          );
+          if (role) {
+            setSelectedRole({ id: role.id, name: role.name });
+          }
         }
-      }
 
-      // Set country
-      if (initialData.country) {
-        // Find country by name since initialData contains country name
-        const country = countries.find((c) => c.name === initialData.country);
-        if (country) {
-          setSelectedCountry(country.id);
+        // Set country
+        if (initialData.country) {
+          const country = countries.find((c) => c.name === initialData.country || c.id === initialData.country);
+          if (country) {
+            setSelectedCountry(country.id);
+          }
         }
       }
     }
-  }, [dataLoaded, initialData, contactRoleTypes]);
+  }, [dataLoaded, initialData, selectedCompanyId, contactRoleTypes, countries]);
 
   // Set branch after branches are loaded and company is set
   useEffect(() => {
@@ -269,12 +274,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
   }, [branches, initialData, contactId]);
 
-  // Load branches when company changes
-  useEffect(() => {
-    if (selectedCompany) {
-      loadBranches();
-    }
-  }, [selectedCompany]);
+
 
   // Load states when country changes
   useEffect(() => {
@@ -352,34 +352,36 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   const loadBranches = async (companyId?: string, showWarning: boolean = false) => {
     try {
-      const targetCompanyId = companyId || (
-        typeof selectedCompany === "object"
-          ? selectedCompany.value
-          : selectedCompany
-      );
-      
-      if (!targetCompanyId) {
+      const targetCompanyId =
+        companyId ||
+        (typeof selectedCompany === "object"
+          ? selectedCompany?.value
+          : selectedCompany);
+
+      // 🚨 CRITICAL FIX
+      if (!targetCompanyId || targetCompanyId === "" || targetCompanyId === "undefined") {
+        console.warn("Skipping branch load - invalid companyId:", targetCompanyId);
         setBranches([]);
         setBranchWarning("");
         return;
       }
-      
+
       const branchesData = await getClientBranchesByCompanyId(targetCompanyId);
+
       setBranches(branchesData?.leadBranches || []);
-      
-      // Only show warning if user has actively selected a company
-      if (showWarning && branchesData?.leadBranches?.length === 0 && targetCompanyId) {
+
+      if (showWarning && branchesData?.leadBranches?.length === 0) {
         setBranchWarning("No branches found for this company");
       } else if (showWarning) {
         setBranchWarning("");
       }
     } catch (error: any) {
       console.error("Error loading branches:", error);
-      // Only show error warning if user has actively selected a company
+
       if (showWarning) {
-        if(error?.response?.data?.detail == "Lead branch not found"){
+        if (error?.response?.status === 404) {
           setBranchWarning("No branches found for this company");
-        }else{
+        } else {
           setBranchWarning("Error loading branches");
         }
       }
@@ -421,7 +423,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       setLoading(true);
 
       let profilePhotoUrl: string | null = null;
-      if (formValues.profilePhoto &&  formValues.profilePhoto instanceof File) {
+      if (formValues.profilePhoto && formValues.profilePhoto instanceof File) {
         const formData = new FormData();
         formData.append("file", formValues.profilePhoto);
         const uploadResult = await uploadCompanyAsset(formData);
@@ -508,10 +510,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         isContactActive: formValues.isContactActive,
       };
 
-      if(profilePhotoUrl!==null) {
+      if (profilePhotoUrl !== null) {
         contactData.profilePhoto = profilePhotoUrl;
       }
-      
+
       Object.keys(contactData).forEach((key) => {
         if (contactData[key] === undefined) {
           delete contactData[key];
@@ -552,15 +554,15 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   return (
     <>
-      <Modal 
-        show={show} 
-        onHide={onClose} 
+      <Modal
+        show={show}
+        onHide={onClose}
         size="xl"
         centered
         aria-labelledby="responsive-modal"
         dialogClassName="responsive-modal"
       >
-        <Box sx={{ position: "relative", backgroundColor: "#F3F4F7",p: { xs: 0, md: 3 } }}>
+        <Box sx={{ position: "relative", backgroundColor: "#F3F4F7", p: { xs: 0, md: 3 } }}>
           <IconButton
             onClick={onClose}
             sx={{
@@ -576,7 +578,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
             variant="h6"
             component="h2"
             // sx={{ mb: 3, fontWeight: 600 }}
-            sx={{ fontWeight: 600,pl:{xs:2,md:0},pt:{xs:1,md:0} }}
+            sx={{ fontWeight: 600, pl: { xs: 2, md: 0 }, pt: { xs: 1, md: 0 } }}
             style={{
               fontSize: "20px",
               fontFamily: "Barlow",
@@ -598,6 +600,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
               {(formikProps) => {
                 const { values, setFieldValue, errors, touched } = formikProps;
 
+                // Sync Formik companyId when companies load
+                useEffect(() => {
+                  if (selectedCompanyId && companies.length > 0) {
+                    setFieldValue("companyId", selectedCompanyId);
+                    console.log("Auto-filling companyId:", selectedCompanyId);
+                  }
+                }, [selectedCompanyId, companies]);
+
+                useEffect(() => {
+                  console.log("Current Formik companyId:", values.companyId);
+                  console.log("Is companies loaded:", companies.length > 0);
+                }, [values.companyId, companies]);
+
                 return (
                   <FormikForm placeholder="">
                     {/* Profile Photo */}
@@ -606,7 +621,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                         <label
                           htmlFor="profilePhotoInput"
                           style={{ cursor: "pointer" }}
-                        > 
+                        >
                           <div
                             className="rounded-circle bg-light d-flex align-items-center justify-content-center"
                             style={{
@@ -652,7 +667,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       <fieldset
                         style={{
                           borderTop: "1px solid #9D4141",
-                         padding: "clamp(14px, 2vw, 15px)",
+                          padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
                       >
@@ -692,46 +707,33 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 placeholder="Select company"
                                 isRequired={false}
                                 formikField="companyId"
-                                options={companies.map((c) => ({
-                                  value: c.id,
-                                  label: c.companyName,
-                                }))}
-                                onChange={(value) => {
-                                  let companyValue = value;
-                                  if (
-                                    value &&
-                                    typeof value === "object" &&
-                                    "value" in value
-                                  ) {
-                                    companyValue = value.value;
-                                  }
-                                  companyValue = String(companyValue).replace(
-                                    /^"|"$/g,
-                                    ""
-                                  );
-                                  setFieldValue("companyId", companyValue);
-                                  setSelectedCompany(companyValue);
-                                  setFieldValue("branchId", ""); // Reset branch when company changes
-                                  setHasSelectedCompany(true); // Mark that user has interacted
-                                
-                                  if (companyValue) {
-                                    loadBranches(companyValue, true); // Show warning since user actively selected
-                                  } else {
-                                    setBranches([]);
-                                    setBranchWarning("");
-                                  }
-                                }}
+                                disabled={false} // Temporarily false for testing
                                 value={
                                   values.companyId
                                     ? {
                                       value: values.companyId,
                                       label:
-                                        companies.find(
-                                          (c) => c.id === values.companyId
-                                        )?.companyName || "",
+                                        companies.find((c) => c.id == values.companyId)?.companyName || "Loading...",
                                     }
                                     : null
                                 }
+                                options={companies.map((c) => ({
+                                  value: c.id,
+                                  label: c.companyName,
+                                }))}
+                                onChange={(val: any) => {
+                                  const companyId = val?.value || val || "";
+                                  setFieldValue("companyId", companyId);
+                                  setSelectedCompany(companyId);
+                                  setFieldValue("branchId", ""); // Reset branch when company changes
+                                  if (companyId) {
+                                    loadBranches(companyId, true); // Show warnings for manual change
+                                    setHasSelectedCompany(true);
+                                  } else {
+                                    setBranches([]);
+                                    setBranchWarning("");
+                                  }
+                                }}
                               />
                               {branchWarning && (
                                 <small className="text-danger">
@@ -758,7 +760,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 }))}
                                 onChange={(value) => {
                                   let branchValue = value;
-                                  
+
                                   if (
                                     value &&
                                     typeof value === "object" &&
@@ -904,26 +906,26 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             </Col>
                           </Row>
                           <div className="d-flex gap-5 mt-6">
-                          <div className="d-flex align-items-center gap-2">
-                            <label
-                              className="form-check-label"
-                              htmlFor="primaryContactToggle"
-                            >
-                              Primary Contact in company
-                            </label>
-                            <div className="form-check form-switch m-0">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                role="switch"
-                                id="primaryContactToggle"
-                                checked={values.isPrimaryContact}
-                                onChange={(e) =>
-                                  setFieldValue("isPrimaryContact", e.target.checked)
-                                }
-                              />
+                            <div className="d-flex align-items-center gap-2">
+                              <label
+                                className="form-check-label"
+                                htmlFor="primaryContactToggle"
+                              >
+                                Primary Contact in company
+                              </label>
+                              <div className="form-check form-switch m-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  role="switch"
+                                  id="primaryContactToggle"
+                                  checked={values.isPrimaryContact}
+                                  onChange={(e) =>
+                                    setFieldValue("isPrimaryContact", e.target.checked)
+                                  }
+                                />
+                              </div>
                             </div>
-                          </div>
                             <div className="d-flex align-items-center gap-2">
                               <label
                                 className="form-check-label"
@@ -1156,7 +1158,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <Row className="">
-                          <Col md={6}>
+                            <Col md={6}>
                               <TextInput
                                 label="Address"
                                 placeholder="address"
@@ -1287,58 +1289,58 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               />
                             </Col>
                           </Row>
-                           <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491'}}>
-                              <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#0D47A1'}}>LOCATION ON MAP</div>
-                          <Row>
-                            <Col md={3}>
-                              <TextInput
-                                label="Google Map Link"
-                                placeholder="Enter google map link"
-                                formikField="googleMapLink"
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={3}>
-                              <TextInput
-                                label="Google Business Link"
-                                placeholder="Enter google Business link"
-                                formikField="gmbLink"
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={3}>
-                              <TextInput
-                                label="Latitude"
-                                placeholder="Enter latitude"
-                                formikField="latitude"
-                                isRequired={false}
-                                inputValidation="decimal"
-                              />
-                            </Col>
-                            <Col md={3}>
-                              <TextInput
-                                label="Longitude"
-                                placeholder="Enter longitude"
-                                formikField="longitude"
-                                isRequired={false}
-                                inputValidation="decimal"
-                              />
-                            </Col>
-                            <div 
-                              className="d-flex justify-content-end mt-4" 
+                          <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
+                            <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
+                            <Row>
+                              <Col md={3}>
+                                <TextInput
+                                  label="Google Map Link"
+                                  placeholder="Enter google map link"
+                                  formikField="googleMapLink"
+                                  isRequired={false}
+                                />
+                              </Col>
+                              <Col md={3}>
+                                <TextInput
+                                  label="Google Business Link"
+                                  placeholder="Enter google Business link"
+                                  formikField="gmbLink"
+                                  isRequired={false}
+                                />
+                              </Col>
+                              <Col md={3}>
+                                <TextInput
+                                  label="Latitude"
+                                  placeholder="Enter latitude"
+                                  formikField="latitude"
+                                  isRequired={false}
+                                  inputValidation="decimal"
+                                />
+                              </Col>
+                              <Col md={3}>
+                                <TextInput
+                                  label="Longitude"
+                                  placeholder="Enter longitude"
+                                  formikField="longitude"
+                                  isRequired={false}
+                                  inputValidation="decimal"
+                                />
+                              </Col>
+                              <div
+                                className="d-flex justify-content-end mt-4"
                                 onClick={() => viewLocation(
-                                  values.latitude || '', 
+                                  values.latitude || '',
                                   values.longitude || ''
                                 )}
                                 style={{
                                   cursor: 'pointer',
                                   color: '#0D47A1',
                                 }}
-                            >
-                              View Location On Map
-                            </div>
-                          </Row>
-                            </div>
+                              >
+                                View Location On Map
+                              </div>
+                            </Row>
+                          </div>
                         </div>
                       </fieldset>
                     </div>
@@ -1348,7 +1350,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       <fieldset
                         style={{
                           borderTop: "1px solid #9D4141",
-                         padding: "clamp(14px, 2vw, 15px)",
+                          padding: "clamp(14px, 2vw, 15px)",
                         }}
                         className="mt-7"
                       >
