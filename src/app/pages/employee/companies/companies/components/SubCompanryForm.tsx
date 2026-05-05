@@ -1078,55 +1078,56 @@ const SubCompanyForm: React.FC<Props> = ({
                                 isRequired={false}
                               />
                             </div>
-                             <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa'}}>
-                              <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#9D4141'}}>LOCATION ON MAP</div>
-                          <div className="row g-3">
-                            <div className="col-md-3">
-                              <TextInput
-                                formikField="googleMapsLink"
-                                label="Google Map Link"
-                                isRequired={false}
-                              />
-                            </div>
-                            <div className="col-md-3">
-                              <TextInput
-                                formikField="gmbProfileUrl"
-                                label="Google Business Link"
-                                isRequired={false}
-                              />
-                            </div>
-                    
-                            <div className="col-md-3">
-                              <TextInput
-                                formikField="latitude"
-                                label="Latitude"
-                                isRequired={false}
-                                inputValidation="decimal"
-                              />
-                            </div>
-                            <div className="col-md-3">
-                              <TextInput
-                                formikField="longitude"
-                                label="Longitude"
-                                isRequired={false}
-                                inputValidation="decimal"
-                              />
-                            </div>
-                          </div>
-                          <div 
-                            className="d-flex justify-content-end mt-4" 
-                            onClick={() => viewLocation(
-                              values.latitude || '', 
-                              values.longitude || ''
-                            )}
-                            style={{
-                              cursor: 'pointer',
-                              color: '#9D4141',
-                            }}
-                            >
-                            View Location On Map
-                          </div>
-                          </div>
+                              <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
+                                <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
+                                <div className="row g-3">
+                                  <div className="col-md-3">
+                                    <TextInput
+                                      formikField="googleMapsLink"
+                                      label="Google Map Link"
+                                      isRequired={false}
+                                    />
+                                  </div>
+                                  <div className="col-md-3">
+                                    <TextInput
+                                      formikField="gmbProfileUrl"
+                                      label="Google Business Link"
+                                      isRequired={false}
+                                    />
+                                  </div>
+                                  <div className="col-md-3">
+                                    <TextInput
+                                      formikField="latitude"
+                                      label="Latitude"
+                                      isRequired={false}
+                                      inputValidation="decimal"
+                                    />
+                                  </div>
+                                  <div className="col-md-3">
+                                    <TextInput
+                                      formikField="longitude"
+                                      label="Longitude"
+                                      isRequired={false}
+                                      inputValidation="decimal"
+                                    />
+                                  </div>
+                                </div>
+                                <div 
+                                  className="d-flex justify-content-end mt-4" 
+                                  onClick={() => viewLocation(
+                                    values.latitude || '', 
+                                    values.longitude || ''
+                                  )}
+                                  style={{
+                                    cursor: 'pointer',
+                                    color: '#0D47A1',
+                                    fontWeight: '600',
+                                    fontSize: '13px'
+                                  }}
+                                >
+                                  View Location On Map
+                                </div>
+                              </div>
                           </div>
                         </div>
                       </fieldset>

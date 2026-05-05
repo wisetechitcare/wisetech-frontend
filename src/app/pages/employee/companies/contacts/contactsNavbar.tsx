@@ -70,7 +70,7 @@ const ContactsNavbar = () => {
           : calenderIcons.calenderIcon.default,
     },
     {
-      title: "World",
+      title: "Map",
       component: <Maps points={coordinates} contactData={contactData} />,
       icon:
         activeTab === 2

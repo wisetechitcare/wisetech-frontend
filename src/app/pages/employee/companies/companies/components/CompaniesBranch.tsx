@@ -198,6 +198,7 @@ const CompaniesBranch = ({companyId}: {companyId: string}) => {
         onClose={handleCloseModal}
         onSuccess={handleSuccess}
         editingBranchId={editingBranchId}
+        selectedCompanyId={companyId}
       />
     </div>
   );

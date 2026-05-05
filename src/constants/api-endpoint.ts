@@ -295,7 +295,8 @@ export const OPTIONS = {
 }
 
 export const LOCATION = {
-    ADDRESS: 'api/location/address'
+    ADDRESS: 'api/location/address',
+    FLAG_LOCATION: 'api/location/:type/:id/flag'
 }
 
 export const ROLES = {
@@ -509,6 +510,7 @@ export const CLIENT_COMPANIES = {
     CREATE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses',
     UPDATE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses/:id',
     DELETE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses/:id',
+
 
 }
 

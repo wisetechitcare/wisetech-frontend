@@ -619,7 +619,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
           <div className="d-flex align-items-center" style={{ gap: "4px" }}>
             <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#9d4141" }}></i>
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${lead.branchMappings[0].branch.latitude},${lead.branchMappings[0].branch.longitude}`}
+              href={`https://www.google.com/maps/dir/?api=1&destination=${lead.branchMappings[0].branch.latitude},${lead.branchMappings[0].branch.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -1057,7 +1057,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                 <div className="d-flex align-items-center" style={{ gap: "4px" }}>
                   <i className="bi bi-geo-alt" style={{ width: "20px", height: "20px", color: "#9d4141" }}></i>
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${lead.additionalDetails.latitude},${lead.additionalDetails.longitude}`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${lead.additionalDetails.latitude},${lead.additionalDetails.longitude}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

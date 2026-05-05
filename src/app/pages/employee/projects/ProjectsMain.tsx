@@ -35,7 +35,8 @@ const ProjectsMain = () => {
         ?.filter((item: any) => item.latitude && item.longitude) 
         ?.map((item: any) => ({
           lat: parseFloat(item.latitude),
-          lng: parseFloat(item.longitude)
+          lng: parseFloat(item.longitude),
+          id: item.id
         })) || [];
       setCoordinates(allCoordinates);
     });
@@ -62,7 +63,7 @@ const ProjectsMain = () => {
           : projectsIcons.projectsIcon.default,
     },
     {
-      title: "World",
+      title: "Map",
       component: <Maps points={points} projectData={projectData} />,
       icon:
         activeTab === 2

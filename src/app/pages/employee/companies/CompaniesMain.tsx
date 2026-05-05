@@ -29,15 +29,84 @@ const CompaniesMain = () => {
 
   useEffect(() => {
     getAllClientCompanies().then((res) => {
-      setCompanyData(res?.data?.companies);
-      const allCoordinates = res?.data?.companies
-        ?.filter((item: any) => item.latitude && item.longitude)
-        ?.map((item: any) => ({
-          lat: parseFloat(item.latitude),
-          lng: parseFloat(item.longitude),
-          id: item.id
-        })) || [];
+      const companies = res?.data?.companies || [];
+      setCompanyData(companies);
+      
+      const allCoordinates: any[] = [];
+      const combinedData: any[] = [];
+      
+      companies.forEach((company: any) => {
+        // 1. Root Company
+        const companyLat = parseFloat(company.latitude);
+        const companyLng = parseFloat(company.longitude);
+        
+        if (!isNaN(companyLat) && !isNaN(companyLng)) {
+          allCoordinates.push({
+            lat: companyLat,
+            lng: companyLng,
+            id: company.id,
+            entityType: 'company'
+          });
+          combinedData.push({ ...company, type: 'company' });
+        }
+        
+        // 2. Sub-Companies
+        if (company.subCompanies && Array.isArray(company.subCompanies)) {
+          company.subCompanies.forEach((sub: any) => {
+            const subLat = parseFloat(sub.latitude);
+            const subLng = parseFloat(sub.longitude);
+            
+            if (!isNaN(subLat) && !isNaN(subLng)) {
+              allCoordinates.push({
+                lat: subLat,
+                lng: subLng,
+                id: sub.id,
+                entityType: 'sub-company'
+              });
+              // Inject parent company data for map visualization
+              combinedData.push({ 
+                ...sub, 
+                type: 'sub-company',
+                mainCompany: {
+                  companyName: company.companyName,
+                  latitude: company.latitude,
+                  longitude: company.longitude
+                }
+              });
+            }
+          });
+        }
+        
+        // 3. Branches
+        if (company.branches && Array.isArray(company.branches)) {
+          company.branches.forEach((branch: any) => {
+            const branchLat = parseFloat(branch.latitude);
+            const branchLng = parseFloat(branch.longitude);
+            
+            if (!isNaN(branchLat) && !isNaN(branchLng)) {
+              allCoordinates.push({
+                lat: branchLat,
+                lng: branchLng,
+                id: branch.id,
+                entityType: 'branch'
+              });
+              // Inject parent company data for map visualization
+              combinedData.push({ 
+                ...branch, 
+                type: 'branch',
+                company: {
+                  companyName: company.companyName,
+                  latitude: company.latitude,
+                  longitude: company.longitude
+                }
+              });
+            }
+          });
+        }
+      });
+      
       setCoordinates(allCoordinates);
+      setCompanyData(combinedData);
     });
   }, []);
 
@@ -59,7 +128,7 @@ const CompaniesMain = () => {
           : companiesIcons.companiesIcon.default,
     },
     {
-      title: "World",
+      title: "Map",
       component: <Maps points={coordinates} companyData={companyData} />,
       icon:
         activeTab === 2
