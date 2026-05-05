@@ -91,29 +91,29 @@ function OpenLeaveRequests() {
             employeeId: employee.currentEmployee.id,
             openLeaveRequests: attendance.leaveRequests.filter((el: any) => {
                 // FIX: Admin/HR see all pending requests unconditionally
-                if (hasAdminOrHRAccess) return el.status == 0;
+                if (hasAdminOrHRAccess) return el.status === LeaveStatus.ApprovalPending;
 
                 // FIX: canApprove stores employee IDs — compare against current employee's ID, not a role string
                 let isAccessible = false;
                 const empId = employee.currentEmployee.id;
-                if (el.type == LeaveTypes.SICK_LEAVE) {
+                if (el.type === LeaveTypes.SICK_LEAVE) {
                     isAccessible = Array.isArray(sickLeaves) && sickLeaves.includes(empId);
-                } else if (el.type == LeaveTypes.FLOATER_LEAVE) {
+                } else if (el.type === LeaveTypes.FLOATER_LEAVE) {
                     isAccessible = Array.isArray(floaterLeaves) && floaterLeaves.includes(empId);
-                } else if (el.type == LeaveTypes.ANNUAL_LEAVE) {
+                } else if (el.type === LeaveTypes.ANNUAL_LEAVE) {
                     isAccessible = Array.isArray(annualLeaves) && annualLeaves.includes(empId);
-                } else if (el.type == LeaveTypes.UNPAID_LEAVE) {
+                } else if (el.type === LeaveTypes.UNPAID_LEAVE) {
                     isAccessible = Array.isArray(unpaidLeaves) && unpaidLeaves.includes(empId);
-                } else if (el.type == LeaveTypes.CASUAL_LEAVE) {
+                } else if (el.type === LeaveTypes.CASUAL_LEAVE) {
                     isAccessible = Array.isArray(casualLeaves) && casualLeaves.includes(empId);
-                } else if (el.type == LeaveTypes.MATERNAL_LEAVE) {
+                } else if (el.type === LeaveTypes.MATERNAL_LEAVE) {
                     isAccessible = Array.isArray(maternal) && maternal.includes(empId);
                 }
 
                 // Reporting manager: visible regardless of canApprove list
                 const isReportingManager = el.reportsToId === empId;
 
-                return (isAccessible || isReportingManager) && el.status == 0;
+                return (isAccessible || isReportingManager) && el.status === LeaveStatus.ApprovalPending;
             }),
         }
  
@@ -391,17 +391,17 @@ function OpenLeaveRequests() {
                 const { data: { leaveOptions } } = await fetchLeaveOptions();
 
                 leaveOptions.map((option: LeaveOptions) => {
-                    if (option.leaveType == LeaveTypes.SICK_LEAVE) {
+                    if (option.leaveType === LeaveTypes.SICK_LEAVE) {
                         setSickLeaves(JSON.parse(option.canApprove));
-                    } else if (option.leaveType == LeaveTypes.FLOATER_LEAVE) {
+                    } else if (option.leaveType === LeaveTypes.FLOATER_LEAVE) {
                         setFloaterLeaves(JSON.parse(option.canApprove));
-                    } else if (option.leaveType == LeaveTypes.ANNUAL_LEAVE) {
+                    } else if (option.leaveType === LeaveTypes.ANNUAL_LEAVE) {
                         setAnnualLeaves(JSON.parse(option.canApprove));
-                    } else if (option.leaveType == LeaveTypes.UNPAID_LEAVE) {
+                    } else if (option.leaveType === LeaveTypes.UNPAID_LEAVE) {
                         setunpaidLeaves(JSON.parse(option.canApprove));
-                    } else if (option.leaveType == LeaveTypes.CASUAL_LEAVE) {
+                    } else if (option.leaveType === LeaveTypes.CASUAL_LEAVE) {
                         setCasualLeaves(JSON.parse(option.canApprove));
-                    } else if(option.leaveType == LeaveTypes.MATERNAL_LEAVE) {
+                    } else if (option.leaveType === LeaveTypes.MATERNAL_LEAVE) {
                         setMaternal(JSON.parse(option.canApprove));
                     }
                 })

@@ -2379,6 +2379,10 @@ export const ReportsTable = ({
                         statusText = LEAVE_STATUS[2];
                         backgroundColor = '#dc3545';
                         break;
+                    case LeaveStatus.PendingHR:
+                        statusText = '⏳ Pending HR';
+                        backgroundColor = '#F39C12';
+                        break;
                     default:
                         return renderedCellValue;
                 }
