@@ -63,6 +63,7 @@ interface CompaniesBranchFormProps {
   onClose: () => void;
   onSuccess?: () => void;
   editingBranchId?: string | null;
+  selectedCompanyId?: string;
 }
 
 const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
@@ -70,6 +71,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
   onClose,
   onSuccess,
   editingBranchId,
+  selectedCompanyId,
 }) => {
   const [companies, setCompanies] = useState<any[]>([]);
   const [countries, setCountries] = useState<any[]>([]);
@@ -257,15 +259,18 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
           setIsDataLoading(false);
         }
       } else if (!editingBranchId) {
-        // Reset for new branch
-        setInitialValues(defaultValues);
+        // Reset for new branch or pre-fill from prop
+        setInitialValues({
+          ...defaultValues,
+          companyId: selectedCompanyId || ""
+        });
         setStates([]);
         setCities([]);
       }
     };
 
     fetchBranchData();
-  }, [editingBranchId, show, countries]); // Added countries as dependency
+  }, [editingBranchId, show, countries, selectedCompanyId]); // Added countries and selectedCompanyId as dependency
 
   const handleCountryChange = async (countryId: string) => {
     const country = countries.find((c) => c.id === countryId);
@@ -385,6 +390,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               value: company.id,
                             }))}
                             isRequired={true}
+                            disabled={!!selectedCompanyId}
                           />
                         </div>
                         <div className="col-md-4">
@@ -633,18 +639,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                         </div>
                       </div>
 
-                      {/* Location on Map Card */}
-                      <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#fafafa'}}>
-                        <div className="mb-4" style={{fontFamily:'Inter', fontSize:'14px', fontWeight:'500', color:'#9D4141'}}>LOCATION ON MAP</div>
-                        <div className="row mb-3">
+                      <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
+                        <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
+                        <div className="row g-3">
                           <div className="col-md-3">
                             <TextInput
                               formikField="googleMapLink"
                               label="Google Map Link"
                               isRequired={false}
-                              onChange={(e: any) => {
-                                setFieldValue("googleMapLink", e.target.value);
-                              }}
                             />
                           </div>
                           <div className="col-md-3">
@@ -660,14 +662,6 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               label="Latitude"
                               isRequired={false}
                               inputValidation="decimal"
-                              onChange={(e: any) => {
-                                setFieldValue("latitude", e.target.value);
-                                // Auto-update Google Map Link when latitude changes
-                                if (e.target.value && values.longitude) {
-                                  const googleMapsUrl = `https://www.google.com/maps?q=${e.target.value},${values.longitude}`;
-                                  // setFieldValue("googleMapLink", googleMapsUrl);
-                                }
-                              }}
                             />
                           </div>
                           <div className="col-md-3">
@@ -676,26 +670,20 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               label="Longitude"
                               isRequired={false}
                               inputValidation="decimal"
-                              onChange={(e: any) => {
-                                setFieldValue("longitude", e.target.value);
-                                // Auto-update Google Map Link when longitude changes
-                                if (e.target.value && values.latitude) {
-                                  const googleMapsUrl = `https://www.google.com/maps?q=${values.latitude},${e.target.value}`;
-                                  // setFieldValue("googleMapLink", googleMapsUrl);
-                                }
-                              }}
                             />
                           </div>
-                          <div
-                            className="d-flex justify-content-end mt-4"
-                            onClick={() => viewLocation(values.latitude || '', values.longitude || '')}
-                            style={{
-                              cursor: 'pointer',
-                              color: '#9D4141',
-                            }}
-                          >
-                            View Location On Map
-                          </div>
+                        </div>
+                        <div
+                          className="d-flex justify-content-end mt-4"
+                          onClick={() => viewLocation(values.latitude || '', values.longitude || '')}
+                          style={{
+                            cursor: 'pointer',
+                            color: '#0D47A1',
+                            fontWeight: '600',
+                            fontSize: '13px'
+                          }}
+                        >
+                          View Location On Map
                         </div>
                       </div>
                     </div>
