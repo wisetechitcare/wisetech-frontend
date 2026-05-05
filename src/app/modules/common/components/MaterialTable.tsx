@@ -19,7 +19,7 @@ import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
-import { HighlightMatch, intelligentSearchFilterFn } from "@app/utils/search";
+import { HighlightMatch, intelligentSearchFilterFn, processSearchQuery, calculateMatchScore } from "@app/utils/search";
 import React from "react";
 
 interface SearchableColumn {
@@ -322,7 +322,7 @@ function MaterialTable({
     [updateExportType],
   );
 
-  // Apply column-specific filtering
+  // Apply column-specific filtering and ranking
   const applyColumnFilter = useCallback(
     (searchValue: string, columnToSearch: string) => {
       if (!searchValue || searchValue.trim() === "") {
@@ -330,26 +330,60 @@ function MaterialTable({
         return;
       }
 
-      const searchTerm = searchValue.toLowerCase().trim();
-      const keywords = searchTerm.split(/\s+/).filter((k) => k.length > 0);
+      const queryInfo = processSearchQuery(searchValue);
+      const searchTerm = queryInfo.normalized;
+      const keywords = queryInfo.tokens;
 
-      const filtered = finalData.filter((row: any) => {
-        if (columnToSearch === "all") {
-          // Use intelligent search logic
-          return intelligentSearchFilterFn({ original: row }, "", searchTerm);
-        } else {
-          // Search in specific column only
-          const columnValue = row[columnToSearch];
-          if (columnValue == null) return false;
-          const valStr = String(columnValue).toLowerCase();
-          return keywords.some((k) => valStr.includes(k));
-        }
-      });
+      const resultsWithScores = finalData
+        .map((row: any) => {
+          let score = 0;
+          let isMatch = false;
+          
+          // Collect all string values for this row to check cross-column matches
+          const allRowText = Object.values(row)
+            .filter(v => typeof v === "string" || typeof v === "number")
+            .join(" ")
+            .toLowerCase();
 
-      setFilteredData(filtered);
+          if (columnToSearch === "all") {
+            isMatch = intelligentSearchFilterFn({ original: row }, "", searchValue);
+            if (isMatch) {
+              // 1. Calculate individual field scores
+              Object.values(row).forEach((val) => {
+                if (typeof val === "string" || typeof val === "number") {
+                  score += calculateMatchScore(String(val), queryInfo);
+                }
+              });
+
+              // 2. Bonus: If ALL keywords are present across the entire row
+              if (keywords.every(k => allRowText.includes(k))) {
+                score += 50; // High bonus for row-wide AND match
+              }
+            }
+          } else {
+            const columnValue = row[columnToSearch];
+            if (columnValue != null) {
+              const valStr = String(columnValue);
+              score = calculateMatchScore(valStr, queryInfo);
+              isMatch = score > 0 || keywords.every((k) => valStr.toLowerCase().includes(k));
+            }
+          }
+
+          return { row, score, isMatch };
+        })
+        .filter((item: any) => item.isMatch);
+
+
+      // Sort by score descending
+      const sortedResults = resultsWithScores
+        .sort((a: any, b: any) => b.score - a.score)
+        .map((item: any) => item.row);
+
+      setFilteredData(sortedResults);
     },
     [finalData],
   );
+
 
   // Handle column selector change
   const handleSearchColumnChange = useCallback(
