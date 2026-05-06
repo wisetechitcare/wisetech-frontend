@@ -9,11 +9,13 @@ import { RootState, AppDispatch } from '@redux/store'
 import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { usePushSubscription } from '../hooks/usePushSubscription';
 const App = () => {
   const dispatch = useDispatch<AppDispatch>();
-  
+
   // Get authentication state
-  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const currentUser  = useSelector((state: RootState) => state.auth.currentUser);
+  const employeeId   = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const isAuthenticated = !!currentUser?.id;
 
   // Initialize timer with user ID when user is authenticated
@@ -28,6 +30,9 @@ const App = () => {
 
   // Global real-time sync: backend socket events → eventBus → component refetches
   useRealtimeSync(isAuthenticated ? currentUser?.id : null);
+
+  // Browser push notifications: register SW + subscribe when employee is loaded
+  usePushSubscription(isAuthenticated ? employeeId : null);
 
   return (
     <>
