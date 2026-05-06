@@ -23,9 +23,12 @@ import {
   CurrencyRupee as RupeeIcon,
   Business as CompanyIcon,
   PushPin as PinIcon,
-  Navigation as NavigationIcon
+  Navigation as NavigationIcon,
+  ReportProblemOutlined as ReportIcon
 } from "@mui/icons-material";
 import { flagLocationError } from "@services/companies";
+import { Modal, Form, Button } from "react-bootstrap";
+import { successConfirmation } from "@utils/modal";
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -304,6 +307,7 @@ const LocationMarker = React.memo(({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConnection, setShowConnection] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
 
   // 4. Safe Icon handling — warning marker reacts to live isError state
   const icon = useMemo(() => {
@@ -412,6 +416,13 @@ const LocationMarker = React.memo(({
         loc.item.isLocationIncorrect = isError;
         loc.item.locationRemark = isError ? remark : "";
       }
+
+      // Show success toast
+      successConfirmation(isError ? "Issue reported successfully!" : "Location issue cleared.");
+
+      // Close modal
+      setIsReporting(false);
+
       // If error was cleared, also clear local remark state
       if (!isError) setRemark("");
     } catch (err) {
@@ -441,6 +452,8 @@ const LocationMarker = React.memo(({
         loc.item.isLocationIncorrect = false;
         loc.item.locationRemark = "";
       }
+      successConfirmation("Location issue cleared.");
+      setIsReporting(false);
     } catch (err) {
       // Revert UI if save fails
       setIsError(true);
@@ -488,234 +501,266 @@ const LocationMarker = React.memo(({
           </div>
         </Tooltip>
       )}
-      <Popup maxWidth={300} minWidth={280}>
+      <Popup maxWidth={320} minWidth={300} className="custom-popup">
         {isCompany ? (
           /* Specialized Company UI */
-          <div className={`company-popup${isError ? " popup-error" : ""}`}>
-            <div className="company-header">
-              <div className="company-avatar">
-                {(loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "C").charAt(0).toUpperCase()}
+          <div className={`company-popup-container${isError ? " popup-error" : ""}`}>
+            <div className="popup-header-section centered-header">
+              <div className="header-action-left">
+                <button 
+                  className="report-ghost-btn" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsReporting(true);
+                  }}
+                  title="Report Issue"
+                >
+                  <ReportIcon style={{ fontSize: '20px' }} />
+                </button>
               </div>
-              <div className="company-title-block">
-                <h3 className="company-name" onClick={handleNavigation}>
-                  {loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "No Name"}
-                </h3>
-                <span className="company-type">
-                  {loc.entityType === 'branch' ? 'Branch' : loc.entityType === 'sub-company' ? 'Sub Company' : 'Company'}
-                </span>
+
+              <div className="header-center-content">
+                <div className="avatar-wrapper">
+                  {(loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "C").charAt(0).toUpperCase()}
+                </div>
+                <div className="title-wrapper">
+                  <h3 className="entity-name" onClick={handleNavigation}>
+                    {loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "No Name"}
+                  </h3>
+                  <span className="entity-label">
+                    {loc.entityType === 'branch' ? 'Branch Office' : loc.entityType === 'sub-company' ? 'Sub Company' : 'Main Company'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="company-body">
+            <div className="popup-content-body">
               {/* Saved remark (read-only display) */}
               {isError && remark && (
-                <div className="error-remark">⚠ {remark}</div>
-              )}
-
-              {loc.item?.email && (
-                <div className="company-row">
-                  <MailIcon style={{ fontSize: "14px", color: "#64748b" }} />
-                  <span style={{ fontSize: "12px" }}>{loc.item.email}</span>
+                <div className="error-badge-container">
+                  <ReportIcon style={{ fontSize: "14px" }} />
+                  <span>{remark}</span>
                 </div>
               )}
 
-                <div className="company-row">
-                  <MapPinIcon style={{ fontSize: "16px", color: "#64748b" }} />
-                  <span>
+              <div className="info-grid">
+                {loc.item?.email && (
+                  <div className="info-item">
+                    <MailIcon className="info-icon" />
+                    <span className="info-text">{loc.item.email}</span>
+                  </div>
+                )}
+
+                <div className="info-item">
+                  <MapPinIcon className="info-icon" />
+                  <span className="info-text">
                     {popupAddress && popupAddress.trim() !== ""
                       ? popupAddress
-                      : "Address not available"}
+                      : `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`}
                   </span>
                 </div>
 
                 {/* Relationship Visualization UI */}
                 {(loc.entityType === 'sub-company' || loc.entityType === 'branch') && parent && (
-                  <div className="relation-info">
-                    <div className="relation-text">
-                      {loc.entityType === 'sub-company' ? 'Sub-company of: ' : 'Branch of: '}
-                      <span className="relation-name">{parentName}</span>
+                  <div className="relationship-card">
+                    <div className="rel-header">
+                      {loc.entityType === 'sub-company' ? 'Sub-company of' : 'Branch of'}
                     </div>
+                    <div className="rel-name">{parentName}</div>
+                    
                     {hasParentCoords && (
-                      <label className="relation-toggle">
+                      <label className="toggle-container">
                         <input
                           type="checkbox"
                           checked={showConnection}
                           onChange={() => setShowConnection(!showConnection)}
                         />
-                        Show Main Company
+                        <span className="toggle-label">Show main office connection</span>
                       </label>
                     )}
                   </div>
                 )}
               </div>
-
-            {/* Location Error Section */}
-            <div className="error-section">
-              <label className="error-toggle">
-                <input
-                  type="checkbox"
-                  checked={isError}
-                  onChange={() => setIsError(!isError)}
-                  style={{ accentColor: "#ef4444", cursor: "pointer" }}
-                />
-                <span style={{ color: isError ? "#dc2626" : "#64748b" }}>⚠ Location Error</span>
-              </label>
-              {isError && (
-                <textarea
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                  placeholder="Describe the issue (optional)"
-                  rows={2}
-                  style={{
-                    width: "100%", marginTop: "6px",
-                    fontSize: "11px", border: "1px solid #fca5a5",
-                    borderRadius: "6px", padding: "4px 8px",
-                    resize: "none", outline: "none",
-                    color: "#374151", background: "white",
-                    boxSizing: "border-box",
-                  }}
-                />
-              )}
-              <button
-                className="submit-btn"
-                disabled={isSubmitting}
-                onClick={handleSubmitError}
-              >
-                {isSubmitting ? "Saving..." : "Submit"}
-              </button>
             </div>
 
-            <button className="go-button" onClick={() => handleGoToLocation(loc.item)}>
-              <NavigationIcon style={{ fontSize: "16px" }} />
-              Go to Location
-            </button>
+            <div className="popup-actions">
+              <button className="primary-go-btn" onClick={() => handleGoToLocation(loc.item)}>
+                <NavigationIcon style={{ fontSize: "18px" }} />
+                <span>Go to Location</span>
+              </button>
+            </div>
           </div>
         ) : (
           /* Unified Layout for Projects and Contacts */
-          <div className={`popup-card${isError ? " popup-error" : ""}`}>
-            <div className="popup-header">
-              <h3 className="popup-title" onClick={handleNavigation}>
-                {isContact
-                  ? (loc.item?.fullName || loc.item?.name || "No Contact Name")
-                  : (loc.item?.title || "No Project Title")
-                }
-              </h3>
+          <div className={`card-popup-container${isError ? " popup-error" : ""}`}>
+            <div className="popup-header-section centered-header">
+              <div className="header-action-left">
+                <button 
+                  className="report-ghost-btn" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsReporting(true);
+                  }}
+                  title="Report Issue"
+                >
+                  <ReportIcon style={{ fontSize: '20px' }} />
+                </button>
+              </div>
+
+              <div className="header-center-content">
+                <div className="avatar-wrapper" style={{ background: isContact ? '#8b5cf6' : '#10b981' }}>
+                  {isContact ? <BriefcaseIcon style={{ fontSize: '18px' }} /> : <PinIcon style={{ fontSize: '18px' }} />}
+                </div>
+                <div className="title-wrapper">
+                  <h3 className="entity-name" onClick={handleNavigation}>
+                    {isContact
+                      ? (loc.item?.fullName || loc.item?.name || "No Contact Name")
+                      : (loc.item?.title || "No Project Title")
+                    }
+                  </h3>
+                  <span className="entity-label">
+                    {isContact ? 'Contact Person' : 'Project Location'}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="popup-body">
-              {/* Saved remark (read-only display) */}
+            <div className="popup-content-body">
               {isError && remark && (
-                <div className="error-remark">⚠ {remark}</div>
+                <div className="error-badge-container">
+                  <ReportIcon style={{ fontSize: "14px" }} />
+                  <span>{remark}</span>
+                </div>
               )}
 
               {/* Status Row */}
               {loc.item?.status?.name && (
-                <div className="status-row">
-                  <span className="status-badge" style={{ backgroundColor: loc.item.status.color || "#3b82f6" }}>
-                    {loc.item.status.name}
-                  </span>
+                <div className="status-container">
+                  <span className="status-dot" style={{ backgroundColor: loc.item.status.color || "#3b82f6" }}></span>
+                  <span className="status-name">{loc.item.status.name}</span>
                 </div>
               )}
 
-              {/* Additional Info Rows (Compact) */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div className="info-grid">
                 {isProject && loc.item?.cost && (
-                  <div className="info-row">
-                    <RupeeIcon style={{ fontSize: "14px", color: "#64748b" }} />
-                    <span style={{ fontWeight: 500, color: "#1e293b" }}>
-                      ₹{loc.item.cost.toLocaleString()}
-                    </span>
+                  <div className="info-item">
+                    <RupeeIcon className="info-icon" />
+                    <span className="info-text highlight">₹{loc.item.cost.toLocaleString()}</span>
                   </div>
                 )}
 
                 {isProject && loc.item?.company?.companyName && (
-                  <div className="info-row">
-                    <CompanyIcon style={{ fontSize: "14px", color: "#64748b" }} />
-                    <span>{loc.item.company.companyName}</span>
+                  <div className="info-item">
+                    <CompanyIcon className="info-icon" />
+                    <span className="info-text">{loc.item.company.companyName}</span>
                   </div>
                 )}
 
                 {isContact && loc.item?.roleInCompany && (
-                  <div className="info-row">
-                    <BriefcaseIcon style={{ fontSize: "14px", color: "#64748b" }} />
-                    <span>{loc.item.roleInCompany}</span>
+                  <div className="info-item">
+                    <BriefcaseIcon className="info-icon" />
+                    <span className="info-text">{loc.item.roleInCompany}</span>
                   </div>
                 )}
 
-                {isContact && loc.item?.email && (
-                  <div className="info-row">
-                    <MailIcon style={{ fontSize: "14px", color: "#64748b" }} />
-                    <span style={{ fontSize: "12px" }}>{loc.item.email}</span>
+                {isContact && (loc.item?.email || loc.item?.phone) && (
+                  <div className="contact-info-group">
+                    {loc.item?.email && (
+                      <div className="info-item">
+                        <MailIcon className="info-icon" />
+                        <span className="info-text small">{loc.item.email}</span>
+                      </div>
+                    )}
+                    {loc.item?.phone && (
+                      <div className="info-item">
+                        <PhoneIcon className="info-icon" />
+                        <span className="info-text small">{loc.item.phone}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {isContact && loc.item?.phone && (
-                  <div className="info-row">
-                    <PhoneIcon style={{ fontSize: "14px", color: "#64748b" }} />
-                    <span style={{ fontSize: "12px" }}>{loc.item.phone}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Address Row */}
-              <div className="address-row">
-                <MapPinIcon style={{ fontSize: "16px" }} className="address-icon" />
-                <span>
-                  {popupAddress && popupAddress.trim() !== ""
-                    ? popupAddress
-                    : "Address not available"}
-                </span>
+                <div className="info-item">
+                  <MapPinIcon className="info-icon" />
+                  <span className="info-text">
+                    {popupAddress && popupAddress.trim() !== ""
+                      ? popupAddress
+                      : `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Location Error Section */}
-            <div className="error-section">
-              <label className="error-toggle">
-                <input
-                  type="checkbox"
-                  checked={isError}
-                  onChange={() => isError ? handleClearError() : setIsError(true)}
-                  disabled={isSubmitting}
-                  style={{ accentColor: "#ef4444", cursor: "pointer" }}
-                />
-                <span style={{ color: isError ? "#dc2626" : "#64748b" }}>
-                  {isSubmitting ? "Saving..." : "⚠ Location Error"}
-                </span>
-              </label>
-              {isError && (
-                <textarea
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                  placeholder="Describe the issue (optional)"
-                  rows={2}
-                  style={{
-                    width: "100%", marginTop: "6px",
-                    fontSize: "11px", border: "1px solid #fca5a5",
-                    borderRadius: "6px", padding: "4px 8px",
-                    resize: "none", outline: "none",
-                    color: "#374151", background: "white",
-                    boxSizing: "border-box",
-                  }}
-                />
-              )}
-              {isError && (
-                <button
-                  className="submit-btn"
-                  disabled={isSubmitting}
-                  onClick={handleSubmitError}
-                >
-                  {isSubmitting ? "Saving..." : "Save"}
-                </button>
-              )}
+            <div className="popup-actions">
+              <button className="primary-go-btn" onClick={() => handleGoToLocation(loc.item)}>
+                <NavigationIcon style={{ fontSize: "18px" }} />
+                <span>Go to Location</span>
+              </button>
             </div>
-
-            <button className="go-button" onClick={() => handleGoToLocation(loc.item)}>
-              <NavigationIcon style={{ fontSize: "16px" }} />
-              Go to Location
-            </button>
           </div>
         )}
       </Popup>
+
+      {/* Report Issue Modal */}
+      <Modal 
+        show={isReporting} 
+        onHide={() => setIsReporting(false)} 
+        centered
+        backdrop="static"
+        style={{ zIndex: 9999 }} // Ensure it's above everything
+      >
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: '18px', fontWeight: 600 }}>
+            Report Location Issue
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div style={{ marginBottom: '15px' }}>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '10px' }}>
+              Reporting an issue for: <strong>{itemTitle}</strong>
+            </p>
+          </div>
+          <Form.Group className="mb-3">
+            <Form.Check 
+              type="checkbox"
+              id="location-error-checkbox"
+              label="Location is incorrect"
+              checked={isError}
+              onChange={(e) => setIsError(e.target.checked)}
+              style={{ fontWeight: 500, color: isError ? '#ef4444' : '#475569' }}
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label style={{ fontSize: '13px', fontWeight: 500 }}>Remarks / Description</Form.Label>
+            <Form.Control 
+              as="textarea" 
+              rows={3} 
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder="Please describe what is wrong with this location..."
+              style={{ fontSize: '13px' }}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            size="sm"
+            onClick={() => setIsReporting(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="danger" 
+            size="sm"
+            onClick={handleSubmitError}
+            disabled={isSubmitting || (!isError && remark.trim() === "")}
+          >
+            {isSubmitting ? "Submitting..." : "Submit Report"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Marker>
   );
 });
@@ -1046,208 +1091,287 @@ export default function Maps({
           box-shadow: 0 6px 16px rgba(44, 123, 229, 0.4);
         }
 
-        /* Compact Card Popup UI */
-        .popup-card {
-          padding: 8px 4px;
+        /* ----------------------------------------------------------- */
+        /* Clean & Modern Leaflet Popup Overhaul */
+        /* ----------------------------------------------------------- */
+        
+        .leaflet-popup-content-wrapper {
+          padding: 0 !important;
+          border-radius: 12px !important;
+          overflow: hidden;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
         }
-        .popup-header {
+        .leaflet-popup-content {
+          margin: 0 !important;
+          width: 320px !important;
+        }
+        .leaflet-popup-close-button {
+          top: 8px !important;
+          right: 8px !important;
+          color: #94a3b8 !important;
+          font-size: 20px !important;
+          z-index: 100;
+        }
+        .leaflet-popup-close-button:hover {
+          color: #ef4444 !important;
+          background: transparent !important;
+        }
+
+        .company-popup-container, .card-popup-container {
+          padding: 0;
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
+          flex-direction: column;
+          background: #ffffff;
         }
-        .popup-title {
-          font-size: 16px;
-          font-weight: 600;
-          color: #1e293b;
+
+        .popup-header-section {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 24px 16px 16px 16px;
+          border-bottom: 1px solid #f1f5f9;
+          text-align: center;
+        }
+
+        .header-action-left {
+          position: absolute;
+          left: 10px;
+          top: 10px;
+          z-index: 101;
+        }
+
+        .header-center-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+        }
+
+        .avatar-wrapper {
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #2c7be5, #1d4ed8);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 18px;
+          flex-shrink: 0;
+          box-shadow: 0 4px 12px rgba(44, 123, 229, 0.2);
+        }
+
+        .title-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          padding: 0 10px;
+        }
+
+        .entity-name {
+          font-size: 18px;
+          font-weight: 800;
+          color: #0f172a;
           margin: 0;
           cursor: pointer;
-          transition: color 0.2s;
+          line-height: 1.3;
+          word-break: break-word;
         }
-        .popup-title:hover { color: #2c7be5; }
-        
-        .popup-body {
+        .entity-name:hover { color: #2c7be5; }
+
+        .entity-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 1.2px;
+          margin-top: 4px;
+        }
+
+        .report-ghost-btn {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 8px;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .report-ghost-btn:hover {
+          background: #fee2e2;
+          color: #ef4444;
+        }
+
+        .popup-content-body {
+          padding: 12px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .error-badge-container {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          background: #fee2e2;
+          color: #991b1b;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+        }
+
+        .status-container {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
+        .status-name {
+          font-size: 12px;
+          font-weight: 600;
+          color: #475569;
+        }
+
+        .info-grid {
           display: flex;
           flex-direction: column;
           gap: 10px;
         }
-        .status-row {
+
+        .info-item {
           display: flex;
-          align-items: center;
-        }
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          color: white;
-          background: #3b82f6;
-        }
-        .address-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: #475569;
-          font-size: 13px;
-          line-height: 1.4;
-        }
-        .address-icon {
-          color: #64748b;
-          flex-shrink: 0;
-        }
-        .info-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          color: #475569;
-        }
-        .go-button {
-          margin-top: 12px;
-          padding: 10px;
-          background: linear-gradient(135deg, #2c7be5, #1d4ed8);
-          color: white;
-          border: none;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          transition: all 0.2s ease;
-          box-shadow: 0 4px 6px -1px rgba(44, 123, 229, 0.2);
-          width: 100%;
-        }
-        .go-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 14px rgba(44, 123, 229, 0.3);
+          align-items: flex-start;
+          gap: 10px;
         }
 
-        /* Company Specialized Popup UI */
-        .company-popup {
-          padding: 8px 4px;
-        }
-        .company-header {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          margin-bottom: 12px;
-        }
-        .company-avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          background: #2c7be5;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 600;
-          font-size: 14px;
+        .info-icon {
+          color: #94a3b8;
+          font-size: 18px !important;
           flex-shrink: 0;
-          margin-bottom: 6px;
-        }
-        .company-title-block {
-          display: flex;
-          flex-direction: column;
-        }
-        .company-name {
-          font-size: 15px;
-          font-weight: 600;
-          color: #1e293b;
-          margin: 0;
-          cursor: pointer;
-        }
-        .company-name:hover { color: #2c7be5; }
-        .company-type {
-          font-size: 12px;
-          color: #64748b;
           margin-top: 1px;
         }
-        .company-body {
-          margin-top: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .company-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: #475569;
+
+        .info-text {
           font-size: 13px;
+          color: #334155;
+          line-height: 1.4;
+          word-break: break-word;
+        }
+        .info-text.highlight {
+          font-weight: 600;
+          color: #0f172a;
+          font-size: 14px;
+        }
+        .info-text.small {
+          font-size: 12px;
         }
 
-        /* Location Error Feature */
-        .warning-marker { background: none !important; border: none !important; }
-        .warning-pin {
-          width: 30px;
-          height: 30px;
-          background: #ef4444;
-          color: white;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
+        .contact-info-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          background: #f8fafc;
+          padding: 8px;
+          border-radius: 8px;
+        }
+
+        .relationship-card {
+          margin-top: 4px;
+          padding: 10px;
+          background: #f1f5f9;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .rel-header {
+          font-size: 10px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          margin-bottom: 2px;
+        }
+
+        .rel-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        .toggle-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 8px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .toggle-container input {
+          width: 14px;
+          height: 14px;
+          accent-color: #2c7be5;
+          cursor: pointer;
+        }
+
+        .toggle-label {
+          font-size: 11px;
+          font-weight: 500;
+          color: #475569;
+        }
+
+        .popup-actions {
+          padding: 12px 16px 16px 16px;
+        }
+
+        .primary-go-btn {
+          width: 100%;
+          padding: 12px;
+          background: linear-gradient(135deg, #2c7be5, #1d4ed8);
+          color: #ffffff;
+          border: none;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 700;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
-          box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
-        }
-        .warning-pin::after {
-          content: '\u26a0';
-          transform: rotate(45deg);
-          display: block;
-        }
-        .popup-error {
-          border: 1.5px solid #ef4444 !important;
-          background: #fff5f5 !important;
-          border-radius: 12px;
-        }
-        .error-remark {
-          font-size: 12px;
-          color: #991b1b;
-          background: #fee2e2;
-          border-radius: 6px;
-          padding: 4px 8px;
-          margin-bottom: 6px;
-          font-weight: 500;
-        }
-        .error-section {
-          margin-top: 10px;
-          padding: 8px 10px;
-          border-radius: 8px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          transition: all 0.2s ease;
-        }
-        .error-toggle {
-          display: flex;
-          align-items: center;
           gap: 8px;
           cursor: pointer;
-          font-size: 12px;
-          font-weight: 600;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 4px 12px rgba(44, 123, 229, 0.3);
         }
-        .submit-btn {
-          margin-top: 6px;
-          background: #ef4444;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          padding: 6px 12px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          width: 100%;
-          transition: background 0.2s;
+        .primary-go-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 16px rgba(44, 123, 229, 0.4);
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
         }
-        .submit-btn:hover { background: #dc2626; }
-        .submit-btn:disabled { background: #fca5a5; cursor: not-allowed; }
+        .primary-go-btn:active {
+          transform: translateY(0);
+        }
+
+        .popup-error {
+          border-top: 4px solid #ef4444 !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+          .leaflet-popup-content {
+            width: 280px !important;
+          }
+        }
       `}</style>
 
       {/* Floating Google Maps-Style Filter Bar */}
