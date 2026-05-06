@@ -20,7 +20,7 @@ import dayjsUTC from "dayjs/plugin/utc";
 dayjs.extend(dayjsUTC);
 dayjs.extend(dayjsTimezone);
 
-const normalizeAttendanceRequestTime = (value: string | undefined, dateStr: string): string | undefined => {
+export const normalizeAttendanceRequestTime = (value: string | undefined, dateStr: string): string | undefined => {
     if (!value || value === "" || value === "-NA-") {
         return undefined;
     }
@@ -78,6 +78,11 @@ const OpenAttendanceRequests = () => {
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
+    const isAdminUser = useSelector((state: RootState) => (state.auth as any).currentUser?.isAdmin);
+    const currentEmployeeRoles: any[] = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
+    const isHROrAdmin = isAdminUser || currentEmployeeRoles.some((r: any) =>
+        ['hr', 'admin', 'super_admin', 'superadmin', 'super admin'].includes((r?.name || r?.role || '').toLowerCase())
+    );
 
     const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([])
     const [attendanceActionId, setAttendanceActionId] = useState("");
@@ -266,7 +271,11 @@ const OpenAttendanceRequests = () => {
                 }
 
                 await approveAttendanceRequest(attendance);
-                successConfirmation('Attendance request approved successfully');
+                successConfirmation(
+                    request.status === 0 && !isHROrAdmin
+                        ? 'Attendance request forwarded to HR for final approval.'
+                        : 'Attendance request approved successfully'
+                );
 
                 setAttendanceActionId(request.id);
                 fetchOpenRequests();
@@ -354,8 +363,17 @@ const OpenAttendanceRequests = () => {
         }, [openRequests, allAttendanceRequests])
 
 
+        // Role-based filtering of open requests (status=0 only — HR sees their section separately):
+        // HR/admin: see all status=0 (to supervise manager stage)
+        // Reporting manager: see only their team's status=0 requests
+        const visibleOpenRequests = openRequests.filter((req: IAttendanceRequests) => {
+            if (req.status !== LeaveStatus.ApprovalPending) return false;
+            if (isHROrAdmin) return true;
+            return req.reportsToId === employeeIdCurrent;
+        });
+
         // if employee working on weekend/holiday then no late marking and early check out marking
-        const isWeekendOrHolidayDataWithAttendanceRequests = markWeekendOrHoliday(openRequests, getAllWeekends, allHolidays);
+        const isWeekendOrHolidayDataWithAttendanceRequests = markWeekendOrHoliday(visibleOpenRequests, getAllWeekends, allHolidays);
 
         const allIsWeekendOrHolidayDataWithAttendanceRequests = markWeekendOrHoliday(allAttendanceRequests, getAllWeekends, allHolidays);
 
@@ -422,6 +440,10 @@ const OpenAttendanceRequests = () => {
                         case LeaveStatus.Rejected:
                             statusText = LEAVE_STATUS[2];
                             backgroundColor = '#dc3545';
+                            break;
+                        case LeaveStatus.PendingHR:
+                            statusText = 'Pending HR';
+                            backgroundColor = '#6366f1';
                             break;
                         default:
                             return renderedCellValue;
@@ -585,43 +607,53 @@ const OpenAttendanceRequests = () => {
                 minSize: 100,
                 maxSize: 150,
                 Cell: ({ row }: any) => {
-                    const res =
-                        // hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOwn, row.original) ||
-                        hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOthers, row.original);
+                    const hasEditPermission = hasPermission(
+                        resourceNameMapWithCamelCase.attendanceRequest,
+                        permissionConstToUseWithHasPermission.editOthers,
+                        row.original
+                    );
+                    const isReportingManagerForThis = row.original.reportsToId === employeeIdCurrent;
+                    const canAct = hasEditPermission || isReportingManagerForThis;
+
+                    if (!canAct) return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;
+
+                    // HR viewer who is not the reporting manager sees an informational badge —
+                    // actual manager-stage approval belongs to the reporting manager.
+                    if (isHROrAdmin && !isReportingManagerForThis) {
+                        return (
+                            <span style={{ fontSize: "11px", color: "#b45309", backgroundColor: "#fef3c7", padding: "3px 8px", borderRadius: "10px", fontWeight: 500 }}>
+                                Awaiting Manager
+                            </span>
+                        );
+                    }
 
                     return (
                         <>
-                            {res ? (
-                                <>
-                                    <button
-                                        className='btn btn-icon btn-sm'
-                                        onClick={() => approveRequest(row.original)}
-                                        title="Approve"
-                                        disabled={loading || processingRowId === row.original.id}
-                                    >
-                                        {processingRowId === row.original.id && processingAction === 'approve' ? (
-                                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        ) : (
-                                            <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} />
-                                        )}
-                                    </button>
+                            <button
+                                className='btn btn-icon btn-sm'
+                                onClick={() => approveRequest(row.original)}
+                                title="Approve"
+                                disabled={loading || processingRowId === row.original.id}
+                            >
+                                {processingRowId === row.original.id && processingAction === 'approve' ? (
+                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                    <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} />
+                                )}
+                            </button>
 
-                                    <button
-                                        className='btn btn-icon btn-sm'
-                                        onClick={() => rejectRequest(row.original.id)}
-                                        title="Reject"
-                                        disabled={loading || processingRowId === row.original.id}
-                                    >
-                                        {processingRowId === row.original.id && processingAction === 'reject' ? (
-                                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        ) : (
-                                            <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} />
-                                        )}
-                                    </button>
-                                </>
-                            ) : (
-                                'Not Allowed'
-                            )}
+                            <button
+                                className='btn btn-icon btn-sm'
+                                onClick={() => rejectRequest(row.original.id)}
+                                title="Reject"
+                                disabled={loading || processingRowId === row.original.id}
+                            >
+                                {processingRowId === row.original.id && processingAction === 'reject' ? (
+                                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                    <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} />
+                                )}
+                            </button>
                         </>
                     );
                 }
@@ -692,6 +724,10 @@ const OpenAttendanceRequests = () => {
                         case LeaveStatus.Rejected:
                             statusText = LEAVE_STATUS[2];
                             backgroundColor = '#dc3545';
+                            break;
+                        case LeaveStatus.PendingHR:
+                            statusText = 'Pending HR';
+                            backgroundColor = '#6366f1';
                             break;
                         default:
                             return renderedCellValue;

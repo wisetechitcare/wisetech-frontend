@@ -321,3 +321,95 @@ html {
 .bg-slate-50 {
   background-color: #f8fafc !important;
 }
+
+/* ================================================
+   Premium Warning Marker Styles (Map)
+   ================================================ */
+
+.custom-warning-marker {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.warning-wrapper {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+  animation: marker-pulse 2s infinite;
+  cursor: pointer;
+}
+
+.warning-wrapper:hover {
+  transform: scale(1.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 0 4px rgba(255, 255, 255, 1);
+  animation-play-state: paused;
+}
+
+.warning-icon-svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
+}
+
+@keyframes marker-pulse {
+  0% {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 12px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* ================================================
+   Relationship Visualization Styles
+   ================================================ */
+
+.relation-info {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.relation-name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.relation-toggle {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.relation-toggle:hover {
+  opacity: 0.8;
+}
+
+.relation-toggle input {
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+/* Smooth Map Transitions */
+.leaflet-interactive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+

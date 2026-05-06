@@ -2848,19 +2848,16 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
 export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAttendanceRequests[] {
     const attendanceRequest = attendance.reduce((result: IAttendanceRequests[], attendanceRequest: any) => {
-        const formattedCheckIn = attendanceRequest?.checkIn
-            ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkIn))): "-NA-";
-        // console.log("attendanceRequest.checkIn",attendanceRequest.checkIn);
+        // For checkout-only requests the DB checkIn is null; use actualCheckIn enriched by the backend.
+        const checkInSource = attendanceRequest?.checkIn || attendanceRequest?.actualCheckIn;
 
-        // console.log("formattedCheckIn", formattedCheckIn);
+        const formattedCheckIn = checkInSource
+            ? convertTo12HourFormat(convertToIST(convertToTime(checkInSource))) : "-NA-";
 
         const formattedCheckOut = attendanceRequest?.checkOut
             ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkOut))): "-NA-";
-        // console.log("attendanceRequest?.checkOut",attendanceRequest?.checkOut);
 
-        // console.log("formattedCheckOut", formattedCheckOut);
-
-        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut;
+        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut || attendanceRequest?.actualCheckIn;
         const day = dateSource ? dayjs(dateSource).format("dddd") : "-NA-";
         const date = dateSource ? dayjs(dateSource).format("DD MMM YYYY") : "-NA-";
         const formattedDate = dateSource ? dayjs(date).format("DD/MM/YYYY") : "-NA-";
@@ -2876,6 +2873,10 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             employeeCode: attendanceRequest?.employee?.employeeCode,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
+            // Raw ISO values for accurate approval — avoids 12-hour formatting ambiguity.
+            // For checkout-only requests, rawCheckIn comes from actualCheckIn (enriched by backend).
+            rawCheckIn: checkInSource ? checkInSource.toString() : undefined,
+            rawCheckOut: attendanceRequest?.checkOut ? attendanceRequest.checkOut.toString() : undefined,
             workingMethod: attendanceRequest.workingMethod.type,
             remarks: attendanceRequest?.remarks || "",
             latitude: attendanceRequest.latitude,
@@ -2884,6 +2885,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             approvedById: attendanceRequest.approvedById,
             rejectedById: attendanceRequest.rejectById,
             approvedOrRejectedDate: attendanceRequest.updatedAt,
+            reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
         }
 
         result.push(request);

@@ -1322,12 +1322,18 @@ const PendingRequestsTable = () => {
   );
 
   const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
-    const { attendance } = state;
+    const { attendance, employee, auth } = state;
+    const currentEmpId = employee.currentEmployee.id;
+    const isAdmin = (auth as any).currentUser?.isAdmin;
+    const roles: any[] = employee.currentEmployee.roles || [];
+    const isHR = isAdmin || roles.some((r: any) =>
+      ['hr', 'admin', 'super_admin', 'superadmin', 'super admin'].includes((r?.name || r?.role || '').toLowerCase())
+    );
     return attendance.leaveRequests.filter((el: any) => {
-      if (el.status === 4) return true;
-      if (el.status === 0) {
-        if (isHROrAdmin) return true;
-        return el.reportsToId === employeeIdCurrent;
+      if (el.status === LeaveStatus.PendingHR) return true;
+      if (el.status === LeaveStatus.ApprovalPending) {
+        if (isHR) return true;
+        return el.reportsToId === currentEmpId;
       }
       return false;
     });
@@ -1508,7 +1514,11 @@ const PendingRequestsTable = () => {
       }
 
       await approveAttendanceRequest(attendance);
-      successConfirmation('Attendance request approved successfully');
+      successConfirmation(
+        request.status === LeaveStatus.ApprovalPending && !isHROrAdmin
+          ? 'Attendance request forwarded to HR for final approval.'
+          : 'Attendance request approved successfully'
+      );
       fetchAttendanceRequests();
     } catch (error) {
       console.log("approveRequest error", error);
@@ -1858,8 +1868,21 @@ const PendingRequestsTable = () => {
             resourceNameMapWithCamelCase.dashboardPendingRequests,
             permissionConstToUseWithHasPermission.editOthers
           );
+          const isReportingManagerForThis = row.original.reportsToId === employeeIdCurrent;
+          const canAct = hasEditPermission || isReportingManagerForThis;
 
-          return hasEditPermission ? (
+          if (!canAct) return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;
+
+          // HR viewer who is not the reporting manager: informational badge only
+          if (isHROrAdmin && !isReportingManagerForThis) {
+            return (
+              <span style={{ fontSize: "11px", color: "#b45309", backgroundColor: "#fef3c7", padding: "3px 8px", borderRadius: "10px", fontWeight: 500 }}>
+                Awaiting Manager
+              </span>
+            );
+          }
+
+          return (
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 className='btn btn-icon btn-sm'
@@ -1886,13 +1909,16 @@ const PendingRequestsTable = () => {
                 )}
               </button>
             </div>
-          ) : (
-            <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>
           );
         },
       },
     ],
-    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold, processingRowId, processingAction]
+    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold, processingRowId, processingAction, isHROrAdmin, employeeIdCurrent]
+  );
+
+  const hasLeaveEditPermission = hasPermission(
+    resourceNameMapWithCamelCase.dashboardPendingRequests,
+    permissionConstToUseWithHasPermission.editOthers
   );
 
   // Leave columns
@@ -1956,19 +1982,15 @@ const PendingRequestsTable = () => {
         size: 120,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
-          const hasEditPermission = hasPermission(
-            resourceNameMapWithCamelCase.dashboardPendingRequests,
-            permissionConstToUseWithHasPermission.editOthers
-          );
           const isReportingManagerForThisLeave = row.original.reportsToId === employeeIdCurrent;
-          const canAct = hasEditPermission || isReportingManagerForThisLeave;
+          const canAct = hasLeaveEditPermission || isReportingManagerForThisLeave;
 
           if (!canAct) {
             return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;
           }
 
-          // Status 0 + viewer is HR/admin: the reporting manager hasn't acted yet
-          if (row.original.status === 0 && isHROrAdmin) {
+          // HR viewer who is NOT the reporting manager: show informational badge
+          if (row.original.status === LeaveStatus.ApprovalPending && isHROrAdmin && !isReportingManagerForThisLeave) {
             return (
               <span style={{
                 fontSize: "11px",
@@ -1983,8 +2005,8 @@ const PendingRequestsTable = () => {
             );
           }
 
-          // Status 4 + viewer is the reporting manager: they already forwarded it, HR acts next
-          if (row.original.status === 4 && !isHROrAdmin) {
+          // Status PendingHR + viewer is the reporting manager: they already forwarded it, HR acts next
+          if (row.original.status === LeaveStatus.PendingHR && !isHROrAdmin) {
             return (
               <span style={{
                 fontSize: "11px",
@@ -2032,7 +2054,7 @@ const PendingRequestsTable = () => {
         },
       },
     ],
-    [processingRowId, processingAction, leaveTypeColors]
+    [processingRowId, processingAction, leaveTypeColors, isHROrAdmin, employeeIdCurrent, hasLeaveEditPermission]
   );
 
   // Reimbursement columns
@@ -2266,8 +2288,10 @@ const PendingRequestsTable = () => {
             >
               Attendance
             </button>
-            {/* Notification Badge for Attendance */}
-            {attendanceRequests.length > 0 && (
+            {/* Notification Badge for Attendance — only actionable status=0 requests for reporting managers */}
+            {attendanceRequests.filter((req: any) =>
+              req.status === LeaveStatus.ApprovalPending && req.reportsToId === employeeIdCurrent
+            ).length > 0 && (
               <div
                 style={{
                   position: "absolute",
@@ -2368,7 +2392,12 @@ const PendingRequestsTable = () => {
         {activeTab === "attendance" && (
           <MaterialTable
             columns={attendanceColumns}
-            data={markWeekendOrHoliday(attendanceRequests, getAllWeekends, allHolidays)}
+            data={markWeekendOrHoliday(attendanceRequests.filter((req: any) => {
+              // Only show status=0 in this table. HR sees all status=0; managers see their team's.
+              if (req.status !== LeaveStatus.ApprovalPending) return false;
+              if (isHROrAdmin) return true;
+              return req.reportsToId === employeeIdCurrent;
+            }), getAllWeekends, allHolidays)}
             tableName="PendingAttendanceRequests"
             isLoading={isLoading}
             hideFilters={true}

@@ -6,6 +6,8 @@ import {
   Popup,
   Tooltip,
   useMapEvents,
+  useMap,
+  Polyline
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -13,16 +15,17 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { useNavigate } from "react-router-dom";
-import { 
-  LocationOn as MapPinIcon, 
-  Phone as PhoneIcon, 
-  Email as MailIcon, 
+import {
+  LocationOn as MapPinIcon,
+  Phone as PhoneIcon,
+  Email as MailIcon,
   Work as BriefcaseIcon,
   CurrencyRupee as RupeeIcon,
   Business as CompanyIcon,
   PushPin as PinIcon,
   Navigation as NavigationIcon
 } from "@mui/icons-material";
+import { flagLocationError } from "@services/companies";
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -34,7 +37,7 @@ L.Icon.Default.mergeOptions({
 
 // 1. Color Pool for Automatic Country Mapping
 const COLOR_POOL = [
-  "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", 
+  "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6",
   "#e67e22", "#1abc9c", "#34495e", "#d35400", "#27ae60",
   "#8e44ad", "#2980b9", "#f39c12", "#c0392b", "#16a085"
 ];
@@ -77,6 +80,62 @@ function ZoomHandler({ setZoom }: { setZoom: (zoom: number) => void }) {
   return null;
 }
 
+function MapCenterHandler({ userLocation }: { userLocation: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  const hasCentered = useRef(false);
+
+  useEffect(() => {
+    if (userLocation && !hasCentered.current) {
+      map.setView([userLocation.lat, userLocation.lng], 13);
+      hasCentered.current = true;
+    }
+  }, [userLocation, map]);
+
+  return null;
+}
+
+const userIcon = L.divIcon({
+  className: "user-location-marker",
+  html: '<div class="dot"></div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+// 3. Relationship Visualization Helpers
+const createCurve = (from: [number, number], to: [number, number]) => {
+  const midLat = (from[0] + to[0]) / 2;
+  const midLng = (from[1] + to[1]) / 2;
+
+  // Calculate dynamic offset based on distance for a professional curve
+  const dist = Math.sqrt(Math.pow(to[0] - from[0], 2) + Math.pow(to[1] - from[1], 2));
+  const curveOffset = dist * 0.15; 
+
+  // Control point for quadratic bezier
+  const controlPoint: [number, number] = [midLat + curveOffset, midLng];
+
+  // Generate smooth points
+  const points: [number, number][] = [];
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const lat = (1 - t) * (1 - t) * from[0] + 2 * (1 - t) * t * controlPoint[0] + t * t * to[0];
+    const lng = (1 - t) * (1 - t) * from[1] + 2 * (1 - t) * t * controlPoint[1] + t * t * to[1];
+    points.push([lat, lng]);
+  }
+  return points;
+};
+
+function MapClickHandler({ onClick }: { onClick: () => void }) {
+  useMapEvents({
+    click: (e) => {
+      // Only clear if we clicked the map background, not a marker
+      if ((e.originalEvent.target as HTMLElement).classList.contains('leaflet-container')) {
+        onClick();
+      }
+    },
+  });
+  return null;
+}
+
 const getInitials = (name: string) => {
   if (!name || typeof name !== "string") return "??";
   const parts = name.trim().split(/\s+/);
@@ -86,29 +145,48 @@ const getInitials = (name: string) => {
   return name.substring(0, 2).toUpperCase() || "??";
 };
 
-const createCustomIcon = (initials: string, color: string, imageUrl?: string) => {
+const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false) => {
   try {
     // If we have no initials and no image, fallback to theme-colored circle
     const finalColor = color || "#3498db";
-    
+
+    // Scale based on entity type
+    let size = 34;
+    let innerSize = 28;
+    let offset = 3;
+    let fontSize = 11;
+
+    if (entityType === 'sub-company') {
+      size = 30;
+      innerSize = 24;
+      offset = 3;
+      fontSize = 10;
+    } else if (entityType === 'branch') {
+      size = 24;
+      innerSize = 18;
+      offset = 3;
+      fontSize = 8;
+    }
+
     // FALLBACK LEVEL 1 & 2: Custom Avatar or Initials
     const html = `
-      <div style="position: relative; width: 34px; height: 34px; transition: all 0.3s ease-in-out;">
+      <div style="position: relative; width: ${size}px; height: ${size}px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: scale(${isRelated ? 1.4 : 1}); z-index: ${isRelated ? 1000 : 0}; opacity: ${isDimmed ? 0.4 : 1};">
         <div style="
-          width: 34px; 
-          height: 34px; 
+          width: ${size}px; 
+          height: ${size}px; 
           border-radius: 50% 50% 50% 0; 
           background: ${finalColor}; 
           position: absolute; 
           transform: rotate(-45deg);
           box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          border: ${entityType === 'sub-company' ? '2px solid white' : 'none'};
         "></div>
         <div style="
-          width: 28px; 
-          height: 28px; 
+          width: ${innerSize}px; 
+          height: ${innerSize}px; 
           position: absolute; 
-          top: 3px; 
-          left: 3px; 
+          top: ${offset}px; 
+          left: ${offset}px; 
           background: white; 
           border-radius: 50%;
           display: flex;
@@ -117,9 +195,9 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string) =>
           overflow: hidden;
           z-index: 1;
         ">
-          <span style="color: ${finalColor}; font-weight: bold; font-size: 11px; z-index: 1;">${initials || "??"}</span>
-          ${imageUrl ? 
-            `<div style="
+          <span style="color: ${finalColor}; font-weight: bold; font-size: ${fontSize}px; z-index: 1;">${initials || "??"}</span>
+          ${imageUrl ?
+        `<div style="
               position: absolute;
               top: 0; left: 0;
               width: 100%; height: 100%;
@@ -128,7 +206,7 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string) =>
               background-position: center;
               z-index: 2;
             "></div>` : ""
-          }
+      }
         </div>
       </div>
     `;
@@ -136,10 +214,10 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string) =>
     return L.divIcon({
       className: "custom-marker-icon",
       html: html,
-      iconSize: [34, 34],
-      iconAnchor: [17, 34],
-      popupAnchor: [0, -34],
-      tooltipAnchor: [17, -17],
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size],
+      popupAnchor: [0, -size],
+      tooltipAnchor: [size / 2, -size / 2],
     });
   } catch (error) {
     console.error("Critical: Failed to create custom icon", error);
@@ -148,101 +226,264 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string) =>
 };
 
 // Extracted Marker component with enhanced safety and crash-proofing
-const LocationMarker = React.memo(({ 
-  loc, 
-  isContact, 
-  isCompany, 
-  isProject, 
-  zoom, 
-  handleGoToLocation
-}: { 
-  loc: any; 
-  isContact: boolean; 
-  isCompany: boolean; 
-  isProject: boolean; 
-  zoom: number; 
+const LocationMarker = React.memo(({
+  loc,
+  isContact,
+  isCompany,
+  isProject,
+  zoom,
+  handleGoToLocation,
+  activeMarkerId,
+  setActiveMarkerId,
+  activeCompany,
+  setActiveCompany
+}: {
+  loc: any;
+  isContact: boolean;
+  isCompany: boolean;
+  isProject: boolean;
+  zoom: number;
   handleGoToLocation: (item: any) => void;
+  activeMarkerId: string | null;
+  setActiveMarkerId: React.Dispatch<React.SetStateAction<string | null>>;
+  activeCompany: any | null;
+  setActiveCompany: (company: any | null) => void;
 }) => {
   const navigate = useNavigate();
 
   // 1. Position Validation
   const position: [number, number] = [loc?.lat, loc?.lng];
   if (
-    typeof position[0] !== "number" || 
-    typeof position[1] !== "number" || 
-    isNaN(position[0]) || 
+    typeof position[0] !== "number" ||
+    typeof position[1] !== "number" ||
+    isNaN(position[0]) ||
     isNaN(position[1])
   ) {
     return null;
   }
 
   // 2. Safe Data Extraction
-  const itemTitle = isContact 
-    ? (loc.item?.fullName || loc.item?.name) 
-    : isCompany 
-      ? (loc.item?.companyName || loc.item?.name) 
-      : loc.item?.title;
-  
+  const item = loc.item || loc;
+  const itemTitle =
+    item.name ||
+    item.companyName ||
+    item.subCompanyName ||
+    item.branchName ||
+    item.fullName ||
+    item.title ||
+    "Unnamed";
+
   const imageUrl = isContact ? loc.item?.profilePhoto : isCompany ? loc.item?.logo : undefined;
   const initials = useMemo(() => getInitials(itemTitle || ""), [itemTitle]);
-  
+
   // 3. Country-based Color Logic
   const markerColor = useMemo(() => {
-    if (!isProject) return "#e74c3c"; 
+    if (!isProject) return "#e74c3c";
     return getCountryColor(loc.country);
   }, [isProject, loc.country]);
 
-  // 4. Safe Icon handling
+  // Related state for visual highlighting
+  const isRelated = useMemo(() => {
+    if (!activeCompany) return false;
+    return (
+      item.id === activeCompany.id ||
+      item.mainCompanyId === activeCompany.id ||
+      item.companyId === activeCompany.id
+    );
+  }, [activeCompany, item]);
+
+  const isDimmed = activeCompany && !isRelated;
+
+  // 5. Location Error State (explicit submit — no auto-save)
+  // ⚠️ Must be declared BEFORE the icon memo so the icon reacts to live state
+  const [isError, setIsError] = useState<boolean>(
+    (loc.item?.isLocationIncorrect ?? false) as boolean
+  );
+  const [remark, setRemark] = useState<string>(
+    (loc.item?.locationRemark ?? "") as string
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConnection, setShowConnection] = useState(false);
+
+  // 4. Safe Icon handling — warning marker reacts to live isError state
   const icon = useMemo(() => {
+    if (isError) {
+      return L.divIcon({
+        className: "custom-warning-marker",
+        html: `
+          <div class="warning-wrapper" style="transform: scale(${isRelated ? 1.4 : 1}); opacity: ${isDimmed ? 0.4 : 1};">
+            <svg viewBox="0 0 24 24" class="warning-icon-svg">
+              <path fill="white" d="M1 21h22L12 2 1 21zm11-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+            </svg>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16],
+      });
+    }
     try {
-      const generatedIcon = createCustomIcon(initials, markerColor, imageUrl);
+      const generatedIcon = createCustomIcon(initials, markerColor, imageUrl, loc.entityType, isRelated, isDimmed as boolean);
       return generatedIcon;
     } catch (error) {
       return L.divIcon({ html: '<div style="background: #3498db; width: 20px; height: 20px; border-radius: 50%;"></div>' });
     }
-  }, [initials, markerColor, imageUrl]);
+  }, [initials, markerColor, imageUrl, isError, isRelated, isDimmed]);
+
+  const id = loc.id || loc.projectId || loc.item?.id;
+  const isActive = activeMarkerId === id;
+
+  const popupAddress = useMemo(() => {
+    const rawAddress = item.address || item.fullAddress || item.addressLine1;
+    if (rawAddress && rawAddress.trim() !== "") return rawAddress.trim();
+
+    const parts = [
+      item.locality || item.area,
+      item.city,
+      item.state,
+      item.country,
+      item.zipCode || item.postalCode
+    ].filter(p => p && typeof p === "string" && p.trim() !== "");
+
+    return parts.join(", ");
+  }, [item]);
+
+  // 4. Interaction Handlers
+  const eventHandlers = useMemo(() => ({
+    mouseover: () => setActiveMarkerId(id),
+    mouseout: () => setActiveMarkerId(null),
+    click: () => {
+      setActiveMarkerId(id);
+      // If it's a company, set it as the active hub for relationship visualization
+      if (loc.entityType === 'company') {
+        setActiveCompany(item);
+      }
+    },
+  }), [id, setActiveMarkerId, setActiveCompany, item, loc.entityType]);
 
   const handleNavigation = () => {
-    const id = loc.projectId || loc.id || loc.item?.id;
     if (!id) return;
-
     if (isProject) navigate(`/projects/${id}`);
     else if (isCompany) navigate(`/companies/${id}`);
     else if (isContact) navigate(`/contacts/${id}`);
   };
 
-  const popupAddress = useMemo(() => {
-    const item = loc.item || {};
-    const rawAddress = item.address || item.fullAddress;
-    if (rawAddress && rawAddress.trim() !== "") return rawAddress.trim();
+  // (state is declared above the icon memo — see line ~300)
 
-    const parts = [
-      item.locality,
-      item.city,
-      item.state,
-      item.country,
-      item.zipCode
-    ].filter(p => p && typeof p === "string" && p.trim() !== "");
+  // 6. Relationship Data (Sub-company / Branch connections)
+  const parent = loc.item?.mainCompany || loc.item?.company;
+  const parentName = parent?.companyName || "Unknown";
+  const parentLat = parent ? parseFloat(parent.latitude) : NaN;
+  const parentLng = parent ? parseFloat(parent.longitude) : NaN;
+  const hasParentCoords = !isNaN(parentLat) && !isNaN(parentLng);
 
-    return parts.join(", ");
-  }, [loc.item]);
+  const childLat = position[0];
+  const childLng = position[1];
+
+  const handleSubmitError = async () => {
+    const itemId = loc.item?.id || loc.id;
+    if (!itemId) return;
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        isLocationIncorrect: isError,
+        // Clear remark when error is unchecked
+        locationRemark: isError ? (remark || "") : "",
+      };
+
+      // Determine entity type for the unified API
+      let type = 'company';
+      if (isProject) {
+        type = 'project';
+      } else if (isContact) {
+        type = 'contact';
+      } else if (loc.entityType === 'sub-company' || loc.entityType === 'subCompany') {
+        type = 'subCompany';
+      } else if (loc.entityType === 'branch') {
+        type = 'branch';
+      } else {
+        type = 'company';
+      }
+
+      await flagLocationError(type, itemId, payload);
+
+      // Persist state into item object so re-mounts don't revert
+      if (loc.item) {
+        loc.item.isLocationIncorrect = isError;
+        loc.item.locationRemark = isError ? remark : "";
+      }
+      // If error was cleared, also clear local remark state
+      if (!isError) setRemark("");
+    } catch (err) {
+      console.error("Failed to save location error", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Auto-saves false immediately when user unchecks the error toggle
+  const handleClearError = async () => {
+    const itemId = loc.item?.id || loc.id;
+    if (!itemId) return;
+    setIsError(false);
+    setRemark("");
+    setIsSubmitting(true);
+    try {
+      let type = 'company';
+      if (isProject) type = 'project';
+      else if (isContact) type = 'contact';
+      else if (loc.entityType === 'sub-company' || loc.entityType === 'subCompany') type = 'subCompany';
+      else if (loc.entityType === 'branch') type = 'branch';
+
+      await flagLocationError(type, itemId, { isLocationIncorrect: false, locationRemark: "" });
+
+      if (loc.item) {
+        loc.item.isLocationIncorrect = false;
+        loc.item.locationRemark = "";
+      }
+    } catch (err) {
+      // Revert UI if save fails
+      setIsError(true);
+      console.error("Failed to clear location error", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <Marker position={position} icon={icon}>
-      {zoom >= 12 && (
+    <Marker
+      position={position}
+      icon={icon}
+      eventHandlers={eventHandlers}
+      zIndexOffset={isActive ? 1000 : 0}
+    >
+      {showConnection && hasParentCoords && (
+        <Polyline
+          positions={[
+            [childLat, childLng],
+            [parentLat, parentLng],
+          ]}
+          pathOptions={{
+            color: "#2563eb",
+            weight: 2,
+            dashArray: "6, 6",
+          }}
+        />
+      )}
+      {isActive && (
         <Tooltip
           permanent
           direction="top"
           offset={[0, -10]}
-          className="custom-marker-label"
+          className={`custom-marker-label ${isActive ? 'active' : ''}`}
         >
           {/* Visual Debug: Show country in tooltip */}
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             <span style={{ fontWeight: 700 }}>
-              {isContact ? (loc.item?.fullName || loc.item?.name || "Contact") : isCompany ? (loc.item?.companyName || loc.item?.name || "Company") : (loc.item?.title || "Project")}
+              {itemTitle || "Unknown"}
             </span>
-            <span style={{ fontSize: "10px", color: "#666" }}>
-              {loc.country || "NO COUNTRY"}
+            <span style={{ fontSize: "10px", color: "#666", textTransform: "capitalize" }}>
+              {loc.entityType || loc.country || "Location"}
             </span>
           </div>
         </Tooltip>
@@ -250,20 +491,27 @@ const LocationMarker = React.memo(({
       <Popup maxWidth={300} minWidth={280}>
         {isCompany ? (
           /* Specialized Company UI */
-          <div className="company-popup">
+          <div className={`company-popup${isError ? " popup-error" : ""}`}>
             <div className="company-header">
               <div className="company-avatar">
-                {(loc.item?.companyName || loc.item?.name || "C").charAt(0).toUpperCase()}
+                {(loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "C").charAt(0).toUpperCase()}
               </div>
               <div className="company-title-block">
                 <h3 className="company-name" onClick={handleNavigation}>
-                  {loc.item?.companyName || loc.item?.name || "No Company Name"}
+                  {loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName || "No Name"}
                 </h3>
-                <span className="company-type">Company</span>
+                <span className="company-type">
+                  {loc.entityType === 'branch' ? 'Branch' : loc.entityType === 'sub-company' ? 'Sub Company' : 'Company'}
+                </span>
               </div>
             </div>
 
             <div className="company-body">
+              {/* Saved remark (read-only display) */}
+              {isError && remark && (
+                <div className="error-remark">⚠ {remark}</div>
+              )}
+
               {loc.item?.email && (
                 <div className="company-row">
                   <MailIcon style={{ fontSize: "14px", color: "#64748b" }} />
@@ -271,14 +519,70 @@ const LocationMarker = React.memo(({
                 </div>
               )}
 
-              <div className="company-row">
-                <MapPinIcon style={{ fontSize: "16px", color: "#64748b" }} />
-                <span>
-                  {popupAddress && popupAddress.trim() !== "" 
-                    ? popupAddress 
-                    : "Address not available"}
-                </span>
+                <div className="company-row">
+                  <MapPinIcon style={{ fontSize: "16px", color: "#64748b" }} />
+                  <span>
+                    {popupAddress && popupAddress.trim() !== ""
+                      ? popupAddress
+                      : "Address not available"}
+                  </span>
+                </div>
+
+                {/* Relationship Visualization UI */}
+                {(loc.entityType === 'sub-company' || loc.entityType === 'branch') && parent && (
+                  <div className="relation-info">
+                    <div className="relation-text">
+                      {loc.entityType === 'sub-company' ? 'Sub-company of: ' : 'Branch of: '}
+                      <span className="relation-name">{parentName}</span>
+                    </div>
+                    {hasParentCoords && (
+                      <label className="relation-toggle">
+                        <input
+                          type="checkbox"
+                          checked={showConnection}
+                          onChange={() => setShowConnection(!showConnection)}
+                        />
+                        Show Main Company
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
+
+            {/* Location Error Section */}
+            <div className="error-section">
+              <label className="error-toggle">
+                <input
+                  type="checkbox"
+                  checked={isError}
+                  onChange={() => setIsError(!isError)}
+                  style={{ accentColor: "#ef4444", cursor: "pointer" }}
+                />
+                <span style={{ color: isError ? "#dc2626" : "#64748b" }}>⚠ Location Error</span>
+              </label>
+              {isError && (
+                <textarea
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  placeholder="Describe the issue (optional)"
+                  rows={2}
+                  style={{
+                    width: "100%", marginTop: "6px",
+                    fontSize: "11px", border: "1px solid #fca5a5",
+                    borderRadius: "6px", padding: "4px 8px",
+                    resize: "none", outline: "none",
+                    color: "#374151", background: "white",
+                    boxSizing: "border-box",
+                  }}
+                />
+              )}
+              <button
+                className="submit-btn"
+                disabled={isSubmitting}
+                onClick={handleSubmitError}
+              >
+                {isSubmitting ? "Saving..." : "Submit"}
+              </button>
             </div>
 
             <button className="go-button" onClick={() => handleGoToLocation(loc.item)}>
@@ -288,17 +592,22 @@ const LocationMarker = React.memo(({
           </div>
         ) : (
           /* Unified Layout for Projects and Contacts */
-          <div className="popup-card">
+          <div className={`popup-card${isError ? " popup-error" : ""}`}>
             <div className="popup-header">
               <h3 className="popup-title" onClick={handleNavigation}>
-                {isContact 
-                  ? (loc.item?.fullName || loc.item?.name || "No Contact Name") 
+                {isContact
+                  ? (loc.item?.fullName || loc.item?.name || "No Contact Name")
                   : (loc.item?.title || "No Project Title")
                 }
               </h3>
             </div>
 
             <div className="popup-body">
+              {/* Saved remark (read-only display) */}
+              {isError && remark && (
+                <div className="error-remark">⚠ {remark}</div>
+              )}
+
               {/* Status Row */}
               {loc.item?.status?.name && (
                 <div className="status-row">
@@ -318,7 +627,7 @@ const LocationMarker = React.memo(({
                     </span>
                   </div>
                 )}
-                
+
                 {isProject && loc.item?.company?.companyName && (
                   <div className="info-row">
                     <CompanyIcon style={{ fontSize: "14px", color: "#64748b" }} />
@@ -352,11 +661,52 @@ const LocationMarker = React.memo(({
               <div className="address-row">
                 <MapPinIcon style={{ fontSize: "16px" }} className="address-icon" />
                 <span>
-                  {popupAddress && popupAddress.trim() !== "" 
-                    ? popupAddress 
+                  {popupAddress && popupAddress.trim() !== ""
+                    ? popupAddress
                     : "Address not available"}
                 </span>
               </div>
+            </div>
+
+            {/* Location Error Section */}
+            <div className="error-section">
+              <label className="error-toggle">
+                <input
+                  type="checkbox"
+                  checked={isError}
+                  onChange={() => isError ? handleClearError() : setIsError(true)}
+                  disabled={isSubmitting}
+                  style={{ accentColor: "#ef4444", cursor: "pointer" }}
+                />
+                <span style={{ color: isError ? "#dc2626" : "#64748b" }}>
+                  {isSubmitting ? "Saving..." : "⚠ Location Error"}
+                </span>
+              </label>
+              {isError && (
+                <textarea
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  placeholder="Describe the issue (optional)"
+                  rows={2}
+                  style={{
+                    width: "100%", marginTop: "6px",
+                    fontSize: "11px", border: "1px solid #fca5a5",
+                    borderRadius: "6px", padding: "4px 8px",
+                    resize: "none", outline: "none",
+                    color: "#374151", background: "white",
+                    boxSizing: "border-box",
+                  }}
+                />
+              )}
+              {isError && (
+                <button
+                  className="submit-btn"
+                  disabled={isSubmitting}
+                  onClick={handleSubmitError}
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </button>
+              )}
             </div>
 
             <button className="go-button" onClick={() => handleGoToLocation(loc.item)}>
@@ -376,28 +726,50 @@ export default function Maps({
   companyData,
   contactData,
 }: {
-  points: { lat: number; lng: number; id?: string; projectId?: string }[];
+  points: { lat: number; lng: number; id?: string; projectId?: string; entityType?: 'company' | 'sub-company' | 'branch' }[];
   projectData?: any[];
   companyData?: any[];
   contactData?: any[];
 }) {
+  const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [zoom, setZoom] = useState(4);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isWorldFilter, setIsWorldFilter] = useState(false);
+  const [activeCompany, setActiveCompany] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error("Location error:", error);
+      },
+      { enableHighAccuracy: true }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   const [locations, setLocations] = useState<
-    { 
-      lat: number; 
-      lng: number; 
-      name?: string; 
-      country?: string; 
+    {
+      lat: number;
+      lng: number;
+      name?: string;
+      country?: string;
       state?: string;
       city?: string;
-      item?: any; 
-      id?: string; 
-      projectId?: string 
+      item?: any;
+      id?: string;
+      projectId?: string
     }[]
   >([]);
 
@@ -406,7 +778,7 @@ export default function Maps({
   const isProject = !companyData && !contactData;
   const currentData = contactData || companyData || projectData || [];
   const displayTitle = isContact ? "Contact by Location" : isCompany ? "Company by Location" : "Project by Location";
-  
+
   const worldCount = useMemo(() => {
     return locations.filter(loc => loc.country !== "India" && loc.country !== "Unknown").length;
   }, [locations]);
@@ -414,7 +786,7 @@ export default function Maps({
   // Hierarchical Filter Data
   const filterOptions = useMemo(() => {
     if (!isProject) return { countries: {}, states: {}, cities: {} };
-    
+
     const countries: Record<string, number> = {};
     const states: Record<string, number> = {};
     const cities: Record<string, number> = {};
@@ -444,10 +816,10 @@ export default function Maps({
     return locations.filter(loc => {
       // World Filter: Exclude India
       if (isWorldFilter && loc.country === "India") return false;
-      
+
       // If World Filter is NOT active, use standard country filter
       if (!isWorldFilter && selectedCountry && loc.country !== selectedCountry) return false;
-      
+
       if (selectedState && loc.state !== selectedState) return false;
       if (selectedCity && loc.city !== selectedCity) return false;
       return true;
@@ -465,26 +837,33 @@ export default function Maps({
     let isCancelled = false;
 
     // 1. Map initial points (DIRECT DATA SOURCE - NO API)
+    const coordCounts: Record<string, number> = {};
     const validPoints = points
       .filter(p => p && typeof p.lat === "number" && typeof p.lng === "number" && !isNaN(p.lat) && !isNaN(p.lng))
       .map((point) => {
+        // ✅ FIX MATCHING LOGIC: Use unique identifier
         const matchedItem = currentData.find((item) => {
           if (!item) return false;
-          if (point.id && item.id === point.id) return true;
-          if (point.projectId && item.id === point.projectId) return true;
-          const itemLat = parseFloat(item.latitude);
-          const itemLng = parseFloat(item.longitude);
-          return Math.abs(itemLat - point.lat) < 0.001 && Math.abs(itemLng - point.lng) < 0.001;
+          return item.id === point.id || item.id === point.projectId;
         });
 
-        // Use structured data from form/database directly
+        // ✅ HANDLE SAME LOCATION VISUALLY: Apply slight offset for overlapping items
+        const coordKey = `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`;
+        const count = coordCounts[coordKey] || 0;
+        coordCounts[coordKey] = count + 1;
+
+        const offset = count * 0.00005;
+
         return {
           ...point,
+          lat: point.lat + offset,
+          lng: point.lng + offset,
           country: matchedItem?.country?.trim() || "Unknown",
           state: matchedItem?.state?.trim() || null,
           city: matchedItem?.city?.trim() || null,
-          name: matchedItem?.title || "Unknown Location",
-          item: matchedItem || {},
+          name: matchedItem?.name || matchedItem?.companyName || matchedItem?.subCompanyName || matchedItem?.branchName || matchedItem?.title || "Unknown Location",
+          entityType: point.entityType,
+          item: matchedItem || point, // ✅ DO NOT MERGE: Use matchedItem or fallback to point
         };
       });
 
@@ -493,28 +872,20 @@ export default function Maps({
   }, [points, projectData, companyData, contactData]);
 
   const handleGoToLocation = useCallback((item: any) => {
-    if (!item || !item.latitude || !item.longitude) return;
-    const destLat = item.latitude;
-    const destLng = item.longitude;
+    const data = item || {};
+    const lat = parseFloat(data.latitude);
+    const lng = parseFloat(data.longitude);
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude;
-          const userLng = position.coords.longitude;
-          const url = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${destLat},${destLng}`;
-          window.open(url, "_blank");
-        },
-        () => {
-          const url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
-          window.open(url, "_blank");
-        }
-      );
-    } else {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
-      window.open(url, "_blank");
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    let url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    if (userLocation) {
+      url += `&origin=${userLocation.lat},${userLocation.lng}`;
     }
-  }, []);
+
+    window.open(url, "_blank");
+  }, [userLocation]);
 
   return (
     <div style={{ height: "100vh", width: "100%", fontFamily: "Inter, sans-serif", position: "relative" }}>
@@ -522,16 +893,55 @@ export default function Maps({
         .custom-marker-label {
           background-color: white !important;
           border: none !important;
-          border-radius: 6px !important;
-          padding: 4px 8px !important;
-          font-size: 12px !important;
-          color: #2c3e50 !important;
+          border-radius: 8px !important;
+          padding: 6px 12px !important;
+          font-size: 13px !important;
+          color: #1e293b !important;
           font-weight: 600 !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.12) !important;
           white-space: nowrap;
+          border: 1px solid rgba(0,0,0,0.05) !important;
+        }
+        .custom-marker-label.active {
+          z-index: 2000 !important;
         }
         .leaflet-tooltip-top:before { display: none !important; }
-        .custom-marker-icon { background: none !important; border: none !important; }
+        .custom-marker-icon { 
+          background: none !important; 
+          border: none !important;
+        }
+
+        .user-location-marker {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000 !important;
+        }
+
+        .user-location-marker .dot {
+          width: 12px;
+          height: 12px;
+          background: #2563eb;
+          border-radius: 50%;
+          box-shadow: 
+            0 0 0 4px rgba(37, 99, 235, 0.2),
+            0 0 15px rgba(37, 99, 235, 0.6);
+          position: relative;
+        }
+
+        .user-location-marker .dot::after {
+          content: '';
+          position: absolute;
+          top: -4px; left: -4px; right: -4px; bottom: -4px;
+          border-radius: 50%;
+          border: 2px solid #2563eb;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(3); opacity: 0; }
+        }
         
         /* Floating Pill UI */
         .floating-filter-bar {
@@ -555,6 +965,15 @@ export default function Maps({
           max-width: 90vw;
           overflow-x: auto;
           scrollbar-width: none;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .floating-filter-bar:hover {
+          box-shadow: 
+            0 12px 48px rgba(0, 0, 0, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.5);
+          transform: translateX(-50%) translateY(-2px);
+          border: 1px solid rgba(255, 255, 255, 0.5);
+          background: rgba(255, 255, 255, 0.25);
         }
         .floating-filter-bar::-webkit-scrollbar { display: none; }
         
@@ -579,7 +998,11 @@ export default function Maps({
           -webkit-appearance: none;
           -moz-appearance: none;
         }
-        .pill-select:hover { background-color: rgba(255, 255, 255, 0.85); }
+        .pill-select:hover { 
+          background-color: rgba(255, 255, 255, 0.95); 
+          transform: scale(1.03);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
         .pill-select:focus { box-shadow: 0 0 0 2px rgba(44, 123, 229, 0.2); }
         .pill-select.active { 
           background-color: #2c7be5; 
@@ -600,7 +1023,11 @@ export default function Maps({
           transition: all 0.2s ease;
           white-space: nowrap;
         }
-        .pill-button:hover { background: rgba(255, 255, 255, 0.85); }
+        .pill-button:hover { 
+          background: rgba(255, 255, 255, 0.95); 
+          transform: scale(1.03);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
         .pill-button.active { background: #2c7be5; color: white; }
 
         .total-badge {
@@ -612,6 +1039,11 @@ export default function Maps({
           font-weight: 600;
           white-space: nowrap;
           box-shadow: 0 4px 12px rgba(44, 123, 229, 0.3);
+          transition: all 0.2s ease;
+        }
+        .total-badge:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 16px rgba(44, 123, 229, 0.4);
         }
 
         /* Compact Card Popup UI */
@@ -750,8 +1182,74 @@ export default function Maps({
           color: #475569;
           font-size: 13px;
         }
+
+        /* Location Error Feature */
+        .warning-marker { background: none !important; border: none !important; }
+        .warning-pin {
+          width: 30px;
+          height: 30px;
+          background: #ef4444;
+          color: white;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+        }
+        .warning-pin::after {
+          content: '\u26a0';
+          transform: rotate(45deg);
+          display: block;
+        }
+        .popup-error {
+          border: 1.5px solid #ef4444 !important;
+          background: #fff5f5 !important;
+          border-radius: 12px;
+        }
+        .error-remark {
+          font-size: 12px;
+          color: #991b1b;
+          background: #fee2e2;
+          border-radius: 6px;
+          padding: 4px 8px;
+          margin-bottom: 6px;
+          font-weight: 500;
+        }
+        .error-section {
+          margin-top: 10px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          transition: all 0.2s ease;
+        }
+        .error-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+        }
+        .submit-btn {
+          margin-top: 6px;
+          background: #ef4444;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          width: 100%;
+          transition: background 0.2s;
+        }
+        .submit-btn:hover { background: #dc2626; }
+        .submit-btn:disabled { background: #fca5a5; cursor: not-allowed; }
       `}</style>
-      
+
       {/* Floating Google Maps-Style Filter Bar */}
       {isProject && (
         <div className="floating-filter-bar">
@@ -770,10 +1268,10 @@ export default function Maps({
           <div className="total-badge">
             {filteredLocations.length} Projects
           </div>
-          
+
           {/* Country Dropdown */}
           {!isWorldFilter && (
-            <select 
+            <select
               className={`pill-select ${selectedCountry ? 'active' : ''}`}
               value={selectedCountry || ""}
               onChange={(e) => {
@@ -791,7 +1289,7 @@ export default function Maps({
 
           {/* State Dropdown (Hierarchical) */}
           {selectedCountry && (
-            <select 
+            <select
               className={`pill-select ${selectedState ? 'active' : ''}`}
               value={selectedState || ""}
               onChange={(e) => {
@@ -808,7 +1306,7 @@ export default function Maps({
 
           {/* City Dropdown (Hierarchical) */}
           {selectedState && (
-            <select 
+            <select
               className={`pill-select ${selectedCity ? 'active' : ''}`}
               value={selectedCity || ""}
               onChange={(e) => setSelectedCity(e.target.value || null)}
@@ -821,7 +1319,7 @@ export default function Maps({
           )}
 
           {(selectedCountry || selectedState || selectedCity || isWorldFilter) && (
-            <button 
+            <button
               onClick={() => {
                 setSelectedCountry(null);
                 setSelectedState(null);
@@ -854,15 +1352,73 @@ export default function Maps({
           attribution="&copy; OpenStreetMap &copy; CARTO"
         />
         <ZoomHandler setZoom={setZoom} />
+        <MapCenterHandler userLocation={userLocation} />
+        <MapClickHandler onClick={() => setActiveCompany(null)} />
+
+        {/* Relationship Arcs (Curved Polylines) */}
+        {activeCompany && (
+          <>
+            {locations
+              .filter(loc => loc.item?.mainCompanyId === activeCompany.id)
+              .map((sc, idx) => (
+                <Polyline
+                  key={`arc-sub-${sc.id}-${idx}`}
+                  positions={createCurve(
+                    [parseFloat(activeCompany.latitude), parseFloat(activeCompany.longitude)],
+                    [sc.lat, sc.lng]
+                  )}
+                  pathOptions={{
+                    color: "#2563eb",
+                    weight: 3,
+                    opacity: 0.9,
+                    lineCap: "round",
+                    dashArray: "5, 8",
+                  }}
+                  pane="shadowPane"
+                />
+              ))}
+
+            {locations
+              .filter(loc => loc.item?.companyId === activeCompany.id)
+              .map((br, idx) => (
+                <Polyline
+                  key={`arc-branch-${br.id}-${idx}`}
+                  positions={createCurve(
+                    [parseFloat(activeCompany.latitude), parseFloat(activeCompany.longitude)],
+                    [br.lat, br.lng]
+                  )}
+                  pathOptions={{
+                    color: "#2563eb",
+                    weight: 3,
+                    opacity: 0.9,
+                    lineCap: "round",
+                    dashArray: "5, 8",
+                  }}
+                  pane="shadowPane"
+                />
+              ))}
+          </>
+        )}
+
+        {userLocation && (
+          <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
+            <Popup>You are here</Popup>
+          </Marker>
+        )}
+
         {filteredLocations.map((loc, idx) => (
-          <LocationMarker 
-            key={loc.id || loc.projectId || `marker-${loc.lat}-${loc.lng}-${idx}`}
+          <LocationMarker
+            key={`${loc.id || loc.projectId || 'marker'}-${idx}`}
             loc={loc}
             isContact={isContact}
             isCompany={isCompany}
             isProject={isProject}
             zoom={zoom}
             handleGoToLocation={handleGoToLocation}
+            activeMarkerId={activeMarkerId}
+            setActiveMarkerId={setActiveMarkerId}
+            activeCompany={activeCompany}
+            setActiveCompany={setActiveCompany}
           />
         ))}
       </MapContainer>

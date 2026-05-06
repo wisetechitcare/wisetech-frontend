@@ -1,5 +1,5 @@
 import axios from "axios";
-import { CLIENT_COMPANIES, LEAD_PROJECT_COMPANY, COMPANY_SERVICES, COMPANY } from "@constants/api-endpoint";
+import { CLIENT_COMPANIES, LEAD_PROJECT_COMPANY, COMPANY_SERVICES, COMPANY, LOCATION } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 interface CompanyType {
@@ -531,5 +531,16 @@ export const deleteCompanyService = async (serviceId: string) => {
         return data;
     } catch (error) {
         throw error;
+    }
+}
+
+// Flag Location Error (Unified)
+export const flagLocationError = async (type: string, id: string, payload: { isLocationIncorrect: boolean, locationRemark: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LOCATION.FLAG_LOCATION.replace(':type', type).replace(':id', id)}`;
+        const { data } = await axios.patch(endpoint, payload);
+        return data;
+    } catch (err) {
+        throw err;
     }
 }
