@@ -230,3 +230,33 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
         throw err;
     }
 }
+
+export const exportLeadDocx = async (leadId: string, editedData: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/docx`;
+        const { data } = await axios.post(endpoint, {
+            lead_id: leadId,
+            edited_data: editedData,
+            templateName: editedData.templateName // Pass selected template
+        }, { responseType: 'blob' });
+        return data;
+    } catch (error) {
+        console.error('Error exporting lead as DOCX:', error);
+        throw error;
+    }
+}
+
+export const exportLeadPdf = async (leadId: string, editedData: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/pdf`;
+        const { data } = await axios.post(endpoint, {
+            lead_id: leadId,
+            edited_data: editedData,
+            templateName: editedData.templateName // Pass selected template
+        }, { responseType: 'blob' });
+        return data;
+    } catch (error) {
+        console.error('Error exporting lead as PDF:', error);
+        throw error;
+    }
+}

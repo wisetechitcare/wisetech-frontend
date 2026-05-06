@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState, useRef, Fragment, useMemo } fr
 import { Formik, Form as FormikForm, Field, FieldArray, useFormikContext } from "formik";
 import HighlightErrors from "@app/modules/errors/components/HighlightErrors";
 import * as Yup from "yup";
+import dayjs from 'dayjs';
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import TextAreaInput from '@app/modules/common/inputs/TextAreaInput';
@@ -20,7 +21,7 @@ import { convertFiscalYearToYearFormat } from '@app/modules/common/components/Pr
 import PrefixInlineEdit from '@app/modules/common/components/PrefixInlineEdit';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import DateInput from '@app/modules/common/inputs/DateInput';
-import { createLead, getLeadById, updateLead } from '@services/leads';
+import { createLead, getLeadById, updateLead, exportLeadDocx, exportLeadPdf } from '@services/leads';
 import { uploadUserAsset } from '@services/uploader';
 import { customConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
 import ProjectConfigForm from '@pages/employee/projects/configure/components/ProjectConfigForm';
@@ -227,6 +228,114 @@ const LeadFormModal = ({
   const [showDirectSourceModal, setShowDirectSourceModal] = useState(false);
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleExport = async (type: 'docx' | 'pdf', values: any) => {
+    if (!values.id) return;
+    setIsGenerating(true);
+    try {
+      // Resolve Company Names for File Location
+      const selectedCompanyType = allCompanyTypes.find(t => String(t.id) == String(values.fileLocationCompanyType))?.name || '';
+      const selectedCompany = companies.find(c => String(c.id) == String(values.fileLocationCompany))?.companyName || '';
+
+      // Resolve Address Names (picking from first row)
+      const firstAddr = values.addresses?.[0] || {};
+      
+      // Use selections from Formik state first (if user interacted)
+      const stateSelection = values.addressStateSelections?.[0];
+      const citySelection = values.addressCitySelections?.[0];
+      
+      const resolvedCountry = countries.find(c => String(c.id) == String(firstAddr.country))?.name || firstAddr.country || '';
+      
+      // Try to resolve State and City from selection, then from the full list, then from the options array in Formik values
+      const stateOptions = values.addressStatesOptions?.[0] || [];
+      const cityOptions = values.addressCitiesOptions?.[0] || [];
+      
+      const resolvedState = stateSelection?.name || 
+                           states.find(s => String(s.id) == String(firstAddr.state))?.name || 
+                           stateOptions.find((s: any) => String(s.id) == String(firstAddr.state))?.name || 
+                           firstAddr.state || '';
+                           
+      const resolvedCity = citySelection?.name || 
+                          cities.find(c => String(c.id) == String(firstAddr.city))?.name || 
+                          cityOptions.find((c: any) => String(c.id) == String(firstAddr.city))?.name || 
+                          firstAddr.city || '';
+
+      // Resolve Multiple Services and Categories
+      const resolvedServices = (values.serviceIds || []).map((id: string) => 
+        services.find(s => String(s.id) == String(id))?.name || id
+      );
+      const resolvedCategories = (values.categoryIds || []).map((id: string) => 
+        categories.find(c => String(c.id) == String(id))?.name || id
+      );
+
+      const exportData = {
+        ...values,
+        fileLocationCompanyType: selectedCompanyType || values.fileLocationCompanyType,
+        fileLocationCompany: selectedCompany || values.fileLocationCompany,
+        // Override service/category lists with names
+        service_names: resolvedServices,
+        category_names: resolvedCategories,
+        // Override address fields with names
+        addresses: values.addresses?.map((addr: any, index: number) => 
+          index === 0 ? {
+            ...addr,
+            country: resolvedCountry,
+            state: resolvedState,
+            city: resolvedCity
+          } : addr
+        ),
+        address: values.addresses?.[0]?.projectAddress || values.projectAddress || '',
+        // Use selected template or default to demo.docx
+        templateName: values.exportTemplate || 'demo.docx'
+      };
+
+      const data = type === 'docx' 
+        ? await exportLeadDocx(values.id, exportData)
+        : await exportLeadPdf(values.id, exportData);
+      
+      const blob = new Blob([data], { 
+        type: type === 'docx' 
+          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+          : 'application/pdf' 
+      });
+
+      // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: `Lead_${values.projectName || values.id}.${type}`,
+            types: [{
+              description: type === 'docx' ? 'Word Document' : 'PDF Document',
+              accept: { [blob.type]: [`.${type}`] },
+            }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          console.log('✅ File saved successfully via Save Picker');
+          return; // Exit if successful
+        } catch (err: any) {
+          if (err.name === 'AbortError') return; // User cancelled
+          console.warn('Save Picker failed, falling back to standard download:', err);
+        }
+      }
+
+      // FALLBACK: Standard download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Lead_${values.projectName || values.id}.${type}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Error exporting ${type}:`, error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   const employeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
   const [prefix, setPrefix] = useState('');
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
@@ -532,6 +641,8 @@ const LeadFormModal = ({
         otherPoint2Description: '',
         otherPoint3Heading: '',
         otherPoint3Description: '',
+        exportTemplate: 'demo.docx', // Default template
+        revision_number: '01',
 
         // additional details
         // Additional fields for web-dev type
@@ -817,6 +928,9 @@ const LeadFormModal = ({
       })(),
 
       // Lead details
+      revision_number: leadData.revisionCount !== undefined 
+        ? String(leadData.revisionCount).padStart(2, '0') 
+        : '01',
       // Fixed: Respect initialFormData.leadInquiryDate if provided, then leadData.inquiryDate, then default to today
       leadInquiryDate: initialFormData?.leadInquiryDate ||
         (leadData.inquiryDate ? new Date(leadData.inquiryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
@@ -4405,19 +4519,143 @@ const LeadFormModal = ({
                           </Box>
                         )}
                       </div>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 2, mt: 3, mb: 2 }}>
+
+                      {/* --- PREMIUM DOCUMENT GENERATION SECTION (MATCHING DEMO) --- */}
+                      {isEditMode && (
+                        <div className="mt-10 mb-5 p-6 rounded-xl shadow-sm border border-gray-100 bg-white" style={{ backgroundColor: '#ffffff' }}>
+                          <h3 className="text-xl font-bold mb-6 flex items-center gap-3" style={{ color: '#2B4C7E' }}>
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm" style={{ backgroundColor: '#2B4C7E' }}>
+                              <i className="bi bi-file-earmark-word"></i>
+                            </span>
+                            Document Generation System
+                          </h3>
+
+                          <div className="row g-6">
+                            {/* Left Side: Controls */}
+                            <div className="col-lg-7 border-end pe-lg-10">
+                              <div className="mb-8">
+                                <label className="form-label fw-bold mb-3" style={{ color: '#6B6B6B' }}>
+                                  1. Configure Version
+                                </label>
+                                <div className="d-flex align-items-center gap-4 p-4 rounded-lg bg-light">
+                                  <div className="flex-grow-1">
+                                    <div className="row g-5">
+                                      {/* Template Selection */}
+                                      <div className="col-md-6">
+                                        <label className="form-label fw-bold text-gray-700">1. Select Template</label>
+                                        <select 
+                                          className="form-select form-select-solid"
+                                          value="demo.docx"
+                                          disabled
+                                          onChange={(e) => setFieldValue('exportTemplate', e.target.value)}
+                                        >
+                                          <option value="demo.docx">Demo Template (Standard)</option>
+                                        </select>
+                                        <div className="form-text text-muted">Choose the Word design for your export</div>
+                                      </div>
+
+                                      {/* Revision Number */}
+                                      <div className="col-md-6">
+                                        <label className="form-label fw-bold text-gray-700">2. Revision Number</label>
+                                        <input 
+                                          type="text" 
+                                          className="form-control form-control-solid" 
+                                          placeholder="e.g., 01, R1"
+                                          value={values.revision_number || '01'}
+                                          onChange={(e) => setFieldValue('revision_number', e.target.value)}
+                                        />
+                                        <div className="form-text text-muted">This will appear as {"{{REVISION_NO}}"}</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex-grow-1">
+                                    <span className="text-muted d-block mb-1 fs-8">Generation Date</span>
+                                    <input 
+                                      type="text" 
+                                      className="form-control form-control-solid text-muted" 
+                                      disabled 
+                                      value={dayjs().format('DD MMM, YYYY')}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="form-label fw-bold mb-3" style={{ color: '#6B6B6B' }}>
+                                  2. Select Export Format
+                                </label>
+                                <div className="d-flex gap-4">
+                                  <button
+                                    type="button"
+                                    disabled={isGenerating}
+                                    onClick={() => handleExport('docx', values)}
+                                    className="btn btn-primary flex-grow-1 d-flex align-items-center justify-center gap-2 py-4 shadow-sm"
+                                    style={{ backgroundColor: '#2B4C7E', border: 'none' }}
+                                  >
+                                    {isGenerating ? (
+                                      <span className="spinner-border spinner-border-sm" role="status"></span>
+                                    ) : (
+                                      <><i className="bi bi-file-earmark-word fs-4"></i> Generate DOCX</>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isGenerating}
+                                    onClick={() => handleExport('pdf', values)}
+                                    className="btn btn-danger flex-grow-1 d-flex align-items-center justify-center gap-2 py-4 shadow-sm"
+                                    style={{ backgroundColor: '#B53A3A', border: 'none' }}
+                                  >
+                                    {isGenerating ? (
+                                      <span className="spinner-border spinner-border-sm" role="status"></span>
+                                    ) : (
+                                      <><i className="bi bi-file-earmark-pdf fs-4"></i> Generate PDF</>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Right Side: Instructions */}
+                            <div className="col-lg-5 ps-lg-10">
+                              <div className="p-5 rounded-lg border-start border-4 h-100" style={{ borderColor: '#2B4C7E', backgroundColor: '#F8FAFC' }}>
+                                <h4 className="text-sm font-bold mb-4" style={{ color: '#2B4C7E' }}>📋 INSTRUCTIONS</h4>
+                                <ul className="list-unstyled space-y-3 fs-8 text-gray-700">
+                                  <li className="d-flex gap-2">
+                                    <span className="fw-bold" style={{ color: '#B53A3A' }}>1.</span>
+                                    <span>Verify all lead details in the form above are correct.</span>
+                                  </li>
+                                  <li className="d-flex gap-2">
+                                    <span className="fw-bold" style={{ color: '#B53A3A' }}>2.</span>
+                                    <span>Set the revision number for this specific export.</span>
+                                  </li>
+                                  <li className="d-flex gap-2">
+                                    <span className="fw-bold" style={{ color: '#B53A3A' }}>3.</span>
+                                    <span>Click the format button to download your document.</span>
+                                  </li>
+                                </ul>
+                                <div className="mt-8 pt-5 border-top">
+                                  <img src="/src/assets/wisetech.png" alt="Branding" className="h-30px opacity-50" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 2, mt: 5, mb: 2 }}>
                         <Button
                           type="submit"
                           variant="primary"
                           disabled={isSubmitting || !hasDefaultStatus()}
                           style={{
                             opacity: (!hasDefaultStatus()) ? 0.6 : 1,
-                            cursor: (!hasDefaultStatus()) ? 'not-allowed' : 'pointer'
+                            cursor: (!hasDefaultStatus()) ? 'not-allowed' : 'pointer',
+                            minWidth: '120px'
                           }}
                         >
                           {isSubmitting
                             ? (isEditMode ? 'Updating...' : 'Submitting...')
-                            : (isEditMode ? 'Update' : 'Submit')
+                            : (isEditMode ? 'Save Lead' : 'Create Lead')
                           }
                         </Button>
                       </Box>

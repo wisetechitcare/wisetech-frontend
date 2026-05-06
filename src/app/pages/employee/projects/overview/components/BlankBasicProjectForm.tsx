@@ -22,6 +22,8 @@ import {
   getProjectById,
   getAllProjectStatuses,
   getAllTeams,
+  exportProjectDocx,
+  exportProjectPdf
 } from "@services/projects";
 import {
   getAllClientCompanies,
@@ -139,6 +141,47 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
   const [subCompanies, setSubCompanies] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleExport = async (type: 'docx' | 'pdf', values: any) => {
+    if (!editingProjectId) return;
+    setIsGenerating(true);
+    try {
+      // Resolve client name from the companies list using the ID in values
+      const firstCompanyId = values.companies?.[0]?.company || '';
+      const clientName = companies.find(c => c.id === firstCompanyId)?.companyName || 'N/A';
+
+      // Map project form values to the format expected by the export service
+      const exportData = {
+        project_id: editingProjectId,
+        project_title: values.title || '',
+        client_name: clientName,
+        start_date: values.startDate || '',
+        end_date: values.endDate || '',
+        status_text: statuses.find(s => s.id === values.statusId)?.name || 'N/A',
+        budget: values.cost || '',
+        description: values.description || '',
+        po_number: values.poNumber || 'N/A',
+        address: values.addresses?.[0]?.address || values.addresses?.[0]?.fullAddress || 'N/A'
+      };
+
+      const data = type === 'docx' 
+        ? await exportProjectDocx(editingProjectId, exportData)
+        : await exportProjectPdf(editingProjectId, exportData);
+      
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Project_${values.title || editingProjectId}.${type}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error(`Error exporting ${type}:`, error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   const [teams, setTeams] = useState<any[]>([]);
   const [countries, setCountries] = useState<any[]>([]);
   const [states, setStates] = useState<any[]>([]);
@@ -3727,20 +3770,40 @@ const handleSubmit = useCallback(
                       {/* <Button variant="secondary" onClick={onHide}>
                         Cancel
                       </Button> */}
-                      <Button
-                        variant="primary"
-                        type="submit"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting
-                          ? editingProjectId
-                            ? "Updating..."
-                            : "Adding..."
-                          : editingProjectId
-                          ? "Update Project"
-                          : "Add Project"}
-                      </Button>
-                    </div>
+                        <Button
+                          variant="primary"
+                          type="submit"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting
+                            ? editingProjectId
+                              ? "Updating..."
+                              : "Adding..."
+                            : editingProjectId
+                            ? "Update Project"
+                            : "Add Project"}
+                        </Button>
+                        {editingProjectId && (
+                          <>
+                            <Button
+                              variant="light-primary"
+                              disabled={isGenerating}
+                              onClick={() => handleExport('docx', values)}
+                              className="ms-2"
+                            >
+                              {isGenerating ? "Generating..." : "Export DOCX"}
+                            </Button>
+                            <Button
+                              variant="light-danger"
+                              disabled={isGenerating}
+                              onClick={() => handleExport('pdf', values)}
+                              className="ms-2"
+                            >
+                              {isGenerating ? "Generating..." : "Export PDF"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                   </FormikForm>
                 );
               }}

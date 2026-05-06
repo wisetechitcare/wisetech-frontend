@@ -384,6 +384,14 @@ const PrivateRoutes = () => {
             </SuspensedView>}
         />
         <Route
+          path='/leads/:id'
+          element={
+            <SuspensedView>
+              <LeadDetails />
+            </SuspensedView>
+          }
+        />
+        <Route
           path='/tasks'
           element={
             <SuspensedView>

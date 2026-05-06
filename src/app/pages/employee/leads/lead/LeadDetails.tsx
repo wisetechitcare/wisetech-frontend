@@ -694,9 +694,6 @@ const LeadDetails = () => {
                                 const currLead = lead;
                                 const formLeadDataFinal = mapLeadToFormInitialValues(currLead);
                                 setFormValues(formLeadDataFinal);
-                                // setSelectedLead(row.original);
-                                // setFormValues(lead);
-                                // setIsModalOpen(true);
                             }}
                         >
                             <KTIcon iconName="files" className="fs-2" />
