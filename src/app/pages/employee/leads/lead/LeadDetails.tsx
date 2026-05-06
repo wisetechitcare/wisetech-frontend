@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
@@ -14,6 +14,8 @@ import LeadFormModal from './LeadFormModal';
 import dayjs from 'dayjs';
 import { mapLeadToFormInitialValues } from './utils';
 import { getAllLeadStatus } from '@services/lead';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 type TabType = 'overview'
 
@@ -48,7 +50,7 @@ const LeadDetails = () => {
     ];
     const [refreshData, setRefreshData] = useState(false);
 
-    const fetchLeadDetails = async () => {
+    const fetchLeadDetails = useCallback(async () => {
         if (!leadId) {
             setError('No lead ID provided');
             setIsLoading(false);
@@ -87,7 +89,7 @@ const LeadDetails = () => {
                 );
             }
 
-            const res = await Promise.all(fetchPromises);
+            await Promise.all(fetchPromises);
             setError(null);
         } catch (err) {
             console.error('Error fetching lead details:', err);
@@ -95,7 +97,7 @@ const LeadDetails = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [leadId]);
 
     useEffect(()=>{
         async function fetchLeadStatus() {
@@ -107,12 +109,12 @@ const LeadDetails = () => {
 
     useEffect(() => {
         fetchLeadDetails();
-    }, [leadId, refreshData]);
+    }, [fetchLeadDetails, refreshData]);
 
-    // useEventBus('leadUpdated', fetchLeadDetails);
-    // useEventBus('leadUpdated', () => {
-    //     fetchLeadDetails();
-    // });
+    // Real-time refresh: fires when this lead is updated locally OR when a
+    // linked project syncs back (backend emits lead_project_synced → frontend
+    // translates to leadUpdated via useRealtimeSync).
+    useEventBus(EVENT_KEYS.leadUpdated, fetchLeadDetails);
 
     const handleBackClick = () => {
         navigate(-1);

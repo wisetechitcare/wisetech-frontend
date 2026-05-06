@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
-import { io, Socket } from "socket.io-client";
+import { useState, useEffect } from "react";
+import type { Socket } from "socket.io-client";
+import { getSocket } from "../../../utils/socketClient";
 import { Modal, Button } from "react-bootstrap";
 import { KTIcon } from "../../helpers";
 import { fetchNotificationsByEmployeeId } from "../../../services/employee";
@@ -7,7 +8,6 @@ import { Link, useNavigate } from "react-router-dom";
 import CircleNotificationsIcon from "@mui/icons-material/CircleNotifications";
 import { formatNotificationDate } from "../../../utils/date";
 
-const API_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 interface Notification {
   id: string;
@@ -26,7 +26,6 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
   const [show, setShow] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const socketRef = useRef<Socket | null>(null);
   const navigate = useNavigate();
 
   const fetchNotifications = async () => {
@@ -57,30 +56,16 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
   useEffect(() => {
     if (!employeeId) return;
 
-    if (!socketRef.current) {
-      socketRef.current = io(`${API_URL}`, {
-        transports: ["websocket"],
-        path: "/socket.io/",
-      });
+    const socket = getSocket();
 
-      socketRef.current.emit("joinRoom", employeeId);
-
-      socketRef.current.on("newNotification", (notification: Notification) => {
-        setNotifications((prev) => [notification, ...prev]);
-        if (!show) {
-          setUnreadCount((prev) => prev + 1);
-        }
-      });
-    }
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.off("newNotification");
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+    const onNotification = (notification: Notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      if (!show) setUnreadCount((prev) => prev + 1);
     };
-  }, [employeeId]);
+
+    socket.on("newNotification", onNotification);
+    return () => { socket.off("newNotification", onNotification); };
+  }, [employeeId, show]);
 
   return (
     <div className="d-flex align-items-center cursor-pointer">
