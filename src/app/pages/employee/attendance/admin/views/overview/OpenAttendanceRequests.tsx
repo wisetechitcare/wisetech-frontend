@@ -607,19 +607,9 @@ const OpenAttendanceRequests = () => {
                 minSize: 100,
                 maxSize: 150,
                 Cell: ({ row }: any) => {
-                    const hasEditPermission = hasPermission(
-                        resourceNameMapWithCamelCase.attendanceRequest,
-                        permissionConstToUseWithHasPermission.editOthers,
-                        row.original
-                    );
                     const isReportingManagerForThis = row.original.reportsToId === employeeIdCurrent;
-                    const canAct = hasEditPermission || isReportingManagerForThis;
 
-                    if (!canAct) return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;
-
-                    // HR viewer who is not the reporting manager sees an informational badge —
-                    // actual manager-stage approval belongs to the reporting manager.
-                    if (isHROrAdmin && !isReportingManagerForThis) {
+                    if (!isReportingManagerForThis) {
                         return (
                             <span style={{ fontSize: "11px", color: "#b45309", backgroundColor: "#fef3c7", padding: "3px 8px", borderRadius: "10px", fontWeight: 500 }}>
                                 Awaiting Manager
