@@ -2690,20 +2690,12 @@ const LeadFormModal = ({
       const value = finalData[key];
 
       // Special handling for fields that should be included even if empty to allow clearing
-      if (
-        key === "documents" ||
-        key === "description" ||
-        key === "fileLocation" ||
-        key === "cancellationReasonId" ||
-        key === "handledBy" ||
-        key === "fileLocationCompanyType" ||
-        key === "fileLocationCompany" ||
-        key === "handledByEntries" ||
-        key === "poStatus" ||
-        key === "poFile"
-      ) {
-        acc[key] =
-          value !== undefined ? value : key === "handledByEntries" ? [] : ""; // Ensure it's included
+      if (key === "documents" || key === "description" || key === "fileLocation"
+        || key === "cancellationReasonId" || key === "handledBy"
+        || key === "fileLocationCompanyType" || key === "fileLocationCompany"
+        || key === "handledByEntries" || key === "poStatus" || key === "poFile"
+        || key === "leadAssignedTo") {
+        acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
       }
@@ -2751,8 +2743,9 @@ const LeadFormModal = ({
         }
       }
     } catch (error) {
-      console.error("Error creating lead:", error);
-      // errorConfirmation('Failed to create lead. Please try again.');
+      console.error('Error creating lead:', error);
+      // Refetch so the list reflects any partial save that succeeded before the error
+      eventBus.emit(EVENT_KEYS.leadUpdated, { id: finalCleanPayload?.id ?? '' });
     }
     // Here you can access all form data in one object
     // You can then send it to your API or process it as needed

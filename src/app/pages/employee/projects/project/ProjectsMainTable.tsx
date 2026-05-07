@@ -146,6 +146,10 @@ const ProjectsMainTable = ({
     getAllProjectsData();
   });
 
+  useEventBus(EVENT_KEYS.projectDeleted, () => {
+    getAllProjectsData();
+  });
+
   useEffect(() => {
     const colors = allProjects.map((project: any) => {
       const projectStatus = allProjectStatuses.find(
