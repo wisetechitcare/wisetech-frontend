@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
@@ -9,6 +9,8 @@ import TasksMainTable from "@pages/employee/tasks/tasks/TasksMainTable";
 import ProjectTimeSheets from "./ProjectTimeSheets";
 import ProjectFiles from "./ProjectFlies";
 import TaskTimesheet from "@pages/employee/tasks/tasks/components/TaskTimesheet";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 
 type TabType = "overview" | "tasks" | "timelog" | "files";
 
@@ -20,24 +22,31 @@ const AllProjectMainToggle = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showBlankBasicProjectForm, setShowBlankBasicProjectForm] = useState(false);
 
-  useEffect(() => {
-    async function fetchProjectData() {
-      try {
-        const data = await getAllProjectDataForOverviewById(projectId!);
-        setProjectData(data?.projectDataById);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching project data:", error);
-        setIsLoading(false);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    if (projectId) {
-      fetchProjectData();
+  const fetchProjectData = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const data = await getAllProjectDataForOverviewById(projectId);
+      setProjectData(data?.projectDataById);
+    } catch (error) {
+      console.error("Error fetching project data:", error);
+    } finally {
+      setIsLoading(false);
     }
   }, [projectId]);
+
+  useEffect(() => {
+    fetchProjectData();
+  }, [fetchProjectData]);
+
+  // Real-time refresh: re-fetch this project's data whenever:
+  //  - a lead syncs to this project (backend emits lead_project_synced →
+  //    useRealtimeSync translates to projectUpdated)
+  //  - the project is edited directly (BlankBasicProjectForm emits projectUpdated)
+  useEventBus(EVENT_KEYS.projectUpdated, fetchProjectData);
+  // Also refresh when the linked lead is updated (lead status change that
+  // creates/deletes the project emits projectCreated/projectDeleted, handled
+  // by the list; the lead field sync emits projectUpdated above).
+  useEventBus(EVENT_KEYS.projectCreated, fetchProjectData);
 
   const handleBackClick = () => {
     navigate(-1);
@@ -138,7 +147,7 @@ const AllProjectMainToggle = () => {
       </div>
 
       {/* Mobile Header Update */}
-      <style jsx>{`
+      <style>{`
         @media (max-width: 767px) {
           .mobile-header h2 {
             font-size: 18px !important;

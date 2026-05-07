@@ -22,6 +22,8 @@ import './_metronic/assets/keenicons/solid/style.css'
  **/
 import './_metronic/assets/sass/style.scss'
 import { AppRoutes } from './app/routing/AppRoutes'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import { getAuth, setupAxios } from './app/modules/auth'
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
@@ -75,6 +77,7 @@ if (parsedLs?.token && parsedLs?.id && !isTokenExpired) {
                 <AppRoutes />
               </Provider>
             </MetronicI18nProvider>
+            <ToastContainer position="top-right" theme="light" />
             {/* <ReactQueryDevtools initialIsOpen={false} /> */}
             {/* <Notification
               open={true}
@@ -103,6 +106,7 @@ else {
             <AppRoutes />
           </Provider>
         </MetronicI18nProvider>
+        <ToastContainer position="top-right" theme="light" />
         {/* <ReactQueryDevtools initialIsOpen={false} /> */}
       </QueryClientProvider>
     )
