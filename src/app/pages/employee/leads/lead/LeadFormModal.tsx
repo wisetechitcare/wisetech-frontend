@@ -98,6 +98,7 @@ import {
 } from "@app/modules/common/components/InlineCreateHelpers";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { getAllLeadCancellationReasons } from "@services/lead"; //new
+import LeadProposalExportModal from "./components/LeadProposalExportModal";
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -325,6 +326,7 @@ const LeadFormModal = ({
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
 
   const handleExport = async (type: "docx" | "pdf", values: any) => {
     if (!values.id) return;
@@ -404,8 +406,11 @@ const LeadFormModal = ({
         ),
         address:
           values.addresses?.[0]?.projectAddress || values.projectAddress || "",
-        // Use selected template or default to bunglow.docx
-        templateName: values.exportTemplate || "bunglow.docx",
+        // Use selected template or default to placeholder.docx
+        templateName:
+          values.selected_template ||
+          values.exportTemplate ||
+          "placeholder.docx",
       };
 
       const data =
@@ -793,7 +798,7 @@ const LeadFormModal = ({
         otherPoint2Description: "",
         otherPoint3Heading: "",
         otherPoint3Description: "",
-        exportTemplate: "bunglow.docx", // Default template
+        exportTemplate: "placeholder.docx", // Default template
         revision_number: "01",
 
         // additional details
@@ -6240,7 +6245,7 @@ const LeadFormModal = ({
                                         </label>
                                         <select
                                           className="form-select form-select-solid"
-                                          value="bunglow.docx"
+                                          value="placeholder.docx"
                                           disabled
                                           onChange={(e) =>
                                             setFieldValue(
@@ -6249,7 +6254,7 @@ const LeadFormModal = ({
                                             )
                                           }
                                         >
-                                          <option value="bunglow.docx">
+                                          <option value="placeholder.docx">
                                             Demo Template (Standard)
                                           </option>
                                         </select>
@@ -6307,7 +6312,7 @@ const LeadFormModal = ({
                                   <button
                                     type="button"
                                     disabled={isGenerating}
-                                    onClick={() => handleExport("docx", values)}
+                                    onClick={() => setShowProposalModal(true)}
                                     className="btn btn-primary flex-grow-1 d-flex align-items-center justify-center gap-2 py-4 shadow-sm"
                                     style={{
                                       backgroundColor: "#2B4C7E",
@@ -6329,7 +6334,7 @@ const LeadFormModal = ({
                                   <button
                                     type="button"
                                     disabled={isGenerating}
-                                    onClick={() => handleExport("pdf", values)}
+                                    onClick={() => setShowProposalModal(true)}
                                     className="btn btn-danger flex-grow-1 d-flex align-items-center justify-center gap-2 py-4 shadow-sm"
                                     style={{
                                       backgroundColor: "#B53A3A",
@@ -6456,6 +6461,17 @@ const LeadFormModal = ({
           </Modal.Body>
         </Box>
       </Modal>
+
+      {/* Proposal Export Modal */}
+      <LeadProposalExportModal
+        show={showProposalModal}
+        onHide={() => setShowProposalModal(false)}
+        leadData={formikRef.current?.values || initialFormData}
+        onExport={(type, data) =>
+          handleExport(type, { ...formikRef.current?.values, ...data })
+        }
+        isGenerating={isGenerating}
+      />
 
       {/* Configuration Forms */}
       <div>
