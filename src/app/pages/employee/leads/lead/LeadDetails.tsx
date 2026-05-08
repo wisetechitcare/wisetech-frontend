@@ -16,6 +16,9 @@ import { mapLeadToFormInitialValues } from './utils';
 import { getAllLeadStatus } from '@services/lead';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import { Dropdown } from 'react-bootstrap';
+import ProposalTemplatePage from './components/ProposalTemplatePage';
+import { exportLeadDocx, exportLeadPdf } from '@services/leads';
 
 type TabType = 'overview'
 
@@ -49,6 +52,65 @@ const LeadDetails = () => {
         // { key: 'files', label: 'Files' },
     ];
     const [refreshData, setRefreshData] = useState(false);
+
+    const [showProposalModal, setShowProposalModal] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleExport = async (type: 'docx' | 'pdf' | 'excel', exportData: any) => {
+        if (!lead?.id) return;
+        if (type === 'excel') {
+            alert('Excel export is not supported by the backend yet.');
+            return;
+        }
+        setIsGenerating(true);
+        try {
+            const data = type === 'docx' 
+                ? await exportLeadDocx(lead.id, exportData) 
+                : await exportLeadPdf(lead.id, exportData);
+
+            const blob = new Blob([data], {
+                type: type === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf'
+            });
+
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const handle = await (window as any).showSaveFilePicker({
+                        suggestedName: `Lead_${lead.title || lead.id}.${type}`,
+                        types: [{
+                            description: type === 'docx' ? 'Word Document' : 'PDF Document',
+                            accept: { [blob.type]: [`.${type}`] }
+                        }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    setIsGenerating(false);
+                    setShowProposalModal(false);
+                    return;
+                } catch (err: any) {
+                    if (err.name === 'AbortError') {
+                        setIsGenerating(false);
+                        return;
+                    }
+                }
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Lead_${lead.title || lead.id}.${type}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error(`Error exporting ${type}:`, error);
+            alert(`Failed to export ${type}. Please try again.`);
+        } finally {
+            setIsGenerating(false);
+            setShowProposalModal(false);
+        }
+    };
 
     const fetchLeadDetails = useCallback(async () => {
         if (!leadId) {
@@ -689,6 +751,29 @@ const LeadDetails = () => {
                                 </span>
                             );
                         })()}
+                        <Dropdown className="me-2">
+                            <Dropdown.Toggle variant="info" id="dropdown-basic" disabled={isGenerating}>
+                                {isGenerating ? (
+                                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                ) : (
+                                    <KTIcon iconName="file-down" className="fs-2" />
+                                )}
+                                Export
+                            </Dropdown.Toggle>
+
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => setShowProposalModal(true)}>
+                                    <i className="bi bi-file-earmark-word me-2 text-primary"></i> Export to DOCX
+                                </Dropdown.Item>
+                                <Dropdown.Item onClick={() => setShowProposalModal(true)}>
+                                    <i className="bi bi-file-earmark-pdf me-2 text-danger"></i> Export to PDF
+                                </Dropdown.Item>
+                                <Dropdown.Item onClick={() => handleExport('excel', lead)}>
+                                    <i className="bi bi-file-earmark-excel me-2 text-success"></i> Export to Excel
+                                </Dropdown.Item>
+                            </Dropdown.Menu>
+                        </Dropdown>
+
                         <Button
                             variant="primary"
                             className="me-2"
@@ -767,6 +852,15 @@ const LeadDetails = () => {
                 setRefreshData={setRefreshData}
                 editingProjectId={lead?.projectId || null}
                 />}
+
+            <ProposalTemplatePage
+                show={showProposalModal}
+                onHide={() => setShowProposalModal(false)}
+                leadData={lead}
+                companyData={company}
+                contactData={contact}
+                projectData={project}
+            />
         </div>
     );
 };

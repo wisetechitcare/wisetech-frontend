@@ -231,13 +231,12 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
     }
 }
 
-export const exportLeadDocx = async (leadId: string, editedData: any) => {
+export const exportLeadDocx = async (leadId: string, payload: { edited_data: any, templateId: string }) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/docx`;
         const { data } = await axios.post(endpoint, {
             lead_id: leadId,
-            edited_data: editedData,
-            templateName: editedData.templateName // Pass selected template
+            ...payload
         }, { responseType: 'blob' });
         return data;
     } catch (error) {
@@ -246,17 +245,71 @@ export const exportLeadDocx = async (leadId: string, editedData: any) => {
     }
 }
 
-export const exportLeadPdf = async (leadId: string, editedData: any) => {
+export const exportLeadPdf = async (leadId: string, payload: { edited_data: any, templateId: string }) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/pdf`;
         const { data } = await axios.post(endpoint, {
             lead_id: leadId,
-            edited_data: editedData,
-            templateName: editedData.templateName // Pass selected template
+            ...payload
         }, { responseType: 'blob' });
         return data;
     } catch (error) {
         console.error('Error exporting lead as PDF:', error);
+        throw error;
+    }
+}
+
+export const getProposalConfigurations = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/configurations`;
+        const { data } = await axios.get(endpoint);
+        return data.data;
+    } catch (error) {
+        console.error('Error fetching proposal configurations:', error);
+        throw error;
+    }
+}
+
+export const getProposalRules = async (templateId: string, area: string | number) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/rules?templateId=${templateId}&area=${area}`;
+        const { data } = await axios.get(endpoint);
+        return data.data;
+    } catch (error) {
+        console.error('Error fetching proposal rules:', error);
+        throw error;
+    }
+}
+
+export const getAvailableExportFields = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/available-fields`;
+        const { data } = await axios.get(endpoint);
+        return data.data;
+    } catch (error) {
+        console.error('Error fetching available export fields:', error);
+        throw error;
+    }
+}
+
+export const saveProposalConfiguration = async (config: any, templateBase64?: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/configurations`;
+        const { data } = await axios.post(endpoint, { config, templateBase64 });
+        return data;
+    } catch (error) {
+        console.error('Error saving proposal configuration:', error);
+        throw error;
+    }
+}
+
+export const deleteProposalConfiguration = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/leads/export/configurations/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (error) {
+        console.error('Error deleting proposal configuration:', error);
         throw error;
     }
 }

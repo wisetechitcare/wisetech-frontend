@@ -62,6 +62,7 @@ import ClientContactsMain from '@pages/employee/companies/contacts/ClientContact
 import ContactsNavbar from '@pages/employee/companies/contacts/contactsNavbar'
 import OrganisationInfoProfileMain from '@pages/company/organisationInfo/OrganisationInfoProfileMain'
 import SearchResultsPage from '@pages/employee/search/SearchResultsPage'
+import ProposalConfigurationPage from '@pages/employee/leads/lead/components/ProposalConfigurationPage'
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
@@ -374,6 +375,13 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <PersonalKpiMain />
+            </SuspensedView>}
+        />
+        <Route
+          path='/qc/leads/configuration'
+          element={
+            <SuspensedView>
+              <ProposalConfigurationPage />
             </SuspensedView>}
         />
         <Route

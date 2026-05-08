@@ -2678,6 +2678,7 @@ const LeadFormModal = ({
     // delete finalData.handledBy; // This will be handled before the delete //new
     // delete finalData.fileLocationCompanyType;//new
     // delete finalData.fileLocationCompany; //new
+    delete finalData.exportTemplate;
 
     if (
       finalData?.useCalculatedAmount === false ||
@@ -2742,8 +2743,9 @@ const LeadFormModal = ({
           if (onClose) onClose();
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating lead:', error);
+      alert(`Backend Error: ${error?.message || error?.error || JSON.stringify(error)}`);
       // Refetch so the list reflects any partial save that succeeded before the error
       eventBus.emit(EVENT_KEYS.leadUpdated, { id: finalCleanPayload?.id ?? '' });
     }
@@ -6199,223 +6201,6 @@ const LeadFormModal = ({
                         )}
                       </div>
 
-                      {/* --- PREMIUM DOCUMENT GENERATION SECTION (MATCHING DEMO) --- */}
-                      {isEditMode && (
-                        <div
-                          className="mt-10 mb-5 p-6 rounded-xl shadow-sm border border-gray-100 bg-white"
-                          style={{ backgroundColor: "#ffffff" }}
-                        >
-                          <h3
-                            className="text-xl font-bold mb-6 flex items-center gap-3"
-                            style={{ color: "#2B4C7E" }}
-                          >
-                            <span
-                              className="flex items-center justify-center w-8 h-8 rounded-full text-white text-sm"
-                              style={{ backgroundColor: "#2B4C7E" }}
-                            >
-                              <i className="bi bi-file-earmark-word"></i>
-                            </span>
-                            Document Generation System
-                          </h3>
-
-                          <div className="row g-6">
-                            {/* Left Side: Controls */}
-                            <div className="col-lg-7 border-end pe-lg-10">
-                              <div className="mb-8">
-                                <label
-                                  className="form-label fw-bold mb-3"
-                                  style={{ color: "#6B6B6B" }}
-                                >
-                                  1. Configure Version
-                                </label>
-                                <div className="d-flex align-items-center gap-4 p-4 rounded-lg bg-light">
-                                  <div className="flex-grow-1">
-                                    <div className="row g-5">
-                                      {/* Template Selection */}
-                                      <div className="col-md-6">
-                                        <label className="form-label fw-bold text-gray-700">
-                                          1. Select Template
-                                        </label>
-                                        <select
-                                          className="form-select form-select-solid"
-                                          value="placeholder.docx"
-                                          disabled
-                                          onChange={(e) =>
-                                            setFieldValue(
-                                              "exportTemplate",
-                                              e.target.value,
-                                            )
-                                          }
-                                        >
-                                          <option value="placeholder.docx">
-                                            Demo Template (Standard)
-                                          </option>
-                                        </select>
-                                        <div className="form-text text-muted">
-                                          Choose the Word design for your export
-                                        </div>
-                                      </div>
-
-                                      {/* Revision Number */}
-                                      <div className="col-md-6">
-                                        <label className="form-label fw-bold text-gray-700">
-                                          2. Revision Number
-                                        </label>
-                                        <input
-                                          type="text"
-                                          className="form-control form-control-solid"
-                                          placeholder="e.g., 01, R1"
-                                          value={values.revision_number || "01"}
-                                          onChange={(e) =>
-                                            setFieldValue(
-                                              "revision_number",
-                                              e.target.value,
-                                            )
-                                          }
-                                        />
-                                        <div className="form-text text-muted">
-                                          This will appear as{" "}
-                                          {"{{REVISION_NO}}"}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex-grow-1">
-                                    <span className="text-muted d-block mb-1 fs-8">
-                                      Generation Date
-                                    </span>
-                                    <input
-                                      type="text"
-                                      className="form-control form-control-solid text-muted"
-                                      disabled
-                                      value={dayjs().format("DD MMM, YYYY")}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                <label
-                                  className="form-label fw-bold mb-3"
-                                  style={{ color: "#6B6B6B" }}
-                                >
-                                  2. Select Export Format
-                                </label>
-                                <div className="d-flex gap-4">
-                                  <button
-                                    type="button"
-                                    disabled={isGenerating}
-                                    onClick={() => setShowProposalModal(true)}
-                                    className="btn btn-primary flex-grow-1 d-flex align-items-center justify-center gap-2 py-4 shadow-sm"
-                                    style={{
-                                      backgroundColor: "#2B4C7E",
-                                      border: "none",
-                                    }}
-                                  >
-                                    {isGenerating ? (
-                                      <span
-                                        className="spinner-border spinner-border-sm"
-                                        role="status"
-                                      ></span>
-                                    ) : (
-                                      <>
-                                        <i className="bi bi-file-earmark-word fs-4"></i>{" "}
-                                        Generate DOCX
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={isGenerating}
-                                    onClick={() => setShowProposalModal(true)}
-                                    className="btn btn-danger flex-grow-1 d-flex align-items-center justify-center gap-2 py-4 shadow-sm"
-                                    style={{
-                                      backgroundColor: "#B53A3A",
-                                      border: "none",
-                                    }}
-                                  >
-                                    {isGenerating ? (
-                                      <span
-                                        className="spinner-border spinner-border-sm"
-                                        role="status"
-                                      ></span>
-                                    ) : (
-                                      <>
-                                        <i className="bi bi-file-earmark-pdf fs-4"></i>{" "}
-                                        Generate PDF
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Right Side: Instructions */}
-                            <div className="col-lg-5 ps-lg-10">
-                              <div
-                                className="p-5 rounded-lg border-start border-4 h-100"
-                                style={{
-                                  borderColor: "#2B4C7E",
-                                  backgroundColor: "#F8FAFC",
-                                }}
-                              >
-                                <h4
-                                  className="text-sm font-bold mb-4"
-                                  style={{ color: "#2B4C7E" }}
-                                >
-                                  📋 INSTRUCTIONS
-                                </h4>
-                                <ul className="list-unstyled space-y-3 fs-8 text-gray-700">
-                                  <li className="d-flex gap-2">
-                                    <span
-                                      className="fw-bold"
-                                      style={{ color: "#B53A3A" }}
-                                    >
-                                      1.
-                                    </span>
-                                    <span>
-                                      Verify all lead details in the form above
-                                      are correct.
-                                    </span>
-                                  </li>
-                                  <li className="d-flex gap-2">
-                                    <span
-                                      className="fw-bold"
-                                      style={{ color: "#B53A3A" }}
-                                    >
-                                      2.
-                                    </span>
-                                    <span>
-                                      Set the revision number for this specific
-                                      export.
-                                    </span>
-                                  </li>
-                                  <li className="d-flex gap-2">
-                                    <span
-                                      className="fw-bold"
-                                      style={{ color: "#B53A3A" }}
-                                    >
-                                      3.
-                                    </span>
-                                    <span>
-                                      Click the format button to download your
-                                      document.
-                                    </span>
-                                  </li>
-                                </ul>
-                                <div className="mt-8 pt-5 border-top">
-                                  <img
-                                    src="/src/assets/wisetech.png"
-                                    alt="Branding"
-                                    className="h-30px opacity-50"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       <Box
                         sx={{
                           display: "flex",
@@ -6454,17 +6239,6 @@ const LeadFormModal = ({
           </Modal.Body>
         </Box>
       </Modal>
-
-      {/* Proposal Export Modal */}
-      <LeadProposalExportModal
-        show={showProposalModal}
-        onHide={() => setShowProposalModal(false)}
-        leadData={formikRef.current?.values || initialFormData}
-        onExport={(type, data) =>
-          handleExport(type, { ...formikRef.current?.values, ...data })
-        }
-        isGenerating={isGenerating}
-      />
 
       {/* Configuration Forms */}
       <div>
