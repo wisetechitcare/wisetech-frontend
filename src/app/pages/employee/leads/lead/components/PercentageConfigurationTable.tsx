@@ -5,9 +5,10 @@ import { KTIcon } from '@metronic/helpers';
 interface Props {
     percentages: any[];
     setPercentages: (data: any[]) => void;
+    totalCost?: number;
 }
 
-const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercentages }) => {
+const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercentages, totalCost }) => {
     const handleAddRow = () => {
         setPercentages([...percentages, { config_key: 'New Stage', value: 0 }]);
     };
@@ -77,15 +78,22 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
                 <Table bordered size="sm" className="bg-white align-middle gs-0 gy-3">
                     <thead className="bg-light">
                         <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom border-gray-200">
-                            <th className="ps-4">Stage</th>
-                            <th className="min-w-100px">Percentage (%)</th>
+                            <th className="ps-4">Sr no</th>
+                            <th className="min-w-200px">Particulars</th>
+                            <th className="min-w-100px text-center">%</th>
+                            {totalCost !== undefined && (
+                                <th className="min-w-150px text-end pe-4">
+                                    {totalCost.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}
+                                </th>
+                            )}
                             <th className="text-end pe-4">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {percentages.map((p, idx) => (
                             <tr key={idx}>
-                                <td className="ps-4">
+                                <td className="ps-4 fw-bold text-gray-700">{idx + 1}</td>
+                                <td>
                                     <Form.Control
                                         type="text"
                                         size="sm"
@@ -95,15 +103,23 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
                                         placeholder="e.g. Stage Name"
                                     />
                                 </td>
-                                <td>
-                                    <Form.Control
-                                        type="number"
-                                        size="sm"
-                                        className="form-control-solid"
-                                        value={p.value}
-                                        onChange={(e) => handleChange(idx, 'value', e.target.value)}
-                                    />
+                                <td className="text-center">
+                                    <div className="d-flex align-items-center justify-content-center">
+                                        <Form.Control
+                                            type="number"
+                                            size="sm"
+                                            className="form-control-solid fw-bold w-60px text-center"
+                                            value={p.value}
+                                            onChange={(e) => handleChange(idx, 'value', e.target.value)}
+                                        />
+                                        <span className="ms-1 fw-bold">%</span>
+                                    </div>
                                 </td>
+                                {totalCost !== undefined && (
+                                    <td className="text-end pe-4 fw-bolder text-dark">
+                                        ₹ {((parseFloat(p.value) || 0) / 100 * totalCost).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}
+                                    </td>
+                                )}
                                 <td className="text-end pe-4">
                                     <Button 
                                         variant="icon" 
@@ -117,6 +133,16 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
                             </tr>
                         ))}
                     </tbody>
+                    {totalCost !== undefined && (
+                        <tfoot>
+                            <tr className="bg-light-primary fw-bolder fs-7 border-top border-gray-300">
+                                <td colSpan={2} className="text-end pe-4 text-gray-800">Total</td>
+                                <td className="text-center text-primary">{totalPercentage}%</td>
+                                <td className="text-end pe-4 text-primary">₹ {totalCost.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    )}
                 </Table>
             </div>
             {percentages.length === 0 && (

@@ -2586,6 +2586,12 @@ const LeadFormModal = ({
       }),
       additionalDetails: {
         ...additionalDetails,
+        // Calculate and include total project area for persistence
+        projectArea: (formData.projectAreas || [])
+          .reduce((total: any, area: any) => {
+            return total + (parseFloat(area.projectArea) || 0);
+          }, 0)
+          .toString(),
         // Always carry flat Formik values into additionalDetails for backend persistence
         poNumber: formData.poNumber || null,
         poDate: (() => {
@@ -4804,6 +4810,36 @@ const LeadFormModal = ({
                               values.projectAreas.length > 0 && (
                                 <Grid item xs={12}>
                                   <div className="d-flex justify-content-end align-items-center mt-4 mb-3">
+                                    <span
+                                      style={{
+                                        fontFamily: "Inter",
+                                        fontSize: "14px",
+                                        fontWeight: "400",
+                                        color: "#666666",
+                                        marginRight: "8px",
+                                      }}
+                                    >
+                                      Total Area:
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontFamily: "Inter",
+                                        fontSize: "16px",
+                                        fontWeight: "600",
+                                        color: "black",
+                                        marginRight: "24px",
+                                      }}
+                                    >
+                                      {(values.projectAreas || [])
+                                        .reduce((total: any, area: any) => {
+                                          return (
+                                            total +
+                                            (parseFloat(area.projectArea) || 0)
+                                          );
+                                        }, 0)
+                                        .toLocaleString("en-IN")}{" "}
+                                      sqft
+                                    </span>
                                     <span
                                       style={{
                                         fontFamily: "Inter",

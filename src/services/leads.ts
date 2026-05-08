@@ -231,12 +231,15 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
     }
 }
 
-export const exportLeadDocx = async (leadId: string, payload: { edited_data: any, templateId: string }) => {
+export const exportLeadDocx = async (leadId: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/docx`;
         const { data } = await axios.post(endpoint, {
             lead_id: leadId,
-            ...payload
+            templateId: payload.templateId,
+            templateBase64: payload.templateBase64 || payload.customTemplate,
+            userId: payload.userId,
+            edited_data: payload,
         }, { responseType: 'blob' });
         return data;
     } catch (error) {
@@ -245,12 +248,15 @@ export const exportLeadDocx = async (leadId: string, payload: { edited_data: any
     }
 }
 
-export const exportLeadPdf = async (leadId: string, payload: { edited_data: any, templateId: string }) => {
+export const exportLeadPdf = async (leadId: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/pdf`;
         const { data } = await axios.post(endpoint, {
             lead_id: leadId,
-            ...payload
+            templateId: payload.templateId,
+            templateBase64: payload.templateBase64 || payload.customTemplate,
+            userId: payload.userId,
+            edited_data: payload,
         }, { responseType: 'blob' });
         return data;
     } catch (error) {

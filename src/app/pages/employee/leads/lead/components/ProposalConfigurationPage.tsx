@@ -49,7 +49,9 @@ const ProposalConfigurationPage: React.FC = () => {
                     max_area: 100000,
                     configurations: [
                         { config_type: "percentage", config_key: "advance", value: 100 }
-                    ]
+                    ],
+                    completion_year: 0,
+                    completion_month: 0
                 }
             ]
         };
@@ -69,6 +71,8 @@ const ProposalConfigurationPage: React.FC = () => {
                     rulesMap.set(key, {
                         min_area: r.minArea,
                         max_area: r.maxArea,
+                        completion_year: r.completionYear || 0,
+                        completion_month: r.completionMonth || 0,
                         configurations: []
                     });
                     groupedRules.push(rulesMap.get(key));
@@ -163,7 +167,9 @@ const ProposalConfigurationPage: React.FC = () => {
             max_area: 5000,
             configurations: [
                 { config_type: "percentage", config_key: "advance", value: 100 }
-            ]
+            ],
+            completion_year: 0,
+            completion_month: 0
         };
         setSelectedConfig({ ...selectedConfig, rules: [...(selectedConfig.rules || []), newGroup] });
     };
@@ -331,9 +337,11 @@ const ProposalConfigurationPage: React.FC = () => {
                                                     <Form.Control className="form-control-solid fw-bold" value={selectedConfig.templateCode} onChange={(e) => setSelectedConfig({ ...selectedConfig, templateCode: e.target.value })} />
                                                 </Form.Group>
                                             </Col>
-                                            <Col md={3}>
+                                            <Col md={6}>
                                                 <Form.Group>
-                                                    <Form.Label className="fs-8 fw-bolder text-uppercase text-muted mb-2">Word Template (.docx)</Form.Label>
+                                                    <Form.Label className="fs-8 fw-bolder text-uppercase text-muted mb-2">
+                                                        {selectedConfig.id ? 'Change Word Template' : 'Add Word Template'} (.docx)
+                                                    </Form.Label>
                                                     <div className="d-flex align-items-center">
                                                         <Form.Control type="file" accept=".docx" onChange={handleFileUpload} className="form-control-solid" />
                                                         {selectedConfig.templateFileName && (
@@ -341,16 +349,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </Form.Group>
-                                            </Col>
-                                            <Col md={3}>
-                                                <Form.Group>
-                                                    <Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-2">Project Duration (Standard)</Form.Label>
-                                                    <div className="d-flex gap-2">
-                                                        <Form.Control type="number" placeholder="Years" className="form-control-solid fw-bold" value={selectedConfig.completionYear || ''} onChange={(e) => setSelectedConfig({ ...selectedConfig, completionYear: e.target.value })} />
-                                                        <Form.Control type="number" placeholder="Months" className="form-control-solid fw-bold" value={selectedConfig.completionMonth || ''} onChange={(e) => setSelectedConfig({ ...selectedConfig, completionMonth: e.target.value })} />
-                                                    </div>
-                                                </Form.Group>
-                                            </Col>
+                                                </Col>
                                         </Row>
                                     </Card.Body>
                                 </Card>
@@ -367,12 +366,30 @@ const ProposalConfigurationPage: React.FC = () => {
                                         </a>
                                     </li>
                                 </div>
-
                                 <Card className="border-0 shadow-sm rounded-bottom rounded-top-0">
                                     <Card.Body className="p-8">
                                         {activeTab === 'fields' ? (
                                             <div>
-                                                <h5 className="fw-bolder mb-6">Select fields to enable in this template:</h5>
+                                                <div className="d-flex justify-content-between align-items-center mb-6">
+                                                    <h5 className="fw-bolder mb-0">Select fields to enable in this template:</h5>
+                                                    <Button 
+                                                        variant="light-primary" 
+                                                        size="sm" 
+                                                        className="fw-bold"
+                                                        onClick={() => {
+                                                            const allKeys = availableFields.map(f => f.key);
+                                                            const current = selectedConfig.enabledFields || [];
+                                                            const isAllSelected = allKeys.length > 0 && allKeys.every(k => current.includes(k));
+                                                            setSelectedConfig({ 
+                                                                ...selectedConfig, 
+                                                                enabledFields: isAllSelected ? [] : allKeys 
+                                                            });
+                                                        }}
+                                                    >
+                                                        <KTIcon iconName={availableFields.length > 0 && availableFields.map(f => f.key).every(k => (selectedConfig.enabledFields || []).includes(k)) ? 'cross-circle' : 'check-circle'} className="fs-3 me-1" />
+                                                        {availableFields.length > 0 && availableFields.map(f => f.key).every(k => (selectedConfig.enabledFields || []).includes(k)) ? 'Deselect All' : 'Select All'}
+                                                    </Button>
+                                                </div>
                                                 <Row className="g-4">
                                                     {availableFields.map((field, idx) => (
                                                         <Col md={4} lg={3} key={idx}>
@@ -411,8 +428,10 @@ const ProposalConfigurationPage: React.FC = () => {
                                                                 </div>
 
                                                                 <Row className="align-items-center mb-8 pe-12">
-                                                                    <Col md={3}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Min Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.min_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].min_area = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                    <Col md={3}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Max Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.max_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].max_area = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                    <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Min Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.min_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].min_area = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                    <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Max Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.max_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].max_area = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                    <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (Y)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completion_year} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completion_year = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                    <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (M)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completion_month} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completion_month = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
                                                                 </Row>
 
                                                                 <Row className="g-6">
