@@ -6,11 +6,14 @@ import {
   getAvailableExportFields,
   exportLeadDocx,
   exportLeadPdf,
+  saveProposalConfiguration,
 } from "@services/leads";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import { showError } from "@utils/modal";
 import dayjs from "dayjs";
+import { ExportCenterModal } from "./dms/components/ExportCenterModal";
+import { useAuth } from "../../../../../modules/auth";
 
 interface ProposalTemplatePageProps {
   show: boolean;
@@ -29,6 +32,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   contactData,
   projectData,
 }) => {
+  const { currentUser } = useAuth();
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [currentConfig, setCurrentConfig] = useState<any>(null);
@@ -36,9 +40,13 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   const [rules, setRules] = useState<any[]>([]);
   const [templateBase64, setTemplateBase64] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [availableFields, setAvailableFields] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"fields" | "rules">("fields");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showExportCenter, setShowExportCenter] = useState(false);
+  const initialFormDataRef = useRef<any>(null);
 
   useEffect(() => {
     const fetchDefinitions = async () => {
@@ -422,10 +430,17 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     });
 
     // Add alias keys so transformer can find them under both names
-    initialData.total_offer_cost    = initialData.total_project_cost || totalCost || 0;
-    initialData.client_contact_person = initialData.contact_person || initialData.client_contact_name || (contact.name || contact.fullName || '');
+    initialData.total_offer_cost =
+      initialData.total_project_cost || totalCost || 0;
+    initialData.client_contact_person =
+      initialData.contact_person ||
+      initialData.client_contact_name ||
+      contact.name ||
+      contact.fullName ||
+      "";
 
     setFormData(initialData);
+    initialFormDataRef.current = JSON.parse(JSON.stringify(initialData));
     setSelectedTemplateId("");
     setCurrentConfig(null);
     setRules([]);
@@ -434,6 +449,35 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   }, [show, leadData, availableFields]);
 
   const [globalPaymentStages, setGlobalPaymentStages] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!selectedTemplateId && !templateBase64) return;
+    
+    setFormData((prev: any) => {
+      const updated = { ...prev };
+      
+      // 1. Sync Global Stages Placeholders
+      let sIdx = 1;
+      (globalPaymentStages || []).forEach((c: any) => {
+          const type = (c.config_type || c.configType || "").toLowerCase();
+          if (type !== "meeting") {
+              updated[`stage_${sIdx}_name`] = c.config_key || c.configKey || `Stage ${sIdx}`;
+              updated[`stage_${sIdx}_value`] = c.value || 0;
+              sIdx++;
+          }
+      });
+      
+      // Clear trailing stage placeholders
+      for (let i = sIdx; i <= 15; i++) {
+          delete updated[`stage_${i}_name`];
+          delete updated[`stage_${i}_value`];
+      }
+
+      // 2. Sync Meetings
+      const currentArea = parseFloat(updated.total_project_area || updated.built_up_area) || 0;
+      return syncMeetings(updated, currentArea, rules, globalPaymentStages);
+    });
+  }, [globalPaymentStages, rules]);
 
   const handleTemplateChange = async (templateId: string) => {
     if (!templateId) {
@@ -454,7 +498,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         const areaRules: any[] = [];
         const globalStages: any[] = [];
         const rulesMap = new Map<string, any>();
-        
+
         (config.rules || []).forEach((r: any) => {
           const min = r.minArea !== undefined ? r.minArea : r.min_area;
           const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
@@ -506,59 +550,69 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             }
           });
 
-          // 1. Map Global Stages
+          // 1. Map Global Stages (Non-meetings)
           globalStages.forEach((c: any, sIdx: number) => {
             const num = sIdx + 1;
-            updated[`stage_${num}_name`] = c.config_key || `Stage ${num}`;
-            updated[`stage_${num}_value`] = c.value || 0;
+            const type = (c.config_type || "").toLowerCase();
+            if (type !== "meeting") {
+                updated[`stage_${num}_name`] = c.config_key || `Stage ${num}`;
+                updated[`stage_${num}_value`] = c.value || 0;
+            }
           });
 
-          // 2. Map Area Rules
+          // 2. Map Area Rules (Non-meetings)
           areaRules.forEach((rule, ruleIdx) => {
             const ruleNum = ruleIdx + 1;
-            let sIdx = 1; // For rule-specific stage mapping if needed
-            let mIdx = 1;
+            let sIdx = 1;
             rule.configurations.forEach((c: any) => {
               const type = (c.config_type || "").toLowerCase();
               const key = c.config_key;
               if (type === "percentage" || type === "payment") {
-                updated[`rule_${ruleNum}_stage_${sIdx}_name`] = key || `Stage ${sIdx}`;
+                updated[`rule_${ruleNum}_stage_${sIdx}_name`] =
+                  key || `Stage ${sIdx}`;
                 updated[`rule_${ruleNum}_stage_${sIdx}_value`] = c.value || 0;
                 sIdx++;
-              } else if (type === "meeting") {
-                updated[`rule_${ruleNum}_meeting_${mIdx}_name`] = key || `Meeting ${mIdx}`;
-                updated[`rule_${ruleNum}_meeting_${mIdx}_value`] = c.value || 0;
-                mIdx++;
               }
             });
           });
 
-          // 3. Match generic meeting placeholders to best area rule
-          const area = parseFloat(formData.total_project_area || formData.built_up_area) || 0;
-          const bestRule =
-            areaRules.find(
-              (r) => area >= Number(r.minArea) && area <= Number(r.maxArea),
-            ) || areaRules[0];
-
-          if (bestRule) {
-            let mIdx = 1;
-            bestRule.configurations.forEach((c: any) => {
-              const type = (c.config_type || "").toLowerCase();
-              const key = c.config_key;
-              if (type === "meeting") {
-                updated[`meeting_${mIdx}_name`] = key || `Meeting ${mIdx}`;
-                updated[`meeting_${mIdx}_value`] = c.value || 0;
-                mIdx++;
-              }
-            });
-          }
-
-          return updated;
+          // 3. Sync Dynamic Meetings
+          const currentArea = parseFloat(updated.total_project_area || updated.built_up_area) || 0;
+          return syncMeetings(updated, currentArea, areaRules, globalStages);
         });
       } catch (err) {
         console.error("Failed to load rules", err);
       }
     }
+  };
+
+  const syncMeetings = (updatedData: any, area: number, currentRules: any[], currentGlobal: any[]) => {
+      // Clear old meeting keys
+      Object.keys(updatedData).forEach(k => { if(k.startsWith('meeting_')) delete updatedData[k]; });
+      
+      let mIdx = 1;
+      
+      // 1. Add Global Meetings
+      (currentGlobal || []).forEach((c: any) => {
+          if ((c.config_type || c.configType || "").toLowerCase() === "meeting") {
+              updatedData[`meeting_${mIdx}_name`] = c.config_key || c.configKey || `Meeting ${mIdx}`;
+              updatedData[`meeting_${mIdx}_value`] = c.value || 0;
+              mIdx++;
+          }
+      });
+      
+      // 2. Add Area-Specific Meetings
+      const bestRule = (currentRules || []).find(r => area >= Number(r.minArea) && area <= Number(r.maxArea)) || currentRules?.[0];
+      if (bestRule) {
+          (bestRule.configurations || []).forEach((c: any) => {
+              if ((c.config_type || c.configType || "").toLowerCase() === "meeting") {
+                  updatedData[`meeting_${mIdx}_name`] = c.config_key || c.configKey || `Meeting ${mIdx}`;
+                  updatedData[`meeting_${mIdx}_value`] = c.value || 0;
+                  mIdx++;
+              }
+          });
+      }
+      return updatedData;
   };
 
   const handleRuleAreaChange = (
@@ -608,67 +662,134 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    
+
     setFormData((prev: any) => {
-        const updated = { ...prev, [name]: value };
-        
-        // Sync Area Aliases
-        if (['built_up_area', 'total_project_area', 'total_area', 'project_area'].includes(name)) {
-            updated.built_up_area = value;
-            updated.total_project_area = value;
-            updated.total_area = value;
-            updated.project_area = value;
-        }
-        
-        // Sync Cost Aliases
-        if (['total_offer_cost', 'total_project_cost', 'cost', 'total_cost'].includes(name)) {
-            updated.total_offer_cost = value;
-            updated.total_project_cost = value;
-            updated.cost = value;
-            updated.total_cost = value;
-        }
-        
-        // Sync Contact Aliases
-        if (['client_contact_name', 'client_contact_person', 'contact_person', 'contact_name'].includes(name)) {
-            updated.client_contact_name = value;
-            updated.client_contact_person = value;
-            updated.contact_person = value;
-            updated.contact_name = value;
-        }
+      const updated = { ...prev, [name]: value };
 
-        // Sync Company Aliases
-        if (['client_company_name', 'company_name', 'client_name'].includes(name)) {
-            updated.client_company_name = value;
-            updated.company_name = value;
-            updated.client_name = value;
-        }
+      // Sync Area Aliases and Update Meetings
+      if (
+        [
+          "built_up_area",
+          "total_project_area",
+          "total_area",
+          "project_area",
+        ].includes(name)
+      ) {
+        updated.built_up_area = value;
+        updated.total_project_area = value;
+        updated.total_area = value;
+        updated.project_area = value;
 
-        return updated;
+        // Dynamic Meeting Update based on new area
+        return syncMeetings(updated, parseFloat(value) || 0, rules, globalPaymentStages);
+      }
+
+      // Sync Cost Aliases
+      if (
+        [
+          "total_offer_cost",
+          "total_project_cost",
+          "cost",
+          "total_cost",
+        ].includes(name)
+      ) {
+        updated.total_offer_cost = value;
+        updated.total_project_cost = value;
+        updated.cost = value;
+        updated.total_cost = value;
+      }
+
+      // Sync Contact Aliases
+      if (
+        [
+          "client_contact_name",
+          "client_contact_person",
+          "contact_person",
+          "contact_name",
+        ].includes(name)
+      ) {
+        updated.client_contact_name = value;
+        updated.client_contact_person = value;
+        updated.contact_person = value;
+        updated.contact_name = value;
+      }
+
+      // Sync Company Aliases
+      if (
+        ["client_company_name", "company_name", "client_name"].includes(name)
+      ) {
+        updated.client_company_name = value;
+        updated.company_name = value;
+        updated.client_name = value;
+      }
+
+      return updated;
     });
   };
 
-  const handleExport = async (type: "docx" | "pdf") => {
+  const handleSaveConfig = async () => {
+    if (!selectedTemplateId && !currentConfig) return;
+    setIsSaving(true);
+    try {
+        const normalizedGlobalStages = globalPaymentStages.map((c: any) => ({
+            configType: c.configType || c.config_type || "percentage",
+            configKey: c.configKey || c.config_key || "",
+            value: String(c.value || 0),
+        }));
+
+        const normalizedAreaRules = rules.map((rule: any) => ({
+            minArea: rule.minArea,
+            maxArea: rule.maxArea,
+            completionYear: rule.completionYear || 0,
+            completionMonth: rule.completionMonth || 0,
+            configurations: (rule.configurations || []).map((c: any) => ({
+                configType: c.configType || c.config_type || "",
+                configKey: c.configKey || c.config_key || "",
+                value: String(c.value || 0),
+            })),
+        }));
+
+        const configToSave = {
+            ...currentConfig,
+            completionYear: formData.completion_years,
+            completionMonth: formData.completion_months,
+            rules: [
+                { minArea: -1, maxArea: -1, configurations: normalizedGlobalStages },
+                ...normalizedAreaRules
+            ]
+        };
+
+        await saveProposalConfiguration(configToSave, templateBase64 || undefined);
+        alert("Template configuration saved successfully!");
+    } catch (err: any) {
+        showError("Failed to save template changes: " + (err.message || err));
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleExport = async (type: "docx" | "pdf", modalConfig?: any) => {
     if (!selectedTemplateId && !templateBase64) return;
 
     setIsGenerating(true);
     try {
       // Normalize global payment stages
       const normalizedGlobalStages = globalPaymentStages.map((c: any) => ({
-        configType: c.configType || c.config_type || 'percentage',
-        configKey:  c.configKey  || c.config_key  || '',
-        value:      String(c.value || 0),
+        configType: c.configType || c.config_type || "percentage",
+        configKey: c.configKey || c.config_key || "",
+        value: String(c.value || 0),
       }));
 
       // Normalize area rules
       const normalizedAreaRules = rules.map((rule: any) => ({
-        minArea:         rule.minArea,
-        maxArea:         rule.maxArea,
-        completionYear:  rule.completionYear  || 0,
+        minArea: rule.minArea,
+        maxArea: rule.maxArea,
+        completionYear: rule.completionYear || 0,
         completionMonth: rule.completionMonth || 0,
         configurations: (rule.configurations || []).map((c: any) => ({
-          configType: c.configType || c.config_type || '',
-          configKey:  c.configKey  || c.config_key  || '',
-          value:      String(c.value || 0),
+          configType: c.configType || c.config_type || "",
+          configKey: c.configKey || c.config_key || "",
+          value: String(c.value || 0),
         })),
       }));
 
@@ -676,14 +797,24 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         templateId: selectedTemplateId,
         ...formData,
         // Ensure total_project_cost is always present (transformer priority check)
-        total_project_cost: formData.total_project_cost || formData.total_offer_cost || 0,
+        total_project_cost:
+          formData.total_project_cost || formData.total_offer_cost || 0,
         areaRules: [
           { minArea: -1, maxArea: -1, configurations: normalizedGlobalStages },
           ...normalizedAreaRules,
         ],
         customTemplate: templateBase64 || undefined,
+        userId: currentUser?.id,
+        userName: `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim(),
+        // --- Export Center Payload from Modal ---
+        ...(modalConfig || {}),
       };
-      console.log(`📤 [Export] ${type.toUpperCase()} | Global stages: ${normalizedGlobalStages.length} | Area rules: ${normalizedAreaRules.length}`);
+
+      const { destination, fileName } = modalConfig || { destination: 'device' };
+      
+      console.log(
+        `📤 [Export] ${type.toUpperCase()} | Dest: ${destination}`,
+      );
 
       const response =
         type === "docx"
@@ -697,17 +828,28 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             : "application/pdf",
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${formData.project_name || "Proposal"}.${type}`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      // Handle Destination
+      if (destination === 'device' || destination === 'both') {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute(
+          "download",
+          fileName || `${formData.project_name || "Proposal"}.${type}`,
+        );
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
+
+
+      if (destination === 'cloud' || destination === 'both') {
+        window.dispatchEvent(new CustomEvent('dms-refresh'));
+      }
+
+
+
     } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);
       let errorMessage = `Failed to generate ${type}. Please check template and rules.`;
@@ -820,11 +962,11 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                 <div className="card border-0 shadow-sm rounded-4">
                   <div className="card-body p-6 p-lg-8">
                     <div className="d-flex align-items-center mb-6">
-                      <div className="symbol symbol-35px symbol-lg-40px bg-light-warning me-4">
+                      <div className="symbol symbol-35px symbol-lg-40px bg-light-primary me-4">
                         <span className="symbol-label">
                           <KTIcon
                             iconName="notepad-edit"
-                            className="fs-2 text-warning"
+                            className="fs-2 text-primary"
                           />
                         </span>
                       </div>
@@ -932,10 +1074,12 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                               <h5 className="fw-bolder text-dark mb-0">
                                 Global Payment Breakdown
                               </h5>
-                              <span className="text-muted fs-8 fw-bold">Applies to all area ranges</span>
+                              <span className="text-muted fs-8 fw-bold">
+                                Applies to all area ranges
+                              </span>
                             </div>
                           </div>
-                          
+
                           <PercentageConfigurationTable
                             percentages={globalPaymentStages}
                             setPercentages={setGlobalPaymentStages}
@@ -949,20 +1093,70 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
                         <div className="separator separator-dashed"></div>
 
+                        <div className="bg-white border border-dashed border-gray-300 rounded-4 p-6 shadow-sm mb-6">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-4">
+                                <div className="d-flex align-items-center gap-3">
+                                    <div className="symbol symbol-40px bg-light-primary">
+                                        <span className="symbol-label">
+                                            <KTIcon iconName="calendar-8" className="fs-2 text-primary" />
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h5 className="fw-bolder text-dark mb-0">Project Area Filter</h5>
+                                        <span className="text-muted fs-8 fw-bold">Enter area to see matching rule & meetings</span>
+                                    </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-4">
+                                    <Form.Control
+                                        type="number"
+                                        placeholder="Enter Total Area..."
+                                        className="form-control-solid fw-bold w-150px"
+                                        value={formData.total_project_area || ""}
+                                        onChange={(e) => handleInputChange(e as any)}
+                                        name="total_project_area"
+                                    />
+                                    <div className="d-flex gap-2">
+                                        <Button
+                                            variant="light-primary"
+                                            size="sm"
+                                            onClick={handleAddRule}
+                                        >
+                                            <KTIcon iconName="plus" className="fs-3 me-1" /> Add Range
+                                        </Button>
+                                        <Button
+                                            variant="success"
+                                            size="sm"
+                                            onClick={handleSaveConfig}
+                                            disabled={isSaving}
+                                        >
+                                            {isSaving ? (
+                                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                            ) : (
+                                                <KTIcon iconName="check-square" className="fs-3 me-1" />
+                                            )}
+                                            Save as Template
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="d-flex justify-content-between align-items-center mb-2">
                           <h4 className="fw-bolder text-dark mb-0">
-                            Area-Specific Rules
+                            Active Area-Specific Rules
                           </h4>
-                          <Button
-                            variant="light-primary"
-                            size="sm"
-                            onClick={handleAddRule}
-                          >
-                            <KTIcon iconName="plus" className="fs-3 me-1" /> Add
-                            Range
-                          </Button>
                         </div>
-                        {rules.map((rule, ruleIdx) => (
+                        {rules
+                          .filter(r => {
+                            const area = parseFloat(formData.total_project_area || "0");
+                            // If area is 0 and no match, show Rule 1? Or show all if area is empty?
+                            // User said "only that meeting will be showed which will be in range"
+                            // So if area is entered, filter. If area is empty/0, show nothing or first?
+                            // Let's show matching, or show all if area is empty.
+                            if (!formData.total_project_area) return true;
+                            return area >= Number(r.minArea) && area <= Number(r.maxArea);
+                          })
+                          .map((rule, ruleIdx) => (
                           <div
                             key={ruleIdx}
                             className="border border-gray-200 rounded-4 p-4 p-lg-8 bg-light-primary border-dashed position-relative"
@@ -1125,6 +1319,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
           </Col>
         </Row>
       </Modal.Body>
+
       <Modal.Footer className="bg-white border-top py-4 px-8 justify-content-between">
         <Button
           variant="light"
@@ -1138,18 +1333,53 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
           <Button
             variant="primary"
             className="fw-bold px-8 shadow-sm"
-            onClick={() => handleExport("docx")}
-            disabled={!canExport}
+            disabled={!canExport || isGenerating}
+            onClick={() => setShowExportCenter(true)}
           >
             {isGenerating ? (
               <span className="spinner-border spinner-border-sm me-2" />
             ) : (
               <KTIcon iconName="word" className="fs-2 me-1" />
             )}
-            Generate DOCX
+            Process & Export
           </Button>
         </div>
       </Modal.Footer>
+
+      {/* Export Center Modal Hook */}
+      <ExportCenterModal
+        show={showExportCenter}
+        onHide={() => setShowExportCenter(false)}
+        leadData={leadData}
+        templateId={selectedTemplateId || "custom"}
+        isDataModified={
+          (() => {
+            if (!initialFormDataRef.current) return false;
+            
+            // Only check CRITICAL fields to avoid false positives from technical/hidden fields
+            const criticalFields = [
+              'project_name', 
+              'total_project_cost', 
+              'total_project_area', 
+              'client_company_name', 
+              'contact_person'
+            ];
+            
+            return criticalFields.some(key => {
+              const val1 = formData[key] === null || formData[key] === undefined ? "" : String(formData[key]).trim();
+              const val2 = initialFormDataRef.current[key] === null || initialFormDataRef.current[key] === undefined ? "" : String(initialFormDataRef.current[key]).trim();
+              return val1 !== val2;
+            });
+          })()
+        }
+
+
+
+
+        onExport={async (config) => {
+          await handleExport('docx', config);
+        }}
+      />
     </Modal>
   );
 };

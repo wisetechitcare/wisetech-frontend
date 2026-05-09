@@ -235,6 +235,7 @@ export const exportLeadDocx = async (leadId: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/docx`;
         const { data } = await axios.post(endpoint, {
+            ...payload,
             lead_id: leadId,
             templateId: payload.templateId,
             templateBase64: payload.templateBase64 || payload.customTemplate,
@@ -252,6 +253,7 @@ export const exportLeadPdf = async (leadId: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/pdf`;
         const { data } = await axios.post(endpoint, {
+            ...payload,
             lead_id: leadId,
             templateId: payload.templateId,
             templateBase64: payload.templateBase64 || payload.customTemplate,

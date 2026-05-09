@@ -44,7 +44,12 @@ const ProposalConfigurationPage: React.FC = () => {
             enabledFields: availableFields.map(f => f.key),
             enabledSections: ["percentages", "meetings"],
             paymentBreakdown: [
-                { config_type: "percentage", config_key: "Advance", value: 100 }
+                { config_type: "percentage", config_key: "Advance (To be paid along with the Work Order)", value: 0 },
+                { config_type: "percentage", config_key: "Design Concept", value: 0 },
+                { config_type: "percentage", config_key: "Design Detailing", value: 0 },
+                { config_type: "percentage", config_key: "Tendering", value: 0 },
+                { config_type: "percentage", config_key: "Procurement, Installation & Commissioning (Part-1)", value: 0 },
+                { config_type: "percentage", config_key: "Procurement, Installation & Commissioning (Part-2)", value: 0 }
             ],
             rules: [],
             isActive: true
@@ -89,10 +94,8 @@ const ProposalConfigurationPage: React.FC = () => {
                             max_area: max,
                             minArea: min,
                             maxArea: max,
-                            completion_year: r.completionYear || r.completion_year || 0,
-                            completion_month: r.completionMonth || r.completion_month || 0,
-                            completionYear: r.completionYear || r.completion_year || 0,
-                            completionMonth: r.completionMonth || r.completion_month || 0,
+                            completionYear: r.completionYear ?? r.completion_year ?? 0,
+                            completionMonth: r.completionMonth ?? r.completion_month ?? 0,
                             configurations: []
                         });
                         areaRules.push(rulesMap.get(areaKey));
@@ -145,14 +148,20 @@ const ProposalConfigurationPage: React.FC = () => {
             const flattenedRules = [
                 // Global rule
                 {
-                    min_area: -1,
-                    max_area: -1,
+                    minArea: -1,
+                    maxArea: -1,
                     configurations: selectedConfig.paymentBreakdown || [],
-                    completion_year: 0,
-                    completion_month: 0
+                    completionYear: selectedConfig.completionYear || 0,
+                    completionMonth: selectedConfig.completionMonth || 0
                 },
                 // Area rules
-                ...(selectedConfig.rules || [])
+                ...(selectedConfig.rules || []).map((r: any) => ({
+                    ...r,
+                    minArea: r.minArea ?? r.min_area,
+                    maxArea: r.maxArea ?? r.max_area,
+                    completionYear: r.completionYear ?? r.completion_year,
+                    completionMonth: r.completionMonth ?? r.completion_month
+                }))
             ];
 
             const result = await saveProposalConfiguration({ ...selectedConfig, rules: flattenedRules }, templateBase64);
@@ -196,7 +205,11 @@ const ProposalConfigurationPage: React.FC = () => {
             min_area: 0,
             max_area: 5000,
             configurations: [
-                { config_type: "meeting", config_key: "Site Visit", value: 1 }
+                { config_type: "meeting", config_key: "RCC Slab Checking for MEP up to Typical Floor", value: 0 },
+                { config_type: "meeting", config_key: "RCC Slab Checking after Typical Floor", value: 0 },
+                { config_type: "meeting", config_key: "Testing and Commissioning", value: 0 },
+                { config_type: "meeting", config_key: "Installation Site Co-ordination", value: 0 },
+                { config_type: "meeting", config_key: "Handover", value: 0 }
             ],
             completion_year: 0,
             completion_month: 0
@@ -277,25 +290,27 @@ const ProposalConfigurationPage: React.FC = () => {
     };
 
     const [draggedConfigIndex, setDraggedConfigIndex] = useState<number | null>(null);
+    const [draggedRuleIndex, setDraggedRuleIndex] = useState<number | null>(null);
     const [dragContext, setDragContext] = useState<'global' | 'rule' | null>(null);
 
-    const handleDragStart = (index: number, context: 'global' | 'rule') => {
+    const handleDragStart = (index: number, context: 'global' | 'rule', ruleIdx?: number) => {
         setDraggedConfigIndex(index);
         setDragContext(context);
+        if (ruleIdx !== undefined) setDraggedRuleIndex(ruleIdx);
     };
 
     const handleDragOver = (e: React.DragEvent, targetIdx: number, ruleIdx?: number) => {
         e.preventDefault();
-        if (draggedConfigIndex === null || draggedConfigIndex === targetIdx) return;
-
         if (dragContext === 'global') {
+            if (draggedConfigIndex === null || draggedConfigIndex === targetIdx) return;
             const updated = [...selectedConfig.paymentBreakdown];
             const itemToMove = updated[draggedConfigIndex];
             updated.splice(draggedConfigIndex, 1);
             updated.splice(targetIdx, 0, itemToMove);
             setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
             setDraggedConfigIndex(targetIdx);
-        } else if (dragContext === 'rule' && ruleIdx !== undefined) {
+        } else if (dragContext === 'rule' && ruleIdx !== undefined && draggedRuleIndex === ruleIdx) {
+            if (draggedConfigIndex === null || draggedConfigIndex === targetIdx) return;
             const updatedRules = [...selectedConfig.rules];
             const configs = [...updatedRules[ruleIdx].configurations];
             const itemToMove = configs[draggedConfigIndex];
@@ -309,6 +324,7 @@ const ProposalConfigurationPage: React.FC = () => {
 
     const handleDragEnd = () => {
         setDraggedConfigIndex(null);
+        setDraggedRuleIndex(null);
         setDragContext(null);
     };
 
@@ -416,7 +432,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </Form.Group>
-                                                </Col>
+                                            </Col>
                                         </Row>
                                     </Card.Body>
                                 </Card>
@@ -591,10 +607,10 @@ const ProposalConfigurationPage: React.FC = () => {
                                                             </div>
 
                                                             <Row className="align-items-center mb-6 pe-12">
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Min Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.min_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].min_area = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Max Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.max_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].max_area = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (Y)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completion_year} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completion_year = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (M)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completion_month} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completion_month = parseInt(e.target.value); setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Min Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear !== undefined ? rule.minArea : rule.min_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].minArea = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Max Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear !== undefined ? rule.maxArea : rule.max_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].maxArea = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (Y)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear ?? rule.completion_year ?? 0} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completionYear = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (M)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionMonth ?? rule.completion_month ?? 0} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completionMonth = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
                                                             </Row>
 
                                                             <div className="bg-white rounded p-4 p-lg-6 shadow-sm">
@@ -611,7 +627,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                                                             <tr 
                                                                                 key={cIdx}
                                                                                 draggable
-                                                                                onDragStart={() => handleDragStart(cIdx, 'rule')}
+                                                                                onDragStart={() => handleDragStart(cIdx, 'rule', ruleIdx)}
                                                                                 onDragOver={(e) => handleDragOver(e, cIdx, ruleIdx)}
                                                                                 onDragEnd={handleDragEnd}
                                                                                 className={dragContext === 'rule' && draggedConfigIndex === cIdx ? 'opacity-50 bg-light' : ''}

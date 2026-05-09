@@ -529,15 +529,26 @@ const LeadsConfigurationMain = () => {
               <h5 className="card-title mb-1" style={{ fontWeight: 600, fontSize: "16px" }}>Proposal Template Export Builder</h5>
               <p className="text-muted small mb-0">Manage .docx templates, payment stages, and area-based rules.</p>
             </div>
-            <Link
-              to="/qc/leads/configuration"
-              className="btn mt-3 mt-md-0"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', display: 'flex', alignItems: 'center', textDecoration: 'none' }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              <i className="fa fa-cog me-2"></i> Open Template Builder
-            </Link>
+            <div className="d-flex gap-3 mt-3 mt-md-0">
+              <Link
+                to="/qc/leads/documentation-builder"
+                className="btn"
+                style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', display: 'flex', alignItems: 'center', textDecoration: 'none', borderColor: '#6366f1', color: '#6366f1' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#6366f1'; e.currentTarget.style.color = 'white'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6366f1'; }}
+              >
+                <i className="fa fa-book me-2"></i> Documentation & Validation
+              </Link>
+              <Link
+                to="/qc/leads/configuration"
+                className="btn"
+                style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', display: 'flex', alignItems: 'center', textDecoration: 'none' }}
+                onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
+                onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
+              >
+                <i className="fa fa-cog me-2"></i> Open Template Builder
+              </Link>
+            </div>
           </div>
         </div>
       </div>
