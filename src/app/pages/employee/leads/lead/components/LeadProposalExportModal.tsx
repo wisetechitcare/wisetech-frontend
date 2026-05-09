@@ -84,7 +84,20 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
         client_address_line_3: leadData.addresses?.[0]?.state || "",
         project_location: leadData.addresses?.[0]?.locality || "",
         project_type: leadData.leadCategories?.[0]?.category?.name || "",
-        built_up_area: leadData.builtUpArea || leadData.plotArea || "",
+        built_up_area:
+          (leadData.commercials?.length > 0
+            ? leadData.commercials.reduce(
+                (sum: number, comm: any) => sum + (parseFloat(comm.area) || 0),
+                0,
+              )
+            : leadData.builtUpArea ||
+              leadData.additionalDetails?.builtUpArea ||
+              leadData.additionalDetails?.projectArea ||
+              leadData.project?.builtUpArea ||
+              leadData.project?.projectArea ||
+              leadData.projectArea ||
+              leadData.plotArea ||
+              "") || "",
         offer_number: leadData.prefix || leadData.id || "",
         offer_date: leadData.inquiryDate
           ? new Date(leadData.inquiryDate).toISOString().split("T")[0]
@@ -98,7 +111,31 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
         authorized_person_name: "Authorized Signatory",
         remarks: leadData.description || "",
         additional_notes: leadData.notes || "",
+        total_project_area:
+          (leadData.commercials?.length > 0
+            ? leadData.commercials.reduce(
+                (sum: number, comm: any) => sum + (parseFloat(comm.area) || 0),
+                0,
+              )
+            : leadData.builtUpArea ||
+              leadData.additionalDetails?.builtUpArea ||
+              leadData.additionalDetails?.projectArea ||
+              "") || "",
+        total_area:
+          (leadData.commercials?.length > 0
+            ? leadData.commercials.reduce(
+                (sum: number, comm: any) => sum + (parseFloat(comm.area) || 0),
+                0,
+              )
+            : leadData.builtUpArea ||
+              leadData.additionalDetails?.builtUpArea ||
+              leadData.additionalDetails?.projectArea ||
+              "") || "",
         total_offer_cost: initialCost,
+        // Alias so transformer finds it under both key names
+        total_project_cost: initialCost,
+        // Alias contact person under both key names
+        client_contact_person: primaryTeam?.contact?.fullName || leadData.contact?.fullName || leadData.contactPerson || "",
         enabledFields: [],
       });
       setUploadedFile(null);
@@ -106,15 +143,29 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
     }
   }, [show, leadData]);
 
+  // Re-trigger rule matching when area changes
+  useEffect(() => {
+    if (selectedTemplateId && selectedTemplateId !== "custom") {
+      const area = parseFloat(formData.built_up_area || formData.total_area || 0);
+      if (area > 0) {
+        handleTemplateChange(selectedTemplateId);
+      }
+    }
+  }, [formData.built_up_area, formData.total_area]);
+
   useEffect(() => {
     setAvailableFields([
       { key: "project_name", label: "Project Name" },
       { key: "client_name", label: "Client Name" },
       { key: "total_offer_cost", label: "Total Cost" },
       { key: "built_up_area", label: "Built-up Area" },
+      { key: "total_project_area", label: "Total Project Area" },
+      { key: "total_area", label: "Total Area" },
       { key: "offer_date", label: "Offer Date" },
     ]);
   }, []);
+
+  const [globalPaymentStages, setGlobalPaymentStages] = useState<any[]>([]);
 
   const handleTemplateChange = (
     templateId: string,
@@ -125,38 +176,51 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
     const template = tplList.find((tpl) => tpl.id === templateId);
 
     if (template) {
-      console.log("Wizard Area Rules (Before Grouping):", template.rules);
-
-      // Group flat rules into area-based rule groups
-      const groupedRules: any[] = [];
+      const areaRules: any[] = [];
+      const globalStages: any[] = [];
       const rulesMap = new Map<string, any>();
 
       if (template.rules && Array.isArray(template.rules)) {
         template.rules.forEach((r: any) => {
-          const key = `${r.minArea}-${r.maxArea}`;
-          if (!rulesMap.has(key)) {
-            const newRuleGroup = {
-              id: r.id,
-              minArea: r.minArea,
-              maxArea: r.maxArea,
-              completionYear: r.completionYear || 0,
-              completionMonth: r.completionMonth || 0,
-              configurations: [],
-            };
-            rulesMap.set(key, newRuleGroup);
-            groupedRules.push(newRuleGroup);
+          const min = r.minArea !== undefined ? r.minArea : r.min_area;
+          const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
+          const type = r.configType || r.config_type;
+
+          if (type === 'percentage' || (Number(min) === -1 && Number(max) === -1)) {
+            globalStages.push({
+              ...r,
+              configType: type,
+              configKey: r.configKey || r.config_key,
+              config_type: type,
+              config_key: r.configKey || r.config_key,
+            });
+          } else {
+            const key = `${min}-${max}`;
+            if (!rulesMap.has(key)) {
+              const newRuleGroup = {
+                id: r.id,
+                minArea: min,
+                maxArea: max,
+                completionYear: r.completionYear || r.completion_year || 0,
+                completionMonth: r.completionMonth || r.completion_month || 0,
+                configurations: [],
+              };
+              rulesMap.set(key, newRuleGroup);
+              areaRules.push(newRuleGroup);
+            }
+            rulesMap.get(key).configurations.push({
+              ...r,
+              configType: type,
+              configKey: r.configKey || r.config_key,
+              config_type: type,
+              config_key: r.configKey || r.config_key,
+            });
           }
-          rulesMap.get(key).configurations.push({
-            id: r.id,
-            configType: r.configType,
-            configKey: r.configKey,
-            value: r.value,
-          });
         });
       }
 
-      console.log("Wizard Area Rules (Grouped):", groupedRules);
-      setRules(groupedRules);
+      setRules(areaRules);
+      setGlobalPaymentStages(globalStages);
     }
   };
 
@@ -175,10 +239,46 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev: any) => ({ ...prev, [name]: value }));
+    
+    setFormData((prev: any) => {
+        const updated = { ...prev, [name]: value };
+        
+        // Sync Area Aliases
+        if (['built_up_area', 'total_project_area', 'total_area', 'project_area'].includes(name)) {
+            updated.built_up_area = value;
+            updated.total_project_area = value;
+            updated.total_area = value;
+            updated.project_area = value;
+        }
+        
+        // Sync Cost Aliases
+        if (['total_offer_cost', 'total_project_cost', 'cost', 'total_cost'].includes(name)) {
+            updated.total_offer_cost = value;
+            updated.total_project_cost = value;
+            updated.cost = value;
+            updated.total_cost = value;
+        }
+        
+        // Sync Contact Aliases
+        if (['client_contact_name', 'client_contact_person', 'contact_person', 'contact_name'].includes(name)) {
+            updated.client_contact_name = value;
+            updated.client_contact_person = value;
+            updated.contact_person = value;
+            updated.contact_name = value;
+        }
+
+        // Sync Company Aliases
+        if (['client_company_name', 'company_name', 'client_name'].includes(name)) {
+            updated.client_company_name = value;
+            updated.company_name = value;
+            updated.client_name = value;
+        }
+
+        return updated;
+    });
   };
 
   const handleResetToDefault = () => {
@@ -241,21 +341,44 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
   };
 
   const handleGenerate = (type: "docx" | "pdf") => {
+    // Normalize global payment stages
+    const normalizedGlobalStages = globalPaymentStages.map((c: any) => ({
+      configType: c.configType || c.config_type || 'percentage',
+      configKey:  c.configKey  || c.config_key  || '',
+      value:      String(c.value || 0),
+    }));
+
+    // Normalize area rules
+    const normalizedAreaRules = rules.map((rule: any) => ({
+      minArea:         rule.minArea,
+      maxArea:         rule.maxArea,
+      completionYear:  rule.completionYear  || 0,
+      completionMonth: rule.completionMonth || 0,
+      configurations: (rule.configurations || []).map((c: any) => ({
+        configType: c.configType || c.config_type || '',
+        configKey:  c.configKey  || c.config_key  || '',
+        value:      String(c.value || 0),
+      })),
+    }));
+
     const exportData = {
-      ...leadData,
       ...formData,
       templateId: selectedTemplateId,
-      templateBase64: templateBase64,
-      areaRules: rules,
+      templateBase64: templateBase64 || undefined,
+      // Ensure total_project_cost is always set for the transformer
+      total_project_cost: formData.total_project_cost || formData.total_offer_cost || 0,
+      areaRules: [
+        { minArea: -1, maxArea: -1, configurations: normalizedGlobalStages },
+        ...normalizedAreaRules,
+      ],
       enabledFields: formData.enabledFields || [],
     };
-    console.log("Builder Area Rules:", rules);
-    console.log("Wizard Area Rules:", currentTemplate?.rules);
-    console.log("Export Payload Rules:", exportData.areaRules);
+    console.log(`📤 [Modal Export] ${type.toUpperCase()} | Global: ${normalizedGlobalStages.length} | Area rules: ${normalizedAreaRules.length}`);
     onExport(type, exportData);
   };
 
-  const canExport = (rules.length > 0 || templateBase64) && !isGenerating;
+  // Allow export if we have a template selected (or uploaded) regardless of area rules
+  const canExport = (selectedTemplateId || templateBase64) && !isGenerating;
   const currentTemplate = templates.find((t) => t.id === selectedTemplateId);
 
   return (
@@ -429,79 +552,110 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
                 <div className="card-body p-8">
                   {activeTab === "fields" ? (
                     <div>
+                      <h6 className="fw-bolder mb-6 text-primary border-bottom pb-2">Project Information</h6>
                       <Row className="g-4 mb-8">
                         <Col md={6}>
                           <Form.Group>
-                            <Form.Label className="fs-7 fw-bolder mb-2">
-                              Project Name
-                            </Form.Label>
-                            <Form.Control
-                              className="form-control-solid"
-                              value={formData.project_name}
-                              name="project_name"
-                              onChange={handleInputChange}
-                            />
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Project Name</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.project_name} name="project_name" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Project Location</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.project_location} name="project_location" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Project Type</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.project_type} name="project_type" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                      </Row>
+
+                      <h6 className="fw-bolder mb-6 text-primary border-bottom pb-2">Client Information</h6>
+                      <Row className="g-4 mb-8">
+                        <Col md={6}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Client Company Name</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.client_company_name} name="client_company_name" onChange={handleInputChange} />
                           </Form.Group>
                         </Col>
                         <Col md={6}>
                           <Form.Group>
-                            <Form.Label className="fs-7 fw-bolder mb-2">
-                              Client Company
-                            </Form.Label>
-                            <Form.Control
-                              className="form-control-solid"
-                              value={formData.client_company_name}
-                              name="client_company_name"
-                              onChange={handleInputChange}
-                            />
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Client Contact Name</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.client_contact_name} name="client_contact_name" onChange={handleInputChange} />
                           </Form.Group>
                         </Col>
                         <Col md={4}>
                           <Form.Group>
-                            <Form.Label className="fs-7 fw-bolder mb-2">
-                              Built-up Area
-                            </Form.Label>
-                            <Form.Control
-                              className="form-control-solid"
-                              value={formData.built_up_area}
-                              name="built_up_area"
-                              onChange={handleInputChange}
-                            />
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Address Line 1</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.client_address_line_1} name="client_address_line_1" onChange={handleInputChange} />
                           </Form.Group>
                         </Col>
                         <Col md={4}>
                           <Form.Group>
-                            <Form.Label className="fs-7 fw-bolder mb-2">
-                              Total Offer Cost
-                            </Form.Label>
-                            <Form.Control
-                              className="form-control-solid"
-                              type="number"
-                              value={formData.total_offer_cost}
-                              name="total_offer_cost"
-                              onChange={handleInputChange}
-                            />
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Address Line 2</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.client_address_line_2} name="client_address_line_2" onChange={handleInputChange} />
                           </Form.Group>
                         </Col>
                         <Col md={4}>
                           <Form.Group>
-                            <Form.Label className="fs-7 fw-bolder mb-2">
-                              Offer Date
-                            </Form.Label>
-                            <Form.Control
-                              className="form-control-solid"
-                              type="date"
-                              value={formData.offer_date}
-                              name="offer_date"
-                              onChange={handleInputChange}
-                            />
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Address Line 3</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.client_address_line_3} name="client_address_line_3" onChange={handleInputChange} />
                           </Form.Group>
                         </Col>
                       </Row>
+
+                      <h6 className="fw-bolder mb-6 text-primary border-bottom pb-2">Proposal & Metrics</h6>
+                      <Row className="g-4 mb-8">
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Offer Number</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.offer_number} name="offer_number" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Offer Date</Form.Label>
+                            <Form.Control className="form-control-solid" type="date" value={formData.offer_date} name="offer_date" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Validity Date</Form.Label>
+                            <Form.Control className="form-control-solid" type="date" value={formData.validity_date} name="validity_date" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Built-up Area</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.built_up_area} name="built_up_area" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={4}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Total Offer Cost</Form.Label>
+                            <Form.Control className="form-control-solid" type="number" value={formData.total_offer_cost} name="total_offer_cost" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={4}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Submitted By</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.submitted_by} name="submitted_by" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                        <Col md={4}>
+                          <Form.Group>
+                            <Form.Label className="fs-8 fw-bolder text-uppercase mb-2 text-muted">Authorized Signatory</Form.Label>
+                            <Form.Control className="form-control-solid" value={formData.authorized_person_name} name="authorized_person_name" onChange={handleInputChange} />
+                          </Form.Group>
+                        </Col>
+                      </Row>
+
                       <div className="separator separator-dashed mb-8"></div>
-                      <h6 className="fw-bolder mb-6">
-                        Enabled Placeholder Fields
-                      </h6>
+                      <h6 className="fw-bolder mb-6">Enabled Placeholder Fields</h6>
                       <Row className="g-4">
                         {availableFields.map((field, idx) => (
                           <Col md={4} key={idx}>
@@ -535,17 +689,52 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
                     </div>
                   ) : (
                     <div>
-                      <div className="d-flex justify-content-between align-items-center mb-8">
-                        <h4 className="fw-bolder mb-0">Project Area Rules</h4>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={handleAddRule}
-                        >
-                          <KTIcon iconName="plus" className="fs-3 me-1" /> Add
-                          New Area Range
-                        </Button>
+                      <div className="d-flex flex-column gap-8 mb-8">
+                        {/* Global Payment Breakdown */}
+                        <div className="border border-gray-200 rounded-4 p-8 bg-white shadow-sm border-dashed">
+                          <div className="d-flex align-items-center gap-3 mb-6">
+                            <div className="symbol symbol-35px bg-light-primary">
+                              <span className="symbol-label">
+                                <KTIcon
+                                  iconName="percentage"
+                                  className="fs-2 text-primary"
+                                />
+                              </span>
+                            </div>
+                            <div>
+                              <h5 className="fw-bolder text-dark mb-0">
+                                Global Payment Breakdown
+                              </h5>
+                              <span className="text-muted fs-8 fw-bold">Applies to all area ranges</span>
+                            </div>
+                          </div>
+                          
+                          <PercentageConfigurationTable
+                            percentages={globalPaymentStages}
+                            setPercentages={setGlobalPaymentStages}
+                            totalCost={parseFloat(
+                              formData.total_project_cost ||
+                                formData.total_offer_cost ||
+                                0,
+                            )}
+                          />
+                        </div>
+
+                        <div className="separator separator-dashed"></div>
+
+                        <div className="d-flex justify-content-between align-items-center mb-0">
+                          <h4 className="fw-bolder mb-0">Area-Specific Rules</h4>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleAddRule}
+                          >
+                            <KTIcon iconName="plus" className="fs-3 me-1" /> Add
+                            New Area Range
+                          </Button>
+                        </div>
                       </div>
+                      
                       <div className="d-flex flex-column gap-8">
                         {rules.map((rule, ruleIdx) => (
                           <div
@@ -640,139 +829,115 @@ const LeadProposalExportModal: React.FC<LeadProposalExportModalProps> = ({
                                 </Form.Group>
                               </Col>
                             </Row>
-                            <Row className="g-8">
-                              <Col lg={7}>
-                                <div className="bg-white rounded-4 p-6 shadow-sm h-100">
-                                  <PercentageConfigurationTable
-                                    percentages={rule.configurations.filter((c: any) => {
-                                      const type = (c.configType || c.config_type || '').toLowerCase();
-                                      return type === 'percentage' || type === 'payment';
-                                    })}
-                                    setPercentages={(newPerc) => {
-                                      const updatedRules = [...rules];
-                                      const otherConfigs = updatedRules[ruleIdx].configurations.filter((c: any) => {
-                                        const type = (c.configType || c.config_key || '').toLowerCase();
-                                        return type !== 'percentage' && type !== 'payment';
-                                      });
-                                      updatedRules[ruleIdx].configurations = [...newPerc, ...otherConfigs];
-                                      setRules(updatedRules);
-                                    }}
-                                    totalCost={parseFloat(formData.total_project_cost || formData.total_offer_cost || 0)}
+                            <div className="bg-white rounded-4 p-6 shadow-sm">
+                              <div className="d-flex justify-content-between align-items-center mb-4">
+                                <h6 className="fw-bolder mb-0">
+                                  <KTIcon
+                                    iconName="timer"
+                                    className="text-warning me-2"
                                   />
-                                </div>
-                              </Col>
-                              <Col lg={5}>
-                                <div className="bg-white rounded-4 p-6 shadow-sm h-100">
-                                  <div className="d-flex justify-content-between align-items-center mb-4">
-                                    <h6 className="fw-bolder mb-0">
-                                      <KTIcon
-                                        iconName="timer"
-                                        className="text-warning me-2"
-                                      />
-                                      Meetings & Durations
-                                    </h6>
-                                    <Button
-                                      variant="light-warning"
-                                      size="sm"
-                                      className="btn-icon w-25px h-25px"
-                                      onClick={() =>
-                                        handleAddConfig(ruleIdx, "meeting")
-                                      }
-                                    >
-                                      <KTIcon
-                                        iconName="plus"
-                                        className="fs-3"
-                                      />
-                                    </Button>
-                                  </div>
-                                  <Table
-                                    borderless
-                                    className="align-middle gs-0 gy-3"
-                                  >
-                                    <thead>
-                                      <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom">
-                                        <th className="ps-0">Meeting Type</th>
-                                        <th className="min-w-80px">Count</th>
-                                        <th className="text-end">Action</th>
+                                  Meetings Configuration
+                                </h6>
+                                <Button
+                                  variant="light-warning"
+                                  size="sm"
+                                  className="btn-icon w-25px h-25px"
+                                  onClick={() =>
+                                    handleAddConfig(ruleIdx, "meeting")
+                                  }
+                                >
+                                  <KTIcon
+                                    iconName="plus"
+                                    className="fs-3"
+                                  />
+                                </Button>
+                              </div>
+                              <Table
+                                borderless
+                                className="align-middle gs-0 gy-3 mb-0"
+                              >
+                                <thead>
+                                  <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom">
+                                    <th className="ps-0">Meeting Type</th>
+                                    <th className="min-w-80px">Count</th>
+                                    <th className="text-end">Action</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rule.configurations
+                                    .filter(
+                                      (c: any) =>
+                                        (
+                                          c.configType ||
+                                          c.config_type ||
+                                          ""
+                                        ).toLowerCase() === "meeting",
+                                    )
+                                    .map((config: any, cIdx: number) => (
+                                      <tr key={cIdx}>
+                                        <td className="ps-0">
+                                          <Form.Control
+                                            size="sm"
+                                            className="form-control-solid"
+                                            value={
+                                              config.configKey ||
+                                              config.config_key
+                                            }
+                                            onChange={(e) =>
+                                              handleConfigChange(
+                                                ruleIdx,
+                                                rule.configurations.indexOf(
+                                                  config,
+                                                ),
+                                                "configKey",
+                                                e.target.value,
+                                              )
+                                            }
+                                          />
+                                        </td>
+                                        <td>
+                                          <Form.Control
+                                            size="sm"
+                                            type="number"
+                                            className="form-control-solid"
+                                            value={config.value}
+                                            onChange={(e) =>
+                                              handleConfigChange(
+                                                ruleIdx,
+                                                rule.configurations.indexOf(
+                                                  config,
+                                                ),
+                                                "value",
+                                                e.target.value,
+                                              )
+                                            }
+                                          />
+                                        </td>
+                                        <td className="text-end pe-0">
+                                          <Button
+                                            variant="light-danger"
+                                            size="sm"
+                                            className="btn-icon w-25px h-25px"
+                                            onClick={() =>
+                                              handleRemoveConfig(
+                                                ruleIdx,
+                                                rule.configurations.indexOf(
+                                                  config,
+                                                ),
+                                              )
+                                            }
+                                          >
+                                            <KTIcon
+                                              iconName="trash"
+                                              className="fs-4"
+                                            />
+                                          </Button>
+                                        </td>
                                       </tr>
-                                    </thead>
-                                    <tbody>
-                                      {rule.configurations
-                                        .filter(
-                                          (c: any) =>
-                                            (
-                                              c.configType ||
-                                              c.config_type ||
-                                              ""
-                                            ).toLowerCase() === "meeting",
-                                        )
-                                        .map((config: any, cIdx: number) => (
-                                          <tr key={cIdx}>
-                                            <td className="ps-0">
-                                              <Form.Control
-                                                size="sm"
-                                                className="form-control-solid"
-                                                value={
-                                                  config.configKey ||
-                                                  config.config_key
-                                                }
-                                                onChange={(e) =>
-                                                  handleConfigChange(
-                                                    ruleIdx,
-                                                    rule.configurations.indexOf(
-                                                      config,
-                                                    ),
-                                                    "configKey",
-                                                    e.target.value,
-                                                  )
-                                                }
-                                              />
-                                            </td>
-                                            <td>
-                                              <Form.Control
-                                                size="sm"
-                                                type="number"
-                                                className="form-control-solid"
-                                                value={config.value}
-                                                onChange={(e) =>
-                                                  handleConfigChange(
-                                                    ruleIdx,
-                                                    rule.configurations.indexOf(
-                                                      config,
-                                                    ),
-                                                    "value",
-                                                    e.target.value,
-                                                  )
-                                                }
-                                              />
-                                            </td>
-                                            <td className="text-end pe-0">
-                                              <Button
-                                                variant="light-danger"
-                                                size="sm"
-                                                className="btn-icon w-25px h-25px"
-                                                onClick={() =>
-                                                  handleRemoveConfig(
-                                                    ruleIdx,
-                                                    rule.configurations.indexOf(
-                                                      config,
-                                                    ),
-                                                  )
-                                                }
-                                              >
-                                                <KTIcon
-                                                  iconName="trash"
-                                                  className="fs-4"
-                                                />
-                                              </Button>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                    </tbody>
-                                  </Table>
-                                </div>
-                              </Col>
-                            </Row>
+                                    ))}
+                                </tbody>
+                              </Table>
+                            </div>
                           </div>
                         ))}
                       </div>

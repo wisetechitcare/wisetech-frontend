@@ -232,7 +232,14 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             val = details.plotAreaUnit || "sqft";
             break;
           case "built_up_area":
-            val = details.builtUpArea || details.projectArea || "0";
+            val =
+              (leadData.commercials?.length > 0
+                ? leadData.commercials.reduce(
+                    (sum: number, comm: any) =>
+                      sum + (parseFloat(comm.area) || 0),
+                    0,
+                  )
+                : details.builtUpArea || details.projectArea || "0") || "0";
             break;
           case "built_up_area_unit":
             val = details.builtUpAreaUnit || "sqft";
@@ -319,7 +326,14 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             val = details.projectAddress || "";
             break;
           case "total_project_area":
-            val = details.builtUpArea || details.projectArea || "0";
+            val =
+              (leadData.commercials?.length > 0
+                ? leadData.commercials.reduce(
+                    (sum: number, comm: any) =>
+                      sum + (parseFloat(comm.area) || 0),
+                    0,
+                  )
+                : details.builtUpArea || details.projectArea || "0") || "0";
             break;
           case "total_commercial_area":
             val =
@@ -407,6 +421,10 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       initialData[f.key] = val || "";
     });
 
+    // Add alias keys so transformer can find them under both names
+    initialData.total_offer_cost    = initialData.total_project_cost || totalCost || 0;
+    initialData.client_contact_person = initialData.contact_person || initialData.client_contact_name || (contact.name || contact.fullName || '');
+
     setFormData(initialData);
     setSelectedTemplateId("");
     setCurrentConfig(null);
@@ -415,11 +433,14 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     setActiveTab("fields");
   }, [show, leadData, availableFields]);
 
+  const [globalPaymentStages, setGlobalPaymentStages] = useState<any[]>([]);
+
   const handleTemplateChange = async (templateId: string) => {
     if (!templateId) {
       setSelectedTemplateId("");
       setCurrentConfig(null);
       setRules([]);
+      setGlobalPaymentStages([]);
       return;
     }
 
@@ -430,30 +451,43 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     if (config) {
       try {
         // Group rules by area range
-        const groupedRules: any[] = [];
+        const areaRules: any[] = [];
+        const globalStages: any[] = [];
         const rulesMap = new Map<string, any>();
+        
         (config.rules || []).forEach((r: any) => {
-          const key = `${r.minArea}-${r.maxArea}`;
-          if (!rulesMap.has(key)) {
-            const newGroup = {
-              minArea: r.minArea,
-              maxArea: r.maxArea,
-              completionYear: r.completionYear || 0,
-              completionMonth: r.completionMonth || 0,
-              configurations: [],
-            };
-            rulesMap.set(key, newGroup);
-            groupedRules.push(newGroup);
+          const min = r.minArea !== undefined ? r.minArea : r.min_area;
+          const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
+
+          if (Number(min) === -1 && Number(max) === -1) {
+            globalStages.push({
+              ...r,
+              config_type: r.configType || r.config_type,
+              config_key: r.configKey || r.config_key,
+            });
+          } else {
+            const key = `${min}-${max}`;
+            if (!rulesMap.has(key)) {
+              const newGroup = {
+                minArea: min,
+                maxArea: max,
+                completionYear: r.completionYear || r.completion_year || 0,
+                completionMonth: r.completionMonth || r.completion_month || 0,
+                configurations: [],
+              };
+              rulesMap.set(key, newGroup);
+              areaRules.push(newGroup);
+            }
+            rulesMap.get(key).configurations.push({
+              ...r,
+              config_type: r.configType || r.config_type,
+              config_key: r.configKey || r.config_key,
+            });
           }
-          rulesMap.get(key).configurations.push({
-            ...r,
-            config_type: r.configType || r.config_type,
-            config_key: r.configKey || r.config_key,
-          });
         });
 
-        console.log("Wizard Grouped rules:", groupedRules);
-        setRules(groupedRules);
+        setRules(areaRules);
+        setGlobalPaymentStages(globalStages);
 
         // Update formData with ALL rules for mapping
         setFormData((prev: any) => {
@@ -472,45 +506,46 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             }
           });
 
-          groupedRules.forEach((rule, ruleIdx) => {
+          // 1. Map Global Stages
+          globalStages.forEach((c: any, sIdx: number) => {
+            const num = sIdx + 1;
+            updated[`stage_${num}_name`] = c.config_key || `Stage ${num}`;
+            updated[`stage_${num}_value`] = c.value || 0;
+          });
+
+          // 2. Map Area Rules
+          areaRules.forEach((rule, ruleIdx) => {
             const ruleNum = ruleIdx + 1;
-            let sIdx = 1;
+            let sIdx = 1; // For rule-specific stage mapping if needed
             let mIdx = 1;
             rule.configurations.forEach((c: any) => {
               const type = (c.config_type || "").toLowerCase();
               const key = c.config_key;
               if (type === "percentage" || type === "payment") {
-                updated[`rule_${ruleNum}_stage_${sIdx}_name`] =
-                  key || `Stage ${sIdx}`;
+                updated[`rule_${ruleNum}_stage_${sIdx}_name`] = key || `Stage ${sIdx}`;
                 updated[`rule_${ruleNum}_stage_${sIdx}_value`] = c.value || 0;
                 sIdx++;
               } else if (type === "meeting") {
-                updated[`rule_${ruleNum}_meeting_${mIdx}_name`] =
-                  key || `Meeting ${mIdx}`;
+                updated[`rule_${ruleNum}_meeting_${mIdx}_name`] = key || `Meeting ${mIdx}`;
                 updated[`rule_${ruleNum}_meeting_${mIdx}_value`] = c.value || 0;
                 mIdx++;
               }
             });
           });
 
-          // For legacy single rule placeholders, use best match or first rule
-          const area = parseFloat(formData.built_up_area) || 0;
+          // 3. Match generic meeting placeholders to best area rule
+          const area = parseFloat(formData.total_project_area || formData.built_up_area) || 0;
           const bestRule =
-            groupedRules.find(
+            areaRules.find(
               (r) => area >= Number(r.minArea) && area <= Number(r.maxArea),
-            ) || groupedRules[0];
+            ) || areaRules[0];
 
           if (bestRule) {
-            let sIdx = 1;
             let mIdx = 1;
             bestRule.configurations.forEach((c: any) => {
               const type = (c.config_type || "").toLowerCase();
               const key = c.config_key;
-              if (type === "percentage" || type === "payment") {
-                updated[`stage_${sIdx}_name`] = key || `Stage ${sIdx}`;
-                updated[`stage_${sIdx}_value`] = c.value || 0;
-                sIdx++;
-              } else if (type === "meeting") {
+              if (type === "meeting") {
                 updated[`meeting_${mIdx}_name`] = key || `Meeting ${mIdx}`;
                 updated[`meeting_${mIdx}_value`] = c.value || 0;
                 mIdx++;
@@ -573,7 +608,43 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev: any) => ({ ...prev, [name]: value }));
+    
+    setFormData((prev: any) => {
+        const updated = { ...prev, [name]: value };
+        
+        // Sync Area Aliases
+        if (['built_up_area', 'total_project_area', 'total_area', 'project_area'].includes(name)) {
+            updated.built_up_area = value;
+            updated.total_project_area = value;
+            updated.total_area = value;
+            updated.project_area = value;
+        }
+        
+        // Sync Cost Aliases
+        if (['total_offer_cost', 'total_project_cost', 'cost', 'total_cost'].includes(name)) {
+            updated.total_offer_cost = value;
+            updated.total_project_cost = value;
+            updated.cost = value;
+            updated.total_cost = value;
+        }
+        
+        // Sync Contact Aliases
+        if (['client_contact_name', 'client_contact_person', 'contact_person', 'contact_name'].includes(name)) {
+            updated.client_contact_name = value;
+            updated.client_contact_person = value;
+            updated.contact_person = value;
+            updated.contact_name = value;
+        }
+
+        // Sync Company Aliases
+        if (['client_company_name', 'company_name', 'client_name'].includes(name)) {
+            updated.client_company_name = value;
+            updated.company_name = value;
+            updated.client_name = value;
+        }
+
+        return updated;
+    });
   };
 
   const handleExport = async (type: "docx" | "pdf") => {
@@ -581,12 +652,38 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
     setIsGenerating(true);
     try {
+      // Normalize global payment stages
+      const normalizedGlobalStages = globalPaymentStages.map((c: any) => ({
+        configType: c.configType || c.config_type || 'percentage',
+        configKey:  c.configKey  || c.config_key  || '',
+        value:      String(c.value || 0),
+      }));
+
+      // Normalize area rules
+      const normalizedAreaRules = rules.map((rule: any) => ({
+        minArea:         rule.minArea,
+        maxArea:         rule.maxArea,
+        completionYear:  rule.completionYear  || 0,
+        completionMonth: rule.completionMonth || 0,
+        configurations: (rule.configurations || []).map((c: any) => ({
+          configType: c.configType || c.config_type || '',
+          configKey:  c.configKey  || c.config_key  || '',
+          value:      String(c.value || 0),
+        })),
+      }));
+
       const exportData = {
         templateId: selectedTemplateId,
         ...formData,
-        areaRules: rules,
-        customTemplate: templateBase64,
+        // Ensure total_project_cost is always present (transformer priority check)
+        total_project_cost: formData.total_project_cost || formData.total_offer_cost || 0,
+        areaRules: [
+          { minArea: -1, maxArea: -1, configurations: normalizedGlobalStages },
+          ...normalizedAreaRules,
+        ],
+        customTemplate: templateBase64 || undefined,
       };
+      console.log(`📤 [Export] ${type.toUpperCase()} | Global stages: ${normalizedGlobalStages.length} | Area rules: ${normalizedAreaRules.length}`);
 
       const response =
         type === "docx"
@@ -785,7 +882,12 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                         {availableFields
                           .filter(
                             (f) =>
+                              // Show all fields if:
+                              // 1. No template selected (currentConfig null)
+                              // 2. Template has no enabledFields (null/undefined/empty array) - show all
+                              // 3. Template's enabledFields explicitly includes this field
                               !currentConfig ||
+                              !currentConfig.enabledFields?.length ||
                               currentConfig.enabledFields?.includes(f.key),
                           )
                           .map((field, index) => (
@@ -815,9 +917,41 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                       </Row>
                     ) : (
                       <div className="d-flex flex-column gap-8">
+                        {/* Global Payment Breakdown */}
+                        <div className="border border-gray-200 rounded-4 p-4 p-lg-8 bg-white shadow-sm border-dashed">
+                          <div className="d-flex align-items-center gap-3 mb-6">
+                            <div className="symbol symbol-35px bg-light-primary">
+                              <span className="symbol-label">
+                                <KTIcon
+                                  iconName="percentage"
+                                  className="fs-2 text-primary"
+                                />
+                              </span>
+                            </div>
+                            <div>
+                              <h5 className="fw-bolder text-dark mb-0">
+                                Global Payment Breakdown
+                              </h5>
+                              <span className="text-muted fs-8 fw-bold">Applies to all area ranges</span>
+                            </div>
+                          </div>
+                          
+                          <PercentageConfigurationTable
+                            percentages={globalPaymentStages}
+                            setPercentages={setGlobalPaymentStages}
+                            totalCost={parseFloat(
+                              formData.total_project_cost ||
+                                formData.total_offer_cost ||
+                                0,
+                            )}
+                          />
+                        </div>
+
+                        <div className="separator separator-dashed"></div>
+
                         <div className="d-flex justify-content-between align-items-center mb-2">
                           <h4 className="fw-bolder text-dark mb-0">
-                            Project Area Rules
+                            Area-Specific Rules
                           </h4>
                           <Button
                             variant="light-primary"
@@ -825,7 +959,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                             onClick={handleAddRule}
                           >
                             <KTIcon iconName="plus" className="fs-3 me-1" /> Add
-                            Rule
+                            Range
                           </Button>
                         </div>
                         {rules.map((rule, ruleIdx) => (
@@ -853,7 +987,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                               </div>
                               <div className="flex-grow-1">
                                 <h5 className="fw-bolder text-dark mb-2">
-                                  Project Area Rule {ruleIdx + 1}
+                                  Rule Range {ruleIdx + 1}
                                 </h5>
                                 <div className="d-flex align-items-center gap-4">
                                   <div className="d-flex align-items-center gap-2">
@@ -934,40 +1068,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
                             <div className="d-flex flex-column gap-6">
                               <div className="bg-white rounded p-6 shadow-sm">
-                                <PercentageConfigurationTable
-                                  percentages={rule.configurations.filter(
-                                    (c: any) =>
-                                      (c.config_type || "").toLowerCase() ===
-                                        "percentage" ||
-                                      (c.config_type || "").toLowerCase() ===
-                                        "payment",
-                                  )}
-                                  setPercentages={(newPerc) => {
-                                    const updatedRules = [...rules];
-                                    const otherConfigs = updatedRules[
-                                      ruleIdx
-                                    ].configurations.filter(
-                                      (c: any) =>
-                                        (c.config_type || "").toLowerCase() !==
-                                          "percentage" &&
-                                        (c.config_type || "").toLowerCase() !==
-                                          "payment",
-                                    );
-                                    updatedRules[ruleIdx].configurations = [
-                                      ...newPerc,
-                                      ...otherConfigs,
-                                    ];
-                                    setRules(updatedRules);
-                                  }}
-                                  totalCost={parseFloat(
-                                    formData.total_project_cost ||
-                                      formData.total_offer_cost ||
-                                      0,
-                                  )}
-                                />
-                              </div>
-
-                              <div className="bg-white rounded p-6 shadow-sm">
                                 <MeetingConfigurationTable
                                   meetings={rule.configurations.filter(
                                     (c: any) =>
@@ -997,7 +1097,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                         {rules.length === 0 && (
                           <div className="text-center py-10 border border-dashed rounded bg-white">
                             <p className="text-muted mb-0">
-                              No rules configured for this template.
+                              No area rules configured for this template.
                             </p>
                           </div>
                         )}
