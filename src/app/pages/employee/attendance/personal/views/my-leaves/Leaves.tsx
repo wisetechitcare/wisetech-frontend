@@ -5,6 +5,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { ILeaves } from "@models/employee";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { computeLeaveUsage } from "./utils/calculations";
 import { deleteLeaveRequestById, fetchEmployeeLeaves } from "@services/employee";
 import { transformLeaves } from "../../OverviewView";
 import { Modal } from "react-bootstrap";
@@ -83,6 +84,32 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             accessorKey: "remark",
             header: "Remark",
             Cell: ({ renderedCellValue }: any) => renderedCellValue
+        },
+        {
+            id: "efficiency",
+            header: "Efficiency",
+            Cell: ({ row }: any) => {
+                const leave = row.original;
+                if (!leave.dateFrom || !leave.dateTo) return "-";
+                
+                const start = new Date(leave.dateFrom);
+                const end = new Date(leave.dateTo);
+                const holidays = new Set<string>(); // Use generic for now
+                
+                const usage = computeLeaveUsage(start, end, holidays);
+                if (usage.leaveDays === 0) return "Free Day";
+                
+                const score = usage.daysOff / usage.leaveDays;
+                let badgeClass = "badge-light-success text-success";
+                if (score < 1.0) badgeClass = "badge-light-danger text-danger";
+                else if (score < 1.5) badgeClass = "badge-light-warning text-warning";
+                
+                return (
+                    <span className={`badge ${badgeClass} fw-bold`}>
+                        {score.toFixed(1)}x
+                    </span>
+                );
+            }
         },
         {
             accessorKey: "status",
