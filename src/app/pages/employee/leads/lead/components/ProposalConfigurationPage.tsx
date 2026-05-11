@@ -4,6 +4,8 @@ import { getProposalConfigurations, getAvailableExportFields, saveProposalConfig
 import { KTIcon } from '@metronic/helpers';
 import { useNavigate } from 'react-router-dom';
 import { showSuccess, showError, showWarning } from '@utils/modal';
+import PercentageConfigurationTable from './PercentageConfigurationTable';
+import MeetingConfigurationTable from './MeetingConfigurationTable';
 
 const ProposalConfigurationPage: React.FC = () => {
     const navigate = useNavigate();
@@ -200,132 +202,14 @@ const ProposalConfigurationPage: React.FC = () => {
         }
     };
 
-    const handleAddRuleGroup = () => {
-        const newGroup = {
-            min_area: 0,
-            max_area: 5000,
-            configurations: [
-                { config_type: "meeting", config_key: "RCC Slab Checking for MEP up to Typical Floor", value: 0 },
-                { config_type: "meeting", config_key: "RCC Slab Checking after Typical Floor", value: 0 },
-                { config_type: "meeting", config_key: "Testing and Commissioning", value: 0 },
-                { config_type: "meeting", config_key: "Installation Site Co-ordination", value: 0 },
-                { config_type: "meeting", config_key: "Handover", value: 0 }
-            ],
-            completion_year: 0,
-            completion_month: 0
-        };
-        setSelectedConfig({ ...selectedConfig, rules: [...(selectedConfig.rules || []), newGroup] });
-    };
-
-    const handleAutoFixGlobal = () => {
-        const percentages = selectedConfig.paymentBreakdown || [];
-        if (percentages.length === 0) return;
-
-        const currentTotal = percentages.reduce((s: number, c: any) => s + (parseFloat(c.value) || 0), 0);
-        
-        if (currentTotal === 0) {
-            const even = 100 / percentages.length;
-            const updated = percentages.map((p: any) => ({ ...p, value: parseFloat(even.toFixed(2)) }));
-            setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
-            return;
-        }
-
-        const ratio = 100 / currentTotal;
-        let runningTotal = 0;
-        const updated = percentages.map((p: any, i: number) => {
-            if (i === percentages.length - 1) {
-                return { ...p, value: parseFloat((100 - runningTotal).toFixed(2)) };
-            }
-            const newVal = parseFloat(((parseFloat(p.value) || 0) * ratio).toFixed(2));
-            runningTotal += newVal;
-            return { ...p, value: newVal };
-        });
-
+    const setGlobalPaymentStages = (updated: any[]) => {
         setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
     };
 
-    const handleRemoveRuleGroup = (index: number) => {
-        const updated = [...selectedConfig.rules];
-        updated.splice(index, 1);
-        setSelectedConfig({ ...selectedConfig, rules: updated });
-    };
-
-    const handleAddGlobalStage = () => {
-        const updated = [...(selectedConfig.paymentBreakdown || []), { config_type: 'percentage', config_key: 'New Stage', value: 0 }];
-        setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
-    };
-
-    const handleRemoveGlobalStage = (idx: number) => {
-        const updated = [...selectedConfig.paymentBreakdown];
-        updated.splice(idx, 1);
-        setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
-    };
-
-    const handleGlobalStageChange = (idx: number, key: string, value: any) => {
-        const updated = [...selectedConfig.paymentBreakdown];
-        updated[idx][key] = value;
-        setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
-    };
-
-    const handleAddItem = (ruleIndex: number, type: 'meeting') => {
+    const setAreaRules = (ruleIdx: number, updatedConfigs: any[]) => {
         const updatedRules = [...selectedConfig.rules];
-        updatedRules[ruleIndex].configurations.push({
-            config_type: type,
-            config_key: "meeting",
-            value: 0
-        });
+        updatedRules[ruleIdx].configurations = updatedConfigs;
         setSelectedConfig({ ...selectedConfig, rules: updatedRules });
-    };
-
-    const handleRemoveItem = (ruleIndex: number, configIndex: number) => {
-        const updatedRules = [...selectedConfig.rules];
-        updatedRules[ruleIndex].configurations.splice(configIndex, 1);
-        setSelectedConfig({ ...selectedConfig, rules: updatedRules });
-    };
-
-    const handleConfigChange = (ruleIndex: number, configIndex: number, key: string, value: any) => {
-        const updatedRules = [...selectedConfig.rules];
-        updatedRules[ruleIndex].configurations[configIndex][key] = value;
-        setSelectedConfig({ ...selectedConfig, rules: updatedRules });
-    };
-
-    const [draggedConfigIndex, setDraggedConfigIndex] = useState<number | null>(null);
-    const [draggedRuleIndex, setDraggedRuleIndex] = useState<number | null>(null);
-    const [dragContext, setDragContext] = useState<'global' | 'rule' | null>(null);
-
-    const handleDragStart = (index: number, context: 'global' | 'rule', ruleIdx?: number) => {
-        setDraggedConfigIndex(index);
-        setDragContext(context);
-        if (ruleIdx !== undefined) setDraggedRuleIndex(ruleIdx);
-    };
-
-    const handleDragOver = (e: React.DragEvent, targetIdx: number, ruleIdx?: number) => {
-        e.preventDefault();
-        if (dragContext === 'global') {
-            if (draggedConfigIndex === null || draggedConfigIndex === targetIdx) return;
-            const updated = [...selectedConfig.paymentBreakdown];
-            const itemToMove = updated[draggedConfigIndex];
-            updated.splice(draggedConfigIndex, 1);
-            updated.splice(targetIdx, 0, itemToMove);
-            setSelectedConfig({ ...selectedConfig, paymentBreakdown: updated });
-            setDraggedConfigIndex(targetIdx);
-        } else if (dragContext === 'rule' && ruleIdx !== undefined && draggedRuleIndex === ruleIdx) {
-            if (draggedConfigIndex === null || draggedConfigIndex === targetIdx) return;
-            const updatedRules = [...selectedConfig.rules];
-            const configs = [...updatedRules[ruleIdx].configurations];
-            const itemToMove = configs[draggedConfigIndex];
-            configs.splice(draggedConfigIndex, 1);
-            configs.splice(targetIdx, 0, itemToMove);
-            updatedRules[ruleIdx].configurations = configs;
-            setSelectedConfig({ ...selectedConfig, rules: updatedRules });
-            setDraggedConfigIndex(targetIdx);
-        }
-    };
-
-    const handleDragEnd = () => {
-        setDraggedConfigIndex(null);
-        setDraggedRuleIndex(null);
-        setDragContext(null);
     };
 
     const goBack = () => navigate('/qc/leads');
@@ -484,115 +368,34 @@ const ProposalConfigurationPage: React.FC = () => {
                                             <div className="d-flex flex-column gap-8">
                                                 {/* Global Payment Breakdown Section */}
                                                 <div className="border border-gray-200 rounded-4 p-8 bg-white shadow-sm border-dashed">
-                                                    <div className="d-flex justify-content-between align-items-center mb-6">
-                                                        <div className="d-flex align-items-center">
-                                                            <div className="symbol symbol-40px bg-light-primary me-4">
-                                                                <span className="symbol-label"><KTIcon iconName="percentage" className="fs-2 text-primary" /></span>
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="fw-bolder mb-0 text-dark">Global Payment Breakdown</h4>
-                                                                <span className="text-muted fs-8 fw-bold">These stages apply to ALL area ranges</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="d-flex align-items-center gap-3">
-                                                            {(() => {
-                                                                const totalPerc = (selectedConfig.paymentBreakdown || []).reduce((s:number, c:any) => s + (parseFloat(c.value) || 0), 0);
-                                                                const isValid = totalPerc === 100;
-                                                                return (
-                                                                    <>
-                                                                        <Badge bg={isValid ? 'light-success' : 'light-danger'} className={isValid ? 'text-success' : 'text-danger'}>Total: {totalPerc}%</Badge>
-                                                                        {!isValid && (selectedConfig.paymentBreakdown || []).length > 0 && (
-                                                                            <Button variant="light-danger" size="sm" className="btn-sm py-0 px-2 fs-9 fw-bold" onClick={handleAutoFixGlobal}>
-                                                                                <KTIcon iconName="magic" className="fs-9 me-1" /> Auto-Fix
-                                                                            </Button>
-                                                                        )}
-                                                                    </>
-                                                                );
-                                                            })()}
-                                                            <Button variant="light-primary" size="sm" onClick={handleAddGlobalStage} className="btn-icon w-25px h-25px">
-                                                                <KTIcon iconName="plus" className="fs-3" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                        <Table bordered size="sm" className="bg-white align-middle gs-0 gy-3 mb-0">
-                                                            <thead className="bg-light">
-                                                                <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom border-gray-200">
-                                                                    <th className="ps-4 w-30px"></th>
-                                                                    <th className="ps-2 w-40px">Sr</th>
-                                                                    <th className="min-w-150px">Stage Name</th>
-                                                                    <th className="w-120px text-center">Value (%)</th>
-                                                                    <th className="text-end pe-4 w-80px">Action</th>
-                                                                </tr>
-                                                            </thead>
-                                                        <tbody>
-                                                            {(selectedConfig.paymentBreakdown || []).map((config: any, cIdx: number) => (
-                                                                <tr 
-                                                                    key={cIdx} 
-                                                                    className={`border-bottom border-gray-100 ${draggedConfigIndex === cIdx && dragContext === 'global' ? 'opacity-50 bg-light shadow-sm' : ''}`}
-                                                                    draggable
-                                                                    onDragStart={() => handleDragStart(cIdx, 'global')}
-                                                                    onDragOver={(e) => handleDragOver(e, cIdx)}
-                                                                    onDragEnd={handleDragEnd}
-                                                                    style={{ cursor: 'move' }}
-                                                                >
-                                                                    <td className="ps-4 text-center">
-                                                                        <KTIcon iconName="row-horizontal" className="fs-3 text-gray-400" />
-                                                                    </td>
-                                                                    <td className="ps-2 fw-bold text-gray-700">{cIdx + 1}</td>
-                                                                    <td>
-                                                                        <Form.Control 
-                                                                            size="sm" 
-                                                                            className="form-control-solid fw-bold py-1" 
-                                                                            value={config.config_key || config.configKey || ''} 
-                                                                            onChange={(e) => handleGlobalStageChange(cIdx, 'config_key', e.target.value)} 
-                                                                            placeholder="Stage name..."
-                                                                        />
-                                                                    </td>
-                                                                    <td className="text-center">
-                                                                        <div className="d-flex align-items-center justify-content-center">
-                                                                            <Form.Control 
-                                                                                type="number" 
-                                                                                size="sm" 
-                                                                                className="form-control-solid fw-bold w-75px text-center py-1" 
-                                                                                value={config.value || config.config_value || 0} 
-                                                                                onChange={(e) => handleGlobalStageChange(cIdx, 'value', e.target.value)} 
-                                                                            />
-                                                                            <span className="ms-1 fw-bold">%</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="text-end pe-4">
-                                                                        <Button 
-                                                                            variant="light-danger" 
-                                                                            className="btn-sm btn-icon w-25px h-25px" 
-                                                                            onClick={() => handleRemoveGlobalStage(cIdx)}
-                                                                        >
-                                                                            <KTIcon iconName="trash" className="fs-6" />
-                                                                        </Button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                        <tfoot>
-                                                            <tr className="bg-light-primary fw-bolder fs-8 border-top border-gray-300">
-                                                                <td colSpan={3} className="text-end pe-4 text-gray-800">Total</td>
-                                                                <td className="text-center text-primary">
-                                                                    {(selectedConfig.paymentBreakdown || []).reduce((sum: number, c: any) => sum + (parseFloat(c.value || c.config_value || 0) || 0), 0)}%
-                                                                </td>
-                                                                <td></td>
-                                                            </tr>
-                                                        </tfoot>
-                                                    </Table>
-                                                    {(!selectedConfig.paymentBreakdown || selectedConfig.paymentBreakdown.length === 0) && (
-                                                        <div className="text-center py-4 text-muted fs-8 border border-dashed rounded mt-4">No global stages added yet.</div>
-                                                    )}
+                                                    <PercentageConfigurationTable 
+                                                        percentages={selectedConfig.paymentBreakdown || []}
+                                                        setPercentages={setGlobalPaymentStages}
+                                                        title="Global Payment Breakdown"
+                                                        description="These stages apply to ALL area ranges"
+                                                    />
                                                 </div>
 
                                                 <div className="separator separator-dashed my-4"></div>
 
                                                 <div className="d-flex justify-content-between align-items-center">
                                                     <h4 className="fw-bolder mb-0 text-dark">Area-Specific Meetings & Durations</h4>
-                                                    <Button variant="primary" size="sm" onClick={handleAddRuleGroup}>
+                                                    <Button variant="primary" size="sm" onClick={() => {
+                                                        const newGroup = {
+                                                            min_area: 0,
+                                                            max_area: 5000,
+                                                            configurations: [
+                                                                { config_type: "meeting", config_key: "RCC Slab Checking for MEP up to Typical Floor", value: 0 },
+                                                                { config_type: "meeting", config_key: "RCC Slab Checking after Typical Floor", value: 0 },
+                                                                { config_type: "meeting", config_key: "Testing and Commissioning", value: 0 },
+                                                                { config_type: "meeting", config_key: "Installation Site Co-ordination", value: 0 },
+                                                                { config_type: "meeting", config_key: "Handover", value: 0 }
+                                                            ],
+                                                            completion_year: 0,
+                                                            completion_month: 0
+                                                        };
+                                                        setSelectedConfig({ ...selectedConfig, rules: [...(selectedConfig.rules || []), newGroup] });
+                                                    }}>
                                                         <KTIcon iconName="plus" className="fs-3 me-1" /> Add Area Range
                                                     </Button>
                                                 </div>
@@ -601,53 +404,36 @@ const ProposalConfigurationPage: React.FC = () => {
                                                     {(selectedConfig.rules || []).map((rule: any, ruleIdx: number) => (
                                                         <div key={ruleIdx} className="border border-gray-200 rounded-4 p-6 bg-light-primary border-dashed position-relative">
                                                             <div className="position-absolute top-0 end-0 mt-4 me-4" style={{ zIndex: 10 }}>
-                                                                <Button variant="light-danger" size="sm" onClick={() => handleRemoveRuleGroup(ruleIdx)}>
+                                                                <Button variant="light-danger" size="sm" onClick={() => {
+                                                                    const updated = [...selectedConfig.rules];
+                                                                    updated.splice(ruleIdx, 1);
+                                                                    setSelectedConfig({ ...selectedConfig, rules: updated });
+                                                                }}>
                                                                     <KTIcon iconName="trash" className="fs-3" />
                                                                 </Button>
                                                             </div>
 
                                                             <Row className="align-items-center mb-6 pe-12">
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Min Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear !== undefined ? rule.minArea : rule.min_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].minArea = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Max Area</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear !== undefined ? rule.maxArea : rule.max_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].maxArea = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (Y)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear ?? rule.completion_year ?? 0} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completionYear = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
-                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (M)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionMonth ?? rule.completion_month ?? 0} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completionMonth = parseInt(e.target.value) || 0; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Min Area (Sq Ft)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.minArea !== undefined ? rule.minArea : rule.min_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].minArea = parseInt(e.target.value) || 0; updated[ruleIdx].min_area = updated[ruleIdx].minArea; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-danger mb-1">Max Area (Sq Ft)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.maxArea !== undefined ? rule.maxArea : rule.max_area} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].maxArea = parseInt(e.target.value) || 0; updated[ruleIdx].max_area = updated[ruleIdx].maxArea; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (Y)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionYear ?? rule.completion_year ?? 0} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completionYear = parseInt(e.target.value) || 0; updated[ruleIdx].completion_year = updated[ruleIdx].completionYear; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
+                                                                <Col md={2}><Form.Group><Form.Label className="fs-8 fw-bolder text-uppercase text-primary mb-1">Duration (M)</Form.Label><Form.Control type="number" className="form-control-solid" value={rule.completionMonth ?? rule.completion_month ?? 0} onChange={(e) => { const updated = [...selectedConfig.rules]; updated[ruleIdx].completionMonth = parseInt(e.target.value) || 0; updated[ruleIdx].completion_month = updated[ruleIdx].completionMonth; setSelectedConfig({ ...selectedConfig, rules: updated }); }} /></Form.Group></Col>
                                                             </Row>
 
                                                             <div className="bg-white rounded p-4 p-lg-6 shadow-sm">
-                                                                <div className="d-flex justify-content-between align-items-center mb-4">
-                                                                    <h6 className="fw-bolder mb-0"><KTIcon iconName="timer" className="text-warning me-2" />Meetings Configuration</h6>
-                                                                    <Button variant="light-warning" size="sm" onClick={() => handleAddItem(ruleIdx, 'meeting')} className="btn-icon w-25px h-25px">
-                                                                        <KTIcon iconName="plus" className="fs-3" />
-                                                                    </Button>
-                                                                </div>
-                                                                <Table borderless className="align-middle gs-0 gy-3 mb-0">
-                                                                    <thead><tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom border-gray-200"><th className="w-30px ps-0"></th><th className="ps-0">Meeting Type</th><th className="w-80px text-center">Count</th><th className="text-end pe-0 w-50px">Action</th></tr></thead>
-                                                                    <tbody>
-                                                                        {rule.configurations.map((config: any, cIdx: number) => (
-                                                                            <tr 
-                                                                                key={cIdx}
-                                                                                draggable
-                                                                                onDragStart={() => handleDragStart(cIdx, 'rule', ruleIdx)}
-                                                                                onDragOver={(e) => handleDragOver(e, cIdx, ruleIdx)}
-                                                                                onDragEnd={handleDragEnd}
-                                                                                className={dragContext === 'rule' && draggedConfigIndex === cIdx ? 'opacity-50 bg-light' : ''}
-                                                                                style={{ cursor: 'move' }}
-                                                                            >
-                                                                                <td className="ps-0 text-center"><KTIcon iconName="row-horizontal" className="fs-3 text-gray-400" /></td>
-                                                                                <td className="ps-0"><Form.Control size="sm" className="form-control-solid py-1" value={config.config_key} onChange={(e) => handleConfigChange(ruleIdx, cIdx, 'config_key', e.target.value)} /></td>
-                                                                                <td><Form.Control size="sm" type="number" className="form-control-solid py-1 text-center" value={config.value} onChange={(e) => handleConfigChange(ruleIdx, cIdx, 'value', e.target.value)} /></td>
-                                                                                <td className="text-end pe-0"><Button variant="light-danger" size="sm" className="btn-icon w-25px h-25px" onClick={() => handleRemoveItem(ruleIdx, cIdx)}><KTIcon iconName="trash" className="fs-6" /></Button></td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </Table>
+                                                                <MeetingConfigurationTable 
+                                                                    meetings={rule.configurations}
+                                                                    setMeetings={(updatedConfigs) => setAreaRules(ruleIdx, updatedConfigs)}
+                                                                />
                                                             </div>
                                                         </div>
                                                     ))}
-                                                    {(!selectedConfig.rules || selectedConfig.rules.length === 0) && (
-                                                        <div className="text-center py-10 text-muted fs-6 border border-dashed rounded bg-white">No area rules added yet. Click "Add Area Range" to begin.</div>
-                                                    )}
                                                 </div>
+                                                {(!selectedConfig.rules || selectedConfig.rules.length === 0) && (
+                                                    <div className="text-center py-10 text-muted fs-6 border border-dashed rounded bg-white">
+                                                        No area rules added yet. Click "Add Area Range" to begin.
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </Card.Body>

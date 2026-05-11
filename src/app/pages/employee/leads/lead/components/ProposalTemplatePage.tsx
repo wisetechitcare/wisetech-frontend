@@ -102,6 +102,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       leadData?.leadTeams?.[0]?.company ||
       {};
     const contact =
+      leadData?.referrals?.find((r: any) => r.referredByContact)?.referredByContact ||
       contactData?.contact ||
       contactData?.data?.contact ||
       contactData ||
@@ -229,14 +230,31 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
               leadData.clientContactPerson ||
               "";
             break;
+          case "contact_title":
+            val = (() => {
+              if (contact.title || contact.prefix) return (contact.title || contact.prefix);
+              const g = (contact.gender || '').toUpperCase();
+              if (g === 'MALE') return 'Mr';
+              if (g === 'FEMALE') return 'Ms';
+              return 'Mr/Ms';
+            })().replace(/\.$/, '');
+            break;
+          case "contact_title_2":
+            val = (() => {
+              const g = (contact.gender || '').toUpperCase();
+              if (g === 'MALE') return 'Sir';
+              if (g === 'FEMALE') return 'Madam';
+              return 'Sir/Madam';
+            })();
+            break;
           case "client_address_line_1":
-            val = details.projectAddress || company.address || "";
+            val = details.projectAddress || company.address || leadData.project?.projectAddress || "";
             break;
           case "client_address_line_2":
-            val = details.city || company.city || "";
+            val = details.city || company.city || leadData.project?.city || "";
             break;
           case "client_address_line_3":
-            val = details.state || company.state || "";
+            val = details.state || company.state || leadData.project?.state || "";
             break;
           case "sender_company":
             val = leadData.senderCompany?.name || "WiseTech Consultancy";
@@ -253,6 +271,39 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
               leadData.leadCategories?.[0]?.category?.name ||
               leadData.projectType ||
               "";
+            break;
+          case "client_contact_email":
+          case "contact_email":
+            val = contact.email || "";
+            break;
+          case "client_contact_phone":
+          case "contact_phone":
+            val = contact.phone || "";
+            break;
+          case "client_designation":
+          case "contact_designation":
+            val = contact.roleInCompany || contact.designation || "";
+            break;
+          case "company_website":
+            val = company.website || "";
+            break;
+          case "company_phone":
+            val = company.phone || company.phoneNumber || "";
+            break;
+          case "company_email":
+            val = company.email || "";
+            break;
+          case "assigned_to_name":
+            val = leadData.assignedTo?.users ? `${leadData.assignedTo.users.firstName} ${leadData.assignedTo.users.lastName || ''}`.trim() : "";
+            break;
+          case "assigned_to_email":
+            val = leadData.assignedTo?.users?.personalEmailId || "";
+            break;
+          case "assigned_to_phone":
+            val = leadData.assignedTo?.users?.personalPhoneNumber || "";
+            break;
+          case "project_description":
+            val = leadData.description || leadData.summary || "";
             break;
           case "plot_area":
             val = details.plotArea || "0";
@@ -278,6 +329,10 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             break;
           case "total_project_cost":
             val = totalCost;
+            break;
+          case "total_cost_in_words":
+          case "total_offer_cost_in_words":
+            val = ""; // Let the backend handle the conversion or user override it
             break;
           case "services":
             val = joinNames(leadData.services);
@@ -391,12 +446,16 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             val = currentConfig?.templateName || "";
             break;
           case "date":
-            val = dayjs().format("DD/MM/YYYY");
+            val = dayjs().format("YYYY-MM-DD");
             break;
           case "inquiry_date":
             val = leadData.inquiryDate
-              ? dayjs(leadData.inquiryDate).format("DD MMM, YYYY")
+              ? dayjs(leadData.inquiryDate).format("YYYY-MM-DD")
               : "";
+            break;
+          case "offer_date":
+          case "validity_date":
+            val = dayjs().format("YYYY-MM-DD");
             break;
           case "commercial_1_label":
             val = commercial[0]?.label || "";
@@ -442,6 +501,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             break;
           case "project_area_1_cost":
             val = commercial[0]?.cost || "";
+            break;
+          case "project_area_1_cost_type":
+            val = commercial[0]?.costType || "";
             break;
           default:
             val = typeof val === "object" ? "" : val || "";
@@ -1031,12 +1093,41 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                   {activeTab === "fields" ? (
                     <Row className="g-5">
                       {availableFields
-                        .filter(
-                          (f) =>
+                        .filter((f) => {
+                          // Exclude dynamic configuration and address fields that are managed elsewhere
+                          if (
+                            f.key.startsWith("stage_") ||
+                            f.key.startsWith("percentage_") ||
+                            f.key.startsWith("meeting_") ||
+                            f.key.includes("completion_") ||
+                            f.key === "total_meetings" ||
+                            [
+                              "project_address",
+                              "project_full_address",
+                              "project_location",
+                              "locality",
+                              "city",
+                              "state",
+                              "zip_code",
+                              "country",
+                              "lead_summary",
+                              "project_description",
+                              "plot_area",
+                              "built_up_area",
+                              "building_detail",
+                              "total_commercial_area",
+                              "template_name",
+                            ].includes(f.key) ||
+                            f.key.startsWith("commercial_")
+                          )
+                            return false;
+
+                          return (
                             !currentConfig ||
                             !currentConfig.enabledFields?.length ||
-                            currentConfig.enabledFields?.includes(f.key),
-                        )
+                            currentConfig.enabledFields?.includes(f.key)
+                          );
+                        })
                         .map((field, index) => (
                           <Col sm={6} xl={4} key={index}>
                             <Form.Group>

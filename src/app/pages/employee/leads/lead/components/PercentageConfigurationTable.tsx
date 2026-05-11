@@ -6,13 +6,15 @@ interface Props {
     percentages: any[];
     setPercentages: (data: any[]) => void;
     totalCost?: number;
+    title?: string;
+    description?: string;
 }
 
-const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercentages, totalCost }) => {
+const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercentages, totalCost, title, description }) => {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     const handleAddRow = () => {
-    setPercentages([...percentages, { config_key: 'New Stage', configKey: 'New Stage', configType: 'percentage', config_type: 'percentage', value: 0 }]);
+    setPercentages([...percentages, { config_key: 'New Stage', configKey: '', configType: 'percentage', config_type: 'percentage', value: '' }]);
     };
 
     const handleRemoveRow = (index: number) => {
@@ -23,10 +25,23 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
 
     const handleChange = (index: number, field: string, value: any) => {
         const updated = [...percentages];
-        updated[index][field] = value;
+        // If it's the value field and it's empty, store as 0 or empty string
+        if (field === 'value') {
+            updated[index][field] = value === '' ? '' : value;
+            updated[index]['config_value'] = value === '' ? '' : value;
+        } else {
+            updated[index][field] = value;
+        }
+        
         // Keep both naming conventions in sync
-        if (field === 'config_key') updated[index]['configKey'] = value;
-        if (field === 'configKey')  updated[index]['config_key'] = value;
+        if (field === 'config_key' || field === 'configKey') {
+            updated[index]['configKey'] = value;
+            updated[index]['config_key'] = value;
+        }
+        if (field === 'config_type' || field === 'configType') {
+            updated[index]['configType'] = value;
+            updated[index]['config_type'] = value;
+        }
         setPercentages(updated);
     };
 
@@ -78,8 +93,16 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
 
     return (
         <div className="mb-6">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <h6 className="fw-bolder mb-0 text-dark">Payment Stages</h6>
+            <div className="d-flex justify-content-between align-items-center mb-6">
+                <div className="d-flex align-items-center">
+                    <div className="symbol symbol-40px bg-light-primary me-4">
+                        <span className="symbol-label"><KTIcon iconName="percentage" className="fs-2 text-primary" /></span>
+                    </div>
+                    <div>
+                        <h4 className="fw-bolder mb-0 text-dark">{title || 'Payment Stages'}</h4>
+                        {description && <span className="text-muted fs-8 fw-bold">{description}</span>}
+                    </div>
+                </div>
                 <div className="d-flex align-items-center gap-2">
                     {!isValid && percentages.length > 0 && (
                         <Button 
@@ -92,7 +115,7 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
                         </Button>
                     )}
                     <Badge bg={isValid ? 'light-success' : 'light-danger'} className={isValid ? 'text-success' : 'text-danger'}>
-                        {totalPercentage}%
+                        Total: {totalPercentage}%
                     </Badge>
                     <Button variant="light-primary" size="sm" onClick={handleAddRow} className="btn-icon w-25px h-25px">
                         <KTIcon iconName="plus" className="fs-3" />
@@ -105,7 +128,7 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
                     <thead className="bg-light">
                         <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom border-gray-200">
                             <th className="ps-4 w-30px"></th>
-                            <th className="ps-2 w-40px">Sr no</th>
+                            <th className="ps-2 w-40px">Sr</th>
                             <th className="min-w-150px">Particulars</th>
                             <th className="w-110px text-center">%</th>
                             {totalCost !== undefined && (
@@ -147,7 +170,9 @@ const PercentageConfigurationTable: React.FC<Props> = ({ percentages, setPercent
                                             type="number"
                                             size="sm"
                                             className="form-control-solid fw-bold w-75px text-center py-1"
-                                            value={p.value}
+                                            value={(p.value === 0 || p.value === '0' || !p.value) ? '' : p.value}
+                                            placeholder="0"
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => handleChange(idx, 'value', e.target.value)}
                                         />
                                         <span className="ms-1 fw-bold">%</span>

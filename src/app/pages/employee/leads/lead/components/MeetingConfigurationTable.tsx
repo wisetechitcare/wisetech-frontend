@@ -5,13 +5,14 @@ import { KTIcon } from '@metronic/helpers';
 interface Props {
     meetings: any[];
     setMeetings: (data: any[]) => void;
+    title?: string;
 }
 
-const MeetingConfigurationTable: React.FC<Props> = ({ meetings, setMeetings }) => {
+const MeetingConfigurationTable: React.FC<Props> = ({ meetings, setMeetings, title }) => {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     const handleAddRow = () => {
-        setMeetings([...meetings, { config_key: 'Meeting', configKey: 'Meeting', configType: 'meeting', config_type: 'meeting', value: 0 }]);
+        setMeetings([...meetings, { config_key: 'Meeting', configKey: 'Meeting', configType: 'meeting', config_type: 'meeting', value: '' }]);
     };
 
     const handleRemoveRow = (index: number) => {
@@ -22,9 +23,22 @@ const MeetingConfigurationTable: React.FC<Props> = ({ meetings, setMeetings }) =
 
     const handleChange = (index: number, field: string, value: any) => {
         const updated = [...meetings];
-        updated[index][field] = value;
-        if (field === 'config_key') updated[index]['configKey'] = value;
-        if (field === 'configKey')  updated[index]['config_key'] = value;
+        if (field === 'value') {
+            updated[index][field] = value === '' ? '' : value;
+            updated[index]['config_value'] = value === '' ? '' : value;
+        } else {
+            updated[index][field] = value;
+        }
+
+        // Keep both naming conventions in sync
+        if (field === 'config_key' || field === 'configKey') {
+            updated[index]['configKey'] = value;
+            updated[index]['config_key'] = value;
+        }
+        if (field === 'config_type' || field === 'configType') {
+            updated[index]['configType'] = value;
+            updated[index]['config_type'] = value;
+        }
         setMeetings(updated);
     };
 
@@ -51,10 +65,13 @@ const MeetingConfigurationTable: React.FC<Props> = ({ meetings, setMeetings }) =
 
     return (
         <div className="mt-4">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <h6 className="fw-bolder mb-0">Meetings & Durations</h6>
-                <Button variant="light-warning" size="sm" onClick={handleAddRow}>
-                    <KTIcon iconName="plus" className="fs-3" /> Add Meeting
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h6 className="fw-bolder mb-0">
+                    <KTIcon iconName="timer" className="text-warning me-2 fs-2" />
+                    {title || 'Meetings & Durations'}
+                </h6>
+                <Button variant="light-warning" size="sm" onClick={handleAddRow} className="btn-icon w-25px h-25px">
+                    <KTIcon iconName="plus" className="fs-3" />
                 </Button>
             </div>
             
@@ -97,7 +114,9 @@ const MeetingConfigurationTable: React.FC<Props> = ({ meetings, setMeetings }) =
                                         type="number"
                                         size="sm"
                                         className="form-control-solid py-1"
-                                        value={m.value}
+                                        value={(m.value === 0 || m.value === '0' || !m.value) ? '' : m.value}
+                                        placeholder="0"
+                                        onFocus={(e) => e.target.select()}
                                         onChange={(e) => handleChange(idx, 'value', e.target.value)}
                                     />
                                 </td>

@@ -239,9 +239,18 @@ export const placeholderSections: PlaceholderSection[] = [
       numberPlaceholder('revision_no', 'Revision No', 'Inquiry & Proposal Information', '03', 'Current revision number of the proposal.', true),
       textPlaceholder('lead_name', 'Lead Name', 'Inquiry & Proposal Information', 'Corporate Office Fit-Out', 'Lead name associated with the proposal.'),
       textPlaceholder('project_name', 'Project Name', 'Inquiry & Proposal Information', 'Corporate Office Renovation', 'Project name used in formal proposal copy.', true),
+      textPlaceholder('project_description', 'Project Description', 'Inquiry & Proposal Information', 'Complete HVAC and Electrical design for new headquarters.', 'Full description or summary of the project.'),
       textPlaceholder('status', 'Status', 'Inquiry & Proposal Information', 'In Progress', 'Current lead or proposal status.'),
       textPlaceholder('created_by', 'Created By', 'Inquiry & Proposal Information', 'Priya Shah', 'Employee or user who prepared the proposal.'),
       textPlaceholder('template_name', 'Template Name', 'Inquiry & Proposal Information', 'Standard Commercial Proposal', 'Selected export template name.'),
+      textPlaceholder('assigned_to_name', 'Assigned To (Name)', 'Inquiry & Proposal Information', 'Santhana Kumar', 'WiseTech employee handling this project.'),
+      textPlaceholder('assigned_to_email', 'Assigned To (Email)', 'Inquiry & Proposal Information', 'santhana@wisetech.com', 'Email of the WiseTech handler.'),
+      textPlaceholder('assigned_to_phone', 'Assigned To (Phone)', 'Inquiry & Proposal Information', '9876543210', 'Phone number of the WiseTech handler.'),
+      textPlaceholder('assigned_to_designation', 'Assigned To (Designation)', 'Inquiry & Proposal Information', 'Sr. Design Engineer', 'Title/Designation of the WiseTech handler.'),
+      datePlaceholder('current_day', 'Current Day', 'Inquiry & Proposal Information', '11', 'Current day of the month (DD).'),
+      datePlaceholder('current_month', 'Current Month (Num)', 'Inquiry & Proposal Information', '05', 'Current month number (MM).'),
+      datePlaceholder('current_month_name', 'Current Month (Name)', 'Inquiry & Proposal Information', 'May', 'Current month full name.'),
+      datePlaceholder('current_year', 'Current Year', 'Inquiry & Proposal Information', '2026', 'Current year (YYYY).'),
     ]
   ),
   buildSection(
@@ -258,7 +267,15 @@ export const placeholderSections: PlaceholderSection[] = [
       textPlaceholder('client_name', 'Client Name', 'Client & Company Information', 'Acme Workspace Private Limited', 'Client display name used in greetings and summaries.', true),
       textPlaceholder('contact_person', 'Contact Person', 'Client & Company Information', 'Rahul Mehta', 'Primary contact person for the proposal.'),
       textPlaceholder('contact_name', 'Contact Name', 'Client & Company Information', 'Rahul Mehta', 'Named contact for address and correspondence blocks.'),
+      textPlaceholder('contact_title', 'Contact Title (Mr/Ms)', 'Client & Company Information', 'Mr', 'Gender-based title for greetings.'),
+      textPlaceholder('contact_title_2', 'Contact Title (Sir/Madam)', 'Client & Company Information', 'Sir', 'Formal gender-based title.'),
+      textPlaceholder('contact_email', 'Contact Email', 'Client & Company Information', 'rahul@acme.com', 'Email address of the primary contact.'),
+      textPlaceholder('contact_phone', 'Contact Phone', 'Client & Company Information', '9820012345', 'Phone number of the primary contact.'),
+      textPlaceholder('contact_designation', 'Contact Designation', 'Client & Company Information', 'Director', 'Professional title of the contact.'),
       textPlaceholder('sender_company', 'Sender Company', 'Client & Company Information', 'WiseTech Consultancy', 'Company issuing the proposal.'),
+      textPlaceholder('company_website', 'Company Website', 'Client & Company Information', 'www.acme.com', 'Client company website.'),
+      textPlaceholder('company_email', 'Company Email', 'Client & Company Information', 'info@acme.com', 'Client company general email.'),
+      textPlaceholder('company_phone', 'Company Phone', 'Client & Company Information', '022-12345678', 'Client company general phone number.'),
     ]
   ),
   buildSection(
@@ -363,7 +380,10 @@ export const placeholderSections: PlaceholderSection[] = [
     [
       areaPlaceholder('total_project_area', 'Total Project Area', 'Total Project Summary', '8500', 'Total calculated project area.'),
       areaPlaceholder('total_area', 'Total Area', 'Total Project Summary', '8500', 'Alias-style total area for summary sections.'),
+      areaPlaceholder('area', 'Area (Short Token)', 'Total Project Summary', '8500', 'Short alias for total project area.'),
       currencyPlaceholder('total_project_cost', 'Total Project Cost', 'Total Project Summary', '1492500', 'Final estimated cost for the proposal.', true),
+      textPlaceholder('total_cost_in_words', 'Total Cost (Words)', 'Total Project Summary', 'Fourteen Lakh Ninety Two Thousand Five Hundred Only', 'Project cost converted to formal Indian currency words.'),
+      textPlaceholder('total_offer_cost_in_words', 'Total Offer Cost (Words)', 'Total Project Summary', 'Fourteen Lakh Ninety Two Thousand Five Hundred Only', 'Formal word representation of the offer amount.'),
     ]
   ),
   buildSection(
