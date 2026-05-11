@@ -103,6 +103,25 @@ export const removeConfirmation = async (message: string, confirmButtonText: str
     return false;
 }
 
+export const genericConfirmation = async (title: string, text: string, confirmButtonText: string = 'Confirm', icon: 'warning' | 'info' | 'question' = 'warning'): Promise<boolean> => {
+    const result = await Swal.fire({
+        ...commonOptions,
+        title,
+        text,
+        icon,
+        showCancelButton: true,
+        confirmButtonText,
+        cancelButtonText: 'Cancel',
+        customClass: {
+            ...commonOptions.customClass,
+            confirmButton: 'btn btn-danger fw-bold px-6',
+            cancelButton: 'btn btn-light fw-bold px-6 ms-3'
+        },
+    });
+
+    return result.isConfirmed;
+};
+
 export const rejectConfirmation = async (confirmButtonText: string = 'Reject'): Promise<boolean> => {
     const result = await Swal.fire({
         ...commonOptions,

@@ -5,6 +5,7 @@ import { useDMS } from '../store/DmsContext';
 import { formatBytes, getStatusConfig } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
 import * as dmsService from '../services/dmsService';
+import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
 
 interface DocumentCardProps {
   file: DMSFile;
@@ -73,7 +74,7 @@ const FileIcon: React.FC<{ type: string; exportType?: string; size?: number }> =
 };
 
 const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPreview: () => void; onDetails: () => void; onRename: () => void }> = ({ file, onClose, onPreview, onDetails, onRename }) => {
-  const { dispatch } = useDMS();
+  const { dispatch, deleteFiles } = useDMS();
 
   const handleDownload = async () => {
     if (file.s3Url) {
@@ -105,7 +106,22 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
     { icon: 'eye', label: 'Preview', action: () => { handlePreview(); onClose(); } },
     { icon: 'cloud-download', label: 'Download', action: handleDownload },
     { icon: 'pencil', label: 'Rename', action: () => { onRename(); onClose(); } },
-    { icon: 'trash', label: 'Delete', action: () => { dispatch({ type: 'DELETE_FILES', payload: [file.id] }); onClose(); }, danger: true },
+    { icon: 'trash', label: 'Delete', action: async () => { 
+      try {
+        const confirmed = await genericConfirmation(
+          "Confirm Deletion",
+          "Are you sure you want to delete this file? This action cannot be undone.",
+          "Delete File"
+        );
+        if (confirmed) {
+          await deleteFiles([file.id]);
+          successConfirmation('File deleted successfully!');
+          onClose();
+        }
+      } catch (error) {
+        errorConfirmation('Failed to delete file.');
+      }
+    }, danger: true },
   ];
 
   return (
@@ -403,7 +419,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
                   textAlign: 'center',
                 }}
               >
-                REV_{String(file.revisionNumber).padStart(2, '0')}
+                REV_{file.revisionNumber != null ? String(file.revisionNumber).padStart(2, '0') : '--'}
               </span>
             )}
 

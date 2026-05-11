@@ -1,4 +1,6 @@
 import axios from 'axios';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
@@ -66,4 +68,30 @@ export const renameDocument = async (documentId: string, newName: string) => {
 export const deleteDocument = async (documentId: string) => {
   const response = await axios.delete(`${API_BASE_URL}/api/leads/export/documents/${documentId}`);
   return response.data;
+};
+
+export const deleteDocuments = async (documentIds: string[]) => {
+  // If backend supports bulk delete, use it. Otherwise, use Promise.all
+  // For now, we'll use Promise.all to ensure persistence for each file.
+  const deletions = documentIds.map(id => axios.delete(`${API_BASE_URL}/api/leads/export/documents/${id}`));
+  const results = await Promise.all(deletions);
+  return results.map(r => r.data);
+};
+
+export const downloadDocumentsAsZip = async (files: { url: string; name: string }[], zipName: string = 'documents.zip') => {
+  const zip = new JSZip();
+  const folder = zip.folder('documents');
+
+  const downloadPromises = files.map(async (file) => {
+    try {
+      const response = await axios.get(file.url, { responseType: 'blob' });
+      folder?.file(file.name, response.data);
+    } catch (error) {
+      console.error(`Failed to download ${file.name}:`, error);
+    }
+  });
+
+  await Promise.all(downloadPromises);
+  const content = await zip.generateAsync({ type: 'blob' });
+  saveAs(content, zipName);
 };

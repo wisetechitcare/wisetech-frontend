@@ -84,6 +84,7 @@ type DMSAction =
   | { type: 'SET_SEARCH_FILTERS'; payload: Partial<SearchFilters> }
   | { type: 'SELECT_FILE'; payload: string }
   | { type: 'DESELECT_FILE'; payload: string }
+  | { type: 'TOGGLE_FILE_SELECTION'; payload: string }
   | { type: 'SELECT_ALL_FILES'; payload: string[] }
   | { type: 'CLEAR_SELECTION' }
   | { type: 'TOGGLE_FOLDER_EXPAND'; payload: string }
@@ -114,6 +115,13 @@ function dmsReducer(state: DMSState, action: DMSAction): DMSState {
     case 'SET_SEARCH_FILTERS': return { ...state, searchFilters: { ...state.searchFilters, ...action.payload } };
     case 'SELECT_FILE': return { ...state, selectedFiles: [...new Set([...state.selectedFiles, action.payload])] };
     case 'DESELECT_FILE': return { ...state, selectedFiles: state.selectedFiles.filter(id => id !== action.payload) };
+    case 'TOGGLE_FILE_SELECTION': 
+      return { 
+        ...state, 
+        selectedFiles: state.selectedFiles.includes(action.payload)
+          ? state.selectedFiles.filter(id => id !== action.payload)
+          : [...state.selectedFiles, action.payload]
+      };
     case 'SELECT_ALL_FILES': return { ...state, selectedFiles: action.payload };
     case 'CLEAR_SELECTION': return { ...state, selectedFiles: [] };
     case 'TOGGLE_FOLDER_EXPAND': return { ...state, folders: state.folders.map(f => f.id === action.payload ? { ...f, isExpanded: !f.isExpanded } : f) };
@@ -138,6 +146,7 @@ interface DMSContextValue {
   getTotalFilesCount: () => number;
   isGlobalMode: boolean;
   getLatestTempNumber: (templateId: string, revisionNumber: number) => number;
+  deleteFiles: (fileIds: string[]) => Promise<void>;
 }
 
 const DMSContext = createContext<DMSContextValue | null>(null);
@@ -321,9 +330,23 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
     return Math.max(...matches.map(f => f.tempNumber || 0));
   }, [state.files]);
 
+  const deleteFiles = useCallback(async (fileIds: string[]) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await dmsService.deleteDocuments(fileIds);
+      dispatch({ type: 'DELETE_FILES', payload: fileIds });
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete files' });
+      throw err;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, []);
+
   const value = useMemo(() => ({
-    state, dispatch, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, getLatestTempNumber
-  }), [state, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, getLatestTempNumber]);
+    state, dispatch, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, getLatestTempNumber, deleteFiles
+  }), [state, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, getLatestTempNumber, deleteFiles]);
 
   return (
     <DMSContext.Provider value={value}>

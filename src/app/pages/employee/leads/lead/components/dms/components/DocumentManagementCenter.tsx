@@ -13,7 +13,7 @@ import { StorageUsageWidget } from './StorageUsageWidget';
 import type { DMSFile } from '../types/dms.types';
 
 export const DocumentManagementCenter: React.FC = () => {
-  const { state, getFilteredFiles, isGlobalMode } = useDMS();
+  const { state, dispatch, getFilteredFiles, isGlobalMode } = useDMS();
   const [selectedFileForDetails, setSelectedFileForDetails] = useState<DMSFile | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<'details' | 'timeline'>('details');
@@ -61,7 +61,7 @@ export const DocumentManagementCenter: React.FC = () => {
                   file={file}
                   viewMode={state.viewMode}
                   isSelected={state.selectedFiles.includes(file.id)}
-                  onSelect={() => {}}
+                  onSelect={() => dispatch({ type: 'TOGGLE_FILE_SELECTION', payload: file.id })}
                   onPreview={() => setSelectedFileForDetails(file)}
                   onDetails={() => {
                     setSelectedFileForDetails(file);

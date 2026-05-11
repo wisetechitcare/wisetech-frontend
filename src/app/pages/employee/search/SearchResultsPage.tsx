@@ -1,18 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { KTIcon } from '@metronic/helpers';
-import { HighlightMatch, performGlobalSearch, UnifiedSearchResult, SearchMatchField } from '@app/utils/search';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { KTIcon } from "@metronic/helpers";
+import {
+  HighlightMatch,
+  performGlobalSearch,
+  UnifiedSearchResult,
+  SearchMatchField,
+} from "@app/utils/search";
 
 const SearchResultsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const q = queryParams.get('q') || '';
-  const initialType = queryParams.get('type') || 'all';
+  const q = queryParams.get("q") || "";
+  const initialType = queryParams.get("type") || "all";
   const [allResults, setAllResults] = useState<UnifiedSearchResult[]>([]);
-  const [filteredResults, setFilteredResults] = useState<UnifiedSearchResult[]>([]);
+  const [filteredResults, setFilteredResults] = useState<UnifiedSearchResult[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(initialType === 'all' ? 'All' : initialType);
+  const [activeTab, setActiveTab] = useState(
+    initialType === "all" ? "All" : initialType,
+  );
 
   const query = q;
 
@@ -25,7 +34,7 @@ const SearchResultsPage: React.FC = () => {
         const results = await performGlobalSearch(query);
         setAllResults(results);
       } catch (err) {
-        console.error('Search error:', err);
+        console.error("Search error:", err);
       } finally {
         setIsLoading(false);
       }
@@ -35,10 +44,10 @@ const SearchResultsPage: React.FC = () => {
   }, [query]);
 
   useEffect(() => {
-    if (activeTab === 'All') {
+    if (activeTab === "All") {
       setFilteredResults(allResults);
     } else {
-      setFilteredResults(allResults.filter(r => r.type === activeTab));
+      setFilteredResults(allResults.filter((r) => r.type === activeTab));
     }
   }, [allResults, activeTab]);
 
@@ -54,23 +63,42 @@ const SearchResultsPage: React.FC = () => {
         <div className="card shadow-sm">
           <div className="card-header border-0 pt-6">
             <div className="card-title flex-column">
-              <h3 className="card-label fw-bold text-gray-800">Search Results</h3>
+              <h3 className="card-label fw-bold text-gray-800">
+                Search Results
+              </h3>
               <span className="text-muted mt-1 fw-semibold fs-7">
                 Found {filteredResults.length} results for "{query}"
               </span>
             </div>
             <div className="card-toolbar">
               <div className="d-flex flex-wrap gap-2">
-                {['All', 'Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task'].map((type) => {
-                  const label = type === 'All' ? 'All' : 
-                               type === 'Navigation' ? 'Pages' : 
-                               type === 'Company' ? 'Companies' : 
-                               `${type}s`;
-                  const count = type === 'All' ? allResults.length : allResults.filter(r => r.type === type).length;
+                {[
+                  "All",
+                  "Navigation",
+                  "KPI",
+                  "Company",
+                  "Contact",
+                  "Lead",
+                  "Project",
+                  "Employee",
+                  "Task",
+                ].map((type) => {
+                  const label =
+                    type === "All"
+                      ? "All"
+                      : type === "Navigation"
+                        ? "Pages"
+                        : type === "Company"
+                          ? "Companies"
+                          : `${type}s`;
+                  const count =
+                    type === "All"
+                      ? allResults.length
+                      : allResults.filter((r) => r.type === type).length;
                   return (
                     <button
                       key={type}
-                      className={`btn btn-sm ${activeTab === type ? 'btn-primary' : 'btn-light-primary'}`}
+                      className={`btn btn-sm ${activeTab === type ? "btn-primary" : "btn-light-primary"}`}
                       onClick={() => setActiveTab(type)}
                     >
                       {label} ({count})
@@ -85,51 +113,80 @@ const SearchResultsPage: React.FC = () => {
             {filteredResults.length > 0 ? (
               <div className="row g-6">
                 {filteredResults.map((result, idx) => (
-                  <div key={`${result.type}-${result.id}-${idx}`} className="col-md-6 col-xl-4">
-                    <div 
+                  <div
+                    key={`${result.type}-${result.id}-${idx}`}
+                    className="col-md-6 col-xl-4"
+                  >
+                    <div
                       className="card h-100 border border-dashed border-gray-300 card-hover shadow-none"
-                      style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                      style={{ cursor: "pointer", transition: "all 0.2s ease" }}
                       onClick={() => navigate(result.path)}
                     >
                       <div className="card-body p-6">
                         <div className="d-flex align-items-center mb-4">
                           <div className="symbol symbol-45px symbol-circle me-5">
-                            <span className={`symbol-label bg-light-${getTypeColor(result.type)}`}>
-                              <KTIcon iconName={result.icon} className={`fs-1 text-${getTypeColor(result.type)}`} />
+                            <span
+                              className={`symbol-label bg-light-${getTypeColor(result.type)}`}
+                            >
+                              <KTIcon
+                                iconName={result.icon}
+                                className={`fs-1 text-${getTypeColor(result.type)}`}
+                              />
                             </span>
                           </div>
                           <div className="flex-grow-1">
                             <div className="d-flex justify-content-between align-items-start">
                               <div className="text-gray-900 text-hover-primary fs-5 fw-bold mb-1">
-                                <HighlightMatch text={result.title} query={query} />
+                                <HighlightMatch
+                                  text={result.title}
+                                  query={query}
+                                />
                               </div>
-                              <span className={`badge badge-light-${getTypeColor(result.type)} fw-bold fs-8 px-2 py-1`}>
+                              <span
+                                className={`badge badge-light-${getTypeColor(result.type)} fw-bold fs-8 px-2 py-1`}
+                              >
                                 {result.type}
                               </span>
                             </div>
-                            <div className="text-muted fw-semibold fs-7">{result.subtitle}</div>
+                            <div className="text-muted fw-semibold fs-7">
+                              {result.subtitle}
+                            </div>
                           </div>
                         </div>
 
                         {/* Contextual Fields */}
                         <div className="separator separator-dashed my-4"></div>
-                        
+
                         <div className="d-flex flex-column gap-2">
-                          {result.matches?.map((match: SearchMatchField, mIdx: number) => (
-                            <div key={mIdx} className={`d-flex align-items-center fs-7 ${match.isMatch ? 'bg-light-warning rounded px-2 py-1' : ''}`}>
-                              <span className="text-gray-500 fw-bold w-80px">{match.label}:</span>
-                              <span className="text-gray-800 flex-grow-1 text-truncate">
-                                <HighlightMatch text={match.value} query={query} />
-                              </span>
-                              {match.isMatch && (
-                                <span className="badge badge-warning fs-9 px-2 ms-2">Matched</span>
-                              )}
-                            </div>
-                          ))}
+                          {result.matches?.map(
+                            (match: SearchMatchField, mIdx: number) => (
+                              <div
+                                key={mIdx}
+                                className={`d-flex align-items-center fs-7 ${match.isMatch ? "bg-light-warning rounded px-2 py-1" : ""}`}
+                              >
+                                <span className="text-gray-500 fw-bold w-80px">
+                                  {match.label}:
+                                </span>
+                                <span className="text-gray-800 flex-grow-1 text-truncate">
+                                  <HighlightMatch
+                                    text={match.value}
+                                    query={query}
+                                  />
+                                </span>
+                                {match.isMatch && (
+                                  <span className="badge badge-warning fs-9 px-2 ms-2">
+                                    Matched
+                                  </span>
+                                )}
+                              </div>
+                            ),
+                          )}
                         </div>
 
                         <div className="mt-5 d-flex justify-content-end">
-                          <div className="btn btn-sm btn-light-primary fw-bold">View Profile</div>
+                          <div className="btn btn-sm btn-light-primary fw-bold">
+                            View Profile
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -140,7 +197,10 @@ const SearchResultsPage: React.FC = () => {
               <div className="text-center py-20">
                 <KTIcon iconName="search" className="fs-3x text-muted mb-5" />
                 <h4 className="fw-bold">No results found</h4>
-                <p className="text-muted">Try adjusting your search or filters to find what you're looking for.</p>
+                <p className="text-muted">
+                  Try adjusting your search or filters to find what you're
+                  looking for.
+                </p>
               </div>
             )}
           </div>
@@ -160,15 +220,24 @@ const SearchResultsPage: React.FC = () => {
 
 const getTypeColor = (type: string) => {
   switch (type) {
-    case 'Navigation': return 'primary';
-    case 'KPI': return 'info';
-    case 'Company': return 'primary';
-    case 'Contact': return 'success';
-    case 'Lead': return 'warning';
-    case 'Project': return 'info';
-    case 'Employee': return 'danger';
-    case 'Task': return 'dark';
-    default: return 'primary';
+    case "Navigation":
+      return "primary";
+    case "KPI":
+      return "info";
+    case "Company":
+      return "primary";
+    case "Contact":
+      return "success";
+    case "Lead":
+      return "warning";
+    case "Project":
+      return "info";
+    case "Employee":
+      return "danger";
+    case "Task":
+      return "dark";
+    default:
+      return "primary";
   }
 };
 

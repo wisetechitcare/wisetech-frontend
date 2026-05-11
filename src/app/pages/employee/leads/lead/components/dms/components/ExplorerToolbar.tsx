@@ -3,13 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
 import type { ViewMode, SortField, SortOrder } from '../types/dms.types';
+import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
+import * as dmsService from '../services/dmsService';
 
 interface ExplorerToolbarProps {
   onUploadClick: () => void;
 }
 
 export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick }) => {
-  const { state, dispatch } = useDMS();
+  const { state, dispatch, deleteFiles } = useDMS();
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
@@ -40,14 +42,55 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
     }
   };
 
-  const handleBulkDelete = () => {
-    if (window.confirm(`Delete ${state.selectedFiles.length} selected file(s)?`)) {
-      dispatch({ type: 'DELETE_FILES', payload: state.selectedFiles });
+  const handleBulkDelete = async () => {
+    try {
+      const confirmed = await genericConfirmation(
+        "Confirm Bulk Deletion",
+        `Are you sure you want to delete ${state.selectedFiles.length} file(s)? This action cannot be undone.`,
+        "Delete Files"
+      );
+      
+      if (confirmed) {
+        await deleteFiles(state.selectedFiles);
+        successConfirmation(`${state.selectedFiles.length} file(s) deleted successfully!`);
+      }
+    } catch (error) {
+      errorConfirmation('Failed to delete files. Please try again.');
     }
   };
 
   const handleBulkArchive = () => {
     dispatch({ type: 'ARCHIVE_FILES', payload: state.selectedFiles });
+  };
+  
+  const handleBulkDownload = async () => {
+    const selectedFileData = state.files
+      .filter(f => state.selectedFiles.includes(f.id) && f.s3Url)
+      .map(f => ({ url: f.s3Url!, name: f.name }));
+    
+    if (selectedFileData.length === 0) {
+      errorConfirmation('No files with valid URLs selected for download.');
+      return;
+    }
+
+    try {
+      successConfirmation(`Preparing ZIP for ${selectedFileData.length} file(s)...`);
+      
+      // Determine meaningful ZIP filename
+      // 1. Get all unique inquiry numbers from selected files (excluding placeholders like '-')
+      const inquiryNumbers = [...new Set(selectedFileData.map(f => f.metadata?.inquiryNumber))].filter(n => n && n !== '-');
+      
+      let zipName = "Proposals"; // Default for multiple leads
+      if (inquiryNumbers.length === 1) {
+        zipName = inquiryNumbers[0] as string; // Use the specific inquiry number if only one lead is involved
+      } else if (inquiryNumbers.length === 0) {
+        zipName = "DMS_Export"; // Fallback for manual uploads without metadata
+      }
+
+      await dmsService.downloadDocumentsAsZip(selectedFileData, `${zipName}.zip`);
+    } catch (error) {
+      errorConfirmation('Failed to generate ZIP file.');
+    }
   };
 
   return (
@@ -117,7 +160,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
             }}>
               {state.selectedFiles.length} selected
             </span>
-            <ToolbarButton icon="cloud-download" label="Download" onClick={() => {}} />
+            <ToolbarButton icon="cloud-download" label="Download" onClick={handleBulkDownload} />
             <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />
           </motion.div>
         )}

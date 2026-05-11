@@ -52,6 +52,14 @@ const LeadsMain = () => {
           ? leadsIcons.leadsIcon.active
           : leadsIcons.leadsIcon.default,
     },
+     {
+      title: "Files",
+      component: <GlobalFilesView />,
+      icon:
+        activeTab === 3
+          ? projectsIcons.projectsIcon.active
+          : projectsIcons.projectsIcon.default,
+    },
     {
       title: "Configure",
       component: <LeadsConfigurationMain />,
@@ -60,14 +68,7 @@ const LeadsMain = () => {
           ? leadsIcons.leadsConfigIcon.active
           : leadsIcons.leadsConfigIcon.default,
     },
-    {
-      title: "Files",
-      component: <GlobalFilesView />,
-      icon:
-        activeTab === 3
-          ? projectsIcons.projectsIcon.active
-          : projectsIcons.projectsIcon.default,
-    },
+   
   ];
   const LeadBreadcrumbs = [
     {

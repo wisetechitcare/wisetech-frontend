@@ -4,6 +4,7 @@ import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
 import * as dmsService from '../services/dmsService';
 import { formatBytes, formatDate, getStatusConfig, getExportTypeConfig } from '../utils/dmsUtils';
+import { successConfirmation, errorConfirmation, rejectConfirmation } from '@utils/modal';
 import type { DMSFile } from '../types/dms.types';
 
 interface FileDetailsSidebarProps {
@@ -12,7 +13,7 @@ interface FileDetailsSidebarProps {
 }
 
 export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, onClose }) => {
-  const { dispatch } = useDMS();
+  const { dispatch, deleteFiles } = useDMS();
   const [isRenaming, setIsRenaming] = React.useState(false);
   const [newName, setNewName] = React.useState(file?.name || '');
 
@@ -30,8 +31,10 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
       try {
         await dmsService.renameDocument(file.id, newName.trim());
         dispatch({ type: 'UPDATE_FILE', payload: { id: file.id, name: newName.trim() } });
+        successConfirmation('File renamed successfully!');
       } catch (err) {
         console.error('Rename failed:', err);
+        errorConfirmation('Failed to rename file.');
         setNewName(file.name);
       }
     }
@@ -39,15 +42,19 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to permanently delete this document? This action cannot be undone.')) {
-      try {
-        await dmsService.deleteDocument(file.id);
-        dispatch({ type: 'DELETE_FILES', payload: [file.id] });
+    try {
+      const confirmed = await rejectConfirmation(
+        'Are you sure you want to permanently delete this document? This action cannot be undone.'
+      );
+      
+      if (confirmed) {
+        await deleteFiles([file.id]);
+        successConfirmation('Document deleted successfully!');
         onClose();
-      } catch (err) {
-        console.error('Delete failed:', err);
-        alert('Failed to delete document. Please try again.');
       }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      errorConfirmation('Failed to delete document. Please try again.');
     }
   };
   const statusCfg = getStatusConfig(file.status);
@@ -202,9 +209,9 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
           <Row label="Client" value={file.metadata.clientName} />
           <Row label="Project" value={file.metadata.projectName} />
           {file.exportType === 'revision' ? (
-            <Row label="Revision" value={String(file.revisionNumber || file.metadata.revisionNumber || '-')} />
+            <Row label="Revision" value={file.revisionNumber != null ? `REV_${String(file.revisionNumber).padStart(2, '0')}` : '-'} />
           ) : (
-            <Row label="Temp Version" value={String(file.tempNumber || '-')} />
+            <Row label="Temp Version" value={file.tempNumber != null ? `TEMP_${String(file.tempNumber).padStart(2, '0')}` : '-'} />
           )}
           <Row label="Template" value={file.metadata.templateUsed} />
           <Row label="Exported By" value={file.metadata.exportedBy} />

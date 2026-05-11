@@ -24,6 +24,24 @@ interface ProposalTemplatePageProps {
   projectData?: any;
 }
 
+interface ProposalConfiguration {
+  config_type: string;
+  config_key: string;
+  value: any;
+  configType?: string;
+  configKey?: string;
+  [key: string]: any;
+}
+
+interface ProposalRule {
+  minArea: string | number;
+  maxArea: string | number;
+  completionYear?: number;
+  completionMonth?: number;
+  configurations: ProposalConfiguration[];
+  [key: string]: any;
+}
+
 const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   show,
   onHide,
@@ -37,7 +55,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [currentConfig, setCurrentConfig] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
-  const [rules, setRules] = useState<any[]>([]);
+  const [rules, setRules] = useState<ProposalRule[]>([]);
   const [templateBase64, setTemplateBase64] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,6 +65,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
   const [showExportCenter, setShowExportCenter] = useState(false);
   const initialFormDataRef = useRef<any>(null);
+  const [globalPaymentStages, setGlobalPaymentStages] = useState<
+    ProposalConfiguration[]
+  >([]);
 
   useEffect(() => {
     const fetchDefinitions = async () => {
@@ -448,33 +469,35 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     setActiveTab("fields");
   }, [show, leadData, availableFields]);
 
-  const [globalPaymentStages, setGlobalPaymentStages] = useState<any[]>([]);
+  // Removed duplicate state declaration
 
   useEffect(() => {
     if (!selectedTemplateId && !templateBase64) return;
-    
+
     setFormData((prev: any) => {
       const updated = { ...prev };
-      
+
       // 1. Sync Global Stages Placeholders
       let sIdx = 1;
       (globalPaymentStages || []).forEach((c: any) => {
-          const type = (c.config_type || c.configType || "").toLowerCase();
-          if (type !== "meeting") {
-              updated[`stage_${sIdx}_name`] = c.config_key || c.configKey || `Stage ${sIdx}`;
-              updated[`stage_${sIdx}_value`] = c.value || 0;
-              sIdx++;
-          }
+        const type = (c.config_type || c.configType || "").toLowerCase();
+        if (type !== "meeting") {
+          updated[`stage_${sIdx}_name`] =
+            c.config_key || c.configKey || `Stage ${sIdx}`;
+          updated[`stage_${sIdx}_value`] = c.value || 0;
+          sIdx++;
+        }
       });
-      
+
       // Clear trailing stage placeholders
       for (let i = sIdx; i <= 15; i++) {
-          delete updated[`stage_${i}_name`];
-          delete updated[`stage_${i}_value`];
+        delete updated[`stage_${i}_name`];
+        delete updated[`stage_${i}_value`];
       }
 
       // 2. Sync Meetings
-      const currentArea = parseFloat(updated.total_project_area || updated.built_up_area) || 0;
+      const currentArea =
+        parseFloat(updated.total_project_area || updated.built_up_area) || 0;
       return syncMeetings(updated, currentArea, rules, globalPaymentStages);
     });
   }, [globalPaymentStages, rules]);
@@ -555,8 +578,8 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             const num = sIdx + 1;
             const type = (c.config_type || "").toLowerCase();
             if (type !== "meeting") {
-                updated[`stage_${num}_name`] = c.config_key || `Stage ${num}`;
-                updated[`stage_${num}_value`] = c.value || 0;
+              updated[`stage_${num}_name`] = c.config_key || `Stage ${num}`;
+              updated[`stage_${num}_value`] = c.value || 0;
             }
           });
 
@@ -577,7 +600,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
           });
 
           // 3. Sync Dynamic Meetings
-          const currentArea = parseFloat(updated.total_project_area || updated.built_up_area) || 0;
+          const currentArea =
+            parseFloat(updated.total_project_area || updated.built_up_area) ||
+            0;
           return syncMeetings(updated, currentArea, areaRules, globalStages);
         });
       } catch (err) {
@@ -586,33 +611,45 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     }
   };
 
-  const syncMeetings = (updatedData: any, area: number, currentRules: any[], currentGlobal: any[]) => {
-      // Clear old meeting keys
-      Object.keys(updatedData).forEach(k => { if(k.startsWith('meeting_')) delete updatedData[k]; });
-      
-      let mIdx = 1;
-      
-      // 1. Add Global Meetings
-      (currentGlobal || []).forEach((c: any) => {
-          if ((c.config_type || c.configType || "").toLowerCase() === "meeting") {
-              updatedData[`meeting_${mIdx}_name`] = c.config_key || c.configKey || `Meeting ${mIdx}`;
-              updatedData[`meeting_${mIdx}_value`] = c.value || 0;
-              mIdx++;
-          }
-      });
-      
-      // 2. Add Area-Specific Meetings
-      const bestRule = (currentRules || []).find(r => area >= Number(r.minArea) && area <= Number(r.maxArea)) || currentRules?.[0];
-      if (bestRule) {
-          (bestRule.configurations || []).forEach((c: any) => {
-              if ((c.config_type || c.configType || "").toLowerCase() === "meeting") {
-                  updatedData[`meeting_${mIdx}_name`] = c.config_key || c.configKey || `Meeting ${mIdx}`;
-                  updatedData[`meeting_${mIdx}_value`] = c.value || 0;
-                  mIdx++;
-              }
-          });
+  const syncMeetings = (
+    updatedData: any,
+    area: number,
+    currentRules: any[],
+    currentGlobal: any[],
+  ) => {
+    // Clear old meeting keys
+    Object.keys(updatedData).forEach((k) => {
+      if (k.startsWith("meeting_")) delete updatedData[k];
+    });
+
+    let mIdx = 1;
+
+    // 1. Add Global Meetings
+    (currentGlobal || []).forEach((c: any) => {
+      if ((c.config_type || c.configType || "").toLowerCase() === "meeting") {
+        updatedData[`meeting_${mIdx}_name`] =
+          c.config_key || c.configKey || `Meeting ${mIdx}`;
+        updatedData[`meeting_${mIdx}_value`] = c.value || 0;
+        mIdx++;
       }
-      return updatedData;
+    });
+
+    // 2. Add Area-Specific Meetings
+    const bestRule =
+      (currentRules || []).find(
+        (r) => area >= Number(r.minArea) && area <= Number(r.maxArea),
+      ) || currentRules?.[0];
+    if (bestRule) {
+      (bestRule.configurations || []).forEach((c: any) => {
+        if ((c.config_type || c.configType || "").toLowerCase() === "meeting") {
+          updatedData[`meeting_${mIdx}_name`] =
+            c.config_key || c.configKey || `Meeting ${mIdx}`;
+          updatedData[`meeting_${mIdx}_value`] = c.value || 0;
+          mIdx++;
+        }
+      });
+    }
+    return updatedData;
   };
 
   const handleRuleAreaChange = (
@@ -681,7 +718,12 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         updated.project_area = value;
 
         // Dynamic Meeting Update based on new area
-        return syncMeetings(updated, parseFloat(value) || 0, rules, globalPaymentStages);
+        return syncMeetings(
+          updated,
+          parseFloat(value) || 0,
+          rules,
+          globalPaymentStages,
+        );
       }
 
       // Sync Cost Aliases
@@ -731,40 +773,43 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     if (!selectedTemplateId && !currentConfig) return;
     setIsSaving(true);
     try {
-        const normalizedGlobalStages = globalPaymentStages.map((c: any) => ({
-            configType: c.configType || c.config_type || "percentage",
-            configKey: c.configKey || c.config_key || "",
-            value: String(c.value || 0),
-        }));
+      const normalizedGlobalStages = globalPaymentStages.map((c: any) => ({
+        configType: c.configType || c.config_type || "percentage",
+        configKey: c.configKey || c.config_key || "",
+        value: String(c.value || 0),
+      }));
 
-        const normalizedAreaRules = rules.map((rule: any) => ({
-            minArea: rule.minArea,
-            maxArea: rule.maxArea,
-            completionYear: rule.completionYear || 0,
-            completionMonth: rule.completionMonth || 0,
-            configurations: (rule.configurations || []).map((c: any) => ({
-                configType: c.configType || c.config_type || "",
-                configKey: c.configKey || c.config_key || "",
-                value: String(c.value || 0),
-            })),
-        }));
+      const normalizedAreaRules = rules.map((rule: any) => ({
+        minArea: rule.minArea,
+        maxArea: rule.maxArea,
+        completionYear: rule.completionYear || 0,
+        completionMonth: rule.completionMonth || 0,
+        configurations: (rule.configurations || []).map((c: any) => ({
+          configType: c.configType || c.config_type || "",
+          configKey: c.configKey || c.config_key || "",
+          value: String(c.value || 0),
+        })),
+      }));
 
-        const configToSave = {
-            ...currentConfig,
-            completionYear: formData.completion_years,
-            completionMonth: formData.completion_months,
-            rules: [
-                { minArea: -1, maxArea: -1, configurations: normalizedGlobalStages },
-                ...normalizedAreaRules
-            ]
-        };
+      const configToSave = {
+        ...currentConfig,
+        completionYear: formData.completion_years,
+        completionMonth: formData.completion_months,
+        rules: [
+          { minArea: -1, maxArea: -1, configurations: normalizedGlobalStages },
+          ...normalizedAreaRules,
+        ],
+      };
 
-        await saveProposalConfiguration(configToSave, templateBase64 || undefined);
-        alert("Template configuration saved successfully!");
+      await saveProposalConfiguration(
+        configToSave,
+        templateBase64 || undefined,
+      );
+      alert("Template configuration saved successfully!");
     } catch (err: any) {
-        showError("Failed to save template changes: " + (err.message || err));
+      showError("Failed to save template changes: " + (err.message || err));
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -805,16 +850,17 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         ],
         customTemplate: templateBase64 || undefined,
         userId: currentUser?.id,
-        userName: `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim(),
+        userName:
+          `${currentUser?.first_name || ""} ${currentUser?.last_name || ""}`.trim(),
         // --- Export Center Payload from Modal ---
         ...(modalConfig || {}),
       };
 
-      const { destination, fileName } = modalConfig || { destination: 'device' };
-      
-      console.log(
-        `📤 [Export] ${type.toUpperCase()} | Dest: ${destination}`,
-      );
+      const { destination, fileName } = modalConfig || {
+        destination: "device",
+      };
+
+      console.log(`📤 [Export] ${type.toUpperCase()} | Dest: ${destination}`);
 
       const response =
         type === "docx"
@@ -829,7 +875,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       });
 
       // Handle Destination
-      if (destination === 'device' || destination === 'both') {
+      if (destination === "device" || destination === "both") {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -843,13 +889,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         window.URL.revokeObjectURL(url);
       }
 
-
-      if (destination === 'cloud' || destination === 'both') {
-        window.dispatchEvent(new CustomEvent('dms-refresh'));
+      if (destination === "cloud" || destination === "both") {
+        window.dispatchEvent(new CustomEvent("dms-refresh"));
       }
-
-
-
     } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);
       let errorMessage = `Failed to generate ${type}. Please check template and rules.`;
@@ -880,52 +922,33 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       size="xl"
       backdrop="static"
       dialogClassName="mw-1000px"
-      contentClassName="rounded-4 border-0 overflow-hidden"
     >
-      <Modal.Header closeButton className="bg-white border-bottom py-5 px-10">
-        <Modal.Title className="d-flex align-items-center">
-          <KTIcon iconName="document" className="fs-1 text-primary me-3" />
-          <div className="d-flex flex-column">
-            <span className="fs-2 fw-bolder text-dark">
-              Generate Proposal Document
-            </span>
-            <span className="text-muted fs-7 fw-bold">
-              Configure and export document for {leadData?.title}
-            </span>
-          </div>
+      <Modal.Header closeButton className="py-3 px-6 border-bottom">
+        <Modal.Title>
+          <span className="fs-3 fw-bolder">Proposal Builder</span>
+          <div className="fs-9 text-muted fw-bold">Lead-Specific</div>
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body className="p-0 bg-light">
-        <Row className="g-0 h-100">
+      <Modal.Body className="p-0">
+        <Row className="g-0">
           <Col
             lg={3}
-            className="bg-white border-end p-8 scroll-y"
-            style={{ height: "75vh" }}
+            className="bg-white border-end p-5 scroll-y"
+            style={{ height: "70vh" }}
           >
-            <h5 className="fw-bolder text-dark mb-6">Select Template</h5>
+            <h6 className="fw-bolder mb-5">Templates</h6>
             <div className="d-flex flex-column gap-2">
               {templates.map((tpl: any) => (
                 <div
                   key={tpl.id}
                   onClick={() => handleTemplateChange(tpl.id)}
-                  className={`p-4 rounded-3 cursor-pointer transition-all ${selectedTemplateId === tpl.id ? "bg-light-primary border border-primary" : "bg-hover-light border border-transparent"}`}
+                  className={`p-3 rounded-2 cursor-pointer mb-2 transition-all ${selectedTemplateId === tpl.id ? "bg-primary text-white" : "bg-hover-light border"}`}
                 >
-                  <div className="d-flex align-items-center">
-                    <div className="symbol symbol-40px me-3">
-                      <span
-                        className={`symbol-label ${selectedTemplateId === tpl.id ? "bg-primary text-white" : "bg-light-primary text-primary"}`}
-                      >
-                        <KTIcon iconName="document" className="fs-2" />
-                      </span>
-                    </div>
-                    <div className="d-flex flex-column">
-                      <span className="text-dark fw-bolder fs-7">
-                        {tpl.templateName}
-                      </span>
-                      <span className="text-muted fw-bold fs-9">
-                        {tpl.templateCode}
-                      </span>
-                    </div>
+                  <div className="fw-bold fs-7">{tpl.templateName}</div>
+                  <div
+                    className={`fs-9 ${selectedTemplateId === tpl.id ? "text-white-50" : "text-muted"}`}
+                  >
+                    {tpl.templateCode}
                   </div>
                 </div>
               ))}
@@ -953,366 +976,198 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
           <Col
             lg={9}
-            md={8}
-            className="p-4 p-lg-10 scroll-y"
-            style={{ height: "75vh" }}
+            className="bg-white p-6 scroll-y"
+            style={{ height: "70vh" }}
           >
             {currentConfig || templateBase64 ? (
-              <div className="d-flex flex-column gap-6 gap-lg-8">
-                <div className="card border-0 shadow-sm rounded-4">
-                  <div className="card-body p-6 p-lg-8">
-                    <div className="d-flex align-items-center mb-6">
-                      <div className="symbol symbol-35px symbol-lg-40px bg-light-primary me-4">
-                        <span className="symbol-label">
-                          <KTIcon
-                            iconName="notepad-edit"
-                            className="fs-2 text-primary"
-                          />
-                        </span>
+              <div className="p-4">
+                {/* General Configuration */}
+                <div className="mb-8">
+                  <h5 className="fw-bolder mb-4 text-dark">
+                    General Configuration
+                  </h5>
+                  <Row className="bg-light p-4 rounded border">
+                    <Col sm={6}>
+                      <div className="fs-8 text-muted fw-bold text-uppercase mb-1">
+                        Active Template
                       </div>
-                      <h4 className="fw-bolder text-dark mb-0 fs-5 fs-lg-4">
-                        General Configuration
-                      </h4>
-                    </div>
-                    <Row className="g-4 g-lg-6">
-                      <Col sm={6} md={6}>
-                        <div className="fs-9 fs-lg-8 fw-bolder text-uppercase text-muted mb-1">
-                          Active Template
-                        </div>
-                        <div className="fw-bold fs-7 fs-lg-6 text-dark text-truncate">
-                          {currentConfig?.templateName || "Custom Upload"}
-                        </div>
-                      </Col>
-
-                      <Col xs={6} md={6}>
-                        <div className="fs-9 fs-lg-8 fw-bolder text-uppercase text-muted mb-1">
-                          Internal Code
-                        </div>
-                        <div className="fw-bold fs-7 fs-lg-6 text-dark">
-                          {currentConfig?.templateCode || "TEMP_FILE"}
-                        </div>
-                      </Col>
-                    </Row>
-                  </div>
+                      <div className="fw-bolder fs-6">
+                        {currentConfig?.templateName || "Custom Upload"}
+                      </div>
+                    </Col>
+                    <Col sm={6}>
+                      <div className="fs-8 text-muted fw-bold text-uppercase mb-1">
+                        Internal Code
+                      </div>
+                      <div className="fw-bolder fs-6">
+                        {currentConfig?.templateCode || "TEMP_FILE"}
+                      </div>
+                    </Col>
+                  </Row>
                 </div>
 
-                <div className="nav nav-tabs nav-line-tabs nav-stretch fs-6 border-0 bg-white rounded-top shadow-sm px-6 px-lg-8 pt-4 overflow-auto flex-nowrap">
+                {/* Navigation Tabs */}
+                <ul className="nav nav-tabs nav-line-tabs mb-8 fs-6 border-bottom">
                   <li className="nav-item">
                     <a
-                      className={`nav-link text-active-primary fw-bolder py-4 cursor-pointer text-nowrap ${activeTab === "fields" ? "active" : ""}`}
+                      className={`nav-link fw-bolder cursor-pointer py-3 ${activeTab === "fields" ? "active text-primary border-primary" : "text-muted"}`}
                       onClick={() => setActiveTab("fields")}
                     >
-                      <KTIcon iconName="element-11" className="fs-2 me-2" />{" "}
-                      Placeholder Mapping
+                      Placeholders
                     </a>
                   </li>
                   <li className="nav-item">
                     <a
-                      className={`nav-link text-active-primary fw-bolder py-4 cursor-pointer text-nowrap ${activeTab === "rules" ? "active" : ""}`}
+                      className={`nav-link fw-bolder cursor-pointer py-3 ${activeTab === "rules" ? "active text-primary border-primary" : "text-muted"}`}
                       onClick={() => setActiveTab("rules")}
                     >
-                      <KTIcon iconName="crown" className="fs-2 me-2" /> Area
-                      Rules
+                      Configuration
                     </a>
                   </li>
-                </div>
+                </ul>
 
-                <div className="card border-0 shadow-sm rounded-bottom rounded-top-0">
-                  <div className="card-body p-6 p-lg-8">
-                    {activeTab === "fields" ? (
-                      <Row className="g-4 g-lg-6">
-                        {availableFields
-                          .filter(
-                            (f) =>
-                              // Show all fields if:
-                              // 1. No template selected (currentConfig null)
-                              // 2. Template has no enabledFields (null/undefined/empty array) - show all
-                              // 3. Template's enabledFields explicitly includes this field
-                              !currentConfig ||
-                              !currentConfig.enabledFields?.length ||
-                              currentConfig.enabledFields?.includes(f.key),
-                          )
-                          .map((field, index) => (
-                            <Col sm={6} xl={4} key={index}>
-                              <Form.Group>
-                                <Form.Label className="fs-9 fw-bolder text-uppercase text-muted mb-1">
-                                  {field.label}
-                                </Form.Label>
-                                <Form.Control
-                                  size="sm"
-                                  className="form-control-solid fw-bold"
-                                  type={
-                                    field.key === "inquiry_date" ||
-                                    field.key === "date" ||
-                                    field.key === "offer_date" ||
-                                    field.key === "validity_date"
-                                      ? "date"
-                                      : "text"
-                                  }
-                                  name={field.key}
-                                  value={formData[field.key] || ""}
-                                  onChange={handleInputChange}
-                                />
-                              </Form.Group>
-                            </Col>
-                          ))}
-                      </Row>
-                    ) : (
-                      <div className="d-flex flex-column gap-8">
-                        {/* Global Payment Breakdown */}
-                        <div className="border border-gray-200 rounded-4 p-4 p-lg-8 bg-white shadow-sm border-dashed">
-                          <div className="d-flex align-items-center gap-3 mb-6">
-                            <div className="symbol symbol-35px bg-light-primary">
-                              <span className="symbol-label">
-                                <KTIcon
-                                  iconName="percentage"
-                                  className="fs-2 text-primary"
-                                />
-                              </span>
-                            </div>
-                            <div>
-                              <h5 className="fw-bolder text-dark mb-0">
-                                Global Payment Breakdown
-                              </h5>
-                              <span className="text-muted fs-8 fw-bold">
-                                Applies to all area ranges
-                              </span>
-                            </div>
-                          </div>
+                {/* Content Area */}
+                <div className="py-2">
+                  {activeTab === "fields" ? (
+                    <Row className="g-5">
+                      {availableFields
+                        .filter(
+                          (f) =>
+                            !currentConfig ||
+                            !currentConfig.enabledFields?.length ||
+                            currentConfig.enabledFields?.includes(f.key),
+                        )
+                        .map((field, index) => (
+                          <Col sm={6} xl={4} key={index}>
+                            <Form.Group>
+                              <Form.Label className="fs-8 fw-bolder text-muted mb-1">
+                                {field.label}
+                              </Form.Label>
+                              <Form.Control
+                                size="sm"
+                                className="form-control-solid fw-bold"
+                                type={
+                                  field.key === "inquiry_date" ||
+                                  field.key === "date" ||
+                                  field.key === "offer_date" ||
+                                  field.key === "validity_date"
+                                    ? "date"
+                                    : "text"
+                                }
+                                name={field.key}
+                                value={formData[field.key] || ""}
+                                onChange={handleInputChange}
+                              />
+                            </Form.Group>
+                          </Col>
+                        ))}
+                    </Row>
+                  ) : (
+                    <div className="d-flex flex-column gap-6">
+                      {/* Project Area (Controls meeting resolution) */}
+                      <div className="mb-4">
+                        <Row className="align-items-center">
+                          <Col sm={4}>
+                            <h5 className="fw-bolder text-dark mb-0">
+                              Total Project Area
+                            </h5>
+                            <span className="text-muted fs-9">
+                              Controls meeting rules
+                            </span>
+                          </Col>
+                          <Col sm={3}>
+                            <Form.Control
+                              type="number"
+                              placeholder="Enter Area..."
+                              className="form-control-solid fw-bold"
+                              value={formData.total_project_area || ""}
+                              onChange={(e) => handleInputChange(e as any)}
+                              name="total_project_area"
+                            />
+                          </Col>
+                        </Row>
+                      </div>
 
-                          <PercentageConfigurationTable
-                            percentages={globalPaymentStages}
-                            setPercentages={setGlobalPaymentStages}
-                            totalCost={parseFloat(
-                              formData.total_project_cost ||
-                                formData.total_offer_cost ||
-                                0,
-                            )}
-                          />
-                        </div>
+                      <div className="separator border-gray-200 my-4"></div>
 
-                        <div className="separator separator-dashed"></div>
+                      {/* Global Payment Breakdown */}
+                      <div className="mb-4">
+                        <h5 className="fw-bolder text-dark mb-4">
+                          Payment Breakdown
+                        </h5>
+                        <PercentageConfigurationTable
+                          percentages={globalPaymentStages}
+                          setPercentages={setGlobalPaymentStages}
+                          totalCost={parseFloat(
+                            formData.total_project_cost ||
+                              formData.total_offer_cost ||
+                              0,
+                          )}
+                        />
+                      </div>
 
-                        <div className="bg-white border border-dashed border-gray-300 rounded-4 p-6 shadow-sm mb-6">
-                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-4">
-                                <div className="d-flex align-items-center gap-3">
-                                    <div className="symbol symbol-40px bg-light-primary">
-                                        <span className="symbol-label">
-                                            <KTIcon iconName="calendar-8" className="fs-2 text-primary" />
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h5 className="fw-bolder text-dark mb-0">Project Area Filter</h5>
-                                        <span className="text-muted fs-8 fw-bold">Enter area to see matching rule & meetings</span>
-                                    </div>
-                                </div>
-                                <div className="d-flex align-items-center gap-4">
-                                    <Form.Control
-                                        type="number"
-                                        placeholder="Enter Total Area..."
-                                        className="form-control-solid fw-bold w-150px"
-                                        value={formData.total_project_area || ""}
-                                        onChange={(e) => handleInputChange(e as any)}
-                                        name="total_project_area"
-                                    />
-                                    <div className="d-flex gap-2">
-                                        <Button
-                                            variant="light-primary"
-                                            size="sm"
-                                            onClick={handleAddRule}
-                                        >
-                                            <KTIcon iconName="plus" className="fs-3 me-1" /> Add Range
-                                        </Button>
-                                        <Button
-                                            variant="success"
-                                            size="sm"
-                                            onClick={handleSaveConfig}
-                                            disabled={isSaving}
-                                        >
-                                            {isSaving ? (
-                                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                            ) : (
-                                                <KTIcon iconName="check-square" className="fs-3 me-1" />
-                                            )}
-                                            Save as Template
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                      <div className="separator border-gray-200 my-4"></div>
 
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h4 className="fw-bolder text-dark mb-0">
-                            Active Area-Specific Rules
-                          </h4>
-                        </div>
-                        {rules
-                          .filter(r => {
-                            const area = parseFloat(formData.total_project_area || "0");
-                            // If area is 0 and no match, show Rule 1? Or show all if area is empty?
-                            // User said "only that meeting will be showed which will be in range"
-                            // So if area is entered, filter. If area is empty/0, show nothing or first?
-                            // Let's show matching, or show all if area is empty.
-                            if (!formData.total_project_area) return true;
-                            return area >= Number(r.minArea) && area <= Number(r.maxArea);
-                          })
-                          .map((rule, ruleIdx) => (
-                          <div
-                            key={ruleIdx}
-                            className="border border-gray-200 rounded-4 p-4 p-lg-8 bg-light-primary border-dashed position-relative"
-                          >
-                            <div className="position-absolute top-0 end-0 mt-4 me-4">
-                              <Button
-                                variant="icon"
-                                className="btn btn-icon btn-light-danger btn-sm"
-                                onClick={() => handleRemoveRule(ruleIdx)}
-                              >
-                                <KTIcon iconName="trash" className="fs-4" />
-                              </Button>
-                            </div>
-                            <div className="d-flex align-items-center gap-3 mb-6 pe-10">
-                              <div className="symbol symbol-35px bg-light-danger">
-                                <span className="symbol-label">
-                                  <KTIcon
-                                    iconName="abstract-26"
-                                    className="fs-2 text-danger"
-                                  />
-                                </span>
-                              </div>
-                              <div className="flex-grow-1">
-                                <h5 className="fw-bolder text-dark mb-2">
-                                  Rule Range {ruleIdx + 1}
-                                </h5>
-                                <div className="d-flex align-items-center gap-4">
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="text-muted fs-8 fw-bold text-uppercase">
-                                      Min:
-                                    </span>
-                                    <Form.Control
-                                      type="number"
-                                      size="sm"
-                                      className="form-control-solid w-70px"
-                                      value={rule.minArea}
-                                      onChange={(e) =>
-                                        handleRuleAreaChange(
-                                          ruleIdx,
-                                          "minArea",
-                                          e.target.value,
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="text-muted fs-8 fw-bold text-uppercase">
-                                      Max:
-                                    </span>
-                                    <Form.Control
-                                      type="number"
-                                      size="sm"
-                                      className="form-control-solid w-70px"
-                                      value={rule.maxArea}
-                                      onChange={(e) =>
-                                        handleRuleAreaChange(
-                                          ruleIdx,
-                                          "maxArea",
-                                          e.target.value,
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                  <div className="d-flex align-items-center gap-2 border-start ps-4">
-                                    <span className="text-muted fs-8 fw-bold text-uppercase">
-                                      Years:
-                                    </span>
-                                    <Form.Control
-                                      type="number"
-                                      size="sm"
-                                      className="form-control-solid w-60px"
-                                      value={rule.completionYear}
-                                      onChange={(e) =>
-                                        handleRuleAreaChange(
-                                          ruleIdx,
-                                          "completionYear",
-                                          e.target.value,
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="text-muted fs-8 fw-bold text-uppercase">
-                                      Months:
-                                    </span>
-                                    <Form.Control
-                                      type="number"
-                                      size="sm"
-                                      className="form-control-solid w-60px"
-                                      value={rule.completionMonth}
-                                      onChange={(e) =>
-                                        handleRuleAreaChange(
-                                          ruleIdx,
-                                          "completionMonth",
-                                          e.target.value,
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="d-flex flex-column gap-6">
-                              <div className="bg-white rounded p-6 shadow-sm">
+                      {/* Meetings & Deliverables */}
+                      <div>
+                        <h5 className="fw-bolder text-dark mb-4">
+                          Meetings & Deliverables
+                        </h5>
+                        {rules.length > 0 ? (
+                          rules
+                            .filter((r: ProposalRule) => {
+                              const area = parseFloat(
+                                formData.total_project_area || "0",
+                              );
+                              if (!formData.total_project_area) return true;
+                              return (
+                                area >= Number(r.minArea) &&
+                                area <= Number(r.maxArea)
+                              );
+                            })
+                            .map((rule: ProposalRule, ruleIdx: number) => (
+                              <div key={ruleIdx} className="mb-6">
                                 <MeetingConfigurationTable
                                   meetings={rule.configurations.filter(
-                                    (c: any) =>
+                                    (c: ProposalConfiguration) =>
                                       (c.config_type || "").toLowerCase() ===
                                       "meeting",
                                   )}
                                   setMeetings={(newMeetings) => {
                                     const updatedRules = [...rules];
-                                    const otherConfigs = updatedRules[
+                                    const others = updatedRules[
                                       ruleIdx
                                     ].configurations.filter(
-                                      (c: any) =>
+                                      (c: ProposalConfiguration) =>
                                         (c.config_type || "").toLowerCase() !==
                                         "meeting",
                                     );
                                     updatedRules[ruleIdx].configurations = [
-                                      ...otherConfigs,
+                                      ...others,
                                       ...newMeetings,
                                     ];
                                     setRules(updatedRules);
                                   }}
                                 />
                               </div>
-                            </div>
-                          </div>
-                        ))}
-                        {rules.length === 0 && (
-                          <div className="text-center py-10 border border-dashed rounded bg-white">
+                            ))
+                        ) : (
+                          <div className="text-center py-10 border border-dashed rounded bg-light">
                             <p className="text-muted mb-0">
-                              No area rules configured for this template.
+                              No meetings configured for this template.
                             </p>
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
-              <div className="py-20 text-center border rounded-4 border-dashed bg-white">
-                <div className="symbol symbol-100px mb-5">
-                  <div className="symbol-label bg-light-primary">
-                    <KTIcon
-                      iconName="setting-2"
-                      className="fs-3x text-primary"
-                    />
-                  </div>
-                </div>
+              <div className="py-20 text-center border rounded border-dashed bg-light">
                 <h3 className="fw-bolder text-gray-800">Select a template</h3>
                 <p className="text-muted fs-6">
-                  Choose a template from the sidebar to configure the proposal.
+                  Choose a template from the sidebar to begin.
                 </p>
               </div>
             )}
@@ -1352,32 +1207,33 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         onHide={() => setShowExportCenter(false)}
         leadData={leadData}
         templateId={selectedTemplateId || "custom"}
-        isDataModified={
-          (() => {
-            if (!initialFormDataRef.current) return false;
-            
-            // Only check CRITICAL fields to avoid false positives from technical/hidden fields
-            const criticalFields = [
-              'project_name', 
-              'total_project_cost', 
-              'total_project_area', 
-              'client_company_name', 
-              'contact_person'
-            ];
-            
-            return criticalFields.some(key => {
-              const val1 = formData[key] === null || formData[key] === undefined ? "" : String(formData[key]).trim();
-              const val2 = initialFormDataRef.current[key] === null || initialFormDataRef.current[key] === undefined ? "" : String(initialFormDataRef.current[key]).trim();
-              return val1 !== val2;
-            });
-          })()
-        }
+        isDataModified={(() => {
+          if (!initialFormDataRef.current) return false;
 
+          // Only check CRITICAL fields to avoid false positives from technical/hidden fields
+          const criticalFields = [
+            "project_name",
+            "total_project_cost",
+            "total_project_area",
+            "client_company_name",
+            "contact_person",
+          ];
 
-
-
+          return criticalFields.some((key) => {
+            const val1 =
+              formData[key] === null || formData[key] === undefined
+                ? ""
+                : String(formData[key]).trim();
+            const val2 =
+              initialFormDataRef.current[key] === null ||
+              initialFormDataRef.current[key] === undefined
+                ? ""
+                : String(initialFormDataRef.current[key]).trim();
+            return val1 !== val2;
+          });
+        })()}
         onExport={async (config) => {
-          await handleExport('docx', config);
+          await handleExport("docx", config);
         }}
       />
     </Modal>
