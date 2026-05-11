@@ -23,6 +23,7 @@ import { getAllWeekends } from "./sandwhichConfiguration";
 import { errorConfirmation, successConfirmation } from "./modal";
 
 import axios from "axios";
+import { EMPLOYEE } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -3267,19 +3268,23 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
 //🔥 Irfan Change Start
 export const fetchLeaderboard = async (
   startDate: string,
-  endDate: string
+  endDate: string,
+  signal?: AbortSignal
 ) => {
   try {
     const response = await axios.get(
-      `${API_BASE_URL}/api/employee/kpi/leaderboard`,
+      `${API_BASE_URL}/${EMPLOYEE.LEADERBOARD}`,
       {
-        params: { startDate, endDate }
+        params: { startDate, endDate },
+        signal
       }
     );
 
     return response.data.data; // 🔥 IMPORTANT
-  } catch (error) {
-    console.error("Leaderboard API Error:", error);
+  } catch (error: any) {
+    if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+      console.error("Leaderboard API Error:", error);
+    }
     throw error;
   }
 };
