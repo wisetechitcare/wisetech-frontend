@@ -28,13 +28,25 @@ import Loader from "@app/modules/common/utils/Loader";
 
 // Lazy load heavy components
 const DailyAttendance = lazy(() => import("./views/overview/DailyAttendance"));
-const OpenAttendanceRequests = lazy(() => import("./views/overview/OpenAttendanceRequests"));
-const OpenLeaveRequests = lazy(() => import("./views/overview/OpenLeaveRequests"));
+const OpenAttendanceRequests = lazy(
+  () => import("./views/overview/OpenAttendanceRequests"),
+);
+const OpenLeaveRequests = lazy(
+  () => import("./views/overview/OpenLeaveRequests"),
+);
 const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
-const AttendanceRequestLimitReset = lazy(() => import("./views/overview/AttendanceRequestLimitReset"));
-const LeaveManagementRequests = lazy(() => import("./views/overview/LeaveManagementRequests"));
-const HRPendingLeaveRequests = lazy(() => import("./views/overview/HRPendingLeaveRequests"));
-const HRPendingAttendanceRequests = lazy(() => import("./views/overview/HRPendingAttendanceRequests"));
+const AttendanceRequestLimitReset = lazy(
+  () => import("./views/overview/AttendanceRequestLimitReset"),
+);
+const LeaveManagementRequests = lazy(
+  () => import("./views/overview/LeaveManagementRequests"),
+);
+const HRPendingLeaveRequests = lazy(
+  () => import("./views/overview/HRPendingLeaveRequests"),
+);
+const HRPendingAttendanceRequests = lazy(
+  () => import("./views/overview/HRPendingAttendanceRequests"),
+);
 
 interface LeaveRequestResponse {
   id: string;
@@ -73,7 +85,7 @@ interface LeaveRequestResponse {
 }
 
 export const transformLeaveRequests = (
-  leaveRequest: LeaveRequestResponse[]
+  leaveRequest: LeaveRequestResponse[],
 ) => {
   if (!leaveRequest.length) return [];
 
@@ -119,8 +131,12 @@ export const transformLeaveRequests = (
       dateOfJoining,
       reportsToId: reportsToId ?? null,
       // Approved/Rejected by info
-      approvedByName: leave.approvedByEmployee?.users ? `${leave.approvedByEmployee.users.firstName || ''} ${leave.approvedByEmployee.users.lastName || ''}`.trim() : '',
-      rejectedByName: leave.rejectedByEmployee?.users ? `${leave.rejectedByEmployee.users.firstName || ''} ${leave.rejectedByEmployee.users.lastName || ''}`.trim() : '',
+      approvedByName: leave.approvedByEmployee?.users
+        ? `${leave.approvedByEmployee.users.firstName || ""} ${leave.approvedByEmployee.users.lastName || ""}`.trim()
+        : "",
+      rejectedByName: leave.rejectedByEmployee?.users
+        ? `${leave.rejectedByEmployee.users.firstName || ""} ${leave.rejectedByEmployee.users.lastName || ""}`.trim()
+        : "",
       updatedAt: leave.updatedAt,
     };
   });
@@ -132,7 +148,7 @@ function OverviewView() {
   const dispatch = useDispatch();
   const [date, setDate] = useState(dayjs()); // Centralized date state
   const employeesPresentAttendance = useSelector(
-    (state: RootState) => state.attendance.employeesAttendance
+    (state: RootState) => state.attendance.employeesAttendance,
   );
   const dailyStats = useSelector((state: RootState) => {
     const { attendanceStats } = state;
@@ -151,17 +167,25 @@ function OverviewView() {
   });
 
   const selectedEmployeeId = useSelector(
-    (state: RootState) => state.employee.selectedEmployee?.id
+    (state: RootState) => state.employee.selectedEmployee?.id,
   );
 
   // Role-based access: determine if current user is HR/admin to show HR approval queue
-  const isAdminUser = useSelector((state: RootState) => state.auth.currentUser?.isAdmin);
-  const currentEmployeeRoles: any[] = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
-  const userIsHROrAdmin = isAdminUser || currentEmployeeRoles.some((r: any) =>
-    ['hr', 'admin', 'super_admin', 'superadmin'].includes((r?.name || r?.role || '').toLowerCase())
+  const isAdminUser = useSelector(
+    (state: RootState) => state.auth.currentUser?.isAdmin,
   );
+  const currentEmployeeRoles: any[] = useSelector(
+    (state: RootState) => state.employee.currentEmployee.roles || [],
+  );
+  const userIsHROrAdmin =
+    isAdminUser ||
+    currentEmployeeRoles.some((r: any) =>
+      ["hr", "admin", "super_admin", "superadmin"].includes(
+        (r?.name || r?.role || "").toLowerCase(),
+      ),
+    );
   const toggleChange = useSelector(
-    (state: RootState) => state.attendanceStats.toggleChange
+    (state: RootState) => state.attendanceStats.toggleChange,
   );
 
   // Consolidate all initial data fetching into one useEffect
@@ -170,36 +194,42 @@ function OverviewView() {
       try {
         setIsConfigLoading(true);
         // Fetch all data in parallel
-        const [
-          leaveRequestRes,
-          employeesRes,
-          configRes,
-          lunchTimeRes
-        ] = await Promise.all([
-          fetchLeaveRequest(),
-          fetchAllEmployees(),
-          fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
-          fetchConfiguration(LEAVE_MANAGEMENT),
-          dispatch(fetchRolesAndPermissions() as any),
-          fetchEmpDailyStatistics(dayjs(), false)
-        ]);
+        const [leaveRequestRes, employeesRes, configRes, lunchTimeRes] =
+          await Promise.all([
+            fetchLeaveRequest(),
+            fetchAllEmployees(),
+            fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
+            fetchConfiguration(LEAVE_MANAGEMENT),
+            dispatch(fetchRolesAndPermissions() as any),
+            fetchEmpDailyStatistics(dayjs(), false),
+          ]);
 
         // Process leave requests
-        dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequestRes.data.leaveRequest)));
+        dispatch(
+          saveLeaveRequests(
+            transformLeaveRequests(leaveRequestRes.data.leaveRequest),
+          ),
+        );
 
         // Process employees
         const employees = employeesRes.data.employees;
         setUsers(
           employees.map(
             (employee: any) =>
-              employee.users.firstName + " " + employee.users.lastName
-          )
+              employee.users.firstName + " " + employee.users.lastName,
+          ),
         );
-        setUsersName(employees.map((employee: any) => employee.users.firstName));
+        setUsersName(
+          employees.map((employee: any) => employee.users.firstName),
+        );
 
         // Process configuration
-        const parsedConfig = JSON.parse(configRes?.data?.configuration?.configuration || '{}');
-        const parsedLunchTime = JSON.parse(lunchTimeRes?.data?.configuration?.configuration || '{}');
+        const parsedConfig = JSON.parse(
+          configRes?.data?.configuration?.configuration || "{}",
+        );
+        const parsedLunchTime = JSON.parse(
+          lunchTimeRes?.data?.configuration?.configuration || "{}",
+        );
         const totalWorkingHoursString = parsedLunchTime["Working time"];
 
         if (totalWorkingHoursString) {
@@ -207,13 +237,16 @@ function OverviewView() {
         }
 
         // Priority: disableLaunchDeductionTime (correct) -> disableLunchDeductionTime (fallback) -> false
-        const lunchDeductionValue = parsedConfig.disableLaunchDeductionTime ?? parsedConfig.disableLunchDeductionTime ?? false;
+        const lunchDeductionValue =
+          parsedConfig.disableLaunchDeductionTime ??
+          parsedConfig.disableLunchDeductionTime ??
+          false;
 
         dispatch(
           setFeatureConfiguration({
             disableLaunchDeductionTime: lunchDeductionValue,
             leaveManagement: parsedLunchTime ?? {},
-          })
+          }),
         );
       } catch (error) {
         console.error("Error initializing data", error);
@@ -227,7 +260,7 @@ function OverviewView() {
 
   const barOptions = usersName;
   const barSeriesData = Array.from(
-    barDailyData(employeesPresentAttendance, users).values()
+    barDailyData(employeesPresentAttendance, users).values(),
   );
 
   let userRoles = ["HR", "Manager", "Director"];
@@ -238,11 +271,11 @@ function OverviewView() {
 
   // Date navigation handlers
   const incrementDate = useCallback(() => {
-    setDate(prevDate => prevDate.add(1, 'day'));
+    setDate((prevDate) => prevDate.add(1, "day"));
   }, []);
 
   const decrementDate = useCallback(() => {
-    setDate(prevDate => prevDate.subtract(1, 'day'));
+    setDate((prevDate) => prevDate.subtract(1, "day"));
   }, []);
 
   // Show loader while configuration is loading
@@ -262,11 +295,19 @@ function OverviewView() {
         {/* Date navigation */}
         <div>
           <button className="btn btn-sm px-0" onClick={decrementDate}>
-            <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous day" />
+            <img
+              src={toAbsoluteUrl("media/svg/misc/back.svg")}
+              alt="Previous day"
+            />
           </button>
-          <span className="mx-1 my-1 fw-semibold">{date.format('DD MMM, YYYY')}</span>
+          <span className="mx-1 my-1 fw-semibold">
+            {date.format("DD MMM, YYYY")}
+          </span>
           <button className="btn btn-sm px-0" onClick={incrementDate}>
-            <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next day" />
+            <img
+              src={toAbsoluteUrl("media/svg/misc/next.svg")}
+              alt="Next day"
+            />
           </button>
         </div>
       </div>

@@ -627,3 +627,29 @@ export const getProjectCountByCompanyTypeYearly = async (startDate: string, endD
         throw err;
     }
 }
+
+export const exportProjectDocx = async (projectId: string, editedData: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/projects/export/docx`;
+        const { data } = await axios.post(endpoint, {
+            project_id: projectId,
+            edited_data: editedData
+        }, { responseType: 'blob' });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const exportProjectPdf = async (projectId: string, editedData: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/projects/export/pdf`;
+        const { data } = await axios.post(endpoint, {
+            project_id: projectId,
+            edited_data: editedData
+        }, { responseType: 'blob' });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}

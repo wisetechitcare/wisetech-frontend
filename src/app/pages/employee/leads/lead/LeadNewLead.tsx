@@ -1,24 +1,45 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import {
-  Box, Button, MenuItem, Select, FormControl,
-  ToggleButton, ToggleButtonGroup,
-  useTheme, useMediaQuery,
-  Autocomplete, TextField, InputAdornment,
+  Box,
+  Button,
+  MenuItem,
+  Select,
+  FormControl,
+  ToggleButton,
+  ToggleButtonGroup,
+  useTheme,
+  useMediaQuery,
+  Autocomplete,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
 import { deleteLead, getAllLeads } from "@services/leads";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import DetailsModal from './DetailsModal';
-import { useNavigate } from 'react-router-dom';
+import DetailsModal from "./DetailsModal";
+import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
 import { leadAndProjectTemplateTypeId } from "@constants/statistics";
-import { deleteConfirmation, errorConfirmation, rejectConfirmation, successConfirmation } from "@utils/modal";
+import {
+  deleteConfirmation,
+  errorConfirmation,
+  rejectConfirmation,
+  successConfirmation,
+} from "@utils/modal";
 import LeadFormModal from "./LeadFormModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
-import { getAllProjectServices, getAllProjectSubcategories, getAllProjectCategories } from "@services/projects";
-import { fetchAllCountries, fetchAllStates, fetchAllCities } from "@services/options";
+import {
+  getAllProjectServices,
+  getAllProjectSubcategories,
+  getAllProjectCategories,
+} from "@services/projects";
+import {
+  fetchAllCountries,
+  fetchAllStates,
+  fetchAllCities,
+} from "@services/options";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
@@ -41,7 +62,13 @@ dayjs.extend(isSameOrAfter);
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type DateMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
+type DateMode =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "yearly"
+  | "allyear"
+  | "custom";
 
 type LeadNewLeadProps = {
   statusId?: any;
@@ -72,7 +99,13 @@ const NavigationButtons: React.FC<{
     </button>
     <span
       className="mx-2"
-      style={{ fontSize: "13px", fontFamily: "Inter, sans-serif", fontWeight: 500, color: "#444", whiteSpace: "nowrap" }}
+      style={{
+        fontSize: "13px",
+        fontFamily: "Inter, sans-serif",
+        fontWeight: 500,
+        color: "#444",
+        whiteSpace: "nowrap",
+      }}
     >
       {displayText}
     </span>
@@ -85,9 +118,19 @@ const NavigationButtons: React.FC<{
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 const LeadNewLead: React.FC<LeadNewLeadProps> = ({
-  statusId, serviceId, categoryId, referralId, sourceId, subCategoryId,
-  companyTypeId, topLeadsId, locationId, monthlyStatusName, monthlyStatusId,
-  startDate, endDate,
+  statusId,
+  serviceId,
+  categoryId,
+  referralId,
+  sourceId,
+  subCategoryId,
+  companyTypeId,
+  topLeadsId,
+  locationId,
+  monthlyStatusName,
+  monthlyStatusId,
+  startDate,
+  endDate,
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -123,11 +166,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // Weekly
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {
     const dow = today.day();
-    return dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
+    return dow === 0
+      ? today.subtract(6, "day")
+      : today.subtract(dow - 1, "day");
   });
   const [weekEnd, setWeekEnd] = useState<Dayjs>(() => {
     const dow = today.day();
-    const ws = dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
+    const ws =
+      dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
     return ws.add(6, "day");
   });
 
@@ -141,60 +187,83 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
 
   // Custom
-  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
-  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
+  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
 
   // ── Status & assigned filters ────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [assignedToFilter, setAssignedToFilter] = useState<string>("");
 
   // ── Redux ────────────────────────────────────────────────────────────────────
-  const allemployees = useSelector((state: RootState) => state.allEmployees?.list);
-  const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+  const allemployees = useSelector(
+    (state: RootState) => state.allEmployees?.list,
+  );
+  const currentEmployeeId = useSelector(
+    (state: RootState) => state.employee?.currentEmployee?.id,
+  );
   let rawLeadsData = rawLeadsDatas;
 
   // Derive assigned-to employees directly from lead data so new assignees appear automatically.
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };
 
   const assignedEmployeesFromLeads = useMemo(() => {
-    const assignedIds = new Set(tableData.map((l: any) => l.assignedTo).filter(Boolean));
-    const matched = (allemployees || []).filter((e: any) => assignedIds.has(e.employeeId));
+    const assignedIds = new Set(
+      tableData.map((l: any) => l.assignedTo).filter(Boolean),
+    );
+    const matched = (allemployees || []).filter((e: any) =>
+      assignedIds.has(e.employeeId),
+    );
     return [...matched]
       .sort((a: any, b: any) => a.employeeName.localeCompare(b.employeeName))
       .map((e: any) => ({
         ...e,
-        displayName: e.isActive === false ? `${e.employeeName} (Inactive)` : e.employeeName,
+        displayName:
+          e.isActive === false
+            ? `${e.employeeName} (Inactive)`
+            : e.employeeName,
         isInactive: e.isActive === false,
       }));
   }, [tableData, allemployees]);
 
   const hasUnassignedLeads = useMemo(
     () => tableData.some((l: any) => !l.assignedTo),
-    [tableData]
+    [tableData],
   );
 
   const assignedToOptions = useMemo(
-    () => hasUnassignedLeads ? [NA_OPTION, ...assignedEmployeesFromLeads] : assignedEmployeesFromLeads,
-    [hasUnassignedLeads, assignedEmployeesFromLeads]
+    () =>
+      hasUnassignedLeads
+        ? [NA_OPTION, ...assignedEmployeesFromLeads]
+        : assignedEmployeesFromLeads,
+    [hasUnassignedLeads, assignedEmployeesFromLeads],
   );
 
   // ── Fiscal year init ─────────────────────────────────────────────────────────
   useEffect(() => {
     async function initFiscalYear() {
       try {
-        const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(today);
+        const { startDate: sd, endDate: ed } =
+          await generateFiscalYearFromGivenYear(today);
         const fs = dayjs(sd);
         const fe = dayjs(ed);
         setYearStart(fs);
         setYearEnd(fe);
-        setFiscalYearDisplay(`${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`);
+        setFiscalYearDisplay(
+          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+        );
       } catch {
         const year = today.month() >= 3 ? today.year() : today.year() - 1;
         const fs = dayjs(`${year}-04-01`);
         const fe = dayjs(`${year + 1}-03-31`);
         setYearStart(fs);
         setYearEnd(fe);
-        setFiscalYearDisplay(`${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`);
+        setFiscalYearDisplay(
+          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+        );
       }
     }
     initFiscalYear();
@@ -202,12 +271,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Navigation handlers ──────────────────────────────────────────────────────
   const navigateDay = useCallback((dir: "prev" | "next") => {
-    setDay(prev => dir === "prev" ? prev.subtract(1, "day") : prev.add(1, "day"));
+    setDay((prev) =>
+      dir === "prev" ? prev.subtract(1, "day") : prev.add(1, "day"),
+    );
   }, []);
 
   const navigateWeek = useCallback((dir: "prev" | "next") => {
     const offset = dir === "prev" ? -1 : 1;
-    setWeekStart(prev => {
+    setWeekStart((prev) => {
       const ns = prev.add(offset, "week");
       setWeekEnd(ns.add(6, "day"));
       return ns;
@@ -216,33 +287,44 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   const navigateMonth = useCallback((dir: "prev" | "next") => {
     const offset = dir === "prev" ? -1 : 1;
-    setMonthStart(prev => {
+    setMonthStart((prev) => {
       const ns = prev.add(offset, "month");
       setMonthEnd(ns.endOf("month"));
       return ns;
     });
   }, []);
 
-  const navigateYear = useCallback(async (dir: "prev" | "next") => {
-    const base = (yearStart ?? today).add(dir === "prev" ? -1 : 1, "year");
-    try {
-      const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(base);
-      const fs = dayjs(sd);
-      const fe = dayjs(ed);
-      setYearStart(fs);
-      setYearEnd(fe);
-      setFiscalYearDisplay(`${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`);
-    } catch {
-      const year = base.month() >= 3 ? base.year() : base.year() - 1;
-      const fs = dayjs(`${year}-04-01`);
-      const fe = dayjs(`${year + 1}-03-31`);
-      setYearStart(fs);
-      setYearEnd(fe);
-      setFiscalYearDisplay(`${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`);
-    }
-  }, [yearStart, today]);
+  const navigateYear = useCallback(
+    async (dir: "prev" | "next") => {
+      const base = (yearStart ?? today).add(dir === "prev" ? -1 : 1, "year");
+      try {
+        const { startDate: sd, endDate: ed } =
+          await generateFiscalYearFromGivenYear(base);
+        const fs = dayjs(sd);
+        const fe = dayjs(ed);
+        setYearStart(fs);
+        setYearEnd(fe);
+        setFiscalYearDisplay(
+          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+        );
+      } catch {
+        const year = base.month() >= 3 ? base.year() : base.year() - 1;
+        const fs = dayjs(`${year}-04-01`);
+        const fe = dayjs(`${year + 1}-03-31`);
+        setYearStart(fs);
+        setYearEnd(fe);
+        setFiscalYearDisplay(
+          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+        );
+      }
+    },
+    [yearStart, today],
+  );
 
-  const handleAlignmentChange = (_: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}>, newVal: string) => {
+  const handleAlignmentChange = (
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}>,
+    newVal: string,
+  ) => {
     if (!newVal) return;
     setAlignment(newVal as DateMode);
   };
@@ -255,13 +337,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 
-      const [servicesRes, subcatRes, catRes, statusRes, countriesData] = await Promise.all([
-        getAllProjectServices(),
-        getAllProjectSubcategories(),
-        getAllProjectCategories(),
-        getAllLeadStatus(),
-        fetchAllCountries(),
-      ]);
+      const [servicesRes, subcatRes, catRes, statusRes, countriesData] =
+        await Promise.all([
+          getAllProjectServices(),
+          getAllProjectSubcategories(),
+          getAllProjectCategories(),
+          getAllLeadStatus(),
+          fetchAllCountries(),
+        ]);
       setProjectServices(servicesRes?.services || []);
       setProjectSubcategories(subcatRes?.projectSubCategories || []);
       setProjectCategories(catRes?.projectCategories || []);
@@ -278,11 +361,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             if (lead?.additionalDetails?.state) {
               if (!uniqueStateIds.has(lead.additionalDetails.country))
                 uniqueStateIds.set(lead.additionalDetails.country, new Set());
-              uniqueStateIds.get(lead.additionalDetails.country)!.add(lead.additionalDetails.state);
+              uniqueStateIds
+                .get(lead.additionalDetails.country)!
+                .add(lead.additionalDetails.state);
               if (lead?.additionalDetails?.city) {
                 if (!uniqueCityIds.has(lead.additionalDetails.state))
                   uniqueCityIds.set(lead.additionalDetails.state, new Set());
-                uniqueCityIds.get(lead.additionalDetails.state)!.add(lead.additionalDetails.city);
+                uniqueCityIds
+                  .get(lead.additionalDetails.state)!
+                  .add(lead.additionalDetails.city);
               }
             }
           }
@@ -291,16 +378,20 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         const countriesMap = new Map<string, any>();
         const statesMap = new Map<string, any>();
         const citiesMap = new Map<string, any>();
-        (countriesData || []).forEach((c: any) => countriesMap.set(c.id.toString(), c));
+        (countriesData || []).forEach((c: any) =>
+          countriesMap.set(c.id.toString(), c),
+        );
 
         const statesResults = await Promise.all(
           [...uniqueCountryIds].map((cid) => {
             const c = countriesMap.get(String(cid));
             return c?.iso2 ? fetchAllStates(c.iso2) : Promise.resolve([]);
-          })
+          }),
         );
         let allStates: any[] = [];
-        statesResults.forEach((r) => { if (Array.isArray(r)) allStates = [...allStates, ...r]; });
+        statesResults.forEach((r) => {
+          if (Array.isArray(r)) allStates = [...allStates, ...r];
+        });
         allStates.forEach((s) => statesMap.set(s.id.toString(), s));
 
         const stateToCountry = new Map<string, string>();
@@ -312,17 +403,28 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             const s = statesMap.get(String(sid));
             const cid = stateToCountry.get(String(sid));
             const c = cid ? countriesMap.get(cid) : null;
-            return s?.iso2 && c?.iso2 ? fetchAllCities(c.iso2, s.iso2) : Promise.resolve([]);
-          })
+            return s?.iso2 && c?.iso2
+              ? fetchAllCities(c.iso2, s.iso2)
+              : Promise.resolve([]);
+          }),
         );
         let allCities: any[] = [];
-        citiesResults.forEach((r) => { if (Array.isArray(r)) allCities = [...allCities, ...r]; });
+        citiesResults.forEach((r) => {
+          if (Array.isArray(r)) allCities = [...allCities, ...r];
+        });
         allCities.forEach((c) => citiesMap.set(c.id.toString(), c));
 
         const transformedLeads = leadsData.map((lead: any) => {
-          const s = lead?.project?.startDate ? new Date(lead.project.startDate) : null;
-          const e = lead?.project?.endDate ? new Date(lead.project.endDate) : null;
-          const duration = s && e ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days` : "N/A";
+          const s = lead?.project?.startDate
+            ? new Date(lead.project.startDate)
+            : null;
+          const e = lead?.project?.endDate
+            ? new Date(lead.project.endDate)
+            : null;
+          const duration =
+            s && e
+              ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
+              : "N/A";
           const countryId = lead?.additionalDetails?.country || "";
           const stateId = lead?.additionalDetails?.state || "";
           const cityId = lead?.additionalDetails?.city || "";
@@ -331,13 +433,27 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             id: lead.id,
             prefix: lead?.prefix || "",
             projectName: lead.title || "",
-            totalCost: Array.isArray(lead.commercials) && lead.commercials.length > 0
-              ? lead.commercials.reduce((acc: number, c: any) => acc + (parseFloat(c.cost) || 0), 0)
-              : (lead.budget || 0),
-            client: lead?.company?.companyName || lead?.leadTeams?.[0]?.company?.companyName || "",
-            service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
-            category: lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "",
-            subCategory: lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "",
+            totalCost:
+              Array.isArray(lead.commercials) && lead.commercials.length > 0
+                ? lead.commercials.reduce(
+                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                    0,
+                  )
+                : lead.budget || 0,
+            client:
+              lead?.company?.companyName ||
+              lead?.leadTeams?.[0]?.company?.companyName ||
+              "",
+            service:
+              lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
+            category:
+              lead?.projectCategoryId ||
+              lead?.leadCategories?.[0]?.category?.id ||
+              "",
+            subCategory:
+              lead?.projectSubCategoryId ||
+              lead?.leadSubCategories?.[0]?.subcategory?.id ||
+              "",
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "",
@@ -345,30 +461,49 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             startDate: lead?.startDate || lead?.project?.startDate || "",
             endDate: lead?.endDate || "",
             duration,
-            contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "",
+            contact:
+              lead?.contact?.fullName ||
+              lead?.leadTeams?.[0]?.contact?.fullName ||
+              "",
             createdAt: lead?.createdAt || "",
             createdBy: lead?.createdById || "",
             updatedBy: lead?.updatedById || "",
-            country: countriesMap.get(String(countryId))?.name || String(countryId),
+            country:
+              countriesMap.get(String(countryId))?.name || String(countryId),
             countryId,
             city: citiesMap.get(String(cityId))?.name || String(cityId),
             cityId,
             state: statesMap.get(String(stateId))?.name || String(stateId),
             stateId,
-            area: (Array.isArray(lead.commercials) && lead.commercials.length > 0 ? lead.commercials[0]?.area : null) ||
-              lead?.additionalDetails?.projectArea || lead?.addresses?.[0]?.projectArea || "",
-            cost: Array.isArray(lead.commercials) && lead.commercials.length > 0
-              ? lead.commercials.reduce((acc: number, c: any) => acc + (parseFloat(c.cost) || 0), 0) : 0,
+            area:
+              (Array.isArray(lead.commercials) && lead.commercials.length > 0
+                ? lead.commercials[0]?.area
+                : null) ||
+              lead?.additionalDetails?.projectArea ||
+              lead?.addresses?.[0]?.projectArea ||
+              "",
+            cost:
+              Array.isArray(lead.commercials) && lead.commercials.length > 0
+                ? lead.commercials.reduce(
+                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                    0,
+                  )
+                : 0,
             companyId: lead.companyId || "",
             branchId: lead.branchId || "",
             description: lead.description || "",
             priority: lead.priority || "",
             estimatedHours: lead.estimatedHours || "",
-            budget: Array.isArray(lead.commercials) && lead.commercials.length > 0
-              ? lead.commercials.reduce((acc: number, c: any) => acc + (parseFloat(c.cost) || 0), 0)
-              : (lead.budget || ""),
+            budget:
+              Array.isArray(lead.commercials) && lead.commercials.length > 0
+                ? lead.commercials.reduce(
+                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                    0,
+                  )
+                : lead.budget || "",
             rate: lead.rate || "",
-            leadSource: lead.source?.name || lead.sourceId || lead?.leadSource || "",
+            leadSource:
+              lead.source?.name || lead.sourceId || lead?.leadSource || "",
             referrals: lead.referrals || [],
             companyType: lead.company?.companyTypeId || "",
             receivedDate: lead?.receivedDate || "",
@@ -384,8 +519,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     }
   }, []);
 
-  useEffect(() => { fetchAllData(); }, [fetchAllData, pagination]);
-  useEffect(() => { dispatch(fetchAllEmployeesAsync()); }, []);
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData, pagination]);
+  useEffect(() => {
+    dispatch(fetchAllEmployeesAsync());
+  }, []);
 
   // ── Event bus subscriptions (merged — file 2 adds leadDeleted) ───────────────
   useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
@@ -394,156 +533,282 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   useEventBus(EVENT_KEYS.chartSettingsUpdated, fetchAllData);
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
-  const hideNewLeadButton = statusId || serviceId || categoryId || referralId || sourceId ||
-    subCategoryId || companyTypeId || topLeadsId || locationId || monthlyStatusId;
+  const hideNewLeadButton =
+    statusId ||
+    serviceId ||
+    categoryId ||
+    referralId ||
+    sourceId ||
+    subCategoryId ||
+    companyTypeId ||
+    topLeadsId ||
+    locationId ||
+    monthlyStatusId;
 
   // ── Columns ──────────────────────────────────────────────────────────────────
   const columns = [
     {
-      accessorKey: 'id', header: 'ID', size: 80, enableEditing: false,
+      accessorKey: "id",
+      header: "ID",
+      size: 80,
+      enableEditing: false,
       Cell: ({ row }: { row: any }) => row.index + 1,
     },
     {
-      accessorKey: 'prefix', header: 'Inquiry Id', size: 250, minSize: 250, enableEditing: false,
+      accessorKey: "prefix",
+      header: "Inquiry Id",
+      size: 250,
+      minSize: 250,
+      enableEditing: false,
       Cell: ({ row }: { row: any }) => (
-        <span className="cursor-pointer" style={{ fontWeight: "600", fontSize: "14.5px", whiteSpace: "nowrap" }}>
+        <span
+          className="cursor-pointer"
+          style={{
+            fontWeight: "600",
+            fontSize: "14.5px",
+            whiteSpace: "nowrap",
+          }}
+        >
           {row?.original?.prefix || "N/A"}
         </span>
       ),
     },
     {
-      accessorKey: 'projectName', header: 'Project Name', size: 400, minSize: 400,
+      accessorKey: "projectName",
+      header: "Project Name",
+      size: 400,
+      minSize: 400,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return <span style={{ whiteSpace: "nowrap" }}>{typeof v === 'object' ? JSON.stringify(v) : v || 'N/A'}</span>;
+        return (
+          <span style={{ whiteSpace: "nowrap" }}>
+            {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
+          </span>
+        );
       },
     },
     {
-      accessorKey: 'totalCost', header: 'Total Cost', size: 120,
+      accessorKey: "totalCost",
+      header: "Total Cost",
+      size: 120,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v !== undefined ? `₹${Number(v).toLocaleString()}` : '₹0';
+        return v !== undefined ? `₹${Number(v).toLocaleString()}` : "₹0";
       },
     },
     {
-      accessorKey: 'client', header: 'Client', size: 150,
+      accessorKey: "client",
+      header: "Client",
+      size: 150,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return typeof v === 'object' ? v.name || 'N/A' : v || 'N/A';
+        return typeof v === "object" ? v.name || "N/A" : v || "N/A";
       },
     },
     {
-      accessorKey: 'service', header: 'Service', size: 150,
-      Cell: ({ cell }: { cell: any }) => projectServices?.find((s: any) => s.id === cell.getValue())?.name || 'N/A',
+      accessorKey: "service",
+      header: "Service",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        projectServices?.find((s: any) => s.id === cell.getValue())?.name ||
+        "N/A",
     },
     {
-      accessorKey: 'category', header: 'Category', size: 150,
-      Cell: ({ cell }: { cell: any }) => projectCategories?.find((c: any) => c.id === cell.getValue())?.name || 'N/A',
+      accessorKey: "category",
+      header: "Category",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        projectCategories?.find((c: any) => c.id === cell.getValue())?.name ||
+        "N/A",
     },
     {
-      accessorKey: 'subCategory', header: 'Sub Category', size: 150,
-      Cell: ({ cell }: { cell: any }) => projectSubcategories?.find((s: any) => s.id === cell.getValue())?.name || 'N/A',
+      accessorKey: "subCategory",
+      header: "Sub Category",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        projectSubcategories?.find((s: any) => s.id === cell.getValue())
+          ?.name || "N/A",
     },
     {
-      accessorKey: 'status', header: 'Lead Status', size: 130,
+      accessorKey: "status",
+      header: "Lead Status",
+      size: 130,
       Cell: ({ row }: any) => {
         const st = row?.original?.status;
-        return st?.name
-          ? <div className="badge badge-light" style={{ backgroundColor: st.color, color: "white" }}>{st.name}</div>
-          : "N/A";
+        return st?.name ? (
+          <div
+            className="badge badge-light"
+            style={{ backgroundColor: st.color, color: "white" }}
+          >
+            {st.name}
+          </div>
+        ) : (
+          "N/A"
+        );
       },
     },
     {
-      accessorKey: 'receivedDate', header: 'Received Date', size: 150,
+      accessorKey: "receivedDate",
+      header: "Received Date",
+      size: 150,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v ? dayjs(v).format('DD-MM-YYYY') : 'N/A';
+        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
       },
     },
     {
-      accessorKey: 'poStatus', header: 'PO Status', size: 130,
+      accessorKey: "poStatus",
+      header: "PO Status",
+      size: 130,
       Cell: ({ row }: any) => {
         const poStatus = row?.original?.poStatus;
-        if (row?.original?.status?.name !== 'Received' || !poStatus) return <span>N/A</span>;
-        const color = poStatus === 'Received' ? '#28A745' : '#FFC107';
-        return <div className="badge badge-light" style={{ backgroundColor: color, color: poStatus === 'Received' ? 'white' : '#333' }}>{poStatus}</div>;
+        if (row?.original?.status?.name !== "Received" || !poStatus)
+          return <span>N/A</span>;
+        const color = poStatus === "Received" ? "#28A745" : "#FFC107";
+        return (
+          <div
+            className="badge badge-light"
+            style={{
+              backgroundColor: color,
+              color: poStatus === "Received" ? "white" : "#333",
+            }}
+          >
+            {poStatus}
+          </div>
+        );
       },
     },
     {
-      accessorKey: 'assignedTo', header: 'Assigned To', size: 150,
-      Cell: ({ cell }: { cell: any }) => allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || 'N/A',
+      accessorKey: "assignedTo",
+      header: "Assigned To",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        allemployees?.find((e: any) => e.employeeId === cell.getValue())
+          ?.employeeName || "N/A",
     },
     {
-      accessorKey: 'inquiryDate', header: 'Inquiry Date', size: 150,
+      accessorKey: "inquiryDate",
+      header: "Inquiry Date",
+      size: 150,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v ? dayjs(v).format('DD-MM-YYYY') : 'N/A';
+        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
       },
     },
     {
-      accessorKey: 'startDate', header: 'Date', size: 150,
+      accessorKey: "startDate",
+      header: "Date",
+      size: 150,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return v ? dayjs(v).format('DD-MM-YYYY') : 'N/A';
+        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
       },
     },
     {
-      accessorKey: 'duration', header: 'Duration', size: 120,
-      Cell: ({ cell }: { cell: any }) => cell.getValue() || 'N/A',
+      accessorKey: "duration",
+      header: "Duration",
+      size: 120,
+      Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
-      accessorKey: 'contact', header: 'Contact', size: 150,
+      accessorKey: "contact",
+      header: "Contact",
+      size: 150,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
-        return typeof v === 'object' ? v.name || v.email || 'N/A' : v || 'N/A';
+        return typeof v === "object" ? v.name || v.email || "N/A" : v || "N/A";
       },
     },
     {
-      accessorKey: 'createdAt', header: 'Created Date', size: 150,
-      Cell: ({ cell }: { cell: any }) => cell.getValue() ? dayjs(cell.getValue()).format('DD-MM-YYYY') : 'N/A',
+      accessorKey: "createdAt",
+      header: "Created Date",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
     },
     {
-      accessorKey: 'createdBy', header: 'Created By', size: 150,
-      Cell: ({ cell }: { cell: any }) => allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || 'N/A',
+      accessorKey: "createdBy",
+      header: "Created By",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        allemployees?.find((e: any) => e.employeeId === cell.getValue())
+          ?.employeeName || "N/A",
     },
     {
-      accessorKey: 'updatedBy', header: 'Edited By', size: 150,
-      Cell: ({ cell }: { cell: any }) => allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || 'N/A',
+      accessorKey: "updatedBy",
+      header: "Edited By",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) =>
+        allemployees?.find((e: any) => e.employeeId === cell.getValue())
+          ?.employeeName || "N/A",
     },
-    { accessorKey: 'country', header: 'Country', size: 120, Cell: ({ cell }: { cell: any }) => cell.getValue() || 'N/A' },
-    { accessorKey: 'city', header: 'City', size: 120, Cell: ({ row }: { row: any }) => row.original.city || 'N/A' },
-    { accessorKey: 'state', header: 'State', size: 120, Cell: ({ row }: { row: any }) => row.original.state || 'N/A' },
-    { accessorKey: 'area', header: 'Area', size: 120, Cell: ({ cell }: { cell: any }) => cell.getValue() || 'N/A' },
     {
-      accessorKey: 'cost', header: 'Cost', size: 120,
-      Cell: ({ cell }: { cell: any }) => cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : '₹0',
+      accessorKey: "country",
+      header: "Country",
+      size: 120,
+      Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
-    ...(hideNewLeadButton ? [] : [
-      {
-        accessorKey: "actions", header: "Actions", size: 120, enableEditing: false,
-        Cell: ({ row }: { row: any }) => (
-          <Box sx={{ display: "flex", gap: "8px" }}>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                const currLead = rawLeadsData.find((l: any) => l.id === row.original.id);
-                setFormValues(mapLeadToFormInitialValues(currLead));
-                setSelectedLead(row.original);
-              }}
-            >
-              <KTIcon iconName="pencil" className="fs-2" />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-              onClick={(e) => { e.stopPropagation(); handleDeleteLead(row.original.id); }}
-            >
-              <KTIcon iconName="trash" className="fs-2" />
-            </button>
-          </Box>
-        ),
-      },
-    ]),
+    {
+      accessorKey: "city",
+      header: "City",
+      size: 120,
+      Cell: ({ row }: { row: any }) => row.original.city || "N/A",
+    },
+    {
+      accessorKey: "state",
+      header: "State",
+      size: 120,
+      Cell: ({ row }: { row: any }) => row.original.state || "N/A",
+    },
+    {
+      accessorKey: "area",
+      header: "Area",
+      size: 120,
+      Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+    },
+    {
+      accessorKey: "cost",
+      header: "Cost",
+      size: 120,
+      Cell: ({ cell }: { cell: any }) =>
+        cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+    },
+    ...(hideNewLeadButton
+      ? []
+      : [
+          {
+            accessorKey: "actions",
+            header: "Actions",
+            size: 120,
+            enableEditing: false,
+            Cell: ({ row }: { row: any }) => (
+              <Box sx={{ display: "flex", gap: "8px" }}>
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const currLead = rawLeadsData.find(
+                      (l: any) => l.id === row.original.id,
+                    );
+                    setFormValues(mapLeadToFormInitialValues(currLead));
+                    setSelectedLead(row.original);
+                  }}
+                >
+                  <KTIcon iconName="pencil" className="fs-2" />
+                </button>
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteLead(row.original.id);
+                  }}
+                >
+                  <KTIcon iconName="trash" className="fs-2" />
+                </button>
+              </Box>
+            ),
+          },
+        ]),
   ];
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -551,22 +816,22 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // Improved delete from file 2: optimistic update + success confirmation + eventBus emit
   const handleDeleteLead = async (id: string) => {
     try {
-      const confirmed = await rejectConfirmation('Yes, delete it!');
+      const confirmed = await rejectConfirmation("Yes, delete it!");
       if (confirmed) {
         setDeletingId(id);
 
         // Optimistic UI update
-        setTableData(prev => prev.filter((l: any) => l.id !== id));
-        setRawLeadsDatas(prev => prev.filter((l: any) => l.id !== id));
+        setTableData((prev) => prev.filter((l: any) => l.id !== id));
+        setRawLeadsDatas((prev) => prev.filter((l: any) => l.id !== id));
 
         await deleteLead(id);
 
-        successConfirmation('Lead deleted successfully!');
+        successConfirmation("Lead deleted successfully!");
         eventBus.emit(EVENT_KEYS.leadDeleted, { id });
       }
     } catch (error) {
-      console.error('Error deleting lead:', error);
-      errorConfirmation('Failed to delete lead. Please try again.');
+      console.error("Error deleting lead:", error);
+      errorConfirmation("Failed to delete lead. Please try again.");
       // Revert optimistic update
       fetchAllData();
     } finally {
@@ -576,12 +841,26 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
-  function handleCloseChartSettingsModal() { setShowChartSettingsModal(false); }
+  function handleCloseChartSettingsModal() {
+    setShowChartSettingsModal(false);
+  }
 
   const templateData = [
-    { id: leadAndProjectTemplateTypeId.newLead, title: 'Blank Lead', description: "" },
-    { id: leadAndProjectTemplateTypeId.mep, title: 'MEP Lead', description: 'Template' },
-    { id: leadAndProjectTemplateTypeId.webDev, title: 'Web Development Template Lead', description: 'Template' },
+    {
+      id: leadAndProjectTemplateTypeId.newLead,
+      title: "Blank Lead",
+      description: "",
+    },
+    {
+      id: leadAndProjectTemplateTypeId.mep,
+      title: "MEP Lead",
+      description: "Template",
+    },
+    {
+      id: leadAndProjectTemplateTypeId.webDev,
+      title: "Web Development Template Lead",
+      description: "Template",
+    },
   ];
 
   if (loading) return <Loader />;
@@ -592,33 +871,72 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   const propDateFiltered = tableData?.filter((item: any) => {
     const d = dayjs(item.createdAt);
-    if (startDates && d.isBefore(startDates.startOf('day'))) return false;
-    if (endDates && d.isAfter(endDates.endOf('day'))) return false;
+    if (startDates && d.isBefore(startDates.startOf("day"))) return false;
+    if (endDates && d.isAfter(endDates.endOf("day"))) return false;
     return true;
   });
 
   const filteredByProps = (() => {
-    if (statusId) return propDateFiltered?.filter((item: any) => item.status?.id === statusId);
-    if (serviceId) return propDateFiltered?.filter((item: any) => item.service === serviceId);
-    if (categoryId) return propDateFiltered?.filter((item: any) => item.category === categoryId);
-    if (referralId) return propDateFiltered?.filter((item: any) => item.referrals?.some((r: any) => r.referralTypeId === referralId));
-    if (sourceId) return propDateFiltered?.filter((item: any) => item.leadSource?.toLowerCase() === sourceId?.toLowerCase());
-    if (subCategoryId) return propDateFiltered?.filter((item: any) => item.subCategory === subCategoryId);
-    if (companyTypeId) return propDateFiltered?.filter((item: any) => item.companyType === companyTypeId);
-    if (topLeadsId?.length) return tableData?.filter((item: any) => topLeadsId?.includes(item.id.trim()));
+    if (statusId)
+      return propDateFiltered?.filter(
+        (item: any) => item.status?.id === statusId,
+      );
+    if (serviceId)
+      return propDateFiltered?.filter(
+        (item: any) => item.service === serviceId,
+      );
+    if (categoryId)
+      return propDateFiltered?.filter(
+        (item: any) => item.category === categoryId,
+      );
+    if (referralId)
+      return propDateFiltered?.filter((item: any) =>
+        item.referrals?.some((r: any) => r.referralTypeId === referralId),
+      );
+    if (sourceId)
+      return propDateFiltered?.filter(
+        (item: any) =>
+          item.leadSource?.toLowerCase() === sourceId?.toLowerCase(),
+      );
+    if (subCategoryId)
+      return propDateFiltered?.filter(
+        (item: any) => item.subCategory === subCategoryId,
+      );
+    if (companyTypeId)
+      return propDateFiltered?.filter(
+        (item: any) => item.companyType === companyTypeId,
+      );
+    if (topLeadsId?.length)
+      return tableData?.filter((item: any) =>
+        topLeadsId?.includes(item.id.trim()),
+      );
     if (locationId) {
       return propDateFiltered?.filter((item: any) => {
         if (locationId.toLowerCase() !== "unknown") {
-          return item.countryId?.toString() === locationId || item.stateId?.toString() === locationId ||
-            item.cityId?.toString() === locationId || item.country?.toLowerCase() === locationId.toLowerCase() ||
-            item.state?.toLowerCase() === locationId.toLowerCase() || item.city?.toLowerCase() === locationId.toLowerCase();
+          return (
+            item.countryId?.toString() === locationId ||
+            item.stateId?.toString() === locationId ||
+            item.cityId?.toString() === locationId ||
+            item.country?.toLowerCase() === locationId.toLowerCase() ||
+            item.state?.toLowerCase() === locationId.toLowerCase() ||
+            item.city?.toLowerCase() === locationId.toLowerCase()
+          );
         }
-        return !(item.countryId || item.stateId || item.cityId || item.country || item.state || item.city);
+        return !(
+          item.countryId ||
+          item.stateId ||
+          item.cityId ||
+          item.country ||
+          item.state ||
+          item.city
+        );
       });
     }
     if (monthlyStatusName && monthlyStatusId) {
-      return propDateFiltered?.filter((item: any) =>
-        dayjs(item.createdAt).format("MMMM") === monthlyStatusName && item.status?.name === monthlyStatusId
+      return propDateFiltered?.filter(
+        (item: any) =>
+          dayjs(item.createdAt).format("MMMM") === monthlyStatusName &&
+          item.status?.name === monthlyStatusId,
       );
     }
     return propDateFiltered;
@@ -631,23 +949,36 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     if (alignment === "daily") {
       dateMatch = d ? d.isSame(day, "day") : false;
     } else if (alignment === "weekly") {
-      dateMatch = d ? (!d.isBefore(weekStart.startOf("day")) && !d.isAfter(weekEnd.endOf("day"))) : false;
+      dateMatch = d
+        ? !d.isBefore(weekStart.startOf("day")) &&
+          !d.isAfter(weekEnd.endOf("day"))
+        : false;
     } else if (alignment === "monthly") {
-      dateMatch = d ? (!d.isBefore(monthStart.startOf("day")) && !d.isAfter(monthEnd.endOf("day"))) : false;
+      dateMatch = d
+        ? !d.isBefore(monthStart.startOf("day")) &&
+          !d.isAfter(monthEnd.endOf("day"))
+        : false;
     } else if (alignment === "yearly" && yearStart && yearEnd) {
-      dateMatch = d ? (!d.isBefore(yearStart.startOf("day")) && !d.isAfter(yearEnd.endOf("day"))) : false;
+      dateMatch = d
+        ? !d.isBefore(yearStart.startOf("day")) &&
+          !d.isAfter(yearEnd.endOf("day"))
+        : false;
     } else if (alignment === "allyear") {
       dateMatch = true;
     } else if (alignment === "custom") {
       if (customStartDate || customEndDate) {
         if (!d) dateMatch = false;
         else {
-          if (customStartDate && d.isBefore(customStartDate.startOf("day"))) dateMatch = false;
-          if (customEndDate && d.isAfter(customEndDate.endOf("day"))) dateMatch = false;
+          if (customStartDate && d.isBefore(customStartDate.startOf("day")))
+            dateMatch = false;
+          if (customEndDate && d.isAfter(customEndDate.endOf("day")))
+            dateMatch = false;
         }
       }
     }
-    const statusMatch = statusFilter ? item.status?.name?.toLowerCase() === statusFilter.toLowerCase() : true;
+    const statusMatch = statusFilter
+      ? item.status?.name?.toLowerCase() === statusFilter.toLowerCase()
+      : true;
     const assignedMatch = assignedToFilter
       ? assignedToFilter === "__NA__"
         ? !item.assignedTo
@@ -657,15 +988,20 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   });
 
   const hasAnyFilter = statusFilter || assignedToFilter;
-  const clearAllFilters = () => { setStatusFilter(""); setAssignedToFilter(""); };
+  const clearAllFilters = () => {
+    setStatusFilter("");
+    setAssignedToFilter("");
+  };
 
   // ── Total cost for filtered data ─────────────────────────────────────────────
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
-    (acc: number, item: any) => acc + (parseFloat(item.totalCost) || parseFloat(item.cost) || 0),
-    0
+    (acc: number, item: any) =>
+      acc + (parseFloat(item.totalCost) || parseFloat(item.cost) || 0),
+    0,
   );
   const formatCost = (amount: number) => {
-    if (amount >= 1_00_00_000) return `₹${(amount / 1_00_00_000).toFixed(2)} Cr`;
+    if (amount >= 1_00_00_000)
+      return `₹${(amount / 1_00_00_000).toFixed(2)} Cr`;
     if (amount >= 1_00_000) return `₹${(amount / 1_00_000).toFixed(2)} L`;
     return `₹${amount.toLocaleString("en-IN")}`;
   };
@@ -711,7 +1047,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       borderColor: "#A0B4D2",
       borderWidth: "2px",
     },
-    "& .Mui-selected": { borderColor: "#9D4141 !important", color: "#9D4141 !important" },
+    "& .Mui-selected": {
+      borderColor: "#9D4141 !important",
+      color: "#9D4141 !important",
+    },
   };
 
   // ── Pill select sx for Status & Assigned ──────────────────────────────────────
@@ -727,8 +1066,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       borderWidth: "2px !important",
       borderRadius: "20px !important",
     },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#9D4141 !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#9D4141 !important" },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#9D4141 !important",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#9D4141 !important",
+    },
     "& .MuiSelect-icon": { color: hasValue ? "#9D4141" : "#A0B4D2" },
   });
 
@@ -743,7 +1086,11 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           fontSize: "14px",
           fontFamily: "Inter",
           "&:hover": { backgroundColor: "rgba(157,65,65,0.06)" },
-          "&.Mui-selected": { backgroundColor: "rgba(157,65,65,0.1)", color: "#9D4141", fontWeight: 600 },
+          "&.Mui-selected": {
+            backgroundColor: "rgba(157,65,65,0.1)",
+            color: "#9D4141",
+            fontWeight: 600,
+          },
         },
       },
     },
@@ -754,20 +1101,65 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       <Box>
         {/* ── Header ── */}
         <div className="d-flex align-items-center justify-content-between pt-5 mt-1">
-          <div style={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: "600" }}>Leads</div>
+          <div
+            style={{
+              fontFamily: "Barlow",
+              fontSize: "24px",
+              fontWeight: "600",
+            }}
+          >
+            Leads
+          </div>
           {!hideNewLeadButton && (
             <div className="d-flex align-items-center gap-3">
-              <Button variant="contained" onClick={handleOpenModal}
-                sx={{ backgroundColor: '#9D4141', '&:hover': { backgroundColor: '#7e3434' }, textTransform: 'none', px: 3, py: 1, borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
+              <Button
+                variant="contained"
+                onClick={handleOpenModal}
+                sx={{
+                  backgroundColor: "#9D4141",
+                  "&:hover": { backgroundColor: "#7e3434" },
+                  textTransform: "none",
+                  px: 3,
+                  py: 1,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }}
+              >
                 Old Lead
               </Button>
               {/* Bulk Import button from file 2 */}
-              <Button variant="contained" onClick={() => setShowBulkImport(true)}
-                sx={{ backgroundColor: '#1B84FF', '&:hover': { backgroundColor: '#1565c0' }, textTransform: 'none', px: 3, py: 1, borderRadius: '8px', fontSize: '14px', fontWeight: 500, color: 'white' }}>
+              <Button
+                variant="contained"
+                onClick={() => setShowBulkImport(true)}
+                sx={{
+                  backgroundColor: "#1B84FF",
+                  "&:hover": { backgroundColor: "#1565c0" },
+                  textTransform: "none",
+                  px: 3,
+                  py: 1,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  color: "white",
+                }}
+              >
                 Bulk Import
               </Button>
-              <Button variant="contained" onClick={handleOpenModal}
-                sx={{ backgroundColor: '#9D4141', '&:hover': { backgroundColor: '#7e3434' }, textTransform: 'none', px: 3, py: 1, borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
+              <Button
+                variant="contained"
+                onClick={handleOpenModal}
+                sx={{
+                  backgroundColor: "#9D4141",
+                  "&:hover": { backgroundColor: "#7e3434" },
+                  textTransform: "none",
+                  px: 3,
+                  py: 1,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                }}
+              >
                 New Lead
               </Button>
             </div>
@@ -777,16 +1169,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         {/* ── Filter bar ── */}
         {!hideNewLeadButton && (
           <div style={{ marginTop: "16px", marginBottom: "8px" }}>
-
             {/* ── Row 1: toggle (or mobile select) | nav / custom pickers ── */}
             <div className="d-flex flex-row justify-content-between align-items-center mb-3">
-
               {/* LEFT: mobile → Select, desktop → ToggleButtonGroup */}
               <div className="d-flex flex-column d-md-block">
                 {isMobile ? (
                   <Select
                     value={alignment}
-                    onChange={(e) => handleAlignmentChange(e as any, e.target.value)}
+                    onChange={(e) =>
+                      handleAlignmentChange(e as any, e.target.value)
+                    }
                     displayEmpty
                     variant="outlined"
                     size="small"
@@ -811,7 +1203,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     <ToggleButton value="weekly">Weekly</ToggleButton>
                     <ToggleButton value="monthly">Monthly</ToggleButton>
                     <ToggleButton value="yearly">Yearly</ToggleButton>
-                    <ToggleButton value="allyear" sx={{ width: "auto !important", whiteSpace: "nowrap", px: "16px !important" }}>All Year</ToggleButton>
+                    <ToggleButton
+                      value="allyear"
+                      sx={{
+                        width: "auto !important",
+                        whiteSpace: "nowrap",
+                        px: "16px !important",
+                      }}
+                    >
+                      All Year
+                    </ToggleButton>
                     <ToggleButton value="custom">Custom</ToggleButton>
                   </ToggleButtonGroup>
                 )}
@@ -871,12 +1272,35 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             {/* Custom missing-date hint */}
             {alignment === "custom" && (!customStartDate || !customEndDate) && (
               <div className="d-flex justify-content-center my-3">
-                <div className="text-center p-4" style={{ background: "#f9f0f0", borderRadius: "12px", border: "1px solid #f0dada", maxWidth: 420 }}>
-                  <h5 style={{ fontFamily: "Inter", fontWeight: 600, color: "#9D4141" }}>Custom Date Range</h5>
-                  <p className="mb-1" style={{ fontSize: "13px", color: "#666" }}>You've selected custom date range mode.</p>
-                  <p className="mb-0" style={{ fontSize: "13px", color: "#555" }}>
-                    <strong>Missing:</strong>{" "}
-                    {!customStartDate && "Start Date"}
+                <div
+                  className="text-center p-4"
+                  style={{
+                    background: "#f9f0f0",
+                    borderRadius: "12px",
+                    border: "1px solid #f0dada",
+                    maxWidth: 420,
+                  }}
+                >
+                  <h5
+                    style={{
+                      fontFamily: "Inter",
+                      fontWeight: 600,
+                      color: "#9D4141",
+                    }}
+                  >
+                    Custom Date Range
+                  </h5>
+                  <p
+                    className="mb-1"
+                    style={{ fontSize: "13px", color: "#666" }}
+                  >
+                    You've selected custom date range mode.
+                  </p>
+                  <p
+                    className="mb-0"
+                    style={{ fontSize: "13px", color: "#555" }}
+                  >
+                    <strong>Missing:</strong> {!customStartDate && "Start Date"}
                     {!customStartDate && !customEndDate && " & "}
                     {!customEndDate && "End Date"}
                   </p>
@@ -885,8 +1309,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             )}
 
             {/* ── Row 2: Status | Assigned | spacer | count badge | clear ── */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "4px" }}>
-
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                flexWrap: "wrap",
+                marginTop: "4px",
+              }}
+            >
               {/* ── Status dropdown ── */}
               <FormControl size="small" sx={{ minWidth: isMobile ? 140 : 170 }}>
                 <Select
@@ -896,15 +1327,54 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   sx={pillSelectSx(!!statusFilter)}
                   renderValue={(val) => {
                     if (!val) {
-                      return <span style={{ color: "#A0B4D2", fontFamily: "Inter", fontSize: isMobile ? "10px" : "12px", fontWeight: 600 }}>Lead Status</span>;
+                      return (
+                        <span
+                          style={{
+                            color: "#A0B4D2",
+                            fontFamily: "Inter",
+                            fontSize: isMobile ? "10px" : "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Lead Status
+                        </span>
+                      );
                     }
                     const st = leadStatuses.find((s: any) => s.name === val);
                     return (
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          width: "100%",
+                          overflow: "hidden",
+                        }}
+                      >
                         {st?.color && (
-                          <span style={{ width: 10, height: 10, minWidth: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              minWidth: 10,
+                              borderRadius: "50%",
+                              backgroundColor: st.color,
+                              display: "inline-block",
+                            }}
+                          />
                         )}
-                        <span style={{ fontFamily: "Inter", fontSize: isMobile ? "10px" : "12px", fontWeight: 600, color: "#9D4141", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                        <span
+                          style={{
+                            fontFamily: "Inter",
+                            fontSize: isMobile ? "10px" : "12px",
+                            fontWeight: 600,
+                            color: "#9D4141",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            flex: 1,
+                          }}
+                        >
                           {val}
                         </span>
                         <span
@@ -914,8 +1384,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                             setStatusFilter("");
                           }}
                           style={{
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            width: 16, height: 16, minWidth: 16,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 16,
+                            height: 16,
+                            minWidth: 16,
                             borderRadius: "50%",
                             color: "#9D4141",
                             fontSize: 10,
@@ -931,11 +1405,33 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   }}
                   MenuProps={menuSx}
                 >
-                  <MenuItem value="" sx={{ color: "#999", fontSize: "13px" }}>All Statuses</MenuItem>
+                  <MenuItem value="" sx={{ color: "#999", fontSize: "13px" }}>
+                    All Statuses
+                  </MenuItem>
                   {leadStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.name} sx={{ fontSize: "13px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
+                    <MenuItem
+                      key={st.id}
+                      value={st.name}
+                      sx={{ fontSize: "13px" }}
+                    >
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          width: "100%",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: "50%",
+                            backgroundColor: st.color,
+                            display: "inline-block",
+                            flexShrink: 0,
+                          }}
+                        />
                         {st.name}
                       </span>
                     </MenuItem>
@@ -947,15 +1443,27 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               <Autocomplete
                 size="small"
                 options={assignedToOptions}
-                getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
-                value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
-                onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
-                isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
+                getOptionLabel={(emp: any) =>
+                  emp.displayName || emp.employeeName
+                }
+                value={
+                  assignedToOptions.find(
+                    (e: any) => e.employeeId === assignedToFilter,
+                  ) ?? null
+                }
+                onChange={(_: any, emp: any) =>
+                  setAssignedToFilter(emp?.employeeId ?? "")
+                }
+                isOptionEqualToValue={(opt: any, val: any) =>
+                  opt.employeeId === val.employeeId
+                }
                 filterOptions={(options, { inputValue }) => {
                   const q = inputValue.toLowerCase();
                   if (!q) return options;
                   return options.filter((o: any) =>
-                    (o.displayName || o.employeeName || '').toLowerCase().includes(q)
+                    (o.displayName || o.employeeName || "")
+                      .toLowerCase()
+                      .includes(q),
                   );
                 }}
                 sx={{ minWidth: isMobile ? 150 : 200 }}
@@ -963,30 +1471,87 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 renderOption={(props, emp: any) => (
                   <li {...props} key={emp.employeeId}>
                     {emp.employeeId === "__NA__" ? (
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{
-                          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                          backgroundColor: "#f0f0f0", display: "flex", alignItems: "center",
-                          justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700,
-                          letterSpacing: "0.02em",
-                        }}>N/A</span>
-                        <span style={{ fontFamily: "Inter", fontSize: "13px", color: "#888" }}>N/A — UNASSIGNED</span>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          width: "100%",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            backgroundColor: "#f0f0f0",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "8px",
+                            color: "#999",
+                            fontWeight: 700,
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          N/A
+                        </span>
+                        <span
+                          style={{
+                            fontFamily: "Inter",
+                            fontSize: "13px",
+                            color: "#888",
+                          }}
+                        >
+                          N/A — UNASSIGNED
+                        </span>
                       </span>
                     ) : (
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          width: "100%",
+                        }}
+                      >
                         <img
-                          src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
+                          src={
+                            emp.avatar ||
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`
+                          }
                           alt={emp.employeeName}
-                          style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
-                          onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            flexShrink: 0,
+                            filter: emp.isInactive ? "grayscale(60%)" : "none",
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`;
+                          }}
                         />
                         <span style={{ fontFamily: "Inter", fontSize: "13px" }}>
                           {emp.isInactive ? (
                             <>
                               {emp.employeeName}{" "}
-                              <span style={{ fontSize: "11px", color: "#999", fontWeight: 400 }}>(Inactive)</span>
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#999",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                (Inactive)
+                              </span>
                             </>
-                          ) : emp.employeeName}
+                          ) : (
+                            emp.employeeName
+                          )}
                         </span>
                       </span>
                     )}
@@ -999,26 +1564,52 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     InputProps={{
                       ...params.InputProps,
                       startAdornment: assignedToFilter ? (
-                        <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
+                        <InputAdornment
+                          position="start"
+                          sx={{ ml: "4px", mr: 0 }}
+                        >
                           {assignedToFilter === "__NA__" ? (
-                            <span style={{
-                              width: 20, height: 20, borderRadius: "50%",
-                              backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center",
-                              justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700,
-                              letterSpacing: "0.02em",
-                            }}>N/A</span>
+                            <span
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: "50%",
+                                backgroundColor: "#f0f0f0",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "7px",
+                                color: "#999",
+                                fontWeight: 700,
+                                letterSpacing: "0.02em",
+                              }}
+                            >
+                              N/A
+                            </span>
                           ) : (
                             <img
                               src={
-                                assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar ||
+                                assignedEmployeesFromLeads.find(
+                                  (e: any) => e.employeeId === assignedToFilter,
+                                )?.avatar ||
                                 `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                  assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || ""
+                                  assignedEmployeesFromLeads.find(
+                                    (e: any) =>
+                                      e.employeeId === assignedToFilter,
+                                  )?.employeeName || "",
                                 )}&size=24&background=random`
                               }
                               alt=""
                               style={{
-                                width: 20, height: 20, borderRadius: "50%", objectFit: "cover",
-                                filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none",
+                                width: 20,
+                                height: 20,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                filter: assignedEmployeesFromLeads.find(
+                                  (e: any) => e.employeeId === assignedToFilter,
+                                )?.isInactive
+                                  ? "grayscale(60%)"
+                                  : "none",
                               }}
                             />
                           )}
@@ -1077,8 +1668,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                         fontFamily: "Inter",
                         "& .MuiAutocomplete-option": {
                           fontSize: "13px",
-                          "&:hover": { backgroundColor: "rgba(157,65,65,0.06)" },
-                          '&[aria-selected="true"]': { backgroundColor: "rgba(157,65,65,0.1)", color: "#9D4141", fontWeight: 600 },
+                          "&:hover": {
+                            backgroundColor: "rgba(157,65,65,0.06)",
+                          },
+                          '&[aria-selected="true"]': {
+                            backgroundColor: "rgba(157,65,65,0.1)",
+                            color: "#9D4141",
+                            fontWeight: 600,
+                          },
                         },
                       },
                     },
@@ -1115,19 +1712,50 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     gap: "1px",
                   }}
                 >
-                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "9px" : "12px", fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <span
+                    style={{
+                      fontFamily: "Inter",
+                      fontSize: isMobile ? "9px" : "12px",
+                      fontWeight: 600,
+                      color: "rgba(255,255,255,0.75)",
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                    }}
+                  >
                     Leads
                   </span>
-                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "13px" : "15px", fontWeight: 800, color: "#fff", lineHeight: 1.1 }}>
+                  <span
+                    style={{
+                      fontFamily: "Inter",
+                      fontSize: isMobile ? "13px" : "15px",
+                      fontWeight: 800,
+                      color: "#fff",
+                      lineHeight: 1.1,
+                    }}
+                  >
                     {quickFilteredData?.length ?? 0}
-                    <span style={{ fontSize: isMobile ? "10px" : "12px", fontWeight: 500, color: "rgba(255,255,255,0.65)", marginLeft: 2 }}>
+                    <span
+                      style={{
+                        fontSize: isMobile ? "10px" : "12px",
+                        fontWeight: 500,
+                        color: "rgba(255,255,255,0.65)",
+                        marginLeft: 2,
+                      }}
+                    >
                       / {tableData?.length ?? 0}
                     </span>
                   </span>
                 </div>
 
                 {/* Divider */}
-                <div style={{ width: "1.5px", background: "#9D4141", opacity: 0.25, alignSelf: "stretch" }} />
+                <div
+                  style={{
+                    width: "1.5px",
+                    background: "#9D4141",
+                    opacity: 0.25,
+                    alignSelf: "stretch",
+                  }}
+                />
 
                 {/* Right segment — Total Cost */}
                 <div
@@ -1137,14 +1765,33 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     alignItems: "center",
                     justifyContent: "center",
                     padding: isMobile ? "4px 10px" : "5px 16px",
-                    background: "linear-gradient(135deg, #fdf2f2 0%, #fce8e8 100%)",
+                    background:
+                      "linear-gradient(135deg, #fdf2f2 0%, #fce8e8 100%)",
                     gap: "1px",
                   }}
                 >
-                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "9px" : "12px", fontWeight: 600, color: "#b06060", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <span
+                    style={{
+                      fontFamily: "Inter",
+                      fontSize: isMobile ? "9px" : "12px",
+                      fontWeight: 600,
+                      color: "#b06060",
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                    }}
+                  >
                     Total Cost
                   </span>
-                  <span style={{ fontFamily: "Inter", fontSize: isMobile ? "13px" : "15px", fontWeight: 800, color: "#9D4141", lineHeight: 1.1, letterSpacing: "0.01em" }}>
+                  <span
+                    style={{
+                      fontFamily: "Inter",
+                      fontSize: isMobile ? "13px" : "15px",
+                      fontWeight: 800,
+                      color: "#9D4141",
+                      lineHeight: 1.1,
+                      letterSpacing: "0.01em",
+                    }}
+                  >
                     {formatCost(totalFilteredCost)}
                   </span>
                 </div>
@@ -1158,10 +1805,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 <button
                   onClick={clearAllFilters}
                   style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    fontSize: "13px", color: "#9D4141", fontWeight: 700,
-                    fontFamily: "Inter", padding: "2px 0",
-                    textDecoration: "underline", textUnderlineOffset: "2px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    color: "#9D4141",
+                    fontWeight: 700,
+                    fontFamily: "Inter",
+                    padding: "2px 0",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -1183,25 +1836,54 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           checkOwnWithOthers={true}
           enableColumnResizing={true}
           layoutMode="grid"
-          muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
+          muiTableContainerProps={{
+            sx: { maxHeight: "700px", overflowX: "auto" },
+          }}
           muiTableProps={{
-            sx: { borderCollapse: "separate", borderSpacing: "0 20px !important" },
+            sx: {
+              borderCollapse: "separate",
+              borderSpacing: "0 20px !important",
+            },
             muiTableBodyRowProps: ({ row }: any) => ({
               sx: {
                 cursor: "pointer",
                 backgroundColor: `${row.original?.status?.color}20`,
                 transition: "all 0.2s ease",
-                "& .MuiTableCell-root": { fontSize: "15.5px", fontFamily: "Inter", fontWeight: "500", padding: "16px 20px !important", border: "none", color: "#333" },
-                "& .MuiTableCell-root:first-of-type": { borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px" },
-                "& .MuiTableCell-root:last-of-type": { borderTopRightRadius: "12px", borderBottomRightRadius: "12px" },
-                "&:hover": { backgroundColor: `${row.original?.status?.color}40`, transform: "translateY(-2px)", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" },
+                "& .MuiTableCell-root": {
+                  fontSize: "15.5px",
+                  fontFamily: "Inter",
+                  fontWeight: "500",
+                  padding: "16px 20px !important",
+                  border: "none",
+                  color: "#333",
+                },
+                "& .MuiTableCell-root:first-of-type": {
+                  borderTopLeftRadius: "12px",
+                  borderBottomLeftRadius: "12px",
+                },
+                "& .MuiTableCell-root:last-of-type": {
+                  borderTopRightRadius: "12px",
+                  borderBottomRightRadius: "12px",
+                },
+                "&:hover": {
+                  backgroundColor: `${row.original?.status?.color}40`,
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                },
               },
-              onClick: () => navigate(`/employee/lead/${row.original.id}`, { state: { leadData: row.original.id } }),
+              onClick: () =>
+                navigate(`/employee/lead/${row.original.id}`, {
+                  state: { leadData: row.original.id },
+                }),
             }),
           }}
         />
 
-        <DetailsModal open={isModalOpen} onClose={handleCloseModal} Datas={templateData} />
+        <DetailsModal
+          open={isModalOpen}
+          onClose={handleCloseModal}
+          Datas={templateData}
+        />
       </Box>
 
       {formValues && (
@@ -1216,11 +1898,41 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         />
       )}
 
-      <Modal show={showChartSettingsModal} onHide={handleCloseChartSettingsModal} size="xl" centered className="responsive-modal">
-        <Modal.Body style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-          <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px" }}>
-            <span style={{ fontFamily: "Inter", fontWeight: 600, fontSize: "18px", color: "#333" }}>Customize Cards Visibility</span>
-            <LeadsProjectCompanyChartSettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD} />
+      <Modal
+        show={showChartSettingsModal}
+        onHide={handleCloseChartSettingsModal}
+        size="xl"
+        centered
+        className="responsive-modal"
+      >
+        <Modal.Body
+          style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "Inter",
+                fontWeight: 600,
+                fontSize: "18px",
+                color: "#333",
+              }}
+            >
+              Customize Cards Visibility
+            </span>
+            <LeadsProjectCompanyChartSettings
+              type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD}
+            />
           </div>
         </Modal.Body>
       </Modal>

@@ -1,7 +1,7 @@
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
-import { leadsIcons } from "@metronic/assets/sidepanelicons";
+import { leadsIcons, projectsIcons } from "@metronic/assets/sidepanelicons";
 import { useState } from "react";
 import LeadsConfigurationMain from "./configuration/LeadsConfigurationMain";
 import { useDispatch } from "react-redux";
@@ -12,6 +12,7 @@ import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import { getAllLeads } from "@services/leads";
+import GlobalFilesView from "./GlobalFilesView";
 
 const LeadsMain = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -51,6 +52,14 @@ const LeadsMain = () => {
           ? leadsIcons.leadsIcon.active
           : leadsIcons.leadsIcon.default,
     },
+     {
+      title: "Files",
+      component: <GlobalFilesView />,
+      icon:
+        activeTab === 3
+          ? projectsIcons.projectsIcon.active
+          : projectsIcons.projectsIcon.default,
+    },
     {
       title: "Configure",
       component: <LeadsConfigurationMain />,
@@ -59,6 +68,7 @@ const LeadsMain = () => {
           ? leadsIcons.leadsConfigIcon.active
           : leadsIcons.leadsConfigIcon.default,
     },
+   
   ];
   const LeadBreadcrumbs = [
     {

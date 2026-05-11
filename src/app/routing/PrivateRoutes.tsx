@@ -62,6 +62,8 @@ import ClientContactsMain from '@pages/employee/companies/contacts/ClientContact
 import ContactsNavbar from '@pages/employee/companies/contacts/contactsNavbar'
 import OrganisationInfoProfileMain from '@pages/company/organisationInfo/OrganisationInfoProfileMain'
 import SearchResultsPage from '@pages/employee/search/SearchResultsPage'
+import ProposalConfigurationPage from '@pages/employee/leads/lead/components/ProposalConfigurationPage'
+import TemplateDocumentationBuilderPage from '@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
@@ -107,6 +109,13 @@ const PrivateRoutes = () => {
         <Route path='dashboard' element={<DashboardWrapper />} />
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
+        <Route
+          path='/qc/leads/documentation-builder'
+          element={
+            <SuspensedView>
+              <TemplateDocumentationBuilderPage />
+            </SuspensedView>}
+        />
         {/* Lazy Modules */}
         <Route
           path='crafted/pages/profile/*'
@@ -377,11 +386,26 @@ const PrivateRoutes = () => {
             </SuspensedView>}
         />
         <Route
+          path='/qc/leads/configuration'
+          element={
+            <SuspensedView>
+              <ProposalConfigurationPage />
+            </SuspensedView>}
+        />
+        <Route
           path='/qc/leads'
           element={
             <SuspensedView>
               <LeadsMain />
             </SuspensedView>}
+        />
+        <Route
+          path='/leads/:id'
+          element={
+            <SuspensedView>
+              <LeadDetails />
+            </SuspensedView>
+          }
         />
         <Route
           path='/tasks'

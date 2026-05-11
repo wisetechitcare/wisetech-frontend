@@ -851,29 +851,60 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                     </span>
                   </div>
                   <div className="d-flex align-items-center" style={{ gap: "16px" }}>
-                    <div style={{ textAlign: "right" }}>
+                    <div className="d-flex align-items-center" style={{ gap: "16px" }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontFamily: "Inter",
+                            fontSize: "14px",
+                            fontWeight: "400",
+                            color: "black"
+                          }}
+                        >
+                          Total Area:
+                        </div>
+                      </div>
                       <div
                         style={{
                           fontFamily: "Inter",
-                          fontSize: "14px",
-                          fontWeight: "400",
-                          color: "black"
+                          fontSize: "16px",
+                          fontWeight: "600",
+                          color: "black",
                         }}
                       >
-                        Total Cost:
+                        {(lead?.commercials && lead.commercials.length > 0) 
+                          ? (lead.commercials.reduce((sum: number, commercial: any) => {
+                              return sum + (parseFloat(commercial.area) || 0);
+                            }, 0)).toLocaleString('en-IN')
+                          : (parseFloat(lead?.additionalDetails?.projectArea) || 0).toLocaleString('en-IN')} sqft
                       </div>
                     </div>
-                    <div
-                      style={{
-                        fontFamily: "Inter",
-                        fontSize: "16px",
-                        fontWeight: "600",
-                        color: "black",
-                      }}
-                    >
-                      ₹{lead?.commercials?.reduce((sum: number, commercial: any) => {
-                        return sum + parseFloat(commercial.cost || 0);
-                      }, 0) || 0}
+
+                    <div className="d-flex align-items-center" style={{ gap: "16px" }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontFamily: "Inter",
+                            fontSize: "14px",
+                            fontWeight: "400",
+                            color: "black"
+                          }}
+                        >
+                          Total Cost:
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: "Inter",
+                          fontSize: "16px",
+                          fontWeight: "600",
+                          color: "black",
+                        }}
+                      >
+                        ₹{lead?.commercials?.reduce((sum: number, commercial: any) => {
+                          return sum + parseFloat(commercial.cost || 0);
+                        }, 0) || 0}
+                      </div>
                     </div>
                   </div>
                 </div>
