@@ -207,8 +207,9 @@ export const EMPLOYEE = {
     GET_KPI_SCORES_FOR_DAY: "api/employee/kpi/score/day",
     GET_KPI_SCORES_FOR_PERIOD: "api/employee/kpi/scores/period",
     GET_KPI_SCORES_ALL_TIME: 'api/employee/kpi/alltime',
-    GET_ALL_STAR_EMPLOYEES_BY_EACH_FACTOR: "api/employee/kpi/star-employees/all",
-    FETCH_ALL_STAR_EMPLOYEES_BY_FACTOR_ID: "api/employee/kpi/star-employees",
+    GET_ALL_STAR_EMPLOYEES_BY_EACH_FACTOR: "api/employee/kpi/star-employees-all",
+    FETCH_ALL_STAR_EMPLOYEES_BY_FACTOR_ID: "api/employee/kpi/star-employees-by-factor",
+    LEADERBOARD: "api/employee/kpi/leaderboard",
     CREATE_KPI_SCORE: "api/employee/kpi/score",
     GET_ALL_EMPLOYEE_WITH_MONTH_DAILY_HOURLY_SALARY: "api/employee/all-employees-salary",
 
@@ -295,7 +296,8 @@ export const OPTIONS = {
 }
 
 export const LOCATION = {
-    ADDRESS: 'api/location/address'
+    ADDRESS: 'api/location/address',
+    FLAG_LOCATION: 'api/location/:type/:id/flag'
 }
 
 export const ROLES = {
@@ -509,6 +511,7 @@ export const CLIENT_COMPANIES = {
     CREATE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses',
     UPDATE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses/:id',
     DELETE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses/:id',
+
 
 }
 

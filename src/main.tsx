@@ -1,14 +1,14 @@
-import {createRoot} from 'react-dom/client'
+import { createRoot } from 'react-dom/client'
 // Axios
 import axios from 'axios'
-import {Chart, registerables} from 'chart.js'
-import {QueryClient, QueryClientProvider} from 'react-query'
-import {ReactQueryDevtools} from 'react-query/devtools'
-import {Provider} from 'react-redux'
-import {store} from '@redux/store'
+import { Chart, registerables } from 'chart.js'
+import { QueryClient, QueryClientProvider } from 'react-query'
+import { ReactQueryDevtools } from 'react-query/devtools'
+import { Provider } from 'react-redux'
+import { store } from '@redux/store'
 import "./main.css"
 // Apps
-import {MetronicI18nProvider} from './_metronic/i18n/Metronici18n'
+import { MetronicI18nProvider } from './_metronic/i18n/Metronici18n'
 import './_metronic/assets/sass/style.react.scss'
 import './_metronic/assets/fonticon/fonticon.css'
 import './_metronic/assets/keenicons/duotone/style.css'
@@ -21,8 +21,10 @@ import './_metronic/assets/keenicons/solid/style.css'
  * import './_metronic/assets/css/style.rtl.css'
  **/
 import './_metronic/assets/sass/style.scss'
-import {AppRoutes} from './app/routing/AppRoutes'
-import {getAuth, setupAxios} from './app/modules/auth'
+import { AppRoutes } from './app/routing/AppRoutes'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import { getAuth, setupAxios } from './app/modules/auth'
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
 import { saveCurrentUser } from '@redux/slices/auth'
@@ -60,14 +62,14 @@ if (currentUser?.token) {
   }
 }
 
-if(parsedLs?.token && parsedLs?.id && !isTokenExpired){
+if (parsedLs?.token && parsedLs?.id && !isTokenExpired) {
   store
     .dispatch(fetchRolesAndPermissions())
     .unwrap()
     .then(async () => {
       const { data: { user } } = await fetchCurrentUser(parsedLs.id)
       store.dispatch(saveCurrentUser({ ...user }))
-      if(container){
+      if (container) {
         createRoot(container).render(
           <QueryClientProvider client={queryClient}>
             <MetronicI18nProvider>
@@ -75,6 +77,7 @@ if(parsedLs?.token && parsedLs?.id && !isTokenExpired){
                 <AppRoutes />
               </Provider>
             </MetronicI18nProvider>
+            <ToastContainer position="top-right" theme="light" />
             {/* <ReactQueryDevtools initialIsOpen={false} /> */}
             {/* <Notification
               open={true}
@@ -93,7 +96,7 @@ if(parsedLs?.token && parsedLs?.id && !isTokenExpired){
       window.location.reload();
     });
 }
-else{
+else {
   localStorage.removeItem("wise_tech_login")
   if (container) {
     createRoot(container).render(
@@ -103,6 +106,7 @@ else{
             <AppRoutes />
           </Provider>
         </MetronicI18nProvider>
+        <ToastContainer position="top-right" theme="light" />
         {/* <ReactQueryDevtools initialIsOpen={false} /> */}
       </QueryClientProvider>
     )

@@ -23,6 +23,7 @@ import { getAllWeekends } from "./sandwhichConfiguration";
 import { errorConfirmation, successConfirmation } from "./modal";
 
 import axios from "axios";
+import { EMPLOYEE } from "@constants/api-endpoint";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 // functions for fetching statistics for daily, weekly, monthly, yearly ------ starts here -----
 
@@ -2848,19 +2849,16 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
 export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAttendanceRequests[] {
     const attendanceRequest = attendance.reduce((result: IAttendanceRequests[], attendanceRequest: any) => {
-        const formattedCheckIn = attendanceRequest?.checkIn
-            ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkIn))): "-NA-";
-        // console.log("attendanceRequest.checkIn",attendanceRequest.checkIn);
+        // For checkout-only requests the DB checkIn is null; use actualCheckIn enriched by the backend.
+        const checkInSource = attendanceRequest?.checkIn || attendanceRequest?.actualCheckIn;
 
-        // console.log("formattedCheckIn", formattedCheckIn);
+        const formattedCheckIn = checkInSource
+            ? convertTo12HourFormat(convertToIST(convertToTime(checkInSource))) : "-NA-";
 
         const formattedCheckOut = attendanceRequest?.checkOut
             ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkOut))): "-NA-";
-        // console.log("attendanceRequest?.checkOut",attendanceRequest?.checkOut);
 
-        // console.log("formattedCheckOut", formattedCheckOut);
-
-        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut;
+        const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut || attendanceRequest?.actualCheckIn;
         const day = dateSource ? dayjs(dateSource).format("dddd") : "-NA-";
         const date = dateSource ? dayjs(dateSource).format("DD MMM YYYY") : "-NA-";
         const formattedDate = dateSource ? dayjs(date).format("DD/MM/YYYY") : "-NA-";
@@ -2876,6 +2874,10 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             employeeCode: attendanceRequest?.employee?.employeeCode,
             checkIn: formattedCheckIn,
             checkOut: formattedCheckOut,
+            // Raw ISO values for accurate approval — avoids 12-hour formatting ambiguity.
+            // For checkout-only requests, rawCheckIn comes from actualCheckIn (enriched by backend).
+            rawCheckIn: checkInSource ? checkInSource.toString() : undefined,
+            rawCheckOut: attendanceRequest?.checkOut ? attendanceRequest.checkOut.toString() : undefined,
             workingMethod: attendanceRequest.workingMethod.type,
             remarks: attendanceRequest?.remarks || "",
             latitude: attendanceRequest.latitude,
@@ -2884,6 +2886,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             approvedById: attendanceRequest.approvedById,
             rejectedById: attendanceRequest.rejectById,
             approvedOrRejectedDate: attendanceRequest.updatedAt,
+            reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
         }
 
         result.push(request);
@@ -3265,19 +3268,23 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
 //🔥 Irfan Change Start
 export const fetchLeaderboard = async (
   startDate: string,
-  endDate: string
+  endDate: string,
+  signal?: AbortSignal
 ) => {
   try {
     const response = await axios.get(
-      `${API_BASE_URL}/api/employee/kpi/leaderboard`,
+      `${API_BASE_URL}/${EMPLOYEE.LEADERBOARD}`,
       {
-        params: { startDate, endDate }
+        params: { startDate, endDate },
+        signal
       }
     );
 
     return response.data.data; // 🔥 IMPORTANT
-  } catch (error) {
-    console.error("Leaderboard API Error:", error);
+  } catch (error: any) {
+    if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+      console.error("Leaderboard API Error:", error);
+    }
     throw error;
   }
 };

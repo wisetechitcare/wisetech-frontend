@@ -20,7 +20,7 @@ const CustomizedTabs = styled(Tabs)({
     zIndex: 1000,
     backgroundColor: '#9D4141',
     scrollbarWidth: "none",
-    "-ms-overflow-style": "none",
+    msOverflowStyle: "none",
     "&::-webkit-scrollbar": {
     display: "none",
   },
@@ -78,27 +78,30 @@ const MaterialHeaderTab = ({ tabItems, onTabChange }: MaterialTabProps) => {
                 indicatorColor="primary"
                 variant="scrollable"
                 scrollButtons="auto"
-                style={{"zIndex":"50"}}
+                style={{ zIndex: 50 }}
             >
-                {tabItems.map((tabItem, index) => (<Tab key={index} label={tabItem.title} icon={tabItem.icon ? (typeof tabItem.icon === 'string'
-                                    ? <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />
-                                    // : <tabItem.icon /> )
-                                    :"")
-                                    : undefined
-                        }
-                    />
-                ))}
+                {tabItems.map((tabItem, index) => {
+                    const key = `${tabItem.title}-${index}`;
+                    const icon = !tabItem.icon
+                        ? undefined
+                        : (typeof tabItem.icon === 'string'
+                            ? <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} style={{ marginRight: '1px' }} />
+                            : (() => {
+                                const Icon = tabItem.icon as React.ElementType<SvgIconProps>;
+                                return <Icon />;
+                            })());
+
+                    return <Tab key={key} label={tabItem.title} icon={icon} />;
+                })}
             </CustomizedTabs>
 
             <div className="row mt-7"></div>
 
             {tabItems.map((tabItem, index) => {
                 return (
-                    <>
-                        <div key={index} className='px-lg-9 px-5 py-0'>
-                            {value === index && tabItem.component}
-                        </div>
-                    </>
+                    <div key={`${tabItem.title}-panel-${index}`} className='px-lg-9 px-5 py-0'>
+                        {value === index && tabItem.component}
+                    </div>
                 )
             })}
         </>

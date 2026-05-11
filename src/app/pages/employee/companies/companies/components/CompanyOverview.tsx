@@ -265,7 +265,7 @@ const Overview = ({ company }: OverviewProps) => {
                           style={{ width: "20px", height: "20px" }}
                         />
                         <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{

@@ -769,22 +769,35 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                       />
                     </div>
                   </div>
-                  <div className='row'>
-                    <div className='col-lg-6 mb-sm-0 mb-md-0 mb-7'>
-                      <TextInput
-                        isRequired={true}
-                        label='Latitude'
-                        margin='mb-7'
-                        formikField='latitude'
-                      />
+                  <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
+                    <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
+                    <div className='row g-3'>
+                      <div className='col-lg-6'>
+                        <TextInput
+                          isRequired={true}
+                          label='Latitude'
+                          formikField='latitude'
+                        />
+                      </div>
+                      <div className='col-lg-6'>
+                        <TextInput
+                          isRequired={true}
+                          label='Longitude'
+                          formikField='longitude'
+                        />
+                      </div>
                     </div>
-                    <div className='col-lg-6 mb-sm-0 mb-md-0 mb-7'>
-                      <TextInput
-                        isRequired={true}
-                        label='Longitude'
-                        margin='mb-7'
-                        formikField='longitude'
-                      />
+                    <div 
+                      className="d-flex justify-content-end mt-4" 
+                      onClick={() => handleDetectLocation(formikProps)}
+                      style={{
+                        cursor: 'pointer',
+                        color: '#0D47A1',
+                        fontWeight: '600',
+                        fontSize: '13px'
+                      }}
+                    >
+                      Detect Current Location
                     </div>
                   </div>
                   <div className='col-lg'>

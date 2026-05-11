@@ -439,43 +439,27 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     }
                 }));
             } else if (filterAttendance) {
-                // Format check-in time (handle both 'HH:mm:ss' and 'HH:mm' formats)
-                let checkInTime = "";
-                if (filterAttendance.checkIn && filterAttendance.checkIn !== "-NA-") {
-                    try {
-                        const timePart = filterAttendance.checkIn.split(' ').pop(); // In case there's a date part
-                        if (timePart) {
-                            const timeParts = timePart.split(':');
-                            if (timeParts.length >= 2) {
-                                const hours = timeParts[0].padStart(2, '0');
-                                const minutes = timeParts[1].padStart(2, '0');
-                                checkInTime = `${hours}:${minutes}`;
-                            }
-                        }
-                    } catch (e) {
-                        console.error("Error formatting check-in time:", e);
-                        checkInTime = "";
-                    }
-                }
+                // filterAttendance.checkIn is already formatted as "h:mm:ss A" (e.g. "10:23:22 AM")
+                // by transformAttendance → formatTime, so we must parse it with that format.
+                const parseFormattedTime = (timeStr: string): string => {
+                    if (!timeStr || timeStr === '-NA-' || timeStr === '-' || timeStr === '') return '';
+                    const match = timeStr.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+                    if (!match) return '';
+                    let hours = parseInt(match[1]);
+                    const minutes = match[2];
+                    const ampm = match[3].toUpperCase();
+                    if (ampm === 'PM' && hours !== 12) hours += 12;
+                    if (ampm === 'AM' && hours === 12) hours = 0;
+                    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+                };
 
-                // Format check-out time (handle '-NA-' and other formats)
-                let checkOutTime = "";
-                if (filterAttendance.checkOut && filterAttendance.checkOut !== "-NA") {
-                    try {
-                        const timePart = filterAttendance.checkOut.split(' ').pop();
-                        if (timePart) {
-                            const timeParts = timePart.split(':');
-                            if (timeParts.length >= 2) {
-                                const hours = timeParts[0].padStart(2, '0');
-                                const minutes = timeParts[1].padStart(2, '0');
-                                checkOutTime = `${hours}:${minutes}`;
-                            }
-                        }
-                    } catch (e) {
-                        console.error("Error formatting check-out time:", e);
-                        checkOutTime = "";
-                    }
-                }
+                const checkInTime = parseFormattedTime(filterAttendance.checkIn || '');
+                const checkOutTime = parseFormattedTime(filterAttendance.checkOut || '');
+
+                // workingMethod is stored as a type name ("Office"), look up the ID from options
+                const matchedMethod = (workingMethodOptions as any[]).find(
+                    (opt: any) => opt.label?.toLowerCase() === ((filterAttendance as any).workingMethod || '').toLowerCase()
+                );
 
                 setAttendanceData((prev) => ({
                     ...prev,
@@ -484,7 +468,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                         checkIn: checkInTime,
                         checkOut: checkOutTime,
                         remarks: "",
-                        workingMethodId: ""
+                        workingMethodId: matchedMethod?.value || ""
                     }
                 }));
             } else {
@@ -881,7 +865,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                 </div>)}
                         </div>
                     ) : (
-                        <Formik initialValues={attendanceData[selectedDate] || initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
+                        <Formik initialValues={attendanceData[selectedDate] || initialState} enableReinitialize onSubmit={handleSubmit} validationSchema={faqSchema}>
                             {(formikProps) => (
                                 <Form className='d-flex flex-column' noValidate placeholder={''}>
                                     {requestType === 'checkin' && <div className="col-lg">

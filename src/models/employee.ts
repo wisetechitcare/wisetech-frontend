@@ -379,7 +379,8 @@ export interface IAttendanceRequests {
   longitude?: number
   approvedById?: string,
   rejectedById?: string,
-  approvedOrRejectedDate?: string
+  approvedOrRejectedDate?: string,
+  reportsToId?: string | null,
 }
 
 export interface ApprovedAttendanceRequest {

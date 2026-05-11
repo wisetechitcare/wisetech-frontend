@@ -1,13 +1,17 @@
-import { useState, useEffect, useRef } from "react";
-import { io, Socket } from "socket.io-client";
-import { Modal, Button } from "react-bootstrap";
-import { KTIcon } from "../../helpers";
-import { fetchNotificationsByEmployeeId } from "../../../services/employee";
-import { Link, useNavigate } from "react-router-dom";
-import CircleNotificationsIcon from "@mui/icons-material/CircleNotifications";
-import { formatNotificationDate } from "../../../utils/date";
-
-const API_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+import { useState, useEffect } from 'react';
+import { getSocket } from '../../../utils/socketClient';
+import { Modal, Button } from 'react-bootstrap';
+import { KTIcon } from '../../helpers';
+import { fetchNotificationsByEmployeeId } from '../../../services/employee';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { formatNotificationDate } from '../../../utils/date';
+import {
+  getNotificationIcon,
+  getNotificationColors,
+  getNotificationBorderColor,
+  type AttendanceNotificationType,
+} from '../../../utils/notificationStyles';
 
 interface Notification {
   id: string;
@@ -16,6 +20,7 @@ interface Notification {
   isRead: boolean;
   createdAt: string;
   path: string;
+  status?: AttendanceNotificationType | string;
 }
 
 interface NotificationsProps {
@@ -26,15 +31,14 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
   const [show, setShow] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const socketRef = useRef<Socket | null>(null);
   const navigate = useNavigate();
 
   const fetchNotifications = async () => {
     try {
       const response = await fetchNotificationsByEmployeeId(employeeId);
-      setNotifications(response.data);
+      setNotifications(response.data ?? []);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      console.error('Error fetching notifications:', error);
     }
   };
 
@@ -45,187 +49,197 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
     setUnreadCount(0);
   };
 
-  const handleClose = () => {
-    setShow(false);
-  };
+  const handleClose = () => setShow(false);
 
   const handleNavigation = (path: string) => {
     setShow(false);
     navigate(path);
   };
 
+  // Real-time: socket pushes → prepend to list + badge + toast
   useEffect(() => {
     if (!employeeId) return;
 
-    if (!socketRef.current) {
-      socketRef.current = io(`${API_URL}`, {
-        transports: ["websocket"],
-        path: "/socket.io/",
-      });
+    const socket = getSocket();
 
-      socketRef.current.emit("joinRoom", employeeId);
+    const onNotification = (notification: Notification) => {
+      setNotifications((prev) => [notification, ...prev]);
+      if (!show) setUnreadCount((prev) => prev + 1);
 
-      socketRef.current.on("newNotification", (notification: Notification) => {
-        setNotifications((prev) => [notification, ...prev]);
-        if (!show) {
-          setUnreadCount((prev) => prev + 1);
-        }
-      });
-    }
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.off("newNotification");
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      // Show a browser-level toast so the employee is alerted even when panel is closed
+      toast(
+        <div className="d-flex align-items-start gap-2">
+          <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>
+            {getNotificationIcon(notification.status)}
+          </span>
+          <div>
+            <p className="mb-0 fw-semibold small">{notification.title}</p>
+            <p className="mb-0 text-muted" style={{ fontSize: '0.78rem' }}>
+              {notification.message.slice(0, 90)}{notification.message.length > 90 ? '…' : ''}
+            </p>
+          </div>
+        </div>,
+        {
+          position: 'top-right',
+          autoClose: 6000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          style: {
+            borderLeft: `4px solid ${getNotificationBorderColor(notification.status)}`,
+            borderRadius: '8px',
+          },
+        },
+      );
     };
-  }, [employeeId]);
+
+    socket.on('newNotification', onNotification);
+    return () => { socket.off('newNotification', onNotification); };
+  }, [employeeId, show]);
 
   return (
     <div className="d-flex align-items-center cursor-pointer">
-      <div onClick={handleOpen} className="position-relative">
+      {/* Bell icon with animated badge */}
+      <div onClick={handleOpen} className="position-relative" title="Notifications">
         <KTIcon iconName="notification-on" className="text-muted fs-2qx" />
         {unreadCount > 0 && (
-          <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill text-white" style={{backgroundColor:'#9D4141'}}>
-            {unreadCount}
+          <span
+            className="position-absolute top-0 start-100 translate-middle badge rounded-pill text-white notification-badge-pulse"
+            style={{ backgroundColor: '#9D4141', fontSize: '0.65rem', minWidth: '18px' }}
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </div>
 
+      {/* Side-panel modal */}
       <Modal
         show={show}
         onHide={handleClose}
-        dialogClassName="custom-modal"
-        contentClassName="custom-modal-content"
+        dialogClassName="notification-side-panel"
+        contentClassName="notification-panel-content"
       >
-        <Modal.Header closeButton>
-          <Modal.Title>Notifications</Modal.Title>
+        <Modal.Header closeButton className="border-0 pb-1">
+          <Modal.Title className="fs-5 fw-bold d-flex align-items-center gap-2">
+            <KTIcon iconName="notification-on" className="text-primary fs-3" />
+            Notifications
+            {unreadCount > 0 && (
+              <span className="badge rounded-pill text-white ms-1" style={{ backgroundColor: '#9D4141', fontSize: '0.7rem' }}>
+                {unreadCount}
+              </span>
+            )}
+          </Modal.Title>
         </Modal.Header>
 
-        <Modal.Body className="modal-body-scroll">
+        <Modal.Body className="notification-scroll p-2">
           {notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <div
-                key={notification.id}
-                onClick={() => handleNavigation(notification.path)}
-                className="d-flex justify-content-between align-items-center  p-2 mb-2  cursor-pointer"
-              >
-                <div className="d-flex align-items-center">
-                  <CircleNotificationsIcon
-                    className="text-muted me-2"
-                    style={{ fontSize: "3rem" }}
-                  />
+            notifications.map((n) => {
+              const { bg, text } = getNotificationColors(n.status);
+              const borderColor = getNotificationBorderColor(n.status);
+              const icon = getNotificationIcon(n.status);
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => handleNavigation(n.path)}
+                  className="d-flex align-items-start gap-3 p-3 mb-2 rounded-3 cursor-pointer notification-item"
+                  style={{
+                    background: bg,
+                    borderLeft: `4px solid ${borderColor}`,
+                    transition: 'box-shadow 0.15s',
+                  }}
+                >
+                  {/* Type icon */}
+                  <span
+                    className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      background: borderColor + '20',
+                      fontSize: '1.35rem',
+                    }}
+                  >
+                    {icon}
+                  </span>
 
-                  <div>
-                    <p className="mb-0  medium">{notification.message}</p>
-
-                    <p className="mb-0 text-muted small">
-                      {formatNotificationDate(notification.createdAt)}
+                  <div className="flex-grow-1 overflow-hidden">
+                    <p className="mb-0 fw-semibold small text-truncate" style={{ color: text }}>
+                      {n.title}
+                    </p>
+                    <p className="mb-1 text-muted" style={{ fontSize: '0.78rem', lineHeight: 1.4 }}>
+                      {n.message}
+                    </p>
+                    <p className="mb-0 text-muted" style={{ fontSize: '0.72rem' }}>
+                      {formatNotificationDate(n.createdAt)}
                     </p>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
-            <p className="text-center text-muted">No notifications available</p>
+            <div className="d-flex flex-column align-items-center justify-content-center py-5 text-muted">
+              <KTIcon iconName="notification" className="fs-2tx mb-3 opacity-25" />
+              <p className="mb-0 small">You're all caught up!</p>
+            </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button className="btn btn-primary" onClick={handleClose}>
-            <Link to={"employees/notifications"} className="text-white">
+
+        <Modal.Footer className="border-0 pt-1">
+          <Button variant="primary" size="sm" className="w-100" onClick={handleClose}>
+            <Link to="employees/notifications" className="text-white text-decoration-none">
               View all notifications
             </Link>
           </Button>
         </Modal.Footer>
       </Modal>
 
-      <style>
-        {`
-        /* Modal Styling */
-        .custom-modal {
+      <style>{`
+        /* Pulse animation on badge */
+        @keyframes notif-pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(157,65,65,.6); }
+          70%  { box-shadow: 0 0 0 6px rgba(157,65,65,0); }
+          100% { box-shadow: 0 0 0 0 rgba(157,65,65,0); }
+        }
+        .notification-badge-pulse { animation: notif-pulse 1.8s infinite; }
+
+        /* Side-panel positioning */
+        .notification-side-panel {
           position: fixed;
-          top: 70px;
-          right: 20px;
-          width: 400px;
-          height: calc(100vh - 90px);
+          top: 68px;
+          right: 18px;
+          width: 380px;
           margin: 0;
-         
+          height: calc(100vh - 88px);
           z-index: 1050;
         }
-  
-        .custom-modal-content {
+        .notification-panel-content {
           height: 100%;
-     
+          border-radius: 14px;
+          box-shadow: 0 8px 32px rgba(0,0,0,.14);
+          display: flex;
+          flex-direction: column;
+        }
+        .notification-scroll {
+          flex: 1;
+          overflow-y: auto;
+          max-height: calc(100vh - 200px);
+        }
+        .notification-scroll::-webkit-scrollbar { width: 5px; }
+        .notification-scroll::-webkit-scrollbar-thumb {
+          background: var(--bs-primary);
           border-radius: 10px;
         }
-  
-        .custom-modal-content .modal-body-scroll {
-          max-height: calc(100vh - 180px);
-          min-height: 300px;
-          overflow-y: scroll !important;
-          padding: 5px;
-        }
-  
-        .custom-modal-content .modal-body-scroll::-webkit-scrollbar {
-          width: 12px;
-          display: block;
-        }
-  
-        .custom-modal-content .modal-body-scroll::-webkit-scrollbar-thumb {
-          background: var(--bs-primary); 
-          border-radius: 10px;
-        }
-  
-        .custom-modal-content .modal-body-scroll::-webkit-scrollbar-track {
-          background: #f1f1f1;
-        }
-          
-  
-        /* For Firefox */
-        .custom-modal-content .modal-body-scroll {
-          scrollbar-width: thin;
-          scrollbar-color: var(--bs-primary) #f1f1f1; 
-        }
-  
-      
-        .custom-modal-content .modal-body-scroll::-webkit-scrollbar-button {
-          display: none;
-        }
-  
-        .custom-modal.show {
-          transform: translateX(0);
-          opacity: 1;
-        }
-  
-        .custom-modal.hide {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-  
-      
-        @media (max-width: 768px) {
-          .custom-modal {
-            left: 20px;
-            right: 20px;
-            width: calc(100% - 40px); 
-            height: calc(100vh - 60px); 
-            top: 50px; 
-          }
-        }
-  
-        @media (max-width: 576px) {
-          .custom-modal {
-            left: 10px;
-            right: 10px;
-            width: calc(100% - 20px);
-            height: calc(100vh - 250px);
-            top: 40px;
-          }
+        .notification-item:hover {
+          box-shadow: 0 2px 10px rgba(0,0,0,.09);
+          cursor: pointer;
         }
 
-      `}
-      </style>
+        @media (max-width: 768px) {
+          .notification-side-panel {
+            left: 10px; right: 10px; width: calc(100% - 20px);
+            height: calc(100vh - 60px); top: 50px;
+          }
+        }
+      `}</style>
     </div>
   );
 };

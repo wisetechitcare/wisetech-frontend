@@ -39,6 +39,7 @@ import {
 import { Close, Add, Delete } from "@mui/icons-material";
 import { Dialog, Box, IconButton, Typography, Grid } from "@mui/material";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import { useEventBus } from "@hooks/useEventBus";
 import Loader from "@app/modules/common/utils/Loader";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import { fetchSubCompanies } from "@services/company";
@@ -671,6 +672,14 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
     }
   }, [editingProjectId, showBlankProjectForm, dataLoaded, loadProjectData]);
 
+  // Refresh project data in realtime when the linked lead syncs its "Assigned To"
+  // (or any other field) into this project while the Edit Project form is open.
+  useEventBus(EVENT_KEYS.projectUpdated, () => {
+    if (showBlankProjectForm && editingProjectId) {
+      loadProjectData();
+    }
+  });
+
   // Load states for lead data addresses (separate from initialValues calculation)
   useEffect(() => {
     const loadStatesForLeadData = async () => {
@@ -781,7 +790,6 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
     });
   };
 
-// <-- Replace the existing getInitialCompanies function with this block
 // Get initial addresses for edit mode
 const getInitialAddresses = useCallback(() => {
   const mappings = projectData?.addresses || [];
@@ -826,10 +834,8 @@ const getInitialAddresses = useCallback(() => {
 // Get initial companies for main client details section
 const getInitialCompanies = useCallback(() => {
   const mappings = projectData?.projectCompanyMappings || [];
-  // Filter for main client companies (not relation companies)
-  const clientCompanies = mappings.filter((m: any) => 
-    m.serviceId || (!m.companyTypeId && !m.refferingSubCompanyId)
-  );
+  // TEAM DETAILS rows never have refferingSubCompanyId; relation companies always do.
+  const clientCompanies = mappings.filter((m: any) => !m.refferingSubCompanyId);
   
   if (clientCompanies.length > 0) {
     return clientCompanies.map((m: any) => ({

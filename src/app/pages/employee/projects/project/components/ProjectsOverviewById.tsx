@@ -478,7 +478,7 @@ const ProjectOverviewById = ({
                                 style={{ width: "20px", height: "20px" }}
                               />
                               <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${primaryAddress.latitude},${primaryAddress.longitude}`}
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${primaryAddress.latitude},${primaryAddress.longitude}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{

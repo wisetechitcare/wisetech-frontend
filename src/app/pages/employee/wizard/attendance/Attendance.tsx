@@ -1,7 +1,7 @@
 import Calendar from 'react-calendar';
 import dayjs from 'dayjs';
 // import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
-import { APIProvider,Map,AdvancedMarker,useAdvancedMarkerRef,Pin } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useAdvancedMarkerRef, Pin } from '@vis.gl/react-google-maps';
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialTable from 'app/modules/common/components/MaterialTable';
 import { useThemeMode } from '@metronic/partials';
@@ -138,21 +138,21 @@ function Attendance() {
     useEffect(() => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position: any) => {
-                    const { coords: { latitude, longitude } } = position;
-                    setLocation({ latitude: Number(latitude.toFixed(7)), longitude: Number(longitude.toFixed(7)) });
-                    setLocationPermission(true);
-                    fetch(`${OPEN_CAGE_API}/geocode/v1/json?q=${latitude}+${longitude}&key=${OPEN_CAGE_API_KEY}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.results && data.results.length > 0) {
-                                setAddress(data.results[0].formatted);
-                                // console.log("addresss",data.results[0].formatted);
-                            } else {
-                                setAddress('Address not found');
-                            }
-                        })
-                        .catch(() => setAddress('Failed to fetch address'));
-                },
+                const { coords: { latitude, longitude } } = position;
+                setLocation({ latitude: Number(latitude.toFixed(7)), longitude: Number(longitude.toFixed(7)) });
+                setLocationPermission(true);
+                fetch(`${OPEN_CAGE_API}/geocode/v1/json?q=${latitude}+${longitude}&key=${OPEN_CAGE_API_KEY}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.results && data.results.length > 0) {
+                            setAddress(data.results[0].formatted);
+                            // console.log("addresss",data.results[0].formatted);
+                        } else {
+                            setAddress('Address not found');
+                        }
+                    })
+                    .catch(() => setAddress('Failed to fetch address'));
+            },
                 (error: any) => {
                     setLocationPermission(false);
                     errorConfirmation("Location access denied. Please enable location services to mark attendance.");
@@ -287,7 +287,7 @@ function Attendance() {
             // }
 
             const matchedDate = tableData.find((el) => el.date === formattedDate);
-            
+
             if (matchedDate) {
                 switch (matchedDate.status) {
                     case 'Present':
@@ -370,11 +370,11 @@ function Attendance() {
                     </MapContainer> */}
                     <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
                         <Map
-                             style={{width: '100%', height: '256px'}}
-                             // defaultCenter={{lat: 22.54992, lng: 0}}
-                             defaultZoom={
-                                 location?.latitude ? 20 : 5
-                             }
+                            style={{ width: '100%', height: '256px' }}
+                            // defaultCenter={{lat: 22.54992, lng: 0}}
+                            defaultZoom={
+                                location?.latitude ? 20 : 5
+                            }
                             defaultCenter={{
                                 lat: location?.latitude || 20.5937,
                                 lng: location?.longitude || 78.9629
@@ -407,9 +407,9 @@ function Attendance() {
             }
             <MaterialTable
                 columns={columns}
-                data={tableData} 
+                data={tableData}
                 tableName='Attendance'
-                employeeId={employeeId}/>
+                employeeId={employeeId} />
         </>
     );
 }

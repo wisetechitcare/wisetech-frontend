@@ -19,13 +19,13 @@ L.Icon.Default.mergeOptions({
 // This component handles map center updates when position changes
 function MapUpdater({ position }: { position: any }) {
   const map = useMap();
-  
+
   useEffect(() => {
     if (position && position.latitude && position.longitude) {
       map.setView([position.latitude, position.longitude], 16);
     }
   }, [map, position]);
-  
+
   return null;
 }
 
@@ -39,15 +39,15 @@ function GoogleMaps(): JSX.Element {
   const mapRef = useRef(null);
 
   // Check if position is valid
-  const isValidPosition = position && 
-    typeof position.latitude === 'number' && 
+  const isValidPosition = position &&
+    typeof position.latitude === 'number' &&
     typeof position.longitude === 'number' &&
-    !isNaN(position.latitude) && 
+    !isNaN(position.latitude) &&
     !isNaN(position.longitude);
 
   // Default center for initial map load
-  const defaultCenter = isValidPosition 
-    ? [position.latitude, position.longitude] 
+  const defaultCenter = isValidPosition
+    ? [position.latitude, position.longitude]
     : [0, 0];  // Fallback coordinates if position is invalid
 
   const handleMarkerClick = useCallback(() => {
@@ -76,8 +76,8 @@ function GoogleMaps(): JSX.Element {
             attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <Marker 
-            position={[position.latitude, position.longitude]} 
+          <Marker
+            position={[position.latitude, position.longitude]}
             eventHandlers={{ click: handleMarkerClick }}
           >
             {infoWindowShown && (

@@ -61,15 +61,22 @@ const SearchResultsPage: React.FC = () => {
             </div>
             <div className="card-toolbar">
               <div className="d-flex flex-wrap gap-2">
-                {['All', 'Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task'].map((type) => (
-                  <button
-                    key={type}
-                    className={`btn btn-sm ${activeTab === type ? 'btn-primary' : 'btn-light-primary'}`}
-                    onClick={() => setActiveTab(type)}
-                  >
-                    {type === 'Navigation' ? 'Pages' : type === 'All' ? 'All' : type}s ({type === 'All' ? allResults.length : allResults.filter(r => r.type === type).length})
-                  </button>
-                ))}
+                {['All', 'Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task'].map((type) => {
+                  const label = type === 'All' ? 'All' : 
+                               type === 'Navigation' ? 'Pages' : 
+                               type === 'Company' ? 'Companies' : 
+                               `${type}s`;
+                  const count = type === 'All' ? allResults.length : allResults.filter(r => r.type === type).length;
+                  return (
+                    <button
+                      key={type}
+                      className={`btn btn-sm ${activeTab === type ? 'btn-primary' : 'btn-light-primary'}`}
+                      onClick={() => setActiveTab(type)}
+                    >
+                      {label} ({count})
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

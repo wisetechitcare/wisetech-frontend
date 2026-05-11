@@ -34,6 +34,7 @@ const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
 const AttendanceRequestLimitReset = lazy(() => import("./views/overview/AttendanceRequestLimitReset"));
 const LeaveManagementRequests = lazy(() => import("./views/overview/LeaveManagementRequests"));
 const HRPendingLeaveRequests = lazy(() => import("./views/overview/HRPendingLeaveRequests"));
+const HRPendingAttendanceRequests = lazy(() => import("./views/overview/HRPendingAttendanceRequests"));
 
 interface LeaveRequestResponse {
   id: string;
@@ -304,6 +305,14 @@ function OverviewView() {
           <OpenAttendanceRequests />
         </Suspense>
       </LazySection>
+
+      {userIsHROrAdmin && (
+        <LazySection minHeight="400px" rootMargin="300px">
+          <Suspense fallback={<Loader />}>
+            <HRPendingAttendanceRequests />
+          </Suspense>
+        </LazySection>
+      )}
 
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
