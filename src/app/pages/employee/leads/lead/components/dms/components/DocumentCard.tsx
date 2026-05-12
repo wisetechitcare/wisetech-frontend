@@ -381,18 +381,20 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
           </div>
         )}
 
-        {/* Status Badge */}
-        <div
-          style={{
-            minHeight: '30px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '10px',
-          }}
-        >
-          <DocumentStatusBadge status={file.status} />
-        </div>
+        {/* Status Badge - Hidden for Revision/Temporary to reduce clutter */}
+        {file.status !== 'revision' && file.status !== 'temporary' && (
+          <div
+            style={{
+              minHeight: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '10px',
+            }}
+          >
+            <DocumentStatusBadge status={file.status} />
+          </div>
+        )}
 
         {/* Revision / Temp Badge */}
         <div
@@ -551,17 +553,17 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
               {file.name}
             </div>
           )}
-          {viewMode !== 'compact' && (
+          {viewMode !== 'compact' && file.exportType && file.exportType !== 'revision' && file.exportType !== 'temporary' && (
             <div style={{ marginTop: '2px' }}>
               <span style={{ 
                 fontSize: '10px', 
                 fontWeight: 700, 
-                color: file.exportType === 'revision' ? '#265c8b' : '#f59e0b',
+                color: '#265c8b',
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
                 fontFamily: 'Inter'
               }}>
-                {file.exportType === 'revision' ? 'Revision' : (file.metadata.templateUsed || 'Temporary')}
+                {file.metadata.templateUsed || file.exportType}
               </span>
             </div>
           )}

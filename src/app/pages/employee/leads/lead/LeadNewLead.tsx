@@ -1098,75 +1098,35 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   return (
     <>
-      <Box>
-        {/* ── Header ── */}
-        <div className="d-flex align-items-center justify-content-between pt-5 mt-1">
-          <div
-            style={{
-              fontFamily: "Barlow",
-              fontSize: "24px",
-              fontWeight: "600",
-            }}
-          >
-            Leads
+      <Box sx={{ p: 4, background: '#fff' }}>
+        <div className="d-flex align-items-center justify-content-between mb-8">
+          <div>
+            <h1 style={{ fontFamily: "Barlow", fontSize: "28px", fontWeight: 700, margin: 0, color: '#1e293b' }}>
+              Leads
+            </h1>
+            <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>Overview and management of inquiries</p>
           </div>
+          
           {!hideNewLeadButton && (
             <div className="d-flex align-items-center gap-3">
-              <Button
-                variant="contained"
-                onClick={handleOpenModal}
-                sx={{
-                  backgroundColor: "#9D4141",
-                  "&:hover": { backgroundColor: "#7e3434" },
-                  textTransform: "none",
-                  px: 3,
-                  py: 1,
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
-              >
-                Old Lead
-              </Button>
-              {/* Bulk Import button from file 2 */}
-              <Button
-                variant="contained"
+              <button 
+                className="btn btn-sm btn-light-primary fw-bold"
                 onClick={() => setShowBulkImport(true)}
-                sx={{
-                  backgroundColor: "#1B84FF",
-                  "&:hover": { backgroundColor: "#1565c0" },
-                  textTransform: "none",
-                  px: 3,
-                  py: 1,
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  color: "white",
-                }}
               >
                 Bulk Import
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleOpenModal}
-                sx={{
-                  backgroundColor: "#9D4141",
-                  "&:hover": { backgroundColor: "#7e3434" },
-                  textTransform: "none",
-                  px: 3,
-                  py: 1,
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                }}
+              </button>
+              <button 
+                className="btn btn-sm btn-primary fw-bold"
+                onClick={() => setFormValues({ leadTemplateId: "blank" })}
+                style={{ backgroundColor: "#9D4141", border: "none" }}
               >
-                New Lead
-              </Button>
+                + New Lead
+              </button>
             </div>
           )}
         </div>
-
-        {/* ── Filter bar ── */}
+        
+       
         {!hideNewLeadButton && (
           <div style={{ marginTop: "16px", marginBottom: "8px" }}>
             {/* ── Row 1: toggle (or mobile select) | nav / custom pickers ── */}

@@ -17,18 +17,20 @@ import GlobalFilesView from "./GlobalFilesView";
 const LeadsMain = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [rawLeadsData, setRawLeadsData] = useState<any>([]);
-  
 
   const dispatch = useDispatch<AppDispatch>();
   useEffect(() => {
-    async function fetchLeadData(){
-      const { data: { data: { leads } } } = await getAllLeads();
-              // console.log("AllLeadsData:: ",leads);
-              setRawLeadsData(leads);
+    async function fetchLeadData() {
+      const {
+        data: {
+          data: { leads },
+        },
+      } = await getAllLeads();
+      // console.log("AllLeadsData:: ",leads);
+      setRawLeadsData(leads);
     }
     fetchLeadData();
-  }, [])
-  
+  }, []);
 
   useEffect(() => {
     // Initialize chart settings when app loads
@@ -52,7 +54,7 @@ const LeadsMain = () => {
           ? leadsIcons.leadsIcon.active
           : leadsIcons.leadsIcon.default,
     },
-     {
+    {
       title: "Files",
       component: <GlobalFilesView />,
       icon:
@@ -68,29 +70,28 @@ const LeadsMain = () => {
           ? leadsIcons.leadsConfigIcon.active
           : leadsIcons.leadsConfigIcon.default,
     },
-   
   ];
   const LeadBreadcrumbs = [
     {
-      title: 'lead',
-      path: '/lead',
+      title: "lead",
+      path: "/lead",
       isSeparator: false,
       isActive: false,
     },
     {
-      title: '',
-      path: '',
+      title: "",
+      path: "",
       isSeparator: true,
       isActive: false,
     },
   ];
   return (
-    <div >
+    <div>
       <PageTitle breadcrumbs={LeadBreadcrumbs}>
         {tabItems[activeTab].title}
       </PageTitle>
 
-     <MaterialHeaderTab
+      <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
         activeTab={activeTab}

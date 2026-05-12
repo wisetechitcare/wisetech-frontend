@@ -214,7 +214,7 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
             <Row label="Temp Version" value={file.tempNumber != null ? `TEMP_${String(file.tempNumber).padStart(2, '0')}` : '-'} />
           )}
           <Row label="Template" value={file.metadata.templateUsed} />
-          <Row label="Exported By" value={file.metadata.exportedBy} />
+          {/* <Row label="Exported By" value={file.metadata.exportedBy} /> */}
           <Row label="Pages" value={String(file.metadata.totalPages)} />
           <Row label="Size" value={formatBytes(file.size)} />
         </Section>

@@ -25,10 +25,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
   const sortOptions: { field: SortField; label: string }[] = [
     { field: 'name', label: 'Name' },
     { field: 'date', label: 'Date Modified' },
-    { field: 'size', label: 'File Size' },
     { field: 'type', label: 'File Type' },
-    { field: 'status', label: 'Status' },
-    { field: 'revision', label: 'Revision' },
   ];
 
   const hasSelection = state.selectedFiles.length > 0;
@@ -66,7 +63,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
   const handleBulkDownload = async () => {
     const selectedFileData = state.files
       .filter(f => state.selectedFiles.includes(f.id) && f.s3Url)
-      .map(f => ({ url: f.s3Url!, name: f.name }));
+      .map(f => ({ url: f.s3Url!, name: f.name, metadata: f.metadata }));
     
     if (selectedFileData.length === 0) {
       errorConfirmation('No files with valid URLs selected for download.');
