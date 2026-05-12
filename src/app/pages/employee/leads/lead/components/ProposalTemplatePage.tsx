@@ -10,7 +10,7 @@ import {
 } from "@services/leads";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
-import { showError } from "@utils/modal";
+import { showError, showSuccess } from "@utils/modal";
 import dayjs from "dayjs";
 import { ExportCenterModal } from "./dms/components/ExportCenterModal";
 import { useAuth } from "../../../../../modules/auth";
@@ -953,6 +953,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
       if (destination === "cloud" || destination === "both") {
         window.dispatchEvent(new CustomEvent("dms-refresh"));
+        showSuccess("Export Successful", "The document has been successfully generated and saved to the Cloud (DMS).");
+      } else {
+        showSuccess("Export Successful", "The document has been successfully generated and downloaded.");
       }
     } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);
@@ -1324,7 +1327,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
           });
         })()}
         onExport={async (config) => {
-          await handleExport("docx", config);
+          await handleExport((config.format as "docx" | "pdf") || "docx", config);
         }}
       />
     </Modal>

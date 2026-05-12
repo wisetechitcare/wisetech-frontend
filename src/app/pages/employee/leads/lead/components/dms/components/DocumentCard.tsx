@@ -216,10 +216,13 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
         cursor: 'pointer',
         transition: 'all 0.15s ease',
         position: 'relative',
-        overflow: 'visible',
-        minHeight: '280px',
         display: 'flex',
         flexDirection: 'column',
+      }}
+      onClick={onSelect}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onPreview();
       }}
     >
       {/* Checkbox */}
@@ -305,13 +308,13 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 
       {/* Main Content */}
       <div
-        onClick={onPreview}
         style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           height: '100%',
           flex: 1,
+          pointerEvents: 'none', // Allow clicks to pass through to the card container
         }}
       >
         {/* Icon */}
@@ -507,6 +510,11 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
         transition: 'all 0.15s',
         position: 'relative',
       }}
+      onClick={onSelect}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onPreview();
+      }}
     >
       {/* Checkbox */}
       <div
@@ -525,7 +533,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
         {isSelected && <span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>✓</span>}
       </div>
 
-      <div onClick={onPreview} style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0, pointerEvents: 'none' }}>
         <FileIcon type={file.type} exportType={file.exportType} size={viewMode === 'compact' ? 28 : 36} />
 
         <div style={{ flex: 1, minWidth: 0 }}>

@@ -92,160 +92,199 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '8px',
-      padding: '10px 16px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
+      padding: '12px 16px',
       background: 'white',
       borderBottom: '1px solid #f1f5f9',
-      flexWrap: 'wrap',
+      flexWrap: 'nowrap',
       position: 'sticky', top: 0, zIndex: 10,
+      overflowX: 'auto',
     }}>
-
-      {/* Search */}
-      <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '320px' }}>
-        <div style={{
-          position: 'absolute', left: '10px', top: '50%',
-          transform: 'translateY(-50%)', display: 'flex', alignItems: 'center'
-        }}>
-          <KTIcon iconName="magnifier" className="fs-3 text-muted" />
-        </div>
-        <input
-          value={state.searchFilters.query}
-          onChange={e => dispatch({ type: 'SET_SEARCH_FILTERS', payload: { query: e.target.value } })}
-          placeholder="Search files, tags, notes..."
-          style={{
-            width: '100%', padding: '7px 12px 7px 34px',
-            border: '1px solid #e2e8f0', borderRadius: '8px',
-            fontSize: '13px', outline: 'none',
-            fontFamily: 'Inter', color: '#1e293b',
-            background: '#f8fafc',
-            transition: 'border-color 0.15s',
-          }}
-          onFocus={e => { e.target.style.borderColor = '#9d4141'; e.target.style.background = 'white'; }}
-          onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; }}
-        />
-        {state.searchFilters.query && (
-          <button
-            onClick={() => dispatch({ type: 'SET_SEARCH_FILTERS', payload: { query: '' } })}
+      {/* LEFT GROUP: Search & File Type Filters */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 auto', minWidth: 0 }}>
+        <div style={{ position: 'relative', flex: '0 1 300px', minWidth: '150px' }}>
+          <div style={{
+            position: 'absolute', left: '12px', top: '50%',
+            transform: 'translateY(-50%)', display: 'flex', alignItems: 'center'
+          }}>
+            <KTIcon iconName="magnifier" className="fs-3 text-muted" />
+          </div>
+          <input
+            value={state.searchFilters.query}
+            onChange={e => dispatch({ type: 'SET_SEARCH_FILTERS', payload: { query: e.target.value } })}
+            placeholder="Search files..."
             style={{
-              position: 'absolute', right: '8px', top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'none', border: 'none',
-              cursor: 'pointer', display: 'flex', alignItems: 'center'
+              width: '100%', padding: '8px 12px 8px 38px',
+              border: '1px solid #e2e8f0', borderRadius: '10px',
+              fontSize: '13px', outline: 'none',
+              fontFamily: 'Inter', color: '#1e293b',
+              background: '#f8fafc',
+              transition: 'all 0.2s ease',
             }}
-          >
-            <KTIcon iconName="cross" className="fs-3 text-muted" />
-          </button>
-        )}
-      </div>
-
-      <div style={{ flex: 1 }} />
-
-      {/* Bulk actions (visible when files selected) */}
-      <AnimatePresence>
-        {hasSelection && (
-          <motion.div
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            transition={{ duration: 0.15 }}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <span style={{
-              fontSize: '12px', fontWeight: 600, color: '#9d4141',
-              background: 'rgba(157,65,65,0.08)', padding: '4px 10px',
-              borderRadius: '6px', fontFamily: 'Inter',
-            }}>
-              {state.selectedFiles.length} selected
-            </span>
-            <ToolbarButton icon="cloud-download" label="Download" onClick={handleBulkDownload} />
-            <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Select all toggle */}
-      <ToolbarButton 
-        icon={state.selectedFiles.length > 0 && state.selectedFiles.length === state.files.filter(f => !state.currentFolderId || f.folderId === state.currentFolderId).length ? "cross-circle" : "check-square"} 
-        label={state.selectedFiles.length > 0 && state.selectedFiles.length === state.files.filter(f => !state.currentFolderId || f.folderId === state.currentFolderId).length ? "Unselect All" : "Select All"} 
-        onClick={handleSelectAll} 
-      />
-
-      {/* Sort */}
-      <div style={{ position: 'relative' }}>
-        <ToolbarButton
-          icon="filter"
-          label={`Sort: ${sortOptions.find(s => s.field === state.sortField)?.label || 'Date'}`}
-          onClick={() => setShowSortMenu(!showSortMenu)}
-        />
-        <AnimatePresence>
-          {showSortMenu && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
+            onFocus={e => { e.target.style.borderColor = '#9d4141'; e.target.style.background = 'white'; e.target.style.boxShadow = '0 0 0 3px rgba(157,65,65,0.1)'; }}
+            onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; e.target.style.boxShadow = 'none'; }}
+          />
+          {state.searchFilters.query && (
+            <button
+              onClick={() => dispatch({ type: 'SET_SEARCH_FILTERS', payload: { query: '' } })}
               style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: '4px',
-                background: 'white', borderRadius: '10px',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-                border: '1px solid #e2e8f0', minWidth: '160px', overflow: 'hidden',
-                zIndex: 100,
+                position: 'absolute', right: '10px', top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none', border: 'none',
+                cursor: 'pointer', display: 'flex', alignItems: 'center'
               }}
             >
-              {sortOptions.map(opt => (
-                <button
-                  key={opt.field}
-                  onClick={() => {
-                    const newOrder: SortOrder = state.sortField === opt.field && state.sortOrder === 'asc' ? 'desc' : 'asc';
-                    dispatch({ type: 'SET_SORT', payload: { field: opt.field, order: newOrder } });
-                    setShowSortMenu(false);
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    width: '100%', padding: '8px 14px',
-                    background: state.sortField === opt.field ? 'rgba(157,65,65,0.06)' : 'none',
-                    border: 'none', cursor: 'pointer',
-                    fontSize: '13px',
-                    color: state.sortField === opt.field ? '#9d4141' : '#374151',
-                    fontFamily: 'Inter', fontWeight: state.sortField === opt.field ? 600 : 400,
-                  }}
-                >
-                  {opt.label}
-                  {state.sortField === opt.field && (
-                    <span>{state.sortOrder === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </button>
-              ))}
+              <KTIcon iconName="cross" className="fs-3 text-muted" />
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '10px', flexShrink: 0 }}>
+          {['pdf', 'docx'].map(type => {
+            const isActive = state.searchFilters.fileTypes.includes(type as any);
+            return (
+              <button
+                key={type}
+                onClick={() => {
+                  const newTypes = isActive
+                    ? state.searchFilters.fileTypes.filter(t => t !== type)
+                    : [...state.searchFilters.fileTypes, type as any];
+                  dispatch({ type: 'SET_SEARCH_FILTERS', payload: { fileTypes: newTypes } });
+                }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: isActive ? 'white' : 'transparent',
+                  color: isActive ? '#9d4141' : '#64748b',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <KTIcon 
+                  iconName={type === 'pdf' ? 'pdf' : 'word'} 
+                  className={`fs-5 ${isActive ? 'text-primary' : 'text-muted'}`} 
+                />
+                {type}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* RIGHT GROUP: Actions, Sort, View Modes */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        {/* Bulk actions */}
+        <AnimatePresence>
+          {hasSelection && (
+            <motion.div
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.15 }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRight: '1px solid #e2e8f0', paddingRight: '10px', marginRight: '2px' }}
+            >
+              <span style={{
+                fontSize: '12px', fontWeight: 700, color: '#9d4141',
+                background: 'rgba(157,65,65,0.08)', padding: '5px 12px',
+                borderRadius: '8px', fontFamily: 'Inter',
+              }}>
+                {state.selectedFiles.length} selected
+              </span>
+              <ToolbarButton icon="cloud-download" label="Download" onClick={handleBulkDownload} />
+              <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* View modes */}
-      <div style={{
-        display: 'flex', gap: '2px',
-        background: '#f1f5f9', borderRadius: '8px', padding: '2px',
-      }}>
-        {views.map(view => (
-          <button
-            key={view.mode}
-            title={view.label}
-            onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: view.mode })}
-            style={{
-              background: state.viewMode === view.mode ? 'white' : 'none',
-              border: 'none', borderRadius: '6px',
-              padding: '4px 8px', cursor: 'pointer',
-              fontSize: '14px', color: state.viewMode === view.mode ? '#9d4141' : '#64748b',
-              boxShadow: state.viewMode === view.mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.15s',
-            }}
-          >
-            <KTIcon 
-              iconName={view.icon} 
-              className={`fs-3 ${state.viewMode === view.mode ? 'text-primary' : 'text-muted'}`} 
-            />
-          </button>
-        ))}
+        <ToolbarButton 
+          icon={state.selectedFiles.length > 0 && state.selectedFiles.length === state.files.filter(f => !state.currentFolderId || f.folderId === state.currentFolderId).length ? "cross-circle" : "check-square"} 
+          label={state.selectedFiles.length > 0 && state.selectedFiles.length === state.files.filter(f => !state.currentFolderId || f.folderId === state.currentFolderId).length ? "Unselect All" : "Select All"} 
+          onClick={handleSelectAll} 
+        />
+
+        <div style={{ position: 'relative' }}>
+          <ToolbarButton
+            icon="filter"
+            label={sortOptions.find(s => s.field === state.sortField)?.label || 'Date'}
+            onClick={() => setShowSortMenu(!showSortMenu)}
+          />
+          <AnimatePresence>
+            {showSortMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: '8px',
+                  background: 'white', borderRadius: '12px',
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                  border: '1px solid #e2e8f0', minWidth: '180px', overflow: 'hidden',
+                  zIndex: 100,
+                }}
+              >
+                {sortOptions.map(opt => (
+                  <button
+                    key={opt.field}
+                    onClick={() => {
+                      const newOrder: SortOrder = state.sortField === opt.field && state.sortOrder === 'asc' ? 'desc' : 'asc';
+                      dispatch({ type: 'SET_SORT', payload: { field: opt.field, order: newOrder } });
+                      setShowSortMenu(false);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      width: '100%', padding: '10px 16px',
+                      background: state.sortField === opt.field ? 'rgba(157,65,65,0.06)' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      fontSize: '13px',
+                      color: state.sortField === opt.field ? '#9d4141' : '#374151',
+                      fontFamily: 'Inter', fontWeight: state.sortField === opt.field ? 600 : 400,
+                    }}
+                  >
+                    {opt.label}
+                    {state.sortField === opt.field && (
+                      <span className="ms-2">{state.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div style={{
+          display: 'flex', gap: '2px',
+          background: '#f1f5f9', borderRadius: '10px', padding: '3px',
+        }}>
+          {views.map(view => (
+            <button
+              key={view.mode}
+              title={view.label}
+              onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: view.mode })}
+              style={{
+                background: state.viewMode === view.mode ? 'white' : 'none',
+                border: 'none', borderRadius: '8px',
+                padding: '5px 10px', cursor: 'pointer',
+                fontSize: '14px', color: state.viewMode === view.mode ? '#9d4141' : '#64748b',
+                boxShadow: state.viewMode === view.mode ? '0 2px 5px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <KTIcon 
+                iconName={view.icon} 
+                className={`fs-3 ${state.viewMode === view.mode ? 'text-primary' : 'text-muted'}`} 
+              />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ import type {
 } from "../types/dms.types";
 import { KTIcon } from "@metronic/helpers";
 
+type ExportFormat = "docx" | "pdf";
+
 interface ExportCenterModalProps {
   show: boolean;
   onHide: () => void;
@@ -32,6 +34,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
 }) => {
   const { state, getLatestTempNumber } = useDMS();
 
+  const [format, setFormat] = useState<ExportFormat | null>(null);
   const [exportType, setExportType] = useState<ExportType>("revision");
   const [destination, setDestination] = useState<ExportDestination>("cloud");
   const [fileName, setFileName] = useState("");
@@ -42,6 +45,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
 
   useEffect(() => {
     if (show) {
+      setFormat(null);
       setExportType(isDataModified ? "temporary" : "revision");
     }
   }, [show, isDataModified]);
@@ -63,12 +67,13 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
         exportType,
         leadData?.name || leadData?.projectName,
       );
-      const finalName = name;
-      setFileName(finalName);
+      setFileName(name);
     }
   }, [show, exportType, leadData, currentLeadRev, tempNumber]);
 
   const handleStartExport = async (force: boolean = false) => {
+    if (!format) return;
+
     if (!force) {
       const existingFile = state.files.find(
         (f) =>
@@ -90,15 +95,22 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
 
     setShowConfirmReplace(false);
     setIsExporting(true);
+
     const allSteps: ExportStep[] = [
       { id: "1", label: "Resolving placeholders...", status: "running" },
       { id: "2", label: "Injecting metadata...", status: "pending" },
-      { id: "3", label: "Generating document...", status: "pending" },
+      {
+        id: "3",
+        label:
+          format === "pdf"
+            ? "Generating DOCX and converting to PDF..."
+            : "Generating document...",
+        status: "pending",
+      },
       { id: "4", label: "Uploading to AWS S3...", status: "pending" },
       { id: "5", label: "Synchronizing with database...", status: "pending" },
     ];
 
-    // Show cloud steps only if destination is Cloud or Both
     const steps =
       destination === "device"
         ? allSteps.filter((s) => !["4", "5"].includes(s.id))
@@ -114,11 +126,14 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
 
     try {
       await onExport({
+        format,
         exportType,
         destination,
-        fileName,
+        fileName: format === "pdf"
+          ? fileName.replace(/\.docx$/, ".pdf")
+          : fileName.replace(/\.pdf$/, ".docx"),
         revisionNumber: currentLeadRev,
-        tempNumber: tempNumber,
+        tempNumber,
       });
 
       for (let i = 0; i < steps.length; i++) {
@@ -182,16 +197,18 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
       onClick={onHide}
     >
       <motion.div
-        initial={{ scale: 0.9, y: 40, opacity: 0 }}
+        initial={{ scale: 0.92, y: 40, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.9, y: 40, opacity: 0 }}
+        exit={{ scale: 0.92, y: 40, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "white",
-          borderRadius: "32px",
+          borderRadius: "28px",
           width: "680px",
           maxWidth: "100%",
-          boxShadow: "0 50px 100px -20px rgba(0,0,0,0.5)",
+          boxShadow:
+            "0 50px 100px -20px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.05)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -199,31 +216,35 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
           position: "relative",
         }}
       >
+        {/* Replace Confirmation Overlay */}
         <AnimatePresence>
           {showConfirmReplace && (
             <motion.div
-              initial={{ opacity: 0, scale: 1.1 }}
+              initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
               style={{
                 position: "absolute",
                 inset: 0,
                 background: "rgba(255,255,255,0.98)",
+                backdropFilter: "blur(8px)",
                 zIndex: 100,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 padding: "40px",
                 textAlign: "center",
+                borderRadius: "28px",
               }}
             >
-              <div style={{ maxWidth: "420px" }}>
+              <div style={{ maxWidth: "380px" }}>
                 <div
                   style={{
-                    width: "80px",
-                    height: "80px",
+                    width: "72px",
+                    height: "72px",
                     borderRadius: "50%",
-                    background: "rgba(239, 68, 68, 0.1)",
+                    background: "rgba(239, 68, 68, 0.08)",
+                    border: "2px solid rgba(239,68,68,0.15)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -232,42 +253,43 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                 >
                   <KTIcon
                     iconName="information-5"
-                    className="fs-3x text-danger"
+                    className="fs-2x text-danger"
                   />
                 </div>
                 <h3
                   style={{
-                    fontSize: "24px",
+                    fontSize: "22px",
                     fontWeight: 800,
                     color: "#1e293b",
-                    marginBottom: "16px",
+                    marginBottom: "12px",
                     fontFamily: "Barlow",
                   }}
                 >
-                  Revision {String(currentLeadRev).padStart(2, "0")} Exists
+                  File Already Exists
                 </h3>
                 <p
                   style={{
                     color: "#64748b",
-                    marginBottom: "40px",
+                    marginBottom: "36px",
                     lineHeight: 1.6,
-                    fontSize: "15px",
+                    fontSize: "14px",
                   }}
                 >
                   A file with this revision already exists. Do you want to
                   replace it?
                 </p>
-                <div style={{ display: "flex", gap: "16px" }}>
+                <div style={{ display: "flex", gap: "12px" }}>
                   <button
                     onClick={() => setShowConfirmReplace(false)}
                     style={{
                       flex: 1,
-                      padding: "16px",
-                      borderRadius: "16px",
-                      border: "1px solid #e2e8f0",
+                      padding: "14px",
+                      borderRadius: "14px",
+                      border: "1.5px solid #e2e8f0",
                       background: "white",
-                      color: "#64748b",
+                      color: "#475569",
                       fontWeight: 700,
+                      fontSize: "14px",
                       cursor: "pointer",
                       transition: "all 0.2s",
                     }}
@@ -280,19 +302,19 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                   >
                     No
                   </button>
-
                   <button
                     onClick={() => handleStartExport(true)}
                     style={{
                       flex: 1,
-                      padding: "16px",
-                      borderRadius: "16px",
+                      padding: "14px",
+                      borderRadius: "14px",
                       border: "none",
-                      background: "#9d4141",
+                      background: "linear-gradient(135deg, #ef4444, #dc2626)",
                       color: "white",
                       fontWeight: 700,
+                      fontSize: "14px",
                       cursor: "pointer",
-                      boxShadow: "0 10px 25px rgba(157,65,65,0.25)",
+                      boxShadow: "0 8px 20px rgba(239,68,68,0.25)",
                       transition: "all 0.2s",
                     }}
                     onMouseEnter={(e) =>
@@ -310,23 +332,25 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
           )}
         </AnimatePresence>
 
+        {/* Header */}
         <div
           style={{
-            padding: "32px 40px",
+            padding: "28px 36px",
             borderBottom: "1px solid #f1f5f9",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            background: "linear-gradient(90deg, #ffffff 0%, #f9fafb 100%)",
+            background: "linear-gradient(135deg, #ffffff 0%, #f9fafb 100%)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
             <div
               style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "14px",
+                width: "46px",
+                height: "46px",
+                borderRadius: "13px",
                 background: "rgba(157, 65, 65, 0.08)",
+                border: "1px solid rgba(157,65,65,0.12)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -338,23 +362,24 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               <h2
                 style={{
                   margin: 0,
-                  fontSize: "22px",
+                  fontSize: "20px",
                   fontWeight: 800,
                   color: "#1e293b",
                   fontFamily: "Barlow",
+                  lineHeight: 1.2,
                 }}
               >
-                Export Center
+                Export Revision
               </h2>
               <p
                 style={{
-                  margin: "2px 0 0",
+                  margin: "3px 0 0",
                   fontSize: "13px",
-                  color: "#64748b",
+                  color: "#94a3b8",
                   fontWeight: 500,
                 }}
               >
-                Lead-Controlled Revision Workflow
+                Choose the export format for this revision.
               </p>
             </div>
           </div>
@@ -363,9 +388,9 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
             style={{
               background: "#f1f5f9",
               border: "none",
-              borderRadius: "12px",
-              width: "40px",
-              height: "40px",
+              borderRadius: "10px",
+              width: "36px",
+              height: "36px",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -382,68 +407,153 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               e.currentTarget.style.color = "#94a3b8";
             }}
           >
-            <KTIcon iconName="cross" className="fs-2" />
+            <KTIcon iconName="cross" className="fs-3" />
           </button>
         </div>
 
-        <div style={{ padding: "60px 40px" }}>
+        {/* Body */}
+        <div style={{ padding: "32px 36px", overflowY: "auto" }}>
           {isExporting ? (
-            <div style={{ textAlign: "center", padding: "60px 0" }}>
+            /* ── Export Progress ── */
+            <div style={{ textAlign: "center", padding: "48px 0" }}>
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "50%",
+                  background: progress?.isComplete
+                    ? "rgba(34,197,94,0.08)"
+                    : "rgba(157,65,65,0.08)",
+                  border: `2px solid ${progress?.isComplete ? "rgba(34,197,94,0.2)" : "rgba(157,65,65,0.15)"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 20px",
+                }}
+              >
+                {progress?.isComplete ? (
+                  <KTIcon iconName="check" className="fs-2 text-success" />
+                ) : (
+                  <div
+                    style={{
+                      width: "24px",
+                      height: "24px",
+                      border: "3px solid rgba(157,65,65,0.2)",
+                      borderTop: "3px solid #9d4141",
+                      borderRadius: "50%",
+                      animation: "spin 0.8s linear infinite",
+                    }}
+                  />
+                )}
+              </div>
               <h3 style={{ 
-                fontSize: "22px", 
+                fontSize: "20px", 
                 fontWeight: 800, 
                 color: "#1e293b", 
-                marginBottom: "12px",
-                fontFamily: "Barlow" 
+                marginBottom: "8px",
+                fontFamily: "Barlow",
               }}>
-                {progress?.isComplete ? "Export Complete" : "Exporting Document..."}
+                {progress?.isComplete
+                  ? "Export Complete"
+                  : format === "pdf"
+                    ? "Generating PDF"
+                    : "Generating DOCX"}
               </h3>
-              
-              <p style={{ 
-                fontSize: "14px", 
-                color: "#64748b", 
-                fontFamily: "Inter",
-                marginBottom: "48px"
-              }}>
-                {progress?.isComplete 
-                  ? "Your document is ready in the DMS Global Repository." 
-                  : progress?.steps.find(s => s.status === 'running')?.label || "Preparing your files..."}
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "#64748b",
+                  marginBottom: "36px",
+                }}
+              >
+                {progress?.isComplete
+                  ? "Your document is ready in the DMS Repository."
+                  : progress?.steps.find((s) => s.status === "running")
+                      ?.label || "Preparing your files..."}
               </p>
-
-              {/* Only one line bar */}
-              <div style={{ 
-                height: "6px", 
-                width: "320px", 
-                background: "#f1f5f9", 
-                borderRadius: "10px", 
-                margin: "0 auto",
-                overflow: "hidden"
-              }}>
+              <div
+                style={{
+                  height: "5px",
+                  width: "280px",
+                  background: "#f1f5f9",
+                  borderRadius: "10px",
+                  margin: "0 auto",
+                  overflow: "hidden",
+                }}
+              >
                 <motion.div
                   initial={{ width: "0%" }}
-                  animate={{
-                    width: progress?.isComplete ? "100%" : "60%" 
-                  }}
-                  transition={{ duration: 1.5, ease: "easeInOut" }}
+                  animate={{ width: progress?.isComplete ? "100%" : "65%" }}
+                  transition={{ duration: 1.4, ease: "easeInOut" }}
                   style={{
                     height: "100%",
-                    background: "#9d4141",
+                    background: progress?.isComplete
+                      ? "linear-gradient(90deg,#22c55e,#16a34a)"
+                      : "linear-gradient(90deg,#9d4141,#bd4b4b)",
                     borderRadius: "10px",
                   }}
                 />
               </div>
+              {progress?.hasError && (
+                <div
+                  style={{
+                    marginTop: "24px",
+                    padding: "16px",
+                    borderRadius: "12px",
+                    background: "#fef2f2",
+                    border: "1px solid #fee2e2",
+                    color: "#dc2626",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {progress.errorMessage || "Export failed. Please try again."}
+                </div>
+              )}
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           ) : (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "32px" }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+              {/* ── Section 1: Format Selection ── */}
               <div>
-                <Label>Document Type</Label>
+                <SectionLabel>Export Format</SectionLabel>
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
-                    gap: "16px",
+                    gap: "14px",
+                    marginTop: "12px",
+                  }}
+                >
+                   <FormatCard
+                    selected={format === "docx"}
+                    onClick={() => setFormat("docx")}
+                    iconName="document"
+                    title="Export as DOCX"
+                    description="Download editable Word document."
+                    accentColor="#2563eb"
+                    accentBg="rgba(37,99,235,0.06)"
+                  />
+                  <FormatCard
+                    selected={format === "pdf"}
+                    onClick={() => setFormat("pdf")}
+                    iconName="file"
+                    title="Export as PDF"
+                    description="Generate and download PDF version."
+                    accentColor="#dc2626"
+                    accentBg="rgba(220,38,38,0.06)"
+                  />
+                </div>
+              </div>
+
+              {/* ── Section 2: Document Type ── */}
+              <div>
+                <SectionLabel>Document Type</SectionLabel>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "12px",
                     marginTop: "12px",
                   }}
                 >
@@ -455,77 +565,79 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                         key={type}
                         onClick={() => setExportType(type)}
                         style={{
-                          padding: "24px",
-                          borderRadius: "20px",
+                          padding: "18px 20px",
+                          borderRadius: "16px",
                           border: `2px solid ${active ? "#9d4141" : "#f1f5f9"}`,
-                          background: active
-                            ? "rgba(157, 65, 65, 0.03)"
-                            : "white",
+                          background: active ? "rgba(157,65,65,0.03)" : "#fafafa",
                           cursor: "pointer",
-                          transition: "all 0.25s",
+                          transition: "all 0.22s",
                           boxShadow: active
-                            ? "0 10px 25px -10px rgba(157, 65, 65, 0.15)"
+                            ? "0 8px 20px -8px rgba(157,65,65,0.15)"
                             : "none",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "14px",
                         }}
                       >
                         <div
                           style={{
-                            width: "40px",
-                            height: "40px",
-                            borderRadius: "10px",
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "9px",
                             background: active ? "#9d4141" : "#f1f5f9",
                             color: active ? "white" : "#64748b",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            marginBottom: "16px",
+                            flexShrink: 0,
                             transition: "all 0.2s",
                           }}
                         >
-                          <KTIcon iconName={cfg.iconName} className="fs-1" />
+                          <KTIcon iconName={cfg.iconName} className="fs-3" />
                         </div>
-                        <div
-                          style={{
-                            fontSize: "15px",
-                            fontWeight: 800,
-                            color: active ? "#1e293b" : "#475569",
-                            marginBottom: "4px",
-                          }}
-                        >
-                          {cfg.label}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: 700,
+                              color: active ? "#1e293b" : "#475569",
+                            }}
+                          >
+                            {cfg.label}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
+                            {cfg.description}
+                          </div>
                         </div>
-                        <div
-                          style={{
-                            fontSize: "12px",
-                            color: "#94a3b8",
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {cfg.description}
-                        </div>
+                        {active && (
+                          <div style={{ marginLeft: "auto" }}>
+                            <KTIcon iconName="check-circle" className="fs-4 text-primary" />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
 
+              {/* ── Section 3: Destination + Revision ── */}
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: "32px",
+                  gap: "24px",
                 }}
               >
                 <div>
-                  <Label>Destination</Label>
+                  <SectionLabel>Destination</SectionLabel>
                   <div
                     style={{
                       display: "flex",
-                      gap: "4px",
+                      gap: "3px",
                       marginTop: "12px",
                       background: "#f1f5f9",
-                      padding: "4px",
-                      borderRadius: "12px",
+                      padding: "3px",
+                      borderRadius: "10px",
                     }}
                   >
                     {(["device", "cloud", "both"] as ExportDestination[]).map(
@@ -536,20 +648,22 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                           style={{
                             flex: 1,
                             padding: "8px 4px",
-                            borderRadius: "8px",
+                            borderRadius: "7px",
                             textAlign: "center",
                             background:
                               destination === dest ? "white" : "transparent",
-                            color: destination === dest ? "#1e293b" : "#64748b",
+                            color:
+                              destination === dest ? "#1e293b" : "#64748b",
                             boxShadow:
                               destination === dest
-                                ? "0 4px 6px -1px rgba(0,0,0,0.1)"
+                                ? "0 2px 6px rgba(0,0,0,0.08)"
                                 : "none",
-                            fontSize: "11px",
+                            fontSize: "10px",
                             fontWeight: 700,
                             cursor: "pointer",
-                            transition: "0.2s",
+                            transition: "0.18s",
                             textTransform: "uppercase",
+                            letterSpacing: "0.04em",
                           }}
                         >
                           {dest}
@@ -560,13 +674,13 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                 </div>
 
                 <div>
-                  <Label>Revision Context</Label>
+                  <SectionLabel>Revision Context</SectionLabel>
                   <div
                     style={{
                       marginTop: "12px",
                       background: "#f8fafc",
-                      padding: "10px 16px",
-                      borderRadius: "12px",
+                      padding: "11px 16px",
+                      borderRadius: "10px",
                       border: "1px solid #e2e8f0",
                       display: "flex",
                       alignItems: "center",
@@ -587,9 +701,10 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                         background: "#9d4141",
                         color: "white",
                         padding: "2px 8px",
-                        borderRadius: "6px",
+                        borderRadius: "5px",
                         fontSize: "10px",
                         fontWeight: 800,
+                        letterSpacing: "0.04em",
                       }}
                     >
                       VER {tempNumber}
@@ -598,23 +713,28 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                 </div>
               </div>
 
+              {/* ── Section 4: File Name ── */}
               <div>
-                <Label>Generated File Name</Label>
+                <SectionLabel>Generated File Name</SectionLabel>
                 <div style={{ position: "relative", marginTop: "12px" }}>
                   <input
-                    value={fileName}
+                    value={
+                      format === "pdf"
+                        ? fileName.replace(/\.docx$/, ".pdf")
+                        : fileName.replace(/\.pdf$/, ".docx")
+                    }
                     onChange={(e) => setFileName(e.target.value)}
                     style={{
                       width: "100%",
-                      padding: "16px 48px 16px 16px",
-                      borderRadius: "16px",
-                      border: "1px solid #e2e8f0",
+                      padding: "13px 44px 13px 14px",
+                      borderRadius: "12px",
+                      border: "1.5px solid #e2e8f0",
                       background: "#f8fafc",
-                      fontSize: "14px",
+                      fontSize: "13px",
                       fontWeight: 600,
                       color: "#1e293b",
                       outline: "none",
-                      transition: "border-color 0.2s",
+                      transition: "border-color 0.18s",
                     }}
                     onFocus={(e) =>
                       (e.currentTarget.style.borderColor = "#9d4141")
@@ -624,11 +744,11 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                     }
                   />
                   <div
-                    style={{ position: "absolute", right: "16px", top: "16px" }}
+                    style={{ position: "absolute", right: "14px", top: "13px" }}
                   >
                     <KTIcon
                       iconName="document"
-                      className="fs-2 text-gray-400"
+                      className="fs-3 text-gray-400"
                     />
                   </div>
                 </div>
@@ -637,29 +757,25 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginTop: "12px",
+                    marginTop: "8px",
                   }}
                 >
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "5px" }}
                   >
                     <KTIcon
                       iconName="shield-tick"
-                      className="fs-6 text-gray-400"
+                      className="fs-7 text-gray-400"
                     />
                     <p
                       style={{
                         margin: 0,
-                        fontSize: "12px",
+                        fontSize: "11px",
                         color: "#94a3b8",
                         fontWeight: 500,
                       }}
                     >
-                      Controlled by Lead Revision status.
+                      Controlled by lead revision status.
                     </p>
                   </div>
                   <button
@@ -672,12 +788,12 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                       border: "none",
                       padding: 0,
                       color: "#9d4141",
-                      fontSize: "12px",
+                      fontSize: "11px",
                       fontWeight: 700,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: "4px",
+                      gap: "3px",
                     }}
                   >
                     <KTIcon iconName="plus" className="fs-6" />
@@ -685,53 +801,186 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                   </button>
                 </div>
               </div>
-
-              <div style={{ marginTop: "8px" }}>
-                <motion.button
-                  whileHover={{
-                    y: -2,
-                    boxShadow: "0 15px 35px rgba(157, 65, 65, 0.3)",
-                  }}
-                  whileTap={{ y: 0 }}
-                  disabled={isExporting}
-                  onClick={() => handleStartExport(false)}
-                  style={{
-                    width: "100%",
-                    padding: "18px",
-                    borderRadius: "20px",
-                    background:
-                      "linear-gradient(135deg, #9d4141 0%, #bd4b4b 100%)",
-                    color: "white",
-                    border: "none",
-                    fontSize: "17px",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    transition: "all 0.3s",
-                    fontFamily: "Barlow",
-                  }}
-                >
-                  Process & Export
-                </motion.button>
-              </div>
             </div>
           )}
         </div>
+
+        {/* Footer */}
+        {!isExporting && (
+          <div
+            style={{
+              padding: "20px 36px 28px",
+              display: "flex",
+              gap: "12px",
+              borderTop: "1px solid #f1f5f9",
+              background: "#fafafa",
+            }}
+          >
+            <button
+              onClick={onHide}
+              style={{
+                flex: 1,
+                padding: "13px",
+                borderRadius: "12px",
+                border: "1.5px solid #e2e8f0",
+                background: "white",
+                color: "#64748b",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.18s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#f8fafc")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
+            >
+              Cancel
+            </button>
+            <motion.button
+              whileHover={format ? { y: -2, boxShadow: "0 15px 35px rgba(157, 65, 65, 0.3)" } : {}}
+              whileTap={format ? { y: 0 } : {}}
+              disabled={!format || isExporting}
+              onClick={() => handleStartExport(false)}
+              style={{
+                width: "100%",
+                padding: "16px",
+                borderRadius: "12px",
+                background: format
+                  ? "linear-gradient(135deg, #9d4141 0%, #bd4b4b 100%)"
+                  : "#e2e8f0",
+                color: format ? "white" : "#94a3b8",
+                border: "none",
+                fontSize: "14px",
+                fontWeight: 800,
+                cursor: format ? "pointer" : "not-allowed",
+                transition: "all 0.25s",
+                fontFamily: "Barlow",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
+            >
+              {format
+                ? `Export as ${format === "pdf" ? "PDF" : "DOCX"}`
+                : "Select a format to export"}
+            </motion.button>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
 };
 
-const Label = ({ children }: { children: React.ReactNode }) => (
+/* ── Sub-components ── */
+
+const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   <label
     style={{
-      fontSize: "11px",
+      fontSize: "10px",
       fontWeight: 800,
-      color: "#64748b",
+      color: "#94a3b8",
       textTransform: "uppercase",
-      letterSpacing: "0.08em",
+      letterSpacing: "0.1em",
       display: "block",
     }}
   >
     {children}
   </label>
+);
+
+interface FormatCardProps {
+  selected: boolean;
+  onClick: () => void;
+  iconName: string;
+  title: string;
+  description: string;
+  accentColor: string;
+  accentBg: string;
+}
+
+const FormatCard: React.FC<FormatCardProps> = ({
+  selected,
+  onClick,
+  iconName,
+  title,
+  description,
+  accentColor,
+  accentBg,
+}) => (
+  <motion.div
+    onClick={onClick}
+    whileHover={{ y: -3, boxShadow: `0 16px 32px -8px ${accentColor}25` }}
+    whileTap={{ y: 0 }}
+    style={{
+      padding: "22px 20px",
+      borderRadius: "18px",
+      border: `2px solid ${selected ? accentColor : "#f0f0f0"}`,
+      background: selected ? accentBg : "white",
+      cursor: "pointer",
+      transition: "border-color 0.22s, background 0.22s",
+      boxShadow: selected
+        ? `0 12px 28px -8px ${accentColor}20`
+        : "0 2px 8px rgba(0,0,0,0.04)",
+      position: "relative",
+      userSelect: "none",
+    }}
+  >
+    {selected && (
+      <div
+        style={{
+          position: "absolute",
+          top: "12px",
+          right: "12px",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          background: accentColor,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+          <path
+            d="M1 4L3.5 6.5L9 1"
+            stroke="white"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    )}
+    <div style={{ 
+      width: '42px', 
+      height: '42px', 
+      borderRadius: '12px',
+      background: selected ? accentColor : '#f1f5f9',
+      color: selected ? 'white' : '#64748b',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: '16px',
+      transition: 'all 0.2s'
+    }}>
+      <KTIcon iconName={iconName} className="fs-2x" />
+    </div>
+    <div
+      style={{
+        fontSize: "14px",
+        fontWeight: 800,
+        color: selected ? accentColor : "#1e293b",
+        marginBottom: "6px",
+        fontFamily: "Barlow",
+        transition: "color 0.2s",
+      }}
+    >
+      {title}
+    </div>
+    <div style={{ fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
+      {description}
+    </div>
+  </motion.div>
 );

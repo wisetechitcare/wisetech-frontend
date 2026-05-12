@@ -17,7 +17,7 @@ export const DocumentManagementCenter: React.FC = () => {
   const [selectedFileForDetails, setSelectedFileForDetails] = useState<DMSFile | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [activeRightTab, setActiveRightTab] = useState<'details' | 'timeline'>('details');
-  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(true);
 
   const filteredFiles = getFilteredFiles();
 
@@ -62,9 +62,14 @@ export const DocumentManagementCenter: React.FC = () => {
                   viewMode={state.viewMode}
                   isSelected={state.selectedFiles.includes(file.id)}
                   onSelect={() => dispatch({ type: 'TOGGLE_FILE_SELECTION', payload: file.id })}
-                  onPreview={() => setSelectedFileForDetails(file)}
+                  onPreview={() => {
+                    setSelectedFileForDetails(file);
+                    setIsRightPanelCollapsed(false);
+                    setActiveRightTab('details');
+                  }}
                   onDetails={() => {
                     setSelectedFileForDetails(file);
+                    setIsRightPanelCollapsed(false);
                     setActiveRightTab('details');
                   }}
                 />
@@ -75,7 +80,7 @@ export const DocumentManagementCenter: React.FC = () => {
       </div>
 
       <div style={{
-        width: isRightPanelCollapsed ? '48px' : '360px', 
+        width: isRightPanelCollapsed ? '48px' : '320px', 
         flexShrink: 0, borderLeft: '1px solid #f1f5f9',
         background: 'white', display: 'flex', flexDirection: 'column',
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',

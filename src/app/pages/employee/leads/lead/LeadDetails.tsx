@@ -426,27 +426,20 @@ const LeadDetails: React.FC = () => {
                                 );
                             })()}
 
-                            <Dropdown className="me-2">
-                                <Dropdown.Toggle variant="info" id="dropdown-basic" disabled={isGenerating}>
-                                    {isGenerating ? (
-                                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    ) : (
-                                        <KTIcon iconName="file-down" className="fs-2" />
-                                    )}
-                                    Export
-                                </Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                    <Dropdown.Item onClick={() => setShowProposalModal(true)}>
-                                        <i className="bi bi-file-earmark-word me-2 text-primary"></i> Export to DOCX
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => setShowProposalModal(true)}>
-                                        <i className="bi bi-file-earmark-pdf me-2 text-danger"></i> Export to PDF
-                                    </Dropdown.Item>
-                                    <Dropdown.Item onClick={() => handleExport('excel', lead)}>
-                                        <i className="bi bi-file-earmark-excel me-2 text-success"></i> Export to Excel
-                                    </Dropdown.Item>
-                                </Dropdown.Menu>
-                            </Dropdown>
+                            <Button
+                                variant="info"
+                                disabled={isGenerating}
+                                onClick={() => setShowProposalModal(true)}
+                                className="me-2"
+                                style={{ backgroundColor: '#7239ea', borderColor: '#7239ea', color: 'white' }}
+                            >
+                                {isGenerating ? (
+                                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                ) : (
+                                    <KTIcon iconName="file-down" className="fs-2" />
+                                )}
+                                Export
+                            </Button>
 
                             <Button
                                 variant="primary"
