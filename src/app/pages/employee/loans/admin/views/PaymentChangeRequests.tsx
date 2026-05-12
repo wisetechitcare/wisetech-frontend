@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { getAllLoanDetails } from "@services/company";

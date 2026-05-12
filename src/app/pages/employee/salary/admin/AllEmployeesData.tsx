@@ -8,7 +8,7 @@ import { fetchAllEmployees, fetchEmpAttendanceStatistics } from "@services/emplo
 import { fetchCompanyOverview } from "@services/company";
 import { fetchAllEmployeeTotalSalaryOfYear, fetchAllEmployeeMonthlySalary } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import { toAbsoluteUrl } from "@metronic/helpers";

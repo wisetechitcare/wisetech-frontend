@@ -22,7 +22,7 @@ import {
   updateBranchById,
 } from '@services/company'
 import { successConfirmation } from '@utils/modal'
-import TextInput from 'app/modules/common/inputs/TextInput'
+import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@redux/store'

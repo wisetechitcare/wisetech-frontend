@@ -1,5 +1,5 @@
-import DateInput from "app/modules/common/inputs/DateInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import DateInput from "@app/modules/common/inputs/DateInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 function WorkExperience({ formikProps, index }: any) {
     const element = `workExpInfo[${index}]`;

@@ -1,6 +1,6 @@
 import { useFormikContext } from "formik";
-import RadioInput, { RadioButton } from "app/modules/common/inputs/RadioInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 const discretionaryLeaveOptions: RadioButton[] = [
     { label: "No", value: "false" },

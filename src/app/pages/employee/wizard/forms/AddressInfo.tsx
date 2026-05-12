@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import { fetchAllCities, fetchAllCountries, fetchAllStates, fetchCountryName, fetchStateName } from "@services/options";
-import TextInput from "app/modules/common/inputs/TextInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { saveCountries } from "@redux/slices/locations";

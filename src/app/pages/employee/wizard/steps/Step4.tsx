@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { fetchDocumentsField } from "@services/employee";
-import FormHeading from "app/modules/common/utils/FormHeading";
+import FormHeading from "@app/modules/common/utils/FormHeading";
 import Documents from "../forms/Documents";
 
 const createInitialDocumentInfo = (documentId: string) => ({
