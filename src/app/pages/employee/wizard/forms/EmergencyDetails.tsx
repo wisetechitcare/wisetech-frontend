@@ -1,5 +1,5 @@
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 const bloodGroupOptions = [
     { value: 'A_POS', label: 'A+' },

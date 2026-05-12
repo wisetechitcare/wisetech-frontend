@@ -1,5 +1,5 @@
-import DateInput from "app/modules/common/inputs/DateInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import DateInput from "@app/modules/common/inputs/DateInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 import { IconButton } from '@mui/material';
 import { Close } from '@mui/icons-material';
 

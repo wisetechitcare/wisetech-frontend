@@ -1,6 +1,6 @@
 import React from "react";
-import RadioInput, { RadioButton } from "app/modules/common/inputs/RadioInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 const mealPreferencesRadioBtns: RadioButton[] = [
   { label: "Vegetarian", value: "0" },

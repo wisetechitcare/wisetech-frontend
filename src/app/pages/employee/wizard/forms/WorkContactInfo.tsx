@@ -1,4 +1,4 @@
-import TextInput from "app/modules/common/inputs/TextInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 function WorkContactInfo() {
 

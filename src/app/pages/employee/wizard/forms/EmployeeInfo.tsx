@@ -3,8 +3,8 @@ import { createNewEmployeeType, fetchBranches, fetchDepartments, fetchDesignatio
 import { fetchAllEmployees, getAllEmployeeLevels } from "@services/employee";
 import { getAllTeams } from "@services/projects";
 import { fetchAllOrganizationConfigurations, fetchAllEmployeeConfigurations } from "@services/configurations";
-import DropDownInput from "app/modules/common/inputs/DropdownInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 function EmployeeInfo() {
     const [designationOptions, setDesignationOptions] = useState([]);

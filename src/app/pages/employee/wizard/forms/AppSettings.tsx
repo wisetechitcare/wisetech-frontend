@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import DropDownInput from "app/modules/common/inputs/DropdownInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 import { fetchRoles } from "@services/roles";
 import { Field, useField } from "formik";
 import NumberInput from "@app/modules/common/inputs/NumberInput";
