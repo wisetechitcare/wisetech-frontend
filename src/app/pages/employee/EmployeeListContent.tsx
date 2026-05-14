@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { Link, useNavigate } from "react-router-dom";
 import { KTIcon } from "@metronic/helpers";
 import { fetchAllEmployees } from "@services/employee";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAvatar } from "@utils/avatar";

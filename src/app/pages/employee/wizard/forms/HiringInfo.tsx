@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { fetchAllEmployees } from "@services/employee";
 import { createEmployeeStatus, createSourceOfHire, fetchEmployeeStatus, fetchSrcOfHire } from "@services/options";
-import DropDownInput from "app/modules/common/inputs/DropdownInput";
-import DateInput from "app/modules/common/inputs/DateInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import DateInput from "@app/modules/common/inputs/DateInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 
 function HiringInfo({ formikProps, editMode }: any) {
     const [srcOfHireOptions, setSrcOfHireOptions] = useState([]);

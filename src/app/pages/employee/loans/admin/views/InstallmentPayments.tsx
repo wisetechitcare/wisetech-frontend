@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";

@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { RootState } from "@redux/store";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import { Link } from "react-router-dom";

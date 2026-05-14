@@ -1,7 +1,7 @@
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
-import { leadsIcons } from "@metronic/assets/sidepanelicons";
+import { leadsIcons, projectsIcons } from "@metronic/assets/sidepanelicons";
 import { useState } from "react";
 import LeadsConfigurationMain from "./configuration/LeadsConfigurationMain";
 import { useDispatch } from "react-redux";
@@ -12,22 +12,25 @@ import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import { getAllLeads } from "@services/leads";
+import GlobalFilesView from "./GlobalFilesView";
 
 const LeadsMain = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [rawLeadsData, setRawLeadsData] = useState<any>([]);
-  
 
   const dispatch = useDispatch<AppDispatch>();
   useEffect(() => {
-    async function fetchLeadData(){
-      const { data: { data: { leads } } } = await getAllLeads();
-              // console.log("AllLeadsData:: ",leads);
-              setRawLeadsData(leads);
+    async function fetchLeadData() {
+      const {
+        data: {
+          data: { leads },
+        },
+      } = await getAllLeads();
+      // console.log("AllLeadsData:: ",leads);
+      setRawLeadsData(leads);
     }
     fetchLeadData();
-  }, [])
-  
+  }, []);
 
   useEffect(() => {
     // Initialize chart settings when app loads
@@ -52,6 +55,14 @@ const LeadsMain = () => {
           : leadsIcons.leadsIcon.default,
     },
     {
+      title: "Files",
+      component: <GlobalFilesView />,
+      icon:
+        activeTab === 3
+          ? projectsIcons.projectsIcon.active
+          : projectsIcons.projectsIcon.default,
+    },
+    {
       title: "Configure",
       component: <LeadsConfigurationMain />,
       icon:
@@ -62,25 +73,25 @@ const LeadsMain = () => {
   ];
   const LeadBreadcrumbs = [
     {
-      title: 'lead',
-      path: '/lead',
+      title: "lead",
+      path: "/lead",
       isSeparator: false,
       isActive: false,
     },
     {
-      title: '',
-      path: '',
+      title: "",
+      path: "",
       isSeparator: true,
       isActive: false,
     },
   ];
   return (
-    <div >
+    <div>
       <PageTitle breadcrumbs={LeadBreadcrumbs}>
         {tabItems[activeTab].title}
       </PageTitle>
 
-     <MaterialHeaderTab
+      <MaterialHeaderTab
         tabItems={tabItems}
         onTabChange={setActiveTab}
         activeTab={activeTab}

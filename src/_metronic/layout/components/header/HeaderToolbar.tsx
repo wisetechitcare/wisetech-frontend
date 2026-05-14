@@ -8,7 +8,7 @@ import { useLayout } from "../../core";
 import { KTIcon } from "../../../helpers";
 import { DefaultTitle } from "./page-title/DefaultTitle";
 import { HeaderUserMenu, ThemeModeSwitcher } from "../../../partials";
-import SelectInput from "app/modules/common/inputs/SelectInput";
+import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { HeaderEmployee } from "./HeaderEmployee";
 import { Link } from "react-router-dom";
 import NotificationBell from "../NotificationsBell";

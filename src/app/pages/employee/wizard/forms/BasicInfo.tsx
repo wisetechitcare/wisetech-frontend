@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import DateInput from "app/modules/common/inputs/DateInput";
-import FileInput from "app/modules/common/inputs/FileInput";
-import RadioInput, { RadioButton } from "app/modules/common/inputs/RadioInput";
-import TextInput from "app/modules/common/inputs/TextInput";
+import DateInput from "@app/modules/common/inputs/DateInput";
+import FileInput from "@app/modules/common/inputs/FileInput";
+import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 import { fetchAllEmployees } from "@services/employee";
 
 const genderRadioBtn: RadioButton[] = [

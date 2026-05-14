@@ -333,14 +333,27 @@ function OpenLeaveRequests() {
             minSize: 100,
             maxSize: 150,
             Cell: ({ row }: any) => {
-              const res = hasPermission(
-                resourceNameMapWithCamelCase.leave,
-                permissionConstToUseWithHasPermission.editOthers,
-                row.original
-              );
-          
-              if (!res) return 'Not Allowed';
-          
+              const isReportingManager = row.original.reportsToId === employeeId;
+
+              if (!isReportingManager) {
+                return (
+                  <span
+                    style={{
+                      backgroundColor: '#FFF3CD',
+                      color: '#856404',
+                      fontWeight: '500',
+                      fontSize: '11px',
+                      padding: '5px 10px',
+                      borderRadius: '12px',
+                      display: 'inline-block',
+                      border: '1px solid #FFEAA7',
+                    }}
+                  >
+                    Awaiting Manager
+                  </span>
+                );
+              }
+
               return (
                 <>
                   <button

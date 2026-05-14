@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import VisibilityIcon from '@mui/icons-material/Visibility';

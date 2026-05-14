@@ -31,8 +31,8 @@ import {
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useField } from "formik";
 import { Option } from "@models/dropdown";
-import TextInput from "app/modules/common/inputs/TextInput";
-import DropDownInput from "app/modules/common/inputs/DropdownInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
+import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import { fetchAllReimbursementTypes } from "@services/options";
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";

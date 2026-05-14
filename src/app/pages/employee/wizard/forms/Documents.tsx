@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import TextInput from "app/modules/common/inputs/TextInput";
-import FileInput from "app/modules/common/inputs/FileInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
+import FileInput from "@app/modules/common/inputs/FileInput";
 
 function Documents({ formikProps, index, setFile }: any) {
     const { values: { documentFields, documentInfo } } = formikProps;

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import TextInput from "app/modules/common/inputs/TextInput";
+import TextInput from "@app/modules/common/inputs/TextInput";
 import { uploadUserAsset } from "@services/uploader"; // updated import
 
 function BankInfo({ formikProps, userId }: any) {

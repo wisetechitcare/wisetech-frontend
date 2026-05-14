@@ -8,8 +8,8 @@ import { createNewDepartment, fetchAllDepartments, fetchCompanyOverview, fetchDe
 import { successConfirmation } from "@utils/modal";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
-import MaterialTable from "app/modules/common/components/MaterialTable";
-import TextInput from "app/modules/common/inputs/TextInput";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
+import TextInput from "@app/modules/common/inputs/TextInput";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";

@@ -1,14 +1,17 @@
-const LeadFiles = ({ leadId }: { leadId: string }) => (
-    <div className="card card-custom">
-        <div className="card-header">
-            <div className="card-title">
-                <h3 className="card-label">Attachments</h3>
-            </div>
-        </div>
-        <div className="card-body">
-            <p className="text-muted">Attachments will be displayed here</p>
-        </div>
+import React, { useState } from 'react';
+import { DocumentManagementCenter } from './dms/components/DocumentManagementCenter';
+import { ExportCenterModal } from './dms/components/ExportCenterModal';
+
+interface LeadFilesProps {
+  lead: any;
+}
+
+const LeadFiles: React.FC<LeadFilesProps> = ({ lead }) => {
+  return (
+    <div className="mt-4">
+      <DocumentManagementCenter />
     </div>
-);
+  );
+};
 
 export default LeadFiles;
