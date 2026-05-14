@@ -328,6 +328,12 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                     type: 'number',
                     value: 0,
                     isActive: true
+                },
+                'Professional Fees': {
+                    name: 'Professional Fees',
+                    type: 'number',
+                    value: 0,
+                    isActive: true
                 }
             };
 
