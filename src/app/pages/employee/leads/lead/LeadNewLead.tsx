@@ -1098,13 +1098,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   return (
     <>
-      <Box sx={{ p: 4, background: '#fff' }}>
-        <div className="d-flex align-items-center justify-content-between mb-8">
+      <Box sx={{ p: { xs: 3, md: 5 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
+        {/* --- Top Row: Title & Primary Actions --- */}
+        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-8">
           <div>
-            <h1 style={{ fontFamily: "Barlow", fontSize: "28px", fontWeight: 700, margin: 0, color: '#1e293b' }}>
-              Leads
+            <h1 style={{ fontFamily: "Barlow", fontSize: "32px", fontWeight: 700, margin: 0, color: '#1e293b', letterSpacing: '-0.02em' }}>
+              Leads Management
             </h1>
-            <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>Overview and management of inquiries</p>
+            <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '15px', fontWeight: 500 }}>
+              Track, manage, and optimize your inquiry pipeline
+            </p>
           </div>
           
           {!hideNewLeadButton && (
@@ -1133,7 +1136,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             <div className="d-flex flex-row justify-content-between align-items-center mb-3">
               {/* LEFT: mobile → Select, desktop → ToggleButtonGroup */}
               <div className="d-flex flex-column d-md-block">
-                {isMobile ? (
                   <Select
                     value={alignment}
                     onChange={(e) =>
@@ -1142,7 +1144,11 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     displayEmpty
                     variant="outlined"
                     size="small"
-                    sx={mobileSelectSx}
+                    sx={{
+                      ...mobileSelectSx,
+                      width: { xs: "100%", md: "200px" },
+                      borderRadius: "8px",
+                    }}
                   >
                     <MenuItem value="daily">Daily</MenuItem>
                     <MenuItem value="weekly">Weekly</MenuItem>
@@ -1151,31 +1157,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     <MenuItem value="allyear">All Year</MenuItem>
                     <MenuItem value="custom">Custom</MenuItem>
                   </Select>
-                ) : (
-                  <ToggleButtonGroup
-                    value={alignment}
-                    exclusive
-                    onChange={handleAlignmentChange}
-                    aria-label="date range selection"
-                    sx={toggleGroupSx}
-                  >
-                    <ToggleButton value="daily">Daily</ToggleButton>
-                    <ToggleButton value="weekly">Weekly</ToggleButton>
-                    <ToggleButton value="monthly">Monthly</ToggleButton>
-                    <ToggleButton value="yearly">Yearly</ToggleButton>
-                    <ToggleButton
-                      value="allyear"
-                      sx={{
-                        width: "auto !important",
-                        whiteSpace: "nowrap",
-                        px: "16px !important",
-                      }}
-                    >
-                      All Year
-                    </ToggleButton>
-                    <ToggleButton value="custom">Custom</ToggleButton>
-                  </ToggleButtonGroup>
-                )}
               </div>
 
               {/* RIGHT: nav arrows or custom date pickers */}
@@ -1848,13 +1829,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
       {formValues && (
         <LeadFormModal
+          key={formValues?.id || "new-lead-modal"}
           leadTemplateId={formValues?.leadTemplateId}
           open={true}
           onClose={() => setFormValues(null)}
-          title={`Edit ${formValues.title || formValues?.projectName} Lead`}
-          initialData={{ id: formValues?.leadTemplateId }}
+          title={formValues?.id ? `Edit ${formValues.title || formValues?.projectName} Lead` : "New Lead"}
+          initialData={formValues?.id ? { id: formValues?.leadTemplateId } : { ...formValues, title: '' }}
           initialFormData={formValues}
-          isEditMode={true}
+          isEditMode={!!formValues?.id}
         />
       )}
 
