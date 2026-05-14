@@ -3265,13 +3265,27 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
         console.error("error: ", error)
     }
 }
-//🔥 Irfan Change Start
+// 🔥 KPI API SAFETY: Exponential backoff retry helper
+const fetchWithRetry = async (fn: () => Promise<any>, retries = 2, delay = 1200) => {
+  try {
+    return await fn();
+  } catch (error: any) {
+    const isCancel = error?.name === 'AbortError' || error?.name === 'CanceledError' || axios.isCancel(error);
+    if (retries > 0 && !isCancel) {
+      console.warn(`[KPI-RETRY] Request failed, retrying in ${delay}ms... (${retries} attempts left)`);
+      await new Promise(r => setTimeout(r, delay));
+      return fetchWithRetry(fn, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+};
+
 export const fetchLeaderboard = async (
   startDate: string,
   endDate: string,
   signal?: AbortSignal
 ) => {
-  try {
+  return fetchWithRetry(async () => {
     const response = await axios.get(
       `${API_BASE_URL}/${EMPLOYEE.LEADERBOARD}`,
       {
@@ -3279,14 +3293,8 @@ export const fetchLeaderboard = async (
         signal
       }
     );
-
-    return response.data.data; // 🔥 IMPORTANT
-  } catch (error: any) {
-    if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
-      console.error("Leaderboard API Error:", error);
-    }
-    throw error;
-  }
+    return response.data.data;
+  });
 };
 //🔥 Irfan Change End
 

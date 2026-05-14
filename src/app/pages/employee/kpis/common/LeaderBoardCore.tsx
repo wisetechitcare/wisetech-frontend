@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Col, Modal, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@redux/store";
@@ -14,6 +14,7 @@ import { getAllKpiFactors } from "@services/employee";
 import { fetchLeaderboard } from "@utils/statistics";
 import { getAvatar } from "@utils/avatar";
 import { EMPLOYEE } from "@constants/api-endpoint";
+import { sortKpiFactors } from "@utils/kpiSort";
 import CommonCard from "@app/modules/common/components/CommonCard";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
@@ -906,53 +907,51 @@ function LeaderBoardCore({
     return () => controller.abort();
   }, [startDateStr, endDateStr, toggleChange]); // reduxModCache read at closure time, not as dep
 
-  // â”€â”€ 4. Factor rankings â€” batched, fires when factors + dates ready â”€â”€
+  // â”€â”€ 4. Factor rankings â€” consolidated batch call â”€â”€
   useEffect(() => {
     if (!allKPIFactors.length || !startDateStr || !endDateStr) return;
     const key = makeCacheKey(startDateStr, endDateStr, toggleChange);
-    const cached = reduxFactorCache[key]; // read Redux at effect-invocation time
+    const cached = reduxFactorCache[key];
     if (cached) {
-      // Redux hit â€” all factor rankings already in memory, skip all API calls
       setFactorRankingsMap(cached);
       setFactorsLoading(false);
       return;
     }
     const controller = new AbortController();
     setFactorsLoading(true);
-    Promise.allSettled(
-      allKPIFactors.map((factor) =>
-        axios
-          .get(`${API_BASE_URL}/${EMPLOYEE.FETCH_ALL_STAR_EMPLOYEES_BY_FACTOR_ID}`, {
-            params: { startDate: startDateStr, endDate: endDateStr, factorId: factor.id },
-            signal: controller.signal,
-          })
-          .then((res) => ({ factorId: factor.id, scores: res.data?.data?.scores || [] }))
-          .catch((e) => {
-            // Re-throw cancellation so allSettled sees it as rejected â€” prevents
-            // swallowed abort errors from producing empty "fulfilled" entries that
-            // would later poison the cache with empty data.
-            if (axios.isCancel(e)) throw e;
-            console.error(`Factor ${factor.id} (${factor.name}) API Failed:`, e);
-            return { factorId: factor.id, scores: [] };
-          })
-      )
-    ).then((results) => {
-      // Guard: if this effect's controller was aborted (component unmounted or dates
-      // changed again), do NOT write to the cache or update state. Writing an empty
-      // map here is what caused the cache-poisoning bug where star employees
-      // disappeared after every date switch.
-      if (controller.signal.aborted) return;
-      const map: Record<string, any[]> = {};
-      results.forEach((r) => { if (r.status === "fulfilled") map[r.value.factorId] = r.value.scores; });
-      dispatch(cacheFactorRankings({ key, map })); // persist to Redux
-      setFactorRankingsMap(map);
-    }).finally(() => {
-      // Only clear the loading flag when this request actually completed â€” not when
-      // it was cancelled mid-flight (a new request will manage its own loading state).
-      if (!controller.signal.aborted) setFactorsLoading(false);
-    });
+
+    // 🔥 BATCH OPTIMIZATION: One call to get ALL factor rankings
+    const loadFactors = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/employee/kpi/top-employees-by-factor`, {
+          params: { startDate: startDateStr, endDate: endDateStr },
+          signal: controller.signal,
+        });
+
+        const factorData = res.data?.data || [];
+        const map: Record<string, any[]> = {};
+        
+        factorData.forEach((item: any) => {
+          map[item.factorId] = item.rankings || [];
+        });
+
+        if (!controller.signal.aborted) {
+          dispatch(cacheFactorRankings({ key, map }));
+          setFactorRankingsMap(map);
+        }
+      } catch (e: any) {
+        if (!axios.isCancel(e)) {
+          console.error("Batch Factor Rankings Failed:", e);
+          // Optional: Add retry logic here if needed, but the backend is now much faster
+        }
+      } finally {
+        if (!controller.signal.aborted) setFactorsLoading(false);
+      }
+    };
+
+    loadFactors();
     return () => controller.abort();
-  }, [allKPIFactors, startDateStr, endDateStr, toggleChange]); // reduxFactorCache read at closure time
+  }, [allKPIFactors, startDateStr, endDateStr, toggleChange]);
 
   const handleViewAllFactor = useCallback((factor: any, rankings: any[]) => {
     setSelectedFactor(factor);
@@ -966,13 +965,18 @@ function LeaderBoardCore({
   const factorsGroups = useMemo(() => {
     const arr = Array.isArray(allKPIFactors) ? allKPIFactors : [];
     return {
-      positive: arr.filter(
-        (f: any) => (f.type as string)?.toUpperCase() === "POSITIVE" && !isLeave(f)
+      positive: sortKpiFactors(
+        arr.filter((f: any) => (f.type as string)?.toUpperCase() === "POSITIVE" && !isLeave(f)),
+        (f) => f.name
       ),
-      negative: arr.filter(
-        (f: any) => (f.type as string)?.toUpperCase() === "NEGATIVE" && !isLeave(f)
+      negative: sortKpiFactors(
+        arr.filter((f: any) => (f.type as string)?.toUpperCase() === "NEGATIVE" && !isLeave(f)),
+        (f) => f.name
       ),
-      leave: arr.filter(isLeave),
+      leave: sortKpiFactors(
+        arr.filter(isLeave),
+        (f) => f.name
+      ),
     };
   }, [allKPIFactors]);
 

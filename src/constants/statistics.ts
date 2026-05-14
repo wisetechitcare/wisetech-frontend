@@ -17,7 +17,7 @@ export const allowedTypes = [
     "image/svg+xml",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document" // .docx
 ];
-  
+
 export const totalShiftTimeMins: number = (shiftHours * 60) + shiftMinutes;
 // change it here
 export let totalWorkingHour: number = store.getState().appSettings.workingHours || 0;
@@ -63,9 +63,9 @@ export const HEATMAPLABELS = {
 export const ANNUAL_LEAVES = 'Annual Leaves';
 export const SICK_LEAVES = 'Sick Leaves';
 export const FLOATER_LEAVES = 'Floater Leaves';
-export const MATERNAL_LEAVES= 'Maternal Leaves'
+export const MATERNAL_LEAVES = 'Maternal Leaves'
 export const CASUAL_LEAVES = 'Casual Leaves';
-export const UNPAID_LEAVES= 'Unpaid Leaves'
+export const UNPAID_LEAVES = 'Unpaid Leaves'
 
 export const TOTAL_ANNUAL_LEAVES = 12;
 export const TOTAL_SICK_LEAVES = 6;
@@ -98,9 +98,9 @@ export const Status = {
     Rejected: 2,
 }
 
-export const LeaveApprovedStatus ={
-    Approved:'Approved',
-    Pending:'Approval Pending'
+export const LeaveApprovedStatus = {
+    Approved: 'Approved',
+    Pending: 'Approval Pending'
 }
 
 
@@ -203,8 +203,8 @@ export const InstallmentType = {
 }
 
 export const LoanTypeVal = {
-    EMI:"EMI",
-    ONE_TIME:"One Time"
+    EMI: "EMI",
+    ONE_TIME: "One Time"
 }
 
 export enum LoanStatus {
@@ -212,7 +212,7 @@ export enum LoanStatus {
     Approved = 1,
     Rejected = 2
 }
- 
+
 export enum AnythingStatus {
     ApprovalPending = 0,
     Approved = 1,
@@ -224,12 +224,12 @@ export const installmentStatusLabels: Record<number, string> = {
     0: "Approval Pending",
     1: "Approved",
     2: "Rejected",
-  };
+};
 
-  export const KPI_Module_Name = {
+export const KPI_Module_Name = {
     Attendance: "Attendance",
     Leaves: "Leaves"
-  }
+}
 
 export const leadAndProjectTemplateTypeId = {
     newLead: "blank",
@@ -240,7 +240,7 @@ export const leadAndProjectTemplateTypeId = {
 export const onSiteAndHolidayWeekendSettingsOnOffName = "On-site, Holiday & Weekend Settings for late attendance"
 
 export const prefixIdentifier = {
-    "LEAD":"LEAD",
+    "LEAD": "LEAD",
     "PROJECT": "PROJECT",
     "COMPANY": "COMPANY"
 }

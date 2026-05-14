@@ -10,6 +10,7 @@ import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import { hasPermission } from "@utils/authAbac";
 import { useSelector } from "react-redux";
+import { sortKpiFactors } from "@utils/kpiSort";
 
 const tooltipDescriptions: Record<string, string> = {
   "Working Days":
@@ -204,18 +205,21 @@ export default function KpiSettings() {
   }, []);
 
   const sectionsData = modules.map((mod: any) => {
-    const factors = allFactors
-      .filter((f: any) => f.moduleId === mod.id)
-      .map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        point: Number(f.weightage),
-        scale: f.unit,
-        type: (f.type || "POSITIVE").toLowerCase(),
-        moduleId: f.moduleId,
-        isActive: f.isActive !== false,
-        calculationFrom: f.calculationFrom,
-      }));
+    const factors = sortKpiFactors(
+      allFactors
+        .filter((f: any) => f.moduleId === mod.id)
+        .map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          point: Number(f.weightage),
+          scale: f.unit,
+          type: (f.type || "POSITIVE").toLowerCase(),
+          moduleId: f.moduleId,
+          isActive: f.isActive !== false,
+          calculationFrom: f.calculationFrom,
+        })),
+      (f: any) => f.name
+    );
     return { moduleId: mod.id, category: mod.name, factors };
   });
 

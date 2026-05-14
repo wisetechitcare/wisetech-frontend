@@ -34,7 +34,7 @@ export const FACTOR_BEHAVIOR_MAP: Record<string, KpiBehavior> = {
   "Late Attendance": KpiBehavior.NEGATIVE,
   "Late Attendance Days": KpiBehavior.NEGATIVE,
   "Absent Days": KpiBehavior.NEGATIVE,
-  "Early Checkout": KpiBehavior.NEGATIVE,
+  "Early CheckOut": KpiBehavior.NEGATIVE,
   "Total Late Hours": KpiBehavior.NEGATIVE,
   "Request Raised": KpiBehavior.NEGATIVE,
   "Total Paid Leaves Taken": KpiBehavior.NEGATIVE,

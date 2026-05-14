@@ -28,7 +28,7 @@ const iconMapping: Record<string, string> = {
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
   "Early CheckIn": AttendanceIcon,
-  "Early Checkout": AttendanceIcon,
+  "Early CheckOut": AttendanceIcon,
 };
 
 interface CustomProps {
@@ -140,7 +140,7 @@ const Custom: React.FC<CustomProps> = ({
     "Performance",
     "Ratings & Reviews",
     "Early CheckIn",
-    "Early Checkout",
+    "Early CheckOut",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

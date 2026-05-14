@@ -22,7 +22,7 @@ const iconMapping: Record<string, string> = {
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
   "Early CheckIn": AttendanceIcon,
-  "Early Checkout": AttendanceIcon,
+  "Early CheckOut": AttendanceIcon,
 };
 
 interface AllTimeProps {
@@ -83,7 +83,7 @@ const AllTime: React.FC<AllTimeProps> = ({
   // ✅ SAFE EXTRACTION
   const modules = data?.modules || [];
   const yourPoints = data?.yourPoints ?? 0;
-  
+
   // 🔥 FINAL SAFE RANK CODE
   const rawRank = data?.rank;
   const rank =
@@ -103,7 +103,7 @@ const AllTime: React.FC<AllTimeProps> = ({
     "Performance",
     "Ratings & Reviews",
     "Early CheckIn",
-    "Early Checkout",
+    "Early CheckOut",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

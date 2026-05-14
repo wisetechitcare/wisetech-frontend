@@ -143,10 +143,10 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
                   <div 
                     className={`symbol symbol-55px d-flex align-items-center justify-content-center rounded-3 transition-all hover-elevated`}
                     style={{ 
-                      width: "55px", 
-                      height: "55px", 
+                      width: "100px", 
+                      height: "80px", 
                       backgroundColor: `${moodData.color}15`,
-                      border: `1px solid ${moodData.color}30`
+                      border: `5px solid ${moodData.color}30`
                     }}
                   >
                     <i 
@@ -166,38 +166,41 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
               </Col>
 
               {/* Rank Section */}
-              <Col lg={2} className="d-flex flex-column align-items-center align-items-lg-start border-end-lg border-gray-200 ps-lg-5">
-                <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-1">Rank</span>
-                <h2 className="fw-bolder text-dark mb-0 fs-4" style={{ fontFamily: "Barlow" }}>
+              <Col lg={2} className="d-flex flex-column align-items-center border-end-lg border-gray-200">
+                <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-2">Rank</span>
+                <h2 className="fw-boldest text-dark mb-0 fs-2" style={{ fontFamily: "Barlow", letterSpacing: "-0.5px" }}>
                   {rank && rank !== 0 && rank !== "0"
                     ? getOrdinalSuffix(Number(rank))
                     : "NR"}
                 </h2>
               </Col>
 
-              {/* Points Section */}
-              <Col lg={2} className="d-flex flex-column align-items-center align-items-lg-start border-end-lg border-gray-200 ps-lg-5">
-                <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-1">Points</span>
-                <h2 className="fw-bolder text-success mb-0 fs-4" style={{ fontFamily: "Barlow" }}>
-                  {parseFloat(yourPoints.toFixed(2))}
+              {/* Efficiency Section */}
+              <Col lg={2} className="d-flex flex-column align-items-center border-end-lg border-gray-200">
+                <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-2">Efficiency</span>
+                <h2 className="fw-boldest text-success mb-0 fs-2" style={{ fontFamily: "Barlow", letterSpacing: "-0.5px" }}>
+                  {percentage.toFixed(0)}%
                 </h2>
               </Col>
 
               {/* Progress Bar Section - High-Density Vertical Layout */}
-              <Col lg={5} className="ps-lg-5">
+              <Col lg={5} className="ps-lg-8">
                 <div className="d-flex flex-column h-100 justify-content-center py-0">
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <span className="text-muted fw-bolder fs-9 text-uppercase ls-1">Efficiency</span>
-                    <span className={`fw-bolder fs-6`} style={{ fontFamily: "Barlow", color: moodData.color }}>{percentage.toFixed(0)}%</span>
+                  <div className="d-flex justify-content-between align-items-center mb-5">
+                    <span className="text-muted fw-bolder fs-9 text-uppercase ls-1">Points</span>
+                    {/* <span className={`fw-bolder fs-6`} style={{ fontFamily: "Barlow", color: moodData.color }}> {parseFloat(yourPoints.toFixed(2))}</span> */}
                   </div>
                   
                   <ScoreBar score={yourPoints} maxScore={maxTotal} />
                   
-                  <div className="d-flex justify-content-between align-items-center mt-4">
-                    <span className="text-dark fs-8 fw-bolder">0</span>
-                    <span className="text-dark fs-8 fw-bolder text-uppercase ls-1">
-                      Target: <span className="text-dark fw-boldest fs-7" style={{ letterSpacing: "0.5px" }}>{maxTotal}</span>
-                    </span>
+                  <div className="d-flex flex-column mt-4">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="text-dark fs-5 fw-boldest">0</span>
+                      <span className="fs-5 fw-boldest" style={{ color: "#9d4141" }}>{maxTotal}</span>
+                    </div>
+                    <div className="text-center mt-n1">
+                      <span className="text-muted fw-bold text-uppercase ls-2 fs-9">Target</span>
+                    </div>
                   </div>
                 </div>
               </Col>
@@ -206,19 +209,19 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
         </div>
       </div>
 
-      <div style={{ flex: "0 0 auto", minWidth: "210px" }}>
+      <div style={{ flex: "0 0 auto", minWidth: "280px" }}>
         <div className="card shadow-sm border-0 h-100" style={{ borderRadius: "12px" }}>
-          <div className="card-body p-3 d-flex align-items-center">
-            <div className="d-flex align-items-center gap-3 w-100">
-              <div className="symbol symbol-50px symbol-circle border border-2 border-white shadow-sm flex-shrink-0">
+          <div className="card-body p-4 d-flex align-items-center">
+            <div className="d-flex align-items-center gap-4 w-100">
+              <div className="symbol symbol-60px symbol-circle border border-2 border-white shadow-sm flex-shrink-0">
                 <Image src={avatar} alt="Profile" />
               </div>
               <div className="d-flex flex-column min-w-0">
-                <h5 className="fw-bolder text-dark mb-1 fs-5" style={{ fontFamily: "Barlow" }}>
+                <h5 className="fw-boldest text-dark mb-1 fs-4" style={{ fontFamily: "Barlow", lineHeight: "1.2" }}>
                   {employee?.users?.firstName} {employee?.users?.lastName}
                 </h5>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span className="badge badge-light-secondary fw-bold fs-9 px-2 py-0.5">{employee?.employeeCode}</span>
+                  <span className="badge badge-light-secondary fw-bold fs-9 px-2 py-1">{employee?.employeeCode}</span>
                   <span className="text-muted fs-9 fw-bold">Active</span>
                 </div>
               </div>

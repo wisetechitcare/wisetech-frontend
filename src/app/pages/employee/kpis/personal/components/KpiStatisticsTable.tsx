@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, Container, Table } from "react-bootstrap";
+import { sortKpiFactors } from "@utils/kpiSort";
 
 interface Factor {
   factor: string;
@@ -105,7 +106,7 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
                             </td>
                           </tr>
                         ) : (
-                          factors.map((factor, index) => {
+                          sortKpiFactors(factors, (f: Factor) => f.factor).map((factor: Factor, index: number) => {
                             const value = Number(factor?.value) || 0;
                             const score = Number(factor?.score) || 0;
 
