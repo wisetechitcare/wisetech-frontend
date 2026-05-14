@@ -25,7 +25,7 @@ import {
   todayProgressPercent,
 } from "@utils/statistics";
 import { Dayjs } from "dayjs";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Container, Row } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
@@ -64,19 +64,25 @@ const Daily = ({
   const [data, setData] = useState<any>(null);
   const [dataLoaded, setDataLoaded] = useState(true);
 
+  // ── 1. Create STABLE effective dates ONLY ONCE ──
+  const effectiveStartDate = useMemo(() => day.startOf("day"), [day.valueOf()]);
+  const effectiveEndDate = useMemo(() => day.endOf("day"), [day.valueOf()]);
+
   useEffect(() => {
     if (!selectedEmployeeId) return;
+    const controller = new AbortController();
 
     const loadData = async () => {
       setDataLoaded(false);
 
       try {
-        const response = await fetchEmpDailyKpiStatistics(day, fromAdmin);
+        const response = await fetchEmpDailyKpiStatistics(day, fromAdmin, controller.signal);
 
         if (response) {
           setData(response.modules);
         }
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
         console.error("Error fetching Daily KPI Statistics:", error);
       } finally {
         setDataLoaded(true);
@@ -84,6 +90,7 @@ const Daily = ({
     };
 
     loadData();
+    return () => controller.abort();
   }, [day, fromAdmin, toggleChange, selectedEmployeeId]);
 
   const overviewData = [
@@ -134,15 +141,15 @@ const Daily = ({
     },
   ];
 
-  if (!dataLoaded) {
-    return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-      <div className="spinner-border text-primary" role="status">
-        <span className="visually-hidden">Loading...</span>
-      </div>
-    </Container>
-  }
   return (
-    <LeaderBoardCore overviewData={overviewData} startDate={day} endDate={day} fromAdmin={fromAdmin} resourseAndView={resourseAndView} />
+    <LeaderBoardCore 
+      overviewData={overviewData} 
+      startDate={effectiveStartDate} 
+      endDate={effectiveEndDate} 
+      fromAdmin={fromAdmin} 
+      resourseAndView={resourseAndView} 
+      isLoading={!dataLoaded}
+    />
   );
 };
 

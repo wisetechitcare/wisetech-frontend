@@ -3,6 +3,7 @@ import { RootState } from '@redux/store';
 import {
     fetchEmpWeeklyKpiStatistics
 } from '@utils/statistics';
+import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { Col, Row, Container } from 'react-bootstrap';
@@ -41,35 +42,35 @@ const Weekly = ({
     const [dataLoaded, setDataLoaded] = useState(true)
     const [data, setData] = useState<any>(null);
     const [maxTotalScore, setMaxTotalScore] = useState<number>(0);
-    // Calculate effectiveEndDate outside useEffect so it can be used for LeaderBoardCore
-    const today = dayjs();
-    const isCurrentWeek =
-        (today.isAfter(startWeek, "day") && today.isBefore(endWeek, "day")) ||
-        today.isSame(startWeek, "day") ||
-        today.isSame(endWeek, "day");
+    // ── 1. Create STABLE effective dates ONLY ONCE ──
+    const effectiveStartDate = useMemo(() => startWeek.startOf("week"), [startWeek.valueOf()]);
+    const effectiveEndDate = useMemo(() => {
+        return dateSettingsEnabled && dayjs().isSame(startWeek, "week")
+            ? dayjs()
+            : endWeek.endOf("week");
+    }, [startWeek.valueOf(), endWeek.valueOf(), dateSettingsEnabled]);
 
-    const effectiveEndDate =
-        dateSettingsEnabled && isCurrentWeek ? today : endWeek;
-
-    // Data fetching effect
+    // ── 2. Data fetching effect ──
     useEffect(() => {
-        if (!selectedEmployeeId || !effectiveEndDate) return;
+        if (!selectedEmployeeId) return;
+        const controller = new AbortController();
 
         const loadData = async () => {
             setDataLoaded(false);
-
             try {
                 const response = await fetchEmpWeeklyKpiStatistics(
-                    startWeek,
+                    effectiveStartDate,
                     effectiveEndDate,
-                    fromAdmin
+                    fromAdmin,
+                    controller.signal
                 );
-
                 if (response) {
                     setData(response.modules);
                     setMaxTotalScore(response.maxTotal || 0);
                 }
             } catch (error) {
+                if (axios.isCancel(error)) return;
+                if (error instanceof Error && error.name === "AbortError") return;
                 console.error("Error fetching Weekly KPI Statistics:", error);
             } finally {
                 setDataLoaded(true);
@@ -77,13 +78,8 @@ const Weekly = ({
         };
 
         loadData();
-    }, [
-        selectedEmployeeId,
-        startWeek,
-        fromAdmin,
-        toggleChange,
-        dateSettingsEnabled,
-    ]);
+        return () => controller.abort();
+    }, [effectiveStartDate, effectiveEndDate, selectedEmployeeId, fromAdmin, toggleChange]);
 
     const overviewData = [
         {
@@ -133,25 +129,16 @@ const Weekly = ({
         },
     ];
 
-
-
-    if (!dataLoaded) {
-        return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-            <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-            </div>
-        </Container>
-    }
-
     return (
         <>
            <LeaderBoardCore
             overviewData={overviewData}
-            startDate={dayjs(startWeek)}
+            startDate={effectiveStartDate}
             endDate={effectiveEndDate}
             fromAdmin={fromAdmin}
             resourseAndView={resourseAndView}
             finalMaxTotalScore={maxTotalScore}
+            isLoading={!dataLoaded}
             />
         </>
     );
