@@ -23,6 +23,8 @@ const iconMapping: Record<string, string> = {
   Target: AttendanceIcon,
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
+  "Early CheckIn": AttendanceIcon,
+  "Early Checkout": AttendanceIcon,
 };
 
 interface WeeklyProps {
@@ -131,6 +133,8 @@ const Weekly: React.FC<WeeklyProps> = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
+    "Early CheckIn",
+    "Early Checkout",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

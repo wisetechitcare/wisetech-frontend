@@ -7,40 +7,25 @@ interface ScoreBarProps {
 
 const ScoreBar: React.FC<ScoreBarProps> = ({ score, maxScore }) => {
   // Clamp percentage between 0 and 100 to prevent negative scores from going outside the bar
-  const percentage = Math.max(0, Math.min((score / maxScore) * 100, 100));
+  const percentage = Math.max(0, Math.min((score / (maxScore || 1)) * 100, 100));
 
-  // Define color segments
+  // Define color segments - Premium Mood-Aligned Palette
   const segments = [
-    "#ED1D26",
-    "#F5811F",
-    // "#F99F1F",
-    "#E8C61B",
-    "#8DC740",
-    "#00B26B",
+    "#9d4141", // Tier 1: Low Performance (Deep Muted Maroon)
+    "#F99F1F", // Tier 2: Improving (Warm Amber)
+    "#FFC700", // Tier 3: Good Progress (Muted Gold)
+    "#50CD89", // Tier 4: High Output (Emerald Green)
+    "#7239EA", // Tier 5: Elite Performance (Premium Violet)
   ];
   const segmentWidth = 100 / segments.length;
 
   return (
-    <div
-      style={{
-        width: "100%",
-        padding: "10px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-      }}
-    >
-      <span>0</span>
-
-      <div style={{ position: "relative", width: "100%", height: "20px" }}>
+    <div className="w-100 position-relative py-5">
+      <div className="position-relative w-100" style={{ height: "14px" }}>
+        {/* Background Bar */}
         <div
-          style={{
-            display: "flex",
-            width: "100%",
-            height: "100%",
-            borderRadius: "10px",
-            overflow: "hidden",
-          }}
+          className="d-flex w-100 h-100 overflow-hidden shadow-sm border border-white border-2"
+          style={{ borderRadius: "20px" }}
         >
           {segments.map((color, index) => (
             <div
@@ -48,44 +33,45 @@ const ScoreBar: React.FC<ScoreBarProps> = ({ score, maxScore }) => {
               style={{
                 width: `${segmentWidth}%`,
                 backgroundColor: color,
+                opacity: 0.9
               }}
             />
           ))}
         </div>
 
+        {/* Current Score Indicator Line */}
         <div
+          className="position-absolute"
           style={{
-            position: "absolute",
             left: `${percentage}%`,
+            top: "-4px",
             transform: "translateX(-50%)",
-            height: "30px",
-            borderLeft: "3px solid #3D3D3D",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            top: "-5px",
-            color: "black",
-            fontWeight: "bold",
+            height: "22px",
+            width: "4px",
+            backgroundColor: "#181C32",
+            borderRadius: "4px",
+            boxShadow: "0 0 0 2px white",
+            zIndex: 10,
+            transition: "left 0.5s cubic-bezier(0.4, 0, 0.2, 1)"
           }}
-        ></div>
+        />
+
+        {/* Score Value Tooltip */}
         <div
+          className="position-absolute"
           style={{
-            position: "absolute",
             left: `${percentage}%`,
+            top: "-30px",
             transform: "translateX(-50%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            top: "-25px",
-            color: "black",
-            fontWeight: "bold",
+            transition: "left 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+            zIndex: 11
           }}
         >
-          {parseFloat(score.toFixed(2))}
+          <div className="badge badge-dark fw-bolder fs-8 px-2 py-1 shadow-sm border border-white border-opacity-10">
+            {parseFloat(score.toFixed(2))}
+          </div>
         </div>
       </div>
-
-      <span>{maxScore}</span>
     </div>
   );
 };

@@ -21,6 +21,8 @@ const iconMapping: Record<string, string> = {
   Target: AttendanceIcon,
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
+  "Early CheckIn": AttendanceIcon,
+  "Early Checkout": AttendanceIcon,
 };
 
 interface AllTimeProps {
@@ -100,6 +102,8 @@ const AllTime: React.FC<AllTimeProps> = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
+    "Early CheckIn",
+    "Early Checkout",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

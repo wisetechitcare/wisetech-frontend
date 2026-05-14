@@ -47,31 +47,31 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const [data, setData] = useState<any[] | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // Use fiscal dates directly from toggle (toggle already handles dateSettingsEnabled)
-    const startDateStr = useMemo(
-        () => year.format("YYYY-MM-DD"),  // Fiscal year start as-is
-        [year.format("YYYY-MM-DD")]
-    );
+    // ── 1. Create STABLE effective dates ONLY ONCE ──
+    const effectiveStartDate = useMemo(() => year.startOf("year"), [year.valueOf()]);
+    const effectiveEndDate = useMemo(() => {
+        return dateSettingsEnabled && year.isSame(dayjs(), "year")
+            ? endDate
+            : year.endOf("year");
+    }, [year.valueOf(), endDate.valueOf(), dateSettingsEnabled]);
 
-    const endDateStr = useMemo(
-        () => endDate.format("YYYY-MM-DD"),  // Toggle already calculated correct endDate
-        [endDate.format("YYYY-MM-DD")]
-    );
-
+    // ── 2. Data fetching effect ──
     useEffect(() => {
+        const controller = new AbortController();
         const loadData = async () => {
             setLoading(true);
             try {
                 const response = await fetchEmpYearlyKpiStatistics(year, fromAdmin, {
-                    startDate: dayjs(startDateStr),
-                    endDate: dayjs(endDateStr),
+                    startDate: effectiveStartDate,
+                    endDate: effectiveEndDate,
+                    signal: controller.signal
                 });
 
                 if (response) {
-
                     setData(response.modules);
                 }
             } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") return;
                 console.error("Error fetching Yearly KPI Statistics:", error);
             } finally {
                 setLoading(false);
@@ -79,7 +79,8 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
         };
 
         loadData();
-    }, [startDateStr, endDateStr, toggleChange]);
+        return () => controller.abort();
+    }, [effectiveStartDate, effectiveEndDate, year, fromAdmin, toggleChange]);
 
     const overviewData = [
         {
@@ -129,17 +130,16 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
         },
     ];
 
-    if (loading) {
-        return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-            <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-            </div>
-        </Container>
-    }
-
     return (
         <>
-            <LeaderBoardCore overviewData={overviewData} startDate={dayjs(startDateStr)} endDate={dayjs(endDateStr)} fromAdmin={fromAdmin} resourseAndView={resourseAndView} />
+            <LeaderBoardCore 
+                overviewData={overviewData} 
+                startDate={effectiveStartDate} 
+                endDate={effectiveEndDate} 
+                fromAdmin={fromAdmin} 
+                resourseAndView={resourseAndView} 
+                isLoading={loading}
+            />
         </>
     );
 }
