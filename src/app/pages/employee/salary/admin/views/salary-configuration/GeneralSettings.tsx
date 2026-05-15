@@ -1,8 +1,8 @@
-import { fetchAllEmployeesSelectedData } from '@services/employee';
+import { fetchAllEmployeesSelectedData, updateEmployee } from '@services/employee';
 import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import { getAvatar } from '@utils/avatar';
-import { fetchConfiguration,updateConfigurationById } from '@services/company';
+import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { EXCLUDE_FROM_LATE_ATTENDANCE, PAYMENT_MODE } from '@constants/configurations-key';
 import { successConfirmation } from '@utils/modal';
 
@@ -33,20 +33,22 @@ const transformEmployeeData = (apiData: any): IEmployee[] => {
   }));
 };
 
-interface ExcludeLateAttendanceModalProps {
+interface EmployeeSelectionModalProps {
   show: boolean;
   handleClose: () => void;
   onSave: (selectedIds: string[]) => void;
   employees: IEmployee[];
   initialSelection: string[];
+  title: string;
 }
 
-const ExcludeLateAttendanceModal: React.FC<ExcludeLateAttendanceModalProps> = ({
+const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
   show,
   handleClose,
   onSave,
   employees,
   initialSelection,
+  title,
 }) => {
   const [tempSelection, setTempSelection] = useState<string[]>(initialSelection);
 
@@ -140,7 +142,7 @@ const ExcludeLateAttendanceModal: React.FC<ExcludeLateAttendanceModalProps> = ({
     <Modal show={show} onHide={handleClose} centered size="lg">
       <Modal.Header closeButton style={modalStyles.header}>
         <Modal.Title style={modalStyles.title}>
-          Choose Employees to excluded from late attendance deduction
+          {title}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body style={modalStyles.body}>
@@ -277,9 +279,9 @@ function GeneralSettings() {
 
         // Fetch both in parallel for better performance
         const [employeesResponse, configResponse, paymentModeResponse] = await Promise.all([
-          fetchAllEmployeesSelectedData(),
-          fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE),
-          fetchConfiguration(PAYMENT_MODE)
+          fetchAllEmployeesSelectedData().catch(err => ({ statusCode: 500, data: { employees: [] } })),
+          fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE).catch(err => null),
+          fetchConfiguration(PAYMENT_MODE).catch(err => null),
         ]);
 
         // Process employees
@@ -329,27 +331,36 @@ function GeneralSettings() {
 
   const handleSaveEmployees = async (selectedIds: string[]) => {
     setSelectedEmployeeIds(selectedIds);
-    console.log("selectedId:: ",selectedIds);
     const payload = {
-            module: EXCLUDE_FROM_LATE_ATTENDANCE,
-            configuration: selectedIds
-          };
-    await updateConfigurationById(configurationId, payload);
+      module: EXCLUDE_FROM_LATE_ATTENDANCE,
+      configuration: selectedIds
+    };
+    if (configurationId) {
+      await updateConfigurationById(configurationId, payload);
+    } else {
+      const res = await createNewConfiguration(payload);
+      setConfigurationId(res?.data?.configuration?.id);
+    }
     successConfirmation("Excluded from late attendance deduction updated successfully");
     fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE)
     setShowModal(false);
   };
 
 
+
   const handleSubmitPaymentMode = async () => {
     const payload = {
-            module: PAYMENT_MODE,
-            configuration: [paymentMode]
-          };
-    await updateConfigurationById(paymentModeConfigurationId, payload);
+      module: PAYMENT_MODE,
+      configuration: [paymentMode]
+    };
+    if (paymentModeConfigurationId) {
+      await updateConfigurationById(paymentModeConfigurationId, payload);
+    } else {
+      const res = await createNewConfiguration(payload);
+      setPaymentModeConfigurationId(res?.data?.configuration?.id);
+    }
     successConfirmation("Payment mode updated successfully");
     fetchConfiguration(PAYMENT_MODE)
-    // setShowModal(false);
   };
   
 
@@ -379,7 +390,7 @@ function GeneralSettings() {
       </div>
 
       {/* Excluded from late Attendance deduction */}
-      <div style={styles.row}>
+      <div style={{ ...styles.row, borderBottom: '1px dashed #E1E3EA' }}>
         <div>
           <h3 style={styles.sectionTitle}>Excluded from late Attendance deduction</h3>
           {/* <p style={styles.sectionDesc}>Lorem ipsum dolor sit amet, consectetur</p> */}
@@ -394,12 +405,13 @@ function GeneralSettings() {
         </div>
       </div>
 
-      <ExcludeLateAttendanceModal
+      <EmployeeSelectionModal
         show={showModal}
         handleClose={() => setShowModal(false)}
         onSave={handleSaveEmployees}
         employees={employees}
         initialSelection={selectedEmployeeIds}
+        title="Choose Employees to exclude from late attendance deduction"
       />
     </div>
   );

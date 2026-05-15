@@ -4,6 +4,7 @@ import { createEmployeeStatus, createSourceOfHire, fetchEmployeeStatus, fetchSrc
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
+import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
 
 function HiringInfo({ formikProps, editMode }: any) {
     const [srcOfHireOptions, setSrcOfHireOptions] = useState([]);
@@ -144,7 +145,62 @@ function HiringInfo({ formikProps, editMode }: any) {
                     </div>
                 </div>
             </div>
+
+            {(() => {
+                const pfEnabled = String(formikProps.values.professionalFeesEnabled) === 'true';
+                const pfType = formikProps.values.professionalFeesType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED';
+                return (
+                    <div className="row mt-4">
+                        <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                            <RadioInput
+                                formikField="professionalFeesEnabled"
+                                inputLabel='Professional Fees Enabled'
+                                radioBtns={[
+                                    { label: "Yes", value: 'true' },
+                                    { label: "No", value: 'false' },
+                                ]}
+                                isRequired={false}
+                            />
+                        </div>
+
+                        {pfEnabled && (
+                            <>
+                                <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                                    <RadioInput
+                                        formikField="professionalFeesType"
+                                        inputLabel='Type'
+                                        radioBtns={[
+                                            { label: "Fixed", value: 'FIXED' },
+                                            { label: "Percentage", value: 'PERCENTAGE' },
+                                        ]}
+                                        isRequired={true}
+                                    />
+                                </div>
+
+                                <div className="col-lg-4 col-md-4 col-sm-12">
+                                    {pfType === 'PERCENTAGE' ? (
+                                        <TextInput
+                                            isRequired={true}
+                                            label="Professional Fees %"
+                                            formikField="professionalFeesPercentage"
+                                        />
+                                    ) : (
+                                        <TextInput
+                                            isRequired={true}
+                                            label="Professional Fees Amount"
+                                            formikField="professionalFeesAmount"
+                                            formatter={formatINNumber}
+                                            parser={parseINNumber}
+                                        />
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                );
+            })()}
         </>
+        
     );
 }
 

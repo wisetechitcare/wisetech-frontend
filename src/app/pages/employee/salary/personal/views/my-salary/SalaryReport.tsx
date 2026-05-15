@@ -7,7 +7,6 @@ import { Attendance } from '@models/employee';
 import SalarySlipTemplate from '@pages/employee/salary/SalarySlipTemplate';
 import { transformApiDataToSalarySlipProps, SalarySlipProps } from '@pages/employee/salary/utils/salarySlipDataTransformer';
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
-import { fetchAppSettings } from '@redux/slices/appSettings';
 import { saveLeaves, saveToggleChange } from '@redux/slices/attendanceStats';
 import { Employee, saveHourlySalaryOfCurrentEmployee, saveHourlySalaryOfSelectedEmployee } from '@redux/slices/employee';
 import { RootState, store } from '@redux/store';
@@ -76,6 +75,275 @@ interface SalaryReportProps {
     onRefreshSalaryData?: () => void;
     isRefreshing?: boolean;
 }
+
+const formatINR2 = (n: number) =>
+    `₹${(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+
+const sumEarnings = (entries: Record<string, IBreakdownItem> | undefined) =>
+    Object.values(entries || {}).reduce(
+        (acc, item: any) => acc + Number(item?.earned || 0),
+        0
+    );
+
+const DeductionPanel = ({
+    deductionBreakdown,
+    grossPay,
+    showSensitiveData,
+}: {
+    deductionBreakdown: IBreakdownData;
+    grossPay: number;
+    showSensitiveData: boolean;
+}) => {
+    const variableEntries = Object.entries(deductionBreakdown?.variable || {});
+    const fixedEntries = Object.entries(deductionBreakdown?.fixed || {});
+
+    const totalVariable = sumEarnings(deductionBreakdown?.variable);
+    const totalFixed = sumEarnings(deductionBreakdown?.fixed);
+    const intermediateSalary = Math.max(0, grossPay - totalVariable);
+    const totalDeductions = totalVariable + totalFixed;
+
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+
+    return (
+        <div className="deduction-panel ">
+            {/* 1. Variable Deductions */}
+            <div className="mb-3">
+                <h6 className="fw-bold mb-2">1. Variable Deductions</h6>
+                <div className="table-responsive ">
+                    <table className="table table-sm table-borderless mb-0">
+                        <thead>
+                            <tr>
+                                <th style={{ fontWeight: 600, fontSize: 12 }}>Name</th>
+                                <th style={{ fontWeight: 600, fontSize: 12, textAlign: 'center' }}>Value</th>
+                                <th style={{ fontWeight: 600, fontSize: 12, textAlign: 'right' }}>Deduction</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {variableEntries.length === 0 && (
+                                <tr style={{ fontSize: 11 }}>
+                                    <td colSpan={3} className="text-muted">No variable deductions</td>
+                                </tr>
+                            )}
+                            {variableEntries.map(([key, item]: [string, any]) => (
+                                <tr key={key} style={{ fontSize: 11 }}>
+                                    <td>{item.name || key}</td>
+                                    <td style={{ textAlign: 'center' }} className={sensitiveCls}>
+                                        {item.value ?? '-'}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }} className={sensitiveCls}>
+                                        {formatINR2(Number(item.earned || 0))}
+                                    </td>
+                                </tr>
+                            ))}
+                            <tr
+                                style={{
+                                    fontSize: 12,
+                                    backgroundColor: '#FBF0F1',
+                                    borderTop: '1px solid #E5C8CA',
+                                }}
+                            >
+                                <td colSpan={2} className="fw-bold py-2" style={{ color: '#AA393D' }}>
+                                    Total Variable Deductions
+                                </td>
+                                <td
+                                    className={`fw-bold py-2 ${sensitiveCls}`}
+                                    style={{ textAlign: 'right', color: '#AA393D' }}
+                                >
+                                    -{formatINR2(totalVariable)}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* 2. Intermediate Salary (B) box */}
+            <div
+                className="mb-4 p-3 rounded-3"
+                style={{ backgroundColor: '#FBF0F1', border: '1px solid #E5C8CA' }}
+            >
+                <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div className="fw-bold" style={{ color: '#AA393D' }}>
+                            Total Salary After Variable Deductions (B)
+                        </div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>
+                            (A − Variable Deductions)
+                        </div>
+                    </div>
+                    <div
+                        className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
+                        style={{
+                            color: '#AA393D',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E5C8CA',
+                        }}
+                    >
+                        {formatINR2(intermediateSalary)}
+                    </div>
+                </div>
+            </div>
+            <div className="mb-3">
+                <h6 className="fw-bold mb-2">2. Fixed Deductions (Calculated on B)</h6>
+                <div className="table-responsive">
+                    <table className="table table-sm table-borderless mb-0">
+                        <thead>
+                            <tr style={{ fontWeight: 600, fontSize: 12 }}>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th style={{ textAlign: 'right' }}>Rate / Amount</th>
+                                <th style={{ textAlign: 'right' }}>Base (B)</th>
+                                <th style={{ textAlign: 'right' }}>Deduction</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {fixedEntries.length === 0 && (
+                                <tr style={{ fontSize: 11 }}>
+                                    <td colSpan={5} className="text-muted">No fixed deductions</td>
+                                </tr>
+                            )}
+                            {fixedEntries.map(([key, item]: [string, any]) => {
+                                const isPct = String(item.type).toLowerCase() === 'percentage';
+                                const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
+                                const typeLabel = isPct ? 'Percentage' : 'Fixed';
+                                return (
+                                    <tr key={key} style={{ fontSize: 11 }}>
+                                        <td>{item.name || key}</td>
+                                        <td>{typeLabel}</td>
+                                        <td style={{ textAlign: 'right' }} className={sensitiveCls}>
+                                            {rate}
+                                        </td>
+                                        <td style={{ textAlign: 'right' }} className={sensitiveCls}>
+                                            {isPct ? formatINR2(intermediateSalary) : '—'}
+                                        </td>
+                                        <td style={{ textAlign: 'right' }} className={sensitiveCls}>
+                                            {formatINR2(Number(item.earned || 0))}
+                                            
+                                        </td>
+                                        
+                                    </tr>
+                                );
+                            })}
+                            <tr
+                                style={{
+                                    fontSize: 12,
+                                    backgroundColor: '#FBF0F1',
+                                    borderTop: '1px solid #E5C8CA',
+                                }}
+                            >
+                                <td colSpan={4} className="fw-bold py-2" style={{ color: '#AA393D' }}>
+                                    Total Fixed Deductions
+                                </td>
+                                <td
+                                    className={`fw-bold py-2 ${sensitiveCls}`}
+                                    style={{ textAlign: 'right', color: '#AA393D' }}
+                                >
+                                    -{formatINR2(totalFixed)}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div
+                className="mb-4 p-3 rounded-3"
+                style={{ backgroundColor: '#FBF0F1', border: '1px solid #E5C8CA' }}
+            >
+                <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div className="fw-bold" style={{ color: '#AA393D' }}>
+                            Total Salary After Variable Deductions (B)
+                        </div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>
+                            (Total Variable Deductions − Total Fixed Deductions)
+                        </div>
+                    </div>
+                    <div
+                        className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
+                        style={{
+                            color: '#AA393D',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E5C8CA',
+                        }}
+                    >
+                        {formatINR2(intermediateSalary)}
+                    </div>
+                </div>
+            </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const NetAmountPayable = ({
+    grossPay,
+    deductionBreakdown,
+    fallbackNetAmount,
+    showSensitiveData,
+    isApiDataLoaded,
+}: {
+    grossPay: number;
+    deductionBreakdown: IBreakdownData;
+    fallbackNetAmount: number;
+    showSensitiveData: boolean;
+    isApiDataLoaded: boolean;
+}) => {
+    const totalVariable = sumEarnings(deductionBreakdown?.variable);
+    const totalFixed = sumEarnings(deductionBreakdown?.fixed);
+    const intermediateSalary = Math.max(0, grossPay - totalVariable);
+    const net = isApiDataLoaded ? intermediateSalary - totalFixed : fallbackNetAmount;
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+
+    return (
+        <div
+            className="mt-4 p-4 rounded-3"
+            style={{ backgroundColor: '#E8F9F6', border: '1px solid #BDEFE8' }}
+        >
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                <div className="d-flex align-items-center">
+                    <div
+                        className="d-flex align-items-center justify-content-center me-3 rounded-circle"
+                        style={{ width: 44, height: 44, backgroundColor: '#008C7C' }}
+                    >
+                        <img
+                            src={miscellaneousIcons.grossPayIcon}
+                            alt=""
+                            style={{ width: 22, height: 22, filter: 'brightness(0) invert(1)' }}
+                        />
+                    </div>
+                    <div>
+                        <div className="fw-bold fs-5" style={{ color: '#008C7C' }}>Net Amount Payable</div>
+                        <div className="text-muted" style={{ fontSize: 12 }}>
+                            (Total Salary After Variable Deductions − Fixed Deductions)
+                        </div>
+                    </div>
+                </div>
+                <div
+                    className={`fs-2 fw-bolder ${net < 0 ? 'text-danger' : ''} ${sensitiveCls}`}
+                    style={{ color: net < 0 ? undefined : '#008C7C' }}
+                >
+                    {formatINR2(Math.abs(net))}
+                </div>
+            </div>
+            {isApiDataLoaded && (
+                <div
+                    className={`mt-3 d-flex justify-content-center align-items-center gap-2 px-3 py-2 rounded-2 ${sensitiveCls}`}
+                    style={{ backgroundColor: '#D6F4EE', fontSize: 13 }}
+                >
+                    <span className="fw-semibold">{formatINR2(intermediateSalary)}</span>
+                    <span className="text-muted">−</span>
+                    <span className="fw-semibold">{formatINR2(totalFixed)}</span>
+                    <span className="text-muted">=</span>
+                    <span className="fw-bolder" style={{ color: '#008C7C' }}>
+                        {formatINR2(net)}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().format('MM'), fromAdmin = false, isYearly = false, hideSummarySection = false, showSensitiveData, monthlyApiData, isApiDataLoading, onRefreshSalaryData, isRefreshing }: SalaryReportProps) => {
     console.log("monthlyapidata:: ", monthlyApiData);
@@ -233,39 +501,26 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             return <div className="text-muted">No {type} data available</div>;
         }
 
+        const sumEarned = (entries: Record<string, IBreakdownItem>) =>
+            Object.values(entries).reduce((acc, item) => acc + Number(item?.earned || 0), 0);
+        const fixedSubtotal = hasFixedData ? sumEarned(data.fixed) : 0;
+        const variableSubtotal = hasVariableData ? sumEarned(data.variable) : 0;
+
+        const isDeduction = type === 'deduction';
+        const subtotalColor = isDeduction ? '#AA393D' : '#008C7C';
+        const subtotalPrefix = isDeduction ? '-' : '+';
+        const fixedSubtotalLabel = isDeduction ? 'Total Fixed Deductions' : `Total Fixed ${title}`;
+        const variableSubtotalLabel = isDeduction ? 'Total Variable Deductions' : `Total Variable ${title}`;
+
         return (
             <div className="breakdown-tables">
-                {/* Fixed Table - 2 columns: Name, Earned */}
-                {hasFixedData && (
-                    <div className="mb-3">
-                        <h6 className="fw-bold mb-2">Fixed {title}</h6>
-                        <div className="table-responsive">
-                            <table className="table table-sm table-borderless">
-                                <thead>
-                                    <tr >
-                                        <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
-                                        <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'right' }}>Earned</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.entries(data.fixed).map(([key, item]) => (
-                                        <tr key={key} style={{ fontSize: '11px' }}>
-                                            <td>{item.name || key}</td>
-                                            <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* Variable Table - 3 columns: Name, Value, Earned */}
+                {/* Variable Table - 3 columns: Name, Value, Earned (rendered first for deductions
+                    so variable deductions feed naturally into the intermediate-salary transition) */}
                 {hasVariableData && (
-                    <div>
+                    <div className="mb-3">
                         <h6 className="fw-bold mb-2">Variable {title}</h6>
                         <div className="table-responsive">
-                            <table className="table table-sm table-borderless">
+                            <table className="table table-sm table-borderless mb-0">
                                 <thead>
                                     <tr>
                                         <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
@@ -281,6 +536,49 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                             <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
                                         </tr>
                                     ))}
+                                    <tr style={{ fontSize: '11px', borderTop: '1px solid #E5E8ED' }}>
+                                        <td colSpan={2} className="fw-bold pt-2">{variableSubtotalLabel}</td>
+                                        <td
+                                            style={{ textAlign: 'right', color: subtotalColor }}
+                                            className={`fw-bold pt-2 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}
+                                        >
+                                            {subtotalPrefix}{formatCurrency(variableSubtotal)}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Fixed Table - 2 columns: Name, Earned */}
+                {hasFixedData && (
+                    <div className="mb-2">
+                        <h6 className="fw-bold mb-2">Fixed {title}</h6>
+                        <div className="table-responsive">
+                            <table className="table table-sm table-borderless mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
+                                        <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'right' }}>Earned</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {Object.entries(data.fixed).map(([key, item]) => (
+                                        <tr key={key} style={{ fontSize: '11px' }}>
+                                            <td>{item.name || key}</td>
+                                            <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
+                                        </tr>
+                                    ))}
+                                    <tr style={{ fontSize: '11px', borderTop: '1px solid #E5E8ED' }}>
+                                        <td className="fw-bold pt-2">{fixedSubtotalLabel}</td>
+                                        <td
+                                            style={{ textAlign: 'right', color: subtotalColor }}
+                                            className={`fw-bold pt-2 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}
+                                        >
+                                            {subtotalPrefix}{formatCurrency(fixedSubtotal)}
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -319,6 +617,68 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const finalNetAmount = useMemo(() => {
         return finalTotalGrossPayAmount - finalTotalDeductionsAmount;
     }, [finalTotalGrossPayAmount, finalTotalDeductionsAmount]);
+
+    // NEW: Calculate summary data and table rows for the Payment Details section
+    const summaryData = useMemo(() => {
+        const salaryData = monthlyApiData?.salaryData || [];
+        let totalGrossPay = 0; // User term: salary - variable
+        let totalVariableDeduction = 0;
+        let totalFixedDeduction = 0;
+        let totalDeduction = 0;
+        let totalPaid = 0;
+
+        salaryData.forEach(item => {
+            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
+            const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
+            const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
+            const paid = parseFloat(item.paidAmount?.replace(/[₹,]/g, '') || '0');
+
+            totalGrossPay += (salary - variable);
+            totalVariableDeduction += variable;
+            totalFixedDeduction += fixed;
+            totalDeduction += (variable + fixed);
+            totalPaid += paid;
+        });
+
+        return {
+            totalGrossPay,
+            totalVariableDeduction,
+            totalFixedDeduction,
+            totalDeduction,
+            totalPaid,
+            pendingAmount: Math.max(0, totalGrossPay - totalFixedDeduction - totalPaid)
+        };
+    }, [monthlyApiData]);
+
+    const tableRows = useMemo(() => {
+        const salaryData = monthlyApiData?.salaryData || [];
+        return salaryData.map(item => {
+            const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
+            const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
+            const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
+            const paid = parseFloat(item.paidAmount?.replace(/[₹,]/g, '') || '0');
+
+            const grossPay = salary - variable;
+            const totalDeduction = variable + fixed;
+            const netSalary = grossPay - fixed;
+
+            let status: 'Paid' | 'Partial' | 'No Payment' = 'No Payment';
+            if (paid >= netSalary && netSalary > 0) status = 'Paid';
+            else if (paid > 0) status = 'Partial';
+
+            return {
+                ...item,
+                calculatedGrossPay: grossPay,
+                calculatedVariableDeduction: variable,
+                calculatedFixedDeduction: fixed,
+                calculatedTotalDeduction: totalDeduction,
+                calculatedNetSalary: netSalary,
+                calculatedStatus: status,
+                calculatedPaidAmount: paid,
+                item: item
+            };
+        });
+    }, [monthlyApiData]);
 
 
     // async function fetchLeaveConfiguration() {
@@ -605,31 +965,37 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const grossPayFixed = isApiDataLoaded ? [] : salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, allowances, parseFloat(employee?.ctcInLpa || '0') / 12);
     let totalGrossPayFixedAmount = isApiDataLoaded ? 0 : (grossPayFixed as any[]).reduce((acc, grossPayFixed) => acc + parseFloat((grossPayFixed.earned).replace(/[₹,]/g, "")), 0);
 
-    // ------------------ Taxes ------------------------
+    // --------------------deductions (Variable)------------------
+    const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
+    const amountToDeductForLateCheckinBasedOnPercentage = Math.floor(dailySalary * (multiLateCheckinDeductionPercent / 100));
+    const multipleLateCheckinEarned = parseInt(((Math.floor((lateAttendance || 0) / multipleLateCheckinCountLimit)) * amountToDeductForLateCheckinBasedOnPercentage).toString());
+    
+    // ------------------ Fixed Deductions (Calculated on Intermediate Salary) ------------------------
     const countOfMonthsEmployeePresentInAYear = getCountOfMonthsEmployeePresentOrOnLeaveInAYear(stats);
+    
+    // Intermediate Salary Base for calculations
+    const intermediateSalaryBase = Math.max(0, (isApiDataLoaded ? (apiTotalGrossPayAmount || 0) : totalGrossPayEarnedFinal) - multipleLateCheckinEarned);
 
-    let taxes = salaryCalculationsForDays(totalDaysOfMonthOrYear, allDaysForMonthOrYear, deductionsRule, parseFloat(employee.ctcInLpa) / 12, isYearly, countOfMonthsEmployeePresentInAYear, true, totalListOfMonthsPresent.size);
-
+    let taxes = salaryCalculationsForDays(
+        totalDaysOfMonthOrYear, 
+        allDaysForMonthOrYear, 
+        deductionsRule, 
+        intermediateSalaryBase, 
+        isYearly, 
+        countOfMonthsEmployeePresentInAYear, 
+        true, 
+        totalListOfMonthsPresent.size
+    );
 
     const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[₹,]/g, "")), 0);
 
-    // --------------------deductions------------------
-    const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
-
-    // const lateAttendanceEarned = ((lateAttendance || 0) * leaveDeduct);
-    const unPaidLeavesEarned = unpaidLeavesTaken * dailySalary;
-    const amountToDeductForLateCheckinBasedOnPercentage = Math.floor(dailySalary * (multiLateCheckinDeductionPercent / 100));
-    const multipleLateCheckinEarned = parseInt(((Math.floor((lateAttendance || 0) / multipleLateCheckinCountLimit)) * amountToDeductForLateCheckinBasedOnPercentage).toString());
-    // setMultiLateCheckinDeductionPercent
-    // setMultipleLateCheckinCountLimit
     const totalDeductionsEarned =
-        // lateAttendanceEarned + 
         multipleLateCheckinEarned +
         (Number(grossPayDeductions[0]?.advancedLoan) || 0) +
         (Number(grossPayDeductions[0]?.foodExpenses) || 0) +
         (Number(grossPayDeductions[0]?.retention) || 0) +
         (Number(grossPayDeductions[0]?.deductionsOthers) || 0) +
-        totalTaxes
+        totalTaxes;
     // +  unPaidLeavesEarned
 
     const deductions = [
@@ -1656,17 +2022,31 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     return (
         <>
             <style jsx>{`
+            /* ─── Theme tokens (mirrors _variables.custom.scss) ─── */
+            :global(:root) {
+                --wt-primary: #AA393D;
+                --wt-primary-hover: #7a2124;
+                --wt-secondary: #295D8E;
+                --wt-surface: #F6F9FC;
+                --wt-border: #E5E8ED;
+                --wt-text-muted: #6B7280;
+                --wt-success: #00CAB4;
+                --wt-warn: #E2A03F;
+                --wt-danger: #C74E52;
+                --wt-info: #0E61B6;
+            }
+
             .sensitive-data-hidden {
                 filter: blur(5px);
                 user-select: none;
                 transition: filter 0.3s ease;
             }
-            
+
             .sensitive-data-visible {
                 filter: none;
                 transition: filter 0.3s ease;
             }
-            
+
             .privacy-toggle {
                 cursor: pointer;
                 padding: 8px;
@@ -1676,108 +2056,321 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 align-items: center;
                 justify-content: center;
             }
-            
-            .privacy-toggle:hover {
-                background-color: #f8f9fa;
+
+            .privacy-toggle:hover { background-color: var(--wt-surface); }
+
+            /* ─── Summary cards ─── */
+            :global(.payroll-summary-card) {
+                background: #fff;
+                border: 1px solid var(--wt-border);
+                border-radius: 12px;
+                padding: 16px;
+                height: 100%;
+                box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+                transition: transform .15s ease, box-shadow .15s ease;
+            }
+            :global(.payroll-summary-card:hover) {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 16px rgba(16,24,40,0.08);
+            }
+            :global(.payroll-summary-icon) {
+                width: 40px; height: 40px;
+                border-radius: 10px;
+                display: inline-flex;
+                align-items: center; justify-content: center;
+                margin-bottom: 10px;
+            }
+
+            /* ─── Payment Details table ─── */
+            :global(.payroll-table-container) {
+                background: #fff;
+                border: 1px solid var(--wt-border);
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+            }
+            :global(.payroll-table-container .border-bottom) {
+                border-bottom: 1px solid var(--wt-border) !important;
+                background: linear-gradient(180deg, #fff 0%, var(--wt-surface) 100%);
+            }
+            :global(.payroll-table) {
+                width: 100%;
+                margin: 0;
+                border-collapse: separate;
+                border-spacing: 0;
+                font-size: 14px;
+            }
+            :global(.payroll-table thead th) {
+                background: var(--wt-surface);
+                color: var(--wt-text-muted);
+                font-weight: 600;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--wt-border);
+                white-space: nowrap;
+            }
+            :global(.payroll-table tbody td) {
+                padding: 14px 16px;
+                border-bottom: 1px solid var(--wt-border);
+                vertical-align: middle;
+            }
+            :global(.payroll-table tbody tr:last-child td) { border-bottom: 0; }
+            :global(.payroll-table tbody tr:hover) { background: var(--wt-surface); }
+            :global(.payroll-table .text-primary) { color: var(--wt-primary) !important; }
+
+            /* ─── Status badges ─── */
+            :global(.status-badge) {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px;
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 600;
+                border: 1px solid transparent;
+            }
+            :global(.status-dot) {
+                width: 8px; height: 8px; border-radius: 50%;
+            }
+            :global(.status-badge-paid) {
+                background: rgba(0,202,180,0.10);
+                color: #008C7C;
+                border-color: rgba(0,202,180,0.30);
+            }
+            :global(.status-dot-paid) { background: var(--wt-success); }
+            :global(.status-badge-partial) {
+                background: rgba(226,160,63,0.10);
+                color: #B7791F;
+                border-color: rgba(226,160,63,0.30);
+            }
+            :global(.status-dot-partial) { background: var(--wt-warn); }
+            :global(.status-badge-none) {
+                background: rgba(199,78,82,0.10);
+                color: var(--wt-danger);
+                border-color: rgba(199,78,82,0.30);
+            }
+            :global(.status-dot-none) { background: var(--wt-danger); }
+
+            /* ─── Action buttons ─── */
+            :global(.payroll-action-btn) {
+                width: 32px; height: 32px;
+                border: 1px solid var(--wt-border);
+                background: #fff;
+                color: var(--wt-secondary);
+                border-radius: 8px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all .15s ease;
+            }
+            :global(.payroll-action-btn:hover) {
+                color: #fff;
+                background: var(--wt-secondary);
+                border-color: var(--wt-secondary);
+            }
+            :global(.payroll-action-btn-danger:hover) {
+                background: var(--wt-primary);
+                border-color: var(--wt-primary);
+            }
+
+            /* ─── Themed primary buttons (Modify / Increment / Email etc.) ─── */
+            :global(.wt-btn-primary) {
+                background-color: var(--wt-primary) !important;
+                border-color: var(--wt-primary) !important;
+                color: #fff !important;
+                transition: background-color .15s ease, border-color .15s ease;
+            }
+            :global(.wt-btn-primary:hover),
+            :global(.wt-btn-primary:focus),
+            :global(.wt-btn-primary:active) {
+                background-color: var(--wt-primary-hover) !important;
+                border-color: var(--wt-primary-hover) !important;
+            }
+
+            /* ─── Gross Pay / Deductions header cards ─── */
+            :global(.wt-card-gross) {
+                background: linear-gradient(135deg, #F0F7FF 0%, #E6F0FB 100%) !important;
+                border: 1px solid rgba(41,93,142,0.18) !important;
+                border-radius: 14px !important;
+            }
+            :global(.wt-card-gross .wt-card-title) { color: var(--wt-secondary); }
+            :global(.wt-card-deduction) {
+                background: linear-gradient(135deg, #FBF0F1 0%, #F5E2E4 100%) !important;
+                border: 1px solid rgba(170,57,61,0.18) !important;
+                border-radius: 14px !important;
+            }
+            :global(.wt-card-deduction .wt-card-title) { color: var(--wt-primary); }
+
+            /* ─── Payment modal ─── */
+            :global(.wt-payment-modal .modal-content) {
+                border: 0;
+                border-radius: 14px;
+                overflow: hidden;
+                box-shadow: 0 20px 50px rgba(16,24,40,0.18);
+            }
+            :global(.wt-payment-modal .modal-header) {
+                background: linear-gradient(135deg, var(--wt-primary) 0%, var(--wt-primary-hover) 100%);
+                color: #fff;
+                border-bottom: 0;
+                padding: 18px 24px;
+            }
+            :global(.wt-payment-modal .modal-header .modal-title) {
+                color: #fff; font-weight: 700; letter-spacing: .01em;
+            }
+            :global(.wt-payment-modal .modal-header .btn-close) {
+                filter: invert(1) grayscale(1) brightness(2);
             }
         `}</style>
             {!hideSummarySection && (
-                <Container fluid className="my-4 w-100 px-0">
-                    <Row className="g-4">
-                        <Col md={6}>
-                            <Card className="p-4 shadow-sm h-100 w-100">
-                                <Card.Body>
-                                    <Card.Title className="fw-bold">{'Month'}</Card.Title>
-                                    <Row className="mt-3">
-                                        <Col xs={6}><p>Payment Date</p></Col>
-                                        <Col xs={6}><p className="text-end">{date}</p></Col>
-                                    </Row>
-                                    <Row>
-                                        <Col xs={6}><p>Regime Opted</p></Col>
-                                        <Col xs={6}><p className="text-end">New Regime</p></Col>
-                                    </Row>
-                                    <Row>
-                                        <Col xs={6}><p>Payable Days</p></Col>
-                                        <Col xs={6}><p className="text-end">{apiSalaryData?.totalPayableDays || 0}</p></Col>
-                                    </Row>
-                                    <hr />
-                                    <Row className="mt-2">
-                                        <Col xs={6}><p>Net Payable</p></Col>
-                                        <Col xs={6}>
-                                            <p className={`text-end fw-bold ${netPayable < 0 ? 'text-danger' : 'text-success'} ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                {formatNumber(netPayable)}
-                                            </p>
-                                        </Col>
-                                    </Row>
-
-                                    <Row>
-                                        <Col xs={6}>Remaining Payment</Col>
-                                        <Col xs={6} className="text-end fw-bold ">
-                                            <p className={`text-end fw-bold ${remainingPayment < 0 ? 'text-danger' : 'text-success'} ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                {formatNumber(remainingPayment)}
-                                            </p>
-                                        </Col>
-                                    </Row>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-
-                        <Col md={6}>
-                            <Card className="p-4 shadow-sm h-100 w-100">
-                                <Card.Body>
-                                    <Card.Title className="fw-bold">Payment Details</Card.Title>
-                                    {payments.length > 0 ? payments.map((payment, index) => (
-                                        <Row className="align-items-center mt-3" key={index}>
-                                            <Col xs={1}>
-                                                <span className="text-success fs-5">✔️</span>
-                                            </Col>
-                                            <Col>
-                                                <p className="mb-0">{`Payment ${index + 1}`}</p>
-                                                <p className="mb-0">{`Date - ${dayjs(payment.paidAt).format('DD-MM-YYYY')}`}</p>
-                                            </Col>
-                                            <Col className="text-end">
-                                                <p className={`mb-0 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{payment.amountPaid}</p>
-                                            </Col>
-                                            {fromAdmin && (
-                                                <button
-                                                    className="btn btn-icon btn-active-color-primary btn-sm pr-0"
-                                                    onClick={() => handlePaymentEdit(payment)}
-                                                    style={{ backgroundColor: 'transparent', border: 'none' }}>
-                                                    <KTIcon iconName="pencil" className="fs-3" />
-                                                </button>
-                                            )}
-                                            {fromAdmin &&
-                                                <button
-                                                    className="btn btn-icon btn-active-color-primary btn-sm pr-0"
-                                                    onClick={() => handlePaymentDelete(payment)}
-                                                    style={{ backgroundColor: 'transparent', border: 'none' }}>
-                                                    <KTIcon iconName="trash" className="fs-3" />
-                                                </button>}
-                                        </Row>
-                                    )) :
-                                        <Row className="align-items-center mt-3">
-                                            <Col xs={1}>
-                                                <span className="text-success fs-5">❌</span>
-                                            </Col>
-                                            <Col>
-                                                <p className="mb-0">No Payments</p>
-                                            </Col>
-                                            <Col className="text-end">
-                                                <p className="mb-0">{date}</p>
-                                            </Col>
-                                        </Row>}
-                                </Card.Body>
-
-                                <div className="d-flex justify-content-end mt-4 gap-2">
-                                    {(fromAdmin) &&
-                                        <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} onClick={() => handlePaymentEdit()}>
-                                            Add Payments
-                                        </Button>}
+                <Container fluid className="my-5 w-100 px-0">
+                    {/* Summary Cards */}
+                    <Row className="g-4 mb-5">
+                        {[
+                            { label: 'Total Gross Pay', value: summaryData.totalGrossPay, icon: 'wallet', color: '#295D8E', bg: 'rgba(41,93,142,0.10)' },
+                            { label: 'Total Variable Deduction', value: summaryData.totalVariableDeduction, icon: 'minus-circle', color: '#B7791F', bg: 'rgba(226,160,63,0.12)' },
+                            { label: 'Total Fixed Deduction', value: summaryData.totalFixedDeduction, icon: 'lock', color: '#AA393D', bg: 'rgba(170,57,61,0.10)' },
+                            { label: 'Total Deduction', value: summaryData.totalDeduction, icon: 'calculator', color: '#0E61B6', bg: 'rgba(14,97,182,0.10)' },
+                            { label: 'Total Paid', value: summaryData.totalPaid, icon: 'check-circle', color: '#008C7C', bg: 'rgba(0,202,180,0.12)' },
+                            { label: 'Pending Amount', value: summaryData.pendingAmount, icon: 'clock', color: '#C74E52', bg: 'rgba(199,78,82,0.10)' },
+                        ].map((card, idx) => (
+                            <Col key={idx} xs={12} sm={6} lg={4} xl={2}>
+                                <div className="payroll-summary-card">
+                                    <div className="payroll-summary-icon" style={{ backgroundColor: card.bg, color: card.color }}>
+                                        <KTIcon iconName={card.icon} className="fs-2" />
+                                    </div>
+                                    <div className="text-muted fs-7 mb-1">{card.label}</div>
+                                    <div className={`fs-4 fw-bolder currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                        {formatStringINR(card.value.toString())}
+                                    </div>
                                 </div>
-                            </Card>
-                        </Col>
+                            </Col>
+                        ))}
                     </Row>
-                </Container>)}
+
+                    {/* Payment Details Table */}
+                    <div className="payroll-table-container">
+                        <div className="d-flex justify-content-between align-items-center p-4 border-bottom">
+                            <h4 className="fw-bold mb-0">Payment Details</h4>
+                            {fromAdmin && (
+                                <Button
+                                    className="btn btn-sm wt-btn-primary d-inline-flex align-items-center"
+                                    onClick={() => handlePaymentEdit()}
+                                >
+                                    <KTIcon iconName="plus" className="fs-3 me-1" />
+                                    Add Payment
+                                </Button>
+                            )}
+                        </div>
+                        <div className="table-responsive">
+                            <table className="payroll-table">
+                                <thead>
+                                    <tr>
+                                        <th>Payment Date</th>
+                                        <th className="text-end">Gross Pay</th>
+                                        <th className="text-end">Variable Deduction</th>
+                                        <th className="text-end">Fixed Deduction</th>
+                                        <th className="text-end">Total Deduction</th>
+                                        <th className="text-end">Net Salary</th>
+                                        <th className="text-center">Status</th>
+                                        <th className="text-end">Paid Amount</th>
+                                        <th className="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tableRows.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={9} className="text-center py-5 text-muted">
+                                                <div className="d-flex flex-column align-items-center">
+                                                    <KTIcon iconName="information-5" className="fs-1 mb-2" />
+                                                    <span>No payroll records available for the selected period.</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        tableRows.map((row, index) => (
+                                            <tr key={index}>
+                                                <td>
+                                                    <div className="fw-semibold">
+                                                        {row.monthEndDate ? dayjs(row.monthEndDate).format('DD-MM-YYYY') : '--'}
+                                                    </div>
+                                                    <div className="text-muted fs-7">{row.month}</div>
+                                                </td>
+                                                <td className="text-end">
+                                                    <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                                        {formatINR2(row.calculatedGrossPay)}
+                                                    </span>
+                                                </td>
+                                                <td className="text-end text-danger">
+                                                    <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                                        -{formatINR2(row.calculatedVariableDeduction)}
+                                                    </span>
+                                                </td>
+                                                <td className="text-end text-danger">
+                                                    <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                                        -{formatINR2(row.calculatedFixedDeduction)}
+                                                    </span>
+                                                </td>
+                                                <td className="text-end fw-bold">
+                                                    <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                                        {formatINR2(row.calculatedTotalDeduction)}
+                                                    </span>
+                                                </td>
+                                                <td className="text-end fw-bolder text-primary">
+                                                    <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                                        {formatINR2(row.calculatedNetSalary)}
+                                                    </span>
+                                                </td>
+                                                <td className="text-center">
+                                                    <span className={`status-badge ${
+                                                        row.calculatedStatus === 'Paid' ? 'status-badge-paid' : 
+                                                        row.calculatedStatus === 'Partial' ? 'status-badge-partial' : 'status-badge-none'
+                                                    }`}>
+                                                        <span className={`status-dot ${
+                                                            row.calculatedStatus === 'Paid' ? 'status-dot-paid' : 
+                                                            row.calculatedStatus === 'Partial' ? 'status-dot-partial' : 'status-dot-none'
+                                                        }`} />
+                                                        {row.calculatedStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="text-end fw-bold text-success">
+                                                    <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
+                                                        {formatINR2(row.calculatedPaidAmount)}
+                                                    </span>
+                                                </td>
+                                                <td className="text-center">
+                                                    <div className="d-flex justify-content-center gap-2">
+                                                        {fromAdmin && (
+                                                            <>
+                                                                <button 
+                                                                    className="payroll-action-btn"
+                                                                    onClick={() => handlePaymentEdit(row.item as any)}
+                                                                    title="Edit Payment"
+                                                                >
+                                                                    <KTIcon iconName="pencil" className="fs-5" />
+                                                                </button>
+                                                                <button 
+                                                                    className="payroll-action-btn payroll-action-btn-danger"
+                                                                    onClick={() => handlePaymentDelete(row.item as any)}
+                                                                    title="Delete Payment"
+                                                                >
+                                                                    <KTIcon iconName="trash" className="fs-5" />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        {!fromAdmin && <span className="text-muted">--</span>}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </Container>
+            )}
             <Container fluid className="my-4 w-100 px-0">
 
             </Container>
@@ -1820,7 +2413,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     No Data Available for PDF
                                 </Button>
                             )}
-                            {salarySlipProps && <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} onClick={
+                            {salarySlipProps && <Button className="wt-btn-primary" onClick={
                                 async ()=> {
                                 setLoading(true);
                                 if (!salarySlipProps) {
@@ -1866,24 +2459,24 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             
 
                             {/* {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} className='ms-2' onClick={() => handleEdit()}>
+                            <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} className='ms-2' onClick={() => handleEdit()}>
                                 Modify
                             </Button>
                         } */}
 
                             {/* un comment it later after fixing the issue */}
                             {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                                <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} className='ms-2' onClick={() => handleSalaryIncrementOpen()}>
+                                <Button className='wt-btn-primary ms-2' onClick={() => handleSalaryIncrementOpen()}>
                                     Increment Salary
                                 </Button>
                             }
 
-                            {(fromAdmin && keyword == MONTH && !hideSummarySection) && <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} className='ms-2' onClick={() => handleGrossDistributionOpen()}>
+                            {(fromAdmin && keyword == MONTH && !hideSummarySection) && <Button className='wt-btn-primary ms-2' onClick={() => handleGrossDistributionOpen()}>
                                 Modify Gross Distribution
                             </Button>}
 
                             {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                                <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} className='ms-2' onClick={handleDeductionDistributionOpen}>
+                                <Button className='wt-btn-primary ms-2' onClick={handleDeductionDistributionOpen}>
                                     Modify Deduction Distribution
                                 </Button>
                             }
@@ -1891,14 +2484,14 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                     </div>
                     <Row className="g-4">
                         <Col md={6} className='mb-4 mb-lg-0' >
-                            <Card className="h-100 w-100 p-2" style={{ backgroundColor: '#EBF5EA' }}>
+                            <Card className="h-100 w-100 p-2 wt-card-gross">
                                 <Card.Body>
-                                    <Card.Title className="fw-bold d-flex align-items-center justify-content-between">
+                                    <Card.Title className="fw-bold d-flex align-items-center justify-content-between wt-card-title">
                                         <div className="d-flex align-items-center">
                                             <img src={miscellaneousIcons.grossPayIcon} className="me-1" alt="" />
-                                            <div className='p-2' style={{ color: '#2FA433' }}>Gross Pay (A)</div>
+                                            <div className='p-2'>Gross Pay (A)</div>
                                         </div>
-                                        <div className={`fw-bold fs-5 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`} style={{ color: '#2FA433' }}>
+                                        <div className={`fw-bold fs-5 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
                                             +{formatNumber(finalTotalGrossPayAmount)}
                                         </div>
                                     </Card.Title>
@@ -1920,7 +2513,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     ) : (
                                         <div>
                                             {/* FALLBACK: Legacy UI for when API data is not available */}
-                                            <h6 className="mt-4 fw-bold" style={{ color: '#9D4141' }}>Variable</h6>
+                                            <h6 className="mt-4 fw-bold" style={{ color: '#AA393D' }}>Variable</h6>
                                             <Row className="text-muted">
                                                 <Col xs={5} sm={4} className="text-start">Name</Col>
                                                 <Col xs={3} sm={3} className="text-center">Value</Col>
@@ -1986,14 +2579,14 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         </Col>
 
                         <Col md={6} >
-                            <Card className="h-100 w-100 p-2" style={{ backgroundColor: '#F5EAEB' }}>
+                            <Card className="h-100 w-100 p-2 wt-card-deduction">
                                 <Card.Body>
-                                    <Card.Title className="fw-bold d-flex align-items-center justify-content-between">
+                                    <Card.Title className="fw-bold d-flex align-items-center justify-content-between wt-card-title">
                                         <div className="d-flex align-items-center">
                                             <img src={miscellaneousIcons.deductionIcon} alt='icon' className='me-1' />
-                                            <div className='p-2' style={{ color: '#9D4141' }}> Deductions (B) </div>
+                                            <div className='p-2'> Deductions (B) </div>
                                         </div>
-                                        <div className={`fw-bold fs-5 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`} style={{ color: '#9D4141' }}>
+                                        <div className={`fw-bold fs-5 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
                                             -{formatNumber(finalTotalDeductionsAmount)}
                                         </div>
                                     </Card.Title>
@@ -2007,16 +2600,16 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                             <span className="ms-2 text-muted">Refreshing data...</span>
                                         </div>
                                     ) : isApiDataLoaded ? (
-                                        <BreakdownTable
-                                            data={deductionBreakdown}
-                                            type="deduction"
-                                            title="Deduction"
+                                        <DeductionPanel
+                                            deductionBreakdown={deductionBreakdown}
+                                            grossPay={apiTotalGrossPayAmount}
+                                            showSensitiveData={showSensitiveData}
                                         />
                                     ) : (
                                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "90%" }}>
                                             <div>
                                                 {/* FALLBACK: Legacy UI for when API data is not available */}
-                                                <h6 className="mt-6 fw-bold" style={{ color: '#9D4141' }}>Variable</h6>
+                                                <h6 className="mt-6 fw-bold" style={{ color: '#AA393D' }}>Variable</h6>
                                                 <Row className="text-muted ">
                                                     <Col xs={5} sm={4} className="text-start">Name / Type</Col>
                                                     <Col xs={3} sm={3} className="text-center">Value</Col>
@@ -2068,13 +2661,13 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             </Card>
                         </Col>
                     </Row>
-                    <div className="d-flex justify-content-end mt-4 md:justify-content-center">
-                        <p style={{ marginRight: '5px' }}>Net Payable this month </p>
-                        <p style={{ color: '#8998AB', marginRight: '5px' }}>Gross pay(A) - Deductions(B): </p>
-                        <span className={`text-end fw-bold ${finalNetAmount < 0 ? 'text-danger' : 'text-success'} ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                            {formatNumber(Math.round(Math.abs(finalNetAmount)))}
-                        </span>
-                    </div>
+                    <NetAmountPayable
+                        grossPay={apiTotalGrossPayAmount}
+                        deductionBreakdown={deductionBreakdown}
+                        fallbackNetAmount={finalNetAmount}
+                        showSensitiveData={showSensitiveData}
+                        isApiDataLoaded={isApiDataLoaded}
+                    />
                     {/* <div className="d-flex justify-content-end mt-4 md:justify-content-center">
                         <PDFDownloadLink document={
                             <SalarySlipTemplate
@@ -2097,7 +2690,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             </Button>
                         </PDFDownloadLink>
 
-                        <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} onClick={ 
+                        <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} onClick={ 
                             async ()=> {
                             setLoading(true);
                             if (!salarySlipProps) {
@@ -2142,7 +2735,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         </Button>
 
                         {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} className='ms-2' onClick={() => handleEdit()}>
+                            <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} className='ms-2' onClick={() => handleEdit()}>
                                 Modify
                             </Button>
                         }
@@ -2152,7 +2745,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 </Card>
             </Container>
 
-            <Modal show={paymentShow} onHide={handlePaymentClose} centered>
+            <Modal show={paymentShow} onHide={handlePaymentClose} centered dialogClassName="wt-payment-modal">
                 <Modal.Header closeButton>
                     <Modal.Title>Payments</Modal.Title>
                 </Modal.Header>
@@ -2184,7 +2777,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 {(formatNumber(Math.round(remainingPayment)))}
                                             </span>
                                         </Row>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={paymentLoading || !formikProps.isValid}>
+                                        <button type='submit' className='btn wt-btn-primary' disabled={paymentLoading || !formikProps.isValid}>
                                             {!paymentLoading && 'Save Changes'}
                                             {paymentLoading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>
@@ -2259,7 +2852,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     </div>
 
                                     <div className='d-flex justify-content-end'>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid}>
+                                        <button type='submit' className='btn wt-btn-primary' disabled={loading || !formikProps.isValid}>
                                             {!loading && 'Save Changes'}
                                             {loading && (
                                                 <span className='indicator-progress' style={{ display: 'block' }}>
@@ -2362,7 +2955,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                         </div>
                                                         <IconButton
                                                             onClick={() => removeField(field.id, field.isNew)}
-                                                            sx={{ color: '#d32f2f' }}
+                                                            sx={{ color: '#C74E52' }}
                                                             title="Remove field"
                                                         >
                                                             <Close />
@@ -2399,8 +2992,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                             </button> */}
                                             <button
                                                 type='submit'
-                                                className='btn btn-primary'
-                                                style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
+                                                className='btn wt-btn-primary'
                                                 disabled={grossDistributionLoading || !formikProps.isValid || allFields.length === 0}
                                             >
                                                 {!grossDistributionLoading && 'Save Changes'}

@@ -25,6 +25,8 @@ interface ISalaryData {
     status: string;
     annualCTC: number;
     employeeId: string;
+    monthStartDate?: string;
+    monthEndDate?: string;
     [key: string]: any;
 }
 

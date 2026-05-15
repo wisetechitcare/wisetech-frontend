@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useDMS } from '../store/DmsContext';
 import { formatBytes, formatDate, getStatusConfig } from '../utils/dmsUtils';
 import { KTIcon } from '@metronic/helpers';
+import * as dmsService from '../services/dmsService';
 
 export const RevisionTimeline: React.FC = () => {
   const { state } = useDMS();
