@@ -3266,7 +3266,11 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
     }
 }
 // 🔥 KPI API SAFETY: Exponential backoff retry helper
-const fetchWithRetry = async (fn: () => Promise<any>, retries = 2, delay = 1200) => {
+const fetchWithRetry = async <T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delay = 1200
+): Promise<T> => {
   try {
     return await fn();
   } catch (error: any) {
