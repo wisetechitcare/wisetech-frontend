@@ -140,18 +140,18 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
               {/* Modern KPI Mood Widget */}
               <Col lg={3} className="border-end-lg border-gray-200">
                 <div className="d-flex align-items-center gap-4 py-1 px-1">
-                  <div 
+                  <div
                     className={`symbol symbol-55px d-flex align-items-center justify-content-center rounded-3 transition-all hover-elevated`}
-                    style={{ 
-                      width: "100px", 
-                      height: "80px", 
+                    style={{
+                      width: "100px",
+                      height: "80px",
                       backgroundColor: `${moodData.color}15`,
                       border: `5px solid ${moodData.color}30`
                     }}
                   >
-                    <i 
-                      className={`fa-solid ${moodData.icon} ${moodData.animation}`} 
-                      style={{ color: moodData.color, fontSize: "1.8rem" }} 
+                    <i
+                      className={`fa-solid ${moodData.icon} ${moodData.animation}`}
+                      style={{ color: moodData.color, fontSize: "1.8rem" }}
                     />
                   </div>
                   <div className="d-flex flex-column">
@@ -166,7 +166,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
               </Col>
 
               {/* Rank Section */}
-              <Col lg={2} className="d-flex flex-column align-items-center border-end-lg border-gray-200">
+              <Col xs={6} lg={2} className="d-flex flex-column align-items-center border-end border-end-lg-1 border-gray-200">
                 <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-2">Rank</span>
                 <h2 className="fw-boldest text-dark mb-0 fs-2" style={{ fontFamily: "Barlow", letterSpacing: "-0.5px" }}>
                   {rank && rank !== 0 && rank !== "0"
@@ -176,7 +176,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
               </Col>
 
               {/* Efficiency Section */}
-              <Col lg={2} className="d-flex flex-column align-items-center border-end-lg border-gray-200">
+              <Col xs={6} lg={2} className="d-flex flex-column align-items-center border-end-lg border-gray-200">
                 <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-2">Efficiency</span>
                 <h2 className="fw-boldest text-success mb-0 fs-2" style={{ fontFamily: "Barlow", letterSpacing: "-0.5px" }}>
                   {percentage.toFixed(0)}%
@@ -190,9 +190,9 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
                     <span className="text-muted fw-bolder fs-9 text-uppercase ls-1">Points</span>
                     {/* <span className={`fw-bolder fs-6`} style={{ fontFamily: "Barlow", color: moodData.color }}> {parseFloat(yourPoints.toFixed(2))}</span> */}
                   </div>
-                  
+
                   <ScoreBar score={yourPoints} maxScore={maxTotal} />
-                  
+
                   <div className="d-flex flex-column mt-4">
                     <div className="d-flex justify-content-between align-items-center">
                       <span className="text-dark fs-5 fw-boldest">0</span>
