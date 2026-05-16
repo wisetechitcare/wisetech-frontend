@@ -35,8 +35,13 @@ export interface PayrollSummary {
     totalVariableDeduction: number;
     totalFixedDeduction: number;
     totalDeduction: number;
-    totalPaid: number;
-    pendingAmount: number;
+    netSalary: number;
+    salaryPaid: number;
+    salaryPending: number;
+    governmentPaid: number;
+    governmentPending: number;
+    totalCompanyPayout: number;
+    activeGovType: string;
 }
 
 export type PayrollTableRow = IMonthlyApiResponse['salaryData'][0] & {
@@ -45,8 +50,12 @@ export type PayrollTableRow = IMonthlyApiResponse['salaryData'][0] & {
     calculatedFixedDeduction: number;
     calculatedTotalDeduction: number;
     calculatedNetSalary: number;
-    calculatedStatus: 'Paid' | 'Partial' | 'No Payment';
+    calculatedStatus: string;
     calculatedPaidAmount: number;
+    salaryPaid: number;
+    salaryPending: number;
+    governmentPaid: number;
+    governmentPending: number;
     item: IMonthlyApiResponse['salaryData'][0];
 };
 

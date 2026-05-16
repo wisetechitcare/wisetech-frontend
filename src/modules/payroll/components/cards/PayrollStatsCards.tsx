@@ -2,7 +2,7 @@ import React from 'react';
 import { Row, Col } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { PayrollSummary } from '../../types/payroll.types';
-import { formatStringINR } from '@utils/statistics';
+import { formatINR2 } from '../../utils/payrollFormatters';
 
 interface PayrollStatsCardsProps {
     summaryData: PayrollSummary;
@@ -10,26 +10,76 @@ interface PayrollStatsCardsProps {
 }
 
 const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, showSensitiveData }) => {
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+
+    // Calculate Gov Pending
+    const govPending = Math.max(0, (summaryData.totalFixedDeduction || 0) - (summaryData.governmentPaid || 0));
+
     const cards = [
-        { label: 'Total Gross Pay', value: summaryData.totalGrossPay, icon: 'wallet', color: '#295D8E', bg: 'rgba(41,93,142,0.10)' },
-        { label: 'Total Variable Deduction', value: summaryData.totalVariableDeduction, icon: 'minus-circle', color: '#B7791F', bg: 'rgba(226,160,63,0.12)' },
-        { label: 'Total Fixed Deduction', value: summaryData.totalFixedDeduction, icon: 'lock', color: '#AA393D', bg: 'rgba(170,57,61,0.10)' },
-        { label: 'Total Deduction', value: summaryData.totalDeduction, icon: 'calculator', color: '#0E61B6', bg: 'rgba(14,97,182,0.10)' },
-        { label: 'Total Paid', value: summaryData.totalPaid, icon: 'check-circle', color: '#008C7C', bg: 'rgba(0,202,180,0.12)' },
-        { label: 'Pending Amount', value: summaryData.pendingAmount, icon: 'clock', color: '#C74E52', bg: 'rgba(199,78,82,0.10)' },
+        { 
+            label: 'Salary In Hand', 
+            value: summaryData.netSalary, 
+            pendingValue: summaryData.salaryPending,
+            icon: 'wallet', 
+            color: 'primary', // Blue
+            statusLabel: 'Pending'
+        },
+        { 
+            label: `${summaryData.activeGovType || 'Gov Fee'} Payable`, 
+            value: summaryData.totalFixedDeduction, 
+            pendingValue: govPending,
+            icon: 'percentage', 
+            color: 'danger', // Pinkish
+            statusLabel: 'Pending'
+        },
+        { 
+            label: 'Salary Paid', 
+            value: summaryData.salaryPaid, 
+            icon: 'check-circle', 
+            color: 'success', // Green
+            statusLabel: 'Paid to Employee'
+        },
+        { 
+            label: `${summaryData.activeGovType || 'Gov Fee'} Paid`, 
+            value: summaryData.governmentPaid, 
+            icon: 'shield-tick', 
+            color: 'info', // Purpleish
+            statusLabel: 'Paid to Govt'
+        },
     ];
 
     return (
-        <Row className="g-4 mb-5">
+        <Row className="g-7 mb-10">
             {cards.map((card, idx) => (
-                <Col key={idx} xs={12} sm={6} lg={4} xl={2}>
-                    <div className="payroll-summary-card">
-                        <div className="payroll-summary-icon" style={{ backgroundColor: card.bg, color: card.color }}>
-                            <KTIcon iconName={card.icon} className="fs-2" />
-                        </div>
-                        <div className="text-muted fs-7 mb-1">{card.label}</div>
-                        <div className={`fs-4 fw-bolder currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                            {formatStringINR(card.value.toString())}
+                <Col xl={3} lg={6} key={idx}>
+                    <div 
+                        className={`card h-100 border-1 border-${card.color} border-opacity-10 shadow-sm rounded-4 overflow-hidden position-relative`}
+                        style={{ backgroundColor: `var(--bs-light-${card.color})` }}
+                    >
+                        <div className="card-body p-7">
+                            <div className="d-flex align-items-center mb-5">
+                                <span className="text-gray-600 fw-bold fs-8 text-uppercase ls-2 tracking-wider">
+                                    {card.label}
+                                </span>
+                            </div>
+                            
+                            <div className="d-flex flex-column mb-5">
+                                <span className={`fs-1 fw-bolder text-gray-900 ${sensitiveCls} mb-1`}>
+                                    {formatINR2(card.value)}
+                                </span>
+                            </div>
+
+                            <div className="d-flex align-items-center">
+                                {card.statusLabel.includes('Pending') ? (
+                                    <div className={`badge badge-light-danger fw-bolder fs-8 px-4 py-2 rounded-2 border border-danger border-opacity-10`}>
+                                        {card.statusLabel}: {formatINR2(card.pendingValue || 0)}
+                                    </div>
+                                ) : (
+                                    <div className={`badge badge-light-${card.color} fw-bolder fs-8 px-4 py-2 rounded-2 border border-${card.color} border-opacity-10`}>
+                                        {card.statusLabel}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </Col>

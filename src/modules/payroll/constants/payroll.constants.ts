@@ -12,6 +12,8 @@ export const PAYMENT_STATUS = {
     PAID: 'Paid',
     PARTIAL: 'Partial',
     NO_PAYMENT: 'No Payment',
+    DUE: 'Due',
+    UPCOMING: 'Upcoming',
 } as const;
 
 export const BREAKDOWN_TYPES = {

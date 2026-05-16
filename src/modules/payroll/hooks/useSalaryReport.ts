@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { PayrollService } from '../services/payroll.service';
+import { parseCurrencyString } from '../utils/payrollFormatters';
 
 export const useSalaryReport = () => {
     const dispatch = useDispatch();
@@ -20,8 +21,12 @@ export const useSalaryReport = () => {
     const [selectedPayment, setSelectedPayment] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
-    const handleRefresh = useCallback(() => {
+    const handleRefresh = useCallback((onSuccess?: () => void) => {
         dispatch(saveToggleChange(!toggleChange));
+        if (onSuccess) {
+            console.log('🔄 [useSalaryReport] Calling onSuccess callback after refresh');
+            onSuccess();
+        }
     }, [dispatch, toggleChange]);
 
     const handlePaymentEdit = (payment?: any) => {
@@ -40,26 +45,64 @@ export const useSalaryReport = () => {
         }
     };
 
-    const handlePaymentSubmit = async (values: any, employeeId: string) => {
+    const handlePaymentSubmit = async (
+        values: any, 
+        salaryId: string | undefined, 
+        employeeId: string, 
+        month: string | number, 
+        year: string | number, 
+        companyId: string | undefined,
+        onSuccess?: () => void
+    ) => {
         try {
             setLoading(true);
-            if (editMode && selectedPayment) {
-                await PayrollService.updatePayment(selectedPayment.id, {
-                    ...values,
-                    employeeId
-                });
-                successConfirmation('Payment updated successfully');
-            } else {
-                await PayrollService.createPayment({
-                    ...values,
-                    employeeId
-                });
-                successConfirmation('Payment created successfully');
+            const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks } = values;
+
+            const basePayload = {
+                salaryId,
+                employeeId,
+                month: Number(month),
+                year: Number(year),
+                companyId,
+                paymentDate: paidAt,
+                paymentMethod,
+                transactionId,
+                remarks
+            };
+
+            // 1. Process Salary Payment
+            if (paymentType === 'SALARY' || paymentType === 'COMBINED') {
+                const amount = typeof salaryAmount === 'string' ? parseCurrencyString(salaryAmount) : Number(salaryAmount);
+                if (amount > 0) {
+                    await PayrollService.recordSalaryPayment({
+                        ...basePayload,
+                        amount: amount,
+                        paymentType: 'SALARY'
+                    });
+                }
             }
+
+            // 2. Process Government Payment (Single Entry)
+            if (paymentType === 'GOVERNMENT' || paymentType === 'COMBINED') {
+                const amount = typeof values.govAmount === 'string' ? parseCurrencyString(values.govAmount) : Number(values.govAmount);
+                if (amount > 0) {
+                    await PayrollService.recordGovernmentPayment({
+                        ...basePayload,
+                        deductionType: values.govType || 'TDS',
+                        amount: amount,
+                        paidAmount: amount,
+                        challanNumber: values.govChallan,
+                        status: 'PAID'
+                    });
+                }
+            }
+
+            successConfirmation('Disbursement authorized successfully');
             setShowPaymentModal(false);
-            handleRefresh();
+            handleRefresh(onSuccess);
         } catch (error) {
-            errorConfirmation('Failed to save payment');
+            console.error("Disbursement authorization error:", error);
+            errorConfirmation('Authorization failed. Please check transaction logs.');
         } finally {
             setLoading(false);
         }
@@ -68,13 +111,25 @@ export const useSalaryReport = () => {
     const paymentInitialValues = useMemo(() => {
         if (editMode && selectedPayment) {
             return {
-                amountPaid: selectedPayment.amountPaid || 0,
-                paidAt: selectedPayment.paidAt ? dayjs(selectedPayment.paidAt).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')
+                paymentType: 'SALARY',
+                salaryAmount: selectedPayment.amountPaid || 0,
+                govtDeductions: {},
+                paidAt: selectedPayment.paidAt ? dayjs(selectedPayment.paidAt).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
+                paymentMethod: selectedPayment.paymentMethod || 'BANK_TRANSFER',
+                transactionId: selectedPayment.transactionId || '',
+                remarks: selectedPayment.remarks || ''
             };
         }
         return {
-            amountPaid: 0,
-            paidAt: dayjs().format('YYYY-MM-DD')
+            paymentType: 'SALARY',
+            salaryAmount: 0,
+            govAmount: 0,
+            govType: 'TDS',
+            govChallan: '',
+            paidAt: dayjs().format('YYYY-MM-DD'),
+            paymentMethod: 'BANK_TRANSFER',
+            transactionId: '',
+            remarks: ''
         };
     }, [editMode, selectedPayment]);
 

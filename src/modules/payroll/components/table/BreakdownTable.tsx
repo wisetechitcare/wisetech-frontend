@@ -1,4 +1,5 @@
 import React from 'react';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { BreakdownTableProps } from '../../types/payroll.types';
 import { formatINR2, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 
@@ -8,58 +9,78 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
     title,
     showSensitiveData
 }) => {
-    const formatCurrency = formatINR2;
     const hasFixedData = Object.keys(data.fixed || {}).length > 0;
     const hasVariableData = Object.keys(data.variable || {}).length > 0;
 
     if (!hasFixedData && !hasVariableData) {
-        return <div className="text-muted">No {type} data available</div>;
+        return (
+            <div className="d-flex flex-column align-items-center justify-content-center py-10 bg-light rounded-3">
+                <span className="text-muted fs-7">No {type} components configured</span>
+            </div>
+        );
     }
 
     const fixedSubtotal = hasFixedData ? sumBreakdownEarnings(data.fixed) : 0;
     const variableSubtotal = hasVariableData ? sumBreakdownEarnings(data.variable) : 0;
+    const grandTotal = fixedSubtotal + variableSubtotal;
 
     const isDeduction = type === 'deduction';
-    const subtotalColor = isDeduction ? '#AA393D' : '#008C7C';
-    const subtotalPrefix = isDeduction ? '-' : '+';
-    const fixedSubtotalLabel = isDeduction ? 'Total Fixed Deductions' : `Total Fixed ${title}`;
-    const variableSubtotalLabel = isDeduction ? 'Total Variable Deductions' : `Total Variable ${title}`;
-
+    const subtotalColorClass = isDeduction ? 'text-danger' : 'text-primary';
+    const subtotalBgClass = isDeduction ? 'bg-light-danger' : 'bg-light-primary';
+    const subtotalPrefix = isDeduction ? '−' : '+';
+    
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+
+    const renderTooltip = (props: any) => (
+        <Tooltip id="gross-explanation" {...props} className="fs-7">
+            This is your total earned amount before any taxes or cuts. 
+            It includes your working time, holidays, and all fixed monthly allowances.
+        </Tooltip>
+    );
 
     return (
         <div className="breakdown-tables">
             {hasVariableData && (
-                <div className="mb-3">
-                    <h6 className="fw-bold mb-2">Variable {title}</h6>
-                    <div className="table-responsive">
-                        <table className="table table-sm table-borderless mb-0">
+                <div className="mb-8">
+                    <div className="d-flex align-items-center mb-4">
+                        <div className="bullet bullet-vertical h-25px bg-danger me-3" style={{ width: '4px' }}></div>
+                        <h6 className="fw-bolder text-gray-800 mb-0 fs-5">Work Earnings</h6>
+                    </div>
+                    <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200">
+                        <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                             <thead>
-                                <tr>
-                                    <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
-                                    <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'center' }}>Value</th>
-                                    <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'right' }}>Earned</th>
+                                <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">
+                                    <th className="min-w-150px">Description</th>
+                                    <th className="text-center min-w-100px">Details</th>
+                                    <th className="text-end min-w-120px">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {Object.entries(data.variable).map(([key, item]: [string, any]) => (
-                                    <tr key={key} style={{ fontSize: '11px' }}>
-                                        <td>{item.name || key}</td>
-                                        <td style={{ textAlign: 'center' }} className={sensitiveCls}>
-                                            {formatValue(item.value, item.type)}
+                                    <tr key={key}>
+                                        <td>
+                                            <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
                                         </td>
-                                        <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {formatCurrency(item.earned)}
+                                        <td className="text-center">
+                                            <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
+                                                {formatValue(item.value, item.type)}
+                                            </span>
+                                        </td>
+                                        <td className="text-end">
+                                            <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
+                                                {formatINR2(item.earned)}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))}
-                                <tr style={{ fontSize: '11px', borderTop: '1px solid #E5E8ED' }}>
-                                    <td colSpan={2} className="fw-bold pt-2">{variableSubtotalLabel}</td>
-                                    <td
-                                        style={{ textAlign: 'right', color: subtotalColor }}
-                                        className={`fw-bold pt-2 ${sensitiveCls}`}
-                                    >
-                                        {subtotalPrefix}{formatCurrency(variableSubtotal)}
+                                <tr className={`${subtotalBgClass} border-0`}>
+                                    <td colSpan={2} className="py-4 ps-6">
+                                        <span className="fw-bolder text-gray-700 fs-7">Subtotal Variable Earnings</span>
+                                    </td>
+                                    <td className="text-end py-4 pe-6">
+                                        <span className={`fw-bolder fs-6 ${subtotalColorClass} ${sensitiveCls}`}>
+                                            {subtotalPrefix}{formatINR2(variableSubtotal)}
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>
@@ -69,37 +90,62 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
             )}
 
             {hasFixedData && (
-                <div className="mb-2">
-                    <h6 className="fw-bold mb-2">Fixed {title}</h6>
-                    <div className="table-responsive">
-                        <table className="table table-sm table-borderless mb-0">
+                <div className="mb-8">
+                    <div className="d-flex align-items-center mb-4">
+                        <div className="bullet bullet-vertical h-25px bg-success me-3" style={{ width: '4px' }}></div>
+                        <h6 className="fw-bolder text-gray-800 mb-0 fs-5">Allowances & Benefits</h6>
+                    </div>
+                    <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200">
+                        <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                             <thead>
-                                <tr>
-                                    <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
-                                    <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'right' }}>Earned</th>
+                                <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">
+                                    <th className="min-w-150px">Description</th>
+                                    <th className="text-end min-w-120px">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {Object.entries(data.fixed).map(([key, item]: [string, any]) => (
-                                    <tr key={key} style={{ fontSize: '11px' }}>
-                                        <td>{item.name || key}</td>
-                                        <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {formatCurrency(item.earned)}
+                                    <tr key={key}>
+                                        <td>
+                                            <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
+                                        </td>
+                                        <td className="text-end">
+                                            <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
+                                                {formatINR2(item.earned)}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))}
-                                <tr style={{ fontSize: '11px', borderTop: '1px solid #E5E8ED' }}>
-                                    <td className="fw-bold pt-2">{fixedSubtotalLabel}</td>
-                                    <td
-                                        style={{ textAlign: 'right', color: subtotalColor }}
-                                        className={`fw-bold pt-2 ${sensitiveCls}`}
-                                    >
-                                        {subtotalPrefix}{formatCurrency(fixedSubtotal)}
+                                <tr className="bg-light-success border-0">
+                                    <td className="py-4 ps-6">
+                                        <span className="fw-bolder text-gray-700 fs-7">Subtotal Fixed Earnings</span>
+                                    </td>
+                                    <td className="text-end py-4 pe-6">
+                                        <span className={`fw-bolder fs-6 text-success ${sensitiveCls}`}>
+                                            {subtotalPrefix}{formatINR2(fixedSubtotal)}
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+            )}
+
+            {/* Final Grand Total for Gross */}
+            {!isDeduction && (
+                <div className="p-5 rounded-3 bg-light-primary border border-primary border-opacity-10 d-flex justify-content-between align-items-center shadow-sm">
+                    <div className="d-flex align-items-center">
+                        <span className="fw-bolder text-primary fs-4 me-3">TOTAL GROSS PAY</span>
+                        <OverlayTrigger placement="top" overlay={renderTooltip}>
+                            <span className="btn btn-icon btn-circle btn-sm btn-light-primary">
+                                <i className="bi bi-info-circle fs-6"></i>
+                            </span>
+                        </OverlayTrigger>
+                    </div>
+                    <span className={`text-primary fw-bolder fs-2 ${sensitiveCls}`}>
+                        {formatINR2(grandTotal)}
+                    </span>
                 </div>
             )}
         </div>

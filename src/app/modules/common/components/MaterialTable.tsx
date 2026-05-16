@@ -77,6 +77,7 @@ interface MaterialTableProps {
   isLoading?: boolean;
   layoutMode?: "grid" | "grid-no-grow" | "semantic";
   muiTableContainerProps?: any;
+  renderDetailPanel?: (props: { row: any; table: any }) => React.ReactNode;
 }
 
 const defaultColumnSizes = {
@@ -120,6 +121,7 @@ function MaterialTable({
   isLoading = false,
   layoutMode = "grid",
   muiTableContainerProps: customMuiTableContainerProps,
+  renderDetailPanel,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -816,6 +818,7 @@ function MaterialTable({
 
         <MaterialReactTable
           key={`${tableName}-${employeeId}-${isInitialized}-${selectedSearchColumn}`}
+          renderDetailPanel={renderDetailPanel}
           state={{
             columnVisibility: preferences.columnVisibility,
             columnOrder: preferences.columnOrder,

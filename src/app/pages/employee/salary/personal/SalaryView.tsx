@@ -103,13 +103,15 @@ function SalaryView({ fromAdmin = false }: { fromAdmin?: boolean }) {
     }
   };
 
+  const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
+
   // Initial load - fetch current month data
   useEffect(() => {
     dispatch(fetchAppSettings() as any);
     if (employee?.id) {
       fetchMonthlySalaryData(currentMonth);
     }
-  }, [employee?.id]);
+  }, [employee?.id, toggleChange]);
 
   return (
     <>

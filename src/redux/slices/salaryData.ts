@@ -6,6 +6,10 @@ interface IBreakdownItem {
     value?: number;
     type?: string;
     earned: number;
+    isActive?: boolean;
+    calculatedAmount?: number;
+    extraAmount?: number;
+    finalAmount?: number;
 }
 
 interface IBreakdownData {
@@ -20,13 +24,15 @@ interface ISalaryData {
     totalGrossPayAmount: string;
     totalDeductedAmount: string;
     netAmount: string;
-    paidAmount: string;
+    amountPaid: string;
     due: string;
     status: string;
     annualCTC: number;
     employeeId: string;
     monthStartDate?: string;
     monthEndDate?: string;
+    lastSalaryPaymentAt?: string | Date | null;
+    lastGovtPaymentAt?: string | Date | null;
     [key: string]: any;
 }
 
@@ -55,6 +61,7 @@ export const salaryDataSlice = createSlice({
     reducers: {
         setMonthlyApiData: (state, action: PayloadAction<IMonthlyApiResponse>) => {
             state.monthlyApiData = action.payload;
+            state.isLoading = false;
             state.error = null;
         },
         setLoading: (state, action: PayloadAction<boolean>) => {

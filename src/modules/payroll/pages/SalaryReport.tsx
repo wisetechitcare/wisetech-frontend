@@ -55,15 +55,17 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     } = useSalaryCalculations(
         monthlyApiData,
         employee,
-        !!monthlyApiData?.salaryData?.[0],
-        0 // Add calculation logic for fallback if needed
+        !!monthlyApiData, // Changed from !!apiSalaryData to avoid temporal dead zone
+        0, 
+        month,
+        year
     );
 
     // 2. Transformed Data for PDF
     const salarySlipProps = useMemo(() => {
-        if (!monthlyApiData?.salaryData?.[0]) return null;
-        return transformApiDataToSalarySlipProps(monthlyApiData.salaryData[0], employee);
-    }, [monthlyApiData, employee]);
+        if (!apiSalaryData) return null;
+        return transformApiDataToSalarySlipProps(apiSalaryData, employee);
+    }, [apiSalaryData, employee]);
 
     if (payrollData.isLoading || isApiDataLoading) {
         return (
@@ -89,7 +91,9 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
 
             {!hideSummarySection && (
                 <Container fluid className="my-5 w-100 px-0">
-                    <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} />
+                    <div className="mb-6">
+                        <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} />
+                    </div>
                     <PaymentDetailsTable 
                         tableRows={tableRows as any}
                         showSensitiveData={showSensitiveData}
@@ -102,19 +106,22 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
             )}
 
             <Container fluid className="my-4 w-100 px-0">
-                <Card className="p-4 shadow-sm w-100">
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-                        <h4 className="fw-bold mb-0">Salary Report</h4>
-                        <div className="d-flex gap-2">
+                <Card className="shadow-sm w-100 border-0 overflow-hidden" style={{ borderRadius: '16px' }}>
+                    <div className="p-6 border-bottom bg-light bg-opacity-50 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 className="fw-bolder text-gray-800 mb-1">Financial Breakdown</h4>
+                            <p className="text-muted fs-7 mb-0">Detailed analysis of earnings and deductions for the selected period</p>
+                        </div>
+                        <div className="d-flex gap-3">
                             {fromAdmin && !isYearly && (
                                 <>
-                                    <Button variant="outline-secondary" size="sm" onClick={() => ui.setShowIncrementModal(true)} >
+                                    <Button variant="outline-danger" size="sm" className="fw-bold px-4 border-2" onClick={() => ui.setShowIncrementModal(true)} >
                                         Increment Salary
                                     </Button>
-                                    <Button variant="outline-secondary" size="sm" onClick={() => grossDist.fetchGrossDistributionData().then(() => ui.setShowGrossModal(true))} >
+                                    <Button variant="outline-primary" size="sm" className="fw-bold px-4 border-2" onClick={() => grossDist.fetchGrossDistributionData().then(() => ui.setShowGrossModal(true))} >
                                         Modify Gross
                                     </Button>
-                                    <Button variant="outline-secondary" size="sm" onClick={() => ui.setShowDeductionModal(true)} >
+                                    <Button variant="outline-secondary" size="sm" className="fw-bold px-4 border-2" onClick={() => ui.setShowDeductionModal(true)} >
                                         Modify Deductions
                                     </Button>
                                 </>
@@ -122,45 +129,63 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                         </div>
                     </div>
 
-                    <SalarySlipSection 
-                        salarySlipProps={salarySlipProps}
-                        userId={employee.userId}
-                        employeeId={employee.id}
-                        loading={ui.loading}
-                        setLoading={ui.setLoading}
-                    />
+                    <div className="p-8">
+                        <div className="mb-8 p-6 rounded-4 bg-white border border-dashed border-gray-300">
+                            <SalarySlipSection 
+                                salarySlipProps={salarySlipProps}
+                                userId={employee.userId}
+                                employeeId={employee.id}
+                                loading={ui.loading}
+                                setLoading={ui.setLoading}
+                            />
+                        </div>
 
-                    <Row className="g-4">
-                        <Col lg={6}>
-                            <div className="p-4 rounded-3 h-100" style={{ backgroundColor: '#F0F7FF', border: '1px solid #D0E3F7' }}>
-                                <h5 className="fw-bold mb-4" style={{ color: '#295D8E' }}>Gross Pay Breakdown</h5>
-                                <BreakdownTable 
-                                    data={apiSalaryData?.grossPayBreakdown || { fixed: {}, variable: {} }} 
-                                    type={BREAKDOWN_TYPES.GROSS}
-                                    title="Pay"
-                                    showSensitiveData={showSensitiveData}
-                                />
-                            </div>
-                        </Col>
-                        <Col lg={6}>
-                            <div className="p-4 rounded-3 h-100" style={{ backgroundColor: '#FBF0F1', border: '1px solid #E5C8CA' }}>
-                                <h5 className="fw-bold mb-4" style={{ color: '#AA393D' }}>Deductions Breakdown</h5>
-                                <DeductionPanel 
-                                    deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
-                                    grossPay={finalTotalGrossPayAmount}
-                                    showSensitiveData={showSensitiveData}
-                                />
-                            </div>
-                        </Col>
-                    </Row>
+                        <Row className="g-8 mb-8">
+                            <Col lg={6}>
+                                <div className="p-6 rounded-4 h-100 shadow-sm" style={{ backgroundColor: '#F0F7FF', border: '1px solid rgba(41, 93, 142, 0.1)' }}>
+                                    <div className="d-flex align-items-center mb-6">
+                                        <div className="symbol symbol-40px me-4">
+                                            <div className="symbol-label bg-primary bg-opacity-10">
+                                                <KTIcon iconName="wallet" className="fs-2 text-primary" />
+                                            </div>
+                                        </div>
+                                        <h5 className="fw-bolder mb-0" style={{ color: '#295D8E' }}>Salary Breakdown</h5>
+                                    </div>
+                                    <BreakdownTable 
+                                        data={apiSalaryData?.grossPayBreakdown || { fixed: {}, variable: {} }} 
+                                        type={BREAKDOWN_TYPES.GROSS}
+                                        title="Earnings"
+                                        showSensitiveData={showSensitiveData}
+                                    />
+                                </div>
+                            </Col>
+                            <Col lg={6}>
+                                <div className="p-6 rounded-4 h-100 shadow-sm" style={{ backgroundColor: '#FBF0F1', border: '1px solid rgba(170, 57, 61, 0.1)' }}>
+                                    <div className="d-flex align-items-center mb-6">
+                                        <div className="symbol symbol-40px me-4">
+                                            <div className="symbol-label bg-danger bg-opacity-10">
+                                                <KTIcon iconName="minus-circle" className="fs-2 text-danger" />
+                                            </div>
+                                        </div>
+                                        <h5 className="fw-bolder mb-0" style={{ color: '#AA393D' }}>Salary Deductions</h5>
+                                    </div>
+                                    <DeductionPanel 
+                                        deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
+                                        grossPay={finalTotalGrossPayAmount}
+                                        showSensitiveData={showSensitiveData}
+                                    />
+                                </div>
+                            </Col>
+                        </Row>
 
-                    <NetAmountPayable 
-                        grossPay={finalTotalGrossPayAmount}
-                        deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
-                        fallbackNetAmount={0}
-                        showSensitiveData={showSensitiveData}
-                        isApiDataLoaded={!!apiSalaryData}
-                    />
+                        <NetAmountPayable 
+                            grossPay={finalTotalGrossPayAmount}
+                            deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
+                            fallbackNetAmount={0}
+                            showSensitiveData={showSensitiveData}
+                            isApiDataLoaded={!!apiSalaryData}
+                        />
+                    </div>
                 </Card>
             </Container>
 
@@ -204,7 +229,27 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 loading={ui.loading}
                 initialValues={ui.paymentInitialValues}
                 editMode={ui.editMode}
-                onSubmit={(values) => ui.handlePaymentSubmit(values, employee.id)}
+                onSubmit={(values) => {
+                    console.log("PAYMENT SUBMIT DATA", {
+                        salaryId: apiSalaryData?.id,
+                        employeeId: employee.id,
+                        month,
+                        year,
+                        companyId: employee.companyId,
+                        values
+                    });
+                    ui.handlePaymentSubmit(values, apiSalaryData?.id, employee.id, month, year, employee.companyId, onRefreshSalaryData);
+                }}
+                employeeName={`${employee.users.firstName} ${employee.users.lastName}`}
+                month={dayjs().month(parseInt(month as string) - 1).format('MMMM')}
+                year={year.toString()}
+                netPayable={summaryData.netSalary}
+                salaryPaid={summaryData.salaryPaid}
+                governmentPaid={summaryData.governmentPaid}
+                grossSalary={summaryData.totalGrossPay}
+                variableDeductions={summaryData.totalVariableDeduction}
+                fixedDeductions={summaryData.totalFixedDeduction}
+                statutoryBreakdown={apiSalaryData?.deductionBreakdown?.fixed || {}}
             />
         </div>
     );

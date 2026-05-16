@@ -103,7 +103,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                                         className="form-control form-control-sm border-0 border-bottom bg-transparent fw-bold"
                                                         value={field.name}
                                                         onChange={(e) => onUpdateFieldName(field.id, e.target.value, true)}
-                                                        placeholder="Component Name"
+                                                        placeholder="Enter Description"
                                                         style={{ fontSize: '0.9rem', padding: '0 0 5px 0' }}
                                                     />
                                                 </div>

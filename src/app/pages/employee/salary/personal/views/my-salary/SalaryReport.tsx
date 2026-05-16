@@ -195,8 +195,8 @@ const DeductionPanel = ({
                                 <th>Name</th>
                                 <th>Type</th>
                                 <th style={{ textAlign: 'right' }}>Rate / Amount</th>
-                                <th style={{ textAlign: 'right' }}>Base (B)</th>
-                                <th style={{ textAlign: 'right' }}>Deduction</th>
+                                <th style={{ textAlign: 'right' }}>Base</th>
+                                <th style={{ textAlign: 'right' }}>Amount</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -256,7 +256,7 @@ const DeductionPanel = ({
                             Total Salary After Variable Deductions (B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
-                            (Total Variable Deductions − Total Fixed Deductions)
+                            (Total Earnings − Total Government Deductions)
                         </div>
                     </div>
                     <div
@@ -631,7 +631,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
             const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
             const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
-            const paid = parseFloat(item.paidAmount?.replace(/[₹,]/g, '') || '0');
+            const paid = parseFloat(item.amountPaid?.replace(/[₹,]/g, '') || '0');
 
             totalGrossPay += (salary - variable);
             totalVariableDeduction += variable;
@@ -656,7 +656,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             const salary = parseFloat(item.totalGrossPayAmount?.replace(/[₹,]/g, '') || '0');
             const variable = Object.values(item.deductionBreakdown?.variable || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
             const fixed = Object.values(item.deductionBreakdown?.fixed || {}).reduce((acc: number, val: any) => acc + (Number(val.earned) || 0), 0);
-            const paid = parseFloat(item.paidAmount?.replace(/[₹,]/g, '') || '0');
+            const paid = parseFloat(item.amountPaid?.replace(/[₹,]/g, '') || '0');
 
             const grossPay = salary - variable;
             const totalDeduction = variable + fixed;
