@@ -15,6 +15,7 @@ import { fetchLeaderboard } from "@utils/statistics";
 import { getAvatar } from "@utils/avatar";
 import { EMPLOYEE } from "@constants/api-endpoint";
 import { sortKpiFactors } from "@utils/kpiSort";
+import { formatHours } from "./kpiUtils";
 import CommonCard from "@app/modules/common/components/CommonCard";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
@@ -340,8 +341,11 @@ const ScoreDisplay = React.memo(
       <div style={{ display: "flex", flexDirection: "column" }}>
         {value !== null && value !== undefined && (
           <span style={{ fontSize: "11px", color: COLORS.gray, fontWeight: 500 }}>
-            {valueLabel}: {parseFloat(safeNumber(value).toFixed(2))}
-            {maxValue !== null && maxValue !== undefined && safeNumber(maxValue) !== 0 && (
+            {valueLabel}: {valueLabel === "Hours"
+              ? formatHours(safeNumber(value))
+              : parseFloat(safeNumber(value).toFixed(2))
+            }
+            {valueLabel !== "Hours" && maxValue !== null && maxValue !== undefined && safeNumber(maxValue) !== 0 && (
               <span> / {maxValue}</span>
             )}
           </span>
@@ -577,9 +581,12 @@ const RankingRow = React.memo(({ data }: { data: RankingRowData }) => {
           >
             <span>{valueLabel}:</span>
             <span style={{ fontWeight: 700, color: "#181C32" }}>
-              {parseFloat(safeNumber(value).toFixed(2))}
+              {valueLabel === "Hours"
+                ? formatHours(safeNumber(value))
+                : parseFloat(safeNumber(value).toFixed(2))
+              }
             </span>
-            {mv > 0 && (
+            {valueLabel !== "Hours" && mv > 0 && (
               <span style={{ color: COLORS.gray, fontWeight: 400 }}>/ {mv}</span>
             )}
           </div>

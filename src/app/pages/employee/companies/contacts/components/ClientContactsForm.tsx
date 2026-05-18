@@ -1314,7 +1314,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   placeholder="Enter latitude"
                                   formikField="latitude"
                                   isRequired={false}
-                                  inputValidation="decimal"
+                                  inputValidation="signed-decimal"
                                 />
                               </Col>
                               <Col md={3}>
@@ -1323,7 +1323,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   placeholder="Enter longitude"
                                   formikField="longitude"
                                   isRequired={false}
-                                  inputValidation="decimal"
+                                  inputValidation="signed-decimal"
                                 />
                               </Col>
                               <div

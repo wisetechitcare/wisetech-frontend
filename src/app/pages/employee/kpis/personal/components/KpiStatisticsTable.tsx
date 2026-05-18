@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, Container, Table } from "react-bootstrap";
 import { sortKpiFactors } from "@utils/kpiSort";
+import { formatHours, formatWeightageUnit, isHourUnit } from "@app/pages/employee/kpis/common/kpiUtils";
 
 interface Factor {
   factor: string;
@@ -124,14 +125,22 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
                                 </td>
                                 <td className="text-center">
                                   <span className="text-dark fw-bold fs-7">
-                                    {Number(factor?.weightage ?? 0)}
-                                    <span className="text-muted fs-9 ms-1">{factor?.unit || ""}</span>
+                                    {formatWeightageUnit(Number(factor?.weightage ?? 0), factor?.unit)}
                                   </span>
                                 </td>
                                 <td className="text-center">
                                   <span className="text-dark fw-bold fs-7">
-                                    {value.toFixed(2)}
-                                    <span className="text-muted fs-9 ms-1">{factor?.unit || ""}</span>
+                                    {isHourUnit(factor?.unit)
+                                      ? formatHours(value)
+                                      : (
+                                        <>
+                                          {value.toFixed(2)}
+                                          {factor?.unit && (
+                                            <span className="text-muted fs-9 ms-1">{factor.unit}</span>
+                                          )}
+                                        </>
+                                      )
+                                    }
                                   </span>
                                 </td>
                                 <td className="text-center pe-4">

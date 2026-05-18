@@ -60,3 +60,37 @@ export const getFactorUnit = (factorName: string | undefined): string => {
   // Fallback to empty string (replaces generic "units")
   return "";
 };
+
+/**
+ * Converts a decimal hour value to a human-readable "XH YM" string.
+ * e.g. 84.84 → "84H 50M", 0.5 → "30M", 2 → "2H"
+ */
+export function formatHours(decimalHours: number): string {
+  if (!decimalHours || decimalHours <= 0) return "0H";
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  if (hours === 0) return `${minutes}M`;
+  if (minutes === 0) return `${hours}H`;
+  return `${hours}H ${minutes}M`;
+}
+
+/**
+ * Returns true when the unit string represents an hours-based measurement.
+ */
+export function isHourUnit(unit: string | undefined): boolean {
+  if (!unit) return false;
+  const u = unit.toLowerCase().trim();
+  return u === "hour" || u === "hours" || u === "hrs";
+}
+
+/**
+ * Formats a weightage value with its unit into a readable "X Points / Day" or "X Point / Hour" string.
+ * Handles singular ("1 Point") vs plural ("5 Points").
+ * e.g. (5, "day") → "5 Points / Day", (1, "Hours") → "1 Point / Hour"
+ */
+export function formatWeightageUnit(weightage: number, unit: string | undefined): string {
+  if (!unit) return String(weightage);
+  const pointLabel = weightage === 1 ? "Point" : "Points";
+  const normalizedUnit = isHourUnit(unit) ? "Hour" : "Day";
+  return `${weightage} ${pointLabel} / ${normalizedUnit}`;
+}

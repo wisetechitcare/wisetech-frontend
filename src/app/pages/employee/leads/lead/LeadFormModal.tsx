@@ -5277,7 +5277,7 @@ const LeadFormModal = ({
                                         formikField="addresses.0.latitude"
                                         label="Latitude"
                                         isRequired={false}
-                                        inputValidation="decimal"
+                                        inputValidation="signed-decimal"
                                       />
                                     </Col>
                                     <Col md={3}>
@@ -5285,7 +5285,7 @@ const LeadFormModal = ({
                                         formikField="addresses.0.longitude"
                                         label="Longitude"
                                         isRequired={false}
-                                        inputValidation="decimal"
+                                        inputValidation="signed-decimal"
                                       />
                                     </Col>
                                     <div
