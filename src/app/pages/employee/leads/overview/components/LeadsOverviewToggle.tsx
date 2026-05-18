@@ -37,7 +37,6 @@ interface MaterialToggleProps {
 }
 
 
-
 const LeadsOverviewToggle = ({
   toggleItemsActions,
   fromAdmin = false,

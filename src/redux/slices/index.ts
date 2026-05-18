@@ -16,6 +16,7 @@ import allEmployeesReducer from '@redux/slices/allEmployees';
 import userAgentReducer from '@redux/slices/userAgent';
 import timerReducer from '@redux/slices/timer';
 import salaryDataReducer from '@redux/slices/salaryData';
+import leaderboardCacheReducer from '@redux/slices/leaderboardCache';
 
 const rootReducer = combineReducers({
     auth: authReducer,
@@ -34,7 +35,8 @@ const rootReducer = combineReducers({
     allEmployees: allEmployeesReducer,
     userAgent: userAgentReducer,
     timer: timerReducer,
-    salaryData: salaryDataReducer
+    salaryData: salaryDataReducer,
+    leaderboardCache: leaderboardCacheReducer
 });
 
 export default rootReducer;

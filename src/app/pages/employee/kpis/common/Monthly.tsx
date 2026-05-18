@@ -41,24 +41,31 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any>(null);
 
-    const effectiveEndDate: Dayjs =
-        dateSettingsEnabled && month.isSame(dayjs(), "month")
+    // ── 1. Create STABLE effective dates ONLY ONCE ──
+    const effectiveStartDate = useMemo(() => month.startOf("month"), [month.valueOf()]);
+    const effectiveEndDate = useMemo(() => {
+        return dateSettingsEnabled && month.isSame(dayjs(), "month")
             ? endDate
             : month.endOf("month");
+    }, [month.valueOf(), endDate.valueOf(), dateSettingsEnabled]);
 
+    // ── 2. Data fetching effect ──
     useEffect(() => {
+        const controller = new AbortController();
         const loadData = async () => {
             setLoading(true);
             try {
                 const response = await fetchEmpMonthlyKpiStatistics(month, fromAdmin, {
-                    startDate: month.startOf("month"),
+                    startDate: effectiveStartDate,
                     endDate: effectiveEndDate,
+                    signal: controller.signal
                 });
 
                 if (response) {
                     setData(response.modules);
                 }
             } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") return;
                 console.error("Error fetching Monthly KPI Statistics:", error);
             } finally {
                 setLoading(false);
@@ -66,7 +73,8 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         };
 
         loadData();
-    }, [month, toggleChange]);
+        return () => controller.abort();
+    }, [effectiveStartDate, effectiveEndDate, month, fromAdmin, toggleChange]);
 
     const overviewData = [
         {
@@ -117,17 +125,16 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     ];
 
 
-    if (loading) {
-        return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-            <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-            </div>
-        </Container>
-    }
-
     return (
         <>
-            <LeaderBoardCore overviewData={overviewData} startDate={dayjs(month.startOf('month'))} endDate={effectiveEndDate} fromAdmin={fromAdmin} resourseAndView={resourseAndView} />
+            <LeaderBoardCore 
+                overviewData={overviewData} 
+                startDate={effectiveStartDate} 
+                endDate={effectiveEndDate} 
+                fromAdmin={fromAdmin} 
+                resourseAndView={resourseAndView} 
+                isLoading={loading}
+            />
         </>
     );
 };

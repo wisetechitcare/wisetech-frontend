@@ -2041,12 +2041,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 user-select: none;
                 transition: filter 0.3s ease;
             }
-
             .sensitive-data-visible {
                 filter: none;
                 transition: filter 0.3s ease;
             }
-
             .privacy-toggle {
                 cursor: pointer;
                 padding: 8px;

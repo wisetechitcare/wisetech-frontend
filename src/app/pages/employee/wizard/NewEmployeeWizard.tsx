@@ -1492,7 +1492,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (!stepper) {
       return;
     }
-
     // Handle edit mode for final step
     if (stepper.currentStepIndex === stepper.totalStepsNumber && editMode) {
       try {
@@ -2050,10 +2049,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                     >
                       <div className="flex-grow-1">
                         {/* Step1 (Choose Method) is now commented out - wizard starts at Personal Details */}
-                        {/* <div className='current' data-kt-stepper-element='content'>
-                          {stepper?.currentStepIndex === 1 ? <Step1 /> : null}
-                        </div> */}
-
                         <div
                           className="current"
                           data-kt-stepper-element="content"
@@ -2122,7 +2117,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                                 ) : (
                                   "Submit"
                                 ))}
-                              {/* <KTIcon iconName='arrow-right' className='fs-3 ms-2 me-0' /> */}
                             </span>
                           </button>
                         </div>

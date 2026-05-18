@@ -4,21 +4,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAvatar } from "@utils/avatar";
 import ScoreBar from "./ScoreBar";
-import OutstandingBadge from "@metronic/assets/miscellaneousicons/Outstanding.svg";
-import GoodBadge from "@metronic/assets/miscellaneousicons/Good.svg";
-import SatisfactoryBadge from "@metronic/assets/miscellaneousicons/Satisfactory.svg";
-import PoorBadge from "@metronic/assets/miscellaneousicons/Poor.svg";
-import CriticalBadge from "@metronic/assets/miscellaneousicons/Critical.svg";
 
 type Gender = 0 | 1 | 2;
-
-export const badgeMapping: Record<string, string> = {
-  Outstanding: OutstandingBadge,
-  Good: GoodBadge,
-  Satisfactory: SatisfactoryBadge,
-  Poor: PoorBadge,
-  Critical: CriticalBadge,
-};
 
 // Helper to add ordinal suffix to rank number
 function getOrdinalSuffix(rank: number): string {
@@ -61,108 +48,186 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
     employee.gender as unknown as Gender
   );
 
-const badgeImage = useMemo(() => badgeMapping[remark] || GoodBadge, [remark]);
-  const CommonCard: React.FC<{
-    children?: React.ReactNode;
-    styles?: React.CSSProperties;
-  }> = ({ children, styles }) => (
-    <div
-      className="d-flex flex-column m-md-3 p-5 p-md-10"
-      style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: "10px",
-        fontFamily: "Inter",
-        ...styles,
-      }}
-    >
-      {children}
-    </div>
-  );
+  const percentage = Math.max(0, Math.min((yourPoints / (maxTotal || 1)) * 100, 100));
+
+  const moodData = useMemo(() => {
+    if (percentage < 20) {
+      return {
+        state: "Needs Attention",
+        subtitle: "Below target",
+        color: "#9d4141",
+        stateKey: "danger",
+        icon: "fa-face-frown",
+        animation: "animate-pulse-soft"
+      };
+    } else if (percentage < 40) {
+      return {
+        state: "Keep Improving",
+        subtitle: "Making progress",
+        color: "#F99F1F",
+        stateKey: "warning",
+        icon: "fa-arrow-trend-up",
+        animation: ""
+      };
+    } else if (percentage < 60) {
+      return {
+        state: "Good Progress",
+        subtitle: "On the right track",
+        color: "#FFC700",
+        stateKey: "warning",
+        icon: "fa-face-smile",
+        animation: ""
+      };
+    } else if (percentage < 80) {
+      return {
+        state: "Great Performance",
+        subtitle: "High efficiency",
+        color: "#50CD89",
+        stateKey: "success",
+        icon: "fa-bolt",
+        animation: "animate-float-soft"
+      };
+    } else {
+      return {
+        state: "Excellent",
+        subtitle: "Elite level",
+        color: "#7239EA",
+        stateKey: "info",
+        icon: "fa-crown",
+        animation: "animate-shine-premium"
+      };
+    }
+  }, [percentage]);
 
   return (
-    <div className="d-flex flex-column flex-lg-row gap-3 sticky-responsive">
+    <div className="d-flex flex-column flex-lg-row gap-3 mb-4">
       <style jsx>{`
-                    .sticky-responsive {
-                        position: static;
-                        background-color: white;
-                        padding: 10px;
-                    }
-                    
-                    @media (min-width: 992px) {
-                        .sticky-responsive {
-                            position: sticky;
-                            top: 125px;
-                            z-index: 50;
-                        }
-                    }
-                `}</style>
-      <div style={{ flex: 3 }}>
+        @keyframes pulse-soft {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(0.95); }
+        }
+        .animate-pulse-soft {
+          animation: pulse-soft 2.5s ease-in-out infinite;
+        }
         
-        <CommonCard styles={{ width: "100%" }}>
-          <Row className="flex-column flex-lg-row justify-content-center justify-content-lg-start text-center text-lg-start align-items-center">
-            <Col
-              md={3}
-              className="d-flex align-items-center justify-content-center justify-content-lg-start mb-3 mb-lg-0"
-            >
-              <Image
-                src={badgeImage}
-                alt={remark}
-                style={{ width: "100%", height: "auto", maxHeight: "70px" }}
-                className="me-3"
-                fluid
-              />
-            </Col>
+        @keyframes float-soft {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        .animate-float-soft {
+          animation: float-soft 4s ease-in-out infinite;
+        }
+        
+        @keyframes shine-premium {
+          0% { opacity: 0.8; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 0.8; transform: scale(1); }
+        }
+        .animate-shine-premium {
+          animation: shine-premium 3s ease-in-out infinite;
+        }
+        
+        .hover-elevated:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+      `}</style>
 
-            <Col
-              md={2}
-              className="d-flex flex-column justify-content-center align-items-center align-items-md-start mb-3 mb-lg-0"
-            >
-              <h5 className="mb-1">
-                {rank && rank !== 0 && rank !== "0"
-                  ? getOrdinalSuffix(Number(rank))
-                  : "Not Ranked"}
-              </h5>
-              <small className="text-muted">Rank</small>
-            </Col>
+      <div className="flex-grow-1">
+        <div className="card shadow-sm border-0" style={{ borderRadius: "12px" }}>
+          <div className="card-body p-3 p-lg-4">
+            <Row className="align-items-center g-3">
+              {/* Modern KPI Mood Widget */}
+              <Col lg={3} className="border-end-lg border-gray-200">
+                <div className="d-flex align-items-center gap-4 py-1 px-1">
+                  <div
+                    className={`symbol symbol-55px d-flex align-items-center justify-content-center rounded-3 transition-all hover-elevated`}
+                    style={{
+                      width: "100px",
+                      height: "80px",
+                      backgroundColor: `${moodData.color}15`,
+                      border: `5px solid ${moodData.color}30`
+                    }}
+                  >
+                    <i
+                      className={`fa-solid ${moodData.icon} ${moodData.animation}`}
+                      style={{ color: moodData.color, fontSize: "1.8rem" }}
+                    />
+                  </div>
+                  <div className="d-flex flex-column">
+                    <h4 className={`fw-bolder mb-1 fs-5 text-dark`} style={{ fontFamily: "Barlow" }}>
+                      {moodData.state}
+                    </h4>
+                    <span className="text-muted fw-bold fs-9 text-uppercase ls-1">
+                      {moodData.subtitle}
+                    </span>
+                  </div>
+                </div>
+              </Col>
 
-            <Col
-              md={2}
-              className="d-flex flex-column justify-content-center align-items-center align-items-md-start mb-3 mb-lg-0"
-            >
-              <h5 className="mb-1">{parseFloat(yourPoints.toFixed(2))}</h5>
-              <small className="text-muted">Your Points</small>
-            </Col>
+              {/* Rank Section */}
+              <Col xs={6} lg={2} className="d-flex flex-column align-items-center border-end border-end-lg-1 border-gray-200">
+                <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-2">Rank</span>
+                <h2 className="fw-boldest text-dark mb-0 fs-2" style={{ fontFamily: "Barlow", letterSpacing: "-0.5px" }}>
+                  {rank && rank !== 0 && rank !== "0"
+                    ? getOrdinalSuffix(Number(rank))
+                    : "NR"}
+                </h2>
+              </Col>
 
-            <Col
-              md={5}
-              className="d-flex align-items-center justify-content-center justify-content-lg-start"
-            >
-              <ScoreBar score={yourPoints} maxScore={maxTotal} />
-            </Col>
-          </Row>
-        </CommonCard>
+              {/* Efficiency Section */}
+              <Col xs={6} lg={2} className="d-flex flex-column align-items-center border-end-lg border-gray-200">
+                <span className="text-muted fw-bold fs-9 text-uppercase ls-1 mb-2">Efficiency</span>
+                <h2 className="fw-boldest text-success mb-0 fs-2" style={{ fontFamily: "Barlow", letterSpacing: "-0.5px" }}>
+                  {percentage.toFixed(0)}%
+                </h2>
+              </Col>
+
+              {/* Progress Bar Section - High-Density Vertical Layout */}
+              <Col lg={5} className="ps-lg-8">
+                <div className="d-flex flex-column h-100 justify-content-center py-0">
+                  <div className="d-flex justify-content-between align-items-center mb-5">
+                    <span className="text-muted fw-bolder fs-9 text-uppercase ls-1">Points</span>
+                    {/* <span className={`fw-bolder fs-6`} style={{ fontFamily: "Barlow", color: moodData.color }}> {parseFloat(yourPoints.toFixed(2))}</span> */}
+                  </div>
+
+                  <ScoreBar score={yourPoints} maxScore={maxTotal} />
+
+                  <div className="d-flex flex-column mt-4">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="text-dark fs-5 fw-boldest">0</span>
+                      <span className="fs-5 fw-boldest" style={{ color: "#9d4141" }}>{maxTotal}</span>
+                    </div>
+                    <div className="text-center mt-n1">
+                      <span className="text-muted fw-bold text-uppercase ls-2 fs-9">Target</span>
+                    </div>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </div>
+        </div>
       </div>
 
-      <div style={{ flex: 1 }}>
-        <CommonCard>
-          <Row className="align-items-center justify-content-center justify-content-lg-start">
-            <Col className="d-flex align-items-center gap-2 text-center text-lg-start">
-              <Image
-                src={avatar}
-                roundedCircle
-                width={40}
-                height={40}
-                alt="Profile"
-              />
-              <div>
-                <h5 className="mb-1">
+      <div style={{ flex: "0 0 auto", minWidth: "280px" }}>
+        <div className="card shadow-sm border-0 h-100" style={{ borderRadius: "12px" }}>
+          <div className="card-body p-4 d-flex align-items-center">
+            <div className="d-flex align-items-center gap-4 w-100">
+              <div className="symbol symbol-60px symbol-circle border border-2 border-white shadow-sm flex-shrink-0">
+                <Image src={avatar} alt="Profile" />
+              </div>
+              <div className="d-flex flex-column min-w-0">
+                <h5 className="fw-boldest text-dark mb-1 fs-4" style={{ fontFamily: "Barlow", lineHeight: "1.2" }}>
                   {employee?.users?.firstName} {employee?.users?.lastName}
                 </h5>
-                <small className="text-muted">{employee?.employeeCode}</small>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <span className="badge badge-light-secondary fw-bold fs-9 px-2 py-1">{employee?.employeeCode}</span>
+                  <span className="text-muted fs-9 fw-bold">Active</span>
+                </div>
               </div>
-            </Col>
-          </Row>
-        </CommonCard>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

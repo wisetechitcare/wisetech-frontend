@@ -765,7 +765,6 @@ export const fetchLeaveRequest = async (employeeId?: string, status?: number, pa
     try {
         let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_LEAVE_REQUEST}`;
         const params = new URLSearchParams();
-
         if (employeeId) params.append('employeeId', employeeId);
         if (status !== undefined) params.append('status', status.toString());
         if (page !== undefined) params.append('page', page.toString());
@@ -793,7 +792,6 @@ export const updateLeaveStatus = async (payload: any) => {
         throw err;
     }
 }
-
 
 export const fetchReimbursementsForEmployee = async (employeeId: string, startDate: string, endDate: string) => {
     try {
@@ -974,7 +972,6 @@ export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, start
     }
 }
 
-
 export const fetchAllEmployeeMonthlySalary = async (companyId: string, year: number, month: number) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_TOTAL_MONTHLY_SALARY}?companyId=${companyId}&startYear=${year}&endYear=${month}`;
@@ -985,7 +982,6 @@ export const fetchAllEmployeeMonthlySalary = async (companyId: string, year: num
         throw err;
     }
 }
-
 
 export const createNewPayment = async (payment: IPayment) => {
     try {
@@ -1157,7 +1153,6 @@ export const fetchEmployeeMediaByUserId = async (userId: string) => {
     }
 }
 
-
 export const fetchNotificationsByEmployeeId = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_NOTIFICATIONS}?employeeId=${employeeId}`;
@@ -1307,7 +1302,6 @@ export const createEmployeeLoan = async (loanData: { loanAmount: number, loanTyp
     }
 }
 
-
 export const getInstallementsById = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_INSTALLMENT_BY_LOAN_ID}?id=${id}`;
@@ -1383,7 +1377,6 @@ export const fetchEmployeeMonthlyInstallments = async (startDate: string, endDat
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_MONTHLY_INSTALLMENT_BY_EMPLOYEE_ID}?startDate=${startDate}&endDate=${endDate}&employeeId=${employeeId}`;
         const { data } = await axios.get(endpoint);
-
         return data;
     }
     catch (err) {
@@ -1441,15 +1434,15 @@ export const fetchEmpKpiStatisticsForPeriod = async (employeeId: string, startDa
     }
 }
 
-
 export const fetchEmpKpiScoresAllTime = async (employeeId: string) => {
-    return fetchEmpKpiStatisticsForPeriod(
-        employeeId,
-        "2000-01-01",
-        dayjs().format("YYYY-MM-DD")
-    );
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_KPI_SCORES_ALL_TIME}?employeeId=${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
 };
-
 
 export const getAllKpiFactors = async () => {
     try {
@@ -1460,7 +1453,6 @@ export const getAllKpiFactors = async () => {
         throw error;
     }
 }
-
 
 export const updateKpiFactors = async (id: string, payload: any) => {
     try {
@@ -1972,7 +1964,6 @@ export const fetchDeductionConfiguration = async (employeeId: string, month: str
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DEDUCTION_CONFIG_BY_ID.replace(':employeeId', employeeId)}?month=${month}&year=${year}`;
         const { data } = await axios.get(endpoint);
-
         return {
             hasError: false,
             data: {
@@ -2000,7 +1991,6 @@ export const createUpdateDeductionConfiguration = async (deductionConfig: IDeduc
         return data;
     } catch (error: any) {
         console.error('❌ Error saving deduction configuration:', error);
-
         if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
@@ -2022,7 +2012,6 @@ export const deleteDeductionConfiguration = async (employeeId: string, month: st
         return data;
     } catch (error: any) {
         console.error('❌ Error deleting deduction configuration:', error);
-
         if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
@@ -2097,6 +2086,41 @@ export const validateDeductionConfigurationJson = (configJson: Record<string, Dy
         }
         fieldNames.push(normalizedName);
     }
-
     return { isValid: true };
 }
+
+export type KpiLeaderboardEntry = {
+    employeeId: string;
+    totalScore: number;
+    percentage: number;
+    rank: number;
+    maxTotal: number;
+    totalTimeHours?: number;
+    totalOvertimeHours?: number;
+    totalRegularHours?: number;
+};
+
+export const fetchKpiLeaderboardOverall = async (startDate: string, endDate: string): Promise<KpiLeaderboardEntry[]> => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/api/employee/leaderboard`, {
+            params: { startDate, endDate },
+        });
+
+        const body = response.data;
+
+        if (Array.isArray(body)) {
+            return body;
+        }
+
+        if (body && Array.isArray(body.data)) {
+            return body.data;
+        }
+
+        console.warn(" Unexpected leaderboard response shape:", body);
+        return [];
+    } catch (error) {
+        console.error("Leaderboard API error:", error);
+        throw error;
+    }
+};
+
