@@ -808,9 +808,11 @@ const LeadFormModal = ({
           numberOfPages: "",
         }),
 
-        // Additional fields for mep type
-        ...(leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.mep?.toString() && {
+        // Additional fields for mep / blank type
+        ...((leadTemplateId?.toString() ===
+          leadAndProjectTemplateTypeId.mep?.toString() ||
+          leadTemplateId?.toString() ===
+            leadAndProjectTemplateTypeId.newLead?.toString()) && {
           projectAreas: [
             {
               label: "",
@@ -1186,9 +1188,11 @@ const LeadFormModal = ({
         numberOfPages: additionalDetailsArray[0]?.numberOfPages || "",
       }),
 
-      // Additional fields for mep type
-      ...(leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.mep?.toString() && {
+      // Additional fields for mep / blank type
+      ...((leadTemplateId?.toString() ===
+        leadAndProjectTemplateTypeId.mep?.toString() ||
+        leadTemplateId?.toString() ===
+          leadAndProjectTemplateTypeId.newLead?.toString()) && {
         projectAreas:
           projectAreas.length > 0
             ? projectAreas
@@ -1367,8 +1371,10 @@ const LeadFormModal = ({
       .of(Yup.string().uuid("Invalid subcategory ID"))
       .optional(),
     // All other fields are optional
-    ...(leadTemplateId?.toString() ===
-      leadAndProjectTemplateTypeId.mep?.toString() && {
+    ...((leadTemplateId?.toString() ===
+      leadAndProjectTemplateTypeId.mep?.toString() ||
+      leadTemplateId?.toString() ===
+        leadAndProjectTemplateTypeId.newLead?.toString()) && {
       projectAreas: Yup.array().of(
         Yup.object().shape({
           label: Yup.string().optional(), // Label is optional
@@ -2162,7 +2168,8 @@ const LeadFormModal = ({
         currLeadData &&
         countries.length > 0 &&
         formikRef.current &&
-        leadTemplateId === leadAndProjectTemplateTypeId.mep
+        (leadTemplateId === leadAndProjectTemplateTypeId.mep ||
+          leadTemplateId === leadAndProjectTemplateTypeId.newLead)
       ) {
         // Get the address data from additionalDetails
         const additionalDetails = currLeadData.additionalDetails;
@@ -2338,7 +2345,8 @@ const LeadFormModal = ({
       return;
     }
     const additionalDetailsFields = [
-      ...(leadTemplateId === leadAndProjectTemplateTypeId.mep
+      ...((leadTemplateId === leadAndProjectTemplateTypeId.mep ||
+      leadTemplateId === leadAndProjectTemplateTypeId.newLead)
         ? ["projectArea", "addresses"]
         : ["type", "numberOfPages"]),
     ];
@@ -2889,7 +2897,8 @@ const LeadFormModal = ({
 
                 useEffect(() => {
                   if (
-                    leadTemplateId === leadAndProjectTemplateTypeId.mep &&
+                    (leadTemplateId === leadAndProjectTemplateTypeId.mep ||
+                      leadTemplateId === leadAndProjectTemplateTypeId.newLead) &&
                     useCalculatedAmount
                   ) {
                     const cost =
@@ -4494,7 +4503,8 @@ const LeadFormModal = ({
                         </Grid>
                       </fieldset>
 
-                      {leadTemplateId === leadAndProjectTemplateTypeId.mep && (
+                      {(leadTemplateId === leadAndProjectTemplateTypeId.mep ||
+                        leadTemplateId === leadAndProjectTemplateTypeId.newLead) && (
                         <fieldset
                           style={{
                             borderTop: "1px solid #9D4141",
@@ -4939,7 +4949,8 @@ const LeadFormModal = ({
                       )}
 
                       {/* Address Details Section */}
-                      {leadTemplateId === leadAndProjectTemplateTypeId.mep && (
+                      {(leadTemplateId === leadAndProjectTemplateTypeId.mep ||
+                        leadTemplateId === leadAndProjectTemplateTypeId.newLead) && (
                         <>
                           <fieldset
                             style={{

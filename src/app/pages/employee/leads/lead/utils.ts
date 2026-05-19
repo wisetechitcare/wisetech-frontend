@@ -28,8 +28,8 @@ export function mapLeadToFormInitialValues(
                     companyName: ''
                   }];
 
-            // Map project areas from commercials array (new structure) or fallback to additionalDetails for MEP template
-            const projectAreas = leadTemplateId === leadAndProjectTemplateTypeId.mep 
+            // Map project areas from commercials array (new structure) or fallback to additionalDetails for MEP/blank template
+            const projectAreas = (leadTemplateId === leadAndProjectTemplateTypeId.mep || leadTemplateId === leadAndProjectTemplateTypeId.newLead) 
                 ? (lead.commercials && Array.isArray(lead.commercials) && lead.commercials.length > 0
                     ? lead.commercials.map((commercial: any) => ({
                         id: commercial.id, // Include ID for edit mode
@@ -63,7 +63,7 @@ export function mapLeadToFormInitialValues(
                   }];
 
             // Map addresses from additionalDetails (now single object for one-to-one relationship)
-            const addresses = leadTemplateId === leadAndProjectTemplateTypeId.mep 
+            const addresses = (leadTemplateId === leadAndProjectTemplateTypeId.mep || leadTemplateId === leadAndProjectTemplateTypeId.newLead) 
                 ? (lead.additionalDetails && !Array.isArray(lead.additionalDetails)
                     ? [{
                         projectAddress: lead.additionalDetails.projectAddress || '',
@@ -250,8 +250,8 @@ export function mapLeadToFormInitialValues(
                 locality: additional.locality || firstAdditional.locality || "",
                 zipCode: additional.zipCode || firstAdditional.zipCode || "",
               }),
-              // Additional fields for mep
-              ...(leadTemplateId == leadAndProjectTemplateTypeId.mep && {
+              // Additional fields for mep / blank
+              ...((leadTemplateId == leadAndProjectTemplateTypeId.mep || leadTemplateId == leadAndProjectTemplateTypeId.newLead) && {
                 projectAreas: projectAreas,
                 addresses: addresses,
                 // Legacy fields for backward compatibility
