@@ -86,7 +86,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                 <div className="d-flex flex-stack flex-wrap gap-4">
                     <div className="d-flex flex-column">
                         <div className="d-flex align-items-center mb-1">
-                            <span className="fw-bolder text-gray-800 fs-5">Total Salary After Variable Deductions</span>
+                            <span className="fw-bolder text-gray-800 fs-5">Total Salary After Attendance Adjustments</span>
                             
                         </div>
                         <span className="text-muted fw-bold fs-7">(Gross Pay − Attendance Adjustments Deductions)</span>
@@ -156,7 +156,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                             )}
                             <tr className="bg-light-danger border-0">
                                 <td colSpan={4} className="py-4 ps-6">
-                                    <span className="fw-bolder text-gray-700 fs-7">Total government deductions</span>
+                                    <span className="fw-bolder text-gray-700 fs-7">Total Government & Payroll deductions</span>
                                 </td>
                                 <td className="text-end py-4 pe-6">
                                     <span className={`fw-bolder fs-6 text-danger ${sensitiveCls}`}>

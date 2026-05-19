@@ -3126,12 +3126,210 @@ const LeadFormModal = ({
                           </Grid>
 
                           {/* Row 1: Lead Inquiry Date, Assigned To, Lead Source */}
-                          <Grid item xs={12} md={15}>
+                          <Grid item xs={12} md={12}>
                             <TextInput
                               formikField="projectName"
                               label="Lead Name"
                               isRequired={true}
                             />
+                          </Grid>
+
+                          {/* Team Details Section (Multiple Companies support) */}
+                          <Grid item xs={12}>
+                            <fieldset
+                              style={{
+                                borderTop: "1px solid #9D4141",
+                                padding: "clamp(14px, 2vw, 15px)",
+                              }}
+                              className="mt-7"
+                            >
+                              <legend
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: 600,
+                                  fontFamily: "Inter",
+                                  marginTop: "-25px",
+                                  marginLeft: "-17px",
+                                  backgroundColor: "#F3F4F7",
+                                  width: "auto",
+                                  lineHeight: "1",
+                                  letterSpacing: 0,
+                                  color: "#9D4141",
+                                  padding: "2px 2px 8px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px"
+                                }}
+                              >
+                                <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                                TEAM DETAILS
+                              </legend>
+
+                              <FieldArray name="leadTeams">
+                                {({ push, remove }) => (
+                                  <>
+                                    {values.leadTeams && values.leadTeams.map(
+                                      (team: any, index: any) => {
+                                        const selectedCompanyId = values.leadTeams[index]?.companyId;
+                                        const selectedCompany = companies.find((comp: any) => comp.id === selectedCompanyId);
+
+                                        const filteredSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
+                                          ? selectedCompany.subCompanies
+                                          : [];
+
+                                        const filteredContacts = selectedCompanyId
+                                          ? contacts.filter((contact: any) =>
+                                              contact.companyId === selectedCompanyId
+                                            )
+                                          : contacts;
+
+                                        return (
+                                          <div
+                                            key={index}
+                                            className="card-body card responsive-card p-md-10 p-3 mb-3"
+                                            style={{ position: 'relative' }}
+                                          >
+                                            <Row>
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.companyTypeId`}
+                                                  inputLabel="Company Type"
+                                                  options={allCompanyTypes.map((type: any) => ({
+                                                    value: type.id,
+                                                    label: type.name,
+                                                  }))}
+                                                  isRequired={false}
+                                                  onChange={(option: any) => {
+                                                    setFieldValue(`leadTeams.${index}.companyTypeId`, option?.value || "");
+                                                    setFieldValue(`leadTeams.${index}.companyId`, "");
+                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, "");
+                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                  }}
+                                                />
+                                                <div
+                                                  onClick={() => setShowCompanyTypeModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Company Type
+                                                </div>
+                                              </Col>
+
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.companyId`}
+                                                  inputLabel="Company"
+                                                  options={(team.companyTypeId 
+                                                    ? companies.filter((c: any) => c.companyTypeId === team.companyTypeId)
+                                                    : companies
+                                                  ).map((company: any) => ({
+                                                    value: company.id,
+                                                    label: company.companyName,
+                                                  }))}
+                                                  isRequired={false}
+                                                  onChange={(option: any) => {
+                                                    setFieldValue(`leadTeams.${index}.companyId`, option?.value || "");
+                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, "");
+                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                  }}
+                                                />
+                                                <div
+                                                  onClick={() => setShowCompanyModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Company
+                                                </div>
+                                              </Col>
+
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.subCompanyId`}
+                                                  inputLabel="Sub Company"
+                                                  options={filteredSubCompanies.map((subCompany: any) => ({
+                                                    value: subCompany.id,
+                                                    label: subCompany.subCompanyName,
+                                                  }))}
+                                                  isRequired={false}
+                                                />
+                                                <div
+                                                  onClick={() => setShowSubCompanyModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Sub Company
+                                                </div>
+                                              </Col>
+
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.contactId`}
+                                                  inputLabel="Contact Person"
+                                                  options={filteredContacts.map((contact: any) => ({
+                                                    value: contact.id,
+                                                    label: contact.fullName,
+                                                    avatar: contact.profilePhoto
+                                                  }))}
+                                                  showColor={true}
+                                                  isRequired={false}
+                                                />
+                                                <div
+                                                  onClick={() => setShowContactModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Contact
+                                                </div>
+                                              </Col>
+                                            </Row>
+
+                                            {values.leadTeams.length > 1 && (
+                                              <div
+                                                onClick={() => remove(index)}
+                                                style={{
+                                                  cursor: "pointer",
+                                                  color: "#9D4141",
+                                                  fontSize: "20px",
+                                                  position: "absolute",
+                                                  right: "15px",
+                                                  top: "5px",
+                                                }}
+                                              >
+                                                ×
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                    )}
+
+                                    <div
+                                      onClick={() =>
+                                        push({
+                                          id: Date.now().toString(),
+                                          companyTypeId: "",
+                                          companyId: "",
+                                          subCompanyId: "",
+                                          contactId: "",
+                                        })
+                                      }
+                                      style={{
+                                        cursor: "pointer",
+                                        color: "#9D4141",
+                                        border: "1px dotted #9D4141",
+                                        borderRadius: "5px",
+                                        padding: "8px 10px",
+                                        textAlign: "center",
+                                        marginTop: "10px",
+                                      }}
+                                      className="justify-content-center align-items-center"
+                                    >
+                                      + Add More Companies
+                                    </div>
+                                  </>
+                                )}
+                              </FieldArray>
+                            </fieldset>
                           </Grid>
 
                           {/* <Grid item xs={12} md={6}>

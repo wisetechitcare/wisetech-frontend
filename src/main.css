@@ -321,3 +321,366 @@ html {
 .bg-slate-50 {
   background-color: #f8fafc !important;
 }
+
+/* ============================================================
+   ENTERPRISE TABLE SYSTEM — Global CSS
+   Applied by: MaterialTable.tsx (.et-* classes)
+   ============================================================ */
+
+/* Skeleton shimmer pulse animation */
+@keyframes et-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+.et-skeleton-pulse {
+  animation: et-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+/* Search input focus ring */
+.et-search-input {
+  background-color: #FAFBFC !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 8px !important;
+  font-family: "Inter", sans-serif !important;
+  font-weight: 500 !important;
+  color: #1E293B !important;
+  transition: all 0.2s ease !important;
+}
+
+.et-search-input:focus {
+  border-color: #AA393D !important;
+  box-shadow: 0 0 0 4px rgba(170, 57, 61, 0.12) !important;
+  background-color: #fff !important;
+}
+
+.et-search-input::placeholder {
+  color: #B0B7C3;
+  font-size: 13px;
+}
+
+/* Pagination nav/number buttons hover */
+.et-page-nav-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.et-page-nav-btn:not(:disabled):hover {
+  border-color: #D1D5DB !important;
+  background-color: #F8FAFC !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.et-page-nav-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.et-page-num-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.et-page-num-btn:not([style*="AA393D"]):hover {
+  border-color: #AA393D !important;
+  color: #AA393D !important;
+  background-color: #FEF2F2 !important;
+  transform: translateY(-1px);
+}
+
+.et-page-num-btn:not([style*="AA393D"]):active {
+  transform: translateY(0);
+}
+
+/* MRT paper / container — remove default MUI paper shadow, use our own */
+.MuiPaper-root.MuiPaper-elevation2 {
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.03) !important;
+  border-radius: 12px !important;
+  border: 1px solid #EAECF0 !important;
+  overflow: hidden !important;
+}
+
+/* MRT top toolbar — thin separator instead of heavy border */
+.MuiBox-root > .MuiToolbar-root {
+  border-bottom: 1px solid #F1F5F9 !important;
+  min-height: 56px !important;
+  background-color: #ffffff !important;
+}
+
+/* MRT bottom toolbar */
+.MuiTablePagination-root {
+  display: none !important;
+}
+
+/* Consistent table layout — prevent column jumping */
+table.MuiTable-root {
+  border-collapse: collapse !important;
+}
+
+/* Header cells — no layout shift on sort hover */
+th.MuiTableCell-head {
+  overflow: hidden;
+  background-color: #FAFBFC !important;
+  border-bottom: 2px solid #EAECF0 !important;
+  border-right: 1px solid #F1F5F9 !important;
+  transition: background-color 0.2s ease !important;
+}
+
+th.MuiTableCell-head:hover {
+  background-color: #F1F5F9 !important;
+}
+
+th.MuiTableCell-head:last-child {
+  border-right: none !important;
+}
+
+th.MuiTableCell-head .MuiButtonBase-root {
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+  text-transform: inherit !important;
+  color: inherit !important;
+}
+
+th.MuiTableCell-head .MuiTableSortLabel-root {
+  width: 100%;
+}
+
+/* Sort Label icon overrides to keep headers perfectly aligned */
+th.MuiTableCell-head .MuiTableSortLabel-icon {
+  font-size: 14px !important;
+  color: #9CA3AF !important;
+  opacity: 0.5;
+  transition: opacity 0.2s ease, color 0.2s ease !important;
+  margin-left: 6px !important;
+}
+
+th.MuiTableCell-head:hover .MuiTableSortLabel-icon {
+  opacity: 1;
+  color: #AA393D !important;
+}
+
+th.MuiTableCell-head .MuiTableSortLabel-root.Mui-active .MuiTableSortLabel-icon {
+  opacity: 1;
+  color: #AA393D !important;
+}
+
+/* Body cell text overflow */
+td.MuiTableCell-body {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid #F1F5F9 !important;
+  border-right: 1px solid #F8FAFC !important;
+}
+
+td.MuiTableCell-body:last-child {
+  border-right: none !important;
+}
+
+/* Sticky header — ensure it aligns with scrolled body */
+thead.MuiTableHead-root th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: #FAFBFC;
+}
+
+/* Custom Premium Row Styling */
+.MuiTableBody-root tr.MuiTableRow-root {
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+}
+
+.MuiTableBody-root tr.MuiTableRow-root:hover {
+  background-color: #F8FAFC !important;
+}
+
+.MuiTableBody-root tr.MuiTableRow-root:hover td {
+  background-color: #F8FAFC !important;
+}
+
+/* Soft Red Brand Border Indicator on Hovered Row (First Cell) */
+.MuiTableBody-root tr.MuiTableRow-root td:first-child {
+  border-left: 3px solid transparent;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.MuiTableBody-root tr.MuiTableRow-root:hover td:first-child {
+  border-left-color: #AA393D;
+}
+
+/* Global Premium Badge Overrides for Tables */
+.MuiTableCell-body .badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 5px 11px !important;
+  border-radius: 9999px !important;
+  letter-spacing: 0.03em !important;
+  text-transform: capitalize !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  position: relative !important;
+  height: 22px !important;
+  line-height: 1 !important;
+}
+
+/* Override Metronic badge-light default grey */
+.MuiTableCell-body .badge-light {
+  background-color: #F1F5F9 !important;
+  color: #475569 !important;
+  border-color: #E2E8F0 !important;
+}
+
+/* Green Statuses (Received, Approved, Active, Completed, Present) */
+.MuiTableCell-body .badge[style*="rgb(40, 167, 69)"],
+.MuiTableCell-body .badge[style*="green"],
+.MuiTableCell-body .badge[style*="#28a745"],
+.MuiTableCell-body .badge[style*="#28A745"],
+.MuiTableCell-body .badge[style*="#2ECC71"],
+.MuiTableCell-body .badge[style*="rgb(46, 204, 113)"],
+.MuiTableCell-body .badge[style*="rgb(16, 185, 129)"] {
+  background-color: #ECFDF5 !important;
+  color: #047857 !important;
+  border-color: #A7F3D0 !important;
+}
+
+.MuiTableCell-body .badge[style*="rgb(40, 167, 69)"]::before,
+.MuiTableCell-body .badge[style*="green"]::before,
+.MuiTableCell-body .badge[style*="#28a745"]::before,
+.MuiTableCell-body .badge[style*="#28A745"]::before,
+.MuiTableCell-body .badge[style*="#2ECC71"]::before,
+.MuiTableCell-body .badge[style*="rgb(46, 204, 113)"]::before,
+.MuiTableCell-body .badge[style*="rgb(16, 185, 129)"]::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10B981;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* Yellow/Amber Statuses (Pending, In Progress, Warning) */
+.MuiTableCell-body .badge[style*="rgb(255, 193, 7)"],
+.MuiTableCell-body .badge[style*="yellow"],
+.MuiTableCell-body .badge[style*="#FFC107"],
+.MuiTableCell-body .badge[style*="#ffc107"],
+.MuiTableCell-body .badge[style*="#F39C12"],
+.MuiTableCell-body .badge[style*="rgb(243, 156, 18)"],
+.MuiTableCell-body .badge[style*="rgb(245, 158, 11)"] {
+  background-color: #FFFBEB !important;
+  color: #B45309 !important;
+  border-color: #FDE68A !important;
+}
+
+.MuiTableCell-body .badge[style*="rgb(255, 193, 7)"]::before,
+.MuiTableCell-body .badge[style*="yellow"]::before,
+.MuiTableCell-body .badge[style*="#FFC107"]::before,
+.MuiTableCell-body .badge[style*="#ffc107"]::before,
+.MuiTableCell-body .badge[style*="#F39C12"]::before,
+.MuiTableCell-body .badge[style*="rgb(243, 156, 18)"]::before,
+.MuiTableCell-body .badge[style*="rgb(245, 158, 11)"]::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #F59E0B;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* Red Statuses (Rejected, Cancelled, Inactive, Absent) */
+.MuiTableCell-body .badge[style*="rgb(220, 53, 69)"],
+.MuiTableCell-body .badge[style*="red"],
+.MuiTableCell-body .badge[style*="#dc3545"],
+.MuiTableCell-body .badge[style*="#DC3545"],
+.MuiTableCell-body .badge[style*="#E74C3C"],
+.MuiTableCell-body .badge[style*="rgb(231, 76, 60)"],
+.MuiTableCell-body .badge[style*="rgb(239, 68, 68)"] {
+  background-color: #FEF2F2 !important;
+  color: #B91C1C !important;
+  border-color: #FCA5A5 !important;
+}
+
+.MuiTableCell-body .badge[style*="rgb(220, 53, 69)"]::before,
+.MuiTableCell-body .badge[style*="red"]::before,
+.MuiTableCell-body .badge[style*="#dc3545"]::before,
+.MuiTableCell-body .badge[style*="#DC3545"]::before,
+.MuiTableCell-body .badge[style*="#E74C3C"]::before,
+.MuiTableCell-body .badge[style*="rgb(231, 76, 60)"]::before,
+.MuiTableCell-body .badge[style*="rgb(239, 68, 68)"]::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #EF4444;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+/* Custom Premium Action Buttons inside table cells */
+.MuiTableCell-body button.btn-icon.btn-bg-light {
+  background-color: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  color: #475569 !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+.MuiTableCell-body button.btn-icon.btn-bg-light:hover {
+  background-color: #FEF2F2 !important;
+  border-color: #FEE2E2 !important;
+  color: #AA393D !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(170, 57, 61, 0.08) !important;
+}
+
+.MuiTableCell-body button.btn-icon.btn-bg-light:active {
+  transform: translateY(0);
+}
+
+.MuiTableCell-body button.btn-icon.btn-bg-light .fs-2 {
+  font-size: 1rem !important;
+}
+
+/* Progress bar color */
+.MuiLinearProgress-bar {
+  background-color: #AA393D !important;
+}
+
+.MuiLinearProgress-root {
+  background-color: #FECACA !important;
+}
+
+/* Column resize handle */
+.MuiDivider-root.MuiDivider-vertical[style] {
+  background-color: #AA393D !important;
+  width: 2px !important;
+  opacity: 0.6;
+}
+
+/* MRT column action icon buttons */
+.MuiIconButton-root.MuiIconButton-sizeMedium {
+  transition: background-color 0.15s ease !important;
+}
+
+.MuiIconButton-root.MuiIconButton-sizeMedium:hover {
+  background-color: rgba(170, 57, 61, 0.08) !important;
+  color: #AA393D !important;
+}
+
+/* Enterprise table container padding */
+.pt-6.pb-3 > .MuiPaper-root {
+  margin: 0 !important;
+}

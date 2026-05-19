@@ -190,7 +190,7 @@ const YearlyOverViewCard = ({ overview, loading = false  }: YearlyOverViewCardPr
                                     fontSize: "14px"
                                 }}>
                                     <span style={{ color: "#000" }}>Net Payable this year</span>
-                                    <span style={{ color: "#8998ab" }}>Gross pay(A) - Deductions(B)</span>
+                                    <span style={{ color: "#8998ab" }}>Total after Attendance Adjustments (A) - Govt Deductions (B)</span>
                                 </div>
 
                                 <span style={{

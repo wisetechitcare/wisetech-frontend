@@ -78,3 +78,25 @@ export const getUserTablePreferences = async (employeeId: string, tableName: str
         throw error;
     }
 };
+
+// POST: Save lead period preference
+export const saveLeadPeriodPreference = async (period: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}${USERS.SAVE_LEAD_PERIOD_PREFERENCE}`;
+        const { data } = await axios.post(endpoint, { period });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// GET: Get lead period preference
+export const getLeadPeriodPreference = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}${USERS.GET_LEAD_PERIOD_PREFERENCE}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
