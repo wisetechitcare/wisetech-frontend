@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, memo } from 'react';
 import ApexCharts from 'react-apexcharts';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
 
 interface IncrementsProps {
     salaryData: any[];
@@ -7,74 +9,258 @@ interface IncrementsProps {
 }
 
 const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
-    console.log("Increments Component Rendered - salaryData length:", salaryData?.length, "loading:", loading);
-    const [incrementsChartData, setIncrementsChartData] = useState<any[]>([]);
-    const [growthPercentage, setGrowthPercentage] = useState<string>('0%');
-    const [incrementsChartOptions, setIncrementsChartOptions] = useState({
+    // Read employeeId for Redis/localStorage key persistence
+    const employeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id || 'default_user');
+
+    // State for period selector persisted in localStorage (fallback from Redis-key naming)
+    const [period, setPeriod] = useState<'Monthly' | 'Quarterly' | 'Yearly'>(() => {
+        try {
+            const saved = localStorage.getItem(`increment_graph_period:${employeeId}`);
+            if (saved === 'Monthly' || saved === 'Quarterly' || saved === 'Yearly') {
+                return saved;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return 'Monthly';
+    });
+
+    // Custom Interactive Feature: Curve Style Toggle (Smooth Curve vs step-line real increments jumps!)
+    const [curveType, setCurveType] = useState<'smooth' | 'stepline'>('smooth');
+
+    // Local state for formatted monthly values
+    const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
+
+    // Standard Indian Fiscal Year Category Order
+    const standardMonths = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+
+    // Helper to parse amount robustly
+    const parseAmount = (raw: any) => {
+        if (raw === null || raw === undefined) return 0;
+        if (typeof raw === 'number') return raw;
+        const cleaned = String(raw).replace(/₹|,/g, "").trim();
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const formatCurrency = (val: number | string | null | undefined) => {
+        if (val === null || val === undefined) return '₹0';
+        const num = typeof val === 'number' ? val : Number(String(val).replace(/₹|,/g, '').trim());
+        if (isNaN(num)) return '₹0';
+        return '₹' + num.toLocaleString('en-IN');
+    };
+
+    useEffect(() => {
+        // Map months to index based on Indian Fiscal Year order (Apr to Mar)
+        const monthMapper: { [key: string]: number } = {
+            'apr': 0, 'april': 0,
+            'may': 1,
+            'jun': 2, 'june': 2,
+            'jul': 3, 'july': 3,
+            'aug': 4, 'august': 4,
+            'sep': 5, 'september': 5,
+            'oct': 6, 'october': 6,
+            'nov': 7, 'november': 7,
+            'dec': 8, 'december': 8,
+            'jan': 9, 'january': 9,
+            'feb': 10, 'february': 10,
+            'mar': 11, 'march': 11
+        };
+
+        const stats = standardMonths.map(m => ({
+            month: m,
+            basicSalary: 0
+        }));
+
+        if (salaryData && Array.isArray(salaryData)) {
+            salaryData.forEach((item: any) => {
+                if (!item || !item.month) return;
+                const lowerMonth = String(item.month).toLowerCase().trim();
+                const index = monthMapper[lowerMonth];
+                if (index !== undefined) {
+                    let basic = 0;
+                    if (item.basicSalary) basic = parseAmount(item.basicSalary);
+                    else if (item.netAmount) basic = parseAmount(item.netAmount);
+                    else if (item.annualCTC) basic = parseAmount(item.annualCTC / 12);
+                    
+                    stats[index].basicSalary = basic;
+                }
+            });
+        }
+        setMonthlyStats(stats);
+    }, [salaryData]);
+
+    const handlePeriodChange = (newPeriod: 'Monthly' | 'Quarterly' | 'Yearly') => {
+        setPeriod(newPeriod);
+        try {
+            localStorage.setItem(`increment_graph_period:${employeeId}`, newPeriod);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // Process and Group Data based on selected Period
+    const processedChart = useMemo(() => {
+        if (period === 'Monthly') {
+            return {
+                categories: monthlyStats.map(item => item.month),
+                data: monthlyStats.map(item => item.basicSalary)
+            };
+        } else if (period === 'Quarterly') {
+            const quarters = [
+                { name: 'Q1 (Apr-Jun)', months: ['Apr', 'May', 'Jun'] },
+                { name: 'Q2 (Jul-Sep)', months: ['Jul', 'Aug', 'Sep'] },
+                { name: 'Q3 (Oct-Dec)', months: ['Oct', 'Nov', 'Dec'] },
+                { name: 'Q4 (Jan-Mar)', months: ['Jan', 'Feb', 'Mar'] }
+            ];
+
+            const quarterData = quarters.map(q => {
+                const active = monthlyStats.filter(item => {
+                    const m = item.month.toLowerCase();
+                    return q.months.some(qm => m.startsWith(qm.toLowerCase()));
+                });
+                const nonZero = active.filter(item => item.basicSalary > 0);
+                const salary = nonZero.length > 0 ? nonZero[nonZero.length - 1].basicSalary : 0;
+                return { label: q.name, salary };
+            });
+
+            return {
+                categories: quarterData.map(q => q.label),
+                data: quarterData.map(q => q.salary)
+            };
+        } else {
+            // Yearly
+            const nonZero = monthlyStats.filter(item => item.basicSalary > 0);
+            const latestSalary = nonZero.length > 0 ? nonZero[nonZero.length - 1].basicSalary : 0;
+            return {
+                categories: ['FY 2024-25'],
+                data: [latestSalary]
+            };
+        }
+    }, [monthlyStats, period]);
+
+    // Compute key growth stats
+    const activeStats = monthlyStats.filter(item => item.basicSalary > 0);
+    const currentSalary = activeStats.length > 0 ? activeStats[activeStats.length - 1].basicSalary : 0;
+    const firstSalary = activeStats.length > 0 ? activeStats[0].basicSalary : 0;
+    
+    // Total Increment Amount
+    const totalIncrement = Math.max(0, currentSalary - firstSalary);
+    
+    // Average Growth %
+    const totalGrowthPercent = firstSalary > 0 ? (totalIncrement / firstSalary) * 100 : 0;
+
+    // Detect individual salary increment jumps and build point annotations
+    const pointAnnotations = useMemo(() => {
+        const ann: any[] = [];
+        if (period !== 'Monthly') return ann; // Point annotations are optimized for monthly storytelling view
+
+        for (let i = 1; i < monthlyStats.length; i++) {
+            const prev = monthlyStats[i - 1].basicSalary;
+            const curr = monthlyStats[i].basicSalary;
+            if (curr > prev && prev > 0) {
+                const diff = curr - prev;
+                ann.push({
+                    x: monthlyStats[i].month,
+                    y: curr,
+                    marker: {
+                        size: 6,
+                        fillColor: '#10B981',
+                        strokeColor: '#ffffff',
+                        strokeWidth: 2,
+                    },
+                    label: {
+                        borderColor: '#10B981',
+                        offsetY: -15,
+                        style: {
+                            color: '#fff',
+                            background: '#10B981',
+                            fontSize: '9.5px',
+                            fontWeight: 700,
+                            padding: {
+                                left: 6,
+                                right: 6,
+                                top: 4,
+                                bottom: 4
+                            }
+                        },
+                        text: `▲ +${formatCurrency(diff)}`
+                    }
+                });
+            }
+        }
+        return ann;
+    }, [monthlyStats, period]);
+
+    // Calculate maximum single increment jump for insights KPI
+    const highestJump = useMemo(() => {
+        let maxJump = 0;
+        for (let i = 1; i < monthlyStats.length; i++) {
+            const jump = monthlyStats[i].basicSalary - monthlyStats[i - 1].basicSalary;
+            if (jump > maxJump) {
+                maxJump = jump;
+            }
+        }
+        return maxJump;
+    }, [monthlyStats]);
+
+    function getFullMonthName(shortMonth: string) {
+        const mapping: { [key: string]: string } = {
+            'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
+            'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
+            'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December'
+        };
+        return mapping[shortMonth] || shortMonth;
+    }
+
+    // Chart Series configuration
+    const series = [
+        {
+            name: 'Salary',
+            data: processedChart.data
+        }
+    ];
+
+    // Chart Options configuration
+    const chartOptions: any = {
         chart: {
             id: 'salary-increments-chart',
             type: 'area' as 'area',
             height: 350,
             toolbar: {
-                show: true,
-                tools: {
-                    zoom: false,
-                    zoomin: false,
-                    zoomout: false,
-                    pan: false,
-                    reset: false,
-                    download: true,
-                },
-            }
-        },
-        dataLabels: {
-            enabled: true,
-            formatter: function (val: number) {
-                return '₹' + val.toLocaleString()
+                show: false
             },
-            offsetY: -10,
-            style: {
-                fontSize: '12px',
-                colors: ['#0096FF'],
-                fontWeight: 600
-                
-            },
-            background: {
-                enabled: true,
-                foreColor: '#fff',
-                borderRadius: 2,
-                padding: 4,
-                opacity: 1,
-                borderWidth: 1,
-                borderColor: '#fff',
-                dropShadow: {
-                    enabled: false,
-                    top: 0,
-                    left: 0,
-                    blur: 0,
-                    opacity: 0
-                }
-            }
+            fontFamily: 'Inter, sans-serif',
         },
         stroke: {
-            curve: 'smooth' as 'smooth',
-            width: 2,
+            curve: curveType === 'stepline' ? ('stepline' as 'stepline') : ('smooth' as 'smooth'),
+            width: 3,
             colors: ['#2E93FA']
         },
         fill: {
             type: 'gradient',
             gradient: {
                 shadeIntensity: 1,
-                opacityFrom: 0.4,
-                opacityTo: 0.1,
-                stops: [0, 90, 100]
-            },
-            colors: ['#EFF7FF']
+                opacityFrom: 0.35,
+                opacityTo: 0.05,
+                stops: [0, 95, 100],
+                colorStops: [
+                    {
+                        offset: 0,
+                        color: '#2E93FA',
+                        opacity: 0.35
+                    },
+                    {
+                        offset: 100,
+                        color: '#EFF7FF',
+                        opacity: 0.05
+                    }
+                ]
+            }
         },
         grid: {
-            borderColor: '#DDE2E4',
-            strokeDashArray: 0,
-            position: 'back' as 'back',
+            borderColor: '#f1f5f9',
+            strokeDashArray: 4,
             xaxis: {
                 lines: {
                     show: false
@@ -87,295 +273,292 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
             }
         },
         xaxis: {
-            categories: ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'],
-            labels: {
-                rotate: -70, trim: false,
-                style: {
-                    fontSize: '14px',
-                    fontFamily: 'Inter, sans-serif',
-                    colors: '#000'
-                }
-            },
+            categories: processedChart.categories,
             axisBorder: {
-                show: false
+                show: true,
+                color: '#e2e8f0'
             },
             axisTicks: {
                 show: false
             },
-            // labels: {  style: { fontSize: '12px' } },
-  tickAmount: 11
-
+            labels: {
+                style: {
+                    colors: '#64748b',
+                    fontSize: '12px',
+                    fontWeight: 500
+                }
+            }
         },
         yaxis: {
             labels: {
-                style: {
-                    fontSize: '11px',
-                    fontFamily: 'Lato, sans-serif',
-                    colors: '#111618'
-                },
                 formatter: function (val: number) {
-                    return val.toFixed(0)
+                    return '₹' + val.toLocaleString('en-IN');
+                },
+                style: {
+                    colors: '#64748b',
+                    fontSize: '12px',
+                    fontWeight: 500
+                }
+            },
+            title: {
+                text: 'Salary (₹)',
+                style: {
+                    color: '#64748b',
+                    fontSize: '13px',
+                    fontWeight: 600
                 }
             }
         },
         colors: ['#2E93FA'],
         markers: {
-            size: 0,
-            colors: ['#2E93FA'],
-            strokeColors: '#fff',
-            strokeWidth: 2,
+            size: 5,
+            colors: ['#ffffff'],
+            strokeColors: '#2E93FA',
+            strokeWidth: 3,
             hover: {
                 size: 7
             }
         },
+        annotations: {
+            points: pointAnnotations
+        },
         tooltip: {
-            y: {
-                formatter: function (val: number) {
-                    return "₹ " + val.toLocaleString()
+            shared: true,
+            intersect: false,
+            custom: function({ series, seriesIndex, dataPointIndex, w }: any) {
+                const month = w.globals.categoryHeaders[dataPointIndex];
+                const curr = series[0][dataPointIndex] || 0;
+                const prev = dataPointIndex > 0 ? series[0][dataPointIndex - 1] : 0;
+                const diff = curr - prev;
+                const percent = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+                
+                let incrementHTML = '';
+                if (diff > 0 && prev > 0) {
+                    incrementHTML = `
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: #10B981; font-weight: 600;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #10B981; display: inline-block;"></span>
+                                Increment:
+                            </span>
+                            <span>+₹${diff.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #10B981; font-weight: 600;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #10B981; display: inline-block;"></span>
+                                Growth:
+                            </span>
+                            <span>+${percent.toFixed(0)}%</span>
+                        </div>
+                    `;
+                } else {
+                    incrementHTML = `
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #64748b;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #94a3b8; display: inline-block;"></span>
+                                Increment:
+                            </span>
+                            <span style="font-weight: 600;">None</span>
+                        </div>
+                    `;
                 }
+
+                return `
+                    <div style="
+                        padding: 12px 16px;
+                        background: #ffffff;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                        font-family: 'Inter', sans-serif;
+                        min-width: 200px;
+                    ">
+                        <div style="font-weight: 600; font-size: 13px; color: #1e293b; margin-bottom: 8px;">${getFullMonthName(month)}</div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px; color: #64748b;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #2E93FA; display: inline-block;"></span>
+                                Salary:
+                            </span>
+                            <span style="font-weight: 600; color: #1e293b;">₹${curr.toLocaleString('en-IN')}</span>
+                        </div>
+                        ${prev > 0 ? `
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: #64748b;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #64748b; display: inline-block;"></span>
+                                Prev Salary:
+                            </span>
+                            <span style="font-weight: 600; color: #1e293b;">₹${prev.toLocaleString('en-IN')}</span>
+                        </div>
+                        ` : ''}
+                        <div style="border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 6px;">
+                            ${incrementHTML}
+                        </div>
+                    </div>
+                `;
             }
         }
-    });
-
-    // useEffect(() => {
-    //     if (!salaryData || salaryData.length === 0) return;
-
-    //     // const amounts = salaryData.map((value: any) => {
-    //     //     // item.netAmount or item.grossAmount based on requirement
-    //     //     const cleaned = value.replace(/₹|,/g, "");
-    //     //     return Number(cleaned);
-    //     // });
-    //     // console.log("Parsed Amounts for Increments Chart: ===================>", amounts);
-    //     const amounts = salaryData.map((value: any) => {
-    //     // value might be a string like "₹15,168" OR an object like { netAmount: "₹15,168", ... }
-    //     const raw = typeof value === 'string' ? value : (value?.netAmount ?? value?.grossAmount ?? '');
-    //     const cleaned = String(raw).replace(/₹|,/g, "").trim();
-    //     const num = Number(cleaned);
-    //     return isNaN(num) ? 0 : num;
-    // });
-
-    // console.log("Parsed Amounts for Increments Chart: ===================>", amounts);
-       
-    //     // Calculate increments data (month-over-month changes)
-    //     const incrementsData: number[] = [];
-    //     for (let i = 0; i < amounts.length; i++) {
-    //         console.log("Amount for month", i, ":", amounts[i]);
-    //         // const increment = amounts[i] / 1000; // Convert to thousands for better Y-axis display
-    //         const increment = amounts[i];
-    //         incrementsData.push(increment);
-    //     }
-
-        
-
-    //     // Calculate growth percentage (comparing last month to first month)
-    //     if (amounts.length >= 2) {
-    //         const firstAmount = amounts[0];
-    //         const lastAmount = amounts[amounts.length - 1];
-    //         const growth = ((lastAmount - firstAmount) / firstAmount * 100);
-    //         const growthFormatted = growth.toFixed(0);
-    //         setGrowthPercentage(growth > 0 ? `+${growthFormatted}%` : `${growthFormatted}%`);
-    //     }
-
-    //     setIncrementsChartData([
-    //         {
-    //             name: 'Salary',
-    //             data: incrementsData,
-    //         },
-    //     ]);
-    // }, [salaryData]);
-
-//     useEffect(() => {
-//     if (!salaryData || salaryData.length === 0) return;
-
-//     const months = [
-//         'April','May','June','July','August','September',
-//         'October','November','December','January','February','March'
-//     ];
-
-//     // helper to get numeric value from various formats
-//     const toNum = (raw: any) => {
-//         if (raw === null || raw === undefined) return NaN;
-//         if (typeof raw === 'number') return raw;
-//         const s = String(raw).replace(/₹|,/g, '').trim();
-//         const n = Number(s);
-//         return isNaN(n) ? NaN : n;
-//     };
-
-//     // If salaryData items contain a month property, find by month.
-//     // If salaryData is already ordered and length==12, this will still work.
-//     const incrementsData: number[] = months.map((m) => {
-//         // find entry for this month name (case-sensitive as your data shows)
-//         const entry = salaryData.find((it: any) => String(it?.month).toLowerCase() === m.toLowerCase());
-
-//         if (entry) {
-//             // prefer netAmount then grossAmount then any numeric value
-//             const raw = entry.netAmount ?? entry.grossAmount ?? entry.amount ?? entry.value ?? entry;
-//             const num = toNum(raw);
-//             // return 0 instead of NaN so chart shows a point — switch to `null` if you want a gap
-//             return Number.isFinite(num) ? num : 0;
-//         }
-
-//         // missing month -> show 0 (or return null to show gap)
-//         return 0;
-//     });
-
-//     console.log("Aligned incrementsData:", incrementsData);
-
-//     // compute growth (guard divide-by-zero)
-//     if (incrementsData.length >= 2) {
-//         const first = incrementsData[0];
-//         const last = incrementsData[incrementsData.length - 1];
-//         if (first !== 0) {
-//             const growth = ((last - first) / first) * 100;
-//             const growthFormatted = growth.toFixed(0);
-//             setGrowthPercentage(growth > 0 ? `+${growthFormatted}%` : `${growthFormatted}%`);
-//         } else {
-//             setGrowthPercentage("0%");
-//         }
-//     }
-
-//     setIncrementsChartData([
-//         {
-//             name: 'Salary',
-//             data: incrementsData,
-//         },
-//     ]);
-// }, [salaryData]);
-
-    // Memoize processed chart data for better performance
-    const processedData = useMemo(() => {
-        console.log("Processing chart data - salaryData length:", salaryData?.length);
-
-        if (!salaryData || salaryData.length === 0) {
-            console.log("No salary data available");
-            return {
-                chartData: [{ name: 'Salary', data: [] }],
-                growthPercentage: "0%",
-                categories: []
-            };
-        }
-
-        // months from salaryData
-        const dynamicMonths = salaryData.map((item: any) => item.month);
-
-        // parse amounts (handles "₹15,168" or objects with netAmount/grossAmount)
-        const amounts = salaryData.map((value: any) => {
-            const raw = typeof value === "string"
-                ? value
-                : value?.annualCTC
-                ? value.annualCTC / 12
-                : "";
-            const cleaned = String(raw).replace(/₹|,/g, "").trim();
-            const num = Number(cleaned);
-            return isNaN(num) ? 0 : num;
-        });
-
-        console.log("Parsed Amounts:", amounts.length, "months:", dynamicMonths.length);
-
-        const incrementsData: number[] = [...amounts];
-
-        // Calculate growth percentage
-        let growth = "0%";
-        if (incrementsData.length >= 2) {
-            const firstAmount = incrementsData[0];
-            const lastAmount = incrementsData[incrementsData.length - 1];
-            if (firstAmount !== 0) {
-                const growthVal = ((lastAmount - firstAmount) / firstAmount) * 100;
-                const growthFormatted = growthVal.toFixed(0);
-                growth = growthVal > 0 ? `+${growthFormatted}%` : `${growthFormatted}%`;
-            }
-        }
-
-        return {
-            chartData: [{ name: 'Salary', data: incrementsData }],
-            growthPercentage: growth,
-            categories: dynamicMonths
-        };
-    }, [salaryData]);
-
-    // Update chart options when categories change
-    useEffect(() => {
-        if (processedData.categories.length > 0) {
-            setIncrementsChartOptions((prev: any) => ({
-                ...prev,
-                xaxis: {
-                    ...prev.xaxis,
-                    categories: processedData.categories
-                }
-            }));
-        }
-    }, [processedData.categories]);
-
-    // Update chart data and growth percentage
-    useEffect(() => {
-        setIncrementsChartData(processedData.chartData);
-        setGrowthPercentage(processedData.growthPercentage);
-    }, [processedData]);
-
-    // console.log("Increments Chart Data: ===================>", incrementsChartData);
+    };
 
     // Skeleton loader component
     const SkeletonLoader = ({ width = "100%", height = "20px" }: { width?: string; height?: string }) => (
         <div style={{
             width,
             height,
-            backgroundColor: "#e0e0e0",
-            borderRadius: "4px",
-            animation: "pulse 1.5s ease-in-out infinite"
+            backgroundColor: "#f1f5f9",
+            borderRadius: "6px",
+            animation: "pulse-shim 1.6s ease-in-out infinite"
         }} />
     );
 
-    // Add keyframe animation
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-    `;
-    if (!document.querySelector('style[data-skeleton-animation]')) {
-        styleElement.setAttribute('data-skeleton-animation', 'true');
-        document.head.appendChild(styleElement);
-    }
-
     if (loading) {
         return (
-            <div className="card p-4 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)', borderRadius: '12px' }}>
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                    <SkeletonLoader width="120px" height="24px" />
-                    <SkeletonLoader width="100px" height="24px" />
+            <div className="card p-6 mb-5" style={{ borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+                    <SkeletonLoader width="300px" height="32px" />
                 </div>
-                <div className="card p-4" style={{ minHeight: '350px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <SkeletonLoader width="100%" height="300px" />
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                            <SkeletonLoader width="80px" height="12px" />
-                            <SkeletonLoader width="80px" height="12px" />
-                            <SkeletonLoader width="80px" height="12px" />
-                            <SkeletonLoader width="80px" height="12px" />
-                        </div>
-                    </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                    {[...Array(4)].map((_, i) => <SkeletonLoader key={i} height="80px" />)}
+                </div>
+                <div style={{ minHeight: '350px' }}>
+                    <SkeletonLoader width="100%" height="300px" />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="card p-4 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)', borderRadius: '12px' }}>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h4 className="mb-0" style={{ fontSize: '19px', fontWeight: 600, letterSpacing: '0.19px' }}>
-                    Increments
-                </h4>
-                <span style={{ fontSize: '19px', fontWeight: 600, color: '#28a41d', letterSpacing: '0.19px' }}>
-                    {growthPercentage} Growth
-                </span>
+        <div className="card p-6 mb-5" style={{
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            borderRadius: '16px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #f1f5f9',
+            fontFamily: 'Inter, sans-serif'
+        }}>
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        backgroundColor: '#2e93fa10',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#2E93FA'
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <line x1="12" y1="19" x2="12" y2="5"/>
+                            <polyline points="5 12 12 5 19 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Increments</h3>
+                        <span style={{ fontSize: '12.5px', color: '#64748b' }}>Track salary increment growth over time</span>
+                    </div>
+                </div>
+
+                {/* Growth Badge & Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    {/* Curve Type Selector Toggle */}
+                    <div style={{
+                        display: 'inline-flex',
+                        backgroundColor: '#f1f5f9',
+                        padding: '4px',
+                        borderRadius: '8px'
+                    }}>
+                        <button
+                            onClick={() => setCurveType('smooth')}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                backgroundColor: curveType === 'smooth' ? '#ffffff' : 'transparent',
+                                color: curveType === 'smooth' ? '#1e293b' : '#64748b',
+                                boxShadow: curveType === 'smooth' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                            }}
+                        >
+                            Smooth
+                        </button>
+                        <button
+                            onClick={() => setCurveType('stepline')}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                backgroundColor: curveType === 'stepline' ? '#ffffff' : 'transparent',
+                                color: curveType === 'stepline' ? '#1e293b' : '#64748b',
+                                boxShadow: curveType === 'stepline' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                            }}
+                        >
+                            Step-Line
+                        </button>
+                    </div>
+
+                    {/* Period Tabs Button Group */}
+                    <div style={{
+                        display: 'inline-flex',
+                        backgroundColor: '#f1f5f9',
+                        padding: '4px',
+                        borderRadius: '8px'
+                    }}>
+                        {(['Monthly', 'Quarterly', 'Yearly'] as const).map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => handlePeriodChange(p)}
+                                style={{
+                                    padding: '6px 12px',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    backgroundColor: period === p ? '#ffffff' : 'transparent',
+                                    color: period === p ? '#1e293b' : '#64748b',
+                                    boxShadow: period === p ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                                }}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Premium Growth Badge */}
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: '#d1fae5',
+                        color: '#065f46',
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 700
+                    }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                        {totalGrowthPercent > 0 ? `+${totalGrowthPercent.toFixed(0)}%` : '0%'} Growth
+                    </div>
+                </div>
             </div>
-            <div className="card p-2 mb-5">
-                {incrementsChartData.length > 0 && incrementsChartData[0]?.data?.length > 0 ? (
+
+            {/* The Main Area + Line Chart */}
+            <div className="area-chart-container" style={{ minHeight: '350px', marginBottom: '24px' }}>
+                {processedChart.data.length > 0 ? (
                     <ApexCharts
-                        key={`increments-chart-${salaryData.length}-${salaryData[0]?.month}-${salaryData[salaryData.length - 1]?.month}`}
-                        options={incrementsChartOptions}
-                        series={incrementsChartData}
+                        key={`increments-combo-${period}-${curveType}-${monthlyStats.length}`}
+                        options={chartOptions}
+                        series={series}
                         type="area"
                         height={350}
                     />
@@ -385,11 +568,143 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#666'
+                        color: '#64748b',
+                        fontSize: '14px'
                     }}>
-                        No data available
+                        No increment data available
                     </div>
                 )}
+            </div>
+
+            {/* Bottom Insights Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                {/* Current Salary Card */}
+                <div style={{
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.01)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                            <line x1="12" y1="4" x2="12" y2="20"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#64748b', marginBottom: '2px' }}>Current Salary</div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>{formatCurrency(currentSalary)}</div>
+                    </div>
+                </div>
+
+                {/* Highest Single Increment Jump Card */}
+                <div style={{
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.01)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: '#d1fae5',
+                        color: '#065f46',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#64748b', marginBottom: '2px' }}>Highest Increment</div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>{formatCurrency(highestJump)}</div>
+                    </div>
+                </div>
+
+                {/* Average Growth Rate Card */}
+                <div style={{
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.01)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: '#f3e8ff',
+                        color: '#6b21a8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+                            <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#64748b', marginBottom: '2px' }}>Average Growth</div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>{totalGrowthPercent.toFixed(1)}%</div>
+                    </div>
+                </div>
+
+                {/* Total Increments Sum Card */}
+                <div style={{
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.01)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: '#ffedd5',
+                        color: '#9a3412',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 500, color: '#64748b', marginBottom: '2px' }}>Total Increment</div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>{formatCurrency(totalIncrement)}</div>
+                    </div>
+                </div>
             </div>
         </div>
     );

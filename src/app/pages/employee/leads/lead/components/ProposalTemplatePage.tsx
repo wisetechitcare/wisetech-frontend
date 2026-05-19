@@ -502,9 +502,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
           case "project_area_1_cost":
             val = commercial[0]?.cost || "";
             break;
-          case "project_area_1_cost_type":
-            val = commercial[0]?.costType || "";
-            break;
           default:
             val = typeof val === "object" ? "" : val || "";
         }
