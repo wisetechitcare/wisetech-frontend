@@ -168,10 +168,10 @@ const DeductionPanel = ({
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
                         <div className="fw-bold" style={{ color: '#AA393D' }}>
-                            Total Salary After Variable Deductions (B)
+                            Total Salary After Attendance Adjustments(B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
-                            (A − Variable Deductions)
+                            (Total variable deductions)
                         </div>
                     </div>
                     <div
@@ -253,7 +253,7 @@ const DeductionPanel = ({
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
                         <div className="fw-bold" style={{ color: '#AA393D' }}>
-                            Total Salary After Variable Deductions (B)
+                            Total Salary After Attendance Adjustments (B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
                             (Total Earnings − Total Government Deductions)
@@ -316,7 +316,7 @@ const NetAmountPayable = ({
                     <div>
                         <div className="fw-bold fs-5" style={{ color: '#008C7C' }}>Net Amount Payable</div>
                         <div className="text-muted" style={{ fontSize: 12 }}>
-                            (Total Salary After Variable Deductions − Fixed Deductions)
+                            (Total Salary After Attendance Adjustments - other deductions)
                         </div>
                     </div>
                 </div>
