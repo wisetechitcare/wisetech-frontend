@@ -435,9 +435,9 @@ export const getAllLeadsCountIncludingDeleted = async () => {
  * Used to generate sequential inquiry numbers that reset each year.
  * @param formattedYear  e.g. "2026-27" or "2026"
  */
-export const getLeadsCountByFiscalYear = async (formattedYear: string) => {
+export const getLeadsCountByFiscalYear = async (formattedYear: string, prefixBase: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_COUNT_BY_FISCAL_YEAR}?year=${encodeURIComponent(formattedYear)}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_COUNT_BY_FISCAL_YEAR}?year=${encodeURIComponent(formattedYear)}&prefixBase=${encodeURIComponent(prefixBase)}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {

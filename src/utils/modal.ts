@@ -24,7 +24,7 @@ const commonOptions = {
     }
 };
 
-export const successConfirmation = (message: string, title: string = 'Operation Successful') => {
+export const successConfirmation = (message: string, title: string = 'Success') => {
     return Swal.fire({
         ...commonOptions,
         title: title,
@@ -38,7 +38,7 @@ export const successConfirmation = (message: string, title: string = 'Operation 
     });
 }
 
-export const errorConfirmation = (message: string, title: string = 'System Error') => {
+export const errorConfirmation = (message: string, title: string = 'Error') => {
     const isHtml = /<[a-z][\s\S]*>/i.test(message || '');
     const formattedMessage = !isHtml && message?.includes('\n')
         ? message.replace(/\n/g, '<br>')

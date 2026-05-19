@@ -47,45 +47,63 @@ import { Field } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 
 export interface RadioButton {
-    label: string;
-    value: string;
+  label: string;
+  value: any;
 }
 
 interface RadioInputProps {
-    isRequired: boolean;
-    inputLabel?: string;
-    radioBtns: RadioButton[];
-    formikField: string;
-    customCss?: string;
+  isRequired: boolean;
+  inputLabel?: string;
+  radioBtns: RadioButton[];
+  formikField: string;
+  customCss?: string;
 }
 
 function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss = "" }: RadioInputProps) {
-    return (
-        <div className={`d-flex flex-column mb-7 fv-row`}>
-            {inputLabel && (
-                <label className="d-flex align-items-center fs-6 fw-bold form-label mb-2">
-                    <span className={`${isRequired ? "required" : ""}`}>{inputLabel}</span>
-                </label>
-            )}
+  return (
+    <div className={`d-flex flex-column mb-7 fv-row`}>
+      {inputLabel && (
+        <label className="d-flex align-items-center fs-6 fw-bold form-label mb-2">
+          <span className={`${isRequired ? "required" : ""}`}>{inputLabel}</span>
+        </label>
+      )}
 
-            <div className={`d-flex gap-4 ${customCss}`}>
-                {radioBtns.map((radioBtn: RadioButton, index: number) => (
-                    <label key={`${radioBtn.value}-${index}`} className="radio-container">
-                        <Field
-                            className="form-check-input"
-                            type="radio"
-                            name={formikField}
-                            value={radioBtn.value}
-                        />
-                        <span className="custom-radio"></span>
-                        <span className="px-2">{radioBtn.label}</span>
-                    </label>
-                ))}
-            </div>
+      <div className={`d-flex gap-4 ${customCss}`}>
+        {radioBtns.map((radioBtn: RadioButton, index: number) => (
+          <label key={`${radioBtn.value}-${index}`} className="radio-container">
+            <Field name={formikField}>
+              {({ field, form }: any) => {
+                const current = field.value;
+                // Never report "checked" when the field is unset — String(null) === "null"
+                // collides with no option, but boolean coercion ensures clean rendering.
+                const isChecked =
+                  current !== null &&
+                  current !== undefined &&
+                  current !== "" &&
+                  String(current) === String(radioBtn.value);
+                return (
+                  <input
+                    className="form-check-input"
+                    type="radio"
+                    name={formikField}
+                    value={String(radioBtn.value)}
+                    checked={isChecked}
+                    onChange={() => {
+                      form.setFieldValue(formikField, radioBtn.value);
+                    }}
+                  />
+                );
+              }}
+            </Field>
+            <span className="custom-radio"></span>
+            <span className="px-2">{radioBtn.label}</span>
+          </label>
+        ))}
+      </div>
 
-            <HighlightErrors isRequired={isRequired} formikField={formikField} />
+      <HighlightErrors isRequired={isRequired} formikField={formikField} />
 
-            <style jsx>{`
+      <style jsx>{`
         .radio-container {
           position: relative;
           display: flex;
@@ -132,8 +150,8 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
           background: #9D4141;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
 
 export default RadioInput;

@@ -313,6 +313,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
   }
 
   const currentTarget = transformedData[0]?.target || 0;
+  const showRunRate = currentTarget > 0;
 
   return (
     <div

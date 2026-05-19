@@ -3,6 +3,7 @@ export const GROSS_PAY = 'grossPay';
 export const DEDUCTIONS = 'deductions';
 export const EXCLUDE_FROM_LATE_ATTENDANCE = 'excludeFromLateAttendance';
 export const PAYMENT_MODE = 'paymentMode';
+export const PROFESSIONAL_FEES_ENABLED_LIST = 'professionalFeesEmployees';
 export const CUSTOM_SALARY = 'custom';
 export const SANDWICH_LEAVE_KEY = 'sandwichLeaveSettings';
 export const DATE_SETTINGS_KEY = 'dateSettings';

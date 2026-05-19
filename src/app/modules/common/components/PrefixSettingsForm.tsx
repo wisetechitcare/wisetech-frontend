@@ -45,7 +45,6 @@ export interface PrefixSettingsFormValues {
 const getDefaultFiscalYear = () => {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1; // getMonth() returns 0-11, so add 1
-
   if (currentMonth >= 4) {
     // Current fiscal year: April current year to March next year
     return `${currentYear}-04-01 to ${currentYear + 1}-03-31`;
@@ -152,18 +151,15 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
       try {
         setIsLoading(true);
         setError(null);
-
         // Fetch both prefix settings and company overview
         const [prefixResponse, companyResponse] = await Promise.all([
           fetchAllPrefixSettings(),
           fetchCompanyOverview()
         ]);
-
         const prefixForType = prefixResponse.data?.prefixSettings.find(
           (prefix: PrefixSetting) => prefix.identifier === typeValue
         );
         setCurrentPrefix(prefixForType || null);
-
         // Set company fiscal year (keep in full date format)
         if (companyResponse.data?.companyOverview?.fiscalYear) {
           setCompanyFiscalYear(companyResponse.data.companyOverview.fiscalYear);

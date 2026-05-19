@@ -545,7 +545,6 @@ const ProjectOverviewById = ({
         </div>
       </div>
 
-
       {/* Second Row - 2 Cards */}
       <div className="row mt-5">
         {/* Commercial Details Card */}
@@ -1061,7 +1060,6 @@ const ProjectOverviewById = ({
         </div>
       </div>
       <div className="row mt-5">
-
 
         {/* Time Log Card */}
         <div className="col-md-6">

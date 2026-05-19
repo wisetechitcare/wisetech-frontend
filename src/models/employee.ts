@@ -191,6 +191,9 @@ export interface IPayment {
   companyId: string,
   createdAt: string,
   paidAt: string,
+  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'UPI',
+  transactionId?: string,
+  remarks?: string,
 }
 
 export interface CustomLeaves {

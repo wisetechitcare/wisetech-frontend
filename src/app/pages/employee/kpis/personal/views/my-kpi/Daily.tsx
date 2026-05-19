@@ -22,6 +22,8 @@ const iconMapping: Record<string, string> = {
   Target: AttendanceIcon,
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
+  "Early CheckIn": AttendanceIcon,
+  "Early CheckOut": AttendanceIcon,
 };
 
 const Daily = ({
@@ -90,7 +92,7 @@ const Daily = ({
   // ✅ SAFE EXTRACTION
   const modules = data?.modules || [];
   const yourPoints = data?.yourPoints ?? 0;
-  
+
   // 🔥 FINAL SAFE RANK CODE
   const rawRank = data?.rank;
   const rank =
@@ -109,6 +111,8 @@ const Daily = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
+    "Early CheckIn",
+    "Early CheckOut",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

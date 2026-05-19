@@ -29,14 +29,16 @@ function AllTime({ fromAdmin = false, resourseAndView, dateSettingsEnabled = fal
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
+        const controller = new AbortController();
         const loadData = async () => {
             setLoading(true);
             try {
-                const response = await fetchEmpAllTimeKpiStatistics();
+                const response = await fetchEmpAllTimeKpiStatistics(fromAdmin, controller.signal);
                 if (response) {                    
                     setData(response.modules);
                 }
             } catch (error) {
+                if (error instanceof Error && error.name === "AbortError") return;
                 console.error("Error fetching All Time KPI Statistics:", error);
             } finally {
                 setLoading(false);
@@ -44,6 +46,7 @@ function AllTime({ fromAdmin = false, resourseAndView, dateSettingsEnabled = fal
         };
 
         loadData();
+        return () => controller.abort();
     }, [toggleChange]);
 
     const overviewData = [
@@ -94,16 +97,14 @@ function AllTime({ fromAdmin = false, resourseAndView, dateSettingsEnabled = fal
         },
     ];
 
-    if (loading) {
-        return <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-            <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-            </div>
-        </Container>
-    }
     return (
         <>
-            <LeaderBoardCore overviewData={overviewData} fromAdmin={fromAdmin} resourseAndView={resourseAndView} />
+            <LeaderBoardCore 
+                overviewData={overviewData} 
+                fromAdmin={fromAdmin} 
+                resourseAndView={resourseAndView} 
+                isLoading={loading}
+            />
         </>
     );
 }

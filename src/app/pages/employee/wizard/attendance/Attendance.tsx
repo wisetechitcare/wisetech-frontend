@@ -287,7 +287,6 @@ function Attendance() {
             // }
 
             const matchedDate = tableData.find((el) => el.date === formattedDate);
-
             if (matchedDate) {
                 switch (matchedDate.status) {
                     case 'Present':

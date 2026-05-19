@@ -210,6 +210,7 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
       {/* Lead Form Modal */}
       {currentTemplate && (
         <LeadFormModal
+          key={`new-lead-${currentTemplate.id}`}
           leadTemplateId={currentTemplate.id}
           open={showLeadForm}
           onClose={handleLeadFormClose}

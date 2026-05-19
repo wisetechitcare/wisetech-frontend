@@ -384,6 +384,66 @@ const RuleMainPage = () => {
                   </div>
                 </div>
 
+                <RuleDivider />
+
+                {/* Professional Fees */}
+                <div className="d-flex flex-column gap-4">
+                  <RuleSectionTitle
+                    title="Professional Fees"
+                    description="lorem ispum shs aj dks dk"
+                  />
+                  <div className="d-flex flex-column gap-1" style={{ width: '100%' }}>
+                    <div className="d-flex align-items-center gap-3 w-100">
+                      <span
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#8998ab',
+                          width: '330px',
+                        }}
+                      >
+                        Salary per month
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          color: '#8998ab',
+                          flex: 1,
+                        }}
+                      >
+                        Deduction
+                      </span>
+                    </div>
+                    <div className="d-flex flex-column gap-3">
+                      {(mockRuleData.salary.professionalFees || []).map((item, index) => (
+                        <div key={index} className="d-flex align-items-start gap-3 w-100">
+                          <span
+                            style={{
+                              fontSize: '14px',
+                              fontWeight: 500,
+                              color: '#000',
+                              width: '330px',
+                            }}
+                          >
+                            {item.name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '14px',
+                              fontWeight: 400,
+                              color: '#000',
+                              flex: 1,
+                            }}
+                          >
+                            {item.deduction}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 {/* FAQs */}
                 <FaqSection type="salary" />
               </div>

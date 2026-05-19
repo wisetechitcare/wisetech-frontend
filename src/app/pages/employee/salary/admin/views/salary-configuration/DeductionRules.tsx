@@ -55,9 +55,16 @@ interface IProvidentFund {
   deduction: number;
 }
 
+interface IProfessionalFees {
+  name: string;
+  type: string;
+  deduction: number;
+}
+
 interface IDeductionConfig {
   professionalTax?: IProfessionalTax;
   providentFund?: IProvidentFund;
+  professionalFees?: IProfessionalFees;
 }
 
 // Default values for empty backend response
@@ -82,11 +89,23 @@ const defaultProvidentFund: IProvidentFund = {
   deduction: 0
 };
 
+const defaultProfessionalFees: IProfessionalFees = {
+  name: "Professional Fees",
+  type: "number",
+  deduction: 0
+};
+
 // Validation Schemas
 const providentFundSchema = Yup.object({
   name: Yup.string().required("Name is required"),
   type: Yup.string().required("Type is required"),
   deduction: Yup.number().required("Deduction percentage is required").min(0).max(100),
+});
+
+const professionalFeesSchema = Yup.object({
+  name: Yup.string().required("Name is required"),
+  type: Yup.string().required("Type is required"),
+  deduction: Yup.number().required("Deduction amount is required").min(0),
 });
 
 const genderRuleSchema = Yup.object({
@@ -131,6 +150,7 @@ function DeductionRules() {
   const [config, setConfig] = useState<IDeductionConfig>({});
   const [loading, setLoading] = useState(false);
   const [showPFModal, setShowPFModal] = useState(false);
+  const [showPFeesModal, setShowPFeesModal] = useState(false);
   const [showPTModal, setShowPTModal] = useState(false);
 
   // const defaultConfig = { "providentFund": { "name": "Employee Provident Fund (EPF)", "type": "percentage", "deduction": 12 }, "professionalTax": { "male": { "till": { "isActive": true, "maxValue": 7500, "minValue": 0, "monthlyTax": 100 }, "range": { "isActive": true, "maxValue": 10000, "minValue": 7501, "monthlytax": 175 }, "moreThan": { "isActive": true, "minValue": 10000, "monthlyTax": 175 }, "lastMonth": { "month": 0, "isActive": true, "MonthlyTax": 300 } }, "female": { "till": { "isActive": true, "maxValue": 7500, "minValue": 0, "monthlyTax": 0 }, "range": { "isActive": true, "maxValue": 10000, "minValue": 7501, "monthlytax": 175 }, "moreThan": { "isActive": true, "minValue": 10000, "monthlyTax": 175 }, "lastMonth": { "month": 0, "isActive": true, "MonthlyTax": 300 } } } }
@@ -164,6 +184,19 @@ function DeductionRules() {
     try {
       await saveConfiguration(updatedConfig, "Provident Fund updated successfully");
       setShowPFModal(false);
+    } catch (error) {
+      // Error handled in saveConfiguration
+    }
+  };
+
+  const handleSavePFees = async (values: IProfessionalFees) => {
+    const updatedConfig = {
+      ...config,
+      professionalFees: values
+    };
+    try {
+      await saveConfiguration(updatedConfig, "Professional Fees updated successfully");
+      setShowPFeesModal(false);
     } catch (error) {
       // Error handled in saveConfiguration
     }
@@ -210,6 +243,7 @@ function DeductionRules() {
   // Get data with defaults
   const professionalTax = config.professionalTax || null;
   const providentFund = config.providentFund || null;
+  const professionalFees = config.professionalFees || null;
 
   // Styles matching Figma exactly
   const styles = {
@@ -450,6 +484,42 @@ function DeductionRules() {
             <div style={styles.columnHeader}>Deduction</div>
             {providentFund && (
               <div style={styles.rowValue}>{providentFund.deduction}%</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Professional Fees Card */}
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <h3 style={styles.cardTitle}>Professional Fees</h3>
+          {canEdit && (
+            <button
+              style={styles.configureBtn}
+              onClick={() => setShowPFeesModal(true)}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#9d4141'; e.currentTarget.style.color = 'white'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9d4141'; }}
+            >
+              Configure
+            </button>
+          )}
+        </div>
+
+        <div className="row">
+          <div className="col-md-6">
+            <div style={styles.columnHeader}>Name</div>
+            {professionalFees ? (
+              <div style={styles.rowText}>{professionalFees.name}</div>
+            ) : (
+              <div style={styles.noData}>No rules configured</div>
+            )}
+          </div>
+          <div className="col-md-6">
+            <div style={styles.columnHeader}>Deduction</div>
+            {professionalFees && (
+              <div style={styles.rowValue}>
+                {professionalFees.type === 'percentage' ? `${professionalFees.deduction}%` : `₹${professionalFees.deduction}`}
+              </div>
             )}
           </div>
         </div>
@@ -819,6 +889,114 @@ function DeductionRules() {
                       isRequired={true}
                       parser={numberParser}
                       placeholder="Enter deduction percentage"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !isValid}
+                  style={{
+                    backgroundColor: '#9d4141',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: 'white',
+                    height: '40px',
+                    padding: '0 20px',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    cursor: (loading || !isValid) ? 'not-allowed' : 'pointer',
+                    opacity: (loading || !isValid) ? 0.7 : 1,
+                  }}
+                >
+                  {loading ? "Saving..." : "Save"}
+                </button>
+              </Form>
+            )}
+          </Formik>
+        </Modal.Body>
+      </Modal>
+
+      {/* Professional Fees Modal */}
+      <Modal show={showPFeesModal} onHide={() => setShowPFeesModal(false)} centered>
+        <Modal.Body style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          padding: '40px 44px',
+        }}>
+          <div style={{
+            fontFamily: 'Barlow, sans-serif',
+            fontWeight: 600,
+            fontSize: '24px',
+            color: '#000000',
+            marginBottom: '28px',
+            letterSpacing: '0.24px',
+          }}>
+            Edit Professional Fees Rule
+          </div>
+
+          <Formik
+            initialValues={professionalFees || defaultProfessionalFees}
+            validationSchema={professionalFeesSchema}
+            onSubmit={handleSavePFees}
+            enableReinitialize
+          >
+            {({ isValid, values, setFieldValue }) => (
+              <Form placeholder={undefined}>
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    color: '#000000',
+                    marginBottom: '12px',
+                  }}>
+                    Deduction Type
+                  </div>
+                  <div className="d-flex gap-4 mb-4">
+                    <label className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="pFeesType"
+                        value="percentage"
+                        checked={values.type === 'percentage'}
+                        onChange={() => setFieldValue('type', 'percentage')}
+                      />
+                      <span>Percentage (%)</span>
+                    </label>
+                    <label className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="pFeesType"
+                        value="number"
+                        checked={values.type === 'number'}
+                        onChange={() => setFieldValue('type', 'number')}
+                      />
+                      <span>Fixed Amount (₹)</span>
+                    </label>
+                  </div>
+
+                  <div style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    color: '#000000',
+                    marginBottom: '12px',
+                  }}>
+                    {values.type === 'percentage' ? 'Deduction (%)' : 'Deduction (₹)'}
+                  </div>
+                  <div style={{
+                    backgroundColor: '#eef1f7',
+                    borderRadius: '7px',
+                    padding: '14px 16px',
+                  }}>
+                    <TextInput
+                      formikField="deduction"
+                      type="number"
+                      isRequired={true}
+                      parser={numberParser}
+                      placeholder={values.type === 'percentage' ? "Enter deduction percentage" : "Enter deduction amount"}
                     />
                   </div>
                 </div>

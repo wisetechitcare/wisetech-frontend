@@ -88,6 +88,7 @@ export const mockRuleData: RuleData = {
       },
     ],
     providentFund: [{ name: 'Employee Provident Fund (EPF)', deduction: '12%' }],
+    professionalFees: [{ name: 'Professional Fees', deduction: '₹0' }],
   },
   reimbursement: {},
 };

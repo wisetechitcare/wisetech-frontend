@@ -40,6 +40,119 @@ import { fetchCompanyOverview } from "@services/company";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
 
+/**
+ * Professional Fees helpers — single source of truth for translating between
+ * the radio-input form state ("true"/"false" strings) and whatever shape the
+ * backend / DB happens to hand us. The DB column is BOOLEAN, but depending on
+ * the path (Prisma model vs raw query vs serialized response) we may receive
+ * true, 1, "1", "true", or a Node Buffer like {type:"Buffer",data:[1]}.
+ */
+function readProfessionalFeesEnabled(
+  raw: unknown
+): "true" | "false" {
+  console.log(
+    "PF RAW VALUE:",
+    raw,
+    typeof raw
+  );
+
+  if (
+    raw === null ||
+    raw === undefined
+  ) {
+    return "false";
+  }
+
+  // false cases
+  if (
+    raw === false ||
+    raw === 0 ||
+    raw === "0" ||
+    raw === "false" ||
+    raw === "FALSE"
+  ) {
+    return "false";
+  }
+
+  // true cases
+  if (
+    raw === true ||
+    raw === 1 ||
+    raw === "1" ||
+    raw === "true" ||
+    raw === "TRUE"
+  ) {
+    return "true";
+  }
+
+  // MySQL tinyint buffer case
+  if (
+    typeof raw === "object" &&
+    raw !== null &&
+    "data" in (raw as any)
+  ) {
+    return (raw as any).data?.[0]
+      ? "true"
+      : "false";
+  }
+
+  return "false";
+}
+
+function toNumberOrNull(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw === "string") {
+    const n = parseFloat(raw.replace(/,/g, "").trim());
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function buildProfessionalFeesPayload(values: {
+  professionalFeesEnabled: unknown;
+  professionalFeesAmount: unknown;
+  professionalFeesPercentage: unknown;
+  professionalFeesType: unknown;
+}) {
+  const enabled =
+    readProfessionalFeesEnabled(values.professionalFeesEnabled) === "true";
+  const type =
+    values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+  if (!enabled) {
+    return {
+      professionalFeesEnabled: false,
+      professionalFeesType: "FIXED" as const,
+      professionalFeesAmount: null,
+      professionalFeesPercentage: null,
+    };
+  }
+
+  if (type === "PERCENTAGE") {
+    return {
+      professionalFeesEnabled: true,
+      professionalFeesType: "PERCENTAGE" as const,
+      professionalFeesAmount: null,
+      professionalFeesPercentage: toNumberOrNull(values.professionalFeesPercentage),
+    };
+  }
+
+  return {
+    professionalFeesEnabled: true,
+    professionalFeesType: "FIXED" as const,
+    professionalFeesAmount: toNumberOrNull(values.professionalFeesAmount),
+    professionalFeesPercentage: null,
+  };
+}
+
+const PROF_FEES_KEYS = new Set([
+  "professionalFeesEnabled",
+  "professionalFeesType",
+  "professionalFeesAmount",
+  "professionalFeesPercentage",
+]);
+
 const newEmployeeWizardSchema = [
   // Step 1 commented out - wizard now starts at Personal Details
   // Yup.object({
@@ -403,6 +516,10 @@ const initialState = {
     },
   ],
   roles: [] as any[],
+  professionalFeesEnabled: "false",
+  professionalFeesAmount: "",
+  professionalFeesPercentage: "",
+  professionalFeesType: "FIXED",
 };
 
 const newEmployeeWizardBreadcrumb: Array<PageLink> = [
@@ -518,6 +635,10 @@ const saveNewEmployee = async (values: any, userId: string) => {
     attendanceRequestRaiseLimit,
     allowedPerMonth,
     allowOverTime,
+    professionalFeesEnabled,
+    professionalFeesAmount,
+    professionalFeesPercentage,
+    professionalFeesType,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -626,13 +747,21 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(Array.isArray(values.leaveAllocations) && {
       leaveAllocations: values.leaveAllocations,
     }),
+    ...buildProfessionalFeesPayload({
+      professionalFeesEnabled,
+      professionalFeesAmount,
+      professionalFeesPercentage,
+      professionalFeesType,
+    }),
   };
-  // Clean up empty values but preserve gender, maritalStatus, and discretionaryLeaveBoolean (even if 0 or false)
+  // Clean up empty values but preserve gender, maritalStatus, discretionaryLeaveBoolean,
+  // and the professional-fees fields (even when null — null is meaningful: "clear column").
   Object.keys(employee).forEach((key) => {
     if (
       key === "gender" ||
       key === "maritalStatus" ||
-      key === "discretionaryLeaveBoolean"
+      key === "discretionaryLeaveBoolean" ||
+      PROF_FEES_KEYS.has(key)
     )
       return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) {
@@ -950,6 +1079,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       attendanceRequestRaiseLimit,
       allowedPerMonth,
       allowOverTime,
+      professionalFeesEnabled,
+      professionalFeesAmount,
+      professionalFeesPercentage,
+      professionalFeesType,
       isAdmin,
       rejoinHistory,
       teamId,
@@ -1100,13 +1233,21 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(Array.isArray(values.leaveAllocations) && {
         leaveAllocations: values.leaveAllocations,
       }),
+      ...buildProfessionalFeesPayload({
+        professionalFeesEnabled,
+        professionalFeesAmount,
+        professionalFeesPercentage,
+        professionalFeesType,
+      }),
     };
-    // Clean up empty values but preserve gender, maritalStatus, and discretionaryLeaveBoolean (even if 0 or false)
+    // Clean up empty values but preserve gender, maritalStatus, discretionaryLeaveBoolean,
+    // and the professional-fees fields (null means "clear this column" and must survive).
     Object.keys(employeePayload).forEach((key) => {
       if (
         key === "gender" ||
         key === "maritalStatus" ||
-        key === "discretionaryLeaveBoolean"
+        key === "discretionaryLeaveBoolean" ||
+        PROF_FEES_KEYS.has(key)
       )
         return;
       if (
@@ -1351,7 +1492,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (!stepper) {
       return;
     }
-
     // Handle edit mode for final step
     if (stepper.currentStepIndex === stepper.totalStepsNumber && editMode) {
       try {
@@ -1603,6 +1743,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const {
         data: { wizardData },
       } = await fetchWizardData(employeeId, false);
+      
+      console.log("[PF DEBUG] RAW API RESPONSE wizardData:", wizardData);
+      
       let presentAddress = {};
       const { attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime } =
         wizardData;
@@ -1671,7 +1814,41 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           ? "true"
           : "false",
         discretionaryLeaveBalance: wizardData?.discretionaryLeaveBalance || 0,
+        // Professional Fees — see helpers at top of file.
+        professionalFeesEnabled: readProfessionalFeesEnabled(
+          wizardData?.professionalFeesEnabled ??
+            (wizardData as any)?.professional_fees_enabled,
+        ),
+        professionalFeesAmount: (() => {
+          const v =
+            wizardData?.professionalFeesAmount ??
+            (wizardData as any)?.professional_fees_amount;
+          return v != null && v !== "" ? String(v) : "";
+        })(),
+        professionalFeesPercentage: (() => {
+          const v =
+            (wizardData as any)?.professionalFeesPercentage ??
+            (wizardData as any)?.professional_fees_percentage;
+          return v != null && v !== "" ? String(v) : "";
+        })(),
+        professionalFeesType:
+          wizardData?.professionalFeesType ||
+          (wizardData as any)?.professional_fees_type ||
+          "FIXED",
       };
+      console.log("[PF DEBUG] wizardData prof-fees fields:", {
+        professionalFeesEnabled: wizardData?.professionalFeesEnabled,
+        professional_fees_enabled: (wizardData as any)?.professional_fees_enabled,
+        professionalFeesType: wizardData?.professionalFeesType,
+        professionalFeesAmount: wizardData?.professionalFeesAmount,
+        professionalFeesPercentage: (wizardData as any)?.professionalFeesPercentage,
+      });
+      console.log("[PF DEBUG] newState prof-fees fields:", {
+        professionalFeesEnabled: newState.professionalFeesEnabled,
+        professionalFeesType: newState.professionalFeesType,
+        professionalFeesAmount: newState.professionalFeesAmount,
+        professionalFeesPercentage: newState.professionalFeesPercentage,
+      });
       setDefaultState(newState);
     }
 
@@ -1872,10 +2049,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                     >
                       <div className="flex-grow-1">
                         {/* Step1 (Choose Method) is now commented out - wizard starts at Personal Details */}
-                        {/* <div className='current' data-kt-stepper-element='content'>
-                          {stepper?.currentStepIndex === 1 ? <Step1 /> : null}
-                        </div> */}
-
                         <div
                           className="current"
                           data-kt-stepper-element="content"
@@ -1944,7 +2117,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                                 ) : (
                                   "Submit"
                                 ))}
-                              {/* <KTIcon iconName='arrow-right' className='fs-3 ms-2 me-0' /> */}
                             </span>
                           </button>
                         </div>

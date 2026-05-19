@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal, Button, OverlayTrigger, Tooltip as BSTooltip } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
@@ -8,7 +8,8 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { createUpdateDeductionConfiguration, fetchDeductionConfiguration, validateDeductionConfigurationJson } from '@services/employee';
 import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
-import { Close } from '@mui/icons-material';
+import { Close, InfoOutlined } from '@mui/icons-material';
+import { formatINR2 } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -23,19 +24,18 @@ interface DeductionDistributionModalProps {
 interface DynamicField {
     id: string;
     name: string;
-    value: number;
+    value: number; // This will store the "Extra" amount
     type: string;
     isNew: boolean;
+    autoAmount?: number; // Added to store the auto-calculated amount for preview
 }
 
 /**
  * Transform monthly salary API deduction data to modal format
- * @param deductionBreakdown - The deductionBreakdown from monthly salary API
- * @returns Transformed data in modal format
+ * Modified to treat these as "Additional" amounts. 
  */
 const transformApiDataToModalFormat = (deductionBreakdown: IBreakdownData) => {
     console.log('🔄 [DeductionModal] Transforming API data to modal format');
-    console.log('Input deductionBreakdown:', deductionBreakdown);
     
     const transformedData: any = {};
     
@@ -45,16 +45,13 @@ const transformApiDataToModalFormat = (deductionBreakdown: IBreakdownData) => {
         
         Object.entries(fixedDeductions).forEach(([key, data]: [string, any]) => {
             transformedData[key] = {
-                name: key, // Use the key as the name
-                type: 'number', // Always set to 'number' as per requirements
-                value: data.earned || data.value || 0, // Use 'earned' first, then 'value', fallback to 0
-                isActive: true // Always true for API data
+                name: key,
+                type: 'number',
+                value: 0, // Default additional amount is 0
+                isActive: data.isActive !== false
             };
-            
-            console.log(`✅ Transformed ${key}:`, transformedData[key]);
         });
         
-        console.log('🎯 Final transformed data:', transformedData);
         return transformedData;
     } catch (error) {
         console.error('❌ Error transforming API data to modal format:', error);
@@ -77,6 +74,11 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
     const [deletedFields, setDeletedFields] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [initialValues, setInitialValues] = useState<any>({});
+    const [autoCalculatedDeductions, setAutoCalculatedDeductions] = useState<Record<string, number>>({});
+
+    // Mutual exclusivity rules
+    const [profFeesEnabled, setProfFeesEnabled] = useState(false);
+    const [profTaxEnabled, setProfTaxEnabled] = useState(false);
 
     const resetForm = () => {
         setDynamicFields([]);
@@ -84,6 +86,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         setDeletedFields([]);
         setDeductionDistributionData({});
         setInitialValues({});
+        setAutoCalculatedDeductions({});
     };
 
     const addNewField = () => {
@@ -92,7 +95,8 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             name: `Other ${fieldCounter}`,
             value: 0,
             type: "number",
-            isNew: true
+            isNew: true,
+            autoAmount: 0
         };
         setDynamicFields([...dynamicFields, newField]);
         setFieldCounter(fieldCounter + 1);
@@ -161,193 +165,69 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             initialValues[field.id] = field.value;
         });
 
-        console.log("deductionDistributionData:: ", deductionDistributionData);
-        console.log("initialValues:: ", initialValues);
-
         return initialValues;
-    };
-
-    const validateFormFields = (formValues: any, allFields: DynamicField[]) => {
-        console.log("=== VALIDATING DEDUCTION FORM FIELDS ===");
-        console.log("Form values:", formValues);
-        console.log("All fields:", allFields);
-
-        // Check if there are any fields at all
-        if (allFields.length === 0) {
-            console.log("❌ No fields available");
-            return {
-                isValid: false,
-                hasFields: false,
-                errors: ["No fields available. Please add at least one field."]
-            };
-        }
-
-        const errors: string[] = [];
-        let hasEmptyValues = false;
-        let hasEmptyNames = false;
-
-        // Validate each field
-        allFields.forEach(field => {
-            const fieldValue = formValues[field.id];
-
-            // Check for empty names in dynamic fields
-            if (field.isNew && (!field.name || field.name.trim() === '')) {
-                hasEmptyNames = true;
-                errors.push(`Field name cannot be empty for new field`);
-            }
-
-            // Check for empty or invalid values
-            if (fieldValue === undefined || fieldValue === null || fieldValue === '' || isNaN(Number(fieldValue))) {
-                hasEmptyValues = true;
-                errors.push(`Value is required for field: ${field.name || field.id}`);
-            }
-
-            // Check for negative values
-            if (Number(fieldValue) < 0) {
-                errors.push(`Value cannot be negative for field: ${field.name || field.id}`);
-            }
-        });
-
-        const isValid = !hasEmptyValues && !hasEmptyNames && errors.length === 0;
-
-        console.log(`Validation result: ${isValid ? '✅ Valid' : '❌ Invalid'}`);
-        if (errors.length > 0) {
-            console.log("Validation errors:", errors);
-        }
-
-        return {
-            isValid,
-            hasFields: true,
-            hasEmptyValues,
-            hasEmptyNames,
-            errors
-        };
-    };
-
-    const getSubmitButtonState = (formikProps: any, allFields: DynamicField[], loading: boolean) => {
-        const validation = validateFormFields(formikProps.values, allFields);
-
-        const isDisabled =
-            loading ||
-            !formikProps.isValid ||
-            !validation.isValid ||
-            !validation.hasFields;
-
-        let disabledReason = '';
-        if (loading) disabledReason = 'Loading...';
-        else if (!validation.hasFields) disabledReason = 'No fields available';
-        else if (validation.hasEmptyValues) disabledReason = 'Some fields have empty values';
-        else if (validation.hasEmptyNames) disabledReason = 'Some fields have empty names';
-        else if (!formikProps.isValid) disabledReason = 'Form validation failed';
-
-        return {
-            isDisabled,
-            disabledReason,
-            validation
-        };
     };
 
     const fetchDeductionDistributionData = async () => {
         try {
             setLoading(true);
-            console.log("=== FETCHING DEDUCTION DISTRIBUTION DATA ===");
-            console.log(`Employee ID: ${employeeId}, Month: ${month}, Year: ${year}`);
+            
+            // 1. Extract auto-calculated values from monthlyApiData for preview
+            const autoDeductions: Record<string, number> = {};
+            if (monthlyApiData?.salaryData?.[0]?.deductionBreakdown?.fixed) {
+                const fixed = monthlyApiData.salaryData[0].deductionBreakdown.fixed;
+                Object.entries(fixed).forEach(([key, data]: [string, any]) => {
+                    autoDeductions[key] = data.earned || 0;
+                });
+                
+                // Check mutual exclusivity from API data
+                setProfFeesEnabled(!!fixed['Professional Fees']?.isActive);
+                setProfTaxEnabled(!!fixed['Professional Tax']?.isActive);
+            }
+            setAutoCalculatedDeductions(autoDeductions);
 
-            // PRIORITY 1: Check EmployeeDeductionConfiguration first
+            // 2. Fetch existing "Additional" amounts from database
+            let existingAdditionalData: any = null;
             try {
                 const apiResult = await fetchDeductionConfiguration(employeeId, month, year);
-                console.log("API Result from EmployeeDeductionConfiguration:", apiResult);
-
                 if (!apiResult.hasError && apiResult.data && apiResult.data.configuration) {
-                    console.log("✅ Found data in EmployeeDeductionConfiguration");
-                    const jsonObject = apiResult.data.configuration;
-
-                    setDeductionDistributionData(jsonObject);
-
-                    // Transform data for form initial values
-                    const initialValues: any = {};
-                    Object.entries(jsonObject).forEach(([key, value]: [string, any]) => {
-                        if (key !== '_fieldOrder') { // Skip metadata (backward compatibility)
-                            initialValues[key] = value.value;
-                        }
-                    });
-
-                    setInitialValues(initialValues);
-                    console.log("Initial values set:", initialValues);
-                    return; // Exit early if data found
-                } else {
-                    console.log("❌ No data found in EmployeeDeductionConfiguration, falling back to old API");
+                    existingAdditionalData = apiResult.data.configuration;
                 }
-            } catch (apiError: any) {
-                console.log("API Error (expected for first time):", apiError?.message);
-                // Continue to fallback - this is expected behavior for first-time users
+            } catch (err) {
+                console.log("No existing deduction config found, using defaults");
             }
 
-            // PRIORITY 2: Use monthly salary API data if available
-            if (monthlyApiData?.salaryData?.[0]?.deductionBreakdown) {
-                console.log("🔄 Using monthly salary API deduction data");
-                const apiDeductionData = monthlyApiData.salaryData[0].deductionBreakdown;
-                
-                try {
-                    const transformedData = transformApiDataToModalFormat(apiDeductionData);
-                    
-                    if (Object.keys(transformedData).length > 0) {
-                        console.log("✅ API deduction data transformed successfully");
-                        setDeductionDistributionData(transformedData);
-                        
-                        // Transform data for form initial values
-                        const initialValues: any = {};
-                        Object.entries(transformedData).forEach(([key, value]: [string, any]) => {
-                            initialValues[key] = value.value;
-                        });
-                        
-                        setInitialValues(initialValues);
-                        console.log("✅ Monthly salary API data loaded as defaults");
-                        return;
-                    } else {
-                        console.log("❌ API data transformation resulted in empty object, falling back to hardcoded defaults");
-                    }
-                } catch (transformError) {
-                    console.error("❌ Error transforming API data, falling back to hardcoded defaults:", transformError);
-                }
-            } else {
-                console.log("❌ No monthly API data available, falling back to hardcoded defaults");
-            }
-
-            // PRIORITY 3: Use hardcoded default configuration (last resort)
-            console.log("🔄 Using hardcoded default deduction configuration");
-            const defaultDeductionConfig = {
-                'Provident Fund': {
-                    name: 'Provident Fund',
-                    type: 'percentage',
-                    value: 0,
-                    isActive: true
-                },
-                'Professional Tax': {
-                    name: 'Professional Tax',
-                    type: 'number',
-                    value: 0,
-                    isActive: true
-                }
+            // 3. Prepare the fields
+            const defaultFields: any = {
+                'Provident Fund': { name: 'Provident Fund', type: 'number', value: 0, isActive: true },
+                'Professional Tax': { name: 'Professional Tax', type: 'number', value: 0, isActive: true },
+                'Professional Fees': { name: 'Professional Fees', type: 'number', value: 0, isActive: true }
             };
 
-            console.log("Default config loaded:", defaultDeductionConfig);
-            setDeductionDistributionData(defaultDeductionConfig);
-
-            // Transform data for form initial values
-            const initialValues: any = {};
-            Object.entries(defaultDeductionConfig).forEach(([key, value]: [string, any]) => {
-                initialValues[key] = value.value;
+            // Merge existing data if found
+            const finalData: any = {};
+            const baseData = existingAdditionalData || defaultFields;
+            
+            Object.entries(baseData).forEach(([key, value]: [string, any]) => {
+                if (key === '_fieldOrder') return;
+                finalData[key] = {
+                    ...value,
+                    value: value.value || 0,
+                    type: 'number'
+                };
             });
 
-            setInitialValues(initialValues);
-            console.log("✅ Hardcoded default deduction data loaded successfully");
+            setDeductionDistributionData(finalData);
+            
+            const initialVals: any = {};
+            Object.entries(finalData).forEach(([key, value]: [string, any]) => {
+                initialVals[key] = value.value;
+            });
+            setInitialValues(initialVals);
 
         } catch (error) {
-            console.error("❌ Critical error in fetchDeductionDistributionData:", error);
+            console.error("❌ Error fetching deduction data:", error);
             errorConfirmation("Failed to fetch deduction distribution data");
-            setDeductionDistributionData({});
-            setInitialValues({});
         } finally {
             setLoading(false);
         }
@@ -357,28 +237,31 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         try {
             setLoading(true);
 
-            console.log("=== DEDUCTION FORM SUBMISSION VALUES ===");
-            console.log("Raw form values:", values);
-            console.log("Existing fields data:", deductionDistributionData);
-            console.log("Dynamic fields:", dynamicFields);
-            console.log("Deleted fields:", deletedFields);
-
             const transformedData: any = {};
 
             // Handle existing fields (not deleted)
             Object.entries(deductionDistributionData)
                 .filter(([key]) => !deletedFields.includes(key))
                 .forEach(([key, fieldData]: [string, any]) => {
+                    // Business Rule: Only active deduction should accept extra amount
+                    const isProfTax = key === 'Professional Tax';
+                    const isProfFees = key === 'Professional Fees';
+                    
+                    let finalValue = Number(values[key]);
+                    
+                    if (isProfTax && !profTaxEnabled) finalValue = 0;
+                    if (isProfFees && !profFeesEnabled) finalValue = 0;
+
                     transformedData[key] = {
                         ...fieldData,
-                        value: Number(values[key]),
-                        type: "number" // Always set type to number
+                        value: finalValue,
+                        type: "number"
                     };
                 });
 
             // Handle new dynamic fields
             dynamicFields.forEach(field => {
-                const newKey = field.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, ''); // Remove spaces and special chars for key
+                const newKey = field.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
                 transformedData[newKey] = {
                     name: field.name,
                     value: Number(values[field.id]),
@@ -387,18 +270,6 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 };
             });
 
-            console.log("=== TRANSFORMED DEDUCTION DATA FOR API ===");
-            console.log("Final transformed data:", transformedData);
-
-            // Validate final data structure before submission
-            const configValidation = validateDeductionConfigurationJson(transformedData);
-            if (!configValidation.isValid) {
-                console.error("❌ Final configuration validation failed:", configValidation.error);
-                errorConfirmation(`Validation failed: ${configValidation.error}`);
-                return;
-            }
-
-            // Save to new API endpoint
             const apiPayload = {
                 employeeId: employeeId,
                 month: parseInt(month),
@@ -406,18 +277,13 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 configuration: transformedData
             };
 
-            console.log("=== DEDUCTION API PAYLOAD ===");
-            console.log("Payload being sent to API:", apiPayload);
-
-            const result = await createUpdateDeductionConfiguration(apiPayload as any);
-            console.log("✅ API response:", result);
-
-            successConfirmation(`Deduction distribution updated successfully! ${Object.keys(transformedData).length} field(s) saved.`);
-            resetForm();
+            await createUpdateDeductionConfiguration(apiPayload as any);
+            successConfirmation(`Additional deductions updated successfully!`);
             onSuccess();
+            onClose();
 
         } catch (error: any) {
-            console.error("❌ Error updating deduction distribution:", error);
+            console.error("❌ Error updating deductions:", error);
             errorConfirmation(error.message || "Failed to update deduction distribution");
         } finally {
             setLoading(false);
@@ -432,29 +298,49 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         }
     }, [show]);
 
+    const renderPreview = (fieldName: string, extraValue: number) => {
+        const auto = autoCalculatedDeductions[fieldName] || 0;
+        const total = auto + extraValue;
+        
+        return (
+            <div className="mt-2 p-3 bg-light rounded border border-dashed border-gray-300">
+                <div className="d-flex justify-content-between fs-8 text-gray-600 mb-1">
+                    <span>Auto Calculated:</span>
+                    <span>{formatINR2(auto)}</span>
+                </div>
+                <div className="d-flex justify-content-between fs-8 text-primary mb-1">
+                    <span>Additional:</span>
+                    <span>+{formatINR2(extraValue)}</span>
+                </div>
+                <div className="separator separator-dashed my-1"></div>
+                <div className="d-flex justify-content-between fs-7 fw-bolder text-gray-800">
+                    <span>Final {fieldName}:</span>
+                    <span>{formatINR2(total)}</span>
+                </div>
+            </div>
+        );
+    };
+
     return (
-        <Modal show={show} onHide={onClose} centered size="lg">
+        <Modal show={show} onHide={onClose} centered size="lg" backdrop="static">
             <Modal.Header closeButton>
-                <Modal.Title>Modify Deduction Distribution</Modal.Title>
+                <Modal.Title className="fw-bolder fs-3 text-gray-800">Modify Deduction Distribution</Modal.Title>
             </Modal.Header>
-            <Modal.Body>
-                {loading && (
-                    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+            <Modal.Body className="py-8">
+                {loading ? (
+                    <div className="d-flex justify-content-center align-items-center py-20">
                         <div className="spinner-border text-primary" role="status">
                             <span className="visually-hidden">Loading...</span>
                         </div>
                     </div>
-                )}
-
-                {!loading && (Object.keys(deductionDistributionData).length > 0 || dynamicFields.length > 0) && (
+                ) : (
                     <Formik
                         initialValues={getDynamicInitialValues()}
                         onSubmit={handleSubmit}
                         validationSchema={getDynamicValidationSchema()}
-                        enableReinitialize={false}
+                        enableReinitialize={true}
                     >
                         {(formikProps) => {
-                            // Combine existing and new fields for display
                             const existingFields = Object.entries(deductionDistributionData)
                                 .filter(([key]) => !deletedFields.includes(key) && key !== '_fieldOrder')
                                 .map(([key, value]: [string, any]) => ({
@@ -467,118 +353,152 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
                             return (
                                 <Form className='d-flex flex-column' noValidate placeholder={undefined}>
-                                    {/* Add New Field Button */}
-                                    <div className="d-flex justify-content-between align-items-center mb-4">
-                                        <h6 className="mb-0">Deduction Distribution Fields</h6>
+                                    <div className="alert alert-dismissible bg-light-primary border border-primary border-dashed d-flex flex-column flex-sm-row p-5 mb-8">
+                                        <InfoOutlined className="fs-2 text-primary me-4 mb-5 mb-sm-0" />
+                                        <div className="d-flex flex-column pe-0 pe-sm-10">
+                                            <h5 className="mb-1 text-primary fw-bolder">Important Note</h5>
+                                            <span className="fs-7 text-gray-700">
+                                                Amounts entered here will be <strong>added</strong> to the payroll calculated deductions. 
+                                                They will <strong>not</strong> overwrite the original calculations.
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="d-flex justify-content-between align-items-center mb-6">
+                                        <h6 className="fw-bolder text-gray-800 mb-0">Deduction Adjustment Fields</h6>
                                         <button
                                             type="button"
-                                            className="btn btn-sm btn-primary"
+                                            className="btn btn-sm btn-light-primary fw-bold"
                                             onClick={addNewField}
                                         >
                                             <KTIcon iconName="plus" className="fs-6 me-1" />
-                                            Add New Field
+                                            Add Other Deduction
                                         </button>
                                     </div>
 
-                                    {/* Dynamic Fields */}
-                                    <div className="row">
-                                        {allFields.map((field) => (
-                                            <div key={field.id} className="col-lg-6 mb-4">
-                                                <div className="d-flex align-items-start gap-2">
-                                                    <div className="flex-grow-1">
-                                                        {/* Field Name Input for new fields */}
-                                                        {field.isNew && (
-                                                            <div className="mb-2">
-                                                                <label className="form-label">Field Name</label>
-                                                                <input
-                                                                    type="text"
-                                                                    className="form-control form-control-sm"
-                                                                    value={field.name}
-                                                                    onChange={(e) => updateFieldName(field.id, e.target.value, field.isNew)}
-                                                                    placeholder="Enter field name"
-                                                                />
+                                    <div className="row g-6">
+                                        {allFields.map((field) => {
+                                            const isProfTax = field.id === 'Professional Tax';
+                                            const isProfFees = field.id === 'Professional Fees';
+                                            
+                                            let isDisabled = false;
+                                            let disabledReason = '';
+
+                                            if (isProfTax && !profTaxEnabled) {
+                                                isDisabled = true;
+                                                disabledReason = "Professional Tax disabled because Professional Fees is active";
+                                            } else if (isProfFees && !profFeesEnabled) {
+                                                isDisabled = true;
+                                                disabledReason = "Professional Fees disabled because Professional Tax is active";
+                                            }
+
+                                            const currentExtra = Number(formikProps.values[field.id] || 0);
+
+                                            return (
+                                                <div key={field.id} className="col-lg-6">
+                                                    <div className={`p-5 rounded-4 border ${isDisabled ? 'bg-light-secondary border-gray-300' : 'bg-white border-gray-200'} shadow-sm h-100 position-relative`}>
+                                                        <div className="d-flex justify-content-between align-items-start mb-4">
+                                                            <div className="flex-grow-1 pe-8">
+                                                                {field.isNew ? (
+                                                                    <div className="mb-3">
+                                                                        <label className="form-label fw-bold text-gray-700 fs-8 text-uppercase">Component Name</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="form-control form-control-sm form-control-solid"
+                                                                            value={field.name}
+                                                                            onChange={(e) => updateFieldName(field.id, e.target.value, field.isNew)}
+                                                                            placeholder="e.g. Loan Recovery"
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="d-flex align-items-center gap-2 mb-1">
+                                                                        <span className={`fw-bolder fs-6 ${isDisabled ? 'text-gray-500' : 'text-gray-800'}`}>
+                                                                            {field.name || field.id}
+                                                                        </span>
+                                                                        {isDisabled && (
+                                                                            <OverlayTrigger
+                                                                                placement="top"
+                                                                                overlay={<BSTooltip>{disabledReason}</BSTooltip>}
+                                                                            >
+                                                                                <InfoOutlined sx={{ fontSize: 16, color: '#999' }} />
+                                                                            </OverlayTrigger>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <IconButton
+                                                                onClick={() => removeField(field.id, field.isNew)}
+                                                                size="small"
+                                                                className="position-absolute top-0 end-0 mt-2 me-2"
+                                                                sx={{ color: '#f1416c', '&:hover': { backgroundColor: '#fff5f8' } }}
+                                                            >
+                                                                <Close fontSize="small" />
+                                                            </IconButton>
+                                                        </div>
+
+                                                        <div className="mb-2">
+                                                            <label className={`form-label fw-bold fs-8 text-uppercase ${isDisabled ? 'text-gray-500' : 'text-gray-700'}`}>
+                                                                Additional Deduction Amount
+                                                            </label>
+                                                            <TextInput
+                                                                isRequired={true}
+                                                                label=""
+                                                                formikField={field.id}
+                                                                type="number"
+                                                                placeholder="0.00"
+                                                                readonly={isDisabled}
+                                                            />
+                                                        </div>
+
+                                                        {!isDisabled && renderPreview(field.isNew ? field.id : field.name || field.id, currentExtra)}
+                                                        
+                                                        {isDisabled && (
+                                                            <div className="text-center py-4 bg-gray-100 rounded border border-dashed border-gray-300 mt-2">
+                                                                <span className="text-muted fs-8 fw-bold italic">{disabledReason}</span>
                                                             </div>
                                                         )}
-
-                                                        {/* Value Input */}
-                                                        <TextInput
-                                                            isRequired={true}
-                                                            label={field.isNew ? "Value" : (field.name || field.id)}
-                                                            formikField={field.id}
-                                                            type="number"
-                                                        />
-
-                                                        {!field.isNew && (
-                                                            <small className="text-muted">
-                                                                Original: {field.value}
-                                                            </small>
-                                                        )}
                                                     </div>
-                                                    <IconButton
-                                                        onClick={() => removeField(field.id, field.isNew)}
-                                                        sx={{ color: '#d32f2f' }}
-                                                        title="Remove field"
-                                                    >
-                                                        <Close />
-                                                    </IconButton>
-                                                    {/* Remove Button */}
-                                                    {/* <button
-                                                        type="button"
-                                                        className="btn btn-sm btn-danger mt-4"
-                                                        onClick={() => removeField(field.id, field.isNew)}
-                                                        title="Remove field"
-                                                    >
-                                                        <KTIcon iconName="close" className="fs-6 text-white" />
-                                                    </button> */}
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
 
-                                    {/* No Fields Message */}
                                     {allFields.length === 0 && (
-                                        <div className="text-center py-4">
-                                            <p className="text-muted mb-3">No deduction fields configured yet.</p>
+                                        <div className="text-center py-20 bg-light rounded-4 border border-dashed border-gray-300">
+                                            <KTIcon iconName="document" className="fs-3x text-gray-400 mb-5" />
+                                            <p className="text-gray-600 fw-bold mb-5">No deduction adjustments configured.</p>
                                             <button
                                                 type="button"
-                                                className="btn btn-primary btn-sm"
+                                                className="btn btn-primary btn-sm px-6"
                                                 onClick={addNewField}
                                             >
-                                                <KTIcon iconName="plus" className="fs-6 me-1" />
-                                                Add Your First Field
+                                                Add First Adjustment
                                             </button>
                                         </div>
                                     )}
 
-                                    {/* Submit Button */}
-                                    <div className="text-end mt-4">
+                                    <div className="d-flex justify-content-end gap-3 mt-12 pt-8 border-top">
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="btn btn-light"
+                                            onClick={onClose}
+                                            disabled={loading}
+                                        >
+                                            Cancel
+                                        </Button>
                                         <Button
                                             type="submit"
                                             className="btn btn-primary"
-                                            disabled={getSubmitButtonState(formikProps, allFields, loading).isDisabled}
+                                            disabled={loading || !formikProps.isValid}
                                         >
-                                            {loading ? 'Saving...' : 'Save Deduction Distribution'}
+                                            {loading ? 'Saving Changes...' : 'Save Deduction Distribution'}
                                         </Button>
                                     </div>
                                 </Form>
                             );
                         }}
                     </Formik>
-                )}
-
-                {!loading && Object.keys(deductionDistributionData).length === 0 && dynamicFields.length === 0 && (
-                    <div className="text-center py-5">
-                        <h5 className="text-muted mb-3">No Deduction Configuration Found</h5>
-                        <p className="text-muted mb-4">Start by adding your first deduction field.</p>
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={addNewField}
-                        >
-                            <KTIcon iconName="plus" className="fs-6 me-1" />
-                            Add First Field
-                        </button>
-                    </div>
                 )}
             </Modal.Body>
         </Modal>

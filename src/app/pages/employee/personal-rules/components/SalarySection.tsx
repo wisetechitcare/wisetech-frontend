@@ -14,6 +14,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
   const [deductionRules, setDeductionRules] = useState<any[]>([]);
   const [professionalTax, setProfessionalTax] = useState<any[]>([]);
   const [providentFund, setProvidentFund] = useState<string>('');
+  const [professionalFees, setProfessionalFees] = useState<string>('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -66,6 +67,22 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
 
         // Parse provident fund
         setProvidentFund(deductionsConfig['EPF'] || '12%');
+
+        // Parse professional fees (mirrors PF behavior)
+        const pfeesRaw =
+          deductionsConfig?.professionalFees?.deduction ??
+          deductionsConfig?.['Professional Fees']?.value;
+        const pfeesType =
+          deductionsConfig?.professionalFees?.type ??
+          deductionsConfig?.['Professional Fees']?.type ??
+          'number';
+        if (pfeesRaw !== undefined && pfeesRaw !== null && pfeesRaw !== '') {
+          setProfessionalFees(
+            pfeesType === 'percentage' ? `${pfeesRaw}%` : `₹${pfeesRaw}`
+          );
+        } else {
+          setProfessionalFees('₹0');
+        }
 
       } catch (error) {
         console.error('[SalarySection] Error loading data:', error);
@@ -499,6 +516,86 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
                   margin: 0
                 }}>
                   {providentFund}
+                </p>
+              </Col>
+            </Row>
+          </div>
+        </div>
+
+        <Divider />
+
+        {/* Professional Fees */}
+        <div>
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{
+              fontFamily: 'Barlow, sans-serif',
+              fontWeight: 600,
+              fontSize: '16px',
+              letterSpacing: '0.16px',
+              textTransform: 'uppercase',
+              color: '#000',
+              margin: 0
+            }}>
+              Professional Fees
+            </p>
+            <p style={{
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              fontSize: '14px',
+              color: '#8998ab',
+              margin: 0
+            }}>
+              Monthly professional fees deduction
+            </p>
+          </div>
+
+          <div style={{ paddingLeft: '24px' }}>
+            <Row className="g-2 w-100 mb-3">
+              <Col xs={12} sm={8} md={8}>
+                <p style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#8998ab',
+                  margin: 0
+                }}>
+                  Salary per month
+                </p>
+              </Col>
+              <Col xs={12} sm={4} md={4}>
+                <p style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#8998ab',
+                  margin: 0
+                }}>
+                  Deduction
+                </p>
+              </Col>
+            </Row>
+
+            <Row className="g-2 w-100">
+              <Col xs={12} sm={8} md={8}>
+                <p style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  color: '#000',
+                  margin: 0
+                }}>
+                  Professional Fees
+                </p>
+              </Col>
+              <Col xs={12} sm={4} md={4}>
+                <p style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 400,
+                  fontSize: '14px',
+                  color: '#000',
+                  margin: 0
+                }}>
+                  {professionalFees}
                 </p>
               </Col>
             </Row>
