@@ -795,7 +795,7 @@ const ProjectsMainTable = ({
         tableName="Projects"
         employeeId={employeeId}
         enableColumnResizing={true}
-        layoutMode="grid"
+        layoutMode="semantic"
         muiTableContainerProps={{
           sx: {
             maxHeight: "700px",
