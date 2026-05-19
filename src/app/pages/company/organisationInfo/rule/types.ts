@@ -35,6 +35,11 @@ export interface ProvidentFundRule {
   deduction: string;
 }
 
+export interface ProfessionalFeesRule {
+  name: string;
+  deduction: string;
+}
+
 export interface AttendanceRules {
   shiftType: string;
   description: string;
@@ -52,6 +57,7 @@ export interface SalaryRules {
   grossPayDistribution: SalaryDistributionItem[];
   professionalTax: ProfessionalTaxRule[];
   providentFund: ProvidentFundRule[];
+  professionalFees: ProfessionalFeesRule[];
 }
 
 export interface RuleData {

@@ -90,7 +90,6 @@ const ClientContactsMain = ({
     allSubCompanies.forEach((s: any) => map.set(s.id, s));
     return map;
   }, [allSubCompanies]);
-
   useEventBus("clientContactUpdated", () => {
     loadAllContacts();
   });

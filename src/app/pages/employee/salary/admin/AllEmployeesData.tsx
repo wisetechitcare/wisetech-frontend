@@ -53,9 +53,14 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   const [employeeSpecificStats, setEmployeeSpecificStats] = useState<any[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [totalAmountPaid, setTotalAmountPaid] = useState(0);
+  const [totalNetPayable, setTotalNetPayable] = useState(0);
+  const [totalTdsPayable, setTotalTdsPayable] = useState(0);
+  const [totalTdsPaid, setTotalTdsPaid] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
+  
+  const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
   
   // Handle previous month
   const handlePrevMonth = useCallback(() => {
@@ -147,6 +152,10 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     
         // Process salary data
         const salaryMap = new Map();
+        let netPayableSum = 0;
+        let salaryPaidSum = 0;
+        let tdsPayableSum = 0;
+        let tdsPaidSum = 0;
     
         if (salaryResponse.data && Array.isArray(salaryResponse.data)) {
           salaryResponse.data.forEach((item: any) => {
@@ -157,18 +166,38 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
             
             let currentAmount = 0;
             if (item._sum?.amountPaid) {
-              currentAmount = parseInt(item._sum.amountPaid) || 0;
+              currentAmount = Number(item._sum.amountPaid) || 0;
             } else if (item.amountPaid) {
-              currentAmount = parseInt(item.amountPaid) || 0;
+              currentAmount = Number(item.amountPaid) || 0;
             }
             
             salaryMap.set(employeeId, previousAmount + currentAmount);
+
+            // Independent totals
+            salaryPaidSum += currentAmount;
+            netPayableSum += Number(item.finalNetSalary || 0);
+            tdsPaidSum += Number(item.governmentPaid || 0);
+
+            // Extract Professional Fees for TDS Payable
+            let breakdown: any = null;
+            try {
+              breakdown = typeof item.payrollBreakdownJson === 'string'
+                ? JSON.parse(item.payrollBreakdownJson)
+                : item.payrollBreakdownJson;
+            } catch (e) {
+              breakdown = null;
+            }
+
+            const profFees = Number(breakdown?.deductionBreakdown?.fixed?.['Professional Fees']?.earned || 
+                                   breakdown?.deductionBreakdown?.fixed?.['Professional Fees'] || 0);
+            tdsPayableSum += profFees;
           });
         }
-
-        // Calculate Total Amount Paid for All Employees
-        const totalPaid = Array.from(salaryMap.values()).reduce((acc, curr) => acc + curr, 0);
-        setTotalAmountPaid(totalPaid);
+    
+        setTotalAmountPaid(salaryPaidSum);
+        setTotalNetPayable(netPayableSum);
+        setTotalTdsPayable(tdsPayableSum);
+        setTotalTdsPaid(tdsPaidSum);
 
         // Fetch Employees
         const response = await fetchAllEmployees();
@@ -239,7 +268,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     }
   
     fetchEmployeesWithSalaries();
-  }, [companyId, alignment, fiscalYear, month, dateRanges]);
+  }, [companyId, alignment, fiscalYear, month, dateRanges, toggleChange]);
   
   // ApexChart Configuration - Memoized to prevent unnecessary recalculations
   const chartConfig = useMemo(() => {
@@ -553,18 +582,89 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         )}
       </div>
 
-      {/* Total Amount Paid Card */}
-      <div className="d-flex justify-content-center justify-content-lg-end mb-4">
-        <Card className="card-stats mb-2 mb-lg-0" style={{ width: '100%', maxWidth: '300px' }}>
-          <div className="card-body p-4 d-flex flex-column align-items-center justify-content-center">
-            <h5 className="card-title">
-              Total{alignment === 'yearly' ? ' Yearly' : ' Monthly'} Amount Paid
-            </h5>
-            <p className="card-text">
-              {formatNumber(totalAmountPaid)}
-            </p>
-          </div>
-        </Card>
+      {/* Summary Cards */}
+      <div className="row g-5 mb-8">
+        <div className="col-xl-4 col-md-6">
+          <Card className="shadow-sm border-0 h-100" style={{ background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)', color: 'white' }}>
+            <div className="card-body p-6">
+              <div className="d-flex flex-column">
+                <span className="fw-bold fs-7 text-uppercase opacity-75 mb-2">Net Salary Payable</span>
+                <span className="fs-2hx fw-bold">{formatNumber(totalNetPayable)}</span>
+                <div className="mt-4 pt-4 border-top border-white border-opacity-10 d-flex justify-content-between align-items-center">
+                  <span className="fs-7 opacity-75">Target disbursement for {month.format('MMM YYYY')}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="col-xl-4 col-md-6">
+          <Card className="shadow-sm border-0 h-100" style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', color: 'white' }}>
+            <div className="card-body p-6">
+              <div className="d-flex flex-column">
+                <span className="fw-bold fs-7 text-uppercase opacity-75 mb-2">Salary Paid</span>
+                <span className="fs-2hx fw-bold">{formatNumber(totalAmountPaid)}</span>
+                <div className="mt-4 pt-4 border-top border-white border-opacity-10 d-flex justify-content-between align-items-center">
+                  <span className="fs-7 opacity-75">Processed payments</span>
+                  <span className="badge badge-light-success fs-8 fw-bold">
+                    {totalNetPayable > 0 ? Math.round((totalAmountPaid / totalNetPayable) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="col-xl-4 col-md-6">
+          <Card className="shadow-sm border-0 h-100" style={{ background: 'linear-gradient(135deg, #EB3349 0%, #F45C43 100%)', color: 'white' }}>
+            <div className="card-body p-6">
+              <div className="d-flex flex-column">
+                <span className="fw-bold fs-7 text-uppercase opacity-75 mb-2">Salary Pending</span>
+                <span className="fs-2hx fw-bold">{formatNumber(Math.max(0, totalNetPayable - totalAmountPaid))}</span>
+                <div className="mt-4 pt-4 border-top border-white border-opacity-10 d-flex justify-content-between align-items-center">
+                  <span className="fs-7 opacity-75">Outstanding balance</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* TDS / Professional Fees Section */}
+        <div className="col-xl-6 col-md-6">
+          <Card className="shadow-sm border-0" style={{ backgroundColor: '#f8f9fa', borderLeft: '5px solid #007bff' }}>
+            <div className="card-body p-5">
+              <div className="d-flex align-items-center justify-content-between">
+                <div>
+                  <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">TDS Payable (Professional Fees)</h5>
+                  <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPayable)}</span>
+                </div>
+                <div className="symbol symbol-50px">
+                  <div className="symbol-label bg-light-primary">
+                    <KTIcon iconName="percentage" className="fs-1 text-primary" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="col-xl-6 col-md-6">
+          <Card className="shadow-sm border-0" style={{ backgroundColor: '#f8f9fa', borderLeft: '5px solid #28a745' }}>
+            <div className="card-body p-5">
+              <div className="d-flex align-items-center justify-content-between">
+                <div>
+                  <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">TDS Paid</h5>
+                  <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPaid)}</span>
+                </div>
+                <div className="symbol symbol-50px">
+                  <div className="symbol-label bg-light-success">
+                    <KTIcon iconName="check-circle" className="fs-1 text-success" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* Error Display */}

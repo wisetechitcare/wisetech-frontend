@@ -263,7 +263,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
 
   const options: ApexCharts.ApexOptions = {
     chart: {
-      type: chartType,
+      type: chartType === "histogram" ? "bar" : chartType,
       width: '100%',
       height: '100%',
       events: {
@@ -696,7 +696,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 <ReactApexChart
                   options={{ ...options, legend: { show: false } }}
                   series={series}
-                  type={chartType}
+                  type={chartType === "histogram" ? "bar" : chartType}
                   width={width}
                   height={height}
                 />

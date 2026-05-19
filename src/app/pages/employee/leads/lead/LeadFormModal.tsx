@@ -97,8 +97,7 @@ import {
   transformToOptions,
 } from "@app/modules/common/components/InlineCreateHelpers";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
-import { getAllLeadCancellationReasons } from "@services/lead"; //new
-import LeadProposalExportModal from "./components/LeadProposalExportModal";
+import { getAllLeadCancellationReasons } from "@services/lead";
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -1339,7 +1338,7 @@ const LeadFormModal = ({
           // Count only leads in THIS fiscal year so the counter resets each new fiscal year
           const {
             data: { count },
-          } = await getLeadsCountByFiscalYear(formattedYear);
+          } = await getLeadsCountByFiscalYear(formattedYear, currentPrefix.prefix);
           // Generate prefix: prefix/year/count format
           const generatedPrefix = `${currentPrefix.prefix}/${formattedYear}/${String(count + 1).padStart(3, "0")}`;
           setPrefix(generatedPrefix);

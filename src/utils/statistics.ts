@@ -2886,7 +2886,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             ? convertTo12HourFormat(convertToIST(convertToTime(checkInSource))) : "-NA-";
 
         const formattedCheckOut = attendanceRequest?.checkOut
-            ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkOut))): "-NA-";
+            ? convertTo12HourFormat(convertToIST(convertToTime(attendanceRequest.checkOut))) : "-NA-";
 
         const dateSource = attendanceRequest?.checkIn || attendanceRequest?.checkOut || attendanceRequest?.actualCheckIn;
         const day = dateSource ? dayjs(dateSource).format("dddd") : "-NA-";
@@ -3315,20 +3315,26 @@ const fetchWithRetry = async <T>(
 };
 
 export const fetchLeaderboard = async (
-  startDate: string,
-  endDate: string,
-  signal?: AbortSignal
+    startDate: string,
+    endDate: string,
+    signal?: AbortSignal
 ) => {
-  return fetchWithRetry(async () => {
-    const response = await axios.get(
-      `${API_BASE_URL}/${EMPLOYEE.LEADERBOARD}`,
-      {
-        params: { startDate, endDate },
-        signal
-      }
-    );
-    return response.data.data;
-  });
+    try {
+        const response = await axios.get(
+            `${API_BASE_URL}/${EMPLOYEE.LEADERBOARD}`,
+            {
+                params: { startDate, endDate },
+                signal
+            }
+        );
+
+        return response.data.data; // 🔥 IMPORTANT
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Leaderboard API Error:", error);
+        }
+        throw error;
+    }
 };
 //🔥 Irfan Change End
 
@@ -3366,61 +3372,61 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false, 
 //🔥 Irfan Change Start
 //🔥 Irfan Change Start
 const fetchKpiBase = async (
-  employeeId: string,
-  startDate: string,
-  endDate: string,
-  signal?: AbortSignal
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    signal?: AbortSignal
 ) => {
-  const res = await axios.get(`${API_BASE_URL}/api/employee/kpi`, {
-  params: {
-    employeeId,
-    startDate,
-    endDate
-  },
-  signal,
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem("token")}`
-  }
-});
+    const res = await axios.get(`${API_BASE_URL}/api/employee/kpi`, {
+        params: {
+            employeeId,
+            startDate,
+            endDate
+        },
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+        },
+        signal
+    });
 
-  const data = res?.data?.data;
+    const data = res?.data?.data;
 
-  return {
-    modules: data?.modules || [],
-    yourPoints: Number(data?.yourPoints || 0),
-    rank: data?.rank || 0,
-    remark: data?.remark || "",
-    maxTotal: Number(data?.maxTotal || 100)
-  };
+    return {
+        modules: data?.modules || [],
+        yourPoints: Number(data?.yourPoints || 0),
+        rank: data?.rank || 0,
+        remark: data?.remark || "",
+        maxTotal: Number(data?.maxTotal || 100)
+    };
 };
 
 export async function fetchEmpKpiStatisticsForPeriod(
-  employeeId: string,
-  startDate: string,
-  endDate: string,
-  signal?: AbortSignal
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    signal?: AbortSignal
 ) {
-  return fetchKpiBase(employeeId, startDate, endDate, signal);
+    return fetchKpiBase(employeeId, startDate, endDate, signal);
 }
 
 export async function fetchEmpKpiStatisticsForDay(
-  employeeId: string,
-  date: string,
-  signal?: AbortSignal
+    employeeId: string,
+    date: string,
+    signal?: AbortSignal
 ) {
-  return fetchKpiBase(employeeId, date, date, signal);
+    return fetchKpiBase(employeeId, date, date, signal);
 }
 
 export async function fetchEmpKpiScoresAllTime(
-  employeeId: string,
-  signal?: AbortSignal
+    employeeId: string,
+    signal?: AbortSignal
 ) {
-  return fetchKpiBase(
-    employeeId,
-    "2000-01-01",
-    dayjs().format("YYYY-MM-DD"),
-    signal
-  );
+    return fetchKpiBase(
+        employeeId,
+        "2000-01-01",
+        dayjs().format("YYYY-MM-DD"),
+        signal
+    );
 }
 //🔥 Irfan Change End
 

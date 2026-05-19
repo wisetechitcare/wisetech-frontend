@@ -70,12 +70,12 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     const totals = employeeSummaries.reduce(
       (acc: any, summary: any) => {
         if (summary?.rawTotals) {
-          const { netAmount = 0, paidAmount = 0, totalGrossPayAmount = 0, totalDeductedAmount = 0 } = summary.rawTotals;
+          const { netAmount = 0, amountPaid = 0, totalGrossPayAmount = 0, totalDeductedAmount = 0 } = summary.rawTotals;
 
-          acc.totalPayableAmount += (netAmount - paidAmount);
+          acc.totalPayableAmount += (netAmount - amountPaid);
           acc.totalGrossAmount += totalGrossPayAmount;
           acc.totalDeductAmount += totalDeductedAmount;
-          acc.totalPaidAmount += paidAmount;
+          acc.totalPaidAmount += amountPaid;
         }
         return acc;
       },
@@ -115,8 +115,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         workingTime: rawTotals?.payableHours ? `${rawTotals?.payableHours?.toFixed(2)} hrs` : '-',
         overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
-        salary: rawTotals.netAmount || '-',
-        paidAmount: rawTotals.paidAmount || '-',
+        netAmount: rawTotals.netAmount || '-',
+        amountPaid: rawTotals.amountPaid || '-',
         basicSalary: rawTotals.basicSalary || '-',
         overTimeAmount: rawTotals?.overTimeAmount || '-',
         dueAmount: rawTotals.dueAmount || '-',
@@ -180,7 +180,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
             },
             {
-              accessorKey: "salary",
+              accessorKey: "netAmount",
               header: "Net Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
@@ -188,7 +188,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               }
             },
             {
-              accessorKey: "paidAmount",
+              accessorKey: "amountPaid",
               header: "Paid Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";

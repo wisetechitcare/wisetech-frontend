@@ -117,7 +117,6 @@ const ProjectsMainTable = ({
       const response10 = await getAllCompanyTypes();
       const response11 = await getAllTeams(1, 9999); // Get all teams for dropdown
       setAllProjects(response.data?.projects);
-
       setAllProjectCategories(response2?.projectCategories);
       setAllProjectSubcategories(response3?.projectSubCategories);
       setAllProjectStatuses(response4?.projectStatuses);

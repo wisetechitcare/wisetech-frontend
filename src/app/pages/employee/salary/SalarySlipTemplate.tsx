@@ -61,6 +61,7 @@ function SalarySlipTemplate({
   date,
   paidLeaves,
   unpaidLeaves,
+  pipeline,
 }: {
   grossPayVariable: { name: string; value?: string; earned: string }[];
   grossPayFixed: { name: string; value?: string; earned: string }[];
@@ -74,6 +75,15 @@ function SalarySlipTemplate({
   date: string;
   paidLeaves: number;
   unpaidLeaves: number;
+  pipeline?: {
+    grossPay: string;
+    totalVariableDeductions: string;
+    intermediateSalary: string;
+    totalFixedDeductions: string;
+    finalNetSalary: string;
+    variableDeductions: { name: string; earned: string }[];
+    fixedDeductions: { name: string; earned: string }[];
+  };
 }) {
   const [logoUrl, setLogoUrl] = useState("");
   const [branchAddress, setBranchAddress] = useState("");
@@ -470,7 +480,48 @@ function SalarySlipTemplate({
               padding: "10px 3px",
             }}
           >
-            <Text>Net payable for the month ( A ) - ( B ) :</Text>
+            {pipeline ? (
+              <View style={{ width: "100%", marginBottom: 8 }}>
+                <Text style={{ fontFamily: "Helvetica-Bold", marginBottom: 4 }}>
+                  Payroll Pipeline
+                </Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                  <Text>Gross Pay (A)</Text>
+                  <Text>Rs. {pipeline.grossPay}</Text>
+                </View>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                  <Text>(-) Variable Deductions (B)</Text>
+                  <Text>- Rs. {pipeline.totalVariableDeductions}</Text>
+                </View>
+                <View style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  paddingVertical: 4,
+                  borderTop: "1px solid #888",
+                  borderBottom: "1px solid #888",
+                  fontFamily: "Helvetica-Bold",
+                }}>
+                  <Text>Intermediate Salary</Text>
+                  <Text>Rs. {pipeline.intermediateSalary}</Text>
+                </View>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                  <Text>(-) Fixed Deductions (C)</Text>
+                  <Text>- Rs. {pipeline.totalFixedDeductions}</Text>
+                </View>
+                <View style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  paddingVertical: 4,
+                  borderTop: "1px solid black",
+                  fontFamily: "Helvetica-Bold",
+                }}>
+                  <Text>Final Net Salary</Text>
+                  <Text>Rs. {pipeline.finalNetSalary}</Text>
+                </View>
+              </View>
+            ) : (
+              <Text>Net payable for the month ( A ) - ( B ) :</Text>
+            )}
             <View
               style={{
                 display: "flex",
@@ -483,8 +534,8 @@ function SalarySlipTemplate({
                 fontFamily: "Helvetica-Bold",
               }}
             >
-              <Text>Paid in designated Salary</Text>
-              <Text>Rs. {finalAmount}</Text>
+              <Text>Net Amount Payable</Text>
+              <Text>Rs. {pipeline?.finalNetSalary ?? finalAmount}</Text>
             </View>
             <View
               style={{

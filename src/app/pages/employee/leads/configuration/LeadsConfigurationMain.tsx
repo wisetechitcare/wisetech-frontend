@@ -462,7 +462,6 @@ const LeadsConfigurationMain = () => {
     // Find the source being deleted to get its name
     const sourceToDelete = leadDirectSource.find(source => source.id === id);
     const sourceName = sourceToDelete?.name || 'Unknown Source';
-
     // Create dropdown options from other lead direct sources (excluding the one being deleted)
     const dropdownOptions: DropdownOption[] = leadDirectSource
       .filter(source => source.id !== id && source.id && source.name)
@@ -470,7 +469,6 @@ const LeadsConfigurationMain = () => {
         key: source.id!,
         value: source.name
       }));
-
     // Show the delete confirmation modal
     directSourceDeleteConfirmation.showDeleteModal(id, sourceName, {
       dropdownOptions,
@@ -1257,7 +1255,6 @@ const LeadsConfigurationMain = () => {
       {directSourceDeleteConfirmation.DeleteModal}
       {/* Delete Confirmation Modal for Project Services */}
       {serviceDeleteConfirmation.DeleteModal}
-
       {/* Chart Settings - Moved to LeadNewLead.tsx for modal access */}
       {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">  

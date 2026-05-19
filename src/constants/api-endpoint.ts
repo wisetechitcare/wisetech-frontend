@@ -512,7 +512,6 @@ export const CLIENT_COMPANIES = {
     UPDATE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses/:id',
     DELETE_CONTACT_STATUS: 'api/lead-project-companies/client-companies/contact-statuses/:id',
 
-
 }
 
 export const COMPANY_SERVICES = {

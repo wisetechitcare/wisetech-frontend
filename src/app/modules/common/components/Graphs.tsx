@@ -1116,7 +1116,7 @@ export const StatisticsTable = ({
                 setValidationBlockingDate(validationResult.blockingDate);
             } catch (validationError) {
                 console.error('Validation error:', validationError);
-                setCanSubmitRequest(true);
+                setCanSubmitRequest(true); // Allow on error to not block user
             } finally {
                 setIsValidating(false);
             }

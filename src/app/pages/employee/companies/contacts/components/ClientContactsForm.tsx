@@ -275,7 +275,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   }, [branches, initialData, contactId]);
 
 
-
   // Load states when country changes
   useEffect(() => {
     if (selectedCountry) {
@@ -760,7 +759,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 }))}
                                 onChange={(value) => {
                                   let branchValue = value;
-
                                   if (
                                     value &&
                                     typeof value === "object" &&

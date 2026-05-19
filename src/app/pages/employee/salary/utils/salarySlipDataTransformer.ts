@@ -17,6 +17,16 @@ export interface SalarySlipProps {
   paidLeaves: number;
   unpaidLeaves: number;
   employee: Employee;
+  /** v2 payroll pipeline breakdown (computed locally from the existing API split). */
+  pipeline: {
+    grossPay: string;
+    totalVariableDeductions: string;
+    intermediateSalary: string;
+    totalFixedDeductions: string;
+    finalNetSalary: string;
+    variableDeductions: { name: string; earned: string }[];
+    fixedDeductions: { name: string; earned: string }[];
+  };
 }
 
 /**
@@ -123,18 +133,18 @@ export function transformApiDataToSalarySlipProps(
       earned: formatCurrency(data.earned)
     }));
 
-  // Transform deductions (from API's deductionBreakdown.fixed)
+  // Transform deductions (from API's deductionBreakdown.variable)
   // These will show as "Variables" in the deductions column
-  const deductions = Object.entries(validApiData.deductionBreakdown?.fixed || {})
+  const deductions = Object.entries(validApiData.deductionBreakdown?.variable || {})
     .map(([name, data]) => ({
       name,
       value: formatValue(data.value, data.type),
       earned: formatCurrency(data.earned)
     }));
 
-  // Transform taxes (from API's deductionBreakdown.variable)
+  // Transform taxes (from API's deductionBreakdown.fixed)
   // These will show as "Fixed" in the deductions column (not as "TAX")
-  const taxes = Object.entries(validApiData.deductionBreakdown?.variable || {})
+  const taxes = Object.entries(validApiData.deductionBreakdown?.fixed || {})
     .map(([name, data]) => ({
       name,
       value: formatValue(data.value, data.type),
@@ -173,6 +183,27 @@ export function transformApiDataToSalarySlipProps(
   // Extract totalPayableDays from the API data
   const totalPayableDays = parseFloat((validApiData as any).totalPayableDays || '0');
 
+  // ── v2 payroll pipeline breakdown ──────────────────────────────────────────
+  // The legacy API response already exposes deductionBreakdown.fixed and
+  // deductionBreakdown.variable. We compute the staged numbers locally:
+  //   intermediateSalary = grossPay − Σ(variableDeductions)
+  //   finalNetSalary     = intermediateSalary − Σ(fixedDeductions)
+  const sumEarned = (entries: Record<string, any> | undefined): number =>
+    Object.values(entries ?? {}).reduce((acc, item: any) => acc + Number(item?.earned ?? 0), 0);
+
+  const numericGrossPay = parseFloat(
+    (validApiData.totalGrossPayAmount || '0').replace(/[₹,]/g, '')
+  );
+  const totalVariableDeductionsNum = sumEarned(validApiData.deductionBreakdown?.variable);
+  const totalFixedDeductionsNum = sumEarned(validApiData.deductionBreakdown?.fixed);
+  const intermediateSalaryNum = Math.max(0, numericGrossPay - totalVariableDeductionsNum);
+  const finalNetSalaryNum = Math.max(0, intermediateSalaryNum - totalFixedDeductionsNum);
+
+  const formatLineItems = (entries: Record<string, any> | undefined) =>
+    Object.entries(entries ?? {})
+      .filter(([, item]: any) => Number(item?.earned ?? 0) > 0)
+      .map(([name, item]: any) => ({ name, earned: formatCurrency(item.earned) }));
+
   return {
     grossPayVariable,
     grossPayFixed,
@@ -185,7 +216,16 @@ export function transformApiDataToSalarySlipProps(
     date: formatDate(),
     paidLeaves,
     unpaidLeaves,
-    employee: updatedEmployee
+    employee: updatedEmployee,
+    pipeline: {
+      grossPay: formatCurrency(numericGrossPay),
+      totalVariableDeductions: formatCurrency(totalVariableDeductionsNum),
+      intermediateSalary: formatCurrency(intermediateSalaryNum),
+      totalFixedDeductions: formatCurrency(totalFixedDeductionsNum),
+      finalNetSalary: formatCurrency(finalNetSalaryNum),
+      variableDeductions: formatLineItems(validApiData.deductionBreakdown?.variable),
+      fixedDeductions: formatLineItems(validApiData.deductionBreakdown?.fixed),
+    },
   };
 }
 

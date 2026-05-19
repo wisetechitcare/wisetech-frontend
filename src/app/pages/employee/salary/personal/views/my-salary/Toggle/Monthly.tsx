@@ -2,7 +2,7 @@ import { RootState } from '@redux/store';
 import { Dayjs } from 'dayjs';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import SalaryReport from '../SalaryReport';
+import SalaryReport from '../../../../../../../../modules/payroll/pages/SalaryReport';
 import { customLeaves, fetchEmpMonthlyStatistics } from '@utils/statistics';
 import { fetchAllPublicHolidays, fetchCompanyOverview } from '@services/company';
 import { fetchEmployeeLeaves } from '@services/employee';
