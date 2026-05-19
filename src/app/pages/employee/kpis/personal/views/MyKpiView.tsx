@@ -13,6 +13,7 @@ import { fetchConfiguration } from "@services/company";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import { useEffect, useState } from "react";
 import { Container } from "react-bootstrap";
+import Skeleton from "@components/loaders/Skeleton";
 
 
 const MyKpi = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {

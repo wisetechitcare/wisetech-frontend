@@ -22,6 +22,8 @@ const iconMapping: Record<string, string> = {
   Target: AttendanceIcon,
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
+  "Early CheckIn": AttendanceIcon,
+  "Early Checkout": AttendanceIcon,
 };
 
 const Daily = ({
@@ -109,6 +111,8 @@ const Daily = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
+    "Early CheckIn",
+    "Early Checkout",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

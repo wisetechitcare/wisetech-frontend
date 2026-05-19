@@ -4,7 +4,7 @@ import { approveLoanById, updateLoanById } from "@services/employee";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "app/modules/common/components/MaterialTable";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,

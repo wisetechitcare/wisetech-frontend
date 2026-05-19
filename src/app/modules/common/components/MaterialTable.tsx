@@ -19,7 +19,12 @@ import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
-import { HighlightMatch, intelligentSearchFilterFn, processSearchQuery, calculateMatchScore } from "@app/utils/search";
+import {
+  HighlightMatch,
+  intelligentSearchFilterFn,
+  processSearchQuery,
+  calculateMatchScore,
+} from "@app/utils/search";
 import React from "react";
 
 interface SearchableColumn {
@@ -38,6 +43,7 @@ interface MaterialTableProps {
   employeeId?: string;
   muiTableProps?: {
     sx?: object;
+    tableLayout?: "auto";
     muiTableBodyRowProps?: (row: any) => object;
   };
   enableBottomToolbar?: boolean;
@@ -112,15 +118,17 @@ function MaterialTable({
   onPaginationChange,
   paginationState,
   isLoading = false,
-  layoutMode = "semantic",
+  layoutMode = "grid",
   muiTableContainerProps: customMuiTableContainerProps,
 }: MaterialTableProps) {
   // Column-specific search state
-  const [selectedSearchColumn, setSelectedSearchColumn] = useState<string>("all");
+  const [selectedSearchColumn, setSelectedSearchColumn] =
+    useState<string>("all");
   const [globalFilterValue, setGlobalFilterValue] = useState<string>("");
   const [debouncedFilterValue, setDebouncedFilterValue] = useState<string>("");
   const [filteredData, setFilteredData] = useState<any[]>([]);
-  const [isMobileSearchVisible, setIsMobileSearchVisible] = useState<boolean>(false);
+  const [isMobileSearchVisible, setIsMobileSearchVisible] =
+    useState<boolean>(false);
 
   // Debounce effect for search
   useEffect(() => {
@@ -137,7 +145,9 @@ function MaterialTable({
         ...defaultColumnSizes,
         ...col, // custom column values will override defaults
         Cell: (cellProps: any) => {
-          const content = col.Cell ? col.Cell(cellProps) : cellProps.cell.getValue();
+          const content = col.Cell
+            ? col.Cell(cellProps)
+            : cellProps.cell.getValue();
 
           const highlight = (text: any) => {
             if (typeof text === "string" && globalFilterValue) {
@@ -154,9 +164,12 @@ function MaterialTable({
             content.props &&
             typeof (content.props as any).children === "string"
           ) {
-            return React.cloneElement(content as React.ReactElement, {
-              children: highlight((content.props as any).children),
-            } as any);
+            return React.cloneElement(
+              content as React.ReactElement,
+              {
+                children: highlight((content.props as any).children),
+              } as any,
+            );
           }
 
           return content;
@@ -268,7 +281,6 @@ function MaterialTable({
   );
   const [isExportInitialized, setIsExportInitialized] = useState(false);
 
-
   // Mobile detection
   const theme = useTheme();
 
@@ -338,15 +350,19 @@ function MaterialTable({
         .map((row: any) => {
           let score = 0;
           let isMatch = false;
-          
+
           // Collect all string values for this row to check cross-column matches
           const allRowText = Object.values(row)
-            .filter(v => typeof v === "string" || typeof v === "number")
+            .filter((v) => typeof v === "string" || typeof v === "number")
             .join(" ")
             .toLowerCase();
 
           if (columnToSearch === "all") {
-            isMatch = intelligentSearchFilterFn({ original: row }, "", searchValue);
+            isMatch = intelligentSearchFilterFn(
+              { original: row },
+              "",
+              searchValue,
+            );
             if (isMatch) {
               // 1. Calculate individual field scores
               Object.values(row).forEach((val) => {
@@ -356,7 +372,7 @@ function MaterialTable({
               });
 
               // 2. Bonus: If ALL keywords are present across the entire row
-              if (keywords.every(k => allRowText.includes(k))) {
+              if (keywords.every((k) => allRowText.includes(k))) {
                 score += 50; // High bonus for row-wide AND match
               }
             }
@@ -365,14 +381,15 @@ function MaterialTable({
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
-              isMatch = score > 0 || keywords.every((k) => valStr.toLowerCase().includes(k));
+              isMatch =
+                score > 0 ||
+                keywords.every((k) => valStr.toLowerCase().includes(k));
             }
           }
 
           return { row, score, isMatch };
         })
         .filter((item: any) => item.isMatch);
-
 
       // Sort by score descending
       const sortedResults = resultsWithScores
@@ -383,7 +400,6 @@ function MaterialTable({
     },
     [finalData],
   );
-
 
   // Handle column selector change
   const handleSearchColumnChange = useCallback(
@@ -842,14 +858,42 @@ function MaterialTable({
           enableFullScreenToggle={enableFullScreenToggle ?? true}
           muiTableHeadCellProps={{
             sx: {
-              fontWeight: 500,
-              color: "#7A8597",
+              backgroundColor: "#FAFBFC",
+              color: "#667085",
+              fontWeight: 600,
+              fontSize: "13px",
+
+              padding: "14px 16px",
+              height: "56px",
+
+              borderBottom: "1px solid #EAECF0",
+              borderRight: "1px solid #F2F4F7",
+
               whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              width: "auto",
-              minWidth: "fit-content",
-              maxWidth: "300px",
+
+              width: "fit-content",
+              minWidth: "max-content",
+
+              verticalAlign: "middle",
+
+              "& .Mui-TableHeadCell-Content": {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+                width: "100%",
+              },
+
+              "& .MuiTableSortLabel-root": {
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              },
+
+              "&:last-child": {
+                borderRight: "none",
+              },
+
               ...muiTableHeadCellStyle,
             },
           }}

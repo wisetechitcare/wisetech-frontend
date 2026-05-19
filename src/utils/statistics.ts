@@ -3290,7 +3290,7 @@ export const fetchLeaderboard = async (
 };
 //🔥 Irfan Change End
 
-export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false) {
+export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false, signal?: AbortSignal) {
     try {
         const employeeId = fromAdmin
             ? store.getState().employee.selectedEmployee?.id
@@ -3303,7 +3303,7 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false) 
 
         const formattedDate = day.format("YYYY-MM-DD");
 
-        const data = await fetchEmpKpiStatisticsForDay(employeeId, formattedDate);
+        const data = await fetchEmpKpiStatisticsForDay(employeeId, formattedDate, signal);
 
         return {
             date: formattedDate,
@@ -3313,17 +3313,21 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false) 
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching daily statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching daily statistics:", error);
+        }
         throw error;
     }
 }
 
 //🔥 Irfan Change Start
+//🔥 Irfan Change Start
 const fetchKpiBase = async (
   employeeId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  signal?: AbortSignal
 ) => {
   const res = await axios.get(`${API_BASE_URL}/api/employee/kpi`, {
   params: {
@@ -3331,6 +3335,7 @@ const fetchKpiBase = async (
     startDate,
     endDate
   },
+  signal,
   headers: {
     Authorization: `Bearer ${localStorage.getItem("token")}`
   }
@@ -3350,25 +3355,29 @@ const fetchKpiBase = async (
 export async function fetchEmpKpiStatisticsForPeriod(
   employeeId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  signal?: AbortSignal
 ) {
-  return fetchKpiBase(employeeId, startDate, endDate);
+  return fetchKpiBase(employeeId, startDate, endDate, signal);
 }
 
 export async function fetchEmpKpiStatisticsForDay(
   employeeId: string,
-  date: string
+  date: string,
+  signal?: AbortSignal
 ) {
-  return fetchKpiBase(employeeId, date, date);
+  return fetchKpiBase(employeeId, date, date, signal);
 }
 
 export async function fetchEmpKpiScoresAllTime(
-  employeeId: string
+  employeeId: string,
+  signal?: AbortSignal
 ) {
   return fetchKpiBase(
     employeeId,
     "2000-01-01",
-    dayjs().format("YYYY-MM-DD")
+    dayjs().format("YYYY-MM-DD"),
+    signal
   );
 }
 //🔥 Irfan Change End
@@ -3376,7 +3385,8 @@ export async function fetchEmpKpiScoresAllTime(
 export async function fetchEmpWeeklyKpiStatistics(
     startWeek: Dayjs,
     endWeek: Dayjs,
-    fromAdmin: boolean = false
+    fromAdmin: boolean = false,
+    signal?: AbortSignal
 ) {
     try {
         const employeeId = fromAdmin
@@ -3394,7 +3404,8 @@ export async function fetchEmpWeeklyKpiStatistics(
         const data = await fetchEmpKpiStatisticsForPeriod(
             employeeId,
             startDate,
-            endDate
+            endDate,
+            signal
         );
 
         return {
@@ -3406,8 +3417,10 @@ export async function fetchEmpWeeklyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching weekly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching weekly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3415,7 +3428,7 @@ export async function fetchEmpWeeklyKpiStatistics(
 export async function fetchEmpMonthlyKpiStatistics(
     month: Dayjs,
     fromAdmin: boolean = false,
-    options?: { startDate?: Dayjs; endDate?: Dayjs }
+    options?: { startDate?: Dayjs; endDate?: Dayjs; signal?: AbortSignal }
 ) {
     try {
         const employeeId = fromAdmin
@@ -3438,7 +3451,8 @@ export async function fetchEmpMonthlyKpiStatistics(
         const data = await fetchEmpKpiStatisticsForPeriod(
             employeeId,
             startDate,
-            endDate
+            endDate,
+            options?.signal
         );
 
         return {
@@ -3450,8 +3464,10 @@ export async function fetchEmpMonthlyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching monthly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching monthly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3460,7 +3476,7 @@ export async function fetchEmpMonthlyKpiStatistics(
 export async function fetchEmpYearlyKpiStatistics(
     year: Dayjs,
     fromAdmin: boolean = false,
-    options?: { startDate?: Dayjs; endDate?: Dayjs }
+    options?: { startDate?: Dayjs; endDate?: Dayjs; signal?: AbortSignal }
 ): Promise<{
     startDate: string;
     endDate: string;
@@ -3492,7 +3508,8 @@ export async function fetchEmpYearlyKpiStatistics(
         const data = await fetchEmpKpiStatisticsForPeriod(
             employeeId,
             startDate,
-            endDate
+            endDate,
+            options?.signal
         );
 
         return {
@@ -3504,22 +3521,26 @@ export async function fetchEmpYearlyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching yearly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching yearly statistics:", error);
+        }
         throw error;
     }
 }
 
-export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false) {
+export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, signal?: AbortSignal) {
     try {
         const employeeId = fromAdmin
             ? store.getState().employee.selectedEmployee?.id
             : store.getState().employee.currentEmployee.id;
         if (!employeeId) throw new Error("Employee ID not found");
-        const result = await fetchEmpKpiScoresAllTime(employeeId);
+        const result = await fetchEmpKpiScoresAllTime(employeeId, signal);
         return result;
-    } catch (error) {
-        console.error("Error fetching All time statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching All time statistics:", error);
+        }
         throw error;
     }
 }

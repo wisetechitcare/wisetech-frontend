@@ -10,6 +10,8 @@ import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { usePushSubscription } from '../hooks/usePushSubscription';
+import { Toaster } from 'sonner';
+
 const App = () => {
   const dispatch = useDispatch<AppDispatch>();
 
@@ -42,6 +44,7 @@ const App = () => {
             <ThemeModeProvider>
               <Outlet />
               <MasterInit />
+              <Toaster richColors position="top-right" />
               
               {/* Global Timer Modal - only render when authenticated */}
               {isAuthenticated && <GlobalTimerModal />}

@@ -1,6 +1,6 @@
 import { store } from "@redux/store";
 import { getDynamicRolesObject } from "./dynamicRoles";
-import { json } from "stream/consumers";
+import { can } from "./can";
 
 let dynamicRoles: Record<string, any> = {};
 
@@ -28,6 +28,21 @@ export function hasPermission(
   action: string,
   data?: any
 ): boolean {
+  const actionMap: Record<string, { action: string; scope: string }> = {
+    readOthers: { action: "view", scope: "team" },
+    readOwn: { action: "view", scope: "self" },
+    create: { action: "create", scope: "self" },
+    updateOthers: { action: "update", scope: "team" },
+    updateOwn: { action: "update", scope: "self" },
+    deleteOthers: { action: "delete", scope: "team" },
+    deleteOwn: { action: "delete", scope: "self" },
+  };
+
+  const mapped = actionMap[action];
+  if (mapped) {
+    const canonicalKey = `${resource}.${mapped.action}.${mapped.scope}`;
+    if (can(canonicalKey)) return true;
+  }
 
   const dynamicRoles = JSON.parse(store.getState().rolesAndPermissions.rap);
   const emp = JSON.parse(store.getState().rolesAndPermissions.emp || "{}");

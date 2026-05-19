@@ -57,3 +57,14 @@ export const changePassword = async (employeeId: string, payload: any) => {
         throw err;
     }
 }
+
+export const fetchCapabilities = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${AUTH.CAPABILITIES}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}

@@ -49,8 +49,8 @@ type ProjectDialogModalProps = {
   startDate?: Dayjs;
   endDate?: Dayjs;
   monthlyCompanyTypeId?: any;
-  projectCompanyTypeId?:any;
-  projectCompanyTypeName?:any
+  projectCompanyTypeId?: any;
+  projectCompanyTypeName?: any;
 };
 
 const ProjectsMainTable = ({
@@ -70,13 +70,12 @@ const ProjectsMainTable = ({
   endDate,
   monthlyCompanyTypeId,
   projectCompanyTypeId,
-  projectCompanyTypeName
+  projectCompanyTypeName,
 }: ProjectDialogModalProps) => {
-  
   const navigate = useNavigate();
 
   const employeeId = useSelector(
-    (state: RootState) => state?.employee?.currentEmployee?.id
+    (state: RootState) => state?.employee?.currentEmployee?.id,
   );
 
   const allEmployees = useSelector((state: RootState) => state.allEmployees);
@@ -86,7 +85,7 @@ const ProjectsMainTable = ({
 
   const [allProjectCategories, setAllProjectCategories] = useState<any>([]);
   const [allProjectSubcategories, setAllProjectSubcategories] = useState<any>(
-    []
+    [],
   );
   const [allProjectStatuses, setAllProjectStatuses] = useState<any>([]);
   const [allClientCompanies, setAllClientCompanies] = useState<any>([]);
@@ -118,7 +117,7 @@ const ProjectsMainTable = ({
       const response10 = await getAllCompanyTypes();
       const response11 = await getAllTeams(1, 9999); // Get all teams for dropdown
       setAllProjects(response.data?.projects);
-      
+
       setAllProjectCategories(response2?.projectCategories);
       setAllProjectSubcategories(response3?.projectSubCategories);
       setAllProjectStatuses(response4?.projectStatuses);
@@ -153,7 +152,7 @@ const ProjectsMainTable = ({
   useEffect(() => {
     const colors = allProjects.map((project: any) => {
       const projectStatus = allProjectStatuses.find(
-        (status: any) => status.id === project.statusId
+        (status: any) => status.id === project.statusId,
       );
       return {
         color: projectStatus?.color,
@@ -193,7 +192,7 @@ const ProjectsMainTable = ({
   const findClientContactPersonName = (contactPersonId: string | undefined) => {
     if (!contactPersonId) return null;
     const contactPerson = allClientContacts.find(
-      (c: any) => c.id === contactPersonId
+      (c: any) => c.id === contactPersonId,
     );
     return contactPerson?.fullName || null;
   };
@@ -204,26 +203,26 @@ const ProjectsMainTable = ({
     return branch?.name || null;
   };
 
-      const fetchSettings = async () => {
-        try {
-              const response = await fetchConfiguration(SHOW_PROJECT_BUTTONS);
-                // Parse JSON string
-                if (response?.data?.configuration) {
-                  const parsedConfig = parseConfig(
-                    response.data.configuration.configuration
-                  );
-          
-                  setProjectCanAddFromLeads(parsedConfig.projectCanAddFromLeads || false);
-              } else {
-                setProjectCanAddFromLeads(false);
-              }
-            } catch (error) {
-              setProjectCanAddFromLeads(false);
-            }
-          };
-      useEffect(() => {
-        fetchSettings();
-      }, []);
+  const fetchSettings = async () => {
+    try {
+      const response = await fetchConfiguration(SHOW_PROJECT_BUTTONS);
+      // Parse JSON string
+      if (response?.data?.configuration) {
+        const parsedConfig = parseConfig(
+          response.data.configuration.configuration,
+        );
+
+        setProjectCanAddFromLeads(parsedConfig.projectCanAddFromLeads || false);
+      } else {
+        setProjectCanAddFromLeads(false);
+      }
+    } catch (error) {
+      setProjectCanAddFromLeads(false);
+    }
+  };
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   const hideNewProjectButton =
     statusId ||
@@ -322,7 +321,7 @@ const ProjectsMainTable = ({
       header: "Category",
       Cell: ({ renderedCellValue }: any) => {
         const projectCategory = allProjectCategories.find(
-          (category: any) => category.id === renderedCellValue
+          (category: any) => category.id === renderedCellValue,
         );
         return projectCategory?.name || "-NA-";
       },
@@ -332,7 +331,7 @@ const ProjectsMainTable = ({
       header: "Sub Category",
       Cell: ({ renderedCellValue }: any) => {
         const projectSubCategory = allProjectSubcategories.find(
-          (category: any) => category.id === renderedCellValue
+          (category: any) => category.id === renderedCellValue,
         );
         return projectSubCategory?.name || "-NA-";
       },
@@ -398,7 +397,7 @@ const ProjectsMainTable = ({
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allEmployees?.list?.find(
-              (employee: any) => employee.employeeId === renderedCellValue
+              (employee: any) => employee.employeeId === renderedCellValue,
             )?.employeeName
           : "-NA-",
     },
@@ -409,7 +408,7 @@ const ProjectsMainTable = ({
         const contacts = row.original.projectCompanyMappings || [];
         const contactNames = contacts
           .map((mapping: any) =>
-            findClientContactPersonName(mapping.contactPersonId)
+            findClientContactPersonName(mapping.contactPersonId),
           )
           .filter(Boolean);
         return contactNames.length ? contactNames.join(", ") : "-";
@@ -421,7 +420,7 @@ const ProjectsMainTable = ({
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allEmployees?.list?.find(
-              (employee: any) => employee.employeeId === renderedCellValue
+              (employee: any) => employee.employeeId === renderedCellValue,
             )?.employeeName
           : "-NA-",
     },
@@ -440,7 +439,7 @@ const ProjectsMainTable = ({
       header: "Created By Name",
       Cell: ({ renderedCellValue }: any) => {
         const employee = allEmployees?.list?.find(
-          (employee: any) => employee.employeeId === renderedCellValue
+          (employee: any) => employee.employeeId === renderedCellValue,
         );
         return employee?.employeeName || "-NA-";
       },
@@ -451,7 +450,7 @@ const ProjectsMainTable = ({
       Cell: ({ renderedCellValue }: any) => {
         if (renderedCellValue != null) {
           const employee = allEmployees?.list?.find(
-            (employee: any) => employee.employeeId === renderedCellValue
+            (employee: any) => employee.employeeId === renderedCellValue,
           );
           return employee?.employeeName || "-NA-";
         } else {
@@ -493,7 +492,7 @@ const ProjectsMainTable = ({
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allClientContacts.find(
-              (contact: any) => contact.id === renderedCellValue
+              (contact: any) => contact.id === renderedCellValue,
             )?.fullName
           : "-NA-",
     },
@@ -619,7 +618,7 @@ const ProjectsMainTable = ({
                     onClick={() =>
                       handleEditProject(
                         row?.original,
-                        row?.original?.projectTempletId
+                        row?.original?.projectTempletId,
                       )
                     }
                   >
@@ -643,7 +642,6 @@ const ProjectsMainTable = ({
     return <Loader />;
   }
 
-
   const startDates = startDate ? dayjs(startDate) : null;
   const endDates = endDate ? dayjs(endDate) : null;
   const dateFilteredData = allProjects?.filter((item: any) => {
@@ -659,58 +657,70 @@ const ProjectsMainTable = ({
 
   const filteredData = dateFilteredData?.filter((item: any) => {
     if (statusId && item.status?.id !== statusId) return false;
-  
+
     if (serviceId && item.serviceId !== serviceId) return false;
-  
+
     if (categoryId && item.projectCategoryId !== categoryId) return false;
-  
+
     if (
       referralId &&
       !item.referrals?.some((ref: any) => ref.referralTypeId === referralId)
     ) {
       return false;
     }
-  
+
     if (sourceId && item.leadSource?.toLowerCase() !== sourceId.toLowerCase())
       return false;
-  
+
     if (subCategoryId && item.projectSubCategoryId !== subCategoryId)
       return false;
-  
+
     if (companyTypeId && item.companyType !== companyTypeId) return false;
-  
+
     if (topLeadsId?.length && !topLeadsId.includes(item.id)) return false;
-  
-    if (teamId && !item.projectTeams?.some((team: any) => team.teamId === teamId)) 
+
+    if (
+      teamId &&
+      !item.projectTeams?.some((team: any) => team.teamId === teamId)
+    )
       return false;
-  
-    if (monthlyCompanyTypeId && 
-        !item.projectCompanyMappings?.some((mapping: any) => 
-          mapping.companyTypeId === monthlyCompanyTypeId)) 
+
+    if (
+      monthlyCompanyTypeId &&
+      !item.projectCompanyMappings?.some(
+        (mapping: any) => mapping.companyTypeId === monthlyCompanyTypeId,
+      )
+    )
       return false;
-  
+
     if (locationId) {
       if (locationId.toLowerCase() !== "unknown") {
-        const hasMatchingLocation = item.addresses?.some((address: any) => 
-          address.countryId?.toString() === locationId ||
-          address.stateId?.toString() === locationId ||
-          address.cityId?.toString() === locationId ||
-          address.country?.toLowerCase() === locationId.toLowerCase() ||
-          address.state?.toLowerCase() === locationId.toLowerCase() ||
-          address.city?.toLowerCase() === locationId.toLowerCase()
+        const hasMatchingLocation = item.addresses?.some(
+          (address: any) =>
+            address.countryId?.toString() === locationId ||
+            address.stateId?.toString() === locationId ||
+            address.cityId?.toString() === locationId ||
+            address.country?.toLowerCase() === locationId.toLowerCase() ||
+            address.state?.toLowerCase() === locationId.toLowerCase() ||
+            address.city?.toLowerCase() === locationId.toLowerCase(),
         );
-        
+
         if (!hasMatchingLocation) return false;
       } else {
-        const hasLocationData = item.addresses?.some((address: any) => 
-          address.countryId || address.stateId || address.cityId ||
-          address.country || address.state || address.city
+        const hasLocationData = item.addresses?.some(
+          (address: any) =>
+            address.countryId ||
+            address.stateId ||
+            address.cityId ||
+            address.country ||
+            address.state ||
+            address.city,
         );
-        
+
         if (hasLocationData) return false;
       }
     }
-  
+
     if (monthlyStatusName && monthlyStatusId) {
       const monthName = dayjs(item.createdAt).format("MMMM");
       if (
@@ -722,26 +732,20 @@ const ProjectsMainTable = ({
         return false;
       }
     }
-  
-    if(projectCompanyTypeId && projectCompanyTypeName){
+
+    if (projectCompanyTypeId && projectCompanyTypeName) {
       const monthName = dayjs(item.createdAt).format("MMMM");
-      const hasMatchingCompanyType = item.projectCompanyMappings?.some((mapping: any) => 
-        mapping.companyTypeId === projectCompanyTypeId
+      const hasMatchingCompanyType = item.projectCompanyMappings?.some(
+        (mapping: any) => mapping.companyTypeId === projectCompanyTypeId,
       );
-      
-      if(
-        !(
-          monthName === projectCompanyTypeName &&
-          hasMatchingCompanyType
-        )
-      ){
+
+      if (!(monthName === projectCompanyTypeName && hasMatchingCompanyType)) {
         return false;
       }
     }
-  
+
     return true;
   });
-
 
   return (
     <div>
@@ -760,7 +764,7 @@ const ProjectsMainTable = ({
         >
           Projects
         </div>
-        {(!hideNewProjectButton) && (
+        {!hideNewProjectButton && (
           <div className="d-flex align-items-center gap-3">
             {/* <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M10.5 6H20.25M10.5 6C10.5 6.39782 10.342 6.77936 10.0607 7.06066C9.77936 7.34196 9.39782 7.5 9 7.5C8.60218 7.5 8.22064 7.34196 7.93934 7.06066C7.65804 6.77936 7.5 6.39782 7.5 6M10.5 6C10.5 5.60218 10.342 5.22064 10.0607 4.93934C9.77936 4.65804 9.39782 4.5 9 4.5C8.60218 4.5 8.22064 4.65804 7.93934 4.93934C7.65804 5.22064 7.5 5.60218 7.5 6M7.5 6H3.75M10.5 18H20.25M10.5 18C10.5 18.3978 10.342 18.7794 10.0607 19.0607C9.77936 19.342 9.39782 19.5 9 19.5C8.60218 19.5 8.22064 19.342 7.93934 19.0607C7.65804 18.7794 7.5 18.3978 7.5 18M10.5 18C10.5 17.6022 10.342 17.2206 10.0607 16.9393C9.77936 16.658 9.39782 16.5 9 16.5C8.60218 16.5 8.22064 16.658 7.93934 16.9393C7.65804 17.2206 7.5 17.6022 7.5 18M7.5 18H3.75M16.5 12H20.25M16.5 12C16.5 12.3978 16.342 12.7794 16.0607 13.0607C15.7794 13.342 15.3978 13.5 15 13.5C14.6022 13.5 14.2206 13.342 13.9393 13.0607C13.658 12.7794 13.5 12.3978 13.5 12M16.5 12C16.5 11.6022 16.342 11.2206 16.0607 10.9393C15.7794 10.658 15.3978 10.5 15 10.5C14.6022 10.5 14.2206 10.658 13.9393 10.9393C13.658 11.2206 13.5 11.6022 13.5 12M13.5 12H3.75" stroke="#7A2626" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />

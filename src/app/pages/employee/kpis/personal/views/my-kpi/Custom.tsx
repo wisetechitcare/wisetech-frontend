@@ -27,6 +27,8 @@ const iconMapping: Record<string, string> = {
   Target: AttendanceIcon,
   Performance: AttendanceIcon,
   "Ratings & Reviews": AttendanceIcon,
+  "Early CheckIn": AttendanceIcon,
+  "Early Checkout": AttendanceIcon,
 };
 
 interface CustomProps {
@@ -62,7 +64,7 @@ const Custom: React.FC<CustomProps> = ({
 
   const startDateStr = useMemo(
     () => startDate.format("YYYY-MM-DD"),
-    [startDate]
+    [startDate.valueOf()]
   );
 
   const endDateStr = useMemo(() => {
@@ -72,10 +74,11 @@ const Custom: React.FC<CustomProps> = ({
         : startDate.endOf("year");
 
     return computed.format("YYYY-MM-DD");
-  }, [startDate, endDate]);
+  }, [startDate.valueOf(), endDate.valueOf()]);
 
   useEffect(() => {
     if (!selectedEmployeeId) return;
+    const controller = new AbortController();
 
     const loadData = async () => {
       setLoading(true);
@@ -83,7 +86,8 @@ const Custom: React.FC<CustomProps> = ({
         const response = await fetchEmpKpiStatisticsForPeriod(
           selectedEmployeeId!,
           startDateStr,
-          endDateStr
+          endDateStr,
+          controller.signal
         );
 
         console.log("🔥 KPI RESPONSE:", response); // ✅ MANDATORY LOG
@@ -92,6 +96,7 @@ const Custom: React.FC<CustomProps> = ({
           setData(response); // ✅ FIXED
         }
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
         console.error("Error fetching Custom KPI Statistics:", error);
       } finally {
         setLoading(false);
@@ -99,6 +104,7 @@ const Custom: React.FC<CustomProps> = ({
     };
 
     loadData();
+    return () => controller.abort();
   }, [startDateStr, endDateStr, toggleChange, selectedEmployeeId]);
 
   useEffect(() => {
@@ -114,7 +120,7 @@ const Custom: React.FC<CustomProps> = ({
   // ✅ SAFE EXTRACTION
   const modules = data?.modules || [];
   const yourPoints = data?.yourPoints ?? 0;
-  
+
   // 🔥 FINAL SAFE RANK CODE
   const rawRank = data?.rank;
   const rank =
@@ -133,6 +139,8 @@ const Custom: React.FC<CustomProps> = ({
     "Target",
     "Performance",
     "Ratings & Reviews",
+    "Early CheckIn",
+    "Early Checkout",
   ].map((label) => ({
     icon: iconMapping[label],
     label,

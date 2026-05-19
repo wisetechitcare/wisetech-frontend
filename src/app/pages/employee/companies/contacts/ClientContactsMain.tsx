@@ -19,10 +19,14 @@ interface Props {
   startDate?: Dayjs;
   endDate?: Dayjs;
 }
- 
-const ClientContactsMain = ({ contactByRolesId, startDate, endDate }: Props) => {
+
+const ClientContactsMain = ({
+  contactByRolesId,
+  startDate,
+  endDate,
+}: Props) => {
   const employeeId = useSelector(
-    (state: RootState) => state.auth.currentUser?.id
+    (state: RootState) => state.auth.currentUser?.id,
   );
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
 
@@ -36,34 +40,34 @@ const ClientContactsMain = ({ contactByRolesId, startDate, endDate }: Props) => 
   const [newContactModal, setNewContactModal] = useState(false);
   const loadAllContacts = async () => {
     try {
-const contactsData = await getAllClientContacts();
-const companiesData = await getAllClientCompanies();
+      const contactsData = await getAllClientContacts();
+      const companiesData = await getAllClientCompanies();
 
-const contacts = contactsData?.data?.contacts || [];
-const companies = companiesData?.data?.companies || [];
+      const contacts = contactsData?.data?.contacts || [];
+      const companies = companiesData?.data?.companies || [];
 
-// Map companyId → companyName
-const companyMap = Object.fromEntries(
-  companies.map((c: any) => [c.id, c.companyName])
-);
+      // Map companyId → companyName
+      const companyMap = Object.fromEntries(
+        companies.map((c: any) => [c.id, c.companyName]),
+      );
 
-// Sort contacts by company name (ascending)
-const sortedContacts = contacts.sort((a: any, b: any) => {
-  const nameA = companyMap[a.companyId] || "";
-  const nameB = companyMap[b.companyId] || "";
-  return nameA.localeCompare(nameB);
-});
+      // Sort contacts by company name (ascending)
+      const sortedContacts = contacts.sort((a: any, b: any) => {
+        const nameA = companyMap[a.companyId] || "";
+        const nameB = companyMap[b.companyId] || "";
+        return nameA.localeCompare(nameB);
+      });
 
-setAllContacts(sortedContacts);
+      setAllContacts(sortedContacts);
 
-// keep other states same
-const branchesData = await getAllClientBranches();
-setAllBranches(branchesData?.data?.leadBranches || []);
+      // keep other states same
+      const branchesData = await getAllClientBranches();
+      setAllBranches(branchesData?.data?.leadBranches || []);
 
-setAllCompanies(companies);
+      setAllCompanies(companies);
 
-const subCompaniesData = await getAllSubCompanies();
-setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
+      const subCompaniesData = await getAllSubCompanies();
+      setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
     } catch (error) {
       console.error("Error loading contacts:", error);
     }
@@ -86,7 +90,7 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
     allSubCompanies.forEach((s: any) => map.set(s.id, s));
     return map;
   }, [allSubCompanies]);
-  
+
   useEventBus("clientContactUpdated", () => {
     loadAllContacts();
   });
@@ -104,7 +108,6 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
   };
 
   const handleDelete = (contact: any) => {
-
     const deleteContact = async () => {
       try {
         const sure = await deleteConfirmation("Contact deleted successfully");
@@ -125,7 +128,7 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
         header: "Profile",
         Cell: ({ row }) => {
           const { profilePhoto } = row.original;
-          if(profilePhoto){
+          if (profilePhoto) {
             return (
               <img
                 src={profilePhoto}
@@ -142,7 +145,7 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
                 height: "33px",
                 overflow: "hidden",
               }}
-            > 
+            >
               <i className="fas fa-user text-muted fs-2"></i>
             </div>
           );
@@ -151,39 +154,43 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
       {
         accessorKey: "fullName",
         header: "Full Name",
-        Cell: ({ row }) =>{
+        Cell: ({ row }) => {
           const { id } = row.original;
 
-          return <button
-            className="btn btn-link p-0 text-start text-decoration-none"
-            style={{
-              color: "inherit",
-              fontWeight: "600",
-              fontSize: "14px",
-            }}
-            onClick={() => {
-              navigate(`/contacts/${id}`);
-            }}
-          >{row.original.fullName || 'NA'}</button>
-        }
+          return (
+            <button
+              className="btn btn-link p-0 text-start text-decoration-none"
+              style={{
+                color: "inherit",
+                fontWeight: "600",
+                fontSize: "14px",
+              }}
+              onClick={() => {
+                navigate(`/contacts/${id}`);
+              }}
+            >
+              {row.original.fullName || "NA"}
+            </button>
+          );
+        },
       },
       {
         accessorKey: "companyName",
         header: "Company Name",
         Cell: ({ row }) => {
           const { companyId, subCompanyId } = row.original;
-          
+
           let companyName = companyMap.get(companyId);
-          
+
           if (!companyName && subCompanyId) {
-             const subCompany = subCompanyMap.get(subCompanyId);
-             if (subCompany) {
-                const mainCompName = companyMap.get(subCompany.mainCompanyId);
-                companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
-             }
+            const subCompany = subCompanyMap.get(subCompanyId);
+            if (subCompany) {
+              const mainCompName = companyMap.get(subCompany.mainCompanyId);
+              companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
+            }
           }
-          
-          return companyName || 'NA';
+
+          return companyName || "NA";
         },
       },
       {
@@ -192,40 +199,40 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
         Cell: ({ row }) => {
           const { branch } = row.original;
           const branchName = branchMap.get(branch);
-          return branchName || 'NA';
+          return branchName || "NA";
         },
       },
       {
         accessorKey: "roleInCompany",
         header: "Role in Company",
-        Cell: ({ cell }) => cell.getValue<string>() || 'NA',
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "email",
         header: "Email",
-        Cell: ({ cell }) => cell.getValue<string>() || 'NA',
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "phone",
         header: "Phone",
-        Cell: ({ cell }) => cell.getValue<string>() || 'NA',
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "phone2",
         header: "Alternate Phone",
-        Cell: ({ cell }) => cell.getValue<string>() || 'NA',
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "gender",
         header: "Gender",
-        Cell: ({ cell }) => cell.getValue<string>() || 'NA',
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "dateOfBirth",
         header: "Date of Birth",
         Cell: ({ cell }) => {
           const date = cell.getValue() as string;
-          return date ? new Date(date).toLocaleDateString() : 'NA';
+          return date ? new Date(date).toLocaleDateString() : "NA";
         },
       },
       {
@@ -233,14 +240,16 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
         header: "Address",
         Cell: ({ row }) => {
           const { address, city, state, country, zipCode } = row.original;
-          const parts = [address, city, state, country, zipCode].filter(Boolean);
-          return parts.length ? parts.join(", ") : 'NA';
+          const parts = [address, city, state, country, zipCode].filter(
+            Boolean,
+          );
+          return parts.length ? parts.join(", ") : "NA";
         },
       },
       {
         accessorKey: "note",
         header: "Note",
-        Cell: ({ cell }) => cell.getValue<string>() || 'NA',
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "actions",
@@ -248,31 +257,38 @@ setAllSubCompanies(subCompaniesData?.data?.subCompanies || []);
         Cell: ({ row }) => {
           const handleWhatsAppShare = () => {
             const contact = row.original;
-            const companyName = allCompanies.find((company: any) => company.id === contact.companyId)?.companyName || 'Unknown Company';
-            const branchName = allBranches.find((branch: any) => branch.id === contact.branch)?.name || 'Unknown Branch';
+            const companyName =
+              allCompanies.find(
+                (company: any) => company.id === contact.companyId,
+              )?.companyName || "Unknown Company";
+            const branchName =
+              allBranches.find((branch: any) => branch.id === contact.branch)
+                ?.name || "Unknown Branch";
 
             // Format address
             const { address, city, state, country, zipCode } = contact;
-            const fullAddress = [address, city, state, country, zipCode].filter(Boolean).join(", ");
+            const fullAddress = [address, city, state, country, zipCode]
+              .filter(Boolean)
+              .join(", ");
 
             // Create message with contact details
             const message = `Contact Information:
-📋 Name: ${contact.fullName || 'N/A'}
+📋 Name: ${contact.fullName || "N/A"}
 🏢 Company: ${companyName}
 🏪 Branch: ${branchName}
-💼 Role: ${contact.roleInCompany || 'N/A'}
-📧 Email: ${contact.email || 'N/A'}
-📞 Phone: ${contact.phone || 'N/A'}
-${contact.phone2 ? `📱 Alternate Phone: ${contact.phone2}` : ''}
-🎂 Date of Birth: ${contact.dateOfBirth ? new Date(contact.dateOfBirth).toLocaleDateString() : 'N/A'}
-📍 Address: ${fullAddress || 'N/A'}
-${contact.note ? `📝 Note: ${contact.note}` : ''}`;
+💼 Role: ${contact.roleInCompany || "N/A"}
+📧 Email: ${contact.email || "N/A"}
+📞 Phone: ${contact.phone || "N/A"}
+${contact.phone2 ? `📱 Alternate Phone: ${contact.phone2}` : ""}
+🎂 Date of Birth: ${contact.dateOfBirth ? new Date(contact.dateOfBirth).toLocaleDateString() : "N/A"}
+📍 Address: ${fullAddress || "N/A"}
+${contact.note ? `📝 Note: ${contact.note}` : ""}`;
 
             // Create WhatsApp URL
             const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
             // Open WhatsApp
-            window.open(whatsappUrl, '_blank');
+            window.open(whatsappUrl, "_blank");
           };
 
           return (
@@ -303,13 +319,19 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
         },
       },
     ],
-    [branchMap, companyMap, subCompanyMap, employeeId, allContacts]
+    [branchMap, companyMap, subCompanyMap, employeeId, allContacts],
   );
 
   const hideNewContactButton = contactByRolesId ? true : false;
-  const startDates = useMemo(() => startDate ? dayjs(startDate).startOf("day") : null, [startDate]);
-  const endDates = useMemo(() => endDate ? dayjs(endDate).endOf("day") : null, [endDate]);
-  
+  const startDates = useMemo(
+    () => (startDate ? dayjs(startDate).startOf("day") : null),
+    [startDate],
+  );
+  const endDates = useMemo(
+    () => (endDate ? dayjs(endDate).endOf("day") : null),
+    [endDate],
+  );
+
   const filterData = useMemo(() => {
     const start = startDates;
     const end = endDates;
@@ -327,7 +349,6 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
         return true;
       });
   }, [allContacts, startDates, endDates, contactByRolesId]);
-  
 
   return (
     <div>
@@ -336,18 +357,21 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
           className=""
           style={{ fontFamily: "Barlow", fontWeight: "600", fontSize: "24px" }}
         >
-           Contacts
+          Contacts
         </div>
-        
-        { !hideNewContactButton && (
-          <button className="btn btn-primary" onClick={() => addNewContact(true)}>
+
+        {!hideNewContactButton && (
+          <button
+            className="btn btn-primary"
+            onClick={() => addNewContact(true)}
+          >
             Add New Contact
           </button>
         )}
       </div>
       <MaterialTable
         columns={columns}
-        data={filterData}      
+        data={filterData}
         tableName="Client Contacts"
         resource="CLIENT_CONTACTS"
         viewOwn={true}
@@ -356,64 +380,62 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
         employeeId={employeeId}
         muiTableProps={{
           sx: {
-              borderCollapse: 'separate',
-              borderSpacing: '0 20px !important', // 20px vertical spacing between rows
-
+            borderCollapse: "separate",
+            borderSpacing: "0 20px !important", // 20px vertical spacing between rows
           },
 
           muiTableBodyRowProps: ({ row }) => ({
-              // sx: {
-              //     cursor: 'pointer',
-              //     backgroundColor: `${row.original?.status?.color}`,
-              //     // borderRadius: '8px',
-              //     // margin:"20px !important"
-              // },
-              sx: {
-                  cursor: 'pointer',
-                  backgroundColor: `${row.original?.status?.color}30`,
-                  // borderBottom:"5px solid red !important",
-                  padding: '10px !important',
-    
-                  '& .MuiTableCell-root': {
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: '14px',
-                    fontFamily: 'Inter',
-                    fontWeight: '400',
-                    padding: '8px 16px !important',
-                    borderBottom: "2px solid white",
-                    borderTop: "2px solid white",
-                    // borderLeft:"5px solid white"
-                    // margin:"20px !important"
-                  },
-                  '& .MuiTableCell-root:first-of-type': {
-                    borderTopLeftRadius: '12px',
-                    borderBottomLeftRadius: '12px',
-                    // marginTop:"40px !important"
-                    borderLeft: "3px solid white"
-    
-                  },
-                  '& .MuiTableCell-root:last-of-type': {
-                    borderTopRightRadius: '12px',
-                    borderBottomRightRadius: '12px',
-                    borderRight: "3px solid white"
-                  },
-                  '&:hover': {
-                    backgroundColor: `${row.original?.status?.color}99`,
-                    '& td': {
-                      color: 'black',
-                    },
-                  },
-                },
+            // sx: {
+            //     cursor: 'pointer',
+            //     backgroundColor: `${row.original?.status?.color}`,
+            //     // borderRadius: '8px',
+            //     // margin:"20px !important"
+            // },
+            sx: {
+              cursor: "pointer",
+              backgroundColor: `${row.original?.status?.color}30`,
+              // borderBottom:"5px solid red !important",
+              padding: "10px !important",
 
-              // onClick: () => {
-              //     navigate(`/employee/lead/${row.original.id}`, {
-              //         state: { leadData: row.original.id },
-              //     });
-              // },
+              "& .MuiTableCell-root": {
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontSize: "14px",
+                fontFamily: "Inter",
+                fontWeight: "400",
+                padding: "8px 16px !important",
+                borderBottom: "2px solid white",
+                borderTop: "2px solid white",
+                // borderLeft:"5px solid white"
+                // margin:"20px !important"
+              },
+              "& .MuiTableCell-root:first-of-type": {
+                borderTopLeftRadius: "12px",
+                borderBottomLeftRadius: "12px",
+                // marginTop:"40px !important"
+                borderLeft: "3px solid white",
+              },
+              "& .MuiTableCell-root:last-of-type": {
+                borderTopRightRadius: "12px",
+                borderBottomRightRadius: "12px",
+                borderRight: "3px solid white",
+              },
+              "&:hover": {
+                backgroundColor: `${row.original?.status?.color}99`,
+                "& td": {
+                  color: "black",
+                },
+              },
+            },
+
+            // onClick: () => {
+            //     navigate(`/employee/lead/${row.original.id}`, {
+            //         state: { leadData: row.original.id },
+            //     });
+            // },
           }),
-      }}
+        }}
       />
       <ClientContactsForm
         show={showModal}
@@ -422,12 +444,11 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
         initialData={
           editingContactId
             ? allContacts.find(
-                (contact: any) => contact.id === editingContactId
+                (contact: any) => contact.id === editingContactId,
               )
             : undefined
         }
       />
-
 
       <ClientContactsForm
         show={newContactModal}
@@ -436,7 +457,6 @@ ${contact.note ? `📝 Note: ${contact.note}` : ''}`;
         key="add-new"
         initialData={undefined}
       />
-
     </div>
   );
 };

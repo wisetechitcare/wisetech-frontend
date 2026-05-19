@@ -13,7 +13,7 @@ import { RootState } from '@redux/store';
 import { fetchConfiguration, fetchLeaveOptions } from '@services/company';
 import { savePersonalLeaves } from '@redux/slices/leaves';
 import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, LeaveApprovedStatus, MATERNAL_LEAVES, SICK_LEAVES, Status, UNPAID_LEAVES, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
-import { LeaveTypes } from '@constants/attendance';
+import { LeaveStatus, LeaveTypes } from '@constants/attendance';
 import { transformLeaves } from '../../OverviewView';
 import { SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import dayjs from 'dayjs';
@@ -53,6 +53,9 @@ let initialValues: ILeaveRequest = {
   reason: "",
   status: 0,
 };
+
+const isPendingLeaveStatus = (status: number) =>
+  status === Status.ApprovalNeeded || status === LeaveStatus.PendingHR;
 
 const leaveRequestSchema = Yup.object().shape({
   leaveTypeId: Yup.string().required('Leave Type is required'),
@@ -354,19 +357,19 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
         // Pending days per paid type — mirrors backend's usedDays+pendingDays cumulative check
         const casualDaysPending = fiscalYearFilteredLeaves
-            .filter((leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && leave.status === Status.ApprovalNeeded)
+            .filter((leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && isPendingLeaveStatus(leave.status))
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
         const annualDaysPending = fiscalYearFilteredLeaves
-            .filter((leave: any) => leave.leaveOptions.leaveType === ANNUAL_LEAVES && leave.status === Status.ApprovalNeeded)
+            .filter((leave: any) => leave.leaveOptions.leaveType === ANNUAL_LEAVES && isPendingLeaveStatus(leave.status))
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
         const maternalDaysPending = fiscalYearFilteredLeaves
-            .filter((leave: any) => leave.leaveOptions.leaveType === MATERNAL_LEAVES && leave.status === Status.ApprovalNeeded)
+            .filter((leave: any) => leave.leaveOptions.leaveType === MATERNAL_LEAVES && isPendingLeaveStatus(leave.status))
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
         const sickDaysPending = fiscalYearFilteredLeaves
-            .filter((leave: any) => leave.leaveOptions.leaveType === SICK_LEAVES && leave.status === Status.ApprovalNeeded)
+            .filter((leave: any) => leave.leaveOptions.leaveType === SICK_LEAVES && isPendingLeaveStatus(leave.status))
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
         const floaterDaysPending = fiscalYearFilteredLeaves
-            .filter((leave: any) => leave.leaveOptions.leaveType === FLOATER_LEAVES && leave.status === Status.ApprovalNeeded)
+            .filter((leave: any) => leave.leaveOptions.leaveType === FLOATER_LEAVES && isPendingLeaveStatus(leave.status))
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
 
         const response = await fetchAllAddonLeavesAllowances();
@@ -692,16 +695,22 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     const hasWorkingDaysConfig = workingAndOffDays && Object.keys(workingAndOffDays).length > 0;
 
     let monthUsage = 0;
+    const holidaySet = new Set(
+      (publicHolidays || [])
+        .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
+        .filter(Boolean)
+    );
 
     employeeLeavesData
-      .filter((leave: any) => {
-        const isCountedType = countedLeaveTypes.includes(leave.leaveOptions?.leaveType);
-        const isApprovedOrPending = leave.status === Status.Approved || leave.status === Status.ApprovalNeeded;
-        return isCountedType && isApprovedOrPending;
+      .filter((existingLeave: any) => {
+        const isCountedType = countedLeaveTypes.includes(existingLeave.leaveOptions?.leaveType);
+        const isApprovedOrPending = existingLeave.status === Status.Approved || isPendingLeaveStatus(existingLeave.status);
+        const isCurrentEditingLeave = !!(leave?.id && existingLeave?.id === leave.id);
+        return isCountedType && isApprovedOrPending && !isCurrentEditingLeave;
       })
-      .forEach((leave: any) => {
-        const leaveFromDate = dayjs(leave.dateFrom);
-        const leaveToDate = dayjs(leave.dateTo);
+      .forEach((existingLeave: any) => {
+        const leaveFromDate = dayjs(existingLeave.dateFrom);
+        const leaveToDate = dayjs(existingLeave.dateTo);
         let leaveDate = leaveFromDate;
 
         while (leaveDate.isBefore(leaveToDate) || leaveDate.isSame(leaveToDate, 'day')) {
@@ -711,7 +720,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             const isOffDay = hasWorkingDaysConfig
               ? workingAndOffDays[dayName] === '0'
               : (dayOfWeek === 0 || dayOfWeek === 6);
-            if (!isOffDay) {
+            const isHoliday = holidaySet.has(leaveDate.format('YYYY-MM-DD'));
+            if (!isOffDay && !isHoliday) {
               monthUsage++;
             }
           }
@@ -721,7 +731,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
     setCurrentMonthUsage(monthUsage);
     setShowMonthlyLimitInfo(true);
-  }, [employeeLeavesData, workingAndOffDays]);
+  }, [employeeLeavesData, workingAndOffDays, publicHolidays, leave?.id]);
 
   const setFieldValueRef = useRef<((field: string, value: any, shouldValidate?: boolean) => void) | null>(null);
 
@@ -891,6 +901,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           if (fromDate && toDate) {
             const start = new Date(fromDate);
             const end = new Date(toDate);
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const hasWorkingDaysConfig = workingAndOffDays && Object.keys(workingAndOffDays).length > 0;
             if (start > end) {
               setLeaveCount(0);
               return;
@@ -926,16 +938,21 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             // Calculate existing leaves per month (approved + pending, all leave types)
             const existingLeavesPerMonth: Record<string, number> = {};
             const countedLeaveTypes = [ANNUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES, CASUAL_LEAVES, MATERNAL_LEAVES];
+            const holidaySet = new Set(
+              (publicHolidays || [])
+                .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
+                .filter(Boolean)
+            );
 
             if (employeeLeavesData && employeeLeavesData.length > 0) {
-              const relevantLeaves = employeeLeavesData.filter((leave: any) => {
-                const isCountedType = countedLeaveTypes.includes(leave.leaveOptions?.leaveType);
-                const isApprovedOrPending = leave.status === Status.Approved || leave.status === Status.ApprovalNeeded;
-                return isCountedType && isApprovedOrPending;
+              const relevantLeaves = employeeLeavesData.filter((existingLeave: any) => {
+                const isCountedType = countedLeaveTypes.includes(existingLeave.leaveOptions?.leaveType);
+                const isApprovedOrPending = existingLeave.status === Status.Approved || isPendingLeaveStatus(existingLeave.status);
+                const isCurrentEditingLeave = !!(leave?.id && existingLeave?.id === leave.id);
+                return isCountedType && isApprovedOrPending && !isCurrentEditingLeave;
               });
 
               relevantLeaves.forEach((leave: any) => {
-                const workingDaysInLeave = getWorkingDays(leave);
                 const leaveFromDate = dayjs(leave.dateFrom);
                 const leaveToDate = dayjs(leave.dateTo);
                 let leaveDate = leaveFromDate;
@@ -944,8 +961,13 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   const monthKey = leaveDate.format('YYYY-MM');
                   const dayOfWeek = leaveDate.day();
 
+                  const dayName = dayNames[dayOfWeek];
+                  const isOffDay = hasWorkingDaysConfig
+                    ? workingAndOffDays[dayName] === '0'
+                    : (dayOfWeek === 0 || dayOfWeek === 6);
+                  const isHoliday = holidaySet.has(leaveDate.format('YYYY-MM-DD'));
                   // Count only working days (matching backend logic)
-                  if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                  if (!isOffDay && !isHoliday) {
                     existingLeavesPerMonth[monthKey] = (existingLeavesPerMonth[monthKey] || 0) + 1;
                   }
 

@@ -5,7 +5,8 @@ export const AUTH = {
     LOGOUT: "api/auth/logout",
     RESET_PASSWORD: "api/auth/resetPassword/:resetToken",
     CHANGE_PASSWORD: "api/auth/changePassword",
-    FORGOT_PASSWORD: "api/auth/forgotPassword"
+    FORGOT_PASSWORD: "api/auth/forgotPassword",
+    CAPABILITIES: "api/auth/capabilities",
 }
 
 export const USERS = {
@@ -169,10 +170,10 @@ export const EMPLOYEE = {
     GET_PAID_SALARY_RECORDS: "api/company/salary/records",
     GET_Total_salary_By_Year: "api/company/get-total-salaryByYear",
     GET_TOTAL_MONTHLY_SALARY: "api/company/get-total-monthly-salary",
-    CREATE_TODOS: "api/employee/todo",
-    UPDATE_TODOS: "api/employee/todo",
-    GET_TODOS: "api/employee/todo",
-    DELETE_TODOS: "api/employee/todo",
+    CREATE_TODOS: "api/employee/todos",
+    UPDATE_TODOS: "api/employee/todos",
+    GET_TODOS: "api/employee/todos",
+    DELETE_TODOS: "api/employee/todos",
     CREATE_MEETINGS: "api/employee/meetings",
     GET_MEETINGS: "api/employee/meetings",
     UPDATE_MEETING: "/api/employee/meetings",

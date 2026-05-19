@@ -39,7 +39,11 @@ export const getFactorUnit = (factorName: string | undefined): string => {
     name === "extra days" ||
     name === "attendance_days" ||
     name === "absent_days" ||
-    name === "extra_days"
+    name === "extra_days" ||
+    name.includes("early checkin") ||
+    name.includes("early checkout") ||
+    name.includes("early check in") ||
+    name.includes("early check out")
   ) {
     return "days";
   }
