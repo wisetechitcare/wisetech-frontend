@@ -110,8 +110,10 @@ export const transformAttendance = (dates: FormattedDate[], attendance: Attendan
         const formattedCheckOut = formatTime(convertToTimeZone(checkOut, mumbaiTz));        
         const isWeekend = Object.keys(workingAndOffDays).includes(weekDay.toLowerCase()) && workingAndOffDays[weekDay.toLowerCase()]==="0";
 
-        // Prioritize leave status if the employee is on leave for this day
-        if (isOnLeave) {
+        // Attendance overrides leave for historical overlap data.
+        // Backend check-in removes the attended date from leave records, but this keeps
+        // calendar/table display correct if old data still has both leave and check-in.
+        if (isOnLeave && !checkIn) {
             return {
                 id: attendanceRecord?.id,
                 date: transformedDate,

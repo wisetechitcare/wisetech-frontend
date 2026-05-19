@@ -1452,7 +1452,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                       formikField="latitude"
                                       label="Latitude"
                                       isRequired={false}
-                                      inputValidation="decimal"
+                                      inputValidation="signed-decimal"
                                     />
                                   </div>
                                   <div className="col-md-3">
@@ -1460,7 +1460,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                       formikField="longitude"
                                       label="Longitude"
                                       isRequired={false}
-                                      inputValidation="decimal"
+                                      inputValidation="signed-decimal"
                                     />
                                   </div>
                                 </div>

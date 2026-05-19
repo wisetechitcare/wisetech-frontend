@@ -36,7 +36,7 @@ const rootReducer = combineReducers({
     userAgent: userAgentReducer,
     timer: timerReducer,
     salaryData: salaryDataReducer,
-    leaderboardCache: leaderboardCacheReducer
+    leaderboardCache: leaderboardCacheReducer,
 });
 
 export default rootReducer;

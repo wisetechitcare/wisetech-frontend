@@ -1444,10 +1444,31 @@ export const fetchEmpKpiScoresAllTime = async (employeeId: string) => {
     }
 };
 
-export const getAllKpiFactors = async () => {
+
+export const getAllKpiFactors = async (includeInactive = false) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_KPI_FACTORS}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, {
+            params: includeInactive ? { includeInactive: 'true' } : undefined,
+        });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const createKpiFactor = async (payload: {
+    name: string;
+    moduleId: string;
+    calculationFrom: string;
+    weightage: number;
+    unit: string;
+    type: string;
+    isActive?: boolean;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_KPI_FACTOR}`;
+        const { data } = await axios.post(endpoint, payload);
         return data;
     } catch (error) {
         throw error;

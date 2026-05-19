@@ -686,7 +686,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               formikField="latitude"
                               label="Latitude"
                               isRequired={false}
-                              inputValidation="decimal"
+                              inputValidation="signed-decimal"
                             />
                           </div>
                           <div className="col-md-3">
@@ -694,7 +694,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               formikField="longitude"
                               label="Longitude"
                               isRequired={false}
-                              inputValidation="decimal"
+                              inputValidation="signed-decimal"
                             />
                           </div>
                         </div>
