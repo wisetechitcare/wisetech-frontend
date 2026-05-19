@@ -1033,10 +1033,39 @@ export function donutaDataLabel(
 ): Map<string, number> {
 
     const statMap = new Map<string, number>();
+    const toDateKey = (value: any) => {
+        if (!value || value === '-NA-' || value === '-') return '';
+
+        if (typeof value === 'string' && value.includes('/')) {
+            const [day, month, year] = value.split('/');
+            return day && month && year ? `${year}-${month}-${day}` : '';
+        }
+
+        const parsedDate = dayjs(value);
+        return parsedDate.isValid() ? parsedDate.format('YYYY-MM-DD') : '';
+    };
+
+    const attendanceDateKeys = new Set(
+        stats
+            .filter((stat: any) => {
+                const hasValidId = stat.id && stat.id !== undefined && stat.id !== '-' && stat.id !== '';
+                const hasCheckIn = stat.checkIn && stat.checkIn !== '' && stat.checkIn !== null && stat.checkIn !== "-NA-" && stat.checkIn !== "-";
+                return hasValidId && hasCheckIn;
+            })
+            .map((stat: any) => toDateKey(stat.formattedDate || stat.date || stat.checkIn))
+            .filter(Boolean)
+    );
+
+    // Defensive fallback for historical overlaps: if a day has both a leave and
+    // a real check-in, attendance wins and that leave day is not counted here.
+    const effectiveFilteredLeaves = filteredLeaves.filter((leave) => {
+        const leaveDateKey = toDateKey(leave.date);
+        return !attendanceDateKeys.has(leaveDateKey);
+    });
 
     statMap.set(PRESENT, 0);
     statMap.set(ABSENT, 0);
-    statMap.set(ON_LEAVE, filteredLeaves.length);
+    statMap.set(ON_LEAVE, effectiveFilteredLeaves.length);
     statMap.set(EXTRA_DAYS, 0);
     statMap.set(CHECK_OUT_MISSING, 0);
 
@@ -1103,7 +1132,7 @@ export function donutaDataLabel(
             }
         }
 
-        const isLeaveDay = filteredLeaves.some((leave) => {
+        const isLeaveDay = effectiveFilteredLeaves.some((leave) => {
             return dayjs(leave.date).format('YYYY-MM-DD') === statDateFormatted;
         });
 
@@ -1188,6 +1217,7 @@ function convertTo24HourFormat(time: string) {
 }
 
 let companyTimings = {
+    companyRawCheckIn: '',
     companyCheckIn: '',
     companyCheckOut: '',
     checkInTimeForOnSite: '',
@@ -1237,12 +1267,14 @@ async function fetchCompanyTimings() {
             onSiteGraceDuration = dayjs.duration(0);
         }
 
-        // Parse the check-in time and add grace duration
+        // Keep raw shift start and grace-adjusted check-in as separate values.
+        // Early CheckIn must use the raw start time; Late CheckIn must use start + grace.
         const checkInTime = dayjs(companyCheckIn, "h:mm A");
         const lateCheckIn = checkInTime.add(graceDuration);
         const lateCheckInForOnSite = lateCheckIn;
         const graceTimeNewOnSite = checkInTime.add(onSiteGraceDuration);
         // Convert to 24-hour format and then to UTC
+        const rawCheckInUtcTime = dayjs(`1970-01-01T${checkInTime.format("HH:mm")}:00`).utc().format("HH:mm");
         const checkInUtcTime = dayjs(`1970-01-01T${lateCheckIn.format("HH:mm")}:00`).utc().format("HH:mm");
         const checkOutUtcTime = dayjs(`1970-01-01T${convertTo24HourFormat(companyCheckOut)}:00`).utc().format("HH:mm");
         const checkInTimeForOnSiteUTC = dayjs(`1970-01-01T${lateCheckInForOnSite.format("HH:mm")}:00`).utc().format("HH:mm");
@@ -1250,6 +1282,7 @@ async function fetchCompanyTimings() {
 
         companyTimings = {
             ...companyTimings,
+            companyRawCheckIn: rawCheckInUtcTime !== 'Invalid Date' ? rawCheckInUtcTime : '',
             companyCheckIn: checkInUtcTime !== 'Invalid Date' ? checkInUtcTime : '',
             companyCheckOut: checkOutUtcTime !== 'Invalid Date' ? checkOutUtcTime : '',
             checkInTimeForOnSite: checkInTimeForOnSiteUTC !== 'Invalid Date' ? checkInTimeForOnSiteUTC : '',
@@ -1395,7 +1428,7 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
 
     const graceTimeAllowance = leaveConfigurations[onSiteAndHolidayWeekendSettingsOnOffName];
     const onSiteSettingsOn = Number(graceTimeAllowance) > 0 ? true : false;
-    const { companyCheckIn, companyCheckOut, checkInTimeForOnSite, checkinTimeNewForOnSite } = companyTimings;
+    const { companyRawCheckIn, companyCheckIn, companyCheckOut, checkInTimeForOnSite } = companyTimings;
     // console.log("checkinTimeNewForOnSite ==============>",checkinTimeNewForOnSite)
 
     const statMap = new Map<string, number>();
@@ -1463,7 +1496,8 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
             actualCheckOutTime = customTime(isDaywiseConfig.check_out)
         }
 
-        // Apply grace time to actualCheckInTime if it's from custom source (holiday or day-wise shift)
+        // Late CheckIn threshold: shift start + grace.
+        // This intentionally stays grace-adjusted so late attendance is only counted after the allowed window.
         const { graceDuration } = companyTimings;
         let finalTime
         if (workingHolidayOnThisDate || isDaywiseConfig) {
@@ -1475,18 +1509,14 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
         else {
             finalTime = isWorkMethodOnSite ? (checkInTimeForOnSite != '' ? checkInTimeForOnSite : checkInTime) : (companyCheckIn != '' ? companyCheckIn : checkInTime)
         }
-        // Early check-in threshold with grace time based on working method
-        // For Office: Check-in time + Grace Time (e.g., 9:30 AM + 40 min = 10:10 AM)
-        // For On-Site: Check-in time + Grace Time - On Site (e.g., 9:30 AM + 15 min = 9:45 AM)
+        // Early CheckIn threshold: raw shift start, not shift start + grace.
+        // Example: for a 9:30 AM shift, only check-ins before 9:30 AM are early.
+        // This mirrors backend KPI logic in kpiservice.ts, where early_checkin compares firstCheckIn < officeTime.
         let earlyCheckInThreshold;
         if (workingHolidayOnThisDate || isDaywiseConfig) {
-            // For holidays or day-wise shifts, use the custom time with grace
-            earlyCheckInThreshold = finalTime;
+            earlyCheckInThreshold = actualCheckInTime;
         } else {
-            // For regular days, use grace time based on working method
-            earlyCheckInThreshold = isWorkMethodOnSite
-                ? (checkinTimeNewForOnSite != '' ? checkinTimeNewForOnSite : checkInTime)  // On-site: check-in + on-site grace
-                : (companyCheckIn != '' ? companyCheckIn : checkInTime);  // Office: check-in + default grace
+            earlyCheckInThreshold = companyRawCheckIn != '' ? companyRawCheckIn : checkInTime;
         }
 
         // console.log("companyCheckIn:: ", companyCheckIn);
@@ -3265,7 +3295,25 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
         console.error("error: ", error)
     }
 }
-//🔥 Irfan Change Start
+// 🔥 KPI API SAFETY: Exponential backoff retry helper
+const fetchWithRetry = async <T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delay = 1200
+): Promise<T> => {
+  try {
+    return await fn();
+  } catch (error: any) {
+    const isCancel = error?.name === 'AbortError' || error?.name === 'CanceledError' || axios.isCancel(error);
+    if (retries > 0 && !isCancel) {
+      console.warn(`[KPI-RETRY] Request failed, retrying in ${delay}ms... (${retries} attempts left)`);
+      await new Promise(r => setTimeout(r, delay));
+      return fetchWithRetry(fn, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+};
+
 export const fetchLeaderboard = async (
     startDate: string,
     endDate: string,
@@ -3313,12 +3361,15 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false, 
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching daily statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching daily statistics:", error);
+        }
         throw error;
     }
 }
 
+//🔥 Irfan Change Start
 //🔥 Irfan Change Start
 const fetchKpiBase = async (
     employeeId: string,
@@ -3414,8 +3465,10 @@ export async function fetchEmpWeeklyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching weekly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching weekly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3459,8 +3512,10 @@ export async function fetchEmpMonthlyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching monthly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching monthly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3514,8 +3569,10 @@ export async function fetchEmpYearlyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching yearly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching yearly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3528,8 +3585,10 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
         if (!employeeId) throw new Error("Employee ID not found");
         const result = await fetchEmpKpiScoresAllTime(employeeId, signal);
         return result;
-    } catch (error) {
-        console.error("Error fetching All time statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching All time statistics:", error);
+        }
         throw error;
     }
 }

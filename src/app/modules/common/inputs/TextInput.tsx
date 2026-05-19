@@ -10,7 +10,8 @@ type SimpleInputType =
   | "letters"
   | "letters-space"
   | "alphanumeric"
-  | "decimal";
+  | "decimal"
+  | "signed-decimal";
 
 // Simple regex patterns
 const SIMPLE_PATTERNS = {
@@ -20,6 +21,7 @@ const SIMPLE_PATTERNS = {
   "letters-space": /^[a-zA-Z\s]*$/,
   alphanumeric: /^[a-zA-Z0-9\s]*$/,
   decimal: /^[0-9]*\.?[0-9]*$/,
+  "signed-decimal": /^-?[0-9]*\.?[0-9]*$/,
 };
 
 // Generic error messages
@@ -30,6 +32,7 @@ const ERROR_MESSAGES = {
   "letters-space": "Input Type Should Be Letters",
   alphanumeric: "Input Type Should Be Letters and Numbers",
   decimal: "Input Type Should Be Number",
+  "signed-decimal": "Input Type Should Be Number",
 };
 
 interface TextInputProps {

@@ -20,7 +20,7 @@ export const downloadDocument = async (url: string, fileName: string) => {
       responseType: 'blob',
     });
     
-    const blob = new Blob([response.data], { type: response.headers['content-type'] });
+    const blob = new Blob([response.data], { type: response.headers['content-type'] as string | undefined });
     const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -48,9 +48,9 @@ export const previewDocument = async (url: string, fileName: string) => {
       responseType: 'blob',
     });
     
-    const blob = new Blob([response.data], { type: response.headers['content-type'] });
+    const blob = new Blob([response.data], { type: response.headers['content-type'] as string | undefined });
     // Use File object to preserve name in some browsers
-    const file = new File([blob], fileName, { type: response.headers['content-type'] });
+    const file = new File([blob], fileName, { type: response.headers['content-type'] as string | undefined });
     const previewUrl = URL.createObjectURL(file);
     
     window.open(previewUrl, '_blank');

@@ -563,7 +563,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
                 <ColorRow label="Check Out" fieldName="workingPattern.checkoutColor" value={formik.values.workingPattern?.checkoutColor} onClick={() => openColorPicker('Check Out', 'workingPattern.checkoutColor')} />
                 <ColorRow label="Early Check-in" fieldName="workingPattern.earlyCheckinColor" value={formik.values.workingPattern?.earlyCheckinColor} onClick={() => openColorPicker('Early Check-in', 'workingPattern.earlyCheckinColor')} />
                 <ColorRow label="Late Check-in" fieldName="workingPattern.lateCheckinColor" value={formik.values.workingPattern?.lateCheckinColor} onClick={() => openColorPicker('Late Check-in', 'workingPattern.lateCheckinColor')} />
-                <ColorRow label="Early Checkout" fieldName="workingPattern.earlyCheckoutColor" value={formik.values.workingPattern?.earlyCheckoutColor} onClick={() => openColorPicker('Early Checkout', 'workingPattern.earlyCheckoutColor')} />
+                <ColorRow label="Early CheckOut" fieldName="workingPattern.earlyCheckoutColor" value={formik.values.workingPattern?.earlyCheckoutColor} onClick={() => openColorPicker('Early CheckOut', 'workingPattern.earlyCheckoutColor')} />
                 <ColorRow label="Late Checkout" fieldName="workingPattern.lateCheckoutColor" value={formik.values.workingPattern?.lateCheckoutColor} onClick={() => openColorPicker('Late Checkout', 'workingPattern.lateCheckoutColor')} />
                 <ColorRow label="Missing Checkout" fieldName="workingPattern.missingCheckoutColor" value={formik.values.workingPattern?.missingCheckoutColor} onClick={() => openColorPicker('Missing Checkout', 'workingPattern.missingCheckoutColor')} />
               </ColorSection>
