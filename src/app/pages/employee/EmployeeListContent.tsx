@@ -8,6 +8,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAvatar } from "@utils/avatar";
 import { hasPermission } from "@utils/authAbac";
+import { usePermission } from "@hooks/usePermission";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
@@ -34,9 +35,7 @@ const EmployeeListContent = () => {
     const saved = sessionStorage.getItem('employeeListPage');
     return saved ? parseInt(saved, 10) : 0;
   });
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const employeeRole = useSelector((state: RootState) => state.allEmployees?.list?.find((emp: any) => emp.employeeId === employeeId));
 
   const navigate = useNavigate();
 
@@ -211,21 +210,11 @@ const EmployeeListContent = () => {
     }
   ], [handleEditClick, handleWhatsAppShare]);
 
-  // Determine columns based on role
-  const isAdminRole = useMemo(() => {
-    const roles = employeeRole?.roles as string[] | string | undefined;
-    if (Array.isArray(roles)) {
-      return roles.some((role) => typeof role === "string" && role.toLowerCase().includes("admin") || role === "admin");
-    }
-    if (typeof roles === "string") {
-      return roles.toLowerCase() === "admin";
-    }
-    return false;
-  }, [employeeRole]);
+  const canManageEmployees = usePermission('employees.manage.all');
 
   const columns = useMemo(() =>
-    isAdminRole ? [...baseColumns, ...adminColumns] : baseColumns,
-    [isAdminRole, baseColumns, adminColumns]
+    canManageEmployees ? [...baseColumns, ...adminColumns] : baseColumns,
+    [canManageEmployees, baseColumns, adminColumns]
   );
   
   

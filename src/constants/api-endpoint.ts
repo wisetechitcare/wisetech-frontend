@@ -311,6 +311,8 @@ export const ROLES = {
     CREATE_PERMISSION_FOR_ROLE: "api/roles/:id/permissions",
     UPDATE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
+    ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
+    REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
 }
 
 export const DAY_WISE_SHIFT = {

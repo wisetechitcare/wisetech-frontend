@@ -65,6 +65,7 @@ import OrganisationInfoProfileMain from '@pages/company/organisationInfo/Organis
 import SearchResultsPage from '@pages/employee/search/SearchResultsPage'
 import ProposalConfigurationPage from '@pages/employee/leads/lead/components/ProposalConfigurationPage'
 import TemplateDocumentationBuilderPage from '@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'
+import ApprovalInbox from '@pages/approvals/ApprovalInbox'
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
@@ -76,7 +77,6 @@ const PrivateRoutes = () => {
   const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
   const Reimbursement = lazy(() => import('@pages/employee/reimbursement/Reimbursement'))
   const [isStored, setIsStored] = useState(false)
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser?.isAdmin)
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
@@ -110,6 +110,7 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        <Route path='approvals/inbox' element={<ApprovalInbox />} />
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
         <Route

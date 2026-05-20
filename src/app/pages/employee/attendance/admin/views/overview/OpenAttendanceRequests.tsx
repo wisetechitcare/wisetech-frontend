@@ -1,6 +1,9 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import Identifiers from "@app/modules/common/utils/Identifiers";
 import Loader from "@app/modules/common/utils/Loader";
+import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
+import { fetchApprovalInstanceByRequest } from "@services/employee";
+import { Modal } from "react-bootstrap";
 import { LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from "@constants/attendance";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -10,6 +13,7 @@ import { RootState } from "@redux/store";
 import { fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { getAllAttendanceRequestByCompanyId, approveAttendanceRequest, rejectAttendanceRequest, getAllKpiFactors, createKpiScore, getPendingAttendanceRequests } from "@services/employee";
 import { hasPermission } from "@utils/authAbac";
+import { usePermission } from "@hooks/usePermission";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { deleteConfirmation, errorConfirmation, rejectConfirmation, successConfirmation } from "@utils/modal";
 import { markWeekendOrHoliday, transformAttendanceRequest } from "@utils/statistics";
@@ -78,11 +82,7 @@ const OpenAttendanceRequests = () => {
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
-    const isAdminUser = useSelector((state: RootState) => (state.auth as any).currentUser?.isAdmin);
-    const currentEmployeeRoles: any[] = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
-    const isHROrAdmin = isAdminUser || currentEmployeeRoles.some((r: any) =>
-        ['hr', 'admin', 'super_admin', 'superadmin', 'super admin'].includes((r?.name || r?.role || '').toLowerCase())
-    );
+    const isHROrAdmin = usePermission('approvals.approve.team');
 
     const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([])
     const [attendanceActionId, setAttendanceActionId] = useState("");
@@ -93,6 +93,20 @@ const OpenAttendanceRequests = () => {
     const [openRequests, setOpenRequests] = useState<IAttendanceRequests[]>([]);
     const [openRequestsLoading, setOpenRequestsLoading] = useState(true);
     const [openAttendanceRequestModal, setOpenAttendanceRequestModal] = useState(false);
+    const [trackingRequestId, setTrackingRequestId] = useState<string | null>(null);
+    const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
+
+    const openTracker = async (requestId: string) => {
+        setTrackingRequestId(requestId);
+        setTrackInstanceId(null);
+        try {
+            const res = await fetchApprovalInstanceByRequest('AttendanceRequests', requestId);
+            const instance = res?.data ?? res;
+            setTrackInstanceId(instance?.id ?? null);
+        } catch {
+            setTrackInstanceId(null);
+        }
+    };
     const [selectedAttendanceRequest, setSelectedAttendanceRequest] = useState<IAttendanceRequests>();
 
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);

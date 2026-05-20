@@ -4,6 +4,9 @@ import { fetchRoles } from "@services/roles";
 import { Field, useField } from "formik";
 import NumberInput from "@app/modules/common/inputs/NumberInput";
 import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
+import { useParams } from "react-router-dom";
+import { errorConfirmation, successConfirmation } from "@utils/modal";
+import { deleteApprovalWorkflowConfig, fetchAllEmployeesSelectedData, fetchApprovalWorkflowConfigs, saveApprovalWorkflowChain } from "@services/employee";
 
 const showAppSettingsRadioBtn: RadioButton[] = [
     {
@@ -28,10 +31,30 @@ const isEmployeeActiveRadioBtn: RadioButton[] = [
 ];
 
 function AppSettings() {
+    const { employeeId } = useParams();
     const fieldName = 'appRole';
     const [roleOptions, setRoleOptions] = useState([]);
     const [field, , helpers] = useField(fieldName);
     const attendanceRequestLimit = useField('attendanceRequestRaiseLimit');
+    const [approverOptions, setApproverOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [isApprovalLoading, setIsApprovalLoading] = useState(false);
+    const [isApprovalSaving, setIsApprovalSaving] = useState<Record<string, boolean>>({});
+    const [workflowChains, setWorkflowChains] = useState<Record<string, Array<string>>>({
+        attendance: ["", "", "", "", ""],
+        leave: ["", "", "", "", ""],
+        conveyance: ["", "", "", "", ""],
+    });
+    const [workflowConfigIds, setWorkflowConfigIds] = useState<Record<string, Array<string>>>({
+        attendance: ["", "", "", "", ""],
+        leave: ["", "", "", "", ""],
+        conveyance: ["", "", "", "", ""],
+    });
+
+    const approvalModules: Array<{ key: 'attendance' | 'leave' | 'conveyance'; label: string }> = [
+        { key: 'attendance', label: 'Attendance' },
+        { key: 'leave', label: 'Leave' },
+        { key: 'conveyance', label: 'Conveyance' },
+    ];
 
     useEffect(()=>{
         const fetchAllRoles = async ()=>{
@@ -41,6 +64,139 @@ function AppSettings() {
         }
         fetchAllRoles();
     },[])
+
+    useEffect(() => {
+        const loadApproverData = async () => {
+            if (!employeeId) return;
+            setIsApprovalLoading(true);
+            try {
+                const [employeesRes, workflowsRes] = await Promise.all([
+                    fetchAllEmployeesSelectedData(),
+                    fetchApprovalWorkflowConfigs(employeeId),
+                ]);
+
+                const employeeList = employeesRes?.data?.employees || employeesRes?.data || [];
+                const options = employeeList
+                    .filter((emp: any) => emp?.id && emp?.id !== employeeId)
+                    .map((emp: any) => ({
+                        value: String(emp.id),
+                        label: `${emp?.users?.firstName || emp?.firstName || ''} ${emp?.users?.lastName || emp?.lastName || ''}`.trim() || emp.id,
+                    }));
+                setApproverOptions(options);
+
+                const configs = workflowsRes?.data || workflowsRes || [];
+                const nextState: Record<string, Array<string>> = {
+                    attendance: ["", "", "", "", ""],
+                    leave: ["", "", "", "", ""],
+                    conveyance: ["", "", "", "", ""],
+                };
+                const nextIds: Record<string, Array<string>> = {
+                    attendance: ["", "", "", "", ""],
+                    leave: ["", "", "", "", ""],
+                    conveyance: ["", "", "", "", ""],
+                };
+
+                configs.forEach((cfg: any) => {
+                    if (!cfg?.workflowType || !nextState[cfg.workflowType]) return;
+                    const idx = Number(cfg.level) - 1;
+                    if (idx >= 0 && idx < 5 && cfg?.isActive) {
+                        nextState[cfg.workflowType][idx] = String(cfg.approverId || "");
+                        nextIds[cfg.workflowType][idx] = String(cfg.id || "");
+                    }
+                });
+
+                setWorkflowChains(nextState);
+                setWorkflowConfigIds(nextIds);
+            } catch (error) {
+                console.error("Failed to load approval settings:", error);
+            } finally {
+                setIsApprovalLoading(false);
+            }
+        };
+
+        loadApproverData();
+    }, [employeeId]);
+
+    const handleLevelChange = (workflowType: 'attendance' | 'leave' | 'conveyance', levelIndex: number, value: string) => {
+        setWorkflowChains((prev) => {
+            const next = { ...prev };
+            next[workflowType] = [...(prev[workflowType] || ["", "", "", "", ""])];
+            next[workflowType][levelIndex] = value;
+            return next;
+        });
+    };
+
+    const saveWorkflowType = async (workflowType: 'attendance' | 'leave' | 'conveyance') => {
+        if (!employeeId) return;
+
+        const chain = workflowChains[workflowType] || ["", "", "", "", ""];
+        if (!chain[0]) {
+            errorConfirmation("Level 1 approver is required");
+            return;
+        }
+
+        const seen = new Set<string>();
+        for (let i = 0; i < chain.length; i += 1) {
+            const current = chain[i];
+            const prev = i === 0 ? current : chain[i - 1];
+            if (!prev && current) {
+                errorConfirmation("Approval levels must be contiguous without gaps");
+                return;
+            }
+            if (current) {
+                if (seen.has(current)) {
+                    errorConfirmation("Same approver cannot be selected in multiple levels");
+                    return;
+                }
+                seen.add(current);
+            }
+        }
+
+        setIsApprovalSaving((prev) => ({ ...prev, [workflowType]: true }));
+        try {
+            const levels = chain.map((approverId, index) => ({
+                level: index + 1,
+                approverId: approverId || null,
+            }));
+            await saveApprovalWorkflowChain(employeeId, workflowType, levels);
+            const refreshed = await fetchApprovalWorkflowConfigs(employeeId, workflowType);
+            const configs = refreshed?.data || refreshed || [];
+            const ids = ["", "", "", "", ""];
+            configs.forEach((cfg: any) => {
+                const idx = Number(cfg.level) - 1;
+                if (idx >= 0 && idx < 5 && cfg?.isActive) ids[idx] = String(cfg.id || "");
+            });
+            setWorkflowConfigIds((prev) => ({ ...prev, [workflowType]: ids }));
+            successConfirmation(`${workflowType.charAt(0).toUpperCase() + workflowType.slice(1)} approval chain saved`);
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || err?.response?.data?.detail || "Failed to save approval settings";
+            errorConfirmation(msg);
+        } finally {
+            setIsApprovalSaving((prev) => ({ ...prev, [workflowType]: false }));
+        }
+    };
+
+    const deleteWorkflowType = async (workflowType: 'attendance' | 'leave' | 'conveyance') => {
+        if (!employeeId) return;
+        const ids = (workflowConfigIds[workflowType] || []).filter(Boolean);
+        if (!ids.length) {
+            setWorkflowChains((prev) => ({ ...prev, [workflowType]: ["", "", "", "", ""] }));
+            return;
+        }
+
+        setIsApprovalSaving((prev) => ({ ...prev, [workflowType]: true }));
+        try {
+            await Promise.all(ids.map((id) => deleteApprovalWorkflowConfig(id)));
+            setWorkflowChains((prev) => ({ ...prev, [workflowType]: ["", "", "", "", ""] }));
+            setWorkflowConfigIds((prev) => ({ ...prev, [workflowType]: ["", "", "", "", ""] }));
+            successConfirmation(`${workflowType.charAt(0).toUpperCase() + workflowType.slice(1)} approval chain deleted`);
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || err?.response?.data?.detail || "Failed to delete approval settings";
+            errorConfirmation(msg);
+        } finally {
+            setIsApprovalSaving((prev) => ({ ...prev, [workflowType]: false }));
+        }
+    };
 
     return (
         <>
@@ -112,6 +268,64 @@ function AppSettings() {
                     </div>
                 </div>
             </div>
+
+            {employeeId && (
+                <div className="mt-8">
+                    <h5 className="mb-4">Approval Settings</h5>
+                    {isApprovalLoading ? (
+                        <div className="text-muted">Loading approval settings...</div>
+                    ) : (
+                        <div className="d-flex flex-column gap-4">
+                            {approvalModules.map((module) => (
+                                <div key={module.key} className="border rounded p-4">
+                                    <div className="row g-4 align-items-end">
+                                        <div className="col-12 col-lg-2">
+                                            <label className="form-label fw-semibold mb-0">{module.label}</label>
+                                        </div>
+
+                                        {[0, 1, 2, 3, 4].map((levelIndex) => (
+                                            <div key={`${module.key}-l${levelIndex + 1}`} className="col-12 col-md-6 col-lg-2">
+                                                <label className="form-label">Level {levelIndex + 1}</label>
+                                                <select
+                                                    className="employee__form_wizard__input form-select"
+                                                    value={workflowChains[module.key]?.[levelIndex] || ""}
+                                                    onChange={(e) => handleLevelChange(module.key, levelIndex, e.target.value)}
+                                                >
+                                                    <option value="">{levelIndex === 0 ? "Select approver" : "N/A"}</option>
+                                                    {approverOptions.map((opt) => (
+                                                        <option key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ))}
+
+                                        <div className="col-12 d-flex justify-content-end">
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-light-danger me-2"
+                                                onClick={() => deleteWorkflowType(module.key)}
+                                                disabled={!!isApprovalSaving[module.key]}
+                                            >
+                                                Delete Chain
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-primary"
+                                                onClick={() => saveWorkflowType(module.key)}
+                                                disabled={!!isApprovalSaving[module.key]}
+                                            >
+                                                {isApprovalSaving[module.key] ? "Saving..." : "Save"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
         </>
     );

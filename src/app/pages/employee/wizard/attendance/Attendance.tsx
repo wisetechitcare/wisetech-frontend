@@ -10,6 +10,7 @@ import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { MRT_ColumnDef } from 'material-react-table';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
+import { usePermission } from '@hooks/usePermission';
 import { KTIcon } from '@metronic/helpers';
 import { checkAttendanceMarked, fetchAllEmployees, fetchAttendanceDetails, getAllKpiFactors, saveCheckIn, saveCheckOut, validateTokenInOut } from '@services/employee';
 import { IAttendance } from '@models/employee';
@@ -54,7 +55,7 @@ function Attendance() {
     const [locationPermission, setLocationPermission] = useState(false); // New state for location permission
     const [empNameOptions, setEmpNameOptions] = useState(undefined);
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+    const isAdmin = usePermission('employees.manage.all');
     const date = new Date();
     const [markerRef, marker] = useAdvancedMarkerRef();
 
