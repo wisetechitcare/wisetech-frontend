@@ -63,7 +63,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     }
 
     const { message } = employeesData;
-    const totalEmployees = message.totalEmployees || 0;
     const employeeSummaries = message.employeeSummaries || [];
 
     // Use reduce for better performance
@@ -72,6 +71,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         if (summary?.rawTotals) {
           const { netAmount = 0, amountPaid = 0, totalGrossPayAmount = 0, totalDeductedAmount = 0 } = summary.rawTotals;
 
+          if (amountPaid > 0) {
+            acc.totalEmployeesPaid += 1;
+          }
           acc.totalPayableAmount += (netAmount - amountPaid);
           acc.totalGrossAmount += totalGrossPayAmount;
           acc.totalDeductAmount += totalDeductedAmount;
@@ -80,6 +82,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         return acc;
       },
       {
+        totalEmployeesPaid: 0,
         totalPayableAmount: 0,
         totalGrossAmount: 0,
         totalDeductAmount: 0,
@@ -88,7 +91,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     );
 
     return {
-      totalEmployeesPaid: totalEmployees,
       ...totals,
     };
   }, [employeesData]);
@@ -115,11 +117,11 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         workingTime: rawTotals?.payableHours ? `${rawTotals?.payableHours?.toFixed(2)} hrs` : '-',
         overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
-        netAmount: rawTotals.netAmount || '-',
-        amountPaid: rawTotals.amountPaid || '-',
-        basicSalary: rawTotals.basicSalary || '-',
-        overTimeAmount: rawTotals?.overTimeAmount || '-',
-        dueAmount: rawTotals.dueAmount || '-',
+        netAmount: rawTotals.netAmount ?? '-',
+        amountPaid: rawTotals.amountPaid ?? '-',
+        basicSalary: rawTotals.basicSalary ?? '-',
+        overTimeAmount: rawTotals?.overTimeAmount ?? '-',
+        dueAmount: rawTotals.dueAmount ?? '-',
       };
     });
   }, [employeesData]);

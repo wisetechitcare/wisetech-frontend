@@ -18,6 +18,7 @@ export interface MultiSelectWithInlineCreateProps {
   isRequired?: boolean;
   disabled?: boolean;
   onCreate?: (name: string) => Promise<Option | void>;
+  onCreateNew?: (name?: string) => Promise<Option | void>;
   onRefreshOptions?: () => Promise<void>;
   createModalTitle?: string;
   createButtonText?: string;
@@ -72,6 +73,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
   isRequired = false,
   disabled = false,
   onCreate,
+  onCreateNew,
   onRefreshOptions,
   createModalTitle = 'Create New Item',
   createButtonText = 'Add New',
@@ -115,11 +117,12 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
 
   // Handle creating new item
   const handleCreate = async () => {
-    if (!createValue.trim() || !onCreate) return;
+    const effectiveCreateHandler = onCreate ?? onCreateNew;
+    if (!createValue.trim() || !effectiveCreateHandler) return;
 
     setIsCreating(true);
     try {
-      const newOption = await onCreate(createValue.trim());
+      const newOption = await effectiveCreateHandler(createValue.trim());
       
       if (newOption) {
         // Add the new option to current selection
@@ -175,7 +178,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
           isClearable
           className={`react-select-styled ${hasError ? 'is-invalid' : ''}`}
           classNamePrefix="react-select"
-          components={onCreate ? { 
+          components={(onCreate ?? onCreateNew) ? { 
             MenuList: (props) => CustomMenuList({ 
               ...props, 
               onCreate: handleOpenCreateModal, 

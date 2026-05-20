@@ -35,8 +35,9 @@ const ERROR_MESSAGES = {
   "signed-decimal": "Input Type Should Be Number",
 };
 
+
 interface TextInputProps {
-  isRequired: boolean;
+  isRequired?: boolean;
   formikField: string;
   readonly?: boolean;
   margin?: string;
@@ -145,7 +146,7 @@ function TextInput({
         <div className="text-danger mt-1 fs-7">{validationError}</div>
       )}
 
-      <HighlightErrors isRequired={isRequired} formikField={formikField} />
+      <HighlightErrors isRequired={Boolean(isRequired)} formikField={formikField} />
     </div>
   );
 }

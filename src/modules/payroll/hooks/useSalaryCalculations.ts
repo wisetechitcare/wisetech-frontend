@@ -6,6 +6,23 @@ import { sumBreakdownEarnings, parseCurrencyString, formatINR2 } from '../utils/
 import { PAYMENT_STATUS } from '../constants/payroll.constants';
 import dayjs from 'dayjs';
 
+const getProfessionalFeesAmount = (fixedBreakdown: Record<string, any> | undefined) => {
+    const entry = Object.entries(fixedBreakdown || {}).find(([key, item]: [string, any]) => {
+        const amount = Number(item?.earned ?? item?.value ?? item ?? 0);
+        return key.toLowerCase().includes('professional fees') && item?.isActive !== false && amount > 0;
+    });
+
+    if (!entry) return 0;
+    const item: any = entry[1];
+    return Number(item?.earned ?? item?.value ?? item ?? 0);
+};
+
+const isProfessionalFeesPayment = (payment: any) => {
+    const type = String(payment?.type || payment?.paymentType || '').toUpperCase();
+    const deductionType = String(payment?.deductionType || payment?.remarks || '').toLowerCase();
+    return type === 'GOVERNMENT' && deductionType.includes('professional fees');
+};
+
 export const useSalaryCalculations = (
     monthlyApiData: IMonthlyApiResponse | null | undefined,
     employee: Employee,
@@ -49,11 +66,13 @@ export const useSalaryCalculations = (
         let netSalary = 0;
         let salaryPaid = 0;
         let governmentPaid = 0;
+        let totalProfessionalFees = 0;
 
         salaryData.forEach(item => {
             const gross = Number(item.totalGrossPayAmountInNumber ?? parseCurrencyString(item.totalGrossPayAmount));
             const variable = sumBreakdownEarnings(item.deductionBreakdown?.variable);
             const fixed = sumBreakdownEarnings(item.deductionBreakdown?.fixed);
+            const professionalFees = getProfessionalFeesAmount(item.deductionBreakdown?.fixed);
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
             const amountPaid = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
             const govPaid = Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0'));
@@ -64,25 +83,25 @@ export const useSalaryCalculations = (
             totalDeduction += (variable + fixed);
             netSalary += net;
             salaryPaid += amountPaid;
-            governmentPaid += govPaid;
+            totalProfessionalFees += professionalFees;
+            governmentPaid += professionalFees > 0 ? govPaid : 0;
         });
 
-        const fixedSum = sumBreakdownEarnings(apiSalaryData?.deductionBreakdown?.fixed);
+        const professionalFeesSum = getProfessionalFeesAmount(apiSalaryData?.deductionBreakdown?.fixed);
+        const hasProfessionalFees = professionalFeesSum > 0 || totalProfessionalFees > 0;
 
         return {
             totalGrossPay: Number(totalGrossPay.toFixed(2)),
             totalVariableDeduction: Number(totalVariableDeduction.toFixed(2)),
-            totalFixedDeduction: Number(totalFixedDeduction.toFixed(2)),
+            totalFixedDeduction: hasProfessionalFees ? Number(totalProfessionalFees.toFixed(2)) : 0,
             totalDeduction: Number(totalDeduction.toFixed(2)),
             netSalary: Number(netSalary.toFixed(2)),
             salaryPaid: Number(salaryPaid.toFixed(2)),
             salaryPending: Math.max(0, netSalary - salaryPaid),
             governmentPaid: Number(governmentPaid.toFixed(2)),
-            governmentPending: Math.max(0, fixedSum - governmentPaid),
+            governmentPending: hasProfessionalFees ? Math.max(0, totalProfessionalFees - governmentPaid) : 0,
             totalCompanyPayout: Number((salaryPaid + governmentPaid).toFixed(2)),
-            activeGovType: (apiSalaryData?.deductionBreakdown?.fixed) 
-                ? Object.keys(apiSalaryData.deductionBreakdown.fixed)[0] || 'TDS'
-                : 'TDS'
+            activeGovType: hasProfessionalFees ? 'Professional Fees' : ''
         };
     }, [monthlyApiData, apiSalaryData, targetMonth, targetYear]);
 
@@ -94,6 +113,8 @@ export const useSalaryCalculations = (
             const gross = Number(item.totalGrossPayAmountInNumber ?? parseCurrencyString(item.totalGrossPayAmount));
             const variable = sumBreakdownEarnings(item.deductionBreakdown?.variable);
             const fixed = sumBreakdownEarnings(item.deductionBreakdown?.fixed);
+            const professionalFees = getProfessionalFeesAmount(item.deductionBreakdown?.fixed);
+            const hasProfessionalFees = professionalFees > 0;
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
             const history = [...(item.salaryPayments || []), ...(item.govtPayments || []), ...(item.paymentHistory || [])];
             
@@ -101,7 +122,7 @@ export const useSalaryCalculations = (
             const uniqueHistory = Array.from(new Map(history.map(p => [p.id || `${p.amount}-${p.paymentDate}-${p.type}`, p])).values());
 
             const amountPaid = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
-            const govPaid = Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0'));
+            const govPaid = hasProfessionalFees ? Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0')) : 0;
 
             // 1. Add Paid Rows from History (or synthesize from master if legacy)
             if (history.length === 0 && (amountPaid > 0 || govPaid > 0)) {
@@ -123,14 +144,14 @@ export const useSalaryCalculations = (
                         item: item
                     });
                 }
-                if (govPaid > 0) {
+                if (hasProfessionalFees && govPaid > 0) {
                     rows.push({
                         ...item,
                         id: `${item.id}-legacy-gov`,
                         calculatedGrossPay: gross,
                         calculatedVariableDeduction: variable,
-                        calculatedFixedDeduction: fixed,
-                        calculatedNetSalary: fixed,
+                        calculatedFixedDeduction: professionalFees,
+                        calculatedNetSalary: professionalFees,
                         calculatedStatus: 'Paid',
                         calculatedPaidAmount: govPaid,
                         paymentType: 'GOVERNMENT',
@@ -144,13 +165,16 @@ export const useSalaryCalculations = (
             } else {
                 uniqueHistory.forEach((p: any) => {
                     const isGov = p.type === 'GOVERNMENT';
+                    if (isGov && !isProfessionalFeesPayment(p)) {
+                        return;
+                    }
                     rows.push({
                         ...item,
                         id: p.id || `${item.id}-${p.type}-${p.paymentDate}`,
                         calculatedGrossPay: gross,
                         calculatedVariableDeduction: variable,
-                        calculatedFixedDeduction: fixed,
-                        calculatedNetSalary: isGov ? fixed : net,
+                        calculatedFixedDeduction: isGov ? professionalFees : fixed,
+                        calculatedNetSalary: isGov ? professionalFees : net,
                         calculatedStatus: 'Paid',
                         calculatedPaidAmount: p.amount,
                         paymentType: p.type,
@@ -183,14 +207,14 @@ export const useSalaryCalculations = (
                 });
             }
 
-            const govPending = Math.max(0, fixed - govPaid);
-            if (govPending >= 1.0) {
+            const govPending = Math.max(0, professionalFees - govPaid);
+            if (hasProfessionalFees && govPending >= 1.0) {
                 rows.push({
                     ...item,
                     id: `${item.id}-pending-gov`,
                     calculatedGrossPay: gross,
                     calculatedVariableDeduction: variable,
-                    calculatedFixedDeduction: fixed,
+                    calculatedFixedDeduction: professionalFees,
                     calculatedNetSalary: govPending, // Show only the pending amount
                     calculatedStatus: 'Pending',
                     calculatedPaidAmount: 0,
@@ -198,7 +222,7 @@ export const useSalaryCalculations = (
                     paymentMethod: '--',
                     displayDate: item.monthEndDate || dayjs().format('YYYY-MM-DD'),
                     item: item,
-                    remarks: 'Statutory Dues Pending'
+                    remarks: 'Professional Fees Pending'
                 });
             }
         });

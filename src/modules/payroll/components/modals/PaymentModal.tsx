@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Button, Row, Col, Badge, Card } from 'react-bootstrap';
 import { Formik, Form as FormikForm, FormikValues } from 'formik';
 import * as Yup from 'yup';
@@ -68,28 +68,31 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         { label: 'UPI / Online', value: 'UPI' }
     ];
 
-    // Filter statutory deductions to completely ignore Professional Tax / PT case-insensitively
-    const govtDeductions = Object.entries(statutoryBreakdown || {}).map(([key, data]: [string, any]) => ({
-        label: key,
-        value: key,
-        amount: Number(data?.earned || 0)
-    })).filter(d => {
-        const lowerLabel = d.label.toLowerCase();
-        // Ignore Professional Tax / PT completely as it's paid directly at year end
-        if (lowerLabel.includes('professional tax') || lowerLabel === 'pt' || lowerLabel === 'ptax') {
-            return false;
-        }
-        return d.amount > 0;
-    });
+    const govtDeductions = Object.entries(statutoryBreakdown || {})
+        .map(([key, data]: [string, any]) => ({
+            label: key,
+            value: key,
+            amount: Number(data?.earned ?? data?.value ?? (data || 0)),
+            isActive: data?.isActive !== false,
+        }))
+        .filter(d => d.label.toLowerCase().includes('professional fees') && d.isActive && d.amount > 0);
 
-    // Calculate corrected fixed deductions sum excluding Professional Tax
-    const correctedFixedDeductions = statutoryBreakdown && Object.keys(statutoryBreakdown).length > 0
-        ? govtDeductions.reduce((sum, item) => sum + item.amount, 0)
-        : fixedDeductions;
+    const hasProfessionalFees = govtDeductions.length > 0;
+    const availablePaymentModes = hasProfessionalFees
+        ? paymentModes
+        : paymentModes.filter(mode => mode.value === 'SALARY');
+
+    useEffect(() => {
+        if (!hasProfessionalFees && activeTab !== 'SALARY') {
+            setActiveTab('SALARY');
+        }
+    }, [activeTab, hasProfessionalFees]);
+
+    const correctedFixedDeductions = govtDeductions.reduce((sum, item) => sum + item.amount, 0);
 
     const govtPending = Math.max(0, correctedFixedDeductions - governmentPaid);
 
-    const activeGovType = govtDeductions.length > 0 ? govtDeductions[0].label : 'Statutory';
+    const activeGovType = hasProfessionalFees ? govtDeductions[0].label : 'Professional Fees';
 
     return (
         <Modal show={show} onHide={onHide} size="xl" centered className="wt-payment-modal shadow-lg overflow-hidden">
@@ -120,15 +123,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                 </Card.Body>
                             </Card>
                         </Col>
-                        <Col md={3}>
-                            <Card className="bg-light-danger border-0 shadow-none h-100">
-                                <Card.Body className="p-4">
-                                    <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Payable</span>
-                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(correctedFixedDeductions)}</span>
-                                    <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatINR2(govtPending)}</Badge>
-                                </Card.Body>
-                            </Card>
-                        </Col>
+                        {hasProfessionalFees && (
+                            <Col md={3}>
+                                <Card className="bg-light-danger border-0 shadow-none h-100">
+                                    <Card.Body className="p-4">
+                                        <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Payable</span>
+                                        <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(correctedFixedDeductions)}</span>
+                                        <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatINR2(govtPending)}</Badge>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        )}
                         <Col md={3}>
                             <Card className="bg-light-success border-0 shadow-none h-100">
                                 <Card.Body className="p-4">
@@ -138,15 +143,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                 </Card.Body>
                             </Card>
                         </Col>
-                        <Col md={3}>
-                            <Card className="bg-light-info border-0 shadow-none h-100">
-                                <Card.Body className="p-4">
-                                    <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Paid</span>
-                                    <span className="text-info fs-3 fw-bolder d-block">{formatINR2(governmentPaid)}</span>
-                                    <Badge bg="info" className="bg-opacity-10 text-info mt-1">Paid to Govt</Badge>
-                                </Card.Body>
-                            </Card>
-                        </Col>
+                        {hasProfessionalFees && (
+                            <Col md={3}>
+                                <Card className="bg-light-info border-0 shadow-none h-100">
+                                    <Card.Body className="p-4">
+                                        <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Paid</span>
+                                        <span className="text-info fs-3 fw-bolder d-block">{formatINR2(governmentPaid)}</span>
+                                        <Badge bg="info" className="bg-opacity-10 text-info mt-1">Paid</Badge>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        )}
                     </Row>
                 </div>
 
@@ -156,7 +163,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         paymentType: activeTab,
                         salaryAmount: initialValues.salaryAmount || salaryPending,
                         govAmount: initialValues.govAmount || 0,
-                        govType: initialValues.govType || (govtDeductions.length > 0 ? govtDeductions[0].value : 'TDS'),
+                        govType: initialValues.govType || (hasProfessionalFees ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
                         paymentMethod: 'BANK_TRANSFER',
                         paidAt: new Date().toISOString().split('T')[0]
@@ -183,7 +190,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                 <FormikDropdownInput
                                                     inputLabel="Payment Category"
                                                     formikField="paymentType"
-                                                    options={paymentModes}
+                                                    options={availablePaymentModes}
                                                     isRequired={true}
                                                     onChange={(option: any) => {
                                                         const value = option?.value || '';
@@ -236,7 +243,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             <div className="px-6 py-4 bg-light border-bottom d-flex justify-content-between align-items-center">
                                                 <h4 className="fw-bolder text-gray-800 mb-0">
                                                     {activeTab === 'SALARY' ? 'Salary Installment' : 
-                                                     activeTab === 'GOVERNMENT' ? 'Statutory Fee Settlement' : 
+                                                     activeTab === 'GOVERNMENT' ? 'Professional Fees Settlement' : 
                                                      'Combined Disbursement'}
                                                 </h4>
                                                 <Badge bg="primary" className="fw-bold">Step 2 of 2</Badge>
@@ -273,11 +280,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                 )}
 
                                                 {/* SECTION: Government Payment */}
-                                                {(activeTab === 'GOVERNMENT' || activeTab === 'COMBINED') && (
+                                                {hasProfessionalFees && (activeTab === 'GOVERNMENT' || activeTab === 'COMBINED') && (
                                                     <div>
                                                         <div className="d-flex align-items-center mb-6">
                                                             <div className="bullet bullet-vertical bg-danger h-20px me-3"></div>
-                                                            <h5 className="fw-bold text-gray-800 m-0">Statutory Fee Settlement (TDS / PF / PT)</h5>
+                                                            <h5 className="fw-bold text-gray-800 m-0">Professional Fees Settlement</h5>
                                                         </div>
                                                         
                                                         <Row className="g-5">
@@ -321,7 +328,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                 <div className="d-flex align-items-center">
                                                                     <KTIcon iconName="information-5" className="fs-1 text-danger me-4" />
                                                                     <div className="text-gray-700 fw-bold fs-7">
-                                                                        Government payments will update the statutory ledger and master status. 
+                                                                        Professional Fees payments will update the statutory ledger and master status. 
                                                                         Ensure the Challan # is recorded for audit purposes.
                                                                     </div>
                                                                 </div>

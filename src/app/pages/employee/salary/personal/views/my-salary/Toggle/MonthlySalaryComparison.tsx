@@ -4,9 +4,10 @@ import ApexCharts from 'react-apexcharts';
 interface MonthlySalaryComparisonProps {
     ComparisonData: any[];
     loading?: boolean;
+    compact?: boolean;
 }
 
-const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySalaryComparisonProps) => {
+const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = false }: MonthlySalaryComparisonProps) => {
     const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
     
     // Standard Indian Fiscal Year: April to March order
@@ -126,7 +127,7 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
         chart: {
             id: 'salary-combo-chart',
             type: 'line' as 'line',
-            height: 380,
+            height: compact ? 300 : 430,
             toolbar: {
                 show: false
             },
@@ -158,9 +159,9 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
                 if (!val || val === 0) return '';
                 return '₹' + (val / 1000).toFixed(0) + 'k';
             },
-            offsetY: -22,
+                offsetY: compact ? -14 : -22,
             style: {
-                fontSize: '11px',
+                    fontSize: compact ? '9px' : '11px',
                 fontWeight: 700,
                 colors: ['#334155', '#334155'] // Fixed colors array: very bold, dark color to be 100% visible on white bg!
             },
@@ -187,6 +188,8 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
         },
         yaxis: {
             labels: {
+                minWidth: 54,
+                maxWidth: 54,
                 formatter: function (val: number) {
                     return '₹' + val.toLocaleString('en-IN');
                 },
@@ -309,22 +312,23 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
 
     if (loading) {
         return (
-            <div className="card p-6 mb-5" style={{ borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #f1f5f9' }}>
+            <div className="card mb-5" style={{ padding: compact ? '16px' : '24px', borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
                     <SkeletonLoader width="300px" height="32px" />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                    {[...Array(4)].map((_, i) => <SkeletonLoader key={i} height="100px" />)}
+                <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: compact ? '10px' : '16px', marginBottom: compact ? '12px' : '24px' }}>
+                    {[...Array(4)].map((_, i) => <SkeletonLoader key={i} height={compact ? '64px' : '100px'} />)}
                 </div>
-                <div style={{ marginTop: '24px', minHeight: '350px' }}>
-                    <SkeletonLoader width="100%" height="300px" />
+                <div style={{ marginTop: compact ? '12px' : '24px', minHeight: compact ? '255px' : '350px' }}>
+                    <SkeletonLoader width="100%" height={compact ? '240px' : '300px'} />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="card p-6 mb-5" style={{
+        <div className="card mb-5" style={{
+            padding: compact ? '16px' : '24px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
             borderRadius: '16px',
             backgroundColor: '#ffffff',
@@ -332,10 +336,10 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
             fontFamily: 'Inter, sans-serif'
         }}>
             {/* Top Header Section - Only essential title & subtitle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: compact ? '14px' : '24px' }}>
                 <div style={{
-                    width: '40px',
-                    height: '40px',
+                    width: compact ? '34px' : '40px',
+                    height: compact ? '34px' : '40px',
                     backgroundColor: '#8a1c1410',
                     borderRadius: '8px',
                     display: 'flex',
@@ -348,127 +352,14 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
                         <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                 </div>
-                <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Monthly Salary Comparison</h3>
-                    <span style={{ fontSize: '12.5px', color: '#64748b' }}>Compare Basic Salary and Net Salary across all months</span>
-                </div>
-            </div>
-
-            {/* Essential KPI Cards Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                {/* Total Basic Salary */}
-                <div className="kpi-card" style={{
-                    padding: '16px 20px',
-                    borderRadius: '12px',
-                    border: '1px solid #fef3c7',
-                    backgroundColor: '#fffdf5',
-                    boxShadow: '0 2px 8px rgba(245, 195, 66, 0.02)',
-                    transition: 'all 0.3s ease',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    cursor: 'default'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            backgroundColor: '#FBD67825',
-                            border: '4px solid #FBD678',
-                            display: 'inline-block'
-                        }}></span>
-                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>Total Basic Salary</span>
-                    </div>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '2px' }}>
-                        {formatCurrency(totalBasic)}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>This Year</div>
-                </div>
-
-                {/* Total Net Salary */}
-                <div className="kpi-card" style={{
-                    padding: '16px 20px',
-                    borderRadius: '12px',
-                    border: '1px solid #d1fae5',
-                    backgroundColor: '#f6fdf9',
-                    boxShadow: '0 2px 8px rgba(88, 194, 93, 0.02)',
-                    transition: 'all 0.3s ease',
-                    cursor: 'default'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            backgroundColor: '#58C25D25',
-                            border: '4px solid #58C25D',
-                            display: 'inline-block'
-                        }}></span>
-                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>Total Net Salary</span>
-                    </div>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '2px' }}>
-                        {formatCurrency(totalNet)}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>This Year</div>
-                </div>
-
-                {/* Average Basic Salary */}
-                <div className="kpi-card" style={{
-                    padding: '16px 20px',
-                    borderRadius: '12px',
-                    border: '1px solid #dbeafe',
-                    backgroundColor: '#f8fafc',
-                    boxShadow: '0 2px 8px rgba(59, 130, 246, 0.02)',
-                    transition: 'all 0.3s ease',
-                    cursor: 'default'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            backgroundColor: 'transparent',
-                            border: '4px solid #3b82f6',
-                            display: 'inline-block'
-                        }}></span>
-                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>Average Basic Salary</span>
-                    </div>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '2px' }}>
-                        {formatCurrency(avgBasic)}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>Per Month</div>
-                </div>
-
-                {/* Average Net Salary */}
-                <div className="kpi-card" style={{
-                    padding: '16px 20px',
-                    borderRadius: '12px',
-                    border: '1px solid #f3e8ff',
-                    backgroundColor: '#fafafdfc',
-                    boxShadow: '0 2px 8px rgba(168, 85, 247, 0.02)',
-                    transition: 'all 0.3s ease',
-                    cursor: 'default'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            backgroundColor: 'transparent',
-                            border: '4px solid #a855f7',
-                            display: 'inline-block'
-                        }}></span>
-                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b' }}>Average Net Salary</span>
-                    </div>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '2px' }}>
-                        {formatCurrency(avgNet)}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>Per Month</div>
+                <div style={{ minWidth: 0 }}>
+                    <h3 style={{ fontSize: compact ? '16px' : '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Monthly Salary Comparison</h3>
+                    <span style={{ fontSize: compact ? '11.5px' : '12.5px', color: '#64748b' }}>Basic vs Net salary by month</span>
                 </div>
             </div>
 
             {/* Premium Legend */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '24px', margin: '16px 0 24px 0', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: compact ? '12px' : '24px', margin: compact ? '4px 0 2px 0' : '16px 0 24px 0', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500, color: '#475569' }}>
                     <span style={{ width: '20px', height: '10px', backgroundColor: '#FBD678', borderRadius: '2px', display: 'inline-block' }}></span>
                     Basic Salary (₹)
@@ -494,12 +385,12 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
             </div>
 
             {/* Grouped Connected Bar Chart */}
-            <div className="bar-chart-container" style={{ minHeight: '380px' }}>
+            <div className="bar-chart-container" style={{ minHeight: compact ? '300px' : '430px' }}>
                 <ApexCharts
                     options={chartOptions}
                     series={series}
                     type="line"
-                    height={380}
+                    height={compact ? 300 : 430}
                 />
             </div>
 
@@ -508,8 +399,8 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false }: MonthlySal
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginTop: '24px',
-                paddingTop: '16px',
+                marginTop: compact ? '2px' : '24px',
+                paddingTop: compact ? '8px' : '16px',
                 borderTop: '1px solid #f1f5f9',
                 fontSize: '12.5px',
                 color: '#94a3b8',

@@ -6,9 +6,10 @@ import { RootState } from '@redux/store';
 interface IncrementsProps {
     salaryData: any[];
     loading?: boolean;
+    compact?: boolean;
 }
 
-const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
+const Increments = memo(({ salaryData, loading = false, compact = false }: IncrementsProps) => {
     // Read employeeId for Redis/localStorage key persistence
     const employeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id || 'default_user');
 
@@ -164,27 +165,27 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                     x: monthlyStats[i].month,
                     y: curr,
                     marker: {
-                        size: 6,
+                        size: 4,
                         fillColor: '#10B981',
                         strokeColor: '#ffffff',
                         strokeWidth: 2,
                     },
                     label: {
                         borderColor: '#10B981',
-                        offsetY: -15,
+                        offsetY: -28,
                         style: {
                             color: '#fff',
                             background: '#10B981',
-                            fontSize: '9.5px',
+                            fontSize: '8.5px',
                             fontWeight: 700,
                             padding: {
-                                left: 6,
-                                right: 6,
-                                top: 4,
-                                bottom: 4
+                                left: 4,
+                                right: 4,
+                                top: 2,
+                                bottom: 2
                             }
                         },
-                        text: `▲ +${formatCurrency(diff)}`
+                        text: `+${formatCurrency(diff)}`
                     }
                 });
             }
@@ -226,7 +227,9 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
         chart: {
             id: 'salary-increments-chart',
             type: 'area' as 'area',
-            height: 350,
+            height: compact ? 330 : 430,
+            parentHeightOffset: 0,
+            offsetY: compact ? 18 : 0,
             toolbar: {
                 show: false
             },
@@ -291,6 +294,8 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
         },
         yaxis: {
             labels: {
+                minWidth: 54,
+                maxWidth: 54,
                 formatter: function (val: number) {
                     return '₹' + val.toLocaleString('en-IN');
                 },
@@ -411,22 +416,23 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
 
     if (loading) {
         return (
-            <div className="card p-6 mb-5" style={{ borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #f1f5f9' }}>
+            <div className="card mb-5" style={{ padding: compact ? '16px' : '24px', borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
                     <SkeletonLoader width="300px" height="32px" />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                    {[...Array(4)].map((_, i) => <SkeletonLoader key={i} height="80px" />)}
+                <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: compact ? '10px' : '16px', marginBottom: compact ? '12px' : '24px' }}>
+                    {[...Array(4)].map((_, i) => <SkeletonLoader key={i} height={compact ? '58px' : '80px'} />)}
                 </div>
-                <div style={{ minHeight: '350px' }}>
-                    <SkeletonLoader width="100%" height="300px" />
+                <div style={{ minHeight: compact ? '255px' : '350px' }}>
+                    <SkeletonLoader width="100%" height={compact ? '240px' : '300px'} />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="card p-6 mb-5" style={{
+        <div className="card mb-5" style={{
+            padding: compact ? '16px' : '24px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
             borderRadius: '16px',
             backgroundColor: '#ffffff',
@@ -434,11 +440,11 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
             fontFamily: 'Inter, sans-serif'
         }}>
             {/* Header Section */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: compact ? '12px' : '24px', flexWrap: 'wrap', gap: compact ? '10px' : '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
-                        width: '40px',
-                        height: '40px',
+                        width: compact ? '34px' : '40px',
+                        height: compact ? '34px' : '40px',
                         backgroundColor: '#2e93fa10',
                         borderRadius: '8px',
                         display: 'flex',
@@ -452,13 +458,13 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                         </svg>
                     </div>
                     <div>
-                        <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Increments</h3>
-                        <span style={{ fontSize: '12.5px', color: '#64748b' }}>Track salary increment growth over time</span>
+                        <h3 style={{ fontSize: compact ? '16px' : '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Increments</h3>
+                        <span style={{ fontSize: compact ? '11.5px' : '12.5px', color: '#64748b' }}>Salary increment growth over time</span>
                     </div>
                 </div>
 
                 {/* Growth Badge & Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: compact ? 'flex-start' : 'flex-end', gap: compact ? '8px' : '16px', flexWrap: 'wrap' }}>
                     {/* Curve Type Selector Toggle */}
                     <div style={{
                         display: 'inline-flex',
@@ -469,10 +475,10 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                         <button
                             onClick={() => setCurveType('smooth')}
                             style={{
-                                padding: '6px 12px',
+                                padding: compact ? '5px 9px' : '6px 12px',
                                 border: 'none',
                                 borderRadius: '6px',
-                                fontSize: '12px',
+                                fontSize: compact ? '11px' : '12px',
                                 fontWeight: 600,
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
@@ -486,10 +492,10 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                         <button
                             onClick={() => setCurveType('stepline')}
                             style={{
-                                padding: '6px 12px',
+                                padding: compact ? '5px 9px' : '6px 12px',
                                 border: 'none',
                                 borderRadius: '6px',
-                                fontSize: '12px',
+                                fontSize: compact ? '11px' : '12px',
                                 fontWeight: 600,
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
@@ -514,10 +520,10 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                                 key={p}
                                 onClick={() => handlePeriodChange(p)}
                                 style={{
-                                    padding: '6px 12px',
+                                    padding: compact ? '5px 8px' : '6px 12px',
                                     border: 'none',
                                     borderRadius: '6px',
-                                    fontSize: '12px',
+                                    fontSize: compact ? '11px' : '12px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     transition: 'all 0.2s',
@@ -538,9 +544,9 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
                         gap: '6px',
                         backgroundColor: '#d1fae5',
                         color: '#065f46',
-                        padding: '6px 14px',
+                        padding: compact ? '5px 10px' : '6px 14px',
                         borderRadius: '20px',
-                        fontSize: '13px',
+                        fontSize: compact ? '11.5px' : '13px',
                         fontWeight: 700
                     }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -553,18 +559,18 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
             </div>
 
             {/* The Main Area + Line Chart */}
-            <div className="area-chart-container" style={{ minHeight: '350px', marginBottom: '24px' }}>
+            <div className="area-chart-container" style={{ minHeight: compact ? '330px' : '430px', marginBottom: 0, paddingTop: compact ? '12px' : 0 }}>
                 {processedChart.data.length > 0 ? (
                     <ApexCharts
                         key={`increments-combo-${period}-${curveType}-${monthlyStats.length}`}
                         options={chartOptions}
                         series={series}
                         type="area"
-                        height={350}
+                        height={compact ? 330 : 430}
                     />
                 ) : (
                     <div style={{
-                        height: '350px',
+                        height: compact ? '330px' : '430px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -577,10 +583,10 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
             </div>
 
             {/* Bottom Insights Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'none', gridTemplateColumns: compact ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: compact ? '10px' : '16px' }}>
                 {/* Current Salary Card */}
                 <div style={{
-                    padding: '16px 20px',
+                    padding: compact ? '10px 12px' : '16px 20px',
                     borderRadius: '12px',
                     border: '1px solid #e2e8f0',
                     backgroundColor: '#ffffff',
@@ -612,7 +618,7 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
 
                 {/* Highest Single Increment Jump Card */}
                 <div style={{
-                    padding: '16px 20px',
+                    padding: compact ? '10px 12px' : '16px 20px',
                     borderRadius: '12px',
                     border: '1px solid #e2e8f0',
                     backgroundColor: '#ffffff',
@@ -644,7 +650,7 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
 
                 {/* Average Growth Rate Card */}
                 <div style={{
-                    padding: '16px 20px',
+                    padding: compact ? '10px 12px' : '16px 20px',
                     borderRadius: '12px',
                     border: '1px solid #e2e8f0',
                     backgroundColor: '#ffffff',
@@ -676,7 +682,7 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
 
                 {/* Total Increments Sum Card */}
                 <div style={{
-                    padding: '16px 20px',
+                    padding: compact ? '10px 12px' : '16px 20px',
                     borderRadius: '12px',
                     border: '1px solid #e2e8f0',
                     backgroundColor: '#ffffff',
@@ -713,3 +719,4 @@ const Increments = memo(({ salaryData, loading = false }: IncrementsProps) => {
 Increments.displayName = 'Increments';
 
 export default Increments;
+

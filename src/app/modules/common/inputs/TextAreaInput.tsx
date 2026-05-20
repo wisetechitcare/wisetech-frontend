@@ -3,7 +3,7 @@ import HighlightErrors from "../../errors/components/HighlightErrors";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
 
 interface TextAreaInputProps {
-    isRequired: boolean;
+    isRequired?: boolean;
     formikField: string;
     readonly?: boolean;
     margin?: string;
@@ -12,7 +12,7 @@ interface TextAreaInputProps {
     rows?: number;
 }
 
-function TextAreaInput({ margin, isRequired, label, formikField, readonly, placeholder, rows = 4 }: TextAreaInputProps) {
+function TextAreaInput({ margin, isRequired = false, label, formikField, readonly, placeholder, rows = 4 }: TextAreaInputProps) {
     const hasEmptyPlaceholder = placeholder === "-";
     
     return (
