@@ -13,6 +13,7 @@ import {
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { usePermission } from "@hooks/usePermission";
 import { KTIcon } from "@metronic/helpers";
 import {
   errorConfirmation,
@@ -56,9 +57,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
   const dispatch = useDispatch();
 
   // Redux selectors
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
+  const isAdmin = usePermission('settings.manage.all');
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
 

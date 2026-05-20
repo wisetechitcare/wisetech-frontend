@@ -1,0 +1,972 @@
+.leave-request-calendar {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+
+/* Fix 3: Selection overrides efficiency tile colors inside selected range */
+.leave-request-calendar__tile--selected-range.leave-request-calendar__tile--eff-high,
+.leave-request-calendar__tile--selected-range.leave-request-calendar__tile--eff-mid,
+.leave-request-calendar__tile--selected-range.leave-request-calendar__tile--eff-low {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #1e40af !important;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Fix 1: Disabled calendar wrapper */
+.leave-request-calendar__calendar-wrapper--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Fix 5: Compact selection band once range is committed */
+.leave-request-calendar__selection-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  background: #f0f9ff;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
+  font-size: 0.9rem;
+}
+
+.leave-request-calendar__selection-range {
+  font-weight: 700;
+  color: #1e40af;
+  flex: 1;
+}
+
+.leave-request-calendar__selection-edit {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Date Selection Info - Ixigo Style */
+.leave-request-calendar__selection-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%);
+  border-radius: 10px;
+  border: 1px solid #dbeafe;
+}
+
+.leave-request-calendar__date-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.leave-request-calendar__date-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leave-request-calendar__date-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.leave-request-calendar__date-day {
+  font-size: 0.85rem;
+  color: #2563eb;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.leave-request-calendar__date-text {
+  font-size: 1rem;
+  color: #111827;
+  font-weight: 600;
+}
+
+.leave-request-calendar__date-placeholder {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.leave-request-calendar__divider {
+  font-size: 1.2rem;
+  color: #2563eb;
+  font-weight: 600;
+  margin: 0 8px;
+}
+
+/* Calendar Wrapper */
+.leave-request-calendar__calendar-wrapper {
+  margin-bottom: 20px;
+}
+
+.leave-request-calendar .react-calendar {
+  border: none;
+  width: 100%;
+  background: #fafafa;
+  padding: 16px;
+  border-radius: 10px;
+}
+
+.leave-request-calendar .react-calendar__tile {
+  min-height: 56px;
+  border-radius: 8px;
+  transition: all 200ms ease;
+  padding: 8px 4px;
+  position: relative;
+  font-weight: 500;
+  font-size: 0.9rem;
+  /* Stacking context so ::before circle and abbr z-index work predictably */
+  isolation: isolate;
+}
+
+/* Date number sits above the circle */
+.leave-request-calendar .react-calendar__tile abbr {
+  position: relative;
+  z-index: 2;
+  display: block;
+  line-height: 1;
+}
+
+.leave-request-calendar .react-calendar__tile:hover {
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Ixigo-style: flat band for middle selected tiles */
+.leave-request-calendar__tile--selected-range {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #1e40af !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Start tile: right half = band, left half = transparent; circle via ::before */
+.leave-request-calendar__tile--range-start:not(.leave-request-calendar__tile--range-end) {
+  background: linear-gradient(to right, transparent 50%, rgba(59, 130, 246, 0.12) 50%) !important;
+  color: #fff !important;
+  font-weight: 700;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* End tile: left half = band, right half = transparent; circle via ::before */
+.leave-request-calendar__tile--range-end:not(.leave-request-calendar__tile--range-start) {
+  background: linear-gradient(to left, transparent 50%, rgba(59, 130, 246, 0.12) 50%) !important;
+  color: #fff !important;
+  font-weight: 700;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Single-day selection: no band, just circle */
+.leave-request-calendar__tile--range-start.leave-request-calendar__tile--range-end {
+  background: transparent !important;
+  color: #fff !important;
+  font-weight: 700;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Solid circle behind the date number for start and end */
+.leave-request-calendar__tile--range-start::before,
+.leave-request-calendar__tile--range-end::before {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: #2563eb;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1; /* above band bg (0), below abbr (2) */
+}
+
+.leave-request-calendar__tile--holiday {
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fee2e2;
+}
+
+.leave-request-calendar__tile--weekend {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0;
+}
+
+.leave-request-calendar__tile--eff-high {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #bbf7d0;
+}
+
+.leave-request-calendar__tile--eff-mid {
+  background: #fef9c3 !important;
+  color: #854d0e !important;
+  border: 1px solid #fef08a;
+}
+
+.leave-request-calendar__tile--eff-low {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca;
+}
+
+/* Inline Highlight for Top Suggestion */
+.leave-request-calendar__tile--suggested-highlight {
+  box-shadow: inset 0 0 0 2px #9333ea, 0 0 8px rgba(147, 51, 234, 0.4) !important;
+  z-index: 2;
+}
+
+.leave-request-calendar__tile-content-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3; /* above circle (1) and abbr (2) */
+}
+
+.leave-request-calendar__tooltip {
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  animation: tooltipFadeIn 0.2s ease-out forwards;
+}
+
+.leave-request-calendar__tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #1e293b transparent transparent transparent;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translate(-50%, 5px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.leave-request-calendar__tag {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.leave-request-calendar__tag--holiday {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.leave-request-calendar__tag--weekend {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Smart Suggestions */
+.leave-request-calendar__suggestions {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.leave-request-calendar__suggestions-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.leave-request-calendar__suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leave-request-calendar__suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.leave-request-calendar__suggestion-item:hover,
+.leave-request-calendar__suggestion-item:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-color: #94a3b8;
+  outline: none;
+}
+
+.leave-request-calendar__suggestion-item:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.leave-request-calendar__suggestion-dates {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.leave-request-calendar__suggestion-desc {
+  flex: 1;
+  margin: 0 16px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.leave-request-calendar__suggestion-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f766e;
+  background: #ccfbf1;
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid #99f6e4;
+}
+
+/* Smart Comparison Alert */
+.leave-request-calendar__comparison-alert {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #eff6ff;
+  border-radius: 10px;
+  border: 1px solid #bfdbfe;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leave-request-calendar__comparison-header {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.leave-request-calendar__comparison-body {
+  font-size: 0.9rem;
+  color: #1e3a8a;
+  line-height: 1.4;
+}
+
+.leave-request-calendar__comparison-btn {
+  align-self: flex-start;
+  margin-top: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.leave-request-calendar__comparison-btn:hover {
+  background: #1d4ed8;
+}
+
+/* Statistics Section */
+.leave-request-calendar__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.leave-request-calendar__stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leave-request-calendar__stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leave-request-calendar__stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Legend Section */
+.leave-request-calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.leave-request-calendar__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.leave-request-calendar__legend-chip {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.leave-request-calendar__legend-chip--selected {
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid #2563eb;
+}
+
+.leave-request-calendar__legend-chip--holiday {
+  background: #fecaca;
+  border: 1px solid #fca5a5;
+}
+
+.leave-request-calendar__legend-chip--weekend {
+  background: #cbd5e1;
+  border: 1px solid #94a3b8;
+}
+
+.leave-request-calendar__legend-chip--eff-high {
+  background: #bbf7d0;
+  border: 1px solid #86efac;
+}
+
+.leave-request-calendar__legend-chip--eff-mid {
+  background: #fef08a;
+  border: 1px solid #fde047;
+}
+
+.leave-request-calendar__legend-chip--eff-low {
+  background: #fecaca;
+  border: 1px solid #f87171;
+}
+
+/* Double-view layout (showDoubleView prop) */
+.leave-request-calendar .react-calendar--doubleView .react-calendar__viewContainer {
+  display: flex;
+  gap: 16px;
+}
+
+.leave-request-calendar .react-calendar--doubleView .react-calendar__viewContainer > * {
+  flex: 1;
+  width: 50%;
+}
+
+/* Holiday bar - ixigo style */
+.leave-request-calendar__holiday-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding: 12px 2px;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}
+
+.leave-request-calendar__holiday-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.leave-request-calendar__holiday-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.leave-request-calendar__holiday-bar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+.leave-request-calendar__holiday-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  white-space: nowrap;
+  min-width: 140px;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+}
+
+.leave-request-calendar__holiday-chip:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.leave-request-calendar__holiday-chip-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.leave-request-calendar__holiday-chip-date {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ── Selecting cursor ─────────────────────────────────────────────────────── */
+.leave-request-calendar--selecting .react-calendar__tile:not([disabled]) {
+  cursor: crosshair;
+}
+
+/* ── Hover-preview band (before second click) ─────────────────────────────── */
+.leave-request-calendar__tile--hover-preview {
+  background: rgba(59, 130, 246, 0.07) !important;
+  color: #1e40af !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ── Today marker ─────────────────────────────────────────────────────────── */
+.leave-request-calendar__tile--today {
+  font-weight: 700;
+}
+.leave-request-calendar__tile--today abbr::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: #2563eb;
+  border-radius: 50%;
+  margin: 2px auto 0;
+}
+
+/* ── Pulse animation (holiday chip click-to-navigate) ─────────────────────── */
+@keyframes tilePulse {
+  0%   { box-shadow: 0 0 0 0   rgba(239,68,68,0.6); }
+  50%  { box-shadow: 0 0 0 8px rgba(239,68,68,0);   }
+  100% { box-shadow: 0 0 0 0   rgba(239,68,68,0);   }
+}
+.leave-request-calendar__tile--pulsed {
+  animation: tilePulse 0.4s ease-out 3;
+  border: 1px solid #ef4444 !important;
+  border-radius: 8px !important;
+}
+
+/* ── Existing leave overlays ──────────────────────────────────────────────── */
+.leave-request-calendar__tile--past-leave {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(16, 185, 129, 0.08) 0px,
+    rgba(16, 185, 129, 0.08) 3px,
+    transparent 3px,
+    transparent 7px
+  ) !important;
+  color: #065f46 !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+.leave-request-calendar__tile--pending-leave {
+  background: rgba(245, 158, 11, 0.08) !important;
+  color: #92400e !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+.leave-request-calendar__tile--pending-leave abbr::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: #f59e0b;
+  border-radius: 50%;
+  margin: 2px auto 0;
+}
+
+/* ── Suppress react-calendar default active/hover styles ─────────────────── */
+.leave-request-calendar .react-calendar__tile--active,
+.leave-request-calendar .react-calendar__tile--hasActive {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* ── Clear button (compact header) ───────────────────────────────────────── */
+.leave-request-calendar__selection-clear {
+  background: none;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.leave-request-calendar__selection-clear:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* ── Comparison banner action row ─────────────────────────────────────────── */
+.leave-request-calendar__comparison-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.leave-request-calendar__comparison-delta {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
+  vertical-align: middle;
+}
+
+.leave-request-calendar__comparison-dismiss {
+  background: none;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e40af;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.leave-request-calendar__comparison-dismiss:hover {
+  background: #dbeafe;
+}
+
+/* ── Cumulative summary row ──────────────────────────────────────────────── */
+.leave-request-calendar__cumulative {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.leave-request-calendar__cumulative-label {
+  font-weight: 600;
+  color: #166534;
+}
+.leave-request-calendar__cumulative-value {
+  font-weight: 700;
+  color: #14532d;
+  font-size: 1rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RangeStatBar  (BEM prefix: lrc-stat-bar)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lrc-stat-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.lrc-stat-bar--preview {
+  background: #f0f9ff;
+  border-color: #bfdbfe;
+  opacity: 0.85;
+}
+
+.lrc-stat-bar__prompt {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.lrc-stat-bar__segment {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.lrc-stat-bar__segment--primary .lrc-stat-bar__val {
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.lrc-stat-bar__segment--muted {
+  color: #6b7280;
+}
+
+.lrc-stat-bar__val {
+  font-weight: 700;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+.lrc-stat-bar__lbl {
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.lrc-stat-bar__sep {
+  color: #d1d5db;
+  font-size: 1.1rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.lrc-stat-bar__badge {
+  margin-left: auto;
+  padding: 2px 10px;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BalanceGauge  (BEM prefix: lrc-balance-gauge)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lrc-balance-gauge {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.lrc-balance-gauge--over {
+  border-color: #fca5a5;
+  background: #fff5f5;
+}
+
+.lrc-balance-gauge__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.lrc-balance-gauge__type {
+  font-weight: 600;
+  color: #374151;
+}
+
+.lrc-balance-gauge__tally {
+  font-weight: 700;
+  color: #111827;
+}
+
+.lrc-balance-gauge__tally--error {
+  color: #dc2626;
+}
+
+.lrc-balance-gauge__track {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f1f5f9;
+  margin-bottom: 8px;
+}
+
+.lrc-balance-gauge__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.lrc-balance-gauge__fill--request {
+  background: #2563eb;
+}
+
+.lrc-balance-gauge__fill--remaining {
+  background: #bfdbfe;
+  margin-left: 2px;
+}
+
+.lrc-balance-gauge__fill--over {
+  background: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
+  width: 100%;
+  animation: gaugeOverPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes gaugeOverPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+.lrc-balance-gauge__footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.78rem;
+}
+
+.lrc-balance-gauge__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.lrc-balance-gauge__legend-item--error {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.lrc-balance-gauge__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.lrc-balance-gauge__dot--request {
+  background: #2563eb;
+}
+
+.lrc-balance-gauge__dot--remaining {
+  background: #bfdbfe;
+  border: 1px solid #93c5fd;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .leave-request-calendar {
+    padding: 16px;
+  }
+
+  .leave-request-calendar__selection-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .leave-request-calendar__date-block {
+    min-width: auto;
+  }
+
+  .leave-request-calendar__divider {
+    text-align: center;
+    margin: 0;
+    transform: rotate(90deg);
+  }
+
+  .leave-request-calendar .react-calendar {
+    padding: 12px;
+  }
+
+  .leave-request-calendar .react-calendar__tile {
+    min-height: 48px;
+    font-size: 0.8rem;
+  }
+
+  .leave-request-calendar__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .leave-request-calendar__legend {
+    gap: 12px;
+  }
+
+  /* Stack double-view months vertically on mobile */
+  .leave-request-calendar .react-calendar--doubleView .react-calendar__viewContainer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .leave-request-calendar .react-calendar--doubleView .react-calendar__viewContainer > * {
+    width: 100%;
+  }
+
+  .leave-request-calendar__tile--range-start::before,
+  .leave-request-calendar__tile--range-end::before {
+    width: 34px;
+    height: 34px;
+  }
+}

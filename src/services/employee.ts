@@ -1214,6 +1214,79 @@ export const updateEmployeeRolesById = async (employeeId: string, roles: any) =>
     }
 }
 
+export const fetchApprovalWorkflowConfigs = async (employeeId: string, workflowType?: string) => {
+    try {
+        let endpoint = `${API_BASE_URL}/api/approvals/config/${employeeId}`;
+        if (workflowType) {
+            endpoint += `?workflowType=${encodeURIComponent(workflowType)}`;
+        }
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const saveApprovalWorkflowChain = async (
+    employeeId: string,
+    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'conveyance',
+    levels: Array<{ level: number; approverId?: string | null }>,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/approvals/config/${employeeId}/${workflowType}`;
+        const { data } = await axios.put(endpoint, { levels });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteApprovalWorkflowConfig = async (configId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/approvals/config/${configId}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const fetchPendingApprovals = async () => {
+    const endpoint = `${API_BASE_URL}/api/approvals/pending`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const processApprovalAction = async (instanceId: string, action: 'approve' | 'reject', comments?: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/process`;
+    const { data } = await axios.post(endpoint, { action, comments });
+    return data;
+}
+
+export const fetchApprovalTimeline = async (instanceId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/timeline`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchApprovalStatus = async (instanceId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/status`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchApprovalAudit = async (instanceId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/audit`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchApprovalInstanceByRequest = async (requestModel: string, requestId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/request/${requestModel}/${requestId}`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
 /**
  * Creates a new permission for a specific employee by their ID.
  * @param employeeId - The ID of the employee.

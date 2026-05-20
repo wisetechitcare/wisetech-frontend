@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Formik, Form, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
-import Flatpickr from 'react-flatpickr';
 import Select from 'react-select';
 import { KTCardBody } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -14,16 +13,17 @@ import { RootState } from '@redux/store';
 import { fetchConfiguration, fetchLeaveOptions } from '@services/company';
 import { savePersonalLeaves } from '@redux/slices/leaves';
 import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, LeaveApprovedStatus, MATERNAL_LEAVES, SICK_LEAVES, Status, UNPAID_LEAVES, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
-import { LeaveTypes } from '@constants/attendance';
+import { LeaveStatus, LeaveTypes } from '@constants/attendance';
 import { transformLeaves } from '../../OverviewView';
 import { SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import dayjs from 'dayjs';
 import { fetchAllAddonLeavesAllowances } from '@services/addonLeavesAllowance';
-import { Form as BootstrapForm } from "react-bootstrap";
 import { calculateProRatedMonths } from '@utils/fiscalYearHelper';
+import { getCumulativeAllowedLeaves, getCurrentFiscalMonthIndex, calculateLeavesTakenByType, calculateCumulativeSummary } from '@utils/balanceProgressUtils';
 import { getWorkingDays } from '@utils/leaves';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+import LeaveRequestCalendar from './LeaveRequestCalendar';
 
 const extractApiErrorMessage = (err: any): string | null => {
   const data = err?.response?.data;
@@ -53,6 +53,9 @@ let initialValues: ILeaveRequest = {
   reason: "",
   status: 0,
 };
+
+const isPendingLeaveStatus = (status: number) =>
+  status === Status.ApprovalNeeded || status === LeaveStatus.PendingHR;
 
 const leaveRequestSchema = Yup.object().shape({
   leaveTypeId: Yup.string().required('Leave Type is required'),
@@ -118,9 +121,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   }, [allowedPerMonthFromRedux]);
 
   const dispatch = useDispatch();
-  const userAgent = useSelector((state: RootState) => state.userAgent.userAgent);
-  const isIosAndDeviceIsMobile = userAgent.os.name === 'iOS' && userAgent.device.type === 'Mobile';
-
   // F4: Track the last fetch context to avoid redundant API calls when only the
   //     `leave` prop reference changes (e.g. parent re-renders with new object identity).
   const lastFetchKey = useRef<string | null>(null);
@@ -355,6 +355,23 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         const floaterDaysTaken = floaterLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
         const unpaidDaysTaken = unpaidLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
 
+        // Pending days per paid type — mirrors backend's usedDays+pendingDays cumulative check
+        const casualDaysPending = fiscalYearFilteredLeaves
+            .filter((leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && isPendingLeaveStatus(leave.status))
+            .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
+        const annualDaysPending = fiscalYearFilteredLeaves
+            .filter((leave: any) => leave.leaveOptions.leaveType === ANNUAL_LEAVES && isPendingLeaveStatus(leave.status))
+            .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
+        const maternalDaysPending = fiscalYearFilteredLeaves
+            .filter((leave: any) => leave.leaveOptions.leaveType === MATERNAL_LEAVES && isPendingLeaveStatus(leave.status))
+            .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
+        const sickDaysPending = fiscalYearFilteredLeaves
+            .filter((leave: any) => leave.leaveOptions.leaveType === SICK_LEAVES && isPendingLeaveStatus(leave.status))
+            .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
+        const floaterDaysPending = fiscalYearFilteredLeaves
+            .filter((leave: any) => leave.leaveOptions.leaveType === FLOATER_LEAVES && isPendingLeaveStatus(leave.status))
+            .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
+
         const response = await fetchAllAddonLeavesAllowances();
         // if (!response?.hasError && response.data?.addonLeavesAllowances) {
         //     setAllowances(response.data.addonLeavesAllowances);
@@ -439,25 +456,29 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         // of the year after all paid leave types are accounted for.
         // Formula: unpaidBudget = 365 - sum(all paid leave type allocations)
         // This keeps the dropdown consistent with the Balance page (balanceProgressUtils.ts buildLeaveData).
+        // Maternal leaves are excluded from cumulative pacing — they carry full allocation
+        // from day 1 and must not count against the monthly pro-rated limit.
+        // Unpaid leaves are also excluded (they are derived, not a separate allocation).
         const totalPaidAllocated = allLeaveOption
-            .filter((opt: any) => opt.leaveType !== UNPAID_LEAVES)
+            .filter((opt: any) => opt.leaveType !== UNPAID_LEAVES && opt.leaveType !== MATERNAL_LEAVES)
             .reduce((sum: number, opt: any) => sum + (leaveBalanceMap[opt.leaveType] ?? (Number(opt.numberOfDays) || 0)), 0);
         const derivedUnpaidDays = Math.max(0, 365 - totalPaidAllocated);
 
-        // Cumulative allowance summary for the modal info block
+        // Cumulative allowance summary for the modal info block.
+        // Matches dashboard logic: uses centralized utility from balanceProgressUtils.
         {
-          const today = dayjs();
-          const month = today.month() + 1; // 1-based
-          const fiscalMonthIdx = month >= 4 ? month - 3 : month + 9;
-          const allowedTillNow = Math.round((totalPaidAllocated / 12) * fiscalMonthIdx);
-          const totalPaidUsed = casualDaysTaken + annualDaysTaken + sickDaysTaken + floaterDaysTaken + maternalDaysTaken;
-          const remaining = Math.max(0, allowedTillNow - Math.round(totalPaidUsed));
-          setCumulativeSummary({
-            total: totalPaidAllocated,
-            used: Math.round(totalPaidUsed),
-            allowedTillNow,
-            remaining,
-          });
+          const publicHolidayDates = publicHolidays.map((h: any) => dayjs(h.date).format('YYYY-MM-DD'));
+          const leavesTakenIncludingPending = calculateLeavesTakenByType(
+            fiscalYearFilteredLeaves,
+            publicHolidayDates,
+            workingAndOffDays,
+            true
+          );
+          // Derive fiscal start month from the prop so the cumulative pacing
+          // is correct for companies that don't use an April fiscal year.
+          const fiscalStartMonth = startDateNew ? dayjs(startDateNew).month() + 1 : 4;
+          const cumulative = calculateCumulativeSummary(totalPaidAllocated, leavesTakenIncludingPending, fiscalStartMonth);
+          setCumulativeSummary(cumulative);
         }
 
         // Process leave options
@@ -670,24 +691,37 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
     const currentMonth = dayjs().format('YYYY-MM');
     const countedLeaveTypes = [ANNUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES, CASUAL_LEAVES, MATERNAL_LEAVES];
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const hasWorkingDaysConfig = workingAndOffDays && Object.keys(workingAndOffDays).length > 0;
 
     let monthUsage = 0;
+    const holidaySet = new Set(
+      (publicHolidays || [])
+        .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
+        .filter(Boolean)
+    );
 
     employeeLeavesData
-      .filter((leave: any) => {
-        const isCountedType = countedLeaveTypes.includes(leave.leaveOptions?.leaveType);
-        const isApprovedOrPending = leave.status === Status.Approved || leave.status === Status.ApprovalNeeded;
-        return isCountedType && isApprovedOrPending;
+      .filter((existingLeave: any) => {
+        const isCountedType = countedLeaveTypes.includes(existingLeave.leaveOptions?.leaveType);
+        const isApprovedOrPending = existingLeave.status === Status.Approved || isPendingLeaveStatus(existingLeave.status);
+        const isCurrentEditingLeave = !!(leave?.id && existingLeave?.id === leave.id);
+        return isCountedType && isApprovedOrPending && !isCurrentEditingLeave;
       })
-      .forEach((leave: any) => {
-        const leaveFromDate = dayjs(leave.dateFrom);
-        const leaveToDate = dayjs(leave.dateTo);
+      .forEach((existingLeave: any) => {
+        const leaveFromDate = dayjs(existingLeave.dateFrom);
+        const leaveToDate = dayjs(existingLeave.dateTo);
         let leaveDate = leaveFromDate;
 
         while (leaveDate.isBefore(leaveToDate) || leaveDate.isSame(leaveToDate, 'day')) {
           if (leaveDate.format('YYYY-MM') === currentMonth) {
             const dayOfWeek = leaveDate.day();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            const dayName = dayNames[dayOfWeek];
+            const isOffDay = hasWorkingDaysConfig
+              ? workingAndOffDays[dayName] === '0'
+              : (dayOfWeek === 0 || dayOfWeek === 6);
+            const isHoliday = holidaySet.has(leaveDate.format('YYYY-MM-DD'));
+            if (!isOffDay && !isHoliday) {
               monthUsage++;
             }
           }
@@ -697,7 +731,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
     setCurrentMonthUsage(monthUsage);
     setShowMonthlyLimitInfo(true);
-  }, [employeeLeavesData]);
+  }, [employeeLeavesData, workingAndOffDays, publicHolidays, leave?.id]);
 
   const setFieldValueRef = useRef<((field: string, value: any, shouldValidate?: boolean) => void) | null>(null);
 
@@ -867,6 +901,8 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           if (fromDate && toDate) {
             const start = new Date(fromDate);
             const end = new Date(toDate);
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const hasWorkingDaysConfig = workingAndOffDays && Object.keys(workingAndOffDays).length > 0;
             if (start > end) {
               setLeaveCount(0);
               return;
@@ -902,16 +938,21 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             // Calculate existing leaves per month (approved + pending, all leave types)
             const existingLeavesPerMonth: Record<string, number> = {};
             const countedLeaveTypes = [ANNUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES, CASUAL_LEAVES, MATERNAL_LEAVES];
+            const holidaySet = new Set(
+              (publicHolidays || [])
+                .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
+                .filter(Boolean)
+            );
 
             if (employeeLeavesData && employeeLeavesData.length > 0) {
-              const relevantLeaves = employeeLeavesData.filter((leave: any) => {
-                const isCountedType = countedLeaveTypes.includes(leave.leaveOptions?.leaveType);
-                const isApprovedOrPending = leave.status === Status.Approved || leave.status === Status.ApprovalNeeded;
-                return isCountedType && isApprovedOrPending;
+              const relevantLeaves = employeeLeavesData.filter((existingLeave: any) => {
+                const isCountedType = countedLeaveTypes.includes(existingLeave.leaveOptions?.leaveType);
+                const isApprovedOrPending = existingLeave.status === Status.Approved || isPendingLeaveStatus(existingLeave.status);
+                const isCurrentEditingLeave = !!(leave?.id && existingLeave?.id === leave.id);
+                return isCountedType && isApprovedOrPending && !isCurrentEditingLeave;
               });
 
               relevantLeaves.forEach((leave: any) => {
-                const workingDaysInLeave = getWorkingDays(leave);
                 const leaveFromDate = dayjs(leave.dateFrom);
                 const leaveToDate = dayjs(leave.dateTo);
                 let leaveDate = leaveFromDate;
@@ -920,8 +961,13 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   const monthKey = leaveDate.format('YYYY-MM');
                   const dayOfWeek = leaveDate.day();
 
+                  const dayName = dayNames[dayOfWeek];
+                  const isOffDay = hasWorkingDaysConfig
+                    ? workingAndOffDays[dayName] === '0'
+                    : (dayOfWeek === 0 || dayOfWeek === 6);
+                  const isHoliday = holidaySet.has(leaveDate.format('YYYY-MM-DD'));
                   // Count only working days (matching backend logic)
-                  if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                  if (!isOffDay && !isHoliday) {
                     existingLeavesPerMonth[monthKey] = (existingLeavesPerMonth[monthKey] || 0) + 1;
                   }
 
@@ -989,13 +1035,14 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           }
         };
 
+        const hasLeaveTypeError = touched.leaveTypeId && !!errors.leaveTypeId;
         const customStyles = {
           control: (provided: any) => ({
             ...provided,
-            border: '1px dashed #AA393D',
+            border: hasLeaveTypeError ? '1px dashed #AA393D' : '1px solid #e4e6ea',
             boxShadow: 'none',
             '&:hover': {
-              border: '1px dashed #AA393D',
+              border: hasLeaveTypeError ? '1px dashed #AA393D' : '1px solid #b5b5c3',
             },
           }),
           option: (provided: any, state: any) => ({
@@ -1146,122 +1193,19 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 )}
               </div>
 
-              <div className="row mb-9">
-                <div className="col-lg-6">
-                  <label className="required fs-6 fw-bold form-label mb-3">
-                    From Date
-                  </label>
-                  {isIosAndDeviceIsMobile ? (
-                    <BootstrapForm.Group controlId="dateFrom" className="mb-3">
-                      <BootstrapForm.Control
-                        type="date"
-                        value={values.dateFrom || ""}
-                        onChange={(e) => {
-                          setFieldValue("dateFrom", e.target.value, true);
-                          calculateLeaveCount(e.target.value, values.dateTo || "");
-                        }}
-                        isInvalid={Boolean(errors.dateFrom && touched.dateFrom)}
-                        required
-                      />
-                      <BootstrapForm.Control.Feedback type="invalid">
-                        {errors.dateFrom}
-                      </BootstrapForm.Control.Feedback>
-                    </BootstrapForm.Group>
-                  ) : (
-                    <>
-                      <Flatpickr
-                        value={values.dateFrom}
-                        className="form-control form-control-lg form-control-solid"
-                        placeholder="Select From Date"
-                        onChange={(selectedDates: Date[]) => {
-                          if (!selectedDates?.length) return;
-                          const selectedDate = selectedDates[0];
-                          const formattedDate = selectedDate.toLocaleDateString('en-CA');
-                          setFieldValue("dateFrom", formattedDate, true);
-                          calculateLeaveCount(formattedDate, values.dateTo || "");
-                        }}
-                        options={{
-                          dateFormat: "Y-m-d",
-                          altInput: true,
-                          altFormat: "F j, Y",
-                          minDate: dateOfJoiningInString,
-                        }}
-                      />
-                      {touched.dateFrom && errors.dateFrom && (
-                        <div className="fv-plugins-message-container">
-                          <div className="fv-help-block">{errors.dateFrom}</div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                </div>
-                <div className="col-lg-6">
-                  <label className="required fs-6 fw-bold form-label mb-3">
-                    To Date
-                  </label>
-                  {isIosAndDeviceIsMobile ? (
-                    <BootstrapForm.Group controlId="dateTo" className="mb-3">
-                      <BootstrapForm.Control
-                        type="date"
-                        value={values.dateTo || ""}
-                        onChange={(e) => {
-                          setFieldValue("dateTo", e.target.value, true);
-                          calculateLeaveCount(values.dateFrom || "", e.target.value);
-                        }}
-                        isInvalid={Boolean(errors.dateTo && touched.dateTo)}
-                        required
-                      />
-                      <BootstrapForm.Control.Feedback type="invalid">
-                        {errors.dateTo}
-                      </BootstrapForm.Control.Feedback>
-                    </BootstrapForm.Group>
-                  ) : (
-                    <>
-                      <Flatpickr
-                        value={values.dateTo}
-                        className="form-control form-control-lg form-control-solid"
-                        placeholder="Select To Date"
-                        onChange={(selectedDates: Date[]) => {
-                          // BUG 5 FIX: Guard against cleared date (selectedDates[0] can be undefined)
-                          if (!selectedDates?.length) return;
-                          const selectedDate = selectedDates[0];
-                          const formattedDate = selectedDate.toLocaleDateString('en-CA');
-                          setFieldValue('dateTo', formattedDate, true);
-                          calculateLeaveCount(values.dateFrom.toString(), formattedDate);
-                        }}
-                        options={{
-                          dateFormat: 'Y-m-d',
-                          altInput: true,
-                          altFormat: 'F j, Y',
-                          minDate: values.dateFrom || dateOfJoiningInString,
-                        }}
-                      />
-                      {touched.dateTo && errors.dateTo && (
-                        <div className="fv-plugins-message-container">
-                          <div className="fv-help-block">{errors.dateTo}</div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="row mb-9">
-                <div className="col-lg-12">
-                  <div className="col-lg-6">
-                    <label className="fs-6 fw-bold form-label mb-3">
-                      Number of Leave Days
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control form-control-lg form-control-solid"
-                      value={leaveCount}
-                      readOnly
-                    />
-                  </div>
-                </div>
-              </div>
+              <LeaveRequestCalendar
+                fromDate={values.dateFrom}
+                toDate={values.dateTo}
+                setFieldValue={setFieldValue}
+                calculateLeaveCount={calculateLeaveCount}
+                publicHolidays={publicHolidays}
+                workingAndOffDays={workingAndOffDays}
+                dateOfJoining={dateOfJoiningInString}
+                leaveTypeLabel={leaveTypeSelected?.label}
+                leaveCount={leaveCount}
+                countTotalLeaves={countTotalLeaves}
+                cumulativeSummary={cumulativeSummary}
+              />
 
               <div className="row mb-9">
                 <div className="col-lg-12">
@@ -1294,7 +1238,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 </div>
               )}
 
-              <div className="d-flex justify-content-end">
+              <div className="d-flex justify-content-end" style={{ position: 'sticky', bottom: 0, background: '#fff', paddingTop: '12px', paddingBottom: '4px', zIndex: 10, borderTop: '1px solid #e5e7eb', marginTop: '8px' }}>
                 <button
                   type="submit"
                   className="btn btn-primary me-2"

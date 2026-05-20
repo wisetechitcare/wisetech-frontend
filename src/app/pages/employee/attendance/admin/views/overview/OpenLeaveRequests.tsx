@@ -1,6 +1,7 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { usePermission } from "@hooks/usePermission";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { LeaveOptions } from "@models/employee";
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
@@ -18,14 +19,8 @@ import { fetchColorAndStoreInSlice } from "@utils/file";
 import dayjs from "dayjs";
 
 function OpenLeaveRequests() {
-    // FIX: state.auth.currentUser has no `role` field — use isAdmin flag + roles[] array instead
-    const isAdminUser = useSelector((state: RootState) => state.auth.currentUser?.isAdmin);
-    const currentEmployeeRoles: any[] = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
+    const hasAdminOrHRAccess = usePermission('approvals.approve.team');
     const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee?.id || '');
-    // Admin/HR bypass: they can see and act on all pending leave requests
-    const hasAdminOrHRAccess = isAdminUser || currentEmployeeRoles.some((r: any) =>
-        ['hr', 'admin', 'super_admin', 'superadmin'].includes((r?.name || r?.role || '').toLowerCase())
-    );
 
     const [sickLeaves, setSickLeaves] = useState<string[]>([]);
     const [floaterLeaves, setFloaterLeaves] = useState<string[]>([]);

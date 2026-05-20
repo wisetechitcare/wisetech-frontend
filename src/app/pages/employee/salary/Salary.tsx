@@ -1,8 +1,6 @@
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
 import { BarChart } from "@mui/icons-material";
-import { useSelector } from "react-redux";
-import { RootState } from "@redux/store";
 import SalaryConfiguration from "./admin/SalaryConfiguration";
 import SearchEmployee from "./admin/SearchEmployee";
 import MySalary from "./admin/MySalary";
@@ -17,10 +15,6 @@ import SalaryEmployeeData from "./admin/SalaryEmployeeData";
 function Salary() {
   const [activeTab, setActiveTab] = useState(0);
   
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
-
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Salary", 
