@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Row, Col, Badge, Form, Card } from 'react-bootstrap';
-import { Formik, Form as FormikForm, FormikValues, Field } from 'formik';
+import React, { useState } from 'react';
+import { Modal, Button, Row, Col, Badge, Card } from 'react-bootstrap';
+import { Formik, Form as FormikForm, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DateInput from '@app/modules/common/inputs/DateInput';
@@ -52,7 +52,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     statutoryBreakdown = {}
 }) => {
     const salaryPending = Math.max(0, netPayable - salaryPaid);
-    const govtPending = Math.max(0, fixedDeductions - governmentPaid);
 
     const [activeTab, setActiveTab] = useState('SALARY');
 
@@ -69,11 +68,26 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         { label: 'UPI / Online', value: 'UPI' }
     ];
 
+    // Filter statutory deductions to completely ignore Professional Tax / PT case-insensitively
     const govtDeductions = Object.entries(statutoryBreakdown || {}).map(([key, data]: [string, any]) => ({
         label: key,
         value: key,
         amount: Number(data?.earned || 0)
-    })).filter(d => d.amount > 0);
+    })).filter(d => {
+        const lowerLabel = d.label.toLowerCase();
+        // Ignore Professional Tax / PT completely as it's paid directly at year end
+        if (lowerLabel.includes('professional tax') || lowerLabel === 'pt' || lowerLabel === 'ptax') {
+            return false;
+        }
+        return d.amount > 0;
+    });
+
+    // Calculate corrected fixed deductions sum excluding Professional Tax
+    const correctedFixedDeductions = statutoryBreakdown && Object.keys(statutoryBreakdown).length > 0
+        ? govtDeductions.reduce((sum, item) => sum + item.amount, 0)
+        : fixedDeductions;
+
+    const govtPending = Math.max(0, correctedFixedDeductions - governmentPaid);
 
     const activeGovType = govtDeductions.length > 0 ? govtDeductions[0].label : 'Statutory';
 
@@ -82,8 +96,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             <Modal.Header closeButton className="bg-light border-0 py-5">
                 <Modal.Title className="d-flex align-items-center gap-3">
                     <div className="symbol symbol-50px">
-                        <div className={`symbol-label bg-white shadow-sm`}>
-                            <KTIcon iconName="wallet" className={`fs-1 text-primary`} />
+                        <div className="symbol-label bg-white shadow-sm">
+                            <KTIcon iconName="wallet" className="fs-1 text-primary" />
                         </div>
                     </div>
                     <div>
@@ -110,7 +124,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <Card className="bg-light-danger border-0 shadow-none h-100">
                                 <Card.Body className="p-4">
                                     <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Payable</span>
-                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(fixedDeductions)}</span>
+                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(correctedFixedDeductions)}</span>
                                     <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatINR2(govtPending)}</Badge>
                                 </Card.Body>
                             </Card>
@@ -207,12 +221,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                 />
                                             </div>
 
-                                                <TextInput
-                                                    label="Internal Notes"
-                                                    formikField="remarks"
-                                                    isRequired={false}
-                                                    placeholder="Note for audit..."
-                                                />
+                                            <TextInput
+                                                label="Internal Notes"
+                                                formikField="remarks"
+                                                isRequired={false}
+                                                placeholder="Note for audit..."
+                                            />
                                         </div>
                                     </Col>
 
@@ -238,7 +252,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                         </div>
                                                         <Row className="g-5">
                                                             <Col md={6}>
-                                                                <TextInput
+                                                                 <TextInput
                                                                     label="Amount to Transfer"
                                                                     formikField="salaryAmount"
                                                                     type="number"

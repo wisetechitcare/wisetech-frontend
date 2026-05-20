@@ -478,6 +478,14 @@ const LeadFormModal = ({
   const [referralSubCompanies, setReferralSubCompanies] = useState<{
     [key: number]: any[];
   }>({});
+  // Added: State for filtered companies per team
+  const [teamFilteredCompanies, setTeamFilteredCompanies] = useState<{
+    [key: number]: any[];
+  }>({});
+  // Added: State for filtered sub-companies per team
+  const [teamFilteredSubCompanies, setTeamFilteredSubCompanies] = useState<{
+    [key: number]: any[];
+  }>({});
   // Added: State for filtered contacts per team
   const [teamFilteredContacts, setTeamFilteredContacts] = useState<{
     [key: number]: any[];
@@ -1612,29 +1620,81 @@ const LeadFormModal = ({
     }
   }, []);
 
-  // Added: Fetch contacts by company ID for team filtering
-  const fetchContactsByCompanyId = useCallback(
+  // Added: Fetch companies by company type ID for team filtering
+  const fetchCompaniesByCompanyTypeId = useCallback(
+    (companyTypeId: string, teamIndex: number) => {
+      if (!companyTypeId) {
+        setTeamFilteredCompanies((prev) => ({ ...prev, [teamIndex]: [] }));
+        return [];
+      }
+      const filtered = companies.filter(
+        (c: any) => String(c.companyTypeId) === String(companyTypeId)
+      );
+      const sorted = sortCompaniesByName(filtered);
+      setTeamFilteredCompanies((prev) => ({ ...prev, [teamIndex]: sorted }));
+      return sorted;
+    },
+    [companies],
+  );
+
+  // Added: Fetch sub-companies by company ID for team filtering
+  const fetchSubCompaniesByCompanyId = useCallback(
     async (companyId: string, teamIndex: number) => {
       try {
         if (!companyId) {
-          // Clear contacts for this team if no company selected
+          setTeamFilteredSubCompanies((prev) => ({ ...prev, [teamIndex]: [] }));
+          return [];
+        }
+        const response = await fetchSubCompaniesByMainCompanyId(companyId);
+        const data = response?.data?.subCompanies || response?.subCompanies || [];
+        setTeamFilteredSubCompanies((prev) => ({ ...prev, [teamIndex]: data }));
+        return data;
+      } catch (error) {
+        console.error("Error fetching sub-companies for company:", error);
+        setTeamFilteredSubCompanies((prev) => ({ ...prev, [teamIndex]: [] }));
+        return [];
+      }
+    },
+    [],
+  );
+
+  // Added: Fetch contacts by sub-company ID for team filtering (with companyId fallback)
+  const fetchContactsBySubCompanyId = useCallback(
+    async (subCompanyId: string, teamIndex: number, companyId?: string) => {
+      try {
+        if (!subCompanyId) {
+          if (companyId) {
+            const response = await getClientContactsByCompanyId(companyId);
+            const data = response?.data?.contacts || [];
+            const sortedData = sortContactsByName(data);
+            setTeamFilteredContacts((prev) => ({
+              ...prev,
+              [teamIndex]: sortedData,
+            }));
+            return sortedData;
+          }
           setTeamFilteredContacts((prev) => ({ ...prev, [teamIndex]: [] }));
           return [];
         }
+        const response = await getAllClientContacts({ subCompanyId });
+        const subContacts = response?.data?.contacts || response?.contacts || [];
 
-        const response = await getClientContactsByCompanyId(companyId);
-        const data = response?.data?.contacts || [];
-        const sortedData = sortContactsByName(data);
+        let parentContacts: any[] = [];
+        if (companyId) {
+          const parentResponse = await getClientContactsByCompanyId(companyId);
+          parentContacts = (parentResponse?.data?.contacts || []).filter((c: any) => !c.subCompanyId);
+        }
 
-        // Update contacts for this specific team
+        // Remove duplicates and sort
+        const combined = [...subContacts, ...parentContacts.filter((pc: any) => !subContacts.some((sc: any) => sc.id === pc.id))];
+        const sortedData = sortContactsByName(combined);
         setTeamFilteredContacts((prev) => ({
           ...prev,
           [teamIndex]: sortedData,
         }));
         return sortedData;
       } catch (error) {
-        console.error("Error fetching contacts for company:", error);
-        // Set empty array on error
+        console.error("Error fetching contacts for sub company:", error);
         setTeamFilteredContacts((prev) => ({ ...prev, [teamIndex]: [] }));
         return [];
       }
@@ -1848,12 +1908,34 @@ const LeadFormModal = ({
   const handleCompanyModalClose = useCallback(async () => {
     setShowCompanyModal(false);
     await fetchCompanies();
-  }, [fetchCompanies]);
+
+    // Refresh companies for all teams that have a company type selected
+    if (formikRef.current?.values?.leadTeams) {
+      const leadTeams = formikRef.current.values.leadTeams;
+      for (let index = 0; index < leadTeams.length; index++) {
+        const team = leadTeams[index];
+        if (team.companyTypeId) {
+          fetchCompaniesByCompanyTypeId(team.companyTypeId, index);
+        }
+      }
+    }
+  }, [fetchCompanies, fetchCompaniesByCompanyTypeId]);
 
   const handleSubCompanyModalClose = useCallback(async () => {
     setShowSubCompanyModal(false);
     await fetchCompanies();
-  }, [fetchCompanies]);
+
+    // Refresh sub-companies for all teams that have a company selected
+    if (formikRef.current?.values?.leadTeams) {
+      const leadTeams = formikRef.current.values.leadTeams;
+      for (let index = 0; index < leadTeams.length; index++) {
+        const team = leadTeams[index];
+        if (team.companyId) {
+          await fetchSubCompaniesByCompanyId(team.companyId, index);
+        }
+      }
+    }
+  }, [fetchCompanies, fetchSubCompaniesByCompanyId]);
 
   const handleBranchModalClose = useCallback(async () => {
     setShowBranchModal(false);
@@ -1864,14 +1946,13 @@ const LeadFormModal = ({
     setShowContactModal(false);
     await fetchContacts();
 
-    // Added: Refresh team-specific filtered contacts for all teams that have a company selected
     if (formikRef.current?.values?.leadTeams) {
       const leadTeams = formikRef.current.values.leadTeams;
       for (let index = 0; index < leadTeams.length; index++) {
         const team = leadTeams[index];
-        if (team.companyId) {
+        if (team.subCompanyId || team.companyId) {
           // Refresh contacts for this team
-          await fetchContactsByCompanyId(team.companyId, index);
+          await fetchContactsBySubCompanyId(team.subCompanyId || "", index, team.companyId);
         }
       }
     }
@@ -1897,7 +1978,7 @@ const LeadFormModal = ({
     }
   }, [
     fetchContacts,
-    fetchContactsByCompanyId,
+    fetchContactsBySubCompanyId,
     fetchContactsByCompanyIdForReferral,
     isInternalReferralType,
   ]);
@@ -2258,25 +2339,49 @@ const LeadFormModal = ({
     loadAddressLocationData();
   }, [isEditMode, currLeadData, countries, leadTemplateId]);
 
-  // Added: Effect to populate filtered contacts for each team in edit mode
+  // Added: Effect to populate filtered companies, sub-companies, and contacts for each team in edit mode
   useEffect(() => {
-    if (isEditMode && currLeadData?.leadTeams && companies.length > 0) {
-      currLeadData.leadTeams.forEach(async (team: any, index: number) => {
-        const companyId = team.company?.id || team.companyId;
-        if (companyId) {
-          try {
-            // Fetch contacts for this company and populate the team's filtered contacts
-            const response = await getClientContactsByCompanyId(companyId);
-            const data = response?.data?.contacts || [];
-            setTeamFilteredContacts((prev) => ({ ...prev, [index]: data }));
-          } catch (error) {
-            console.error(`Error fetching contacts for team ${index}:`, error);
-            setTeamFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+    const loadTeamDropdownsSequential = async () => {
+      if (isEditMode && currLeadData?.leadTeams && companies.length > 0) {
+        for (let index = 0; index < currLeadData.leadTeams.length; index++) {
+          const team = currLeadData.leadTeams[index];
+          const companyTypeId = team.companyType?.id || team.companyTypeId;
+          const companyId = team.company?.id || team.companyId;
+          const subCompanyId = team.subCompany?.id || team.subCompanyId;
+
+          // 1. Populate filtered companies
+          if (companyTypeId) {
+            const filtered = companies.filter(
+              (c: any) => String(c.companyTypeId) === String(companyTypeId)
+            );
+            const sorted = sortCompaniesByName(filtered);
+            setTeamFilteredCompanies((prev) => ({ ...prev, [index]: sorted }));
+          } else {
+            setTeamFilteredCompanies((prev) => ({ ...prev, [index]: [] }));
           }
+
+          // 2. Populate filtered sub-companies
+          if (companyId) {
+            try {
+              const response = await fetchSubCompaniesByMainCompanyId(companyId);
+              const subComps = response?.data?.subCompanies || response?.subCompanies || [];
+              setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: subComps }));
+            } catch (error) {
+              console.error(`Error loading sub-companies for team ${index}:`, error);
+              setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+            }
+          } else {
+            setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+          }
+
+          // 3. Populate filtered contacts
+          await fetchContactsBySubCompanyId(subCompanyId || "", index, companyId || undefined);
         }
-      });
-    }
-  }, [isEditMode, currLeadData?.leadTeams, companies.length]);
+      }
+    };
+
+    loadTeamDropdownsSequential();
+  }, [isEditMode, currLeadData?.leadTeams, companies]);
 
   // Added: Effect to populate filtered contacts for each referral in edit mode (external referrals only)
   useEffect(() => {
@@ -3173,15 +3278,34 @@ const LeadFormModal = ({
                                         const selectedCompanyId = values.leadTeams[index]?.companyId;
                                         const selectedCompany = companies.find((comp: any) => comp.id === selectedCompanyId);
 
-                                        const filteredSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
+                                        // Cascading dropdown options with robust index state and synchronous global fallbacks
+                                        const sortedFallbackCompanies = team.companyTypeId
+                                          ? sortCompaniesByName(companies.filter((c: any) => String(c.companyTypeId) === String(team.companyTypeId)))
+                                          : [];
+                                        const indexFilteredCompanies = teamFilteredCompanies[index] || sortedFallbackCompanies;
+
+                                        const fallbackSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
                                           ? selectedCompany.subCompanies
                                           : [];
+                                        const indexFilteredSubCompanies = teamFilteredSubCompanies[index] || fallbackSubCompanies;
 
-                                        const filteredContacts = selectedCompanyId
-                                          ? contacts.filter((contact: any) =>
-                                              contact.companyId === selectedCompanyId
+                                        const sortedFallbackContacts = team.subCompanyId
+                                          ? sortContactsByName(
+                                              contacts.filter(
+                                                (contact: any) =>
+                                                  String(contact.subCompanyId) === String(team.subCompanyId) ||
+                                                  (!contact.subCompanyId && selectedCompanyId && String(contact.companyId) === String(selectedCompanyId))
+                                              )
                                             )
-                                          : contacts;
+                                          : selectedCompanyId
+                                          ? sortContactsByName(
+                                              contacts.filter(
+                                                (contact: any) =>
+                                                  String(contact.companyId) === String(selectedCompanyId)
+                                              )
+                                            )
+                                          : [];
+                                        const indexFilteredContacts = teamFilteredContacts[index] || sortedFallbackContacts;
 
                                         return (
                                           <div
@@ -3200,10 +3324,17 @@ const LeadFormModal = ({
                                                   }))}
                                                   isRequired={false}
                                                   onChange={(option: any) => {
-                                                    setFieldValue(`leadTeams.${index}.companyTypeId`, option?.value || "");
+                                                    const val = option?.value || "";
+                                                    setFieldValue(`leadTeams.${index}.companyTypeId`, val);
                                                     setFieldValue(`leadTeams.${index}.companyId`, "");
                                                     setFieldValue(`leadTeams.${index}.subCompanyId`, "");
                                                     setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                    setTeamFilteredCompanies((prev) => ({ ...prev, [index]: [] }));
+                                                    setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+                                                    setTeamFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+                                                    if (val) {
+                                                      fetchCompaniesByCompanyTypeId(val, index);
+                                                    }
                                                   }}
                                                 />
                                                 <div
@@ -3219,18 +3350,22 @@ const LeadFormModal = ({
                                                 <DropDownInput
                                                   formikField={`leadTeams.${index}.companyId`}
                                                   inputLabel="Company"
-                                                  options={(team.companyTypeId 
-                                                    ? companies.filter((c: any) => c.companyTypeId === team.companyTypeId)
-                                                    : companies
-                                                  ).map((company: any) => ({
+                                                  options={indexFilteredCompanies.map((company: any) => ({
                                                     value: company.id,
                                                     label: company.companyName,
                                                   }))}
                                                   isRequired={false}
-                                                  onChange={(option: any) => {
-                                                    setFieldValue(`leadTeams.${index}.companyId`, option?.value || "");
+                                                  onChange={async (option: any) => {
+                                                    const val = option?.value || "";
+                                                    setFieldValue(`leadTeams.${index}.companyId`, val);
                                                     setFieldValue(`leadTeams.${index}.subCompanyId`, "");
                                                     setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                    setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+                                                    setTeamFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+                                                    if (val) {
+                                                      await fetchSubCompaniesByCompanyId(val, index);
+                                                      await fetchContactsBySubCompanyId("", index, val);
+                                                    }
                                                   }}
                                                 />
                                                 <div
@@ -3246,11 +3381,22 @@ const LeadFormModal = ({
                                                 <DropDownInput
                                                   formikField={`leadTeams.${index}.subCompanyId`}
                                                   inputLabel="Sub Company"
-                                                  options={filteredSubCompanies.map((subCompany: any) => ({
+                                                  options={indexFilteredSubCompanies.map((subCompany: any) => ({
                                                     value: subCompany.id,
                                                     label: subCompany.subCompanyName,
                                                   }))}
                                                   isRequired={false}
+                                                  onChange={async (option: any) => {
+                                                    const val = option?.value || "";
+                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, val);
+                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                    setTeamFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+                                                    if (val) {
+                                                      await fetchContactsBySubCompanyId(val, index, selectedCompanyId);
+                                                    } else if (selectedCompanyId) {
+                                                      await fetchContactsBySubCompanyId("", index, selectedCompanyId);
+                                                    }
+                                                  }}
                                                 />
                                                 <div
                                                   onClick={() => setShowSubCompanyModal(true)}
@@ -3265,7 +3411,7 @@ const LeadFormModal = ({
                                                 <DropDownInput
                                                   formikField={`leadTeams.${index}.contactId`}
                                                   inputLabel="Contact Person"
-                                                  options={filteredContacts.map((contact: any) => ({
+                                                  options={indexFilteredContacts.map((contact: any) => ({
                                                     value: contact.id,
                                                     label: contact.fullName,
                                                     avatar: contact.profilePhoto

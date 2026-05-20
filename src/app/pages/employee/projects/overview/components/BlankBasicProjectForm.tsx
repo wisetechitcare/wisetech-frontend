@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Form, Row, Col, Button, Modal, Dropdown } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
 import * as Yup from "yup";
@@ -29,6 +29,7 @@ import {
   getAllClientCompanies,
   getAllClientContacts,
   getAllCompanyTypes,
+  getClientContactsByCompanyId,
 } from "@services/companies";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@redux/store";
@@ -44,7 +45,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { useEventBus } from "@hooks/useEventBus";
 import Loader from "@app/modules/common/utils/Loader";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
-import { fetchSubCompanies } from "@services/company";
+import { fetchSubCompanies, fetchSubCompaniesByMainCompanyId } from "@services/company";
 import { uploadUserAsset } from "@services/uploader";
 import SubCompanyForm from "@pages/employee/companies/companies/components/SubCompanryForm";
 import CompanyConfigForm from "@pages/employee/companies/companyConfig/components/CompanyConfigForm";
@@ -121,6 +122,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
     (state: RootState) => state.employee?.currentEmployee?.id
   );
   const allEmployees = useSelector((state: RootState) => state.allEmployees);
+  const formikRef = useRef<any>(null);
 
   // Fetch employees if not already loaded
   useEffect(() => {
@@ -192,6 +194,16 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
   const [prefixSettings, setPrefixSettings] = useState<any>(null);
   const [projectCount, setProjectCount] = useState<any>(null);
   const [editablePrefix, setEditablePrefix] = useState<string>('');
+
+  // States for client (TEAM DETAILS) cascading dropdown options indexed by array index
+  const [clientFilteredCompanies, setClientFilteredCompanies] = useState<Record<number, any[]>>({});
+  const [clientFilteredSubCompanies, setClientFilteredSubCompanies] = useState<Record<number, any[]>>({});
+  const [clientFilteredContacts, setClientFilteredContacts] = useState<Record<number, any[]>>({});
+
+  // States for relation companies cascading dropdown options indexed by array index
+  const [relationFilteredCompanies, setRelationFilteredCompanies] = useState<Record<number, any[]>>({});
+  const [relationFilteredSubCompanies, setRelationFilteredSubCompanies] = useState<Record<number, any[]>>({});
+  const [relationFilteredContacts, setRelationFilteredContacts] = useState<Record<number, any[]>>({});
 
   // Update editable prefix when prefix settings or count changes.
   // Only auto-generate during creation — never overwrite an existing project's saved number.
@@ -639,6 +651,167 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
     fetchCountries,
     fetchPrefixAllSettings
   ]);
+
+  const sortCompaniesByName = (list: any[]) => {
+    return [...list].sort((a: any, b: any) =>
+      (a.companyName || "").localeCompare(b.companyName || "")
+    );
+  };
+
+  const sortContactsByName = (list: any[]) => {
+    return [...list].sort((a: any, b: any) =>
+      (a.fullName || "").localeCompare(b.fullName || "")
+    );
+  };
+
+  // Client (TEAM DETAILS) fetching callbacks
+  const fetchClientCompaniesByCompanyTypeId = useCallback(
+    (companyTypeId: string, index: number) => {
+      if (!companyTypeId) {
+        setClientFilteredCompanies((prev) => ({ ...prev, [index]: [] }));
+        return [];
+      }
+      const filtered = companies.filter(
+        (c: any) => String(c.companyTypeId) === String(companyTypeId)
+      );
+      const sorted = sortCompaniesByName(filtered);
+      setClientFilteredCompanies((prev) => ({ ...prev, [index]: sorted }));
+      return sorted;
+    },
+    [companies],
+  );
+
+  const fetchClientSubCompaniesByCompanyId = useCallback(
+    async (companyId: string, index: number) => {
+      try {
+        if (!companyId) {
+          setClientFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+          return [];
+        }
+        const response = await fetchSubCompaniesByMainCompanyId(companyId);
+        const data = response?.data?.subCompanies || response?.subCompanies || [];
+        setClientFilteredSubCompanies((prev) => ({ ...prev, [index]: data }));
+        return data;
+      } catch (error) {
+        console.error("Error fetching sub-companies for client company:", error);
+        setClientFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+        return [];
+      }
+    },
+    [],
+  );
+
+  const fetchClientContactsBySubCompanyId = useCallback(
+    async (subCompanyId: string, index: number, companyId?: string) => {
+      try {
+        if (!subCompanyId) {
+          if (companyId) {
+            const response = await getClientContactsByCompanyId(companyId);
+            const data = response?.data?.contacts || [];
+            const sorted = sortContactsByName(data);
+            setClientFilteredContacts((prev) => ({ ...prev, [index]: sorted }));
+            return sorted;
+          }
+          setClientFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+          return [];
+        }
+        const response = await getAllClientContacts({ subCompanyId });
+        const subContacts = response?.data?.contacts || response?.contacts || [];
+        
+        let parentContacts: any[] = [];
+        if (companyId) {
+          const parentResponse = await getClientContactsByCompanyId(companyId);
+          parentContacts = (parentResponse?.data?.contacts || []).filter((c: any) => !c.subCompanyId);
+        }
+        
+        // Remove duplicates and sort
+        const combined = [...subContacts, ...parentContacts.filter((pc: any) => !subContacts.some((sc: any) => sc.id === pc.id))];
+        const sorted = sortContactsByName(combined);
+        setClientFilteredContacts((prev) => ({ ...prev, [index]: sorted }));
+        return sorted;
+      } catch (error) {
+        console.error("Error fetching contacts for client sub-company:", error);
+        setClientFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+        return [];
+      }
+    },
+    [],
+  );
+
+  // Relation companies fetching callbacks
+  const fetchRelationCompaniesByCompanyTypeId = useCallback(
+    (companyTypeId: string, index: number) => {
+      if (!companyTypeId) {
+        setRelationFilteredCompanies((prev) => ({ ...prev, [index]: [] }));
+        return [];
+      }
+      const filtered = companies.filter(
+        (c: any) => String(c.companyTypeId) === String(companyTypeId)
+      );
+      const sorted = sortCompaniesByName(filtered);
+      setRelationFilteredCompanies((prev) => ({ ...prev, [index]: sorted }));
+      return sorted;
+    },
+    [companies],
+  );
+
+  const fetchRelationSubCompaniesByCompanyId = useCallback(
+    async (companyId: string, index: number) => {
+      try {
+        if (!companyId) {
+          setRelationFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+          return [];
+        }
+        const response = await fetchSubCompaniesByMainCompanyId(companyId);
+        const data = response?.data?.subCompanies || response?.subCompanies || [];
+        setRelationFilteredSubCompanies((prev) => ({ ...prev, [index]: data }));
+        return data;
+      } catch (error) {
+        console.error("Error fetching sub-companies for relation company:", error);
+        setRelationFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+        return [];
+      }
+    },
+    [],
+  );
+
+  const fetchRelationContactsBySubCompanyId = useCallback(
+    async (subCompanyId: string, index: number, companyId?: string) => {
+      try {
+        if (!subCompanyId) {
+          if (companyId) {
+            const response = await getClientContactsByCompanyId(companyId);
+            const data = response?.data?.contacts || [];
+            const sorted = sortContactsByName(data);
+            setRelationFilteredContacts((prev) => ({ ...prev, [index]: sorted }));
+            return sorted;
+          }
+          setRelationFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+          return [];
+        }
+        const response = await getAllClientContacts({ subCompanyId });
+        const subContacts = response?.data?.contacts || response?.contacts || [];
+        
+        let parentContacts: any[] = [];
+        if (companyId) {
+          const parentResponse = await getClientContactsByCompanyId(companyId);
+          parentContacts = (parentResponse?.data?.contacts || []).filter((c: any) => !c.subCompanyId);
+        }
+        
+        // Remove duplicates and sort
+        const combined = [...subContacts, ...parentContacts.filter((pc: any) => !subContacts.some((sc: any) => sc.id === pc.id))];
+        const sorted = sortContactsByName(combined);
+        setRelationFilteredContacts((prev) => ({ ...prev, [index]: sorted }));
+        return sorted;
+      } catch (error) {
+        console.error("Error fetching contacts for relation sub-company:", error);
+        setRelationFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+        return [];
+      }
+    },
+    [],
+  );
+
 
   // Load project data when editing
   const loadProjectData = useCallback(async () => {
@@ -1337,6 +1510,62 @@ const getInitialTeamDetails = useCallback(() => {
     ]
   );
 
+  // Preload cascading dropdown options sequentially on load (Edit / Conversion mode)
+  useEffect(() => {
+    if (!dataLoaded || companies.length === 0) return;
+
+    const preloadCascades = async () => {
+      // 1. Client companies (TEAM DETAILS)
+      const initialClientCompanies = getLeadConvertedCompanies();
+      if (Array.isArray(initialClientCompanies)) {
+        for (let i = 0; i < initialClientCompanies.length; i++) {
+          const entry = initialClientCompanies[i];
+          if (entry.companyTypeId) {
+            fetchClientCompaniesByCompanyTypeId(entry.companyTypeId, i);
+          }
+          if (entry.company) {
+            await fetchClientSubCompaniesByCompanyId(entry.company, i);
+          }
+          if (entry.company) {
+            await fetchClientContactsBySubCompanyId(entry.subCompanyId || "", i, entry.company);
+          }
+        }
+      }
+
+      // 2. Relation companies (ADD OTHER RELATION COMPANIES)
+      const initialRelationCompanies = getInitialRelationCompanies();
+      if (Array.isArray(initialRelationCompanies)) {
+        for (let i = 0; i < initialRelationCompanies.length; i++) {
+          const entry = initialRelationCompanies[i];
+          if (entry.companyTypeId) {
+            fetchRelationCompaniesByCompanyTypeId(entry.companyTypeId, i);
+          }
+          if (entry.company) {
+            await fetchRelationSubCompaniesByCompanyId(entry.company, i);
+          }
+          if (entry.company) {
+            await fetchRelationContactsBySubCompanyId(entry.refferingSubCompanyId || "", i, entry.company);
+          }
+        }
+      }
+    };
+
+    preloadCascades();
+  }, [
+    dataLoaded,
+    companies.length,
+    projectData?.id,
+    intitalDataForLeadToProjectConversion?.id,
+    fetchClientCompaniesByCompanyTypeId,
+    fetchClientSubCompaniesByCompanyId,
+    fetchClientContactsBySubCompanyId,
+    fetchRelationCompaniesByCompanyTypeId,
+    fetchRelationSubCompaniesByCompanyId,
+    fetchRelationContactsBySubCompanyId,
+    getLeadConvertedCompanies,
+    getInitialRelationCompanies
+  ]);
+
   
     // Helper function to extract filename from AWS URL
     const getFileNameFromUrl = (url: string) => {
@@ -1498,10 +1727,10 @@ const handleSubmit = useCallback(
       if (payload.city) payload.city = toNameIfLookup(payload.city, cities);
 
       // Add structured data expected by backend
-      if (allCompanies.length > 0) payload.companies = allCompanies;
-      if (teamsPayload.length > 0) payload.teams = teamsPayload;
-      if (commercialMappingsPayload.length > 0) payload.commercialMappings = commercialMappingsPayload;
-      if (addressesPayload.length > 0) payload.addresses = addressesPayload;
+      payload.companies = allCompanies;
+      payload.teams = teamsPayload;
+      payload.commercialMappings = commercialMappingsPayload;
+      payload.addresses = addressesPayload;
 
       // Handle project template ID
       if (payload.leadTemplateId) {
@@ -1545,7 +1774,10 @@ const handleSubmit = useCallback(
       // - Always include clearable scalar fields as-is (empty string = user cleared it;
       //   the backend scalarFields loop converts '' → null)
       // - Skip only undefined values (field was never in the form)
-      const multiSelectArrays = ['serviceIds', 'categoryIds', 'subcategoryIds', 'handledByEntries'];
+      const multiSelectArrays = [
+        'serviceIds', 'categoryIds', 'subcategoryIds', 'handledByEntries',
+        'companies', 'teams', 'commercialMappings', 'addresses'
+      ];
       // Fields that should be sent even when empty so the backend can clear them
       const clearableFields = [
         'plotArea', 'plotAreaUnit', 'builtUpArea', 'builtUpAreaUnit', 'buildingDetail',
@@ -1665,16 +1897,110 @@ const handleSubmit = useCallback(
     []
   );
   const handleCompanyModalClose = useCallback(
-    () => setShowCompanyModal(false),
-    []
+    async () => {
+      setShowCompanyModal(false);
+      try {
+        const response = await getAllClientCompanies();
+        const data = response?.data?.companies || [];
+        setCompanies(data);
+
+        if (formikRef.current?.values?.companies) {
+          const companiesVal = formikRef.current.values.companies;
+          for (let index = 0; index < companiesVal.length; index++) {
+            const c = companiesVal[index];
+            if (c.companyTypeId) {
+              fetchClientCompaniesByCompanyTypeId(c.companyTypeId, index);
+            }
+          }
+        }
+
+        if (formikRef.current?.values?.projectCompanyMappings) {
+          const mappings = formikRef.current.values.projectCompanyMappings;
+          for (let index = 0; index < mappings.length; index++) {
+            const m = mappings[index];
+            if (m.companyTypeId) {
+              fetchRelationCompaniesByCompanyTypeId(m.companyTypeId, index);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing companies on modal close:", error);
+      }
+    },
+    [fetchClientCompaniesByCompanyTypeId, fetchRelationCompaniesByCompanyTypeId]
   );
+
   const handleSubCompanyModalClose = useCallback(
-    () => setShowSubCompanyModal(false),
-    []
+    async () => {
+      setShowSubCompanyModal(false);
+      try {
+        const response = await fetchSubCompanies();
+        const data = response?.data?.subCompanies || [];
+        setSubCompanies(data);
+
+        if (formikRef.current?.values?.companies) {
+          const companiesVal = formikRef.current.values.companies;
+          for (let index = 0; index < companiesVal.length; index++) {
+            const c = companiesVal[index];
+            if (c.company) {
+              await fetchClientSubCompaniesByCompanyId(c.company, index);
+            }
+          }
+        }
+
+        if (formikRef.current?.values?.projectCompanyMappings) {
+          const mappings = formikRef.current.values.projectCompanyMappings;
+          for (let index = 0; index < mappings.length; index++) {
+            const m = mappings[index];
+            if (m.company) {
+              await fetchRelationSubCompaniesByCompanyId(m.company, index);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing sub-companies on modal close:", error);
+      }
+    },
+    [fetchClientSubCompaniesByCompanyId, fetchRelationSubCompaniesByCompanyId]
   );
+
   const handleContactModalClose = useCallback(
-    () => setShowContactModal(false),
-    []
+    async () => {
+      setShowContactModal(false);
+      try {
+        const response = await getAllClientContacts({});
+        const data = response?.data?.contacts || response?.contacts || [];
+        const sorted = sortContactsByName(data);
+        setContacts(sorted);
+
+        if (formikRef.current?.values?.companies) {
+          const companiesVal = formikRef.current.values.companies;
+          for (let index = 0; index < companiesVal.length; index++) {
+            const c = companiesVal[index];
+            if (c.subCompanyId) {
+              await fetchClientContactsBySubCompanyId(c.subCompanyId, index, c.company);
+            } else if (c.company) {
+              await fetchClientContactsBySubCompanyId("", index, c.company);
+            }
+          }
+        }
+
+        if (formikRef.current?.values?.projectCompanyMappings) {
+          const mappings = formikRef.current.values.projectCompanyMappings;
+          for (let index = 0; index < mappings.length; index++) {
+            const m = mappings[index];
+            if (m.refferingSubCompanyId) {
+              await fetchRelationContactsBySubCompanyId(m.refferingSubCompanyId, index, m.company);
+            } else if (m.company) {
+              await fetchRelationContactsBySubCompanyId("", index, m.company);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing contacts on modal close:", error);
+      }
+    },
+    [fetchClientContactsBySubCompanyId, fetchRelationContactsBySubCompanyId]
   );
   const handleStatusModalClose = useCallback(
     () => setShowStatusModal(false),
@@ -1757,6 +2083,7 @@ const handleSubmit = useCallback(
               <Loader />
             ) : (
             <Formik
+              innerRef={formikRef}
               initialValues={initialValues}
               validationSchema={validationSchema}
               onSubmit={handleSubmit}
@@ -3072,28 +3399,50 @@ const handleSubmit = useCallback(
                             <>
                               {values.companies.map(
                                 (company: any, index: any) => {
-                                  // Filter companies based on selected service
-                                  const selectedServiceId = values.companies[index]?.service;
-
-                                  // Based on actual data structure - companies don't filter by service
-                                  // All companies are shown regardless of service selection
-                                  const filteredCompanies = companies;
-
-                                  // Filter sub-companies based on selected company
+                                  const selectedCompanyTypeId = values.companies[index]?.companyTypeId;
                                   const selectedCompanyId = values.companies[index]?.company;
+                                  const selectedSubCompanyId = values.companies[index]?.subCompanyId;
+                                  const selectedContactPersonId = values.companies[index]?.contactPerson;
+
                                   const selectedCompany = companies.find((comp: any) => comp.id === selectedCompanyId);
 
-                                  // Sub-companies come from the selected company's subCompanies array
-                                  const filteredSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
+                                  // Cascading dropdown options with robust index state and synchronous global fallbacks
+                                  const sortedFallbackCompanies = selectedCompanyTypeId
+                                    ? sortCompaniesByName(companies.filter((c: any) => String(c.companyTypeId) === String(selectedCompanyTypeId)))
+                                    : [];
+                                  const filteredCompanies = clientFilteredCompanies[index] || sortedFallbackCompanies;
+
+                                  const fallbackSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
                                     ? selectedCompany.subCompanies
                                     : [];
+                                  const filteredSubCompanies = clientFilteredSubCompanies[index] || fallbackSubCompanies;
 
-                                  // Filter contacts based on selected company
-                                  const filteredContacts = selectedCompanyId
-                                    ? contacts.filter((contact: any) =>
-                                        contact.companyId === selectedCompanyId
+                                  // Filter contacts based on selected sub-company or company (including parent-level contacts as fallback)
+                                  const sortedFallbackContacts = selectedSubCompanyId
+                                    ? sortContactsByName(
+                                        contacts.filter(
+                                          (contact: any) =>
+                                            String(contact.subCompanyId) === String(selectedSubCompanyId) ||
+                                            (!contact.subCompanyId && selectedCompanyId && String(contact.companyId) === String(selectedCompanyId))
+                                        )
                                       )
-                                    : contacts;
+                                    : selectedCompanyId
+                                    ? sortContactsByName(
+                                        contacts.filter(
+                                          (contact: any) =>
+                                            String(contact.companyId) === String(selectedCompanyId)
+                                        )
+                                      )
+                                    : [];
+                                  const filteredContacts = clientFilteredContacts[index] || sortedFallbackContacts;
+
+                                  // Merge current selection if not present
+                                  if (selectedContactPersonId && !filteredContacts.some((c: any) => c.id === selectedContactPersonId)) {
+                                    const currContact = contacts.find((c: any) => c.id === selectedContactPersonId);
+                                    if (currContact) {
+                                      filteredContacts.push(currContact);
+                                    }
+                                  }
 
                                   return (
                                     <div
@@ -3111,11 +3460,15 @@ const handleSubmit = useCallback(
                                             }))}
                                             isRequired={false}
                                             onChange={(option: any) => {
-                                              setFieldValue(`companies.${index}.companyTypeId`, option?.value || "");
-                                              // Reset dependent fields when company type changes
+                                              const val = option?.value || "";
+                                              setFieldValue(`companies.${index}.companyTypeId`, val);
                                               setFieldValue(`companies.${index}.company`, "");
                                               setFieldValue(`companies.${index}.subCompanyId`, "");
                                               setFieldValue(`companies.${index}.contactPerson`, "");
+                                              // Trigger cascading fetch
+                                              fetchClientCompaniesByCompanyTypeId(val, index);
+                                              setClientFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+                                              setClientFilteredContacts((prev) => ({ ...prev, [index]: [] }));
                                             }}
                                           />
                                           <div
@@ -3136,17 +3489,19 @@ const handleSubmit = useCallback(
                                           <DropDownInput
                                             formikField={`companies.${index}.company`}
                                             inputLabel="Company"
-                                            options={filteredCompanies.map((company) => ({
-                                              value: company.id,
-                                              label: company.companyName,
+                                            options={filteredCompanies.map((c: any) => ({
+                                              value: c.id,
+                                              label: c.companyName,
                                             }))}
-                                            // placeholder={!selectedServiceId ? "Please select service first" : "Select Company"}
                                             isRequired={false}
-                                            onChange={(option: any) => {
-                                              setFieldValue(`companies.${index}.company`, option?.value || "");
-                                              // Reset dependent fields when company changes
+                                            onChange={async (option: any) => {
+                                              const val = option?.value || "";
+                                              setFieldValue(`companies.${index}.company`, val);
                                               setFieldValue(`companies.${index}.subCompanyId`, "");
                                               setFieldValue(`companies.${index}.contactPerson`, "");
+                                              // Trigger cascading fetch
+                                              await fetchClientSubCompaniesByCompanyId(val, index);
+                                              await fetchClientContactsBySubCompanyId("", index, val);
                                             }}
                                           />
                                           <div
@@ -3167,12 +3522,18 @@ const handleSubmit = useCallback(
                                           <DropDownInput
                                             formikField={`companies.${index}.subCompanyId`}
                                             inputLabel="Sub Company"
-                                            options={filteredSubCompanies.map((subCompany:any) => ({
-                                              value: subCompany.id,
-                                              label: subCompany.subCompanyName,
+                                            options={filteredSubCompanies.map((sub: any) => ({
+                                              value: sub.id,
+                                              label: sub.subCompanyName,
                                             }))}
-                                            // placeholder={!selectedCompanyId ? "Please select company first" : "Select Sub Company"}
                                             isRequired={false}
+                                            onChange={async (option: any) => {
+                                              const val = option?.value || "";
+                                              setFieldValue(`companies.${index}.subCompanyId`, val);
+                                              setFieldValue(`companies.${index}.contactPerson`, "");
+                                              // Trigger cascading fetch
+                                              await fetchClientContactsBySubCompanyId(val, index, selectedCompanyId);
+                                            }}
                                           />
                                           <div
                                             onClick={() =>
@@ -3192,13 +3553,12 @@ const handleSubmit = useCallback(
                                           <DropDownInput
                                             formikField={`companies.${index}.contactPerson`}
                                             inputLabel="Contact Person"
-                                            options={contacts.map((contact) => ({
+                                            options={filteredContacts.map((contact: any) => ({
                                               value: contact.id,
                                               label: contact.fullName,
                                               avatar: contact.profilePhoto
                                             }))}
                                             showColor={true}
-                                            // placeholder={!selectedCompanyId ? "Please select company first" : "Select Contact Person"}
                                             isRequired={false}
                                           />
                                           <div
@@ -3301,127 +3661,189 @@ const handleSubmit = useCallback(
                           {({ push, remove }) => (
                             <div className="card-body card responsive-card p-md-10 p-3">
                               {values.projectCompanyMappings.map(
-                                (company: any, index: any) => (
-                                  <div key={index} className={index > 0 ? "mt-4 pt-4" : ""}>
-                                    <div className="d-flex justify-content-between align-items-center mb-3">
-                                      <div style={{fontFamily:'Inter',fontWeight:'500',fontSize:'14px',color:'#798DB3'}}>
-                                        Relation Company {index + 1}
+                                (company: any, index: any) => {
+                                  const selectedCompanyTypeId = values.projectCompanyMappings[index]?.companyTypeId;
+                                  const selectedCompanyId = values.projectCompanyMappings[index]?.company;
+                                  const selectedRefferingSubCompanyId = values.projectCompanyMappings[index]?.refferingSubCompanyId;
+                                  const selectedContactPersonId = values.projectCompanyMappings[index]?.contactPerson;
+
+                                  const selectedCompany = companies.find((comp: any) => comp.id === selectedCompanyId);
+
+                                  // Cascading dropdown options with robust index state and synchronous global fallbacks
+                                  const sortedFallbackCompanies = selectedCompanyTypeId
+                                    ? sortCompaniesByName(companies.filter((c: any) => String(c.companyTypeId) === String(selectedCompanyTypeId)))
+                                    : [];
+                                  const filteredCompanies = relationFilteredCompanies[index] || sortedFallbackCompanies;
+
+                                  const fallbackSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
+                                    ? selectedCompany.subCompanies
+                                    : [];
+                                  const filteredSubCompanies = relationFilteredSubCompanies[index] || fallbackSubCompanies;
+
+                                  // Filter contacts based on selected sub-company or company (including parent-level contacts as fallback)
+                                  const sortedFallbackContacts = selectedRefferingSubCompanyId
+                                    ? sortContactsByName(
+                                        contacts.filter(
+                                          (contact: any) =>
+                                            String(contact.subCompanyId) === String(selectedRefferingSubCompanyId) ||
+                                            (!contact.subCompanyId && selectedCompanyId && String(contact.companyId) === String(selectedCompanyId))
+                                        )
+                                      )
+                                    : selectedCompanyId
+                                    ? sortContactsByName(
+                                        contacts.filter(
+                                          (contact: any) =>
+                                            String(contact.companyId) === String(selectedCompanyId)
+                                        )
+                                      )
+                                    : [];
+                                  const filteredContacts = relationFilteredContacts[index] || sortedFallbackContacts;
+
+                                  // Merge current selection if not present
+                                  if (selectedContactPersonId && !filteredContacts.some((c: any) => c.id === selectedContactPersonId)) {
+                                    const currContact = contacts.find((c: any) => c.id === selectedContactPersonId);
+                                    if (currContact) {
+                                      filteredContacts.push(currContact);
+                                    }
+                                  }
+
+                                  return (
+                                    <div key={index} className={index > 0 ? "mt-4 pt-4" : ""}>
+                                      <div className="d-flex justify-content-between align-items-center mb-3">
+                                        <div style={{fontFamily:'Inter',fontWeight:'500',fontSize:'14px',color:'#798DB3'}}>
+                                          Relation Company {index + 1}
+                                        </div>
+                                        {values.projectCompanyMappings.length > 1 && (
+                                          <div
+                                            onClick={() => remove(index)}
+                                            style={{
+                                              cursor: "pointer",
+                                              color: "#9D4141",
+                                              fontSize: "20px",
+                                              padding: "5px",
+                                            }}
+                                          >
+                                            ×
+                                          </div>
+                                        )}
                                       </div>
-                                      {values.projectCompanyMappings.length > 1 && (
-                                        <div
-                                          onClick={() => remove(index)}
-                                          style={{
-                                            cursor: "pointer",
-                                            color: "#9D4141",
-                                            fontSize: "20px",
-                                            padding: "5px",
-                                          }}
-                                        >
-                                          ×
-                                        </div>
-                                      )}
+                                      <Row>
+                                        <Col md={3}>
+                                          <DropDownInput
+                                            formikField={`projectCompanyMappings.${index}.companyTypeId`}
+                                            inputLabel="Company Type"
+                                            options={companyTypes.map((companyType) => ({
+                                              value: companyType.id,
+                                              label: companyType.name,
+                                            }))}
+                                            isRequired={false}
+                                            onChange={(option: any) => {
+                                              const val = option?.value || "";
+                                              setFieldValue(`projectCompanyMappings.${index}.companyTypeId`, val);
+                                              setFieldValue(`projectCompanyMappings.${index}.company`, "");
+                                              setFieldValue(`projectCompanyMappings.${index}.refferingSubCompanyId`, "");
+                                              setFieldValue(`projectCompanyMappings.${index}.contactPerson`, "");
+                                              // Trigger cascading fetch
+                                              fetchRelationCompaniesByCompanyTypeId(val, index);
+                                              setRelationFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+                                              setRelationFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+                                            }}
+                                          />
+                                        </Col>
+
+                                        <Col md={3}>
+                                          <DropDownInput
+                                            formikField={`projectCompanyMappings.${index}.company`}
+                                            inputLabel="Company"
+                                            options={filteredCompanies.map((c: any) => ({
+                                              value: c.id,
+                                              label: c.companyName,
+                                            }))}
+                                            isRequired={false}
+                                            onChange={async (option: any) => {
+                                              const val = option?.value || "";
+                                              setFieldValue(`projectCompanyMappings.${index}.company`, val);
+                                              setFieldValue(`projectCompanyMappings.${index}.refferingSubCompanyId`, "");
+                                              setFieldValue(`projectCompanyMappings.${index}.contactPerson`, "");
+                                              // Trigger cascading fetch
+                                              await fetchRelationSubCompaniesByCompanyId(val, index);
+                                              await fetchRelationContactsBySubCompanyId("", index, val);
+                                            }}
+                                          />
+                                          <div
+                                            onClick={() =>
+                                              setShowCompanyModal(true)
+                                            }
+                                            style={{
+                                              cursor: "pointer",
+                                              color: "#9D4141",
+                                            }}
+                                            className="ms-2"
+                                          >
+                                            + New Company
+                                          </div>
+                                        </Col>
+
+                                        <Col md={3}>
+                                          <DropDownInput
+                                            formikField={`projectCompanyMappings.${index}.refferingSubCompanyId`}
+                                            inputLabel="Reffering Sub Company"
+                                            options={filteredSubCompanies.map((sub: any) => ({
+                                              value: sub.id,
+                                              label: sub.subCompanyName,
+                                            }))}
+                                            isRequired={false}
+                                            onChange={async (option: any) => {
+                                              const val = option?.value || "";
+                                              setFieldValue(`projectCompanyMappings.${index}.refferingSubCompanyId`, val);
+                                              setFieldValue(`projectCompanyMappings.${index}.contactPerson`, "");
+                                              // Trigger cascading fetch
+                                              await fetchRelationContactsBySubCompanyId(val, index, selectedCompanyId);
+                                            }}
+                                          />
+                                          <div
+                                            onClick={() =>
+                                              setShowSubCompanyModal(true)
+                                            }
+                                            style={{
+                                              cursor: "pointer",
+                                              color: "#9D4141",
+                                            }}
+                                            className="ms-2"
+                                          >
+                                            + New Sub Company
+                                          </div>
+                                        </Col>
+
+                                        <Col md={3}>
+                                          <DropDownInput
+                                            formikField={`projectCompanyMappings.${index}.contactPerson`}
+                                            inputLabel="Contact Person"
+                                            options={filteredContacts.map((contact: any) => ({
+                                              value: contact.id,
+                                              label: contact.fullName,
+                                              avatar: contact.profilePhoto
+                                            }))}
+                                            showColor={true}
+                                            isRequired={false}
+                                          />
+                                          <div
+                                            onClick={() =>
+                                              setShowContactModal(true)
+                                            }
+                                            style={{
+                                              cursor: "pointer",
+                                              color: "#9D4141",
+                                            }}
+                                            className="ms-2"
+                                          >
+                                            + New Contact
+                                          </div>
+                                        </Col>
+                                      </Row>
                                     </div>
-                                    <Row>
-                                      <Col md={3}>
-                                        <DropDownInput
-                                          formikField={`projectCompanyMappings.${index}.companyTypeId`}
-                                          inputLabel="Company Type"
-                                          options={companyTypes.map((companyType) => ({
-                                            value: companyType.id,
-                                            label: companyType.name,
-                                          }))}
-                                          isRequired={false}
-                                        />
-                                        <div
-                                          onClick={() =>
-                                            setShowServiceModal(true)
-                                          }
-                                          style={{
-                                            cursor: "pointer",
-                                            color: "#9D4141",
-                                          }}
-                                          className="ms-2"
-                                        >
-                                          {/* + New Company Type */}
-                                        </div>
-                                      </Col>
-
-                                      <Col md={3}>
-                                        <DropDownInput
-                                          formikField={`projectCompanyMappings.${index}.company`}
-                                          inputLabel="Company"
-                                          options={companies.map((company) => ({
-                                            value: company.id,
-                                            label: company.companyName,
-                                          }))}
-                                          isRequired={false}
-                                        />
-                                        <div
-                                          onClick={() =>
-                                            setShowCompanyModal(true)
-                                          }
-                                          style={{
-                                            cursor: "pointer",
-                                            color: "#9D4141",
-                                          }}
-                                          className="ms-2"
-                                        >
-                                          + New Company
-                                        </div>
-                                      </Col>
-
-                                      <Col md={3}>
-                                        <DropDownInput
-                                          formikField={`projectCompanyMappings.${index}.refferingSubCompanyId`}
-                                          inputLabel="Reffering Sub Company"
-                                          options={subCompanies.map((subCompany) => ({
-                                            value: subCompany.id,
-                                            label: subCompany.subCompanyName,
-                                          }))}
-                                          isRequired={false}
-                                        />
-                                        <div
-                                          onClick={() =>
-                                            setShowSubCompanyModal(true)
-                                          }
-                                          style={{
-                                            cursor: "pointer",
-                                            color: "#9D4141",
-                                          }}
-                                          className="ms-2"
-                                        >
-                                          + New Sub Company
-                                        </div>
-                                      </Col>
-
-                                      <Col md={3}>
-                                        <DropDownInput
-                                          formikField={`projectCompanyMappings.${index}.contactPerson`}
-                                          inputLabel="Contact Person"
-                                          options={contacts.map((contact) => ({
-                                            value: contact.id,
-                                            label: contact.fullName,
-                                            avatar: contact.profilePhoto
-                                          }))}
-                                          showColor={true}
-                                          isRequired={false}
-                                        />
-                                        <div
-                                          onClick={() =>
-                                            setShowContactModal(true)
-                                          }
-                                          style={{
-                                            cursor: "pointer",
-                                            color: "#9D4141",
-                                          }}
-                                          className="ms-2"
-                                        >
-                                          + New Contact
-                                        </div>
-                                      </Col>
-                                    </Row>
-                                  </div>
-                                )
+                                  );
+                                }
                               )}
 
                               {/* Add More Button */}
