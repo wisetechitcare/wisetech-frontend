@@ -114,4 +114,8 @@ export interface WizardActionConfig {
   exportDocx?: () => void;
   submitDisabled?: boolean;
   submitText?: string;
+  onSaveUpdate?: () => void;
+  onSaveRevision?: () => void;
+  onSaveDraft?: () => void;
+  isSavingDraft?: boolean;
 }

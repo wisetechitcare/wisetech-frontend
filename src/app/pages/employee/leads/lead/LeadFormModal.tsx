@@ -1,4 +1,4 @@
-﻿import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -69,6 +69,7 @@ import {
   updateLead,
   exportLeadDocx,
   exportLeadPdf,
+  getProposalConfigurations,
 } from "@services/leads";
 import { uploadUserAsset } from "@services/uploader";
 import {
@@ -98,7 +99,14 @@ import {
 } from "@app/modules/common/components/InlineCreateHelpers";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { getAllLeadCancellationReasons } from "@services/lead";
+import Swal from "sweetalert2";
+import { getDocxPreviewHtml } from "./components/dms/utils/dmsUtils";
+
 import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
+import { useDraft } from "@hooks/useDraft";
+import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
+import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
+import { DraftAutoSave } from "@components/draft/DraftAutoSave";
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -325,11 +333,61 @@ const LeadFormModal = ({
   const [showDirectSourceModal, setShowDirectSourceModal] = useState(false);
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
+  const [proposalTemplates, setProposalTemplates] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
 
   const handleExport = async (type: "docx" | "pdf", values: any) => {
     if (!values.id) return;
+
+    // Prompt user for Preview vs Download
+    const result = await Swal.fire({
+      title: `Export ${type.toUpperCase()}`,
+      text: `Would you like to preview the ${type.toUpperCase()} document or download it to your device?`,
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Preview",
+      denyButtonText: "Download",
+      cancelButtonText: "Cancel",
+      customClass: {
+        confirmButton: "btn btn-primary me-2",
+        denyButton: "btn btn-success me-2",
+        cancelButton: "btn btn-secondary",
+      },
+      buttonsStyling: false,
+    });
+
+    if (result.isDismissed || result.dismiss === Swal.DismissReason.cancel) {
+      return; // User cancelled
+    }
+
+    let newTab: Window | null = null;
+    if (result.isConfirmed) {
+      newTab = window.open("", "_blank");
+      if (newTab) {
+        newTab.document.title = `Generating Preview...`;
+        if (type === "docx") {
+          newTab.document.open();
+          newTab.document.write(getDocxPreviewHtml("DOCX"));
+          newTab.document.close();
+        } else {
+          newTab.document.body.innerHTML = `
+            <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#ffffff;margin:0;padding:0;">
+              <div style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #3699ff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;"></div>
+              <p style="margin-top:20px;font-size:16px;font-weight:500;">Generating your PDF preview, please wait...</p>
+              <style>
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              </style>
+            </div>
+          `;
+        }
+      }
+    }
+
     setIsGenerating(true);
     try {
       // Resolve Company Names for File Location
@@ -411,6 +469,16 @@ const LeadFormModal = ({
           values.selected_template ||
           values.exportTemplate ||
           "placeholder.docx",
+        rules: [
+          ...(values.globalPaymentStages || []).map((r: any) => ({
+            ...r,
+            minArea: -1,
+            maxArea: -1,
+            min_area: -1,
+            max_area: -1,
+          })),
+          ...(values.rules || [])
+        ],
       };
 
       const data =
@@ -425,46 +493,83 @@ const LeadFormModal = ({
             : "application/pdf",
       });
 
-      // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
-      if ("showSaveFilePicker" in window) {
-        try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: `Lead_${values.projectName || values.id}.${type}`,
-            types: [
-              {
-                description: type === "docx" ? "Word Document" : "PDF Document",
-                accept: { [blob.type]: [`.${type}`] },
-              },
-            ],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          console.log("✅ File saved successfully via Save Picker");
-          return; // Exit if successful
-        } catch (err: any) {
-          if (err.name === "AbortError") return; // User cancelled
-          console.warn(
-            "Save Picker failed, falling back to standard download:",
-            err,
-          );
+      if (result.isConfirmed) {
+        if (newTab) {
+          if (type === "docx") {
+            const checkChildReady = setInterval(() => {
+              if (!newTab || newTab.closed) {
+                clearInterval(checkChildReady);
+                return;
+              }
+              if (typeof (newTab as any).renderDocx === "function") {
+                clearInterval(checkChildReady);
+                const filename = `Lead_${values.projectName || values.id}.docx`;
+                (newTab as any).renderDocx(blob, filename);
+              }
+            }, 100);
+            setTimeout(() => clearInterval(checkChildReady), 15000);
+          } else {
+            const fileURL = window.URL.createObjectURL(blob);
+            newTab.location.href = fileURL;
+            setTimeout(() => {
+              if (newTab) {
+                newTab.document.title = `Lead_${values.projectName || values.id}.${type}`;
+              }
+            }, 500);
+          }
         }
-      }
+        console.log(`✅ ${type.toUpperCase()} preview loaded in new tab`);
+      } else if (result.isDenied) {
+        // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
+        if ("showSaveFilePicker" in window) {
+          try {
+            const handle = await (window as any).showSaveFilePicker({
+              suggestedName: `Lead_${values.projectName || values.id}.${type}`,
+              types: [
+                {
+                  description: type === "docx" ? "Word Document" : "PDF Document",
+                  accept: { [blob.type]: [`.${type}`] },
+                },
+              ],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            console.log("✅ File saved successfully via Save Picker");
+            return; // Exit if successful
+          } catch (err: any) {
+            if (err.name === "AbortError") return; // User cancelled
+            console.warn(
+              "Save Picker failed, falling back to standard download:",
+              err,
+            );
+          }
+        }
 
-      // FALLBACK: Standard download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `Lead_${values.projectName || values.id}.${type}`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+        // FALLBACK: Standard download
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute(
+          "download",
+          `Lead_${values.projectName || values.id}.${type}`,
+        );
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error(`Error exporting ${type}:`, error);
+      if (newTab) {
+        newTab.document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#f64e60;padding:20px;text-align:center;">
+            <span style="font-size: 48px; margin-bottom: 20px;">⚠️</span>
+            <h3>Error Generating Preview</h3>
+            <p style="color:#a5a5b5;max-width:500px;margin-top:10px;">An error occurred while generating the document. Please try again or contact support.</p>
+          </div>
+        `;
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -474,6 +579,57 @@ const LeadFormModal = ({
   );
   const [prefix, setPrefix] = useState("");
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
+
+  // ── Draft system ───────────────────────────────────────────────────────────
+  const draftEntityId = isEditMode ? (initialFormData?.id || initialData?.id || 'new') : 'new';
+  const [draftCurrentStep, setDraftCurrentStep] = useState(0);
+  const [resumeStep, setResumeStep] = useState<number | undefined>(undefined);
+  const {
+    existingDraft: leadDraft,
+    showRecoveryModal: showLeadRecoveryModal,
+    showUnsavedModal: showLeadUnsavedModal,
+    isSaving: isLeadDraftSaving,
+    saveDraft: saveLeadDraft,
+    autoSaveDraft: autoSaveLeadDraft,
+    discardDraft: discardLeadDraft,
+    clearDraftAfterSave: clearLeadDraftAfterSave,
+    isDirty: isLeadDraftDirty,
+    setShowRecoveryModal: setShowLeadRecoveryModal,
+    setShowUnsavedModal: setShowLeadUnsavedModal,
+  } = useDraft({ entityType: 'lead', entityId: draftEntityId, enabled: open, totalSteps: 7 });
+
+  const handleResumeDraft = () => {
+    if (leadDraft?.formData && formikRef.current) {
+      formikRef.current.setValues({ ...formikRef.current.values, ...leadDraft.formData });
+    }
+    if (leadDraft?.currentStep !== undefined) {
+      setResumeStep(leadDraft.currentStep);
+    }
+    setShowLeadRecoveryModal(false);
+  };
+
+  const handleDiscardLeadDraft = async () => {
+    await discardLeadDraft();
+    setShowLeadRecoveryModal(false);
+  };
+
+  const handleSaveLeadDraftManual = async () => {
+    if (formikRef.current) {
+      await saveLeadDraft(formikRef.current.values, draftCurrentStep, {});
+    }
+    setShowLeadUnsavedModal(false);
+  };
+
+  const handleLeadCancelWithDirtyCheck = () => {
+    if (isLeadDraftDirty) {
+      setShowLeadUnsavedModal(true);
+    } else {
+      if (onClose) onClose();
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   const [currLeadData, setCurrLeadData] = useState<any>();
   const [filteredSubCompanies, setFilteredSubCompanies] = useState<any[]>([]);
   const [referralSubCompanies, setReferralSubCompanies] = useState<{
@@ -808,6 +964,9 @@ const LeadFormModal = ({
         otherPoint3Description: "",
         exportTemplate: "placeholder.docx", // Default template
         revision_number: "01",
+        proposalTemplateId: "",
+        globalPaymentStages: [],
+        rules: [],
 
         // additional details
         // Additional fields for web-dev type
@@ -1251,6 +1410,9 @@ const LeadFormModal = ({
         : initialFormData?.poDate || "",
       poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
+      proposalTemplateId: leadData?.proposalTemplateId || "",
+      globalPaymentStages: [],
+      rules: [],
     };
   };
 
@@ -1412,6 +1574,17 @@ const LeadFormModal = ({
   });
 
   // fetching all the details:
+  const fetchProposalTemplates = useCallback(async () => {
+    try {
+      const data = await getProposalConfigurations();
+      setProposalTemplates(data || []);
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching proposal templates:", error);
+      return [];
+    }
+  }, []);
+
   // Fetch functionsadd an add new button
   const fetchProjectCategories = useCallback(async () => {
     // if (categories.length > 0) return categories;
@@ -2054,6 +2227,7 @@ const LeadFormModal = ({
         fetchEmployees(), // Added: For internal referrals
         fetchCompanyOverviewData(), // Added: For internal referrals
         fetchLeadCancellationReasons(), //new
+        fetchProposalTemplates(),
       ]);
 
       setDataLoaded(true);
@@ -2076,6 +2250,7 @@ const LeadFormModal = ({
     fetchAllLeadDirectSources,
     fetchLeadStatuses,
     fetchLeadCancellationReasons, //new
+    fetchProposalTemplates,
   ]);
 
   //new
@@ -2832,6 +3007,8 @@ const LeadFormModal = ({
     // delete finalData.fileLocationCompanyType;//new
     // delete finalData.fileLocationCompany; //new
     delete finalData.exportTemplate;
+    delete finalData.globalPaymentStages;
+    delete finalData.rules;
 
     if (
       finalData?.useCalculatedAmount === false ||
@@ -2848,7 +3025,7 @@ const LeadFormModal = ({
         || key === "cancellationReasonId" || key === "handledBy"
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
-        || key === "leadAssignedTo") {
+        || key === "leadAssignedTo" || key === "proposalTemplateId") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
@@ -2884,6 +3061,7 @@ const LeadFormModal = ({
         } else {
           successConfirmation("Lead Updated successfully!");
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
+          await clearLeadDraftAfterSave();
           if (onClose) onClose();
         }
       } else {
@@ -2893,6 +3071,7 @@ const LeadFormModal = ({
         } else {
           eventBus.emit(EVENT_KEYS.leadCreated, { id: res.id });
           successConfirmation("Lead created successfully!");
+          await clearLeadDraftAfterSave();
           if (onClose) onClose();
         }
       }
@@ -3070,6 +3249,10 @@ const LeadFormModal = ({
 
                 return (
                   <FormikForm placeholder={""}>
+                    <DraftAutoSave
+                      onAutoSave={(vals, step) => autoSaveLeadDraft(vals, step, {})}
+                      currentStep={draftCurrentStep}
+                    />
                     <LeadWorkspace
                       categories={categories}
                       subcategories={subcategories}
@@ -3102,6 +3285,7 @@ const LeadFormModal = ({
                       handleAddressStateChange={handleAddressStateChange}
                       teamFilteredCompanies={teamFilteredCompanies}
                       teamFilteredSubCompanies={teamFilteredSubCompanies}
+                      teamFilteredContacts={teamFilteredContacts}
                       handleCompanyTypeChange={handleCompanyTypeChange}
                       handleCompanyChange={handleCompanyChange}
                       handleSubCompanyChange={handleSubCompanyChange}
@@ -3109,10 +3293,15 @@ const LeadFormModal = ({
                       setPrefix={setPrefix}
                       isEditMode={isEditMode}
                       currLeadData={currLeadData}
+                      proposalTemplates={proposalTemplates}
                       hasDefaultStatus={hasDefaultStatus}
-                      onHide={onClose ?? (() => {})}
+                      onHide={handleLeadCancelWithDirtyCheck}
                       exportPdf={isEditMode ? () => handleExport("pdf", values) : undefined}
                       exportDocx={isEditMode ? () => handleExport("docx", values) : undefined}
+                      onSaveDraft={() => saveLeadDraft(values, draftCurrentStep, {})}
+                      isSavingDraft={isLeadDraftSaving}
+                      onStepChange={setDraftCurrentStep}
+                      initialStep={resumeStep}
                       formikProps={formikProps}
                     />
                   </FormikForm>
@@ -3121,6 +3310,23 @@ const LeadFormModal = ({
             </Formik>
           </Modal.Body>
       </Modal>
+
+      {/* Draft modals */}
+      <DraftRecoveryModal
+        show={showLeadRecoveryModal}
+        draft={leadDraft}
+        entityName={leadDraft?.formData?.projectName}
+        onResume={handleResumeDraft}
+        onDiscard={handleDiscardLeadDraft}
+        onStartFresh={() => setShowLeadRecoveryModal(false)}
+      />
+      <UnsavedChangesModal
+        show={showLeadUnsavedModal}
+        isSaving={isLeadDraftSaving}
+        onSaveDraft={handleSaveLeadDraftManual}
+        onContinueEditing={() => setShowLeadUnsavedModal(false)}
+        onDiscard={async () => { await discardLeadDraft(); if (onClose) onClose(); }}
+      />
 
       {/* Configuration Forms */}
       <div>

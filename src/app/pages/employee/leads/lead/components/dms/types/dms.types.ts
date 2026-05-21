@@ -19,7 +19,7 @@ export type ExportType =
   | 'client_share'
   | 'internal_draft';
 
-export type ExportDestination = 'device' | 'cloud' | 'both';
+export type ExportDestination = 'device' | 'cloud' | 'both' | 'preview';
 
 export type FileType = 'docx' | 'pdf' | 'image' | 'text' | 'xlsx' | 'folder' | 'unknown';
 

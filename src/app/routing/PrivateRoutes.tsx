@@ -74,8 +74,6 @@ const PrivateRoutes = () => {
   const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
   const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
   const Reimbursement = lazy(() => import('@pages/employee/reimbursement/Reimbursement'))
-  const PayrollLedger = lazy(() => import('../../modules/payroll/pages/PayrollLedger'))
-  const PayrollDetails = lazy(() => import('../../modules/payroll/pages/PayrollDetails'))
   const [isStored, setIsStored] = useState(false)
   const isAdmin = useSelector((state: RootState) => state.auth.currentUser?.isAdmin)
   const employeeId = useSelector(
@@ -158,20 +156,6 @@ const PrivateRoutes = () => {
               <Salary />
             </SuspensedView>}
         />}
-        <Route
-          path='/payroll/ledger'
-          element={
-            <SuspensedView>
-              <PayrollLedger />
-            </SuspensedView>}
-        />
-        <Route
-          path='/payroll/ledger/:id'
-          element={
-            <SuspensedView>
-              <PayrollDetails />
-            </SuspensedView>}
-        />
         <Route
           path='/finance/loans'
           element={

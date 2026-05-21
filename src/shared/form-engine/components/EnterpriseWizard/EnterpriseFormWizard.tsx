@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { useFormikContext } from "formik";
+import { PictureAsPdf, Description } from "@mui/icons-material";
 import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from "../../types/formEngine.types";
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
@@ -16,6 +17,8 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   headerActions?: React.ReactNode;
   sidebarTitle?: string;
   breadcrumb?: string[];
+  onStepChange?: (step: number) => void;
+  initialStep?: number;
 }
 
 export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
@@ -28,10 +31,12 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   headerSub,
   sidebarTitle,
   breadcrumb,
+  onStepChange,
+  initialStep = 0,
 }: EnterpriseFormWizardProps<TValues, TStepProps>) {
   const { values, submitForm } = useFormikContext<TValues>();
   const visibleSteps = useMemo(() => steps.filter((step) => !step.hidden), [steps]);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [animKey, setAnimKey] = useState(0);
 
   const summaryRows = typeof summary.rows === "function" ? summary.rows(values) : summary.rows;
@@ -49,8 +54,9 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
       setCurrentStep(idx);
       setAnimKey((k) => k + 1);
       scrollCanvasTop();
+      onStepChange?.(idx);
     }
-  }, [currentStep, visibleSteps.length, scrollCanvasTop]);
+  }, [currentStep, visibleSteps.length, scrollCanvasTop, onStepChange]);
 
   const handleNext = useCallback(() => {
     if (isLastStep) {
@@ -95,7 +101,47 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
         </div>
 
         {/* Header action buttons */}
-        <div className="wizard-header-actions">
+        <div className="wizard-header-actions" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {actions.isEditMode && (actions.exportPdf || actions.exportDocx) && (
+            <div className="wt-header-exports d-flex gap-2 align-items-center me-2">
+              {actions.exportPdf && (
+                <button
+                  type="button"
+                  className="wt-export-btn wt-export-pdf"
+                  onClick={actions.exportPdf}
+                  title="Export PDF"
+                  style={{ minWidth: "75px", padding: "0.35rem 0.5rem" }}
+                >
+                  <PictureAsPdf style={{ fontSize: "0.9rem" }} />
+                  <span>PDF</span>
+                </button>
+              )}
+              {actions.exportDocx && (
+                <button
+                  type="button"
+                  className="wt-export-btn wt-export-docx"
+                  onClick={actions.exportDocx}
+                  title="Export DOCX"
+                  style={{ minWidth: "75px", padding: "0.35rem 0.5rem" }}
+                >
+                  <Description style={{ fontSize: "0.9rem" }} />
+                  <span>DOCX</span>
+                </button>
+              )}
+            </div>
+          )}
+          {actions.onSaveDraft && (
+            <button
+              type="button"
+              className="wt-btn wt-btn-ghost"
+              onClick={actions.onSaveDraft}
+              disabled={actions.isSubmitting || actions.isSavingDraft}
+              title="Save your progress as a draft (no validation required)"
+              style={{ borderStyle: 'dashed' }}
+            >
+              {actions.isSavingDraft ? 'Saving…' : '💾 Save Draft'}
+            </button>
+          )}
           <button
             type="button"
             className="wt-btn wt-btn-ghost"
@@ -114,6 +160,25 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
             >
               Save &amp; Continue →
             </button>
+          ) : actions.onSaveUpdate && actions.onSaveRevision ? (
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="wt-btn wt-btn-secondary"
+                disabled={actions.isSubmitting || actions.submitDisabled}
+                onClick={actions.onSaveUpdate}
+              >
+                {actions.isSubmitting ? "Saving…" : "Save as Update"}
+              </button>
+              <button
+                type="button"
+                className="wt-btn wt-btn-primary"
+                disabled={actions.isSubmitting || actions.submitDisabled}
+                onClick={actions.onSaveRevision}
+              >
+                {actions.isSubmitting ? "Saving…" : "Save as Revision"}
+              </button>
+            </div>
           ) : (
             <button
               type="submit"
@@ -212,15 +277,36 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
         {/* Forward actions */}
         <div className="wizard-footer-right">
           {isLastStep ? (
-            <button
-              type="submit"
-              className="wt-btn wt-btn-primary wt-btn-lg"
-              disabled={actions.isSubmitting || actions.submitDisabled}
-            >
-              {actions.isSubmitting
-                ? "Saving…"
-                : actions.submitText || (actions.isEditMode ? "Save Changes" : "Create")}
-            </button>
+            actions.onSaveUpdate && actions.onSaveRevision ? (
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="wt-btn wt-btn-secondary wt-btn-lg"
+                  disabled={actions.isSubmitting || actions.submitDisabled}
+                  onClick={actions.onSaveUpdate}
+                >
+                  {actions.isSubmitting ? "Saving…" : "Save as Update"}
+                </button>
+                <button
+                  type="button"
+                  className="wt-btn wt-btn-primary wt-btn-lg"
+                  disabled={actions.isSubmitting || actions.submitDisabled}
+                  onClick={actions.onSaveRevision}
+                >
+                  {actions.isSubmitting ? "Saving…" : "Save as Revision"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                className="wt-btn wt-btn-primary wt-btn-lg"
+                disabled={actions.isSubmitting || actions.submitDisabled}
+              >
+                {actions.isSubmitting
+                  ? "Saving…"
+                  : actions.submitText || (actions.isEditMode ? "Save Changes" : "Create")}
+              </button>
+            )
           ) : (
             <button
               type="button"

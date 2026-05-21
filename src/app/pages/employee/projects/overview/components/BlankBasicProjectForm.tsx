@@ -45,7 +45,14 @@ import { getAllProjectCountForPrefix } from "@services/projects";
 import dayjs from "dayjs";
 import { convertFiscalYearToYearFormat } from '@app/modules/common/components/PrefixSettingsForm';
 import ProjectWorkspace from "@app/pages/employee/forms/project/ProjectWorkspace";
+import { useDraft } from "@hooks/useDraft";
+import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
+import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
+import { DraftAutoSave } from "@components/draft/DraftAutoSave";
 import { createNewSubcategory } from "@app/modules/common/components/InlineCreateHelpers";
+import { getDocxPreviewHtml } from "@pages/employee/leads/lead/components/dms/utils/dmsUtils";
+import Swal from "sweetalert2";
+
 
 // Build employee options for dropdowns.
 // Active employees are always shown. Inactive employees are shown ONLY when they
@@ -143,7 +150,56 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
   const [showCompanyTypeModal, setShowCompanyTypeModal] = useState(false);
   
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
-  
+
+  // ── Draft system ───────────────────────────────────────────────────────────
+  const draftEntityId = editingProjectId || 'new';
+  const [draftCurrentStep, setDraftCurrentStep] = useState(0);
+  const [resumeStep, setResumeStep] = useState<number | undefined>(undefined);
+  const {
+    existingDraft: projectDraft,
+    showRecoveryModal: showProjectRecoveryModal,
+    showUnsavedModal: showProjectUnsavedModal,
+    isSaving: isProjectDraftSaving,
+    saveDraft: saveProjectDraft,
+    autoSaveDraft: autoSaveProjectDraft,
+    discardDraft: discardProjectDraft,
+    clearDraftAfterSave: clearProjectDraftAfterSave,
+    isDirty: isProjectDraftDirty,
+    setShowRecoveryModal: setShowProjectRecoveryModal,
+    setShowUnsavedModal: setShowProjectUnsavedModal,
+  } = useDraft({ entityType: 'project', entityId: draftEntityId, enabled: showBlankProjectForm, totalSteps: 6 });
+
+  const handleResumeProjectDraft = () => {
+    if (projectDraft?.formData && formikRef.current) {
+      formikRef.current.setValues({ ...formikRef.current.values, ...projectDraft.formData });
+    }
+    if (projectDraft?.currentStep !== undefined) {
+      setResumeStep(projectDraft.currentStep);
+    }
+    setShowProjectRecoveryModal(false);
+  };
+
+  const handleDiscardProjectDraft = async () => {
+    await discardProjectDraft();
+    setShowProjectRecoveryModal(false);
+  };
+
+  const handleSaveProjectDraftManual = async () => {
+    if (formikRef.current) {
+      await saveProjectDraft(formikRef.current.values, draftCurrentStep, {});
+    }
+    setShowProjectUnsavedModal(false);
+  };
+
+  const handleProjectCancelWithDirtyCheck = () => {
+    if (isProjectDraftDirty) {
+      setShowProjectUnsavedModal(true);
+    } else {
+      onHide();
+    }
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Loading states
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
@@ -155,6 +211,55 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
 
   const handleExport = async (type: 'docx' | 'pdf', values: any) => {
     if (!editingProjectId) return;
+
+    // Prompt user for Preview vs Download
+    const result = await Swal.fire({
+      title: `Export ${type.toUpperCase()}`,
+      text: `Would you like to preview the ${type.toUpperCase()} document or download it to your device?`,
+      icon: "question",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Preview",
+      denyButtonText: "Download",
+      cancelButtonText: "Cancel",
+      customClass: {
+        confirmButton: "btn btn-primary me-2",
+        denyButton: "btn btn-success me-2",
+        cancelButton: "btn btn-secondary",
+      },
+      buttonsStyling: false,
+    });
+
+    if (result.isDismissed || result.dismiss === Swal.DismissReason.cancel) {
+      return; // User cancelled
+    }
+
+    let newTab: Window | null = null;
+    if (result.isConfirmed) {
+      newTab = window.open("", "_blank");
+      if (newTab) {
+        newTab.document.title = `Generating Preview...`;
+        if (type === "docx") {
+          newTab.document.open();
+          newTab.document.write(getDocxPreviewHtml("DOCX"));
+          newTab.document.close();
+        } else {
+          newTab.document.body.innerHTML = `
+            <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#ffffff;margin:0;padding:0;">
+              <div style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #3699ff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;"></div>
+              <p style="margin-top:20px;font-size:16px;font-weight:500;">Generating your PDF preview, please wait...</p>
+              <style>
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              </style>
+            </div>
+          `;
+        }
+      }
+    }
+
     setIsGenerating(true);
     try {
       const firstCompanyId = values.companies?.[0]?.company || '';
@@ -177,15 +282,83 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         ? await exportProjectDocx(editingProjectId, exportData)
         : await exportProjectPdf(editingProjectId, exportData);
       
-      const url = window.URL.createObjectURL(new Blob([data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Project_${values.title || editingProjectId}.${type}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const blob = new Blob([data], {
+        type:
+          type === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "application/pdf",
+      });
+
+      if (result.isConfirmed) {
+        if (newTab) {
+          if (type === "docx") {
+            const checkChildReady = setInterval(() => {
+              if (!newTab || newTab.closed) {
+                clearInterval(checkChildReady);
+                return;
+              }
+              if (typeof (newTab as any).renderDocx === "function") {
+                clearInterval(checkChildReady);
+                const filename = `Project_${values.title || editingProjectId}.docx`;
+                (newTab as any).renderDocx(blob, filename);
+              }
+            }, 100);
+            setTimeout(() => clearInterval(checkChildReady), 15000);
+          } else {
+            const fileURL = window.URL.createObjectURL(blob);
+            newTab.location.href = fileURL;
+            setTimeout(() => {
+              if (newTab) {
+                newTab.document.title = `Project_${values.title || editingProjectId}.${type}`;
+              }
+            }, 500);
+          }
+        }
+        console.log(`✅ ${type.toUpperCase()} preview loaded in new tab`);
+      } else if (result.isDenied) {
+        // DOWNLOAD: Save file to device
+        if ("showSaveFilePicker" in window) {
+          try {
+            const handle = await (window as any).showSaveFilePicker({
+              suggestedName: `Project_${values.title || editingProjectId}.${type}`,
+              types: [
+                {
+                  description: type === "docx" ? "Word Document" : "PDF Document",
+                  accept: { [blob.type]: [`.${type}`] },
+                },
+              ],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            console.log("✅ File saved successfully via Save Picker");
+            return;
+          } catch (err: any) {
+            if (err.name === "AbortError") return;
+            console.warn("Save Picker failed, falling back to standard download:", err);
+          }
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Project_${values.title || editingProjectId}.${type}`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error(`Error exporting ${type}:`, error);
+      if (newTab) {
+        newTab.document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#f64e60;padding:20px;text-align:center;">
+            <span style="font-size: 48px; margin-bottom: 20px;">⚠️</span>
+            <h3>Error Generating Preview</h3>
+            <p style="color:#a5a5b5;max-width:500px;margin-top:10px;">An error occurred while generating the document. Please try again or contact support.</p>
+          </div>
+        `;
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -1482,6 +1655,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
           eventBus.emit(EVENT_KEYS.projectCreated);
           successConfirmation("Project created successfully!");
         }
+        await clearProjectDraftAfterSave();
         onHide();
       } catch (error: any) {
         console.error("Error saving project:", error);
@@ -1724,6 +1898,10 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
 
                 return (
                   <FormikForm placeholder={""}>
+                    <DraftAutoSave
+                      onAutoSave={(vals, step) => autoSaveProjectDraft(vals, step, {})}
+                      currentStep={draftCurrentStep}
+                    />
                     <ProjectWorkspace
                       categories={categories}
                       subcategories={subcategories}
@@ -1778,9 +1956,13 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
                       setPrefix={setEditablePrefix}
                       isEditMode={!!editingProjectId}
                       projectData={projectData}
-                      onHide={onHide}
+                      onHide={handleProjectCancelWithDirtyCheck}
                       exportPdf={editingProjectId ? () => handleExport('pdf', values) : undefined}
                       exportDocx={editingProjectId ? () => handleExport('docx', values) : undefined}
+                      onSaveDraft={() => saveProjectDraft(values, draftCurrentStep, {})}
+                      isSavingDraft={isProjectDraftSaving}
+                      onStepChange={setDraftCurrentStep}
+                      initialStep={resumeStep}
                       formikProps={formikProps}
                       isDatesInvalid={isDatesInvalid}
                       getDateValidationMessage={getDateValidationMessage}
@@ -1850,6 +2032,23 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         onClose={() => setShowCompanyTypeModal(false)}
         title="Company Type"
         type="company-type"
+      />
+
+      {/* Draft modals */}
+      <DraftRecoveryModal
+        show={showProjectRecoveryModal}
+        draft={projectDraft}
+        entityName={projectDraft?.formData?.title}
+        onResume={handleResumeProjectDraft}
+        onDiscard={handleDiscardProjectDraft}
+        onStartFresh={() => setShowProjectRecoveryModal(false)}
+      />
+      <UnsavedChangesModal
+        show={showProjectUnsavedModal}
+        isSaving={isProjectDraftSaving}
+        onSaveDraft={handleSaveProjectDraftManual}
+        onContinueEditing={() => setShowProjectUnsavedModal(false)}
+        onDiscard={async () => { await discardProjectDraft(); onHide(); }}
       />
     </div>
   );

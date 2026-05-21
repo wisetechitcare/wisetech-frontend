@@ -808,7 +808,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // const holidays = leavesHolidaysMap.get(HOLIDAYS) || 0;
 
-    const dailySalary = monthlySalary / totalWorkingDay;
+    const dailySalary = monthlySalary / 30;
     let hourlySalary = totalWorkingHour ? dailySalary / totalWorkingHour : 1;
 
     hourlySalary = Number(hourlySalary.toFixed(2))

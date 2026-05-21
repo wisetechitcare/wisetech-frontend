@@ -1,5 +1,6 @@
 import React from "react";
 import { useFormikContext } from "formik";
+import dayjs from "dayjs";
 import { EnterpriseFormWizard, EnterpriseWizardStep, SummaryRow } from "@/shared/form-engine";
 import * as L from "./LeadSections";
 import {
@@ -9,6 +10,7 @@ import {
   MonetizationOn,
   LocationOn,
   FactCheckOutlined,
+  SettingsOutlined,
 } from "@mui/icons-material";
 
 interface LeadWorkspaceProps {
@@ -25,6 +27,7 @@ interface LeadWorkspaceProps {
   companies: any[];
   contacts: any[];
   companyTypes: any[];
+  proposalTemplates?: any[];
 
   // ── Inline create / modal triggers ────────────────────────────────────────
   setShowCategoryModal: (show: boolean) => void;
@@ -55,6 +58,7 @@ interface LeadWorkspaceProps {
   handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: Function) => void;
   handleCompanyChange: (index: number, companyId: string, setFieldValue: Function) => void;
   handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: Function) => void;
+  teamFilteredContacts: any;
 
   // ── Misc ───────────────────────────────────────────────────────────────────
   prefix: string;
@@ -65,15 +69,90 @@ interface LeadWorkspaceProps {
   onHide: () => void;
   exportPdf?: () => void;
   exportDocx?: () => void;
+  onSaveUpdate?: () => void;
+  onSaveRevision?: () => void;
+  onSaveDraft?: () => void;
+  isSavingDraft?: boolean;
+  onStepChange?: (step: number) => void;
+  initialStep?: number;
   formikProps: any;
 }
 
 export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
-  const { values, isSubmitting } = useFormikContext<any>();
+  const { values, isSubmitting, setFieldValue } = useFormikContext<any>();
 
   const currentStatusName = props.leadStatuses.find((x) => x.id === values.statusId)?.name;
 
-  // ── 6 Wizard Pages ─────────────────────────────────────────────────────────
+  const lastTemplateIdRef = React.useRef<string | null>(null);
+  const loadedTemplatesRef = React.useRef<any[]>([]);
+
+  React.useEffect(() => {
+    const templatesLoaded = props.proposalTemplates && props.proposalTemplates.length > 0;
+    const templateIdChanged = values.proposalTemplateId !== lastTemplateIdRef.current;
+    const templatesListChanged = props.proposalTemplates !== loadedTemplatesRef.current;
+
+    if (templateIdChanged || (templatesListChanged && templatesLoaded)) {
+      lastTemplateIdRef.current = values.proposalTemplateId;
+      loadedTemplatesRef.current = props.proposalTemplates || [];
+
+      const tpl = props.proposalTemplates?.find((t) => t.id === values.proposalTemplateId);
+      if (tpl) {
+        // Only override if the form fields are currently empty (prevent overwriting user modifications on reload)
+        const hasStages = values.globalPaymentStages && values.globalPaymentStages.length > 0;
+        const hasRules = values.rules && values.rules.length > 0;
+
+        if (!hasStages && !hasRules) {
+          const globalPaymentStages: any[] = [];
+          const rules: any[] = [];
+          if (Array.isArray(tpl.rules)) {
+            tpl.rules.forEach((r: any) => {
+              const type = r.configType || r.config_type;
+              const min = r.minArea !== undefined ? r.minArea : r.min_area;
+              const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
+              const key = r.configKey || r.config_key;
+              const val = r.value !== undefined ? r.value : r.config_value;
+
+              const mappedRule = {
+                id: r.id,
+                config_type: type,
+                config_key: key,
+                configType: type,
+                configKey: key,
+                value: val,
+                config_value: val,
+                minArea: min,
+                maxArea: max,
+                min_area: min,
+                max_area: max,
+                completionYear: r.completionYear ?? r.completion_year ?? 0,
+                completionMonth: r.completionMonth ?? r.completion_month ?? 0,
+              };
+
+              if (
+                type === "percentage" ||
+                type === "payment" ||
+                (Number(min) === -1 && Number(max) === -1)
+              ) {
+                globalPaymentStages.push(mappedRule);
+              } else {
+                rules.push(mappedRule);
+              }
+            });
+          }
+          setFieldValue("globalPaymentStages", globalPaymentStages);
+          setFieldValue("rules", rules);
+        }
+      } else {
+        // If we selected nothing or invalid template, clear it
+        if (!values.proposalTemplateId) {
+          setFieldValue("globalPaymentStages", []);
+          setFieldValue("rules", []);
+        }
+      }
+    }
+  }, [values.proposalTemplateId, props.proposalTemplates, setFieldValue, values.globalPaymentStages, values.rules]);
+
+  // ── 7 Wizard Pages ─────────────────────────────────────────────────────────
   // Each page is its own focused viewport — no accordion, no scrolling between steps.
   // Business logic is preserved identically inside each section component.
   // ──────────────────────────────────────────────────────────────────────────
@@ -160,7 +239,18 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       render: (_p) => <L.CommercialsSection />,
     },
 
-    // ── STEP 5: Address, Location & Documents ──────────────────────────────
+    // ── STEP 5: Proposal Configuration ─────────────────────────────────────
+    {
+      id: "proposal-config",
+      label: "Proposal Configuration",
+      title: "Proposal Configuration",
+      subtitle: "Customise template, payment stages and meeting schedules",
+      fields: ["proposalTemplateId", "globalPaymentStages", "rules"],
+      icon: <SettingsOutlined />,
+      render: (p) => <L.ProposalConfigurationSection {...p} />,
+    },
+
+    // ── STEP 6: Address, Location & Documents ──────────────────────────────
     {
       id: "address-docs",
       label: "Address, Location & Docs",
@@ -172,7 +262,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       component: L.AddressSection,
     },
 
-    // ── STEP 6: Review & Workflow ───────────────────────────────────────────
+    // ── STEP 7: Review & Workflow ───────────────────────────────────────────
     // Consolidates: review summary + conditional PO / Handle By / Cancellation
     {
       id: "review",
@@ -189,11 +279,65 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
   const getSummaryRows = (): SummaryRow[] => {
     const statusObj = props.leadStatuses.find((x) => x.id === values.statusId);
     const assignedEmp = props.employees.find((x) => x.employeeId === values.leadAssignedTo);
+    const telemarketerEmp = props.employees.find((x) => x.employeeId === values.telemarketerId);
+    const coordinatorEmp = props.employees.find((x) => x.employeeId === values.coordinatorId);
+
+    const templateObj = props.proposalTemplates?.find((t) => t.id === values.proposalTemplateId);
+    const templateName = templateObj ? (templateObj.templateName || templateObj.templateCode || templateObj.id) : undefined;
+
+    const selectedServices = (values.serviceIds || [])
+      .map((id: any) => props.services.find((s) => s.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
+
+    const selectedCategories = (values.categoryIds || [])
+      .map((id: any) => props.categories.find((c) => c.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
+
+    const selectedSubcategories = (values.subcategoryIds || [])
+      .map((id: any) => props.subcategories.find((sc) => sc.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
+
+    const leadSourceStr = values.leadSourceType
+      ? values.leadSourceType === "DIRECT"
+        ? "Direct Source"
+        : values.leadSourceType === "REFERRAL"
+        ? "Referrals"
+        : values.leadSourceType
+      : "—";
+
+    let sourceDetailStr = "";
+    if (values.leadSourceType === "DIRECT") {
+      const src = props.leadDirectSources.find((x) => x.id === values.leadDirectSource);
+      sourceDetailStr = src?.name || "—";
+    } else if (values.leadSourceType === "REFERRAL") {
+      const count = (values.referrals || []).length;
+      sourceDetailStr = count > 0 ? `${count} Referral(s)` : "—";
+    }
+
+    const clientCompaniesStr = (values.leadTeams || [])
+      .map((t: any) => props.companies.find((c) => c.id === t.companyId)?.companyName)
+      .filter(Boolean)
+      .join(", ");
+
+    const googleAddressStr = (values.addresses || [])
+      .map((a: any) => a.projectAddress)
+      .filter(Boolean)
+      .join(", ");
+
+    const fileCompanyObj = props.companies.find((c) => c.id === values.fileLocationCompany);
+    const fileCompanyStr = fileCompanyObj?.companyName || "—";
 
     const totalCommercials = (values.projectAreas || []).reduce(
       (total: number, area: any) => total + (parseFloat(area.cost) || 0),
       0
     );
+
+    const formattedInquiryDate = values.leadInquiryDate && dayjs(values.leadInquiryDate).isValid()
+      ? dayjs(values.leadInquiryDate).format("DD-MMM-YYYY")
+      : "—";
 
     return [
       {
@@ -215,12 +359,70 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       },
       {
         label: "Lead Name",
-        value: values.projectName || undefined,
+        value: values.projectName || "—",
         isStrong: true,
       },
       {
+        label: "Inquiry Date",
+        value: formattedInquiryDate,
+      },
+      {
+        label: "Lead Source",
+        value: leadSourceStr,
+      },
+      ...(values.leadSourceType ? [
+        {
+          label: "Source Detail",
+          value: sourceDetailStr || "—",
+        }
+      ] : []),
+      {
+        label: "Client Companies",
+        value: clientCompaniesStr || "—",
+      },
+      {
+        label: "Plot Area",
+        value: values.plotArea ? `${values.plotArea} ${values.plotAreaUnit || "SFT"}` : "—",
+      },
+      {
+        label: "Built-up Area",
+        value: values.builtUpArea ? `${values.builtUpArea} ${values.builtUpAreaUnit || "SFT"}` : "—",
+      },
+      {
+        label: "Services",
+        value: selectedServices || "—",
+      },
+      {
+        label: "Categories",
+        value: selectedCategories || "—",
+      },
+      {
+        label: "Sub Categories",
+        value: selectedSubcategories || "—",
+      },
+      {
         label: "Assigned Head",
-        value: assignedEmp?.employeeName || undefined,
+        value: assignedEmp?.employeeName || "—",
+      },
+      {
+        label: "Telemarketer",
+        value: telemarketerEmp?.employeeName || "—",
+      },
+      {
+        label: "Coordinator",
+        value: coordinatorEmp?.employeeName || "—",
+      },
+      {
+        label: "Proposal Template",
+        value: templateName || "—",
+      },
+      {
+        label: "File Company",
+        value: fileCompanyStr,
+      },
+      {
+        label: "Location Address",
+        value: googleAddressStr || "—",
       },
       {
         label: "Commercial Value",
@@ -245,12 +447,18 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
           ? "Please configure a default status in Lead configuration settings first."
           : undefined,
       }}
+      onStepChange={props.onStepChange}
+      initialStep={props.initialStep}
       actions={{
         isSubmitting,
         isEditMode: props.isEditMode,
         onCancel: props.onHide,
         exportPdf: props.exportPdf,
         exportDocx: props.exportDocx,
+        onSaveUpdate: props.onSaveUpdate,
+        onSaveRevision: props.onSaveRevision,
+        onSaveDraft: props.onSaveDraft,
+        isSavingDraft: props.isSavingDraft,
         submitDisabled: !props.hasDefaultStatus(),
         submitText: props.isEditMode ? "Save Lead" : "Create Lead",
       }}

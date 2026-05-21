@@ -4,6 +4,7 @@ import { useDMS } from "../store/DmsContext";
 import {
   generateRevisionFileName,
   getExportTypeConfig,
+  getDocxPreviewHtml,
 } from "../utils/dmsUtils";
 import type {
   ExportType,
@@ -86,6 +87,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
       if (
         existingFile &&
         destination !== "device" &&
+        destination !== "preview" &&
         exportType !== "temporary"
       ) {
         setShowConfirmReplace(true);
@@ -95,6 +97,32 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
 
     setShowConfirmReplace(false);
     setIsExporting(true);
+
+    let newTab: Window | null = null;
+    if (destination === "preview") {
+      newTab = window.open("", "_blank");
+      if (newTab) {
+        newTab.document.title = `Generating Preview...`;
+        if (format === "docx") {
+          newTab.document.open();
+          newTab.document.write(getDocxPreviewHtml("DOCX"));
+          newTab.document.close();
+        } else {
+          newTab.document.body.innerHTML = `
+            <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#ffffff;margin:0;padding:0;">
+              <div style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #3699ff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;"></div>
+              <p style="margin-top:20px;font-size:16px;font-weight:500;">Generating your ${format.toUpperCase()} preview, please wait...</p>
+              <style>
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              </style>
+            </div>
+          `;
+        }
+      }
+    }
 
     const allSteps: ExportStep[] = [
       { id: "1", label: "Resolving placeholders...", status: "running" },
@@ -112,7 +140,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
     ];
 
     const steps =
-      destination === "device"
+      destination === "device" || destination === "preview"
         ? allSteps.filter((s) => !["4", "5"].includes(s.id))
         : allSteps;
 
@@ -134,6 +162,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
           : fileName.replace(/\.pdf$/, ".docx"),
         revisionNumber: currentLeadRev,
         tempNumber,
+        newTab,
       });
 
       for (let i = 0; i < steps.length; i++) {
@@ -169,6 +198,15 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
         setProgress(null);
       }, 1000);
     } catch (error: any) {
+      if (newTab) {
+        newTab.document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#f64e60;padding:20px;text-align:center;">
+            <span style="font-size: 48px; margin-bottom: 20px;">⚠️</span>
+            <h3>Error Generating Preview</h3>
+            <p style="color:#a5a5b5;max-width:500px;margin-top:10px;">An error occurred while generating the document. Please try again or contact support.</p>
+          </div>
+        `;
+      }
       setProgress((prev) =>
         prev ? { ...prev, hasError: true, errorMessage: error.message } : null,
       );
@@ -640,7 +678,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                       borderRadius: "10px",
                     }}
                   >
-                    {(["device", "cloud", "both"] as ExportDestination[]).map(
+                    {(["device", "cloud", "both", "preview"] as ExportDestination[]).map(
                       (dest) => (
                         <div
                           key={dest}

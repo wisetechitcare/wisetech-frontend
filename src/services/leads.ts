@@ -237,7 +237,7 @@ export const exportLeadDocx = async (leadId: string, payload: any) => {
         const { data } = await axios.post(endpoint, {
             ...payload,
             lead_id: leadId,
-            templateId: payload.templateId,
+            templateId: payload.proposalTemplateId || payload.templateId,
             templateBase64: payload.templateBase64 || payload.customTemplate,
             userId: payload.userId,
             edited_data: payload,
@@ -255,7 +255,7 @@ export const exportLeadPdf = async (leadId: string, payload: any) => {
         const { data } = await axios.post(endpoint, {
             ...payload,
             lead_id: leadId,
-            templateId: payload.templateId,
+            templateId: payload.proposalTemplateId || payload.templateId,
             templateBase64: payload.templateBase64 || payload.customTemplate,
             userId: payload.userId,
             edited_data: payload,

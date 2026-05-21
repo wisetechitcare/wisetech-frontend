@@ -934,7 +934,33 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       });
 
       // Handle Destination
-      if (destination === "device" || destination === "both") {
+      if (destination === "preview") {
+        const previewTab = modalConfig?.newTab;
+        if (previewTab) {
+          if (type === "docx") {
+            const checkChildReady = setInterval(() => {
+              if (!previewTab || previewTab.closed) {
+                clearInterval(checkChildReady);
+                return;
+              }
+              if (typeof (previewTab as any).renderDocx === "function") {
+                clearInterval(checkChildReady);
+                (previewTab as any).renderDocx(blob, fileName || `${formData.project_name || "Proposal"}.docx`);
+              }
+            }, 100);
+            setTimeout(() => clearInterval(checkChildReady), 15000);
+          } else {
+            const fileURL = window.URL.createObjectURL(blob);
+            previewTab.location.href = fileURL;
+            setTimeout(() => {
+              if (previewTab) {
+                previewTab.document.title = fileName || `${formData.project_name || "Proposal"}.${type}`;
+              }
+            }, 500);
+          }
+        }
+        console.log(`✅ ${type.toUpperCase()} preview loaded in new tab`);
+      } else if (destination === "device" || destination === "both") {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -951,11 +977,21 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       if (destination === "cloud" || destination === "both") {
         window.dispatchEvent(new CustomEvent("dms-refresh"));
         showSuccess("Export Successful", "The document has been successfully generated and saved to the Cloud (DMS).");
-      } else {
+      } else if (destination !== "preview") {
         showSuccess("Export Successful", "The document has been successfully generated and downloaded.");
       }
     } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);
+      const previewTab = modalConfig?.newTab;
+      if (previewTab) {
+        previewTab.document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#f64e60;padding:20px;text-align:center;">
+            <span style="font-size: 48px; margin-bottom: 20px;">⚠️</span>
+            <h3>Error Generating Preview</h3>
+            <p style="color:#a5a5b5;max-width:500px;margin-top:10px;">An error occurred while generating the document. Please try again or contact support.</p>
+          </div>
+        `;
+      }
       let errorMessage = `Failed to generate ${type}. Please check template and rules.`;
       if (error.response?.data instanceof Blob) {
         try {

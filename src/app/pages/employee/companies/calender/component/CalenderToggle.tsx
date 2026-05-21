@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { toAbsoluteUrl } from "@metronic/helpers";
 import dayjs, { Dayjs } from 'dayjs';
 import { getUpcomingContactsBirthdays } from '@services/companies';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { useNavigate } from 'react-router-dom';
 import { googleCalenderIcons } from '@metronic/assets/sidepanelicons';
+import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 
 const CalenderToggle = () => {
     const navigate = useNavigate();
@@ -242,17 +242,7 @@ const CalenderToggle = () => {
         onPrev: () => void;
         onNext: () => void;
         displayText: string;
-    }) => (
-        <div className="d-flex align-items-center">
-            <button className="btn btn-sm p-0" onClick={onPrev} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-            </button>
-            <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-            <button className="btn btn-sm p-0" onClick={onNext} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-            </button>
-        </div>
-    ), []);
+    }) => <PeriodNavigator label={displayText} onPrevious={onPrev} onNext={onNext} />, []);
 
     
     return (

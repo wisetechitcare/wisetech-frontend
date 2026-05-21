@@ -1,5 +1,6 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Container } from "@mui/material";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
@@ -256,15 +257,7 @@ const [weekEnd, setWeekEnd] = useState(() => {
     onNext: () => void;
     displayText: string;
   }) => (
-    <div>
-      <button className="btn btn-sm p-0" onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 my-5">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
+    <PeriodNavigator label={displayText} onPrevious={onPrev} onNext={onNext} />
   )), []);
 
   return (
@@ -311,55 +304,18 @@ const [weekEnd, setWeekEnd] = useState(() => {
               <MenuItem value="custom">Custom</MenuItem>
             </Select>
           ) : (
-            <ToggleButtonGroup
+            <PeriodTabs
               value={alignment}
-              exclusive
-              onChange={handleChange}
-              aria-label="view selection"
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                justifyContent: 'center',
-                width: '100%',
-                '& .MuiToggleButton-root': {
-                  borderRadius: '20px',
-                  borderColor: '#A0B4D2 !important',
-                  color: '#000000 !important',
-                  // paddingY: {xs:'1px',sm:'5px'},
-                  paddingX: {
-                    xs: "32px",
-                    md: "45px"
-                  },
-                  borderWidth: '2px',
-                  fontWeight: '600',
-                  width: {
-                    xs: '65px',
-                    sm: '75px'
-                  },
-                  fontSize: {
-                    xs: '10px',
-                    sm: '12px'
-                  },
-                  height: { xs: "30px", sm: '36px' },
-                  fontFamily: 'Inter',
-                },
-                '& .Mui-selected': {
-                  borderColor: '#9D4141 !important',
-                  color: '#9D4141 !important',
-                },
-                '& .MuiToggleButton-root:hover': {
-                  borderColor: '#9D4141 !important',
-                  color: '#9D4141 !important',
-                },
-              }}
-            >
-              <ToggleButton value="daily">Daily</ToggleButton>
-              <ToggleButton value="weekly">Weekly</ToggleButton>
-              <ToggleButton value="monthly">Monthly</ToggleButton>
-              <ToggleButton value="yearly">Yearly</ToggleButton>
-              <ToggleButton value="custom">Custom</ToggleButton>
-            </ToggleButtonGroup>
+              onChange={(selected) => handleChange(null as any, selected)}
+              ariaLabel="view selection"
+              options={[
+                { label: "Daily", value: "daily" },
+                { label: "Weekly", value: "weekly" },
+                { label: "Monthly", value: "monthly" },
+                { label: "Yearly", value: "yearly" },
+                { label: "Custom", value: "custom" },
+              ]}
+            />
           )}
 
 

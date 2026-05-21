@@ -1,4 +1,4 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
@@ -113,17 +113,7 @@ const CompanyOverViewToggle = ({
     onPrev: () => void;
     onNext: () => void;
     displayText: string;
-  }) => (
-    <div className="d-flex align-items-center">
-      <button className="btn btn-sm p-0" onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  );
+  }) => <PeriodNavigator label={displayText} onPrevious={onPrev} onNext={onNext} />;
 
   return (
     <>

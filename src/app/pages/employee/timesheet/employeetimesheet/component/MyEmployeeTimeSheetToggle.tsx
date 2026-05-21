@@ -1,5 +1,5 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -203,17 +203,7 @@ const MyEmployeeTimeSheetToggle = ({
         onPrev: () => void;
         onNext: () => void;
         displayText: string;
-    }) => (
-        <div className="d-flex align-items-center">
-            <button className="btn btn-sm p-0" onClick={onPrev} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-            </button>
-            <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-            <button className="btn btn-sm p-0" onClick={onNext} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-            </button>
-        </div>
-    ), []);
+    }) => <PeriodNavigator label={displayText} onPrevious={onPrev} onNext={onNext} />, []);
 
     // Display text calculations
     const displayText = useMemo(() => {
@@ -298,56 +288,17 @@ const MyEmployeeTimeSheetToggle = ({
                                 <MenuItem value="yearly">Yearly</MenuItem>
                             </Select>
                         ) : (
-                            <ToggleButtonGroup
+                            <PeriodTabs
                                 value={alignment}
-                                exclusive
-                                onChange={handleAlignmentChange}
-                                aria-label="view selection"
-                                sx={{
-                                    display: "flex",
-                                    flexWrap: "wrap",
-                                    gap: "8px",
-                                    justifyContent: "center",
-                                    width: "100%",
-                                    "& .MuiToggleButton-root": {
-                                        borderRadius: "20px",
-                                        borderColor: "#A0B4D2 !important",
-                                        color: "#000000 !important",
-                                        paddingX: {
-                                            xs: "32px",
-                                            md: "45px",
-                                        },
-                                        borderWidth: "2px",
-                                        fontWeight: "600",
-                                        width: {
-                                            xs: "65px",
-                                            sm: "75px",
-                                        },
-                                        fontSize: {
-                                            xs: "10px",
-                                            sm: "12px",
-                                        },
-                                        height: { xs: "30px", sm: "36px" },
-                                        fontFamily: "Inter",
-                                        backgroundColor: "transparent !important",
-                                        "&:hover": {
-                                            backgroundColor: "transparent !important",
-                                            borderColor: "#9D4141 !important",
-                                            color: "#9D4141 !important",
-                                        },
-                                    },
-                                    "& .Mui-selected": {
-                                        borderColor: "#9D4141 !important",
-                                        color: "#9D4141 !important",
-                                        backgroundColor: "transparent !important",
-                                    },
-                                }}
-                            >
-                                <ToggleButton value="daily">Daily</ToggleButton>
-                                <ToggleButton value="weekly">Weekly</ToggleButton>
-                                <ToggleButton value="monthly">Monthly</ToggleButton>
-                                <ToggleButton value="yearly">Yearly</ToggleButton>
-                            </ToggleButtonGroup>
+                                onChange={(selected) => handleAlignmentChange(null as any, selected)}
+                                ariaLabel="view selection"
+                                options={[
+                                    { label: "Daily", value: "daily" },
+                                    { label: "Weekly", value: "weekly" },
+                                    { label: "Monthly", value: "monthly" },
+                                    { label: "Yearly", value: "yearly" },
+                                ]}
+                            />
                         )}
                     </div>
                     <div>

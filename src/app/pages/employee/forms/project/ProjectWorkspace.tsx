@@ -82,6 +82,10 @@ interface ProjectWorkspaceProps {
   onHide: () => void;
   exportPdf?: () => void;
   exportDocx?: () => void;
+  onSaveDraft?: () => void;
+  isSavingDraft?: boolean;
+  onStepChange?: (step: number) => void;
+  initialStep?: number;
   formikProps: any;
   isDatesInvalid: () => boolean;
   getDateValidationMessage: () => string;
@@ -262,12 +266,16 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = (props) => {
         title: "Project Summary",
         rows: getSummaryRows(),
       }}
+      onStepChange={props.onStepChange}
+      initialStep={props.initialStep}
       actions={{
         isSubmitting,
         isEditMode: props.isEditMode,
         onCancel: props.onHide,
         exportPdf: props.exportPdf,
         exportDocx: props.exportDocx,
+        onSaveDraft: props.onSaveDraft,
+        isSavingDraft: props.isSavingDraft,
         submitText: props.isEditMode ? "Save Project" : "Create Project",
       }}
       headerTitle={

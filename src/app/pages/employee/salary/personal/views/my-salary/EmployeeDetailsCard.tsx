@@ -2,7 +2,7 @@ import { Attendance, IPayment } from '@models/employee';
 import { RootState } from '@redux/store';
 import { fetchAllPayments } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
-import { getWorkingDaysInMonth, formatNumber } from '@utils/statistics';
+import { formatNumber } from '@utils/statistics';
 import dayjs from 'dayjs';
 import {
     Avatar,
@@ -313,9 +313,6 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     let monthlySalary: number | undefined;
     let hourlySalary: number | undefined;
 
-    const leavesHolidaysMap = useSelector((state: RootState) => state.attendanceStats.filteredPublicHolidays);
-    const totalWorkingDay = getWorkingDaysInMonth(dayjs().format('YYYY'), dayjs().format('MM')) - (leavesHolidaysMap.length || 0);
-
     const [totalPaidAmount, setTotalAmountPaid] = useState(0);
     const apiSalaryData = monthlyApiData?.salaryData?.[0];
 
@@ -338,20 +335,13 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     }
 
     const apiDailySalary = apiSalaryData?.employeeCardDeatils?.dailySalary;
-    const salaryMonth = Number(apiSalaryData?.employeeCardDeatils?.month);
-    const salaryYear = Number(apiSalaryData?.employeeCardDeatils?.year);
-    const daysInSalaryMonth = salaryMonth > 0 && salaryYear > 0
-        ? dayjs(`${salaryYear}-${String(salaryMonth).padStart(2, '0')}-01`).daysInMonth()
-        : 0;
 
-    const dailySalary = typeof apiDailySalary === 'number'
-        ? parseFloat(apiDailySalary.toFixed(2))
-        : typeof monthlySalary === 'number' && monthlySalary >= 0 && daysInSalaryMonth > 0
-            ? parseFloat((monthlySalary / daysInSalaryMonth).toFixed(2))
-            : typeof monthlySalary === 'number' && monthlySalary >= 0 && totalWorkingDay > 0
-                ? parseFloat((monthlySalary / totalWorkingDay).toFixed(2))
-            : typeof hourlySalary === 'number' && hourlySalary >= 0
-                ? parseFloat((hourlySalary * 8).toFixed(2))
+    const dailySalary = typeof hourlySalary === 'number' && hourlySalary >= 0
+        ? parseFloat((hourlySalary * 8).toFixed(2))
+        : typeof monthlySalary === 'number' && monthlySalary >= 0
+            ? parseFloat((monthlySalary / 30).toFixed(2))
+            : typeof apiDailySalary === 'number'
+                ? parseFloat(apiDailySalary.toFixed(2))
                 : undefined;
  
     async function fetchPayments() {

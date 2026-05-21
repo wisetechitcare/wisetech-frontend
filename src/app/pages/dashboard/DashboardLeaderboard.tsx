@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { ToggleButton, ToggleButtonGroup, Container } from "@mui/material";
+import { Container } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { Dayjs } from "dayjs";
-import { toAbsoluteUrl } from "@metronic/helpers";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import Weekly from "@pages/employee/kpis/common/Weekly";
 import Monthly from "@pages/employee/kpis/common/Monthly";
 import Yearly from "@pages/employee/kpis/common/Yearly";
@@ -168,49 +169,7 @@ const DashboardLeaderboard = () => {
     onPrev: () => void;
     onNext: () => void;
     displayText: string;
-  }) => (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-      <button
-        className="btn btn-sm p-0"
-        onClick={onPrev}
-        style={{
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
-        <img
-          src={toAbsoluteUrl("media/svg/misc/back.svg")}
-          alt="Previous"
-          style={{ width: "24px", height: "24px" }}
-        />
-      </button>
-      <span
-        style={{
-          fontSize: "14px",
-          fontFamily: "Inter",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {displayText}
-      </span>
-      <button
-        className="btn btn-sm p-0"
-        onClick={onNext}
-        style={{
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-        }}
-      >
-        <img
-          src={toAbsoluteUrl("media/svg/misc/next.svg")}
-          alt="Next"
-          style={{ width: "24px", height: "24px" }}
-        />
-      </button>
-    </div>
-  );
+  }) => <PeriodNavigator label={displayText} onPrevious={onPrev} onNext={onNext} />;
 
   return (
     <div
@@ -246,43 +205,17 @@ const DashboardLeaderboard = () => {
             gap: "16px",
           }}
         >
-          <ToggleButtonGroup
+          <PeriodTabs
             value={activeTab}
-            exclusive
-            onChange={handleTabChange}
-            aria-label="leaderboard period"
-            sx={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              "& .MuiToggleButton-root": {
-                borderRadius: "20px",
-                borderColor: "#A0B4D2 !important",
-                color: "#000000 !important",
-                paddingX: { xs: "16px", md: "24px" },
-                paddingY: "6px",
-                borderWidth: "2px",
-                fontWeight: "600",
-                fontSize: { xs: "12px", sm: "14px" },
-                height: "36px",
-                fontFamily: "Inter",
-                textTransform: "none",
-              },
-              "& .Mui-selected": {
-                borderColor: "#9D4141 !important",
-                color: "#9D4141 !important",
-              },
-              "& .MuiToggleButton-root:hover": {
-                borderColor: "#9D4141 !important",
-                color: "#9D4141 !important",
-              },
-            }}
-          >
-            <ToggleButton value="weekly">Weekly</ToggleButton>
-            <ToggleButton value="monthly">Monthly</ToggleButton>
-            <ToggleButton value="yearly">Yearly</ToggleButton>
-            <ToggleButton value="custom">Custom</ToggleButton>
-          </ToggleButtonGroup>
+            onChange={(selected) => handleTabChange(null as any, selected as LeaderboardTab)}
+            ariaLabel="leaderboard period"
+            options={[
+              { label: "Weekly", value: "weekly" },
+              { label: "Monthly", value: "monthly" },
+              { label: "Yearly", value: "yearly" },
+              { label: "Custom", value: "custom" },
+            ]}
+          />
 
           {/* Navigation Buttons */}
           {activeTab === "weekly" && (

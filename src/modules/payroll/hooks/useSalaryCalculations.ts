@@ -23,6 +23,16 @@ const isProfessionalFeesPayment = (payment: any) => {
     return type === 'GOVERNMENT' && deductionType.includes('professional fees');
 };
 
+const getPaymentAmount = (payment: any) => {
+    const rawAmount = payment?.amount ?? payment?.amountPaid ?? payment?.paidAmount ?? 0;
+    const amount = typeof rawAmount === 'number' ? rawAmount : parseCurrencyString(String(rawAmount));
+    return Number.isFinite(amount) ? amount : 0;
+};
+
+const getPaymentType = (payment: any) => {
+    return String(payment?.type || payment?.paymentType || 'SALARY').toUpperCase();
+};
+
 export const useSalaryCalculations = (
     monthlyApiData: IMonthlyApiResponse | null | undefined,
     employee: Employee,
@@ -74,7 +84,13 @@ export const useSalaryCalculations = (
             const fixed = sumBreakdownEarnings(item.deductionBreakdown?.fixed);
             const professionalFees = getProfessionalFeesAmount(item.deductionBreakdown?.fixed);
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
-            const amountPaid = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
+            const history = [...(item.salaryPayments || []), ...(item.govtPayments || []), ...(item.paymentHistory || [])];
+            const uniqueHistory = Array.from(new Map(history.map((p: any) => [p.id || `${getPaymentAmount(p)}-${p.paymentDate}-${getPaymentType(p)}`, p])).values());
+            const salaryPaidFromHistory = uniqueHistory.reduce((total: number, payment: any) => {
+                return getPaymentType(payment) === 'GOVERNMENT' ? total : total + getPaymentAmount(payment);
+            }, 0);
+            const amountPaidFromRecord = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
+            const amountPaid = amountPaidFromRecord > 0 ? amountPaidFromRecord : salaryPaidFromHistory;
             const govPaid = Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0'));
 
             totalGrossPay += gross;
@@ -119,9 +135,13 @@ export const useSalaryCalculations = (
             const history = [...(item.salaryPayments || []), ...(item.govtPayments || []), ...(item.paymentHistory || [])];
             
             // Remove duplicates from history if any (by id or properties)
-            const uniqueHistory = Array.from(new Map(history.map(p => [p.id || `${p.amount}-${p.paymentDate}-${p.type}`, p])).values());
+            const uniqueHistory = Array.from(new Map(history.map((p: any) => [p.id || `${getPaymentAmount(p)}-${p.paymentDate}-${getPaymentType(p)}`, p])).values());
 
-            const amountPaid = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
+            const salaryPaidFromHistory = uniqueHistory.reduce((total: number, payment: any) => {
+                return getPaymentType(payment) === 'GOVERNMENT' ? total : total + getPaymentAmount(payment);
+            }, 0);
+            const amountPaidFromRecord = Number(item.amountPaidInNumber ?? parseCurrencyString(item.amountPaid || '0'));
+            const amountPaid = amountPaidFromRecord > 0 ? amountPaidFromRecord : salaryPaidFromHistory;
             const govPaid = hasProfessionalFees ? Number(item.governmentPaidInNumber ?? parseCurrencyString(item.governmentPaid || '0')) : 0;
 
             // 1. Add Paid Rows from History (or synthesize from master if legacy)
@@ -164,20 +184,21 @@ export const useSalaryCalculations = (
                 }
             } else {
                 uniqueHistory.forEach((p: any) => {
-                    const isGov = p.type === 'GOVERNMENT';
+                    const paymentType = getPaymentType(p);
+                    const isGov = paymentType === 'GOVERNMENT';
                     if (isGov && !isProfessionalFeesPayment(p)) {
                         return;
                     }
                     rows.push({
                         ...item,
-                        id: p.id || `${item.id}-${p.type}-${p.paymentDate}`,
+                        id: p.id || `${item.id}-${paymentType}-${p.paymentDate}`,
                         calculatedGrossPay: gross,
                         calculatedVariableDeduction: variable,
                         calculatedFixedDeduction: isGov ? professionalFees : fixed,
                         calculatedNetSalary: isGov ? professionalFees : net,
                         calculatedStatus: 'Paid',
-                        calculatedPaidAmount: p.amount,
-                        paymentType: p.type,
+                        calculatedPaidAmount: getPaymentAmount(p),
+                        paymentType,
                         paymentMethod: p.paymentMethod,
                         transactionId: p.transactionId,
                         remarks: p.remarks,
