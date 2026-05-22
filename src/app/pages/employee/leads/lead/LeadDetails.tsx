@@ -19,7 +19,6 @@ import LeadFiles from './components/LeadFiles';
 import LeadFormModal from './LeadFormModal';
 import BlankBasicProjectForm from '@pages/employee/projects/overview/components/BlankBasicProjectForm';
 import ProposalTemplatePage from './components/ProposalTemplatePage';
-import { ExportCenterModal } from './components/dms/components/ExportCenterModal';
 import { DMSProvider } from './components/dms/store/DmsContext';
 
 type TabType = 'overview' | 'files';
@@ -127,7 +126,10 @@ const LeadDetails: React.FC = () => {
             return;
         }
 
-        setIsLoading(true);
+        const isInitialLoad = !lead;
+        if (isInitialLoad) {
+            setIsLoading(true);
+        }
         try {
             const leadResponse = await getLeadById(leadId);
             const leadData = leadResponse.data.data.lead;
@@ -167,7 +169,7 @@ const LeadDetails: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [leadId]);
+    }, [leadId, lead]);
 
     // Enhanced function to map lead data to project form
     const mapLeadToProjectForm = useCallback((lead: any) => {

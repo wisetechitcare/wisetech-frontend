@@ -141,16 +141,33 @@ export const rejectConfirmation = async (confirmButtonText: string = 'Reject'): 
     return result.isConfirmed;
 };
 
-export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<boolean> => {
+export const showSavingOverlay = (message: string = 'Saving your changes…') => {
+    void Swal.fire({
+        ...commonOptions,
+        title: 'Please wait',
+        html: `<p class="fs-6 text-gray-700 mb-0">${message}</p>`,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+};
+
+export const closeSavingOverlay = () => {
+    Swal.close();
+};
+
+/** @returns true = Save Revision, false = Update Only, null = cancelled */
+export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<boolean | null> => {
     const result = await Swal.fire({
         ...commonOptions,
-        title: 'Update Lead Information',
+        title: 'How should we save this lead?',
         html: `
-            <div class="mb-4">
-                <p class="fs-6 text-gray-700 mb-4 text-center">You are about to save changes to this lead. Choose how you would like to handle this update:</p>
-                <div class="d-flex flex-column gap-2 bg-light p-4 rounded-1 border">
-                    <div class="fs-7 fw-bold"><i class="fa fa-info-circle text-primary me-2"></i><strong>Save Revision:</strong> Increments version number and creates a history record.</div>
-                    <div class="fs-7 fw-bold mt-2"><i class="fa fa-sync text-muted me-2"></i><strong>Update Only:</strong> Modifies the current record without version tracking.</div>
+            <div class="mb-2">
+                <p class="fs-6 text-gray-700 mb-4 text-center">Choose whether this save counts as a new revision or only updates the current one. Your proposal (DOCX &amp; PDF) will be saved to the cloud automatically.</p>
+                <div class="d-flex flex-column gap-2 bg-light p-4 rounded-1 border text-start">
+                    <div class="fs-7 fw-bold"><i class="fa fa-layer-group text-primary me-2"></i><strong>Save Revision</strong> — New revision number; new proposal files in Files.</div>
+                    <div class="fs-7 fw-bold mt-2"><i class="fa fa-sync text-muted me-2"></i><strong>Update Only</strong> — Same revision; replaces the latest proposal files.</div>
                 </div>
             </div>
         `,
@@ -165,7 +182,9 @@ export const customConfirmation = async (confirmButtonText: string = 'Save Revis
         width: '450px'
     });
 
-    return result.isConfirmed;
+    if (result.isConfirmed) return true;
+    if (result.dismiss === Swal.DismissReason.cancel) return false;
+    return null;
 };
 
 export const warningNotification = (message: string, title: string = "Notification") => {

@@ -60,11 +60,15 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
 
   const handleNext = useCallback(() => {
     if (isLastStep) {
-      submitForm();
+      if (actions.onFinalSave) {
+        actions.onFinalSave();
+      } else {
+        submitForm();
+      }
     } else {
       goToStep(currentStep + 1);
     }
-  }, [isLastStep, currentStep, goToStep, submitForm]);
+  }, [isLastStep, currentStep, goToStep, submitForm, actions.onFinalSave]);
 
   const handleBack = useCallback(() => {
     if (!isFirstStep) {
@@ -150,46 +154,6 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           >
             Cancel
           </button>
-
-          {!isLastStep ? (
-            <button
-              type="button"
-              className="wt-btn wt-btn-primary"
-              onClick={handleNext}
-              disabled={actions.isSubmitting}
-            >
-              Save &amp; Continue →
-            </button>
-          ) : actions.onSaveUpdate && actions.onSaveRevision ? (
-            <div className="d-flex gap-2">
-              <button
-                type="button"
-                className="wt-btn wt-btn-secondary"
-                disabled={actions.isSubmitting || actions.submitDisabled}
-                onClick={actions.onSaveUpdate}
-              >
-                {actions.isSubmitting ? "Saving…" : "Save as Update"}
-              </button>
-              <button
-                type="button"
-                className="wt-btn wt-btn-primary"
-                disabled={actions.isSubmitting || actions.submitDisabled}
-                onClick={actions.onSaveRevision}
-              >
-                {actions.isSubmitting ? "Saving…" : "Save as Revision"}
-              </button>
-            </div>
-          ) : (
-            <button
-              type="submit"
-              className="wt-btn wt-btn-primary"
-              disabled={actions.isSubmitting || actions.submitDisabled}
-            >
-              {actions.isSubmitting
-                ? "Saving…"
-                : actions.submitText || (actions.isEditMode ? "Save Changes" : "Create")}
-            </button>
-          )}
         </div>
       </div>
 
@@ -246,38 +210,43 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
       </div>
 
       {/* ═══ BOTTOM STICKY FOOTER BAR ═══════════════════════════════════════ */}
-      <div className="wizard-footer-bar" role="navigation" aria-label="Step navigation">
+      <div className="wizard-footer-bar" role="navigation" aria-label="Step navigation" style={{ justifyContent: 'flex-end' }}>
 
-        {/* Back button */}
-        <button
-          type="button"
-          className="wt-btn wt-btn-ghost"
-          onClick={handleBack}
-          disabled={isFirstStep || actions.isSubmitting}
-          aria-label="Go to previous step"
-        >
-          ← Back
-        </button>
+        <div className="wizard-footer-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {/* Cancel button */}
+          <button
+            type="button"
+            className="wt-btn wt-btn-ghost"
+            onClick={actions.onCancel}
+            disabled={actions.isSubmitting}
+            aria-label="Cancel"
+          >
+            Cancel
+          </button>
 
-        {/* Step dot indicators */}
-        <div className="wt-step-dots" role="tablist" aria-label="Wizard steps">
-          {visibleSteps.map((step, idx) => (
-            <button
-              key={step.id}
-              type="button"
-              role="tab"
-              aria-selected={idx === currentStep}
-              aria-label={`Step ${idx + 1}: ${step.label}`}
-              className={`wt-dot ${idx === currentStep ? "wt-dot-active" : ""} ${idx < currentStep ? "wt-dot-completed" : ""}`}
-              onClick={() => idx < currentStep && goToStep(idx)}
-            />
-          ))}
-        </div>
+          {/* Back button */}
+          <button
+            type="button"
+            className="wt-btn wt-btn-ghost"
+            onClick={handleBack}
+            disabled={isFirstStep || actions.isSubmitting}
+            aria-label="Go to previous step"
+          >
+            ← Back
+          </button>
 
-        {/* Forward actions */}
-        <div className="wizard-footer-right">
+          {/* Forward actions */}
           {isLastStep ? (
-            actions.onSaveUpdate && actions.onSaveRevision ? (
+            actions.onFinalSave ? (
+              <button
+                type="button"
+                className="wt-btn wt-btn-primary wt-btn-lg"
+                disabled={actions.isSubmitting || actions.submitDisabled}
+                onClick={actions.onFinalSave}
+              >
+                {actions.isSubmitting ? "Saving…" : "Save"}
+              </button>
+            ) : actions.onSaveUpdate && actions.onSaveRevision ? (
               <div className="d-flex gap-2">
                 <button
                   type="button"

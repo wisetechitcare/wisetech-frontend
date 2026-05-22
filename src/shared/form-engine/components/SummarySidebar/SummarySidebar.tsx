@@ -61,24 +61,6 @@ export const SummarySidebar: React.FC<SummarySidebarProps> = ({
         </div>
       )}
 
-      {/* ── Export Buttons — Edit mode only ──────────────────────────── */}
-      {isEditMode && (exportPdf || exportDocx) && (
-        <div className="wt-summary-exports">
-          {exportPdf && (
-            <button type="button" className="wt-export-btn wt-export-pdf" onClick={exportPdf}>
-              <PictureAsPdf style={{ fontSize: "0.9rem" }} />
-              PDF
-            </button>
-          )}
-          {exportDocx && (
-            <button type="button" className="wt-export-btn wt-export-docx" onClick={exportDocx}>
-              <Description style={{ fontSize: "0.9rem" }} />
-              DOCX
-            </button>
-          )}
-        </div>
-      )}
-
       {/* ── Preservation Note ─────────────────────────────────────────── */}
       {!hideSubmitButton && (
         <div className="wt-preserve-notice">

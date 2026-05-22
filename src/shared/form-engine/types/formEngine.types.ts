@@ -116,6 +116,8 @@ export interface WizardActionConfig {
   submitText?: string;
   onSaveUpdate?: () => void;
   onSaveRevision?: () => void;
+  /** Last-step Save: opens update/revision choice then submits (edit mode) */
+  onFinalSave?: () => void;
   onSaveDraft?: () => void;
   isSavingDraft?: boolean;
 }

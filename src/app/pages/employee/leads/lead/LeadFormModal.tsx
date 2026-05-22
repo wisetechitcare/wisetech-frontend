@@ -68,13 +68,18 @@ import {
   getLeadById,
   updateLead,
   exportLeadDocx,
+  exportLeadProposalToCloud,
   exportLeadPdf,
   getProposalConfigurations,
 } from "@services/leads";
+import { buildLeadExportPayload } from "./utils/buildLeadExportPayload";
+import { generateRevisionFileName } from "./components/dms/utils/dmsUtils";
 import { uploadUserAsset } from "@services/uploader";
 import {
   customConfirmation,
+  closeSavingOverlay,
   errorConfirmation,
+  showSavingOverlay,
   successConfirmation,
 } from "@utils/modal";
 import ProjectConfigForm from "@pages/employee/projects/configure/components/ProjectConfigForm";
@@ -106,7 +111,6 @@ import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
 import { useDraft } from "@hooks/useDraft";
 import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
 import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
-import { DraftAutoSave } from "@components/draft/DraftAutoSave";
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -261,6 +265,7 @@ const LeadFormModal = ({
     },
   ]);
   const formikRef = useRef<any>(null);
+  const leadSaveModeRef = useRef<"update" | "revision" | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const createdById = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
@@ -390,96 +395,16 @@ const LeadFormModal = ({
 
     setIsGenerating(true);
     try {
-      // Resolve Company Names for File Location
-      const selectedCompanyType =
-        allCompanyTypes.find(
-          (t) => String(t.id) == String(values.fileLocationCompanyType),
-        )?.name || "";
-      const selectedCompany =
-        companies.find(
-          (c) => String(c.id) == String(values.fileLocationCompany),
-        )?.companyName || "";
-
-      // Resolve Address Names (picking from first row)
-      const firstAddr = values.addresses?.[0] || {};
-
-      // Use selections from Formik state first (if user interacted)
-      const stateSelection = values.addressStateSelections?.[0];
-      const citySelection = values.addressCitySelections?.[0];
-
-      const resolvedCountry =
-        countries.find((c) => String(c.id) == String(firstAddr.country))
-          ?.name ||
-        firstAddr.country ||
-        "";
-
-      // Try to resolve State and City from selection, then from the full list, then from the options array in Formik values
-      const stateOptions = values.addressStatesOptions?.[0] || [];
-      const cityOptions = values.addressCitiesOptions?.[0] || [];
-
-      const resolvedState =
-        stateSelection?.name ||
-        states.find((s) => String(s.id) == String(firstAddr.state))?.name ||
-        stateOptions.find((s: any) => String(s.id) == String(firstAddr.state))
-          ?.name ||
-        firstAddr.state ||
-        "";
-
-      const resolvedCity =
-        citySelection?.name ||
-        cities.find((c) => String(c.id) == String(firstAddr.city))?.name ||
-        cityOptions.find((c: any) => String(c.id) == String(firstAddr.city))
-          ?.name ||
-        firstAddr.city ||
-        "";
-
-      // Resolve Multiple Services and Categories
-      const resolvedServices = (values.serviceIds || []).map(
-        (id: string) =>
-          services.find((s) => String(s.id) == String(id))?.name || id,
-      );
-      const resolvedCategories = (values.categoryIds || []).map(
-        (id: string) =>
-          categories.find((c) => String(c.id) == String(id))?.name || id,
-      );
-
-      const exportData = {
-        ...values,
-        fileLocationCompanyType:
-          selectedCompanyType || values.fileLocationCompanyType,
-        fileLocationCompany: selectedCompany || values.fileLocationCompany,
-        // Override service/category lists with names
-        service_names: resolvedServices,
-        category_names: resolvedCategories,
-        // Override address fields with names
-        addresses: values.addresses?.map((addr: any, index: number) =>
-          index === 0
-            ? {
-                ...addr,
-                country: resolvedCountry,
-                state: resolvedState,
-                city: resolvedCity,
-              }
-            : addr,
-        ),
-        address:
-          values.addresses?.[0]?.projectAddress || values.projectAddress || "",
-        // Use selected template or default to placeholder.docx
-        templateName:
-          values.selected_template ||
-          values.exportTemplate ||
-          "placeholder.docx",
-        rules: [
-          ...(values.globalPaymentStages || []).map((r: any) => ({
-            ...r,
-            minArea: -1,
-            maxArea: -1,
-            min_area: -1,
-            max_area: -1,
-          })),
-          ...(values.rules || [])
-        ],
-      };
+      const exportData = buildLeadExportPayload(values, {
+        countries,
+        states,
+        cities,
+        companies,
+        allCompanyTypes,
+        services,
+        categories,
+        userId,
+      });
 
       const data =
         type === "docx"
@@ -580,6 +505,54 @@ const LeadFormModal = ({
   const [prefix, setPrefix] = useState("");
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
+  const getExportPayloadContext = () => ({
+    countries,
+    states,
+    cities,
+    companies,
+    allCompanyTypes,
+    services,
+    categories,
+    userId: employeeId || userId,
+  });
+
+  /** After lead save: auto-upload proposal DOCX+PDF to S3/DMS (no download). */
+  const syncProposalToCloudAfterSave = async (
+    formValues: any,
+    saveAsRevision: boolean,
+    updateResponse: any,
+  ) => {
+    const templateId = formValues.proposalTemplateId;
+    if (!templateId) return;
+
+    const updatedLead = updateResponse?.data?.lead ?? updateResponse?.lead ?? {};
+    const leadId =
+      updatedLead.id || formValues.id || initialFormData?.id;
+    if (!leadId) return;
+
+    const revisionNumber =
+      updatedLead.revisionCount ?? currLeadData?.revisionCount ?? 0;
+    const inquiryNo =
+      prefix || updatedLead.prefix || formValues.inquiry_no || "INQ";
+    const fileName = generateRevisionFileName(
+      inquiryNo,
+      revisionNumber,
+      "revision",
+      formValues.projectName || formValues.project_name,
+    );
+
+    const exportPayload = {
+      ...buildLeadExportPayload(formValues, getExportPayloadContext()),
+      exportType: "revision",
+      replaceExisting: !saveAsRevision,
+      revisionNumber,
+      fileName,
+    };
+    await exportLeadProposalToCloud(leadId, exportPayload);
+
+    window.dispatchEvent(new CustomEvent("dms-refresh"));
+  };
+
   // ── Draft system ───────────────────────────────────────────────────────────
   const draftEntityId = isEditMode ? (initialFormData?.id || initialData?.id || 'new') : 'new';
   const [draftCurrentStep, setDraftCurrentStep] = useState(0);
@@ -590,13 +563,12 @@ const LeadFormModal = ({
     showUnsavedModal: showLeadUnsavedModal,
     isSaving: isLeadDraftSaving,
     saveDraft: saveLeadDraft,
-    autoSaveDraft: autoSaveLeadDraft,
     discardDraft: discardLeadDraft,
     clearDraftAfterSave: clearLeadDraftAfterSave,
     isDirty: isLeadDraftDirty,
     setShowRecoveryModal: setShowLeadRecoveryModal,
     setShowUnsavedModal: setShowLeadUnsavedModal,
-  } = useDraft({ entityType: 'lead', entityId: draftEntityId, enabled: open, totalSteps: 7 });
+  } = useDraft({ entityType: 'lead', entityId: draftEntityId, enabled: open, totalSteps: 7, manualOnly: true });
 
   const handleResumeDraft = () => {
     if (leadDraft?.formData && formikRef.current) {
@@ -2647,6 +2619,7 @@ const LeadFormModal = ({
   // };
 
   const handleSubmit = async (formData: any) => {
+    const exportFormValues = { ...formData };
     const values = formData;
     // Handle addresses from both form structure and direct payload
     let allAddressDetails =
@@ -3048,19 +3021,68 @@ const LeadFormModal = ({
         if (employeeId) {
           finalCleanPayload.updatedById = employeeId;
         }
-        const result = await customConfirmation();
+        const explicitMode = leadSaveModeRef.current;
+        leadSaveModeRef.current = null;
 
-        if (result) {
-          finalCleanPayload.revisionCount =
-            Number(currLeadData?.revisionCount || 0) + 1;
+        let saveAsRevision = false;
+        if (explicitMode === "revision") {
+          saveAsRevision = true;
+          finalCleanPayload.isRevision = true;
+        } else if (explicitMode === "update") {
+          // Update only — no revision bump
+        } else {
+          const result = await customConfirmation();
+          if (result === null) return;
+          if (result) {
+            saveAsRevision = true;
+            finalCleanPayload.isRevision = true;
+          }
         }
+
+        showSavingOverlay(
+          exportFormValues.proposalTemplateId
+            ? "Saving lead and uploading proposal (DOCX & PDF) to cloud…"
+            : "Saving lead…",
+        );
 
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {
-          errorConfirmation("Failed to update lead. Please try again.");
+          closeSavingOverlay();
+          errorConfirmation(
+            "Could not save the lead. Please check required fields and try again.",
+            "Save failed",
+          );
         } else {
-          successConfirmation("Lead Updated successfully!");
-          eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
+          const leadId =
+            res?.data?.lead?.id ?? res?.lead?.id ?? res?.id ?? finalCleanPayload.id;
+          let title = "Lead saved";
+          let message = "Your changes were saved successfully.";
+          if (exportFormValues.proposalTemplateId) {
+            try {
+              await syncProposalToCloudAfterSave(
+                exportFormValues,
+                saveAsRevision,
+                res,
+              );
+              title = saveAsRevision ? "Revision saved" : "Lead updated";
+              message = saveAsRevision
+                ? "Lead revision increased. DOCX and PDF are in Files (cloud)."
+                : "Lead updated. Latest DOCX and PDF replaced in Files (cloud).";
+            } catch (cloudErr: any) {
+              console.error("Auto cloud export failed:", cloudErr);
+              const detail =
+                cloudErr?.message ||
+                cloudErr?.response?.data?.message ||
+                "";
+              title = "Lead saved — proposal upload failed";
+              message = detail
+                ? `Lead data was saved, but cloud export failed: ${detail}`
+                : "Lead data was saved, but the proposal could not be uploaded. Select a template, assign the lead, and try Export from the lead page.";
+            }
+          }
+          closeSavingOverlay();
+          await successConfirmation(message, title);
+          eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId });
           await clearLeadDraftAfterSave();
           if (onClose) onClose();
         }
@@ -3076,8 +3098,12 @@ const LeadFormModal = ({
         }
       }
     } catch (error: any) {
+      closeSavingOverlay();
       console.error('Error creating lead:', error);
-      alert(`Backend Error: ${error?.message || error?.error || JSON.stringify(error)}`);
+      errorConfirmation(
+        error?.message || error?.error || "An unexpected error occurred.",
+        "Save failed",
+      );
       // Refetch so the list reflects any partial save that succeeded before the error
       eventBus.emit(EVENT_KEYS.leadUpdated, { id: finalCleanPayload?.id ?? '' });
     }
@@ -3249,10 +3275,6 @@ const LeadFormModal = ({
 
                 return (
                   <FormikForm placeholder={""}>
-                    <DraftAutoSave
-                      onAutoSave={(vals, step) => autoSaveLeadDraft(vals, step, {})}
-                      currentStep={draftCurrentStep}
-                    />
                     <LeadWorkspace
                       categories={categories}
                       subcategories={subcategories}
@@ -3298,7 +3320,19 @@ const LeadFormModal = ({
                       onHide={handleLeadCancelWithDirtyCheck}
                       exportPdf={isEditMode ? () => handleExport("pdf", values) : undefined}
                       exportDocx={isEditMode ? () => handleExport("docx", values) : undefined}
-                      onSaveDraft={() => saveLeadDraft(values, draftCurrentStep, {})}
+                      onFinalSave={
+                        isEditMode
+                          ? async () => {
+                              const choice = await customConfirmation();
+                              if (choice === null) return;
+                              leadSaveModeRef.current = choice
+                                ? "revision"
+                                : "update";
+                              await formikRef.current?.submitForm();
+                            }
+                          : undefined
+                      }
+                      onSaveDraft={() => saveLeadDraft(values, draftCurrentStep, { savedManually: true })}
                       isSavingDraft={isLeadDraftSaving}
                       onStepChange={setDraftCurrentStep}
                       initialStep={resumeStep}

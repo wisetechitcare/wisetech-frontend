@@ -119,24 +119,32 @@ const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensiti
                     >
                         {label}
                     </Typography>
-                    <Tooltip title={value && value !== '-' ? value : ''} arrow placement="top">
+                    
                         <Typography
                             sx={{
                                 color: '#0f172a',
-                                fontSize: { xs: '0.92rem', md: '1rem' },
+                                fontSize: { xs: '0.9rem', md: '0.96rem' },
                                 fontWeight: 800,
-                                lineHeight: 1.2,
-                                whiteSpace: 'nowrap',
+                                lineHeight: 1.25,
+                                whiteSpace: 'normal',
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
                                 overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                filter: isSensitive && !showSensitiveData ? 'blur(6px)' : 'none',
-                                userSelect: isSensitive && !showSensitiveData ? 'none' : 'auto',
-                                transition: 'filter 200ms ease',
+                                minHeight: '38px',
                             }}
                         >
-                            {value}
+                            {typeof value === 'string'
+                                ? value.split('\n').map((line, index) => (
+                                    <span key={index}>
+                                        {line}
+                                        <br />
+                                    </span>
+                                ))
+                                : value}
                         </Typography>
-                    </Tooltip>
                 </Box>
             </Stack>
         </Paper>
@@ -197,10 +205,10 @@ const ProfileMetaChip = ({
     </Box>
 );
 
-const EmployeeProfileCard = ({ 
-    avatar, 
-    name, 
-    employeeCode, 
+const EmployeeProfileCard = ({
+    avatar,
+    name,
+    employeeCode,
     isActive,
     designation,
     department,
@@ -258,16 +266,16 @@ const EmployeeProfileCard = ({
                         </Tooltip>
                         <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: 0.35 }}>
                             {employeeCode || '-'}
-                            
+
                         </Typography>
-                        
+
                     </Box>
                 </Stack>
 
                 <Typography sx={{ color: '#334155', fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.3 }}>
                     {[designation, department].filter(Boolean).join(' • ') || '-'}
                 </Typography>
-                
+
                 <Typography sx={{ color: '#64748b', fontSize: '0.76rem', mt: 0.55 }}>
                     Joined {dateOfJoining || '-'}
                 </Typography>
@@ -308,7 +316,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     void stats;
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const employee = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee);
-    
+
     const avatar = getAvatar(employee?.avatar || '', employee?.gender as unknown as Gender);
     let monthlySalary: number | undefined;
     let hourlySalary: number | undefined;
@@ -326,7 +334,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     if (apiSalaryData?.employeeCardDeatils?.hourlySalary) {
         hourlySalary = parseFloat(apiSalaryData?.employeeCardDeatils?.hourlySalary?.toFixed(2));
     }
-    
+
     let monthlyPaidAmount: number;
     if (apiSalaryData?.employeeCardDeatils?.monthlyPaid) {
         monthlyPaidAmount = parseFloat(apiSalaryData?.employeeCardDeatils?.monthlyPaid?.toFixed(2));
@@ -343,7 +351,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
             : typeof apiDailySalary === 'number'
                 ? parseFloat(apiDailySalary.toFixed(2))
                 : undefined;
- 
+
     async function fetchPayments() {
         if (!employee?.id) {
             console.warn('⚠️ [EmployeeDetailsCard] Cannot fetch payments: Employee ID is missing');
@@ -361,7 +369,25 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const formatSalaryValue = (value: number | undefined, fallback = '-') => (
         typeof value === 'number' && value >= 0 ? formatNumber(value) : fallback
     );
+    const totalExperience = employee?.dateOfJoining
+        ? (() => {
+            const joiningDate = dayjs(employee.dateOfJoining);
+            const now = dayjs();
 
+            const years = now.diff(joiningDate, 'year');
+            const months = now.diff(joiningDate.add(years, 'year'), 'month');
+
+            if (years === 0) {
+                return `${months} Month${months !== 1 ? 's' : ''}`;
+            }
+
+            if (months === 0) {
+                return `${years} Year${years !== 1 ? 's' : ''}`;
+            }
+
+            return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
+        })()
+        : '-';
     const employeeName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
     const paidAmountValue = apiSalaryData
         ? formatSalaryValue(monthlyPaidAmount, formatNumber(0))
@@ -375,16 +401,18 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
             tone: 'blue',
         },
         {
-            label: 'Designation',
-            value: employee?.designations?.role || '-',
-            icon: <WorkOutlineOutlinedIcon fontSize="small" />,
-            tone: 'purple',
+            label: 'Total Experience',
+            value: totalExperience,
+            icon: <AccessTimeOutlinedIcon fontSize="small" />,
+            tone: 'cyan',
         },
         {
-            label: 'Department',
-            value: employee?.departments?.name || '-',
-            icon: <ApartmentOutlinedIcon fontSize="small" />,
-            tone: 'cyan',
+            label: 'Role & Department',
+            value: employee?.designations?.role
+                ? `${employee?.designations?.role}\n${employee?.departments?.name || ''}`
+                : '-',
+            icon: <WorkOutlineOutlinedIcon fontSize="small" />,
+            tone: 'purple',
         },
         {
             label: 'Annual Salary (CTC)',
@@ -427,7 +455,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
             showSensitiveData,
         },
     ];
-    
+
     return (
         <Box className="employee-details-card" sx={{ width: '100%', px: { xs: 0.75, md: 1.5 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}>
@@ -457,7 +485,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                         }
                     }}
                 >
-                    <PrivacyToggle 
+                    <PrivacyToggle
                         isVisible={showSensitiveData}
                         onToggle={onToggleSensitiveData}
                         color="#64748b"

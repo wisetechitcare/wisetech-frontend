@@ -18,9 +18,11 @@ interface UseDraftOptions {
     entityId: string; // use "new" for create mode
     enabled: boolean;
     totalSteps?: number;
+    /** When true, only explicit saveDraft() writes Redis; recovery modal only for manual saves */
+    manualOnly?: boolean;
 }
 
-export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseDraftOptions) {
+export function useDraft({ entityType, entityId, enabled, totalSteps = 7, manualOnly = false }: UseDraftOptions) {
     const [existingDraft, setExistingDraft] = useState<DraftData | null>(null);
     const [showRecoveryModal, setShowRecoveryModal] = useState(false);
     const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -37,11 +39,19 @@ export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseD
         if (!enabled || !entityId) return;
 
         draftApi.get(entityType, entityId)
-            .then((res) => {
+            .then(async (res) => {
                 const draft = res.data?.draft;
-                if (draft) {
+                if (!draft) return;
+                if (draft.uiState?.savedManually === true) {
                     setExistingDraft(draft);
                     setShowRecoveryModal(true);
+                } else if (manualOnly) {
+                    // Clear old auto-saved drafts so they never prompt recovery
+                    try {
+                        await draftApi.delete(entityType, entityId);
+                    } catch {
+                        /* ignore */
+                    }
                 }
             })
             .catch(() => {
@@ -49,9 +59,9 @@ export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseD
             });
     }, [entityType, entityId, enabled]);
 
-    // Periodic auto-save every 45 seconds
+    // Periodic auto-save every 45 seconds (skipped when manualOnly)
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled || manualOnly) return;
 
         periodicTimerRef.current = setInterval(() => {
             if (isDirty && formValuesRef.current) {
@@ -62,7 +72,7 @@ export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseD
         return () => {
             if (periodicTimerRef.current) clearInterval(periodicTimerRef.current);
         };
-    }, [enabled, isDirty]);
+    }, [enabled, isDirty, manualOnly]);
 
     // beforeunload protection
     useEffect(() => {
@@ -108,7 +118,7 @@ export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseD
     ) => {
         formValuesRef.current = formValues;
         currentStepRef.current = currentStep;
-        await performSave(formValues, currentStep, uiState);
+        await performSave(formValues, currentStep, { ...uiState, savedManually: true });
     }, [performSave]);
 
     // Debounced auto-save triggered by form changes (2 seconds)
@@ -117,7 +127,7 @@ export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseD
         currentStep: number,
         uiState: Record<string, any> = {}
     ) => {
-        if (!entityId) return;
+        if (!entityId || manualOnly) return;
         formValuesRef.current = formValues;
         currentStepRef.current = currentStep;
         setIsDirty(true);
@@ -126,7 +136,7 @@ export function useDraft({ entityType, entityId, enabled, totalSteps = 7 }: UseD
         autoSaveTimerRef.current = setTimeout(() => {
             performSave(formValues, currentStep, uiState);
         }, 2000);
-    }, [entityId, performSave]);
+    }, [entityId, performSave, manualOnly]);
 
     const discardDraft = useCallback(async () => {
         if (!entityId) return;

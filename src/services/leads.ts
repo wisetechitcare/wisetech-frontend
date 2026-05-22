@@ -231,6 +231,24 @@ export const updateLeadCancellationReason = async (id: string, payload: any) => 
     }
 }
 
+async function parseExportAxiosError(error: any): Promise<never> {
+    const data = error?.response?.data;
+    if (data instanceof Blob) {
+        try {
+            const text = await data.text();
+            const json = JSON.parse(text);
+            throw new Error(json.message || text || 'Export failed');
+        } catch (parseErr: any) {
+            if (parseErr?.message && parseErr.message !== 'Export failed') throw parseErr;
+        }
+    }
+    throw new Error(
+        error?.response?.data?.message ||
+        error?.message ||
+        'Export failed',
+    );
+}
+
 export const exportLeadDocx = async (leadId: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/leads/export/docx`;
@@ -245,8 +263,32 @@ export const exportLeadDocx = async (leadId: string, payload: any) => {
         return data;
     } catch (error) {
         console.error('Error exporting lead as DOCX:', error);
-        throw error;
+        return parseExportAxiosError(error);
     }
+}
+
+/** Generate and store DOCX+PDF in S3/DMS without triggering a browser download. */
+export const exportLeadDocxToCloud = async (leadId: string, payload: any) => {
+    await exportLeadDocx(leadId, {
+        ...payload,
+        destination: 'cloud',
+    });
+}
+
+export const exportLeadPdfToCloud = async (leadId: string, payload: any) => {
+    await exportLeadPdf(leadId, {
+        ...payload,
+        destination: 'cloud',
+        fileName: payload.fileName?.replace(/\.docx$/i, '.pdf'),
+    });
+}
+
+/** One docx export generates both files; pdf pass ensures DMS has both URLs synced. */
+export const exportLeadProposalToCloud = async (leadId: string, payload: any) => {
+    const base = { ...payload, destination: 'cloud' };
+    await exportLeadDocx(leadId, base);
+    // exportLeadDocx generates BOTH PDF and DOCX in the backend and correctly populates 
+    // the ProposalGeneratedDocument table with both URLs, so a second request is redundant.
 }
 
 export const exportLeadPdf = async (leadId: string, payload: any) => {

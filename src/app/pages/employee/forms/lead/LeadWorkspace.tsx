@@ -71,6 +71,7 @@ interface LeadWorkspaceProps {
   exportDocx?: () => void;
   onSaveUpdate?: () => void;
   onSaveRevision?: () => void;
+  onFinalSave?: () => void;
   onSaveDraft?: () => void;
   isSavingDraft?: boolean;
   onStepChange?: (step: number) => void;
@@ -457,6 +458,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         exportDocx: props.exportDocx,
         onSaveUpdate: props.onSaveUpdate,
         onSaveRevision: props.onSaveRevision,
+        onFinalSave: props.onFinalSave,
         onSaveDraft: props.onSaveDraft,
         isSavingDraft: props.isSavingDraft,
         submitDisabled: !props.hasDefaultStatus(),

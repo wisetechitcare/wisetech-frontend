@@ -176,16 +176,14 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
 
         if (response.status === 'success' && Array.isArray(response.data)) {
           const rawData = response.data;
-          const mappedFiles: DMSFile[] = rawData.map((doc: any) => {
+          const mappedFiles: DMSFile[] = [];
+          rawData.forEach((doc: any) => {
             let folderId = doc.exportType === 'temporary' ? 'f-temp' : 'f-rev';
             if (!leadId && doc.leadId) {
               folderId = doc.exportType === 'temporary' ? `t-${doc.leadId}` : `r-${doc.leadId}`;
             }
 
-            return {
-              id: doc.id,
-              name: doc.fileName || doc.generatedDocxUrl?.split('/').pop() || `${doc.template?.templateName || 'Proposal'}.docx`,
-              type: (doc.generatedDocxUrl ? 'docx' : (doc.generatedPdfUrl ? 'pdf' : 'docx')) as any,
+            const baseFile = {
               size: doc.fileSize || 0,
               folderId,
               folderPath: leadId ? [] : [(doc.lead?.prefix || 'Project')],
@@ -194,7 +192,6 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
               revisionNumber: doc.revisionNumber,
               tempNumber: doc.tempNumber,
               templateId: doc.templateId,
-              s3Url: doc.generatedDocxUrl || doc.generatedPdfUrl,
               tags: [],
               notes: '',
               isPinned: false,
@@ -217,6 +214,36 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
               },
               activityLog: []
             };
+
+            const baseName = doc.fileName ? doc.fileName.replace(/\.(docx|pdf)$/i, '') : (doc.template?.templateName || 'Proposal');
+
+            if (doc.generatedDocxUrl) {
+                mappedFiles.push({
+                    ...baseFile,
+                    id: `${doc.id}-docx`,
+                    name: `${baseName}.docx`,
+                    type: 'docx',
+                    s3Url: doc.generatedDocxUrl,
+                } as DMSFile);
+            }
+            if (doc.generatedPdfUrl) {
+                mappedFiles.push({
+                    ...baseFile,
+                    id: `${doc.id}-pdf`,
+                    name: `${baseName}.pdf`,
+                    type: 'pdf',
+                    s3Url: doc.generatedPdfUrl,
+                } as DMSFile);
+            }
+            if (!doc.generatedDocxUrl && !doc.generatedPdfUrl) {
+                mappedFiles.push({
+                    ...baseFile,
+                    id: doc.id,
+                    name: `${baseName}.docx`,
+                    type: 'docx',
+                    s3Url: '',
+                } as DMSFile);
+            }
           });
 
           if (!leadId) {
@@ -262,6 +289,10 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
     };
 
     fetchDocs();
+
+    const onRefresh = () => fetchDocs();
+    window.addEventListener('dms-refresh', onRefresh);
+    return () => window.removeEventListener('dms-refresh', onRefresh);
   }, [leadId, inquiryNumber, leadTitle]);
 
   // ─── Breadcrumb Synchronization ──────────────────────────────
@@ -354,6 +385,9 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
     </DMSContext.Provider>
   );
 };
+
+/** Safe hook when DMS may be optional (e.g. modals outside provider). */
+export const useDMSOptional = () => useContext(DMSContext);
 
 export const useDMS = () => {
   const ctx = useContext(DMSContext);

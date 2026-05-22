@@ -1,3 +1,5 @@
+import { toAbsoluteUrl } from '@metronic/helpers';
+import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { handleDatesChange } from '@utils/statistics';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
@@ -7,7 +9,6 @@ import AllTime from './AllTime';
 import { SalaryToggleItemsCallBackFunctions } from '../../../SalaryView';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { IMonthlyApiResponse } from '@redux/slices/salaryData';
-import SalaryPeriodToolbar from '@app/pages/employee/salary/components/SalaryPeriodToolbar';
 
 interface MaterialToggleProps {
     toggleItemsActions?: SalaryToggleItemsCallBackFunctions;
@@ -48,51 +49,116 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
         return date.isAfter(today, 'year');
     };
 
+    const handleChange = (event: React.MouseEvent<HTMLElement>, newAlignment: string) => {
+        if (newAlignment !== null) setAlignment(newAlignment);
+    };
+
     return (
         <>
             <h3 className="fw-bold fs-1 mb-6 mt-6 font-barlow">Salary Report</h3>
-            <SalaryPeriodToolbar
-                alignment={alignment}
-                options={[
-                    { label: 'Monthly', value: 'monthly' },
-                    { label: 'Yearly', value: 'yearly' },
-                    { label: 'All Time', value: 'alltime' },
-                ]}
-                onAlignmentChange={(value) => setAlignment(value)}
-                periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : alignment === 'yearly' ? fiscalYear : undefined}
-                onPrevious={alignment === 'monthly'
-                    ? () => {
+            <div className="d-flex flex-md-row justify-content-lg-between flex-column align-items-lg-center mb-8 gap-5 gap-lg-0">
+                <ToggleButtonGroup
+                    value={alignment}
+                    exclusive
+                    onChange={(event: React.MouseEvent<HTMLElement>, value: any) => handleChange(event, value)}
+                    aria-label="view selection"
+                    sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0,
+                        height: 30,
+                        p: '2px',
+                        borderRadius: '5px',
+                        backgroundColor: '#f1f5f9',
+                        border: '1px solid #eef2f7',
+                        width: 'fit-content',
+                        maxWidth: '100%',
+                        overflowX: 'auto',
+                        '& .MuiToggleButtonGroup-grouped': {
+                            border: 0,
+                            borderRadius: '4px !important',
+                            minWidth: 0,
+                            minHeight: 24,
+                            px: 1.6,
+                            py: 0,
+                            color: '#475569',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            lineHeight: '24px',
+                            textTransform: 'none',
+                            whiteSpace: 'nowrap',
+                            letterSpacing: 0,
+                        },
+                        '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                            marginLeft: 0,
+                            borderLeft: 0,
+                        },
+                        '& .MuiToggleButton-root:hover': {
+                            backgroundColor: '#e8eef6',
+                        },
+                        '& .Mui-selected': {
+                            backgroundColor: '#ffffff !important',
+                            color: '#aa393d !important',
+                            fontWeight: 700,
+                            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
+                        },
+                    }}
+                >
+                    <ToggleButton value='monthly'>Monthly</ToggleButton>
+                    <ToggleButton value='yearly'>Yearly</ToggleButton>
+                    <ToggleButton value='alltime'>All Time</ToggleButton>
+                </ToggleButtonGroup>
+
+                {alignment == 'monthly' && <div>
+                    <button className="btn btn-sm p-0" onClick={(e) => {
                         handleDatesChange('decrement', 'month', setMonth);
                         toggleItemsActions?.monthly(month.subtract(1, 'month'));
-                    }
-                    : alignment === 'yearly'
-                        ? () => {
-                            handleDatesChange('decrement', 'year', setYear);
-                            toggleItemsActions?.yearly(year.subtract(1, 'year'));
-                        }
-                        : undefined}
-                onNext={alignment === 'monthly'
-                    ? () => {
-                        handleDatesChange('increment', 'month', setMonth);
-                        toggleItemsActions?.monthly(month.add(1, 'month'));
-                    }
-                    : alignment === 'yearly'
-                        ? () => {
+                    }}>
+                        <img src={toAbsoluteUrl('media/svg/misc/back.svg')} />
+                    </button>
+                    <span className="mx-2 my-5">{month.format('MMM, YYYY')}</span>
+                    <button 
+                        className="btn btn-sm p-0" 
+                        onClick={(e) => {
+                            handleDatesChange('increment', 'month', setMonth);
+                            toggleItemsActions?.monthly(month.add(1, 'month'));
+                        }}
+                        disabled={disableFutureDates && isMonthInFuture(month.add(1, 'month'))}
+                        style={{ 
+                            opacity: (disableFutureDates && isMonthInFuture(month.add(1, 'month'))) ? 0.5 : 1,
+                            cursor: (disableFutureDates && isMonthInFuture(month.add(1, 'month'))) ? 'not-allowed' : 'pointer'
+                        }}
+                        title={disableFutureDates && isMonthInFuture(month.add(1, 'month')) ? "Cannot view future months" : ""}
+                    >
+                        <img src={toAbsoluteUrl('media/svg/misc/next.svg')} />
+                    </button>
+                </div>}
+
+                {alignment == 'yearly' && <div>
+                    <button className="btn btn-sm p-0" onClick={(e) => {
+                        handleDatesChange('decrement', 'year', setYear);
+                        toggleItemsActions?.yearly(year.subtract(1, 'year'));
+                    }}>
+                        <img src={toAbsoluteUrl('media/svg/misc/back.svg')} />
+                    </button>
+                    <span className="mx-2 my-5">{fiscalYear}</span>
+                    <button 
+                        className="btn btn-sm p-0" 
+                        onClick={(e) => {
                             handleDatesChange('increment', 'year', setYear);
                             toggleItemsActions?.yearly(year.add(1, 'year'));
-                        }
-                        : undefined}
-                disableNext={alignment === 'monthly'
-                    ? disableFutureDates && isMonthInFuture(month.add(1, 'month'))
-                    : alignment === 'yearly'
-                        ? disableFutureDates && isYearInFuture(year.add(1, 'year'))
-                        : false}
-                nextTitle={alignment === 'monthly'
-                    ? (disableFutureDates && isMonthInFuture(month.add(1, 'month')) ? 'Cannot view future months' : undefined)
-                    : alignment === 'yearly'
-                        ? (disableFutureDates && isYearInFuture(year.add(1, 'year')) ? 'Cannot view future years' : undefined)
-                        : undefined}
-            />
+                        }}
+                        disabled={disableFutureDates && isYearInFuture(year.add(1, 'year'))}
+                        style={{ 
+                            opacity: (disableFutureDates && isYearInFuture(year.add(1, 'year'))) ? 0.5 : 1,
+                            cursor: (disableFutureDates && isYearInFuture(year.add(1, 'year'))) ? 'not-allowed' : 'pointer'
+                        }}
+                        title={disableFutureDates && isYearInFuture(year.add(1, 'year')) ? "Cannot view future years" : ""}
+                    >
+                        <img src={toAbsoluteUrl('media/svg/misc/next.svg')} />
+                    </button>
+                </div>}
+            </div >
 
             {alignment == 'monthly' && <Monthly month={month} fromAdmin={fromAdmin} showSensitiveData={showSensitiveData} monthlyApiData={monthlyApiData} isApiDataLoading={isApiDataLoading} onRefreshSalaryData={onRefreshSalaryData} isRefreshing={isRefreshing} />}
             {alignment == 'yearly' && <Yearly year={year} fromAdmin={fromAdmin} showSensitiveData={showSensitiveData} />}
@@ -100,6 +166,5 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
         </>
     )
 }
-
 
 export default SalaryReportToggle;

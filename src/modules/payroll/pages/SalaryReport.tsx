@@ -46,7 +46,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     const payrollData = usePayrollData(employee, year, month, isYearly, fromAdmin);
     const ui = useSalaryReport();
     const grossDist = useGrossDistribution(employee, month, year, ui.handleRefresh);
-    
+
     const {
         summaryData,
         tableRows,
@@ -56,7 +56,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
         monthlyApiData,
         employee,
         !!monthlyApiData, // Changed from !!apiSalaryData to avoid temporal dead zone
-        0, 
+        0,
         month,
         year
     );
@@ -94,14 +94,6 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                     <div className="mb-6">
                         <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} />
                     </div>
-                    <PaymentDetailsTable 
-                        tableRows={tableRows as any}
-                        showSensitiveData={showSensitiveData}
-                        fromAdmin={fromAdmin}
-                        onAddPayment={() => ui.handlePaymentEdit()}
-                        onEditPayment={ui.handlePaymentEdit}
-                        onDeletePayment={(item) => ui.handleDeletePayment(item.id)}
-                    />
                 </Container>
             )}
 
@@ -131,7 +123,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
 
                     <div className="p-8">
                         <div className="mb-8 p-6 rounded-4 bg-white border border-dashed border-gray-300">
-                            <SalarySlipSection 
+                            <SalarySlipSection
                                 salarySlipProps={salarySlipProps}
                                 userId={employee.userId}
                                 employeeId={employee.id}
@@ -151,8 +143,8 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                         </div>
                                         <h5 className="fw-bolder mb-0" style={{ color: '#295D8E' }}>Salary Breakdown</h5>
                                     </div>
-                                    <BreakdownTable 
-                                        data={apiSalaryData?.grossPayBreakdown || { fixed: {}, variable: {} }} 
+                                    <BreakdownTable
+                                        data={apiSalaryData?.grossPayBreakdown || { fixed: {}, variable: {} }}
                                         type={BREAKDOWN_TYPES.GROSS}
                                         title="Earnings"
                                         showSensitiveData={showSensitiveData}
@@ -169,7 +161,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                         </div>
                                         <h5 className="fw-bolder mb-0" style={{ color: '#AA393D' }}>Salary Deductions</h5>
                                     </div>
-                                    <DeductionPanel 
+                                    <DeductionPanel
                                         deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
                                         grossPay={finalTotalGrossPayAmount}
                                         showSensitiveData={showSensitiveData}
@@ -178,7 +170,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                             </Col>
                         </Row>
 
-                        <NetAmountPayable 
+                        <NetAmountPayable
                             grossPay={finalTotalGrossPayAmount}
                             deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
                             fallbackNetAmount={0}
@@ -189,8 +181,21 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 </Card>
             </Container>
 
+            {!hideSummarySection && (
+                <Container fluid className="my-5 w-100 px-0">
+                    <PaymentDetailsTable
+                        tableRows={tableRows as any}
+                        showSensitiveData={showSensitiveData}
+                        fromAdmin={fromAdmin}
+                        onAddPayment={() => ui.handlePaymentEdit()}
+                        onEditPayment={ui.handlePaymentEdit}
+                        onDeletePayment={(item) => ui.handleDeletePayment(item.id)}
+                    />
+                </Container>
+            )}
+
             {/* Modals */}
-            <GrossDistributionModal 
+            <GrossDistributionModal
                 show={ui.showGrossModal}
                 onHide={() => ui.setShowGrossModal(false)}
                 loading={grossDist.loading}
@@ -205,7 +210,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 onSubmit={grossDist.handleSubmit}
             />
 
-            <SalaryIncrementModal 
+            <SalaryIncrementModal
                 show={ui.showIncrementModal}
                 onHide={() => ui.setShowIncrementModal(false)}
                 employee={employee}
@@ -213,7 +218,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 fromAdmin={fromAdmin}
             />
 
-            <DeductionDistributionModal 
+            <DeductionDistributionModal
                 show={ui.showDeductionModal}
                 onClose={() => ui.setShowDeductionModal(false)}
                 employeeId={employee.id}
@@ -223,7 +228,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 monthlyApiData={monthlyApiData}
             />
 
-            <PaymentModal 
+            <PaymentModal
                 show={ui.showPaymentModal}
                 onHide={() => ui.setShowPaymentModal(false)}
                 loading={ui.loading}

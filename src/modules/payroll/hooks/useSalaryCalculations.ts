@@ -207,45 +207,6 @@ export const useSalaryCalculations = (
                     });
                 });
             }
-
-            // 2. Add Pending Balance Rows if applicable
-            const salaryPending = Math.max(0, net - amountPaid);
-            if (salaryPending >= 1.0) {
-                rows.push({
-                    ...item,
-                    id: `${item.id}-pending-salary`,
-                    calculatedGrossPay: gross,
-                    calculatedVariableDeduction: variable,
-                    calculatedFixedDeduction: fixed,
-                    calculatedNetSalary: salaryPending, // Show only the pending amount
-                    calculatedStatus: 'Pending',
-                    calculatedPaidAmount: 0,
-                    paymentType: 'SALARY',
-                    paymentMethod: '--',
-                    displayDate: item.monthEndDate || dayjs().format('YYYY-MM-DD'),
-                    item: item,
-                    remarks: 'Remaining Balance'
-                });
-            }
-
-            const govPending = Math.max(0, professionalFees - govPaid);
-            if (hasProfessionalFees && govPending >= 1.0) {
-                rows.push({
-                    ...item,
-                    id: `${item.id}-pending-gov`,
-                    calculatedGrossPay: gross,
-                    calculatedVariableDeduction: variable,
-                    calculatedFixedDeduction: professionalFees,
-                    calculatedNetSalary: govPending, // Show only the pending amount
-                    calculatedStatus: 'Pending',
-                    calculatedPaidAmount: 0,
-                    paymentType: 'GOVERNMENT',
-                    paymentMethod: '--',
-                    displayDate: item.monthEndDate || dayjs().format('YYYY-MM-DD'),
-                    item: item,
-                    remarks: 'Professional Fees Pending'
-                });
-            }
         });
 
         return rows;

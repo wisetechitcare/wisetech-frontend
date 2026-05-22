@@ -47,56 +47,13 @@ import { employeeOnBardingFormRegexes } from "@constants/regex";
  * the path (Prisma model vs raw query vs serialized response) we may receive
  * true, 1, "1", "true", or a Node Buffer like {type:"Buffer",data:[1]}.
  */
-function readProfessionalFeesEnabled(
-  raw: unknown
-): "true" | "false" {
-  console.log(
-    "PF RAW VALUE:",
-    raw,
-    typeof raw
-  );
-
-  if (
-    raw === null ||
-    raw === undefined
-  ) {
-    return "false";
+function readProfessionalFeesEnabled(raw: unknown): boolean {
+  if (raw === true || raw === 1 || raw === "1" || raw === "true" || raw === "TRUE") return true;
+  // MySQL tinyint Buffer case: Buffer([1]) = true, Buffer([0]) = false
+  if (typeof raw === "object" && raw !== null && "data" in (raw as any)) {
+    return !!(raw as any).data?.[0];
   }
-
-  // false cases
-  if (
-    raw === false ||
-    raw === 0 ||
-    raw === "0" ||
-    raw === "false" ||
-    raw === "FALSE"
-  ) {
-    return "false";
-  }
-
-  // true cases
-  if (
-    raw === true ||
-    raw === 1 ||
-    raw === "1" ||
-    raw === "true" ||
-    raw === "TRUE"
-  ) {
-    return "true";
-  }
-
-  // MySQL tinyint buffer case
-  if (
-    typeof raw === "object" &&
-    raw !== null &&
-    "data" in (raw as any)
-  ) {
-    return (raw as any).data?.[0]
-      ? "true"
-      : "false";
-  }
-
-  return "false";
+  return false;
 }
 
 function toNumberOrNull(raw: unknown): number | null {
@@ -115,8 +72,7 @@ function buildProfessionalFeesPayload(values: {
   professionalFeesPercentage: unknown;
   professionalFeesType: unknown;
 }) {
-  const enabled =
-    readProfessionalFeesEnabled(values.professionalFeesEnabled) === "true";
+  const enabled = readProfessionalFeesEnabled(values.professionalFeesEnabled);
   const type =
     values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
 
@@ -516,7 +472,7 @@ const initialState = {
     },
   ],
   roles: [] as any[],
-  professionalFeesEnabled: "false",
+  professionalFeesEnabled: false,
   professionalFeesAmount: "",
   professionalFeesPercentage: "",
   professionalFeesType: "FIXED",
@@ -1836,19 +1792,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           (wizardData as any)?.professional_fees_type ||
           "FIXED",
       };
-      console.log("[PF DEBUG] wizardData prof-fees fields:", {
-        professionalFeesEnabled: wizardData?.professionalFeesEnabled,
-        professional_fees_enabled: (wizardData as any)?.professional_fees_enabled,
-        professionalFeesType: wizardData?.professionalFeesType,
-        professionalFeesAmount: wizardData?.professionalFeesAmount,
-        professionalFeesPercentage: (wizardData as any)?.professionalFeesPercentage,
-      });
-      console.log("[PF DEBUG] newState prof-fees fields:", {
-        professionalFeesEnabled: newState.professionalFeesEnabled,
-        professionalFeesType: newState.professionalFeesType,
-        professionalFeesAmount: newState.professionalFeesAmount,
-        professionalFeesPercentage: newState.professionalFeesPercentage,
-      });
       setDefaultState(newState);
     }
 

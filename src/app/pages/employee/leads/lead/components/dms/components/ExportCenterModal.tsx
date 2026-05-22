@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDMS } from "../store/DmsContext";
+import { useDMSOptional } from "../store/DmsContext";
 import {
   generateRevisionFileName,
   getExportTypeConfig,
@@ -33,7 +33,10 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
   isDataModified = false,
   onExport,
 }) => {
-  const { state, getLatestTempNumber } = useDMS();
+  const dms = useDMSOptional();
+  const state = dms?.state ?? { files: [] };
+  const getLatestTempNumber =
+    dms?.getLatestTempNumber ?? ((_templateId: string, _revisionNumber: number) => 0);
 
   const [format, setFormat] = useState<ExportFormat | null>(null);
   const [exportType, setExportType] = useState<ExportType>("revision");
@@ -162,6 +165,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
           : fileName.replace(/\.pdf$/, ".docx"),
         revisionNumber: currentLeadRev,
         tempNumber,
+        replaceExisting: force,
         newTab,
       });
 

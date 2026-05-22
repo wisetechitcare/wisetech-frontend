@@ -98,6 +98,9 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
         if (!row) {
             return {
                 month,
+                basicSalary: '-',
+                overtime: '-',
+                payable: '-',
                 netPayable: '-',
                 paid: '-',
                 pending: '-',
@@ -113,9 +116,18 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
         const pendingAmount = parseCurrencyOrNumber(row.due);
         const pfDeduction = getFixedDeductionAmount(row, isPfKey);
         const professionalFees = getFixedDeductionAmount(row, isProfessionalFeesKey);
+        
+        const basicSalary = parseCurrencyOrNumber(row.basicSalary);
+        const hourlySalary = parseCurrencyOrNumber(row.hourlySalary);
+        const overTimeHours = convertHoursToDays(row.overTime) * 8;
+        const overtime = row.overTimeAmount !== undefined ? parseCurrencyOrNumber(row.overTimeAmount) : (overTimeHours * hourlySalary);
+        const payable = parseCurrencyOrNumber(row.totalGrossPayAmount);
 
         return {
             month,
+            basicSalary: formatCurrency(basicSalary),
+            overtime: formatCurrency(overtime),
+            payable: formatCurrency(payable),
             netPayable: formatCurrency(netPayable),
             paid: formatCurrency(paidAmount),
             pending: formatCurrency(pendingAmount),
@@ -419,14 +431,15 @@ const Yearly = ({
                 ) : (
                     <>
                         <YearlyOverviewCard
-                            financialYear={financialYear}
+                            title="Yearly Overview"
+                            fiscalYear={financialYear}
+                            fiscalMonth={yearOverview.totalMonths ? `${yearOverview.totalMonths} Months` : '-'}
                             payableDays={formatNumber(yearOverview.totalPayableDays)}
                             workingDays={formatNumber(yearOverview.totalWorkingDays)}
                             attendance={`${yearOverview.attendancePercent}%`}
-                            govtDeduction={formatCurrency(yearOverview.totalGovtDeduction)}
-                            showGovtDeduction={hasProfessionalFees}
-                            pfContribution={formatCurrency(yearOverview.totalPfContribution)}
+                            leavePercentage={`${100 - yearOverview.attendancePercent}%`}
                             netPayable={formatCurrency(yearOverview.totalNetAmount)}
+                            netPayableLabel="Net Payable This Year"
                         />
                         <PaymentProgressCard
                             percentPaid={paidPercent}

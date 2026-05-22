@@ -5,26 +5,29 @@ import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlin
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 
 interface YearlyOverviewCardProps {
-    financialYear: string;
+    title?: string;
+    fiscalYear: string;
+    fiscalMonth: string;
     payableDays: string;
     workingDays: string;
     attendance: string;
-    govtDeduction: string;
-    showGovtDeduction?: boolean;
-    pfContribution: string;
+    leavePercentage: string;
     netPayable: string;
+    netPayableLabel?: string;
 }
 
 const YearlyOverviewCard = (props: YearlyOverviewCardProps) => {
     const infoRows = [
-        { label: 'Financial Year', value: props.financialYear, icon: <CalendarMonthOutlinedIcon fontSize="small" />, color: '#2563eb' },
-        { label: 'Payable Days', value: props.payableDays, icon: <EventAvailableOutlinedIcon fontSize="small" />, color: '#16a34a' },
+        { label: 'Fiscal Year', value: props.fiscalYear, icon: <CalendarMonthOutlinedIcon fontSize="small" />, color: '#2563eb' },
+        { label: 'Fiscal Month', value: props.fiscalMonth, icon: <DateRangeOutlinedIcon fontSize="small" />, color: '#8b5cf6' },
         { label: 'Working Days', value: props.workingDays, icon: <BusinessCenterOutlinedIcon fontSize="small" />, color: '#0891b2' },
+        { label: 'Payable Days', value: props.payableDays, icon: <EventAvailableOutlinedIcon fontSize="small" />, color: '#16a34a' },
         { label: 'Attendance', value: props.attendance, icon: <PersonOutlineOutlinedIcon fontSize="small" />, color: '#d97706' },
-        ...(props.showGovtDeduction ? [{ label: 'Professional Fees', value: props.govtDeduction, icon: <AccountBalanceOutlinedIcon fontSize="small" />, color: '#7c3aed' }] : []),
-        { label: 'PF Contribution', value: props.pfContribution, icon: <ShieldOutlinedIcon fontSize="small" />, color: '#ec4899' },
+        { label: 'Leave Percentage', value: props.leavePercentage, icon: <EventBusyOutlinedIcon fontSize="small" />, color: '#ef4444' },
     ];
 
     return (
@@ -39,7 +42,7 @@ const YearlyOverviewCard = (props: YearlyOverviewCardProps) => {
             }}
         >
             <Typography sx={{ fontSize: 17, fontWeight: 800, color: '#0f172a', mb: 1.25 }}>
-                Yearly Overview
+                {props.title || 'Yearly Overview'}
             </Typography>
 
             <Box
@@ -110,7 +113,7 @@ const YearlyOverviewCard = (props: YearlyOverviewCardProps) => {
                 }}
             >
                 <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b' }}>
-                    Net Payable This Year
+                    {props.netPayableLabel || 'Net Payable This Year'}
                 </Typography>
                 <Typography sx={{ mt: 0.25, fontSize: 22, fontWeight: 800, color: '#15803d', lineHeight: 1.1 }}>
                     {props.netPayable}

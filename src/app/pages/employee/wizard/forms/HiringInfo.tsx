@@ -147,7 +147,7 @@ function HiringInfo({ formikProps, editMode }: any) {
             </div>
 
             {(() => {
-                const pfEnabled = String(formikProps.values.professionalFeesEnabled) === 'true';
+                const pfEnabled = formikProps.values.professionalFeesEnabled === true || (formikProps.values.professionalFeesEnabled as any) === 'true';
                 const pfType = formikProps.values.professionalFeesType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED';
                 return (
                     <div className="row mt-4">
@@ -156,8 +156,8 @@ function HiringInfo({ formikProps, editMode }: any) {
                                 formikField="professionalFeesEnabled"
                                 inputLabel='Professional Fees Enabled'
                                 radioBtns={[
-                                    { label: "Yes", value: 'true' },
-                                    { label: "No", value: 'false' },
+                                    { label: "Yes", value: true },
+                                    { label: "No", value: false },
                                 ]}
                                 isRequired={false}
                             />

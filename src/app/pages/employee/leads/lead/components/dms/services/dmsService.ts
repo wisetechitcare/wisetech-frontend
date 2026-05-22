@@ -66,14 +66,15 @@ export const renameDocument = async (documentId: string, newName: string) => {
 };
 
 export const deleteDocument = async (documentId: string) => {
-  const response = await axios.delete(`${API_BASE_URL}/api/leads/export/documents/${documentId}`);
+  const actualId = documentId.split('-')[0];
+  const response = await axios.delete(`${API_BASE_URL}/api/leads/export/documents/${actualId}`);
   return response.data;
 };
 
 export const deleteDocuments = async (documentIds: string[]) => {
-  // If backend supports bulk delete, use it. Otherwise, use Promise.all
-  // For now, we'll use Promise.all to ensure persistence for each file.
-  const deletions = documentIds.map(id => axios.delete(`${API_BASE_URL}/api/leads/export/documents/${id}`));
+  // map `docId-docx` back to `docId` to avoid duplicate deletions and 404s
+  const actualIds = [...new Set(documentIds.map(id => id.split('-')[0]))];
+  const deletions = actualIds.map(id => axios.delete(`${API_BASE_URL}/api/leads/export/documents/${id}`));
   const results = await Promise.all(deletions);
   return results.map(r => r.data);
 };
