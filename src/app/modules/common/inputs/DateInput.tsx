@@ -65,7 +65,9 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
 
   const currentValue = getCurrentValue();
 
-  return (
+      const hasError = !!(get(touched, formikField) && get(errors, formikField)) || !!validationError;
+
+      return (
     <>
       <label className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -88,6 +90,7 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
               textField: {
                 fullWidth: true,
                 placeholder: placeHolder,
+                error: hasError,
                 onBlur: (event) => {
                   // Validate on blur
                   const inputValue = event.target.value;
@@ -131,6 +134,7 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, placeHold
               textField: {
                 fullWidth: true,
                 placeholder: placeHolder,
+                error: hasError,
                 onBlur: (event) => {
                   // Validate on blur instead of during typing
                   const inputValue = event.target.value;

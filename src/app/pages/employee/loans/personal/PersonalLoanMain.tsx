@@ -1,9 +1,8 @@
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { leadsIcons, reimbursementsIcons } from '@metronic/assets/sidepanelicons';
 import { PageLink, PageTitle } from '@metronic/layout/core';
-import { RootState } from '@redux/store';
 import React, { useEffect, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import PersonalLoan from './views/PersonalLoan';
 import Installments from './views/Installments';
 import Information from './Information';
@@ -19,9 +18,6 @@ function PersonalLoanMain() {
     const dispatch = useDispatch();
 
     const [activeTab, setActiveTab] = useState(0);
-    const isAdmin = useSelector(
-      (state: RootState) => state.auth.currentUser.isAdmin
-    );
     const viewOwnPermissionLoan = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOwn)
     const viewOthersPermissionLoan = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers)
     const viewOwnPermissionLoanInstallment = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.readOwn)

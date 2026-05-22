@@ -2,6 +2,7 @@ import { fetchAllEmployees, fetchLeaveRequest } from "@services/employee";
 import { useEffect, useState, lazy, Suspense, useCallback } from "react";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
+import { usePermission } from "@hooks/usePermission";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
@@ -31,21 +32,12 @@ const DailyAttendance = lazy(() => import("./views/overview/DailyAttendance"));
 const OpenAttendanceRequests = lazy(
   () => import("./views/overview/OpenAttendanceRequests"),
 );
-const OpenLeaveRequests = lazy(
-  () => import("./views/overview/OpenLeaveRequests"),
-);
 const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
 const AttendanceRequestLimitReset = lazy(
   () => import("./views/overview/AttendanceRequestLimitReset"),
 );
 const LeaveManagementRequests = lazy(
   () => import("./views/overview/LeaveManagementRequests"),
-);
-const HRPendingLeaveRequests = lazy(
-  () => import("./views/overview/HRPendingLeaveRequests"),
-);
-const HRPendingAttendanceRequests = lazy(
-  () => import("./views/overview/HRPendingAttendanceRequests"),
 );
 
 interface LeaveRequestResponse {
@@ -138,6 +130,7 @@ export const transformLeaveRequests = (
         ? `${leave.rejectedByEmployee.users.firstName || ""} ${leave.rejectedByEmployee.users.lastName || ""}`.trim()
         : "",
       updatedAt: leave.updatedAt,
+      hasApprovalInstance: (leave as any).hasApprovalInstance ?? false,
     };
   });
 
@@ -170,20 +163,7 @@ function OverviewView() {
     (state: RootState) => state.employee.selectedEmployee?.id,
   );
 
-  // Role-based access: determine if current user is HR/admin to show HR approval queue
-  const isAdminUser = useSelector(
-    (state: RootState) => state.auth.currentUser?.isAdmin,
-  );
-  const currentEmployeeRoles: any[] = useSelector(
-    (state: RootState) => state.employee.currentEmployee.roles || [],
-  );
-  const userIsHROrAdmin =
-    isAdminUser ||
-    currentEmployeeRoles.some((r: any) =>
-      ["hr", "admin", "super_admin", "superadmin"].includes(
-        (r?.name || r?.role || "").toLowerCase(),
-      ),
-    );
+  const userIsHROrAdmin = usePermission('approvals.approve.team');
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange,
   );
@@ -346,28 +326,6 @@ function OverviewView() {
           <OpenAttendanceRequests />
         </Suspense>
       </LazySection>
-
-      {userIsHROrAdmin && (
-        <LazySection minHeight="400px" rootMargin="300px">
-          <Suspense fallback={<Loader />}>
-            <HRPendingAttendanceRequests />
-          </Suspense>
-        </LazySection>
-      )}
-
-      <LazySection minHeight="400px" rootMargin="300px">
-        <Suspense fallback={<Loader />}>
-          <OpenLeaveRequests />
-        </Suspense>
-      </LazySection>
-
-      {userIsHROrAdmin && (
-        <LazySection minHeight="400px" rootMargin="300px">
-          <Suspense fallback={<Loader />}>
-            <HRPendingLeaveRequests />
-          </Suspense>
-        </LazySection>
-      )}
 
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>

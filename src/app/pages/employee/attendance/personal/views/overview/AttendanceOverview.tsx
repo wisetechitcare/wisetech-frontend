@@ -107,7 +107,6 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
   
 
   const checkInTimeParsed = data.checkInTime ? dayjs(data.checkInTime) : null;
-  const showWorkingNow = checkInTimeParsed && data.checkInTime !== "-NA-" && dayjs().isAfter(checkInTimeParsed.add(30, "second"));
   
   const formattedAddress = (address: string) => {
     return address.length > 20 ? `${address.substring(0, 20)}...` : address;
@@ -116,7 +115,7 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
 
   return (
     <div>
-      {data.checkOutTime && data.checkOutTime !== "-NA-" || data.checkOutTime !== '' ? (
+      {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? (
         <div className="text-success pb-6">You have checked out.</div>
       ) : (
         data.checkInTime && data.checkInTime !== "-NA-" && (

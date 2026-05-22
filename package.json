@@ -80,6 +80,7 @@
     "react-flatpickr": "^3.10.13",
     "react-hook-form": "^7.51.0",
     "react-inlinesvg": "4.1.0",
+    "react-international-phone": "^4.8.0",
     "react-intl": "^6.4.4",
     "react-leaflet": "^4.2.1",
     "react-pdf": "^9.1.1",

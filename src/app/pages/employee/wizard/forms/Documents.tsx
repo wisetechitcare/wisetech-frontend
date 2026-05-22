@@ -32,14 +32,14 @@ function Documents({ formikProps, index, setFile }: any) {
     // debugger;
     return (
         <>
-            <div className="row">
-                <div className="col-lg-3">
-                    <div className='d-flex flex-column mb-7 fv-row py-5'>
-                        <label className='fs-6 fw-bold form-label'>{fieldName}</label>
+            <div className="row ob-document-row g-3 g-lg-4">
+                <div className="col-12 col-lg-3">
+                    <div className='d-flex flex-column mb-3 mb-lg-7 fv-row py-lg-5'>
+                        <label className='fs-6 fw-bold form-label mb-0'>{fieldName}</label>
                     </div>
                 </div>
 
-                <div className="col-lg-3">
+                <div className="col-12 col-lg-3">
                     {/* <TextInput
                         isRequired={false}
                         margin="mb-7"
@@ -53,7 +53,7 @@ function Documents({ formikProps, index, setFile }: any) {
                 </div>
 
                 {/* File upload field with info message */}
-                <div className="col-lg-6">
+                <div className="col-12 col-lg-6">
                     {!formikProps.values.userId && showInfo && (
                         <div className="alert alert-info d-flex align-items-center p-3 mb-2" role="alert">
                             <i className="bi bi-info-circle fs-5 me-2"></i>
@@ -70,6 +70,7 @@ function Documents({ formikProps, index, setFile }: any) {
                         onDisabledClick={() => setShowInfo(true)}
                         existingDocument={element}
                         fieldName={fieldName}
+                        onboardingStyle
                     />
                 </div>
             </div>

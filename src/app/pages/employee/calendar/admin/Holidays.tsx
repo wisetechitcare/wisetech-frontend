@@ -4,8 +4,6 @@ import PublicHolidaysListTwo from '@pages/employee/calendar/views/PublicHolidayL
 import React, { useState } from 'react'
 import { Modal } from 'react-bootstrap';
 import WeekendsAndWorkingDays from '../views/WeekendsAndWorkingDays';
-import { useSelector } from 'react-redux';
-import { RootState } from '@redux/store';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { PageTitle } from '@metronic/layout/core';
@@ -13,7 +11,6 @@ import RenameHoliday from '../views/RenameHoliday';
 
 function Holidays() {
   const [showHolidayForm, setShowHolidayForm] = useState(false);
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
   const [notificationToggle, setNotificationToggle] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -78,7 +75,7 @@ function Holidays() {
               ))}
             </select>
           </div>
-          {isAdmin && hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) && (
+          {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) && (
             <button
               className="d-flex justify-content-between align-items-center bg-primary btn btn-md btn-primary fs-5 w-auto"
               onClick={() => setShowHolidayForm(true)}

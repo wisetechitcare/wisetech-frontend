@@ -44,8 +44,9 @@ function DropDownInput({
     enableSmartSort = false, // Added: Smart sorting flag
     smartFilterFunction, // Added: Smart filter and sort function
 }: DropDownInputProps) {
-    const [field, , helpers] = useField(formikField);
+    const [field, meta, helpers] = useField(formikField);
     const [show, setShow] = useState(false);
+    const hasError = !!(meta.touched && meta.error);
     const [inputValue, setInputValue] = useState('');
     
     const handleChange = (selectedOption: any) => {
@@ -93,7 +94,7 @@ function DropDownInput({
     : options.find((option: any) => option.value === field.value) || null;
 
     // Custom styles for react-select with color support
-    const getCustomStyles = (selectedColor: string) => ({
+    const getCustomStyles = (selectedColor?: string) => ({
         control: (provided: any, state: any) => ({
             ...provided,
             borderColor: selectedColor ? `${selectedColor} !important` : provided.borderColor,
@@ -138,6 +139,14 @@ function DropDownInput({
             cursor: state.isDisabled ? 'not-allowed' : 'pointer',
             color: state.isDisabled ? '#999' : provided.color,
         }),
+        menuPortal: (provided: any) => ({
+            ...provided,
+            zIndex: 9999,
+        }),
+        menu: (provided: any) => ({
+            ...provided,
+            zIndex: 9999,
+        }),
     });
 
     
@@ -162,7 +171,7 @@ function DropDownInput({
             isClearable
             isSearchable={true} // Added: Ensure searchable is enabled
             classNamePrefix="react-select"
-            className="react-select-styled"
+            className={`react-select-styled ${hasError ? "is-invalid" : ""}`}
             value={selectedValue}
             isDisabled={disabled}
             components={showColor ? {
@@ -170,7 +179,9 @@ function DropDownInput({
                 SingleValue,
                 DropdownIndicator
             } : undefined}
-            styles={showColor ? getCustomStyles(selectedValue?.color) : undefined}
+            styles={getCustomStyles(showColor ? selectedValue?.color : undefined)}
+            menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+            menuPosition="fixed"
             defaultInputValue={defaultValue}
             filterOption={enableSmartSort ? null : filterOption} // Disable built-in filtering when using smart sort
         />

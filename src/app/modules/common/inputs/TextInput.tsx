@@ -3,7 +3,6 @@ import HighlightErrors from "../../errors/components/HighlightErrors";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
 import { useState } from "react";
 
-// Simple validation types
 type SimpleInputType =
   | "numbers"
   | "numbers-space"
@@ -13,8 +12,7 @@ type SimpleInputType =
   | "decimal"
   | "signed-decimal";
 
-// Simple regex patterns
-const SIMPLE_PATTERNS = {
+const SIMPLE_PATTERNS: Record<SimpleInputType, RegExp> = {
   numbers: /^[0-9]*$/,
   "numbers-space": /^[0-9\s]*$/,
   letters: /^[a-zA-Z]*$/,
@@ -24,8 +22,7 @@ const SIMPLE_PATTERNS = {
   "signed-decimal": /^-?[0-9]*\.?[0-9]*$/,
 };
 
-// Generic error messages
-const ERROR_MESSAGES = {
+const ERROR_MESSAGES: Record<SimpleInputType, string> = {
   numbers: "Input Type Should Be Number",
   "numbers-space": "Input Type Should Be Number",
   letters: "Input Type Should Be Letters",
@@ -48,9 +45,7 @@ interface TextInputProps {
   suffix?: string;
   formatter?: (value: any) => string;
   parser?: (value: string) => any;
-  onChange?: (e: any) => void;
-
-  // Simple validation (optional)
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   inputValidation?: SimpleInputType;
   type?: string;
 }
@@ -62,7 +57,7 @@ function TextInput({
   formikField,
   readonly,
   placeholder,
-  inputTypeNumber = false,
+  inputTypeNumber: _inputTypeNumber = false,
   defaultValue,
   prefix,
   suffix,
@@ -72,52 +67,41 @@ function TextInput({
   type = "text",
   onChange,
 }: TextInputProps) {
-  const hasEmptyPlaceholder = placeholder === "-";
   const [validationError, setValidationError] = useState<string>("");
 
   return (
-    <div className={`d-flex flex-column fv-row ${margin ? margin : ""}`}>
-      {label ? (
+    <div className={`d-flex flex-column fv-row ${margin ?? ""}`}>
+      {label && (
         <label className="d-flex align-items-center fs-6 form-label mb-2">
-          <span className={`${isRequired ? "required" : ""}`}>{label}</span>
+          <span className={isRequired ? "required" : ""}>{label}</span>
         </label>
-      ) : null}
+      )}
 
       <div className={prefix || suffix ? "input-group" : ""}>
         {prefix && <span className="input-group-text">{prefix}</span>}
 
         <Field name={formikField}>
           {({ field, form }: { field: any; form: any }) => {
-            const getFieldName = field.name.replace(/\[\d+\]/g, "");
-            const dynamicRegex =
-              employeeOnBardingFormRegexes[getFieldName] || /.*/;
-
-            const displayValue = formatter
-              ? formatter(field.value)
-              : field.value;
+            const fieldBaseName = field.name.replace(/\[\d+\]/g, "");
+            const dynamicRegex = employeeOnBardingFormRegexes[fieldBaseName] || /.*/;
+            const displayValue = formatter ? formatter(field.value) : field.value;
 
             const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-              let value = e.target.value;
-              const parsedValue = parser ? parser(value) : value;
+              const raw = e.target.value;
+              const parsedValue = parser ? parser(raw) : raw;
 
-              // Simple validation check (optional)
               if (inputValidation) {
                 const pattern = SIMPLE_PATTERNS[inputValidation];
-                if (value && !pattern.test(value)) {
+                if (raw && !pattern.test(raw)) {
                   setValidationError(ERROR_MESSAGES[inputValidation]);
-                  return; // Don't update field if validation fails
-                } else {
-                  setValidationError("");
+                  return;
                 }
+                setValidationError("");
               }
 
-              // Legacy validation (existing behavior)
               if (!parsedValue || dynamicRegex.test(parsedValue)) {
                 form.setFieldValue(field.name, parsedValue);
-                // Call the parent's onChange handler if provided
-                if (onChange) {
-                  onChange(e);
-                }
+                onChange?.(e);
               }
             };
 
@@ -125,13 +109,14 @@ function TextInput({
               <input
                 {...field}
                 type={type}
-                className={`employee__form_wizard__input form-control ${
-                  hasEmptyPlaceholder ? "text-center" : ""
-                } ${validationError ? "is-invalid" : ""}`}
-                placeholder={label || placeholder}
-                readOnly={readonly || hasEmptyPlaceholder}
+                value={displayValue ?? ""}
                 onChange={handleChange}
-                value={displayValue}
+                placeholder={placeholder ?? ""}
+                readOnly={readonly}
+                disabled={readonly}
+                defaultValue={defaultValue}
+                className="form-control"
+                style={{ height: 44 }}
               />
             );
           }}
@@ -140,7 +125,6 @@ function TextInput({
         {suffix && <span className="input-group-text">{suffix}</span>}
       </div>
 
-      {/* Simple validation error */}
       {validationError && (
         <div className="text-danger mt-1 fs-7">{validationError}</div>
       )}
