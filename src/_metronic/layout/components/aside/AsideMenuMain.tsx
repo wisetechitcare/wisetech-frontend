@@ -8,12 +8,12 @@ import { Suspense, useEffect, useState } from 'react'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac'
+import { can } from '@utils/can'
 import { fetchCurrentEmployeeByEmpId } from '@services/employee'
 
 export function AsideMenuMain() {
   const intl = useIntl()
   const dispatch = useDispatch();
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser?.isAdmin);
   const [showAppSettings, setShowAppSettings] = useState(false);
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
@@ -69,6 +69,7 @@ export function AsideMenuMain() {
       {((hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers))) && <AsideMenuItemWithSub to='' icon={sidePanelIcons.attendance} title='Attendance & Leaves' fontIcon='bi-layers'>
         {hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/employee/attendance-and-leaves' title='Personal' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/employees/attendance-and-leaves' title='Employees' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        {can('approvals.approve.team') && <AsideMenuItem to='/approvals/inbox' title='Approval Inbox' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
       </AsideMenuItemWithSub>}
 
       {/* {showAppSettings &&

@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import StatusBadge from "@app/modules/common/components/StatusBadge";
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@mui/material";
 import { getAllTasks, deleteTask, getTasksByProjectId, getAllTasksWithMetrics } from "@services/tasks";
@@ -157,24 +158,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
             Cell: ({ row }: any) => {
                 const status = row?.original?.status;
                 if (!status || !status.name) return "N/A";
-
-                return (
-                    <span
-                        style={{
-                            backgroundColor: status.color || '#6c757d',
-                            color: 'white',
-                            fontWeight: '500',
-                            fontSize: '11px',
-                            padding: '4px 8px',
-                            borderRadius: '12px',
-                            display: 'inline-block',
-                            minWidth: '60px',
-                            textAlign: 'center'
-                        }}
-                    >
-                        {status.name}
-                    </span>
-                );
+                return <StatusBadge label={status.name} color={status.color || '#6c757d'} />;
             },
         },
         {
@@ -183,24 +167,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
             Cell: ({ row }: any) => {
                 const priority = row?.original?.priority;
                 if (!priority || !priority.name) return "N/A";
-
-                return (
-                    <span
-                        style={{
-                            backgroundColor: priority.color || '#6c757d',
-                            color: 'white',
-                            fontWeight: '500',
-                            fontSize: '11px',
-                            padding: '4px 8px',
-                            borderRadius: '12px',
-                            display: 'inline-block',
-                            minWidth: '60px',
-                            textAlign: 'center'
-                        }}
-                    >
-                        {priority.name}
-                    </span>
-                );
+                return <StatusBadge label={priority.name} color={priority.color || '#6c757d'} />;
             },
         },
         {
@@ -261,43 +228,11 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                 const billingType = row?.original?.billingType;
 
                 if (billingType === "BILLABLE") {
-                    return (
-                        <span
-                            style={{
-                                backgroundColor: '#28a745',
-                                color: 'white',
-                                fontWeight: '500',
-                                fontSize: '11px',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                display: 'inline-block',
-                                minWidth: '40px',
-                                textAlign: 'center'
-                            }}
-                        >
-                            Yes
-                        </span>
-                    );
+                    return <StatusBadge label="Billable" color="#28a745" />;
                 }
 
                 if (billingType === "NON_BILLABLE") {
-                    return (
-                        <span
-                            style={{
-                                backgroundColor: '#dc3545',
-                                color: 'white',
-                                fontWeight: '500',
-                                fontSize: '11px',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                display: 'inline-block',
-                                minWidth: '40px',
-                                textAlign: 'center'
-                            }}
-                        >
-                            No
-                        </span>
-                    );
+                    return <StatusBadge label="Non-Billable" color="#dc3545" />;
                 }
 
                 // Return N/A for undefined/null values

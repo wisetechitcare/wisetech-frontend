@@ -32,6 +32,7 @@ import { hasPermission } from '@utils/authAbac'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics'
 import { RootState, store } from '@redux/store'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
+import { fetchAuthzCapabilities } from '@redux/slices/authz'
 import PersonalLoan from '@pages/employee/loans/personal/PersonalLoanMain'
 import PersonalLoanMain from '@pages/employee/loans/personal/PersonalLoanMain'
 import LoanDetails from '@pages/employee/loans/personal/views/LoanDetails'
@@ -64,6 +65,7 @@ import OrganisationInfoProfileMain from '@pages/company/organisationInfo/Organis
 import SearchResultsPage from '@pages/employee/search/SearchResultsPage'
 import ProposalConfigurationPage from '@pages/employee/leads/lead/components/ProposalConfigurationPage'
 import TemplateDocumentationBuilderPage from '@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'
+import ApprovalInbox from '@pages/approvals/ApprovalInbox'
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
@@ -77,14 +79,15 @@ const PrivateRoutes = () => {
   const PayrollLedger = lazy(() => import('../../modules/payroll/pages/PayrollLedger'))
   const PayrollDetails = lazy(() => import('../../modules/payroll/pages/PayrollDetails'))
   const [isStored, setIsStored] = useState(false)
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser?.isAdmin)
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
   const [showAppSettings, setShowAppSettings] = useState(false);
   useEffect(() => {
     async function fetchAndStore() {
-      store.dispatch(fetchRolesAndPermissions()).then(() => setIsStored(true))
+      await store.dispatch(fetchRolesAndPermissions());
+      await store.dispatch(fetchAuthzCapabilities());
+      setIsStored(true);
     }
     fetchAndStore()
   }, [])
@@ -109,6 +112,7 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        <Route path='approvals/inbox' element={<ApprovalInbox />} />
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
         <Route

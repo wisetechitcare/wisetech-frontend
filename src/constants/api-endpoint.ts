@@ -5,7 +5,8 @@ export const AUTH = {
     LOGOUT: "api/auth/logout",
     RESET_PASSWORD: "api/auth/resetPassword/:resetToken",
     CHANGE_PASSWORD: "api/auth/changePassword",
-    FORGOT_PASSWORD: "api/auth/forgotPassword"
+    FORGOT_PASSWORD: "api/auth/forgotPassword",
+    CAPABILITIES: "api/auth/capabilities",
 }
 
 export const USERS = {
@@ -16,6 +17,8 @@ export const USERS = {
     GET_ALL_USERS: "api/users",
     SAVE_USER_TABLE_PREFERENCES: '/api/users/table-preferences',
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
+    SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
+    GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
 }
 
 export const COMPANY = {
@@ -312,6 +315,8 @@ export const ROLES = {
     CREATE_PERMISSION_FOR_ROLE: "api/roles/:id/permissions",
     UPDATE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
+    ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
+    REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
 }
 
 export const DAY_WISE_SHIFT = {

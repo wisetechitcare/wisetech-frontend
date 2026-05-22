@@ -10,6 +10,7 @@ import { deleteLeaveRequestById } from "@services/employee";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { hasPermission } from "@utils/authAbac";
+import { usePermission } from "@hooks/usePermission";
 import { fetchLeaveRequest } from "@services/employee";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { formatDateFromISTString } from "@utils/statistics";
@@ -21,7 +22,7 @@ import LeaveRequestForm from "@pages/employee/attendance/personal/views/my-leave
 import dayjs from "dayjs";
 function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+    const isAdmin = usePermission('approvals.approve.team');
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
 

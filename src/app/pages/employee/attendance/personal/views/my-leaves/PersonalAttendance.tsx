@@ -7,6 +7,7 @@ import { KTIcon } from "@metronic/helpers";
 import Identifiers from "@app/modules/common/utils/Identifiers";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { usePermission } from "@hooks/usePermission";
 import { ATTENDANCE_STATUS, WORKING_METHOD_TYPE, WorkingMethod } from "@constants/attendance";
 import { fetchAttendanceDetails } from "@services/employee";
 import { generateDatesForMonth } from "@utils/date";
@@ -30,7 +31,7 @@ const newAttendanceWizardBreadcrumb: Array<PageLink> = [
 
 function PersonalAttendance() {
     const dispatch = useDispatch();
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+    const isAdmin = usePermission('attendance.manage.team');
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const { employeeId, attendance, activeMonth, openModal } = useSelector((state: RootState) => {
         const { attendance, employee } = state;

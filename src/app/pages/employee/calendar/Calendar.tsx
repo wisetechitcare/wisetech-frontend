@@ -1,6 +1,4 @@
-import { RootState } from '@redux/store';
 import React, { useState } from 'react'
-import { useSelector } from 'react-redux';
 import CustomCalendar from '../CustomCalendar';
 import { BarChart } from "@mui/icons-material";
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
@@ -15,10 +13,6 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, ui
 
 function Calendar() {
   const [activeTab, setActiveTab] = useState(0);
-
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
 
   const tabItems: TabItem[] = [
     {
