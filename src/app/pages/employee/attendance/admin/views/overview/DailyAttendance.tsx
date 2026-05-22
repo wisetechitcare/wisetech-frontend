@@ -233,7 +233,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             let isMounted = true;
 
             const fetchAddress = async () => {
-                // Check location string FIRST (handles biometric "Office - Biometric" where lat/lng are 0)
+                // Check location string FIRST (handles biometric "Biometric" where lat/lng are 0)
                 if (location) {
                     if (isMounted) setAddress(location);
                     return;

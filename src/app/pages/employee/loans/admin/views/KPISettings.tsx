@@ -527,12 +527,13 @@ export default function KpiSettings() {
             onSubmit={async (values) => {
               setSaving(true);
               try {
-                const signedPoint =
-                  values.type === "positive"
-                    ? Math.abs(values.point)
-                    : -Math.abs(values.point);
+                // weightage is ALWAYS stored as a positive number.
+                // kpiservice.calculateNegativeScore() applies the minus sign
+                // at calculation time based on factor.type — storing a negative
+                // weightage here causes double-negation and makes NEGATIVE factor
+                // scores show as positive on the leaderboard.
                 const payload = {
-                  weightage: signedPoint,
+                  weightage: Math.abs(values.point),
                   type: values.type.toUpperCase(),
                   isActive: values.isActive,
                 };
@@ -541,7 +542,7 @@ export default function KpiSettings() {
                 setAllFactors((prev) =>
                   prev.map((f) =>
                     f.id === editModal.item.id
-                      ? { ...f, weightage: signedPoint, type: values.type.toUpperCase(), isActive: values.isActive }
+                      ? { ...f, weightage: Math.abs(values.point), type: values.type.toUpperCase(), isActive: values.isActive }
                       : f
                   )
                 );

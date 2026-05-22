@@ -9,6 +9,10 @@ export interface IAttendance {
   status: string;
   duration: string;
   workingMethod?: string;
+  checkInLocation?: string;
+  checkoutWorkingMethod?: string;
+  checkoutWokringMethod?: string;
+  checkOutLocation?: string;
   attendanceRequests?: IAttendanceRequests;
   isWeekendOrHoliday?: boolean;
 }
