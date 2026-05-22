@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Button } from 'react-bootstrap';
+import { Row, Col, Card, Button, Form } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
 import TimePickerInput from '@app/modules/common/inputs/TimeInput';
@@ -7,7 +7,11 @@ import TextInput from '@app/modules/common/inputs/TextInput';
 import RadioInput, { RadioButton } from '@app/modules/common/inputs/RadioInput';
 import { fetchDayWiseShifts, createDayWiseShift, updateDayWiseShiftById } from '@services/dayWiseShift';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
-import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
+import {
+  LEAVE_MANAGEMENT,
+  ENFORCE_ONSITE_DEADLINE_KEY,
+  GRACE_TIME_ON_SITE_KEY,
+} from '@constants/configurations-key';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import Loader from '@app/modules/common/utils/Loader';
 
@@ -28,46 +32,58 @@ const minutesToTimeFormat = (totalMinutes: number): string => {
   return `${hours}:${minutes.toString().padStart(2, '0')} Hrs`;
 };
 
+type WeekdayKey =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+type HolidayValue = 'no' | 'yes';
+
 interface ShiftValues {
   monday_checkIn: string;
   monday_checkOut: string;
   monday_totalWorkingTime: string;
   monday_totalShiftTime: string;
-  monday_isHoliday: string;
+  monday_isHoliday: HolidayValue;
   tuesday_checkIn: string;
   tuesday_checkOut: string;
   tuesday_totalWorkingTime: string;
   tuesday_totalShiftTime: string;
-  tuesday_isHoliday: string;
+  tuesday_isHoliday: HolidayValue;
   wednesday_checkIn: string;
   wednesday_checkOut: string;
   wednesday_totalWorkingTime: string;
   wednesday_totalShiftTime: string;
-  wednesday_isHoliday: string;
+  wednesday_isHoliday: HolidayValue;
   thursday_checkIn: string;
   thursday_checkOut: string;
   thursday_totalWorkingTime: string;
   thursday_totalShiftTime: string;
-  thursday_isHoliday: string;
+  thursday_isHoliday: HolidayValue;
   friday_checkIn: string;
   friday_checkOut: string;
   friday_totalWorkingTime: string;
   friday_totalShiftTime: string;
-  friday_isHoliday: string;
+  friday_isHoliday: HolidayValue;
   saturday_checkIn: string;
   saturday_checkOut: string;
   saturday_totalWorkingTime: string;
   saturday_totalShiftTime: string;
-  saturday_isHoliday: string;
+  saturday_isHoliday: HolidayValue;
   sunday_checkIn: string;
   sunday_checkOut: string;
   sunday_totalWorkingTime: string;
   sunday_totalShiftTime: string;
-  sunday_isHoliday: string;
+  sunday_isHoliday: HolidayValue;
   lunchTimeStart: string;
   lunchTimeEnd: string;
   graceTimeOffice: string;
   graceTimeOnSite: string;
+  enforceOnsiteDeadline: boolean;
 }
 
 interface DayWiseShiftData {
@@ -94,7 +110,12 @@ const DailyShiftTime: React.FC = () => {
     lunchTimeStart: Yup.string().required('Lunch start time is required'),
     lunchTimeEnd: Yup.string().required('Lunch end time is required'),
     graceTimeOffice: Yup.string().required('Grace time office is required'),
-    graceTimeOnSite: Yup.string().required('Grace time on site is required'),
+    enforceOnsiteDeadline: Yup.boolean(),
+    graceTimeOnSite: Yup.string().when('enforceOnsiteDeadline', {
+      is: true,
+      then: (schema) => schema.required('Grace time on site is required'),
+      otherwise: (schema) => schema.notRequired(),
+    }),
   });
 
   const [initialValues, setInitialValues] = useState<ShiftValues>({
@@ -143,7 +164,8 @@ const DailyShiftTime: React.FC = () => {
     lunchTimeStart: '12:30',
     lunchTimeEnd: '13:30',
     graceTimeOffice: '00:30',
-    graceTimeOnSite: '00:30',
+    graceTimeOnSite: '11:00',
+    enforceOnsiteDeadline: true,
   });
 
 
@@ -161,11 +183,11 @@ const DailyShiftTime: React.FC = () => {
         // Map API data to form initial values
         const updatedValues = { ...initialValues };
         shifts.forEach((shift: DayWiseShiftData) => {
-          const dayKey = shift.day.toLowerCase();
+          const dayKey = shift.day.toLowerCase() as WeekdayKey;
 
-          updatedValues[`${dayKey}_checkIn` as keyof ShiftValues] = to24HourFormat(shift.checkIn || '09:30');
-          updatedValues[`${dayKey}_checkOut` as keyof ShiftValues] = to24HourFormat(shift.checkOut || '18:30');
-          updatedValues[`${dayKey}_isHoliday` as keyof ShiftValues] = shift.isActive ? 'no' : 'yes';
+          updatedValues[`${dayKey}_checkIn`] = to24HourFormat(shift.checkIn || '09:30');
+          updatedValues[`${dayKey}_checkOut`] = to24HourFormat(shift.checkOut || '18:30');
+          updatedValues[`${dayKey}_isHoliday`] = shift.isActive ? 'no' : 'yes';
       });
 
 
@@ -186,7 +208,23 @@ const DailyShiftTime: React.FC = () => {
 
           // Parse grace times
           updatedValues.graceTimeOffice = leaveConfig?.['Grace Time'] || '00:30';
-          updatedValues.graceTimeOnSite = leaveConfig?.['Grace Time - On Site'] || '00:30';
+          const onsiteGrace = leaveConfig?.[GRACE_TIME_ON_SITE_KEY];
+          updatedValues.graceTimeOnSite =
+            onsiteGrace !== undefined && onsiteGrace !== null && String(onsiteGrace).trim() !== ''
+              ? String(onsiteGrace)
+              : '11:00';
+
+          const enforceRaw = leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY];
+          if (typeof enforceRaw === 'boolean') {
+            updatedValues.enforceOnsiteDeadline = enforceRaw;
+          } else if (enforceRaw !== undefined && enforceRaw !== null) {
+            const lowered = String(enforceRaw).trim().toLowerCase();
+            updatedValues.enforceOnsiteDeadline = !(
+              lowered === 'false' || lowered === '0' || lowered === 'no'
+            );
+          } else {
+            updatedValues.enforceOnsiteDeadline = true;
+          }
         } catch (error) {
           console.error('[DailyShiftTime] Error loading LEAVE_MANAGEMENT config:', error);
         }
@@ -245,10 +283,10 @@ const handleSubmit = async (values: ShiftValues) => {
 
     // Step 1: Save each day's shift to dayWiseShift table
     for (const day of days) {
-      const dayKey = day.toLowerCase();
-      const checkIn = values[`${dayKey}_checkIn` as keyof ShiftValues];
-      const checkOut = values[`${dayKey}_checkOut` as keyof ShiftValues];
-      const isHoliday = values[`${dayKey}_isHoliday` as keyof ShiftValues] === 'yes';
+      const dayKey = day.toLowerCase() as WeekdayKey;
+      const checkIn = values[`${dayKey}_checkIn`];
+      const checkOut = values[`${dayKey}_checkOut`];
+      const isHoliday = values[`${dayKey}_isHoliday`] === 'yes';
 
       // Convert to 12-hour format for payload
       const formattedCheckIn = to12HourFormat(checkIn as string);
@@ -297,7 +335,10 @@ const handleSubmit = async (values: ShiftValues) => {
         'Lunch Time': `${lunchStart} - ${lunchEnd}`,
         'Deduction Time': deductionTimeFormatted,
         'Grace Time': values.graceTimeOffice,
-        'Grace Time - On Site': values.graceTimeOnSite,
+        [ENFORCE_ONSITE_DEADLINE_KEY]: values.enforceOnsiteDeadline,
+        [GRACE_TIME_ON_SITE_KEY]: values.enforceOnsiteDeadline
+          ? values.graceTimeOnSite
+          : null,
       };
 
       if (configId) {
@@ -332,13 +373,30 @@ const handleSubmit = async (values: ShiftValues) => {
   }
 
   return (
+    <>
+    <style>{`
+      .daily-shift-onsite-toggle .form-check-input {
+        width: 2rem;
+        height: 1.125rem;
+        margin-top: 0;
+        cursor: pointer;
+      }
+      .daily-shift-onsite-toggle .form-check-input:checked {
+        background-color: #9d4141;
+        border-color: #9d4141;
+      }
+      .daily-shift-onsite-toggle .form-check-input:focus {
+        box-shadow: 0 0 0 0.2rem rgba(157, 65, 65, 0.25);
+        border-color: #9d4141;
+      }
+    `}</style>
     <Formik
       enableReinitialize
       initialValues={initialValues}
       validationSchema={validationSchema}
       onSubmit={handleSubmit}
     >
-      {({ values }) => (
+      {({ values, setFieldValue }) => (
         <FormikForm placeholder={''}>
           <div style={{
             // backgroundColor: '#f7f9fc',
@@ -420,10 +478,10 @@ const handleSubmit = async (values: ShiftValues) => {
 
                 {/* Days Rows */}
                 {days.map((day) => {
-                  const dayKey = day.toLowerCase() as keyof ShiftValues extends `${infer Day}_${string}` ? Day : never;
-                  const checkInKey = `${dayKey}_checkIn` as keyof ShiftValues;
-                  const checkOutKey = `${dayKey}_checkOut` as keyof ShiftValues;
-                  const isHolidayKey = `${dayKey}_isHoliday` as keyof ShiftValues;
+                  const dayKey = day.toLowerCase() as WeekdayKey;
+                  const checkInKey = `${dayKey}_checkIn` as `${WeekdayKey}_checkIn`;
+                  const checkOutKey = `${dayKey}_checkOut` as `${WeekdayKey}_checkOut`;
+                  const isHolidayKey = `${dayKey}_isHoliday` as `${WeekdayKey}_isHoliday`;
 
                   const isHoliday = values[isHolidayKey] === 'yes';
 
@@ -742,17 +800,37 @@ const handleSubmit = async (values: ShiftValues) => {
                         Grace Time - On Site
                       </span>
                     </Col>
-                    <Col xs={12} sm={6} lg={4}>
-                      <Row>
-                        <Col xs={12} sm={12} lg={6}>
-                          <TextInput
-                            formikField="graceTimeOnSite"
-                            isRequired={true}
-                            placeholder="00:30"
-                          />
-                        </Col>
-                      </Row>
+                    <Col xs="auto" className="d-flex align-items-center pe-0">
+                      <div className="form-check form-switch m-0 daily-shift-onsite-toggle">
+                        <Form.Check
+                          type="switch"
+                          id="enforceOnsiteDeadline"
+                          checked={values.enforceOnsiteDeadline}
+                          onChange={(e) => {
+                            setFieldValue('enforceOnsiteDeadline', e.target.checked);
+                          }}
+                          label=""
+                          title={
+                            values.enforceOnsiteDeadline
+                              ? 'On-site check-ins use the deadline below'
+                              : 'Off: on-site check-ins are always on time'
+                          }
+                        />
+                      </div>
                     </Col>
+                    {values.enforceOnsiteDeadline && (
+                      <Col xs={12} sm={6} lg={4}>
+                        <Row>
+                          <Col xs={12} sm={12} lg={6}>
+                            <TextInput
+                              formikField="graceTimeOnSite"
+                              isRequired={true}
+                              placeholder="11:00"
+                            />
+                          </Col>
+                        </Row>
+                      </Col>
+                    )}
                   </Row>
                 </div>
               </Card.Body>
@@ -790,6 +868,7 @@ const handleSubmit = async (values: ShiftValues) => {
         </FormikForm>
       )}
     </Formik>
+    </>
   );
 };
 

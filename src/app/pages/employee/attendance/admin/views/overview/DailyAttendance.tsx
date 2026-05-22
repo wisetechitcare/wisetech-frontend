@@ -1,5 +1,15 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
+import AttendanceCheckCell, {
+    formatAttendanceCheckExport,
+    hasValidMapCoordinates,
+} from "@app/modules/common/components/AttendanceCheckCell";
+import AttendanceDurationCell from "@app/modules/common/components/AttendanceDurationCell";
+import {
+    resolveCheckInColor,
+    resolveCheckOutColor,
+    shouldApplyCheckInColoring,
+} from "@utils/attendanceColorUtils";
 import { ATTENDANCE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from "@constants/attendance";
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { IEmployeesAttendance } from "@models/employee";
@@ -25,19 +35,6 @@ import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { fetchColorAndStoreInSlice } from "@utils/file";
 // TODO: Pull timezone and date format settings from db
 
-/**
- * Returns true when the formatted duration string represents < 8 working hours.
- * Format expected: "8H 30M" or "6H 0M" (produced by convertMinutesIntoHrMinFormats).
- * Returns false for missing / '-NA-' values so absent rows are never falsely flagged.
- */
-function isDurationUnderEightHours(durationStr: string | undefined): boolean {
-    if (!durationStr || durationStr === '-NA-') return false;
-    const hoursMatch = durationStr.match(/(\d+)H/i);
-    const minutesMatch = durationStr.match(/(\d+)M/i);
-    const totalMinutes = (hoursMatch ? parseInt(hoursMatch[1], 10) * 60 : 0)
-        + (minutesMatch ? parseInt(minutesMatch[1], 10) : 0);
-    return totalMinutes > 0 && totalMinutes < 480; // 8h = 480 min
-}
 const MUMBAI_TZ = 'Asia/Kolkata';
 
 interface IEmployeesAttendanceResponse {
@@ -405,139 +402,128 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         {
             accessorKey: "checkIn",
             header: "Check-In",
-            size: 120,
-            minSize: 80,
+            size: 200,
+            minSize: 160,
+            accessorFn: (row) => formatAttendanceCheckExport(
+                row.checkIn,
+                typeof row.workingMethod === 'object' ? (row.workingMethod as any)?.type : row.workingMethod,
+                row.checkInLocation
+            ),
             Cell: ({ row }) => {
                 const employee = row.original;
-                const isWeekendOrHolidays = employee.isWeekendOrHoliday;
-
                 const checkIn = employee.checkIn;
+                const workingMethodValue = typeof employee?.workingMethod === 'object'
+                    ? (employee.workingMethod as any)?.type
+                    : employee?.workingMethod;
 
-                if (!checkIn || checkIn === '-NA-' || !employeeThresholds) {
-                    return <span>{checkIn || "N/A"}</span>;
-                }
-
-                // Find this specific employee's threshold
-                const employeeData = employeeThresholds.find(
-                    emp => emp.employeeId === employee.employeeId
+                const employeeData = employeeThresholds?.find(
+                    (emp) => emp.employeeId === employee.employeeId
                 );
+                const checkInColor = resolveCheckInColor({
+                    checkIn,
+                    workingMethod: workingMethodValue,
+                    date: employee.date,
+                    lateCheckInThreshold:
+                        employeeData?.lateCheckInThreshold ?? lateCheckInThreshold,
+                    leaveConfig: leaveConfiguration,
+                    skipColoring: !shouldApplyCheckInColoring(
+                        employee.status,
+                        employee.isWeekendOrHoliday
+                    ),
+                });
 
-                const employeeThreshold = employeeData ? employeeData.lateCheckInThreshold : lateCheckInThreshold;
+                const checkInCoords =
+                    employee.latitude != null &&
+                    employee.longitude != null &&
+                    hasValidMapCoordinates({
+                        lat: Number(employee.latitude),
+                        lng: Number(employee.longitude),
+                    })
+                        ? { lat: Number(employee.latitude), lng: Number(employee.longitude) }
+                        : null;
 
-                // Compare times in 24-hour format
-                const checkInTime = dayjs(checkIn, "HH:mm:ss");
-                const thresholdTime = dayjs(employeeThreshold, "HH:mm:ss");
-
-                const isLateCheckIn = checkInTime.isAfter(thresholdTime);
-                const workingMethodValue = typeof employee?.workingMethod === 'object' ? (employee.workingMethod as any)?.type : employee?.workingMethod;
-                const workingMethod = typeof workingMethodValue === 'string' ? workingMethodValue.replace('-', '').replace(' ', '').toLowerCase() : '';
-                const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-                const finalCheckIn = convertTo12HourFormat(checkIn);
-
-                // RED if: late check-in OR worked less than 8 hours (absent rows excluded via isDurationUnderEightHours)
-                const isShortDuration = isDurationUnderEightHours(employee.duration);
                 return (
-                    <span style={{
-                        color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : (isLateCheckIn || isShortDuration) ? 'red' : 'green',
-                    }}>
-                        {finalCheckIn}
-                    </span>
+                    <AttendanceCheckCell
+                        label="Check-In"
+                        type="in"
+                        time={checkIn && checkIn !== '-NA-' ? convertTo12HourFormat(checkIn) : checkIn}
+                        method={typeof employee.workingMethod === 'object'
+                            ? (employee.workingMethod as any)?.type
+                            : employee.workingMethod}
+                        location={employee.checkInLocation}
+                        fullAddress={employee.checkInLocation}
+                        coordinates={checkInCoords}
+                        timeColor={checkInColor.color}
+                        timeTooltip={checkInColor.tooltip}
+                    />
                 );
             },
-        },
-        {
-            accessorKey: "workingMethod",
-            header: "Check-In Work",
-            size: 120,
-            meta: { defaultVisible: true },
-            Cell: ({ row }) => (
-                <WorkTypeCell
-                    workingMethod={typeof row.original.workingMethod === 'object' ? (row.original.workingMethod as any)?.type : row.original.workingMethod}
-                    latitude={row.original.latitude}
-                    longitude={row.original.longitude}
-                />
-            )
-        },
-        {
-            accessorKey: "checkInLocation",
-            header: "Check-In Location",
-            size: 120,
-            meta: { defaultVisible: true },
-            Cell: ({ row }) => {
-                // Show location whenever any location data exists — biometric employees have
-                // a checkInLocation string; GPS-based check-ins have lat/lng coordinates.
-                // The old working-method guard was incorrectly hiding locations for Office-method
-                // employees who checked in via app (GPS present but working method not On-site/Hybrid).
-                const hasLocation = row.original.checkInLocation ||
-                    (row.original.latitude && row.original.longitude);
-                if (!hasLocation) return "-NA-";
-
-                return <LocationCell latitude={row.original.latitude} longitude={row.original.longitude} location={row.original.checkInLocation} />;
-            }
         },
         {
             accessorKey: "checkOut",
             header: "Check-Out",
-            size: 120,
+            size: 200,
+            minSize: 160,
+            accessorFn: (row) => formatAttendanceCheckExport(
+                row.checkOut,
+                typeof row.checkoutWorkingMethod === 'object'
+                    ? (row.checkoutWorkingMethod as any)?.type
+                    : row.checkoutWorkingMethod,
+                row.checkOutLocation
+            ),
             Cell: ({ row }) => {
                 const employee = row.original;
-                const isWeekendOrHolidays = employee.isWeekendOrHoliday;
                 const checkOut = employee.checkOut;
-                const workingMethodValue = typeof employee?.workingMethod === 'object' ? (employee.workingMethod as any)?.type : employee?.workingMethod;
-                const workingMethod = typeof workingMethodValue === 'string' ? workingMethodValue.replace('-', '').replace(' ', '').toLowerCase() : '';
-                const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-                // Skip coloring for invalid times
-                if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
-                    return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
-                }
+                const displayTime =
+                    checkOut && checkOut !== '-NA-'
+                        ? convertTo12HourFormat(checkOut)
+                        : checkOut;
 
-                // Compare times in 24-hour format
-                const checkOutTime = dayjs(checkOut, "HH:mm:ss");
-                const thresholdTime = dayjs(earlyCheckOutThreshold, "HH:mm:ss");
-                const isEarlyCheckOut = checkOutTime.isBefore(thresholdTime);
-                const finalCheckOut = convertTo12HourFormat(checkOut);
+                const checkoutMethod = typeof employee.checkoutWorkingMethod === 'object'
+                    ? (employee.checkoutWorkingMethod as any)?.type
+                    : employee.checkoutWorkingMethod;
+
+                const checkOutCoords =
+                    employee.checkOutLatitude != null &&
+                    employee.checkOutLongitude != null &&
+                    hasValidMapCoordinates({
+                        lat: Number(employee.checkOutLatitude),
+                        lng: Number(employee.checkOutLongitude),
+                    })
+                        ? {
+                            lat: Number(employee.checkOutLatitude),
+                            lng: Number(employee.checkOutLongitude),
+                        }
+                        : null;
+
+                const checkOutColor = resolveCheckOutColor(checkOut);
 
                 return (
-                    <span style={{
-                        color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isEarlyCheckOut ? 'red' : 'green',
-                    }}>
-                        {finalCheckOut}
-                    </span>
+                    <AttendanceCheckCell
+                        label="Check-Out"
+                        type="out"
+                        time={displayTime}
+                        method={checkoutMethod}
+                        location={employee.checkOutLocation}
+                        fullAddress={employee.checkOutLocation}
+                        coordinates={checkOutCoords}
+                        timeColor={checkOutColor.color}
+                    />
                 );
             },
-        },
-        {
-            accessorKey: "checkoutWorkingMethod",
-            header: "Check-Out Work",
-            size: 120,
-            meta: { defaultVisible: true },
-            Cell: ({ row }) => (
-                <WorkTypeCell
-                    workingMethod={typeof row.original.checkoutWorkingMethod === 'object' ? (row.original.checkoutWorkingMethod as any)?.type : (row.original.checkoutWorkingMethod || '-NA-')}
-                    latitude={row.original.latitude}
-                    longitude={row.original.longitude}
-                />
-            )
-        },
-        {
-            accessorKey: "checkOutLocation",
-            header: "Check-Out Location",
-            size: 120,
-            meta: { defaultVisible: true },
-            Cell: ({ row }) => {
-                // if ((row.original.workingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (row.original.workingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
-
-                // if ((row.original?.checkoutWorkingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (row.original?.checkoutWorkingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
-                // console.log("row.original:: ",row.original);
-
-                return <LocationCell latitude={row.original.checkOutLatitude} longitude={row.original.checkOutLongitude} location={row.original.checkOutLocation} />;
-            }
         },
         {
             accessorKey: "duration",
             header: "Duration",
             size: 120,
             minSize: 80,
+            Cell: ({ row }) => (
+                <AttendanceDurationCell
+                    duration={row.original.duration}
+                    checkOut={row.original.checkOut}
+                    skipIncompleteHighlight={row.original.isWeekendOrHoliday}
+                />
+            ),
         },
 
         // {
@@ -556,7 +542,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             header: "Day",
             size: 120,
         },
-    ], [StatusBadge, WorkTypeCell, LocationCell, lateCheckInThreshold, earlyCheckOutThreshold]);
+    ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration]);
 
     useEffect(() => {
         const callEndpoint = async () => {

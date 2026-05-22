@@ -1,11 +1,22 @@
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
+import AttendanceCheckCell, {
+    AttendanceCoordinates,
+    formatAttendanceCheckExport,
+    hasValidMapCoordinates,
+} from './AttendanceCheckCell';
+import AttendanceDurationCell from './AttendanceDurationCell';
+import {
+    resolveCheckInColor,
+    resolveCheckOutColor,
+    shouldApplyCheckInColoring,
+} from '@utils/attendanceColorUtils';
 import { RootState, store } from '@redux/store';
 import ReactApexChart from 'react-apexcharts';
 import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
 import Identifiers from '../utils/Identifiers';
 import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from '@constants/attendance';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CustomLeaves, IAttendance, IAttendanceRequests } from '@models/employee';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from './MaterialTable';
@@ -910,6 +921,23 @@ let initialState = {
     remarks: "",
 };
 
+function resolveAttendanceCoordinates(
+    rowId: string | undefined,
+    locationProp: any[] | undefined,
+    lat?: number | null,
+    lng?: number | null
+): AttendanceCoordinates | null {
+    const entry =
+        Array.isArray(locationProp) && rowId
+            ? locationProp.find((item) => item.id === rowId)
+            : undefined;
+    const resolvedLat = lat ?? entry?.latitude;
+    const resolvedLng = lng ?? entry?.longitude;
+    if (resolvedLat == null || resolvedLng == null) return null;
+    const coords = { lat: Number(resolvedLat), lng: Number(resolvedLng) };
+    return hasValidMapCoordinates(coords) ? coords : null;
+}
+
 export const StatisticsTable = ({
     approvedLeaves,
     attendance,
@@ -1409,229 +1437,95 @@ export const StatisticsTable = ({
         {
             accessorKey: "checkIn",
             header: "Check-In",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
+            size: 200,
+            minSize: 160,
+            maxSize: 280,
+            accessorFn: (row) => formatAttendanceCheckExport(
+                row.checkIn,
+                row.workingMethod,
+                row.checkInLocation
+            ),
             Cell: ({ row }: { row: any }) => {
                 const employee = row.original;
-                const isWeekendOrHolidays = employee.isWeekendOrHoliday;
                 const checkIn = employee.checkIn;
-                const workingMethod = employee?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
-                const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-                if (!checkIn || checkIn === '-NA-' || !allEmployeeThresholds) {
-                    return <span>{checkIn || "N/A"}</span>;
-                }
+                const displayTime =
+                    checkIn && checkIn !== '-NA-' ? convertTo12HourFormat(checkIn) : checkIn;
 
-                try {
-                    const today = dayjs().format('YYYY-MM-DD');
-                    const employeeThreshold = allEmployeeThresholds.find((emp: any) => emp.id === employee.id);
-                    const lateCheckInThreshold = employeeThreshold?.lateCheckInThreshold;
-                    const hasSeconds = checkIn.split(':').length === 3;
-                    const checkInTime = dayjs(`${today} ${checkIn}`, hasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
+                const employeeThreshold = allEmployeeThresholds?.find(
+                    (emp: any) => emp.id === employee.id
+                );
+                const checkInColor = resolveCheckInColor({
+                    checkIn,
+                    workingMethod: employee.workingMethod,
+                    date: employee.date,
+                    lateCheckInThreshold:
+                        employeeThreshold?.lateCheckInThreshold ?? lateCheckInThreshold,
+                    leaveConfig: leaveConfiguration,
+                    skipColoring: !shouldApplyCheckInColoring(
+                        employee.status,
+                        employee.isWeekendOrHoliday
+                    ),
+                });
 
-                    const thresholdHasSeconds = lateCheckInThreshold.split(':').length === 3;
-                    const thresholdTime = dayjs(`${today} ${lateCheckInThreshold}`, thresholdHasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-                    const isLateCheckIn = checkInTime.isValid() && thresholdTime.isValid() && checkInTime.isAfter(thresholdTime);
-                    const finalCheckIn = convertTo12HourFormat(checkIn);
-                    return (
-                        <span style={{ color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isLateCheckIn ? 'red' : 'green' }}>
-                            {finalCheckIn}
-                        </span>
-                    );
-                } catch (error) {
-                    // console.error('Error comparing times:', error);
-                    return <span>{convertTo12HourFormat(checkIn)}</span>;
-                }
-            }
-        },
-        {
-            accessorKey: "workingMethod",
-            header: "Checkin Working Method",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            meta: { defaultVisible: true },
-            Cell: ({ row }: any) => {
-                const renderedCellValue = row.original.workingMethod;
-                const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
-
-                const colorMap: Record<string, string> = {
-                    [OFFICE]: worktypeColorValues?.officeColor || "#3498db",
-                    [ON_SITE]: worktypeColorValues?.onSiteColor || "#e74c3c",
-                    [REMOTE]: worktypeColorValues?.remoteColor || "#2ecc71",
-                };
+                const coords = resolveAttendanceCoordinates(employee.id, location);
 
                 return (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span
-                            style={{
-                                width: "12px",
-                                height: "12px",
-                                borderRadius: "50%",
-                                backgroundColor: colorMap[renderedCellValue] || "#000",
-                            }}
-                        ></span>
-                        {renderedCellValue ?? '-NA-'}
-                    </div>
+                    <AttendanceCheckCell
+                        label="Check-In"
+                        type="in"
+                        time={displayTime}
+                        method={employee.workingMethod}
+                        location={employee.checkInLocation}
+                        fullAddress={employee.checkInLocation}
+                        coordinates={coords}
+                        timeColor={checkInColor.color}
+                        timeTooltip={checkInColor.tooltip}
+                    />
                 );
             }
         },
-
-        {
-            accessorKey: "checkInLocation",
-            header: "Check In Location",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            meta: { defaultVisible: true },
-            Cell: ({ row }: any) => {
-                const currentId = row.original.id;
-                const workingMethod = row.original.workingMethod;
-                const checkInLocation = row.original.checkInLocation;
-
-                // FIX: Show location if checkInLocation exists, regardless of working method
-                // This allows biometric attendance to show "Office - Biometric"
-                if (checkInLocation && checkInLocation.trim().length > 0 && checkInLocation !== "-NA-") {
-                    const locationEntry = Array.isArray(location) && location.find(item => item.id === currentId);
-                    const latitude = locationEntry?.latitude;
-                    const longitude = locationEntry?.longitude;
-
-                    // If biometric attendance with no GPS coordinates, just show the location text
-                    if ((!latitude || !longitude) && checkInLocation) {
-                        return (
-                            <span style={{ color: '#1976d2', fontWeight: 500 }}>
-                                {checkInLocation}
-                            </span>
-                        );
-                    }
-
-                    // If has GPS coordinates, show as clickable map link
-                    if (latitude && longitude) {
-                        const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                        return (
-                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                                <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${checkInLocation}`}>{checkInLocation}</Tooltip>}>
-                                    <span>
-                                        {checkInLocation.length > 30 ? `${checkInLocation.substring(0, 30)}...` : checkInLocation}
-                                    </span>
-                                </OverlayTrigger>
-                            </a>
-                        );
-                    }
-
-                    // Fallback: just show the text
-                    return checkInLocation;
-                }
-
-                // Original logic for GPS-based attendance
-                if ((workingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (workingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
-
-                const locationEntry = Array.isArray(location) && location.find(item => item.id === currentId);
-                const latitude = locationEntry?.latitude;
-                const longitude = locationEntry?.longitude;
-
-                const [address, setAddress] = useState("Fetching location...");
-
-                useEffect(() => {
-                    const fetchAddress = async () => {
-                        if (!latitude || !longitude) return;
-
-                        try {
-                            const res = await fetchAddressDetails(latitude, longitude);
-                            setAddress(res.data.address || "No Address found");
-                        } catch (error) {
-                            console.error("error", error);
-                            setAddress("Unable to fetch address");
-                        }
-                    };
-                    fetchAddress();
-                }, [latitude, longitude]);
-
-                if (latitude && longitude) {
-                    const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                    return (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                            <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-${address}`}>{address}</Tooltip>}>
-                                <span>
-                                    {address.length > 30 ? `${address.substring(0, 30)}...` : address}
-                                </span>
-                            </OverlayTrigger>
-                        </a>
-                    );
-                }
-
-                return "-NA-";
-            }
-        },
-
         {
             accessorKey: "checkOut",
             header: "Check-Out",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
+            size: 200,
+            minSize: 160,
+            maxSize: 280,
+            accessorFn: (row) => formatAttendanceCheckExport(
+                row.checkOut,
+                row.checkoutWorkingMethod ?? row.checkoutWokringMethod,
+                row.checkOutLocation
+            ),
             Cell: ({ row }: any) => {
                 const employee = row.original;
-                const isWeekendOrHolidays = employee.isWeekendOrHoliday;
-                const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
                 const checkOut = employee.checkOut;
-                const workingMethod = employee?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
+                const checkoutMethod =
+                    employee.checkoutWorkingMethod ?? employee.checkoutWokringMethod;
 
-                if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
-                    return <span>{checkOut || "N/A"}</span>;
+                let displayTime = checkOut;
+                if (checkOut && checkOut !== '-NA-') {
+                    displayTime = convertTo12HourFormat(checkOut);
                 }
 
-                try {
-                    const today = dayjs().format('YYYY-MM-DD');
+                const coords = resolveAttendanceCoordinates(
+                    employee.id,
+                    location,
+                    employee.checkOutLatitude,
+                    employee.checkOutLongitude
+                );
 
-                    const checkOutHasSeconds = checkOut.split(':').length === 3;
-                    const thresholdHasSeconds = earlyCheckOutThreshold.split(':').length === 3;
-
-                    const checkOutTime = dayjs(`${today} ${checkOut}`, checkOutHasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-                    const thresholdTime = dayjs(`${today} ${earlyCheckOutThreshold}`, thresholdHasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-
-                    const isEarlyCheckOut = checkOutTime.isValid() && thresholdTime.isValid() && checkOutTime.isBefore(thresholdTime);
-
-                    let finalCheckout = convertTo12HourFormat(checkOut);
-                    return (
-                        <span style={{ color: 'green' }}>
-                            {finalCheckout}
-                        </span>
-                    );
-                } catch (error) {
-                    // console.error('Error comparing check-out times:', error);
-                    return <span>{convertTo12HourFormat(checkOut)}</span>;
-                }
-            }
-        },
-        {
-            accessorKey: "checkoutWorkingMethod",
-            header: "Checkout Working Method",
-            size: 120,
-            minSize: 100,
-            meta: { defaultVisible: true },
-            Cell: ({ row }: any) => {
-                const renderedCellValue = row.original.checkoutWorkingMethod;
-                const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
-
-                const colorMap: Record<string, string> = {
-                    [OFFICE]: worktypeColorValues?.officeColor || "#3498db",
-                    [ON_SITE]: worktypeColorValues?.onSiteColor || "#e74c3c",
-                    [REMOTE]: worktypeColorValues?.remoteColor || "#2ecc71",
-                };
+                const checkOutColor = resolveCheckOutColor(checkOut);
 
                 return (
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span
-                            style={{
-                                width: "12px",
-                                height: "12px",
-                                borderRadius: "50%",
-                                backgroundColor: colorMap[renderedCellValue] || "#000",
-                            }}
-                        ></span>
-                        {renderedCellValue ?? "-NA-"}
-                    </div>
+                    <AttendanceCheckCell
+                        label="Check-Out"
+                        type="out"
+                        time={displayTime}
+                        method={checkoutMethod}
+                        location={employee.checkOutLocation}
+                        fullAddress={employee.checkOutLocation}
+                        coordinates={coords}
+                        timeColor={checkOutColor.color}
+                    />
                 );
             }
         },
@@ -1696,151 +1590,18 @@ export const StatisticsTable = ({
         // },
 
         {
-            accessorKey: "checkOutLocation",
-            header: "Check Out Location",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            meta: { defaultVisible: true },
-            Cell: ({ row }: any) => {
-                const currentId = row.original.id;
-                const workingMethod = row.original.workingMethod;
-                const checkOutLocation = row.original.checkOutLocation;
-
-                // FIX: Check if checkOutLocation exists FIRST (same logic as check-in)
-                // This allows biometric attendance to show "Office - Biometric"
-                if (checkOutLocation && checkOutLocation.trim().length > 0 && checkOutLocation !== "-NA-") {
-                    const locationEntry = Array.isArray(location) && location.find(item => item.id === currentId);
-                    const latitude = locationEntry?.latitude;
-                    const longitude = locationEntry?.longitude;
-
-                    // If biometric attendance with no GPS coordinates, just show the location text
-                    if ((!latitude || !longitude || latitude === 0 || longitude === 0) && checkOutLocation) {
-                        return (
-                            <span style={{ color: '#1976d2', fontWeight: 500 }}>
-                                {checkOutLocation}
-                            </span>
-                        );
-                    }
-
-                    // If has GPS coordinates, show as clickable map link
-                    if (latitude && longitude && latitude !== 0 && longitude !== 0) {
-                        const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                        return (
-                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                                <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-checkout-${currentId}`}>{checkOutLocation}</Tooltip>}>
-                                    <span>
-                                        {checkOutLocation.length > 30 ? `${checkOutLocation.substring(0, 30)}...` : checkOutLocation}
-                                    </span>
-                                </OverlayTrigger>
-                            </a>
-                        );
-                    }
-
-                    // Fallback: just show the text
-                    return checkOutLocation;
-                }
-
-                // Original logic for GPS-based attendance (only if checkOutLocation is empty)
-                // const checkoutWorkingMethod = row.original?.checkoutWokringMethod || row.original?.checkoutWorkingMethod;
-
-                // if ((checkoutWorkingMethod !== WORKING_METHOD_TYPE.ON_SITE) &&
-                //     (checkoutWorkingMethod !== WORKING_METHOD_TYPE.REMOTE)) {
-                //     return "-NA-";
-                // }
-
-                // const latitude = row?.original?.checkOutLatitude;
-                // const longitude = row?.original?.checkOutLongitude;
-
-                // const [address, setAddress] = useState("Fetching location...");
-
-                // useEffect(() => {
-                //     const fetchAddress = async () => {
-                //         if (!latitude || !longitude) return;
-
-                //         try {
-                //             const res = await fetchAddressDetails(latitude, longitude);
-                //             setAddress(res.data.address || "No Address found");
-                //         } catch (error) {
-                //             console.error("error", error);
-                //             setAddress("Unable to fetch address");
-                //         }
-                //     };
-                //     fetchAddress();
-                // }, [latitude, longitude]);
-
-
-                // Original logic for GPS-based attendance
-                if ((workingMethod !== WORKING_METHOD_TYPE.ON_SITE) && (workingMethod !== WORKING_METHOD_TYPE.REMOTE)) return "-NA-";
-
-                const locationEntry = Array.isArray(location) && location.find(item => item.id === currentId);
-                const latitude = locationEntry?.latitude;
-                const longitude = locationEntry?.longitude;
-
-                const [address, setAddress] = useState("Fetching location...");
-
-                useEffect(() => {
-                    const fetchAddress = async () => {
-                        if (!latitude || !longitude) return;
-
-                        try {
-                            const res = await fetchAddressDetails(latitude, longitude);
-                            setAddress(res.data.address || "No Address found");
-                        } catch (error) {
-                            console.error("error", error);
-                            setAddress("Unable to fetch address");
-                        }
-                    };
-                    fetchAddress();
-                }, [latitude, longitude]);
-
-                if (latitude && longitude) {
-                    const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                    return (
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                            <OverlayTrigger placement='top' overlay={<Tooltip id={`tooltip-checkout-${currentId}`}>{address}</Tooltip>}>
-                                <span>
-                                    {address.length > 30 ? `${address.substring(0, 30)}...` : address}
-                                </span>
-                            </OverlayTrigger>
-                        </a>
-                    );
-                }
-
-                return "-NA-";
-            }
-        },
-
-        {
             accessorKey: "duration",
             header: "Duration",
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row, renderedCellValue }: any) => {
-                const employee = row.original;
-                const isWeekendOrHoliday = employee.isWeekendOrHoliday;
-                const duration = renderedCellValue as string | undefined;
-
-                if (!duration || duration === '-NA-' || isWeekendOrHoliday) {
-                    return <span>{duration || '-NA-'}</span>;
-                }
-
-                // Parse "XH YM" format (e.g. "8H 30M", "9H 15M")
-                const hoursMatch = duration.match(/(\d+)H/i);
-                const minutesMatch = duration.match(/(\d+)M/i);
-                const hours = hoursMatch ? parseInt(hoursMatch[1], 10) : 0;
-                const minutes = minutesMatch ? parseInt(minutesMatch[1], 10) : 0;
-                const totalMinutes = hours * 60 + minutes;
-
-                const isUnderEightHours = totalMinutes < 8 * 60; // < 480 min
-
-                return (
-                    <span style={{ color: isUnderEightHours ? 'red' : 'inherit' }}>
-                        {duration}
-                    </span>
-                );
-            }
+            Cell: ({ row, renderedCellValue }: any) => (
+                <AttendanceDurationCell
+                    duration={renderedCellValue as string}
+                    checkOut={row.original.checkOut}
+                    skipIncompleteHighlight={row.original.isWeekendOrHoliday}
+                />
+            ),
         },
         {
             accessorKey: "status",
@@ -1950,7 +1711,7 @@ export const StatisticsTable = ({
                     </button > : 'Not Allowed'
             },
         }] : []),
-    ], [location, lateCheckInThreshold, earlyCheckOutThreshold]);
+    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration]);
 
 
     // Detect if device is iOS mobile        
@@ -2414,44 +2175,35 @@ export const ReportsTable = ({
             minSize: 100,
             maxSize: 150,
             Cell: ({ row }: { row: any }) => {
-                const employee = row.original
+                const employee = row.original;
                 const checkIn = employee.checkIn;
-                const isWeekendOrHolidays = row.original.isWeekendOrHoliday;
-                if (!checkIn || checkIn === '-NA-' || !employeeThresholds) {
-                    return <span>{checkIn || "N/A"}</span>;
-                }
+                const displayTime =
+                    checkIn && checkIn !== '-NA-' ? convertTo12HourFormat(checkIn) : checkIn || '—';
 
-                try {
-                    const today = dayjs().format('YYYY-MM-DD');
+                const employeeData = employeeThresholds?.find(
+                    (emp: any) => emp.id === employee.id
+                );
+                const checkInColor = resolveCheckInColor({
+                    checkIn,
+                    workingMethod: employee.workingMethod,
+                    date: employee.date,
+                    lateCheckInThreshold:
+                        employeeData?.lateCheckInThreshold ?? lateCheckInThreshold,
+                    leaveConfig: leaveConfiguration,
+                    skipColoring: !shouldApplyCheckInColoring(
+                        employee.status,
+                        employee.isWeekendOrHoliday
+                    ),
+                });
 
-                    const employeeData = employeeThresholds.find(
-                        (emp: any) => emp.id === employee.id
-                    );
-
-                    const lateCheckInThreshold = employeeData?.lateCheckInThreshold;
-
-
-                    const hasSeconds = checkIn.split(':').length === 3;
-                    const checkInTime = dayjs(`${today} ${checkIn}`, hasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-
-                    const thresholdHasSeconds = lateCheckInThreshold?.split(':').length === 3;
-                    const thresholdTime = dayjs(`${today} ${lateCheckInThreshold}`, thresholdHasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-
-                    const isLateCheckIn = checkInTime.isValid() && thresholdTime.isValid() && checkInTime.isAfter(thresholdTime);
-                    const workingMethod = row.original?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
-                    const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-                    const finalCheckIn = convertTo12HourFormat(checkIn);
-
-
-                    return (
-                        <span style={{ color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isLateCheckIn ? 'red' : 'green' }}>
-                            {finalCheckIn}
-                        </span>
-                    );
-                } catch (error) {
-                    console.error('Error comparing times:', error);
-                    return <span>{convertTo12HourFormat(checkIn)}</span>;
-                }
+                return (
+                    <span
+                        style={{ color: checkInColor.color }}
+                        title={checkInColor.tooltip}
+                    >
+                        {displayTime}
+                    </span>
+                );
             }
         },
         {
@@ -2462,36 +2214,16 @@ export const ReportsTable = ({
             maxSize: 150,
             Cell: ({ row }: { row: any }) => {
                 const checkOut = row.original.checkOut;
-
-                const isWeekendOrHolidays = row.original.isWeekendOrHoliday;
-                if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
-                    return <span>{checkOut || "N/A"}</span>;
-                }
-                const workingMethod = row.original?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
-                const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
-
-                try {
-                    const today = dayjs().format('YYYY-MM-DD');
-
-                    const checkOutHasSeconds = checkOut.split(':').length === 3;
-                    const thresholdHasSeconds = earlyCheckOutThreshold.split(':').length === 3;
-
-                    const checkOutTime = dayjs(`${today} ${checkOut}`, checkOutHasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-                    const thresholdTime = dayjs(`${today} ${earlyCheckOutThreshold}`, thresholdHasSeconds ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm');
-
-                    const isEarlyCheckOut = checkOutTime.isValid() && thresholdTime.isValid() && checkOutTime.isBefore(thresholdTime);
-                    let finalCheckout = convertTo12HourFormat(checkOut);
-
-
-                    return (
-                        <span style={{ color: 'green' }}>
-                            {finalCheckout}
-                        </span>
-                    );
-                } catch (error) {
-                    console.error('Error comparing check-out times:', error);
-                    return <span>{convertTo12HourFormat(checkOut)}</span>;
-                }
+                const displayTime =
+                    checkOut && checkOut !== '-NA-'
+                        ? convertTo12HourFormat(checkOut)
+                        : checkOut || '—';
+                const checkOutColor = resolveCheckOutColor(checkOut);
+                return (
+                    <span style={{ color: checkOutColor.color }}>
+                        {displayTime}
+                    </span>
+                );
             }
         },
         {
