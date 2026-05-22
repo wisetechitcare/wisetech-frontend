@@ -423,13 +423,18 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       let profilePhotoUrl: string | null = null;
       if (formValues.profilePhoto && formValues.profilePhoto instanceof File) {
-        const formData = new FormData();
-        formData.append("file", formValues.profilePhoto);
-        const uploadResult = await uploadCompanyAsset(formData);
-        const {
-          data: { path },
-        } = uploadResult;
-        profilePhotoUrl = path;
+        try {
+          const formData = new FormData();
+          formData.append("file", formValues.profilePhoto);
+          const uploadResult = await uploadCompanyAsset(formData);
+          const {
+            data: { path },
+          } = uploadResult;
+          profilePhotoUrl = path;
+        } catch (uploadError) {
+          console.error("Error uploading profile photo:", uploadError);
+          errorConfirmation("Image upload failed, but contact will still be saved.");
+        }
       }
 
       // Get country, state, city names from their IDs

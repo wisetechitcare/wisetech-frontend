@@ -1,24 +1,22 @@
 import { useEffect, useState } from "react";
-import { createNewEmployeeType, fetchBranches, fetchDepartments, fetchDesignations, fetchEmployeeTypes, fetchWorkingMethods } from "@services/options";
-import { fetchAllEmployees, getAllEmployeeLevels } from "@services/employee";
+import { fetchBranches, fetchDepartments, fetchDesignations, fetchWorkingMethods } from "@services/options";
+import { getAllEmployeeLevels } from "@services/employee";
 import { getAllTeams } from "@services/projects";
 import { fetchAllOrganizationConfigurations, fetchAllEmployeeConfigurations } from "@services/configurations";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
 
 function EmployeeInfo() {
     const [designationOptions, setDesignationOptions] = useState([]);
     const [departmentOpions, setDepartmentOptions] = useState([]);
     const [branchOptions, setBrancheOptions] = useState([]);
-    const [managerOptions, setManagerOptions] = useState([]);
-    const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
+const [employeeTypeOptions, setEmployeeTypeOptions] = useState([]);
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
     const [teamOptions, setTeamOptions] = useState([]);
     const [employeeLevelOptions, setEmployeeLevelOptions] = useState([]);
     const [roomBlockOptions, setRoomBlockOptions] = useState([]);
     const [shiftOptions, setShiftOptions] = useState([]);
     const [experienceLevelOptions, setExperienceLevelOptions] = useState([]);
-    const [rerender, setRerender] = useState(false);
+
 
     useEffect(() => {
         async function getAllBranches() {
@@ -66,15 +64,7 @@ function EmployeeInfo() {
             // setEmployeeTypeOptions(options);
         }
 
-        async function getManagers() {
-            const { data: { employees } } = await fetchAllEmployees();
-            const options = employees.map((emp: any) => {
-                const { id, users } = emp;
-                const employeeName = `${users.firstName} ${users.lastName}`;
-                return { value: id, label: employeeName };
-            });
-            setManagerOptions(options);
-        }
+        // Reporting Manager (reportsToId) is now loaded in StepAppSettings > ReportingConfig
 
         async function getTeams() {
             const { data: { teams } } = await getAllTeams(1, 1000);
@@ -118,7 +108,6 @@ function EmployeeInfo() {
             }
         }
 
-
         async function getExperienceLevels() {
             try {
                 const response = await fetchAllEmployeeConfigurations("EMPLOYEE_LEVEL");
@@ -139,17 +128,16 @@ function EmployeeInfo() {
         getAllDepartments();
         getAllWorkingMethods();
         getAllEmployeeTypes();
-        getManagers();
         getTeams();
         getEmployeeLevels();
         getRoomBlocks();
         getShifts();
         getExperienceLevels();
-    }, [rerender]);
+    }, []);
 
     return (
         <>
-  {/* Row 1: Job Profile*, Department*, Team */}
+  {/* Row 1: Required fields — Job Profile*, Department*, Branch* */}
   <div className="row mb-4">
     <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
       <DropDownInput
@@ -171,35 +159,26 @@ function EmployeeInfo() {
 
     <div className="col-lg-4 col-md-6 col-sm-12">
       <DropDownInput
+        isRequired={true}
+        formikField="branchId"
+        inputLabel="Choose Branch"
+        options={branchOptions}
+      />
+    </div>
+  </div>
+
+  {/* Row 2: Team, Room/Block, Shift — grouped so all three sit in adjacent columns */}
+  <div className="row mb-4">
+    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
+      <DropDownInput
         isRequired={false}
         formikField="teamId"
         inputLabel="Team"
         options={teamOptions}
       />
     </div>
-  </div>
-
-  {/* Row 2: Choose Branch, Reporting Manager, Room/Block */}
-  <div className="row mb-4">
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-      <DropDownInput
-        isRequired={false}
-        formikField="branchId"
-        inputLabel="Choose Branch"
-        options={branchOptions}
-      />
-    </div>
 
     <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-      <DropDownInput
-        isRequired={false}
-        formikField="reportsToId"
-        inputLabel="Reporting Manager"
-        options={managerOptions}
-      />
-    </div>
-
-    <div className="col-lg-4 col-md-6 col-sm-12">
       <DropDownInput
         isRequired={false}
         formikField="roomOrBlock"
@@ -207,9 +186,18 @@ function EmployeeInfo() {
         options={roomBlockOptions}
       />
     </div>
+
+    <div className="col-lg-4 col-md-6 col-sm-12">
+      <DropDownInput
+        isRequired={false}
+        formikField="shift"
+        inputLabel="Shift"
+        options={shiftOptions}
+      />
+    </div>
   </div>
 
-  {/* Row 3: Employee Type, Working Location Type, Shift */}
+  {/* Row 3: Employee Type, Working Location Type, Experience Level */}
   <div className="row mb-4">
     <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
       <DropDownInput
@@ -232,25 +220,16 @@ function EmployeeInfo() {
     <div className="col-lg-4 col-md-6 col-sm-12">
       <DropDownInput
         isRequired={false}
-        formikField="shift"
-        inputLabel="Shift"
-        options={shiftOptions}
-      />
-    </div>
-  </div>
-
-  {/* Row 4: Experience Level, Employee's Level (For website) */}
-  <div className="row">
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
-      <DropDownInput
-        isRequired={false}
         formikField="experienceLevel"
         inputLabel="Experience Level"
         options={experienceLevelOptions}
       />
     </div>
+  </div>
 
-    <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
+  {/* Row 4: Employee's Level (For website) */}
+  <div className="row">
+    <div className="col-lg-4 col-md-6 col-sm-12">
       <DropDownInput
         isRequired={false}
         formikField="employeeLevelId"
@@ -258,8 +237,6 @@ function EmployeeInfo() {
         options={employeeLevelOptions}
       />
     </div>
-
-    <div className="col-lg-4 col-md-6 col-sm-12">{/* Empty as per design */}</div>
   </div>
 </>
 

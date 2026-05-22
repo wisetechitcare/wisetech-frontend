@@ -17,7 +17,8 @@ import {
   DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
   RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
   DATE_SETTINGS_KEY,
-  LEAVE_MANAGEMENT
+  LEAVE_MANAGEMENT,
+  ENFORCE_ONSITE_DEADLINE_KEY,
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import Loader from '@app/modules/common/utils/Loader';
@@ -57,6 +58,7 @@ const AttendanceConfig: React.FC = () => {
   const [deductionTime, setDeductionTime] = useState<string>('1:00 Hrs');
   const [graceTimeOffice, setGraceTimeOffice] = useState<string>('00:30');
   const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('00:30');
+  const [enforceOnsiteDeadline, setEnforceOnsiteDeadline] = useState<boolean>(true);
 
   const handleOpenDailyShiftModal = () => {
     setDailyShiftKey(prev => prev + 1); // Force remount and reload data
@@ -172,12 +174,26 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
       const lunchTimeStr = leaveConfig?.['Lunch Time'] || '12:30 PM - 1:30 PM';
       const deductionTimeStr = leaveConfig?.['Deduction Time'] || '1:00 Hrs';
       const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30';
-      const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:30';
+      const onsiteGrace = leaveConfig?.['Grace Time - On Site'];
+      const graceTimeOnSiteStr =
+        onsiteGrace !== undefined && onsiteGrace !== null && String(onsiteGrace).trim() !== ''
+          ? String(onsiteGrace)
+          : '11:00';
+
+      const enforceRaw = leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY];
+      let enforceOnsite = true;
+      if (typeof enforceRaw === 'boolean') {
+        enforceOnsite = enforceRaw;
+      } else if (enforceRaw !== undefined && enforceRaw !== null) {
+        const lowered = String(enforceRaw).trim().toLowerCase();
+        enforceOnsite = !(lowered === 'false' || lowered === '0' || lowered === 'no');
+      }
 
       setLunchTime(lunchTimeStr);
       setDeductionTime(deductionTimeStr);
       setGraceTimeOffice(graceTimeOfficeStr);
       setGraceTimeOnSite(graceTimeOnSiteStr);
+      setEnforceOnsiteDeadline(enforceOnsite);
 
     } catch (error) {
       console.error('Error loading daily shift data:', error);
@@ -436,7 +452,16 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
                   </div>
                   <div className="d-flex justify-content-between align-items-center">
                     <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>Grace Time - On Site</span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{graceTimeOnSite}</span>
+                    {enforceOnsiteDeadline ? (
+                      <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{graceTimeOnSite}</span>
+                    ) : (
+                      <span
+                        className="text-muted"
+                        style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif', color: '#8696ad' }}
+                      >
+                        Disabled
+                      </span>
+                    )}
                   </div>
                 </div>
               </Card.Body>

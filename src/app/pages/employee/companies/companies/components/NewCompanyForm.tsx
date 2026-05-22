@@ -551,13 +551,18 @@ const NewCompanyForm: React.FC<Props> = ({
     try {
       let logoUrl = "";
       if (logoFile) {
-        const formData = new FormData();
-        formData.append("file", logoFile);
-        const res = await uploadCompanyAsset(formData);
-        const {
-          data: { path },
-        } = res;
-        logoUrl = path;
+        try {
+          const formData = new FormData();
+          formData.append("file", logoFile);
+          const res = await uploadCompanyAsset(formData);
+          const {
+            data: { path },
+          } = res;
+          logoUrl = path;
+        } catch (uploadError) {
+          console.error("Error uploading company logo:", uploadError);
+          errorConfirmation("Logo upload failed, but company will still be saved.");
+        }
       } else if (editingCompanyId && logoPreview) {
         // Keep existing logo if no new file is uploaded
         logoUrl = logoPreview;

@@ -2870,7 +2870,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             status: status,
             checkInLocation: attendanceRecord?.checkInLocation || '-NA-',
             checkOutLocation: attendanceRecord?.checkOutLocation || '-NA-',
-            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
+            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || undefined,
         };
     });
 
