@@ -1,3 +1,2813 @@
+// import { useEffect, useRef, useState } from "react";
+// import { useNavigate, useParams } from "react-router-dom";
+// import { Modal } from "react-bootstrap";
+// import { Form, Formik, FormikValues } from "formik";
+// import * as Yup from "yup";
+// import { StepperComponent } from "@metronic/assets/ts/components";
+// import { KTIcon } from "@metronic/helpers";
+// import { PageLink, PageTitle } from "@metronic/layout/core";
+// import { uploadUserAsset } from "@services/uploader";
+// // import Step1 from "./steps/Step1"; // Commented out - wizard now starts at Personal Details
+// import Step2, { NAV_SECTIONS, COMPLETION_FNS } from "./steps/Step2";
+// import { CheckCircle } from "lucide-react";
+// import Step3 from "./steps/Step3";
+// import Step4 from "./steps/Step4";
+// import StepAppSettings from "./steps/StepAppSettings";
+// import "./steps/Step2.css";
+// import { createNewUser, updateUser, archiveUser } from "@services/users";
+// import {
+//   createAddressDetails,
+//   createBankDetails,
+//   createDocumentsDetails,
+//   createEducationalDetails,
+//   createEmergencyContacts,
+//   createEmergencyDetails,
+//   createNewEmployee,
+//   createPreviousExperienceDetails,
+//   createRejoinHistoryDetails,
+//   fetchWizardData,
+//   updateAddressDetails,
+//   updateBankDetails,
+//   updateDocumentDetails,
+//   updateEducationalDetails,
+//   updateEmergencyContact,
+//   updateEmergencyDetails,
+//   updateEmployee,
+//   updateEmployeeRolesById,
+//   updateOnboardingDocumentDetailsById,
+//   updatePreviousExpDetails,
+//   updateRejoinHistoryDetails,
+//   deleteAllRejoinHistoryByEmployeeId,
+// } from "@services/employee";
+// import { fetchCompanyOverview } from "@services/company";
+// import { successConfirmation, errorConfirmation } from "@utils/modal";
+// import { employeeOnBardingFormRegexes } from "@constants/regex";
+
+// /**
+//  * Professional Fees helpers — single source of truth for translating between
+//  * the radio-input form state ("true"/"false" strings) and whatever shape the
+//  * backend / DB happens to hand us. The DB column is BOOLEAN, but depending on
+//  * the path (Prisma model vs raw query vs serialized response) we may receive
+//  * true, 1, "1", "true", or a Node Buffer like {type:"Buffer",data:[1]}.
+//  */
+// function readProfessionalFeesEnabled(
+//   raw: unknown
+// ): "true" | "false" {
+//   console.log(
+//     "PF RAW VALUE:",
+//     raw,
+//     typeof raw
+//   );
+
+//   if (
+//     raw === null ||
+//     raw === undefined
+//   ) {
+//     return "false";
+//   }
+
+//   // false cases
+//   if (
+//     raw === false ||
+//     raw === 0 ||
+//     raw === "0" ||
+//     raw === "false" ||
+//     raw === "FALSE"
+//   ) {
+//     return "false";
+//   }
+
+//   // true cases
+//   if (
+//     raw === true ||
+//     raw === 1 ||
+//     raw === "1" ||
+//     raw === "true" ||
+//     raw === "TRUE"
+//   ) {
+//     return "true";
+//   }
+
+//   // MySQL tinyint buffer case
+//   if (
+//     typeof raw === "object" &&
+//     raw !== null &&
+//     "data" in (raw as any)
+//   ) {
+//     return (raw as any).data?.[0]
+//       ? "true"
+//       : "false";
+//   }
+
+//   return "false";
+// }
+
+// function toNumberOrNull(raw: unknown): number | null {
+//   if (raw === null || raw === undefined || raw === "") return null;
+//   if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+//   if (typeof raw === "string") {
+//     const n = parseFloat(raw.replace(/,/g, "").trim());
+//     return Number.isFinite(n) ? n : null;
+//   }
+//   return null;
+// }
+
+// function buildProfessionalFeesPayload(values: {
+//   professionalFeesEnabled: unknown;
+//   professionalFeesAmount: unknown;
+//   professionalFeesPercentage: unknown;
+//   professionalFeesType: unknown;
+// }) {
+//   const enabled =
+//     readProfessionalFeesEnabled(values.professionalFeesEnabled) === "true";
+//   const type =
+//     values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+//   if (!enabled) {
+//     return {
+//       professionalFeesEnabled: false,
+//       professionalFeesType: "FIXED" as const,
+//       professionalFeesAmount: null,
+//       professionalFeesPercentage: null,
+//     };
+//   }
+
+//   if (type === "PERCENTAGE") {
+//     return {
+//       professionalFeesEnabled: true,
+//       professionalFeesType: "PERCENTAGE" as const,
+//       professionalFeesAmount: null,
+//       professionalFeesPercentage: toNumberOrNull(values.professionalFeesPercentage),
+//     };
+//   }
+
+//   return {
+//     professionalFeesEnabled: true,
+//     professionalFeesType: "FIXED" as const,
+//     professionalFeesAmount: toNumberOrNull(values.professionalFeesAmount),
+//     professionalFeesPercentage: null,
+//   };
+// }
+
+// const PROF_FEES_KEYS = new Set([
+//   "professionalFeesEnabled",
+//   "professionalFeesType",
+//   "professionalFeesAmount",
+//   "professionalFeesPercentage",
+// ]);
+
+// const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
+
+// const hasDraftValue = (value: any) => {
+//   if (value === undefined || value === null) return false;
+//   if (typeof value === "boolean") return value;
+//   if (Array.isArray(value)) return value.length > 0;
+//   return String(value).trim() !== "";
+// };
+
+// const calculateProfileCompletion = (values: any) => {
+//   const education = values.educationalInfo?.[0] || {};
+//   const family = values.familyInfo?.[0] || {};
+//   const emergency = values.emergencyDetails || {};
+//   const bank = values.bankInfo || {};
+//   const address = values.addressInfo || {};
+
+//   const trackedFields = [
+//     values.firstName,
+//     values.lastName,
+//     values.nickName,
+//     values.dateOfBirth,
+//     values.gender,
+//     values.maritalStatus,
+//     values.personalEmailId,
+//     values.personalPhoneNumber,
+//     values.alternatePhoneNumber,
+//     education.instituteName,
+//     education.qualificationName || education.degree,
+//     education.passingYear || education.fromDate,
+//     education.percentage || education.cgpa,
+//     family.name,
+//     family.relationship,
+//     family.mobileNumber,
+//     family.dateOfBirth,
+//     emergency.emergencyContactName,
+//     emergency.emergencyContactNumber,
+//     bank.accountNumber,
+//     bank.accountName,
+//     bank.ifscCode,
+//     address.presentAddressLine1,
+//     address.presentCountry,
+//     address.presentCity,
+//     address.presentPostalCode,
+//     values.dateOfJoining,
+//     values.companyEmailId,
+//     values.departmentId,
+//     values.designationId,
+//     values.branchId,
+//     values.appRole,
+//     values.documentInfo?.some((doc: any) => doc?.path || doc?.fileName || doc?.identityNumber),
+//   ];
+
+//   const completed = trackedFields.filter(hasDraftValue).length;
+//   return Math.round((completed / trackedFields.length) * 100);
+// };
+
+// const hasStartedEducationInfo = (education: any) =>
+//   Boolean(
+//     education?.instituteName ||
+//       education?.qualificationMasterId ||
+//       education?.qualificationName ||
+//       education?.degree ||
+//       education?.specialization ||
+//       education?.stream ||
+//       education?.customStream ||
+//       education?.fromDate ||
+//       education?.toDate ||
+//       education?.passingYear ||
+//       education?.percentage ||
+//       education?.cgpa ||
+//       education?.filePath ||
+//       education?.fileName,
+//   );
+
+// const isSchoolQualification = (education: any) =>
+//   ["SSC", "HSC"].includes(
+//     String(education?.qualificationName || education?.degree || "").trim(),
+//   );
+
+// const isHscQualification = (education: any) =>
+//   String(education?.qualificationName || education?.degree || "").trim() === "HSC";
+
+// const createDefaultWorkExpInfo = () => ({
+//   companyName: "",
+//   jobTitle: "",
+//   fromDate: "",
+//   toDate: "",
+// });
+
+// const hasWorkExpInfo = (workExp: any) =>
+//   Boolean(
+//     workExp?.companyName ||
+//       workExp?.jobTitle ||
+//       workExp?.fromDate ||
+//       workExp?.toDate,
+//   );
+
+// const withDefaultWorkExpInfo = (workExpInfo: any) =>
+//   Array.isArray(workExpInfo) && workExpInfo.length > 0
+//     ? workExpInfo
+//     : [createDefaultWorkExpInfo()];
+
+// const newEmployeeWizardSchema = [
+//   // Step 1 commented out - wizard now starts at Personal Details
+//   // Yup.object({
+//   //   method: Yup.string().required().label('Method'),
+//   // }),
+//   Yup.object({
+//     avatar: Yup.string(),
+//     firstName: Yup.string()
+//       .required("First name is required")
+//       .min(4, "First name must be at least 4 characters")
+//       .max(20, "First name must be at most 20 characters")
+//       .matches(
+//         employeeOnBardingFormRegexes["firstName"],
+//         "First name can only contain alphabetic characters",
+//       ),
+//     lastName: Yup.string()
+//       .required()
+//       .label("Last Name")
+//       .min(4, "Last name must be at least 4 characters")
+//       .max(20, "Last name must be at most 20 characters")
+//       .matches(
+//         employeeOnBardingFormRegexes["lastName"],
+//         "Last name can only contain alphabetic characters",
+//       ),
+//     nickName: Yup.string(),
+//     gender: Yup.string().required().label("Gender"),
+//     maritalStatus: Yup.string().label("Marital Status"),
+//     dateOfBirth: Yup.string().required().label("Date Of Birth"),
+//     anniversary: Yup.string().label("Anniversary Date"),
+//     bloodGroup: Yup.string().label("Blood Group"),
+//     personalEmailId: Yup.string()
+//       .email()
+//       .required()
+//       .label("Personal Email Address")
+//       .matches(
+//         /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+//         "Invalid email address",
+//       ),
+//     personalPhoneNumber: Yup.string()
+//       .required()
+//       .label("Personal Phone Number")
+//       .min(10, "Phone Number must be at least 10 characters")
+//       .max(20, "Phone Number must be at most 20 characters")
+//       .matches(
+//         employeeOnBardingFormRegexes["personalPhoneNumber"],
+//         "Phone Number can only contain numeric characters",
+//       ),
+//     personalPhoneNumberExtension: Yup.string().label(
+//       "Personal Phone Number Extension",
+//     ),
+//     alternatePhoneNumber: Yup.string()
+//       .label("Alternate Phone Number")
+//       .min(10, "Phone Number must be at least 10 characters")
+//       .max(20, "Phone Number must be at most 20 characters")
+//       .matches(
+//         employeeOnBardingFormRegexes["alternatePhoneNumber"],
+//         "Phone Number can only contain numeric characters",
+//       ),
+//     meal: Yup.string().label("Meal"),
+//     educationalInfo: Yup.array()
+//       .of(
+//         Yup.object({
+//           instituteName: Yup.string()
+//             .label("Institute Name")
+//             .min(4, "Institute Name must be at least 4 characters")
+//             .max(100, "Institute Name must be at most 100 characters"),
+//           qualificationMasterId: Yup.string().label("Qualification"),
+//           qualificationName: Yup.string().label("Qualification"),
+//           degree: Yup.string()
+//             .label("Degree")
+//             .min(2, "Degree Name must be at least 2 characters")
+//             .max(80, "Degree Name must be at most 80 characters"),
+//           specialization: Yup.string().label("Specialization"),
+//           stream: Yup.string().label("Stream"),
+//           customStream: Yup.string().label("Custom Stream Name"),
+//           fromDate: Yup.string().label("Date Started"),
+//           toDate: Yup.string().label("Date Ended"),
+//           passingYear: Yup.string().label("Passing Year"),
+//           percentage: Yup.number()
+//             .typeError("Percentage must be a number")
+//             .min(0, "Percentage cannot be less than 0")
+//             .max(100, "Percentage cannot be more than 100")
+//             .nullable()
+//             .transform((value, originalValue) => originalValue === "" ? null : value),
+//           cgpa: Yup.number()
+//             .typeError("CGPA must be a number")
+//             .min(0, "CGPA cannot be less than 0")
+//             .max(10, "CGPA cannot be more than 10")
+//             .nullable()
+//             .transform((value, originalValue) => originalValue === "" ? null : value),
+//           filePath: Yup.string().label("Upload Certificate"),
+//         })
+//           // The wizard renders one starter education card. Keep a completely
+//           // untouched card valid, but validate the academic shape once it is used.
+//           .test("education-qualification", "Qualification is required", function (value) {
+//             if (!hasStartedEducationInfo(value) || value?.qualificationName || value?.degree) return true;
+//             return this.createError({
+//               path: `${this.path}.qualificationMasterId`,
+//               message: "Qualification is required",
+//             });
+//           })
+//           .test("education-school-passing-year", "Passing Year is required", function (value) {
+//             if (!hasStartedEducationInfo(value) || !isSchoolQualification(value) || value?.passingYear) return true;
+//             return this.createError({
+//               path: `${this.path}.passingYear`,
+//               message: "Passing Year is required",
+//             });
+//           })
+//           .test("education-passing-year-format", "Passing Year must be a valid year", function (value) {
+//             if (!value?.passingYear) return true;
+//             const year = Number(value.passingYear);
+//             const currentYear = new Date().getFullYear();
+//             if (/^\d{4}$/.test(String(value.passingYear)) && year >= 1900 && year <= currentYear) return true;
+//             return this.createError({
+//               path: `${this.path}.passingYear`,
+//               message: "Passing Year must be between 1900 and the current year",
+//             });
+//           })
+//           .test("education-hsc-stream", "Stream is required", function (value) {
+//             if (!hasStartedEducationInfo(value) || !isHscQualification(value) || value?.stream) return true;
+//             return this.createError({
+//               path: `${this.path}.stream`,
+//               message: "Stream is required",
+//             });
+//           })
+//           .test("education-custom-stream", "Custom Stream Name is required", function (value) {
+//             if (!hasStartedEducationInfo(value) || !isHscQualification(value) || value?.stream !== "Others" || value?.customStream) return true;
+//             return this.createError({
+//               path: `${this.path}.customStream`,
+//               message: "Custom Stream Name is required",
+//             });
+//           })
+//           .test("education-from-date", "Date Started is required", function (value) {
+//             if (!hasStartedEducationInfo(value) || isSchoolQualification(value) || value?.fromDate) return true;
+//             return this.createError({
+//               path: `${this.path}.fromDate`,
+//               message: "Date Started is required",
+//             });
+//           })
+//           .test("education-to-date", "Date Completed is required", function (value) {
+//             if (!hasStartedEducationInfo(value) || isSchoolQualification(value) || value?.toDate) return true;
+//             return this.createError({
+//               path: `${this.path}.toDate`,
+//               message: "Date Completed is required",
+//             });
+//           })
+//           .test("education-date-order", "Date Completed cannot be before Date Started", function (value) {
+//             if (!value?.fromDate || !value?.toDate) return true;
+//             if (new Date(value.toDate) >= new Date(value.fromDate)) return true;
+//             return this.createError({
+//               path: `${this.path}.toDate`,
+//               message: "Date Completed cannot be before Date Started",
+//             });
+//           })
+//           .test("education-future-completion", "Date Completed cannot be in the future", function (value) {
+//             if (!value?.toDate) return true;
+//             const completedAt = new Date(value.toDate);
+//             const today = new Date();
+//             today.setHours(23, 59, 59, 999);
+//             if (completedAt <= today) return true;
+//             return this.createError({
+//               path: `${this.path}.toDate`,
+//               message: "Date Completed cannot be in the future",
+//             });
+//           }),
+//       )
+//       .required()
+//       .test("education-duplicates", "Duplicate qualification entry found", function (educations) {
+//         const seen = new Set<string>();
+//         for (let index = 0; index < (educations || []).length; index++) {
+//           const education = educations?.[index];
+//           if (!hasStartedEducationInfo(education)) continue;
+//           const key = [
+//             education?.qualificationName || education?.degree,
+//             education?.specialization || education?.stream || education?.customStream || "",
+//           ].join("|").toLowerCase();
+//           if (seen.has(key)) {
+//             return this.createError({
+//               path: `${this.path}.${index}.qualificationMasterId`,
+//               message: "Duplicate qualification entry found",
+//             });
+//           }
+//           seen.add(key);
+//         }
+//         return true;
+//       })
+//       .test("education-sequence", "Academic sequence is invalid", function (educations) {
+//         const rows = (educations || []).filter(hasStartedEducationInfo);
+//         const byName = (name: string) => rows.find((row: any) => String(row?.qualificationName || row?.degree) === name);
+//         const ssc = byName("SSC");
+//         const hsc = byName("HSC");
+//         const degree = byName("Degree");
+//         const masters = byName("Masters");
+
+//         if (ssc?.passingYear && hsc?.passingYear && Number(hsc.passingYear) < Number(ssc.passingYear)) {
+//           return this.createError({
+//             path: `${this.path}.${educations?.indexOf(hsc)}.passingYear`,
+//             message: "HSC passing year cannot be before SSC",
+//           });
+//         }
+
+//         if (masters && !degree) {
+//           return this.createError({
+//             path: `${this.path}.${educations?.indexOf(masters)}.qualificationMasterId`,
+//             message: "Masters requires a Degree entry first",
+//           });
+//         }
+
+//         return true;
+//       }),
+//     familyInfo: Yup.array()
+//       .of(
+//         Yup.object({
+//           name: Yup.string()
+//             .label("Family Member Name")
+//             .min(4, "Family Member name must be at least 4 characters")
+//             .max(20, "Family Member name must be at most 20 characters")
+//             .matches(
+//               employeeOnBardingFormRegexes["familyInfo.name"],
+//               "Family Member name can only contain alphabetic characters",
+//             ),
+//           relationship: Yup.string()
+//             .label("Member Relationship")
+//             .label("Member Relationship")
+//             .min(3, "Member Relationship name must be at least 3 characters")
+//             .max(20, "Member Relationship name must be at most 20 characters")
+//             .matches(
+//               employeeOnBardingFormRegexes["familyInfo.relationship"],
+//               "Member Relationship name can only contain alphabetic characters",
+//             ),
+//           mobileNumber: Yup.string()
+//             .label("Member Phone Number")
+//             .min(10, "Phone Number must be at least 10 characters")
+//             .max(20, "Phone Number must be at most 20 characters")
+//             .matches(
+//               employeeOnBardingFormRegexes["familyInfo.mobileNumber"],
+//               "Phone Number can only contain numeric characters",
+//             ),
+//           dateOfBirth: Yup.string().label("Date of Birth"),
+//         }),
+//       )
+//       .required()
+//       .label("Family info"),
+//     emergencyDetails: Yup.object({
+//       bloodGroup: Yup.string().label("Blood Group"),
+//       allergies: Yup.string()
+//         .label("Allergies")
+//         .max(100, "Allergies must be at most 100 characters"),
+//       emergencyContactName: Yup.string()
+//         .label("Emergency Contact Name")
+//         .min(4, "Emergency Contact name must be at least 4 characters")
+//         .max(100, "Emergency Contact name must be at most 100 characters")
+//         .matches(
+//           employeeOnBardingFormRegexes["emergencyDetails.emergencyContactName"],
+//           "Emergency Contact name can only contain alphabetic characters",
+//         ),
+//       emergencyContactNumber: Yup.string()
+//         .label("Emergency Contact Number")
+//         .min(10, "Phone Number must be at least 10 characters")
+//         .max(20, "Phone Number must be at most 20 characters")
+//         .matches(
+//           employeeOnBardingFormRegexes[
+//             "emergencyDetails.emergencyContactNumber"
+//           ],
+//           "Phone Number can only contain numeric characters",
+//         ),
+//     }).required(),
+//     bankInfo: Yup.object({
+//       accountName: Yup.string()
+//         .label("Account Holder Name")
+//         .min(4, "Account Holder name must be at least 4 characters")
+//         .max(20, "Account Holder name must be at most 20 characters")
+//         .matches(
+//           employeeOnBardingFormRegexes["bankInfo.accountName"],
+//           "Account Holder name can only contain alphabetic characters",
+//         ),
+//       accountNumber: Yup.string()
+//         .label("Account Number")
+//         .min(8, "Account Number must be at least 8 characters")
+//         .max(20, "Account Number must be at most 20 characters")
+//         .matches(
+//           employeeOnBardingFormRegexes["bankInfo.accountNumber"],
+//           "Account Number can only contain numeric characters",
+//         ),
+//       ifscCode: Yup.string().label("IFSC Code"),
+//       filePath: Yup.string().label("Upload Bank Proof"),
+//     }).required(),
+//     addressInfo: Yup.object({
+//       permanentAddressLine1: Yup.string()
+//         .label("Address Line 1")
+//         .min(8, "Address Line must be at least 8 characters"),
+//       permanentAddressLine2: Yup.string()
+//         .label("Address Line 2")
+//         .min(8, "Address Line must be at least 8 characters"),
+//       permanentCountry: Yup.string().label("Country"),
+//       permanentState: Yup.string().label("State"),
+//       permanentCity: Yup.string().label("City"),
+//       permanentPostalCode: Yup.string()
+//         .label("Postal Code")
+//         .min(4, "Postal Code must be at least 4 characters")
+//         .max(16, "Postal Code must be at most 16 characters")
+//         .matches(
+//           employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"],
+//           "Postal Code can only contain numeric characters",
+//         ),
+//       presentAddressLine1: Yup.string(),
+//       presentAddressLine2: Yup.string(),
+//       presentCountry: Yup.string(),
+//       presentState: Yup.string(),
+//       presentCity: Yup.string(),
+//       presentPostalCode: Yup.string(),
+//     }).required(),
+//   }),
+//   Yup.object({
+//     designationId: Yup.string().required().label("Job Profile"),
+//     departmentId: Yup.string().required().label("Department"),
+//     branchId: Yup.string().required().label("Branch"),
+//     employeeTypeId: Yup.string().label("Employee Type (Old)"),
+//     employeeTypeConfigId: Yup.string().optional().label("Employee Type"),
+//     workingMethodId: Yup.string().required().label("Working Method"),
+//     companyEmailId: Yup.string()
+//       .label("Company Email Address")
+//       .matches(
+//         /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+//         "Invalid email address",
+//       ),
+//     companyPhoneNumber: Yup.string()
+//       .label("Company Phone Number")
+//       .min(10, "Phone Number must be at least 10 characters")
+//       .max(20, "Phone Number must be at most 20 characters")
+//       .matches(
+//         employeeOnBardingFormRegexes["companyPhoneNumber"],
+//         "Phone Number can only contain numeric characters",
+//       ),
+//     companyPhoneExtension: Yup.string().label("Company Phone Extension"),
+//     sourceOfHireId: Yup.string().label("Source Of Hire"),
+//     referredById: Yup.string(),
+//     dateOfJoining: Yup.string().label("Date Of Joining"),
+//     dateOfExit: Yup.string(),
+//     rejoinHistory: Yup.array().of(
+//       Yup.object({
+//         dateOfReJoining: Yup.string(),
+//         dateOfReExit: Yup.string(),
+//         reason: Yup.string(),
+//       }),
+//     ),
+//     employeeStatusId: Yup.string().label("Employee Status (Old)"),
+//     employeeStatusConfigId: Yup.string().label("Employee Status"),
+//     workExpInfo: Yup.array().of(
+//       Yup.object({
+//         companyName: Yup.string().label("Company Name"),
+//         jobTitle: Yup.string().label("Job Title"),
+//         fromDate: Yup.string().label("From Date"),
+//         toDate: Yup.string().label("To Date"),
+//       })
+//         // Work Experience is rendered as a default starter card. Keep the
+//         // untouched card valid, but validate the full row once any value exists.
+//         .test("work-company-name", "Company Name is required", function (value) {
+//           if (!hasWorkExpInfo(value) || value?.companyName) return true;
+//           return this.createError({
+//             path: `${this.path}.companyName`,
+//             message: "Company Name is required",
+//           });
+//         })
+//         .test("work-job-title", "Job Title is required", function (value) {
+//           if (!hasWorkExpInfo(value) || value?.jobTitle) return true;
+//           return this.createError({
+//             path: `${this.path}.jobTitle`,
+//             message: "Job Title is required",
+//           });
+//         })
+//         .test("work-from-date", "From Date is required", function (value) {
+//           if (!hasWorkExpInfo(value) || value?.fromDate) return true;
+//           return this.createError({
+//             path: `${this.path}.fromDate`,
+//             message: "From Date is required",
+//           });
+//         })
+//         .test("work-to-date", "To Date is required", function (value) {
+//           if (!hasWorkExpInfo(value) || value?.toDate) return true;
+//           return this.createError({
+//             path: `${this.path}.toDate`,
+//             message: "To Date is required",
+//           });
+//         }),
+//     ),
+//   }),
+//   // Step 3 — App Settings
+//   Yup.object({
+//     reportsToId: Yup.string().required().label("Reporting Manager"),
+//     ctcInLpa: Yup.string().required().label("CTC In LPA"),
+//     appRole: Yup.string().required().label("App Role"),
+//   }),
+//   // Step 4 — Documents
+//   Yup.object({
+//     obj: Yup.string(),
+//     documentInfo: Yup.array().of(
+//       Yup.object({
+//         fileName: Yup.string(),
+//         identityNumber: Yup.string(),
+//         path: Yup.string(),
+//         documentId: Yup.string(),
+//         employeeId: Yup.string(),
+//       }),
+//     ),
+//   }),
+// ];
+
+// const createDefaultEducationInfo = () => ({
+//   instituteName: "",
+//   qualificationMasterId: "",
+//   qualificationName: "",
+//   degree: "",
+//   specialization: "",
+//   stream: "",
+//   customStream: "",
+//   fromDate: "",
+//   toDate: "",
+//   passingYear: "",
+//   percentage: "",
+//   cgpa: "",
+//   filePath: "",
+//   fileName: "",
+// });
+
+// const createDefaultFamilyInfo = () => ({
+//   name: "",
+//   relationship: "",
+//   mobileNumber: "",
+//   dateOfBirth: "",
+// });
+
+// const hasEducationInfo = hasStartedEducationInfo;
+
+// const buildEducationPayload = (education: any, employeeId?: string) => ({
+//   ...(education.instituteName && { instituteName: education.instituteName }),
+//   ...(education.qualificationMasterId && { qualificationMasterId: education.qualificationMasterId }),
+//   ...((education.qualificationName || education.degree) && { qualificationName: education.qualificationName || education.degree }),
+//   ...(education.degree && { degree: education.degree }),
+//   ...(education.specialization && { specialization: education.specialization }),
+//   ...(education.stream && { stream: education.stream }),
+//   ...(education.customStream && { customStream: education.customStream }),
+//   ...(education.filePath && { filePath: education.filePath }),
+//   ...(education.fileName && { fileName: education.fileName }),
+//   ...(education.fromDate && { fromDate: education.fromDate }),
+//   ...(education.toDate && { toDate: education.toDate }),
+//   ...(education.passingYear && { passingYear: education.passingYear }),
+//   ...(education.percentage && { percentage: education.percentage }),
+//   ...(education.cgpa && { cgpa: education.cgpa }),
+//   ...(employeeId && { employeeId }),
+// });
+
+// const hasFamilyInfo = (familyMember: any) =>
+//   Boolean(
+//     familyMember?.name ||
+//       familyMember?.relationship ||
+//       familyMember?.mobileNumber ||
+//       familyMember?.dateOfBirth,
+//   );
+
+// const withDefaultEducationInfo = (educationalInfo: any) =>
+//   Array.isArray(educationalInfo) && educationalInfo.length > 0
+//     ? educationalInfo
+//     : [createDefaultEducationInfo()];
+
+// const withDefaultFamilyInfo = (familyInfo: any) =>
+//   Array.isArray(familyInfo) && familyInfo.length > 0
+//     ? familyInfo
+//     : [createDefaultFamilyInfo()];
+
+// const initialState = {
+//   method: "0", // Default method set to "0" since Step1 is now skipped
+//   avatar: "",
+//   firstName: "",
+//   isAdmin: "0",
+//   isEmployeeActive: "1",
+//   lastName: "",
+//   nickName: "",
+//   gender: "",
+//   maritalStatus: "",
+//   reportsToId: "",
+//   dateOfBirth: "",
+//   bloodGroup: "",
+//   personalEmailId: "",
+//   personalPhoneNumber: "",
+//   alternatePhoneNumber: "",
+//   personalPhoneNumberExtension: "",
+//   linkedInProfileUrl: "",
+//   instagramProfileUrl: "",
+//   facebookProfileUrl: "",
+//   hobbies: "",
+//   notes: "",
+//   meal: "",
+//   educationalInfo: [createDefaultEducationInfo()],
+//   familyInfo: [createDefaultFamilyInfo()],
+//   emergencyDetails: {
+//     bloodGroup: "",
+//     allergies: "",
+//     emergencyContactName: "",
+//     emergencyContactNumber: "",
+//   },
+//   bankInfo: {
+//     accountName: "",
+//     accountNumber: "",
+//     ifscCode: "",
+//     filePath: "",
+//   },
+//   addressInfo: {
+//     permanentAddressLine1: "",
+//     permanentAddressLine2: "",
+//     permanentCountry: "",
+//     permanentState: "",
+//     permanentCity: "",
+//     permanentPostalCode: "",
+//     presentAddressLine1: "",
+//     presentAddressLine2: "",
+//     presentCountry: "",
+//     presentState: "",
+//     presentCity: "",
+//     presentPostalCode: "",
+//   },
+//   designationId: "",
+//   departmentId: "",
+//   branchId: "",
+//   teamId: "",
+//   roomOrBlock: "",
+//   employeeTypeId: "",
+//   employeeTypeConfigId: "",
+//   workingMethodId: "",
+//   shift: "",
+//   experienceLevel: "",
+//   employeeLevelId: "",
+//   companyEmailId: "",
+//   companyPhoneNumber: "",
+//   companyPhoneExtension: "",
+//   sourceOfHire: "",
+//   referredBy: "",
+//   dateOfJoining: "",
+//   dateOfExit: "",
+//   rejoinHistory: [
+//     {
+//       dateOfReJoining: "",
+//       dateOfReExit: "",
+//       reason: "",
+//     },
+//   ],
+//   employeeStatusId: "",
+//   employeeStatusConfigId: "",
+//   ctcInLpa: "",
+//   appRole: "",
+//   attendanceRequestRaiseLimit: "",
+//   allowedPerMonth: 1,
+//   allowOverTime: "0",
+//   discretionaryLeaveBoolean: "false",
+//   discretionaryLeaveBalance: 0,
+//   leaveAllocations: [] as any[],
+//   workExpInfo: [createDefaultWorkExpInfo()],
+//   documentInfo: [
+//     {
+//       identityNumber: "",
+//       employeeId: "",
+//       documentId: "",
+//       path: "",
+//       fileName: "",
+//     },
+//   ],
+//   roles: [] as any[],
+//   professionalFeesEnabled: "false",
+//   professionalFeesAmount: "",
+//   professionalFeesPercentage: "",
+//   professionalFeesType: "FIXED",
+//   // Privacy: default false — employees remain visible unless Admin explicitly hides them
+//   isHiddenFromStaff: false,
+// };
+
+// const newEmployeeWizardBreadcrumb: Array<PageLink> = [
+//   {
+//     title: "Employee Management",
+//     path: "/employees",
+//     isSeparator: false,
+//     isActive: false,
+//   },
+//   {
+//     title: "",
+//     path: "",
+//     isSeparator: true,
+//     isActive: false,
+//   },
+// ];
+
+// const saveNewUser = async (values: any) => {
+//   const {
+//     firstName,
+//     lastName,
+//     dateOfBirth,
+//     appRole,
+//     personalPhoneNumber,
+//     personalEmailId,
+//     alternatePhoneNumber,
+//     personalPhoneNumberExtension,
+//     isEmployeeActive,
+//     bloodGroup,
+//     hobbies,
+//     notes,
+//     linkedInProfileUrl,
+//     instagramProfileUrl,
+//     facebookProfileUrl,
+//   } = values;
+//   const user = {
+//     firstName,
+//     lastName,
+//     isActive: isEmployeeActive === "1" ? true : false,
+//     isAdmin: false,
+//     // isAdmin: appRole.toLowerCase() === "admin" ? true : false,
+//     dateOfBirth,
+//     ...(personalPhoneNumber && { personalPhoneNumber }),
+//     ...(personalEmailId && { personalEmailId }),
+//     ...(personalPhoneNumberExtension && { personalPhoneNumberExtension }),
+//     ...(alternatePhoneNumber && { alternatePhoneNumber }),
+//     ...(bloodGroup && { bloodGroup }),
+//     ...(notes && { notes }),
+//     ...(hobbies && { hobbies: values.hobbies }),
+//     ...(linkedInProfileUrl && { linkedInProfileUrl }),
+//     ...(instagramProfileUrl && { instagramProfileUrl }),
+//     ...(facebookProfileUrl && { facebookProfileUrl }),
+//   };
+//   console.log("appRole:: ", appRole);
+//   if (!appRole) {
+//     errorConfirmation("Please select a user role");
+//     return false;
+//   }
+//   const {
+//     data: { id: savedUserId },
+//   } = await createNewUser(user);
+
+//   return savedUserId;
+// };
+
+// const saveNewEmployee = async (values: any, userId: string) => {
+//   const {
+//     data: { companyOverview },
+//   } = await fetchCompanyOverview();
+//   const companyId = companyOverview[0].id;
+//   let vegMealPreference = undefined;
+//   let nonVegMealPreference = undefined;
+//   let veganMealPreference = undefined;
+
+//   const {
+//     dateOfJoining,
+//     ctcInLpa,
+//     gender,
+//     designationId,
+//     branchId,
+//     dateOfExit,
+//     employeeTypeId,
+//     employeeTypeConfigId,
+//     maritalStatus,
+//     sourceOfHireId,
+//     workingMethodId,
+//     departmentId,
+//     companyEmailId,
+//     referredById,
+//     method,
+//     nickName,
+//     employeeCode,
+//     companyPhoneNumber,
+//     companyPhoneExtension,
+//     employeeStatusId,
+//     employeeStatusConfigId,
+//     avatar,
+//     meal,
+//     reportsToId,
+//     anniversary,
+//     documentFields,
+//     documentInfo,
+//     appRole,
+//     isAdmin,
+//     rejoinHistory,
+//     teamId,
+//     roomOrBlock,
+//     shift,
+//     experienceLevel,
+//     employeeLevelId,
+//     discretionaryLeaveBoolean,
+//     discretionaryLeaveBalance,
+//     attendanceRequestRaiseLimit,
+//     allowedPerMonth,
+//     allowOverTime,
+//     professionalFeesEnabled,
+//     professionalFeesAmount,
+//     professionalFeesPercentage,
+//     professionalFeesType,
+//     isHiddenFromStaff,
+//   } = values;
+
+//   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
+
+//   const aadharCardDocument = values?.documentFields?.filter(
+//     (doc: any) =>
+//       doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "aadharcard",
+//   );
+//   const aadharDocumentId = aadharCardDocument?.[0]?.id;
+//   const panCardDocument = values?.documentFields?.filter(
+//     (doc: any) =>
+//       doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "pancard",
+//   );
+//   const panDocumentId = panCardDocument?.[0]?.id;
+
+//   if (
+//     documentInfo &&
+//     documentInfo?.findIndex(
+//       (doc: any) => doc?.documentId === aadharDocumentId,
+//     ) !== -1
+//   ) {
+//     const mostRecentAadharDoc = documentInfo
+//       ?.filter((doc: any) => doc?.documentId === aadharDocumentId)
+//       ?.sort(
+//         (doc1: any, doc2: any) =>
+//           new Date(doc2.createdAt).getTime() -
+//           new Date(doc1.createdAt).getTime(),
+//       )[0];
+//     aadharCardPath = mostRecentAadharDoc?.path;
+//     aadharNumber = mostRecentAadharDoc?.identityNumber;
+//   }
+//   if (
+//     documentInfo &&
+//     documentInfo?.findIndex((doc: any) => doc?.documentId === panDocumentId) !==
+//       -1
+//   ) {
+//     const mostRecentPanDoc = documentInfo
+//       ?.filter((doc: any) => doc?.documentId === panDocumentId)
+//       ?.sort(
+//         (doc1: any, doc2: any) =>
+//           new Date(doc2.createdAt).getTime() -
+//           new Date(doc1.createdAt).getTime(),
+//       )[0];
+//     panCardPath = mostRecentPanDoc?.path;
+//     panNumber = mostRecentPanDoc?.identityNumber;
+//   }
+
+//   if (meal === "0") vegMealPreference = true;
+//   if (meal === "1") nonVegMealPreference = true;
+//   if (meal === "2") veganMealPreference = true;
+
+//   const employee = {
+//     ...(avatar && { avatar }),
+//     userId,
+//     isActive: true,
+//     ...(employeeTypeId && { employeeTypeId }), // Old field (optional for backward compatibility)
+//     ...(employeeTypeConfigId && { employeeTypeConfigId }), // New field for employee_configurations
+//     sourceOfHireId,
+//     ...(employeeStatusId && { employeeStatusId }), // Old field (optional for backward compatibility)
+//     ...(employeeStatusConfigId && { employeeStatusConfigId }), // New field for employee_configurations
+//     companyId,
+//     method: parseInt(method),
+//     dateOfJoining,
+//     gender: parseInt(gender),
+//     ...(isAdmin && { isAdmin: isAdmin == "1" ? true : false }),
+//     ...(branchId && { branchId }),
+//     ...(anniversary && { anniversary }),
+//     reportsToId,
+//     ...(aadharNumber && { aadharNumber }),
+//     ...(aadharCardPath && { aadharCardPath }),
+//     ...(panNumber && { panNumber }),
+//     ...(panCardPath && { panCardPath }),
+//     ...(workingMethodId && { workingMethodId }),
+//     ...(departmentId && { departmentId }),
+//     ...(ctcInLpa && { ctcInLpa }),
+//     ...(designationId && { designationId }),
+//     ...(maritalStatus && { maritalStatus: parseInt(maritalStatus) }),
+//     ...(companyEmailId && { companyEmailId }),
+//     ...(referredById && { referredById }),
+//     ...(companyPhoneNumber && { companyPhoneNumber }),
+//     ...(companyPhoneExtension && { companyPhoneExtension }),
+//     ...(employeeCode && { employeeCode }),
+//     ...(nickName && { nickName }),
+//     ...(dateOfExit && { dateOfExit }),
+//     ...(vegMealPreference && { vegMealPreference }),
+//     ...(nonVegMealPreference && { nonVegMealPreference }),
+//     ...(veganMealPreference && { veganMealPreference }),
+//     ...(teamId && { teamId }),
+//     ...(roomOrBlock && { roomOrBlock }),
+//     ...(shift && { shift }),
+//     ...(experienceLevel && { experienceLevel }),
+//     ...(employeeLevelId && { employeeLevelId }),
+//     ...(attendanceRequestRaiseLimit && { attendanceRequestRaiseLimit }),
+//     ...(allowedPerMonth && { allowedPerMonth }),
+//     ...(allowOverTime && { allowOverTime }),
+//     // Discretionary leave: always send boolean, only send balance if true
+//     discretionaryLeaveBoolean:
+//       discretionaryLeaveBoolean === "true" ||
+//       discretionaryLeaveBoolean === true,
+//     ...((discretionaryLeaveBoolean === "true" ||
+//       discretionaryLeaveBoolean === true) &&
+//       discretionaryLeaveBalance && {
+//         discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0,
+//       }),
+//     // Always send leaveAllocations so the backend can replace-all (including resets to default).
+//     ...(Array.isArray(values.leaveAllocations) && {
+//       leaveAllocations: values.leaveAllocations,
+//     }),
+//     ...buildProfessionalFeesPayload({
+//       professionalFeesEnabled,
+//       professionalFeesAmount,
+//       professionalFeesPercentage,
+//       professionalFeesType,
+//     }),
+//     // Privacy: send explicit boolean so the backend never defaults silently
+//     isHiddenFromStaff: isHiddenFromStaff === true,
+//   };
+//   // Clean up empty values but preserve gender, maritalStatus, discretionaryLeaveBoolean,
+//   // isHiddenFromStaff, and the professional-fees fields (even when null — null is meaningful).
+//   Object.keys(employee).forEach((key) => {
+//     if (
+//       key === "gender" ||
+//       key === "maritalStatus" ||
+//       key === "discretionaryLeaveBoolean" ||
+//       key === "isHiddenFromStaff" ||
+//       PROF_FEES_KEYS.has(key)
+//     )
+//       return;
+//     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) {
+//       delete employee[key];
+//     }
+//   });
+
+//   // IMPORTANT: Remove config fields to prevent foreign key errors if empty
+//   if (!employee.employeeTypeConfigId) {
+//     delete employee.employeeTypeConfigId;
+//   }
+//   if (!employee.employeeStatusConfigId) {
+//     delete employee.employeeStatusConfigId;
+//   }
+
+//   const {
+//     data: { id: savedEmployeeId },
+//   } = await createNewEmployee(employee);
+
+//   return savedEmployeeId;
+// };
+
+// const saveEmployeeData = async (values: any, employeeId: string) => {
+//   const {
+//     workExpInfo,
+//     addressInfo,
+//     bankInfo,
+//     familyInfo,
+//     documentInfo: documents,
+//     educationalInfo,
+//     rejoinHistory,
+//     emergencyDetails,
+//   } = values;
+
+//   try {
+//     const filledFamilyInfo = familyInfo.filter(hasFamilyInfo);
+//     const filledEducationalInfo = educationalInfo.filter(hasEducationInfo);
+//     const filledWorkExpInfo = workExpInfo.filter(hasWorkExpInfo);
+//     const isSameAddress =
+//       addressInfo.permanentAddressLine1 === addressInfo.presentAddressLine1;
+//     const reqPromises = [
+//       () =>
+//         createPreviousExperienceDetails(
+//           filledWorkExpInfo.map((el: any) => ({
+//             ...(el.companyName && { companyName: el.companyName }),
+//             ...(el.jobTitle && { jobTitle: el.jobTitle }),
+//             ...(el.fromDate && { fromDate: el.fromDate }),
+//             ...(el.toDate && { toDate: el.toDate }),
+//             employeeId,
+//           })),
+//         ),
+//       () =>
+//         createRejoinHistoryDetails(
+//           rejoinHistory
+//             .filter(
+//               (el: any) => el.dateOfReJoining || el.dateOfReExit || el.reason,
+//             )
+//             .map((el: any) => ({
+//               ...(el.dateOfReJoining && {
+//                 dateOfReJoining: el.dateOfReJoining,
+//               }),
+//               ...(el.dateOfReExit && { dateOfReExit: el.dateOfReExit }),
+//               ...(el.reason && { reason: el.reason }),
+//               employeeId,
+//             })),
+//         ),
+//       () =>
+//         createEmergencyContacts(
+//           filledFamilyInfo.map((el: any) => ({
+//             ...(el.name && { name: el.name }),
+//             ...(el.mobileNumber && { mobileNumber: el.mobileNumber }),
+//             ...(el.dateOfBirth && { dateOfBirth: el.dateOfBirth }),
+//             ...(el.relationship && { relation: el.relationship }),
+//             employeeId,
+//           })),
+//         ),
+//       () =>
+//         createEducationalDetails(
+//           filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId)),
+//         ),
+//       () =>
+//         createAddressDetails({
+//           ...addressInfo,
+//           employeeId,
+//           ...(isSameAddress && {
+//             presentAddressLine1: undefined,
+//             presentAddressLine2: undefined,
+//             presentCountry: undefined,
+//             presentState: undefined,
+//             presentCity: undefined,
+//             presentPostalCode: undefined,
+//           }),
+//         }),
+//       () =>
+//         createBankDetails({
+//           ...(bankInfo.accountNumber && {
+//             accountNumber: bankInfo.accountNumber,
+//           }),
+//           ...(bankInfo.accountName && { accountName: bankInfo.accountName }),
+//           ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }),
+//           ...(bankInfo.filePath && { filePath: bankInfo.filePath }),
+//           employeeId,
+//         }),
+//       () =>
+//         createEmergencyDetails({
+//           ...(emergencyDetails.bloodGroup && {
+//             bloodGroup: emergencyDetails.bloodGroup,
+//           }),
+//           ...(emergencyDetails.allergies && {
+//             allergies: emergencyDetails.allergies,
+//           }),
+//           ...(emergencyDetails.emergencyContactName && {
+//             emergencyContactName: emergencyDetails.emergencyContactName,
+//           }),
+//           ...(emergencyDetails.emergencyContactNumber && {
+//             emergencyContactNumber: emergencyDetails.emergencyContactNumber,
+//           }),
+//           employeeId,
+//         }),
+//       () =>
+//         createDocumentsDetails(
+//           documents.map((el: any) => ({ ...el, employeeId })),
+//         ),
+//     ];
+
+//     const responses = await Promise.all(reqPromises.map((fn) => fn()));
+//     const allSuccessful = responses.every(
+//       (response) => response?.statusCode === 200,
+//     );
+//     // debugger;
+//     if (!allSuccessful) {
+//       throw new Error("Some operations failed to complete successfully");
+//     }
+//     return true;
+//   } catch (err) {
+//     console.log(err);
+//   }
+// };
+
+// function NewEmployeeWizard({ editMode, openModal }: any) {
+//   const { employeeId } = useParams();
+//   const navigate = useNavigate();
+//   const stepperRef = useRef<HTMLDivElement | null>(null);
+//   const modalBodyRef = useRef<HTMLDivElement | null>(null);
+//   const formikRef = useRef<any>(null);
+//   const [stepper, setStepper] = useState<StepperComponent | null>(null);
+//   const [activeStepIndex, setActiveStepIndex] = useState(1);
+//   const [currentSchema, setCurrentSchema] = useState(
+//     newEmployeeWizardSchema[0],
+//   );
+//   const [show, setShow] = useState(openModal);
+//   const [files, setFiles] = useState<{ [key: string]: File }>({});
+//   const [educationFiles, setEducationFiles] = useState<{ [key: string]: File }>({});
+//   const [defaultState, setDefaultState] = useState(initialState);
+//   const [draftSavedAt, setDraftSavedAt] = useState<string>("");
+//   const [activeSection, setActiveSection] = useState("personal-info");
+//   const [isDarkMode, setIsDarkMode] = useState(
+//     () => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false
+//   );
+
+//   useEffect(() => {
+//     if (editMode) return;
+//     const cachedDraft = localStorage.getItem(ONBOARDING_DRAFT_KEY);
+//     if (!cachedDraft) return;
+
+//     try {
+//       const draft = JSON.parse(cachedDraft);
+//       if (draft?.values) {
+//         setDefaultState((previousState) => ({
+//           ...previousState,
+//           ...draft.values,
+//         }));
+//       }
+//       if (draft?.activeStepIndex) {
+//         setActiveStepIndex(draft.activeStepIndex);
+//         setCurrentSchema(newEmployeeWizardSchema[draft.activeStepIndex - 1]);
+//       }
+//     } catch (error) {
+//       localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+//     }
+//   }, [editMode]);
+
+//   const addFileToState = (documentId: string, file: File) => {
+//     setFiles((prevFiles: any) => ({
+//       ...prevFiles,
+//       [documentId]: file,
+//     }));
+//   };
+
+//   const saveDraftToCache = (values: any) => {
+//     const savedAt = new Date().toISOString();
+//     localStorage.setItem(
+//       ONBOARDING_DRAFT_KEY,
+//       JSON.stringify({
+//         values,
+//         activeStepIndex,
+//         savedAt,
+//       }),
+//     );
+//     setDraftSavedAt(savedAt);
+//   };
+
+//   const addEducationFileToState = (index: number, file: File | null) => {
+//     setEducationFiles((prevFiles: any) => {
+//       const nextFiles = { ...prevFiles };
+//       if (file) {
+//         nextFiles[String(index)] = file;
+//       } else {
+//         delete nextFiles[String(index)];
+//       }
+//       return nextFiles;
+//     });
+//   };
+
+//   const uploadEducationDocuments = async (values: any, userId: string) => {
+//     const entries = Object.entries(educationFiles);
+//     if (!entries.length) return;
+
+//     await Promise.all(
+//       entries.map(async ([indexKey, fileData]) => {
+//         const index = Number(indexKey);
+//         const education = values.educationalInfo?.[index];
+//         if (!education || education.filePath) return;
+
+//         const formData = new FormData();
+//         const employeeName = `${values.firstName || "employee"}-${values.lastName || "education"}`;
+//         const fileExtension = fileData.name.split(".").pop();
+//         const fileName = `${employeeName.toLowerCase().replace(/\s+/g, "")}-education-${index + 1}.${fileExtension}`;
+//         formData.append("file", new File([fileData], fileName, { type: fileData.type }));
+
+//         const response = await uploadUserAsset(
+//           formData,
+//           userId,
+//           fileName,
+//           "education-docs",
+//         );
+
+//         values.educationalInfo[index] = {
+//           ...education,
+//           filePath: response.data.path,
+//           fileName: fileData.name,
+//         };
+//       }),
+//     );
+//   };
+
+//   const loadStepper = () => {
+//     const createdStepper = StepperComponent.createInsance(
+//       stepperRef.current as HTMLDivElement,
+//     );
+//     if (!createdStepper) return;
+
+//     setStepper(createdStepper);
+//     setActiveStepIndex(createdStepper.currentStepIndex);
+//   };
+
+//   const scrollWizardToTop = () => {
+//     window.requestAnimationFrame(() => {
+//       modalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+//       stepperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+//     });
+//   };
+
+//   const prevStep = () => {
+//     if (activeStepIndex <= 1) {
+//       return;
+//     }
+
+//     if (stepper) {
+//       stepper.goPrev();
+//       setActiveStepIndex(stepper.currentStepIndex);
+//       setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+//     } else {
+//       const previousStep = activeStepIndex - 1;
+//       setActiveStepIndex(previousStep);
+//       setCurrentSchema(newEmployeeWizardSchema[previousStep - 1]);
+//     }
+//     scrollWizardToTop();
+//   };
+
+//   const updateWizardData = async (values: any) => {
+//     const {
+//       data: { companyOverview },
+//     } = await fetchCompanyOverview();
+//     const companyId = companyOverview[0].id;
+//     const {
+//       userId,
+//       firstName,
+//       lastName,
+//       dateOfBirth,
+//       appRole,
+//       personalPhoneNumber,
+//       personalEmailId,
+//       alternatePhoneNumber,
+//       personalPhoneNumberExtension,
+//       isEmployeeActive,
+//       bloodGroup,
+//       hobbies,
+//       notes,
+//       linkedInProfileUrl,
+//       instagramProfileUrl,
+//       facebookProfileUrl,
+//     } = values;
+
+//     // console.log("approle::", appRole);
+
+//     const documentPromise = Object.keys(files).map(async (docId) => {
+//       const fileData = files[docId];
+//       const formData = new FormData();
+//       formData.append("file", fileData);
+
+//       // Get field name from documentFields and convert to dash-separated format
+//       const docField = values.documentFields?.find(
+//         (field: any) => field.id === docId,
+//       );
+//       const fieldName = docField?.fieldName || docId;
+//       // Convert "Aadhar Card" to "aadhar-card"
+//       const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
+//       // Get file extension from uploaded file (e.g., .pdf, .jpg)
+//       const extension = fileData.name.split(".").pop();
+//       const fileName = extension ? `${baseName}.${extension}` : baseName;
+
+//       // All onboarding files (including profile picture) go to onboarding-docs folder
+//       const category = "onboarding-docs";
+//       const response = await uploadUserAsset(
+//         formData,
+//         userId,
+//         fileName,
+//         category,
+//       );
+//       return {
+//         documentId: docId,
+//         path: response.data.path,
+//         fileName: fileName, // Use renamed fileName instead of original fileData.name
+//       };
+//     });
+
+//     const documentInfo = values.documentInfo;
+//     const documentUploaded = await Promise.all(documentPromise);
+
+//     const filteredDocs = documentUploaded.filter(
+//       (doc: any) => doc.documentId !== "userProfilePicture",
+//     );
+//     documentUploaded.forEach((doc: any) =>
+//       doc.documentId === "userProfilePicture"
+//         ? (values.avatar = doc.path)
+//         : null,
+//     );
+
+//     // Update existing documentInfo with file paths from uploads (edit mode)
+//     const doc = documentInfo.map((docInfo: any) => {
+//       // Find the corresponding uploaded file by documentId
+//       const uploadedFile = filteredDocs.find(
+//         (uploadedDoc: any) => uploadedDoc.documentId === docInfo.documentId,
+//       );
+//       return {
+//         ...docInfo, // Keep original data including identityNumber
+//         ...(uploadedFile && {
+//           path: uploadedFile.path,
+//           fileName: uploadedFile.fileName,
+//         }), // Add file info only if file was uploaded
+//       };
+//     });
+
+//     values.documentInfo = doc;
+//     await uploadEducationDocuments(values, userId);
+
+//     let vegMealPreference = undefined;
+//     let nonVegMealPreference = undefined;
+//     let veganMealPreference = undefined;
+
+//     const userPayload = {
+//       firstName,
+//       lastName,
+//       isActive: isEmployeeActive === "1" ? true : false,
+//       ...(dateOfBirth && { dateOfBirth }),
+//       ...(personalPhoneNumber && { personalPhoneNumber }),
+//       ...(personalEmailId && { personalEmailId }),
+//       ...(personalPhoneNumberExtension && { personalPhoneNumberExtension }),
+//       ...(alternatePhoneNumber && { alternatePhoneNumber }),
+//       ...(bloodGroup && { bloodGroup }),
+//       ...(hobbies && { hobbies: values.hobbies }),
+//       ...(notes && { notes: values.notes }),
+//       ...(linkedInProfileUrl && { linkedInProfileUrl }),
+//       ...(instagramProfileUrl && { instagramProfileUrl }),
+//       ...(facebookProfileUrl && { facebookProfileUrl }),
+//     };
+
+//     const {
+//       employeeId,
+//       dateOfJoining,
+//       ctcInLpa,
+//       gender,
+//       designationId,
+//       branchId,
+//       dateOfExit,
+//       employeeTypeId,
+//       employeeTypeConfigId,
+//       maritalStatus,
+//       sourceOfHireId,
+//       workingMethodId,
+//       departmentId,
+//       companyEmailId,
+//       referredById,
+//       method,
+//       nickName,
+//       employeeCode,
+//       companyPhoneNumber,
+//       companyPhoneExtension,
+//       employeeStatusId,
+//       employeeStatusConfigId,
+//       avatar,
+//       meal,
+//       anniversary,
+//       reportsToId,
+//       documentFields,
+//       attendanceRequestRaiseLimit,
+//       allowedPerMonth,
+//       allowOverTime,
+//       professionalFeesEnabled,
+//       professionalFeesAmount,
+//       professionalFeesPercentage,
+//       professionalFeesType,
+//       isAdmin,
+//       rejoinHistory,
+//       teamId,
+//       roomOrBlock,
+//       shift,
+//       experienceLevel,
+//       employeeLevelId,
+//       discretionaryLeaveBoolean,
+//       discretionaryLeaveBalance,
+//       isHiddenFromStaff: isHiddenFromStaffEdit,
+//     } = values;
+
+//     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
+//     if (!appRole) {
+//       errorConfirmation("Please select a user role");
+//       return;
+//     }
+//     try {
+//       const res = await updateEmployeeRolesById(employeeId, {
+//         roleIds: [appRole],
+//       });
+//       // console.log("resFromUpdateEmployeeRolesById", res);
+//     } catch (error) {
+//       console.log("Error while updating employee roles", error);
+//     }
+//     const aadharCardDocument = values?.documentFields?.filter(
+//       (doc: any) =>
+//         doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "aadharcard",
+//     );
+//     const aadharDocumentId = aadharCardDocument?.[0]?.id;
+//     const panCardDocument = values?.documentFields?.filter(
+//       (doc: any) =>
+//         doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "pancard",
+//     );
+//     const panDocumentId = panCardDocument?.[0]?.id;
+//     if (
+//       documentInfo &&
+//       documentInfo?.findIndex(
+//         (doc: any) => doc?.documentId === aadharDocumentId,
+//       ) !== -1
+//     ) {
+//       const mostRecentAadharDoc = documentInfo
+//         ?.filter((doc: any) => doc?.documentId === aadharDocumentId)
+//         ?.sort(
+//           (doc1: any, doc2: any) =>
+//             new Date(doc2.createdAt).getTime() -
+//             new Date(doc1.createdAt).getTime(),
+//         )[0];
+//       aadharCardPath = mostRecentAadharDoc?.path;
+//       aadharNumber = mostRecentAadharDoc?.identityNumber;
+//       if (
+//         mostRecentAadharDoc?.id &&
+//         mostRecentAadharDoc?.identityNumber &&
+//         mostRecentAadharDoc?.path
+//       ) {
+//         await updateDocumentDetails(mostRecentAadharDoc.id, {
+//           ...mostRecentAadharDoc,
+//           identityNumber: aadharNumber,
+//         });
+//       }
+//     }
+
+//     if (
+//       documentInfo &&
+//       documentInfo?.findIndex(
+//         (doc: any) => doc?.documentId === panDocumentId,
+//       ) !== -1
+//     ) {
+//       const mostRecentPanDoc = documentInfo
+//         ?.filter((doc: any) => doc?.documentId === panDocumentId)
+//         ?.sort(
+//           (doc1: any, doc2: any) =>
+//             new Date(doc2.createdAt).getTime() -
+//             new Date(doc1.createdAt).getTime(),
+//         )[0];
+//       panCardPath = mostRecentPanDoc?.path;
+//       panNumber = mostRecentPanDoc?.identityNumber;
+//       if (
+//         mostRecentPanDoc?.id &&
+//         mostRecentPanDoc?.identityNumber &&
+//         mostRecentPanDoc?.path
+//       ) {
+//         await updateDocumentDetails(mostRecentPanDoc.id, {
+//           ...mostRecentPanDoc,
+//           identityNumber: panNumber,
+//         });
+//       }
+//     }
+
+//     if (meal === "0") vegMealPreference = true;
+//     if (meal === "1") nonVegMealPreference = true;
+//     if (meal === "2") veganMealPreference = true;
+
+//     const employeePayload = {
+//       ...(avatar && { avatar }),
+//       id: employeeId,
+//       userId,
+//       dateOfJoining,
+//       ctcInLpa,
+//       gender: parseInt(gender),
+//       designationId,
+//       branchId,
+//       isActive: isEmployeeActive === "1" ? true : false,
+//       ...(employeeTypeId && { employeeTypeId }), // Old field (optional for backward compatibility)
+//       ...(employeeTypeConfigId && { employeeTypeConfigId }), // New field for employee_configurations
+//       maritalStatus: parseInt(maritalStatus),
+//       reportsToId,
+//       sourceOfHireId,
+//       workingMethodId,
+//       departmentId,
+//       companyEmailId,
+//       ...(employeeStatusId && { employeeStatusId }), // Old field (optional for backward compatibility)
+//       ...(employeeStatusConfigId && { employeeStatusConfigId }), // New field for employee_configurations
+//       companyId,
+//       method: parseInt(method),
+//       companyPhoneNumber,
+//       companyPhoneExtension,
+//       employeeCode,
+//       ...(isAdmin && { isAdmin: isAdmin === "1" ? true : false }),
+//       ...(attendanceRequestRaiseLimit && { attendanceRequestRaiseLimit }),
+//       ...(allowedPerMonth && { allowedPerMonth }),
+//       ...(allowOverTime && { allowOverTime }),
+//       ...(aadharNumber && { aadharNumber }),
+//       ...(aadharCardPath && { aadharCardPath }),
+//       ...(panNumber && { panNumber }),
+//       ...(panCardPath && { panCardPath }),
+//       ...(anniversary && { anniversary }),
+//       ...(referredById && { referredById }),
+//       ...(nickName && { nickName }),
+//       ...(dateOfExit && { dateOfExit }),
+//       ...(vegMealPreference && { vegMealPreference }),
+//       ...(nonVegMealPreference && { nonVegMealPreference }),
+//       ...(veganMealPreference && { veganMealPreference }),
+//       ...(teamId && { teamId }),
+//       ...(roomOrBlock && { roomOrBlock }),
+//       ...(shift && { shift }),
+//       ...(experienceLevel && { experienceLevel }),
+//       ...(employeeLevelId && { employeeLevelId }),
+//       // Discretionary leave: always send boolean, only send balance if true
+//       discretionaryLeaveBoolean:
+//         discretionaryLeaveBoolean === "true" ||
+//         discretionaryLeaveBoolean === true,
+//       ...((discretionaryLeaveBoolean === "true" ||
+//         discretionaryLeaveBoolean === true) &&
+//         discretionaryLeaveBalance && {
+//           discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0,
+//         }),
+//       // Always send leaveAllocations (replace-all on backend).
+//       ...(Array.isArray(values.leaveAllocations) && {
+//         leaveAllocations: values.leaveAllocations,
+//       }),
+//       ...buildProfessionalFeesPayload({
+//         professionalFeesEnabled,
+//         professionalFeesAmount,
+//         professionalFeesPercentage,
+//         professionalFeesType,
+//       }),
+//       // Privacy: always send explicit boolean so toggling off (true→false) is honoured
+//       isHiddenFromStaff: isHiddenFromStaffEdit === true,
+//     };
+//     // Clean up empty values but preserve gender, maritalStatus, discretionaryLeaveBoolean,
+//     // isHiddenFromStaff, and the professional-fees fields (null means "clear column").
+//     Object.keys(employeePayload).forEach((key) => {
+//       if (
+//         key === "gender" ||
+//         key === "maritalStatus" ||
+//         key === "discretionaryLeaveBoolean" ||
+//         key === "isHiddenFromStaff" ||
+//         PROF_FEES_KEYS.has(key)
+//       )
+//         return;
+//       if (
+//         !employeePayload[key] &&
+//         employeePayload[key] !== 0 &&
+//         employeePayload[key] !== false
+//       ) {
+//         delete employeePayload[key];
+//       }
+//     });
+
+//     // IMPORTANT: Remove config fields to prevent foreign key errors if empty
+//     if (!employeePayload.employeeTypeConfigId) {
+//       delete employeePayload.employeeTypeConfigId;
+//     }
+//     if (!employeePayload.employeeStatusConfigId) {
+//       delete employeePayload.employeeStatusConfigId;
+//     }
+//     const reqPromise = [
+//       () => updateUser(userId, userPayload),
+//       () => updateEmployee(employeeId, employeePayload),
+//     ];
+
+//     const {
+//       workExpInfo,
+//       bankInfo,
+//       educationalInfo,
+//       familyInfo,
+//       addressInfo,
+//       emergencyDetails,
+//     } = values;
+
+//     if (addressInfo.permanentAddressLine1 == addressInfo.presentAddressLine1) {
+//       const newAddressInfo = {
+//         ...addressInfo,
+//         presentAddressLine1: undefined,
+//         presentAddressLine2: undefined,
+//         presentCountry: undefined,
+//         presentState: undefined,
+//         presentCity: undefined,
+//         presentPostalCode: undefined,
+//       };
+//       reqPromise.push(() =>
+//         addressInfo?.id
+//           ? updateAddressDetails(addressInfo.id, newAddressInfo)
+//           : createAddressDetails({ ...newAddressInfo, employeeId }),
+//       );
+//     } else {
+//       reqPromise.push(() =>
+//         addressInfo?.id
+//           ? updateAddressDetails(addressInfo.id, addressInfo)
+//           : createAddressDetails({ ...addressInfo, employeeId }),
+//       );
+//     }
+
+//     workExpInfo
+//       .filter((workExp: any) => workExp?.id || hasWorkExpInfo(workExp))
+//       .forEach((workExp: any) =>
+//         reqPromise.push(() =>
+//           workExp?.id
+//             ? updatePreviousExpDetails(workExp.id, workExp)
+//             : createPreviousExperienceDetails([
+//                 {
+//                   ...(workExp.companyName && {
+//                     companyName: workExp.companyName,
+//                   }),
+//                   ...(workExp.jobTitle && { jobTitle: workExp.jobTitle }),
+//                   ...(workExp.fromDate && { fromDate: workExp.fromDate }),
+//                   ...(workExp.toDate && { toDate: workExp.toDate }),
+//                   employeeId,
+//                 },
+//               ]),
+//         ),
+//       );
+//     educationalInfo
+//       .filter((edInfo: any) => edInfo?.id || hasEducationInfo(edInfo))
+//       .forEach((edInfo: any) =>
+//         reqPromise.push(() =>
+//           edInfo?.id
+//             ? updateEducationalDetails(edInfo.id, buildEducationPayload(edInfo))
+//             : createEducationalDetails([
+//                 buildEducationPayload(edInfo, employeeId),
+//               ]),
+//         ),
+//       );
+//     familyInfo
+//       .filter((famInfo: any) => famInfo?.id || hasFamilyInfo(famInfo))
+//       .forEach((famInfo: any) =>
+//         reqPromise.push(() =>
+//           famInfo?.id
+//             ? updateEmergencyContact(famInfo.id, famInfo)
+//             : createEmergencyContacts([
+//                 {
+//                   ...(famInfo.name && { name: famInfo.name }),
+//                   ...(famInfo.mobileNumber && {
+//                     mobileNumber: famInfo.mobileNumber,
+//                   }),
+//                   ...(famInfo.dateOfBirth && {
+//                     dateOfBirth: famInfo.dateOfBirth,
+//                   }),
+//                   ...(famInfo.relationship && {
+//                     relation: famInfo.relationship,
+//                   }),
+//                   employeeId,
+//                 },
+//               ]),
+//         ),
+//       );
+
+//     // Handle rejoin history separately to ensure proper order (delete before create)
+//     const filteredRejoinHistory = rejoinHistory?.filter(
+//       (rejoinInfo: any) =>
+//         rejoinInfo.dateOfReJoining ||
+//         rejoinInfo.dateOfReExit ||
+//         rejoinInfo.reason,
+//     );
+
+//     // Execute rejoin history operations sequentially
+//     await deleteAllRejoinHistoryByEmployeeId(employeeId);
+
+//     if (filteredRejoinHistory.length > 0) {
+//       // Create new rejoin history entries only after delete completes
+//       await createRejoinHistoryDetails(
+//         filteredRejoinHistory.map((rejoinInfo: any) => ({
+//           ...(rejoinInfo.dateOfReJoining && {
+//             dateOfReJoining: rejoinInfo.dateOfReJoining,
+//           }),
+//           ...(rejoinInfo.dateOfReExit && {
+//             dateOfReExit: rejoinInfo.dateOfReExit,
+//           }),
+//           ...(rejoinInfo.reason && { reason: rejoinInfo.reason }),
+//           employeeId,
+//         })),
+//       );
+//     }
+
+//     reqPromise.push(() =>
+//       bankInfo?.id
+//         ? updateBankDetails(bankInfo.id, bankInfo)
+//         : createBankDetails({
+//             ...(bankInfo.accountNumber && {
+//               accountNumber: bankInfo.accountNumber,
+//             }),
+//             ...(bankInfo.accountName && { accountName: bankInfo.accountName }),
+//             ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }),
+//             ...(bankInfo.filePath && { filePath: bankInfo.filePath }),
+//             employeeId,
+//           }),
+//     );
+//     reqPromise.push(() =>
+//       emergencyDetails?.id
+//         ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)
+//         : createEmergencyDetails({
+//             ...(emergencyDetails.bloodGroup && {
+//               bloodGroup: emergencyDetails.bloodGroup,
+//             }),
+//             ...(emergencyDetails.allergies && {
+//               allergies: emergencyDetails.allergies,
+//             }),
+//             ...(emergencyDetails.emergencyContactName && {
+//               emergencyContactName: emergencyDetails.emergencyContactName,
+//             }),
+//             ...(emergencyDetails.emergencyContactNumber && {
+//               emergencyContactNumber: emergencyDetails.emergencyContactNumber,
+//             }),
+//             employeeId,
+//           }),
+//     );
+//     values.documentInfo.forEach((docInfo: any) => {
+//       reqPromise.push(() =>
+//         docInfo?.id
+//           ? updateDocumentDetails(docInfo?.id, { ...docInfo, employeeId })
+//           : createDocumentsDetails([{ ...docInfo, employeeId }]),
+//       );
+//     });
+//     // debugger;
+//     try {
+//       await Promise.all(reqPromise.map((fn) => fn()));
+//       await successConfirmation("Employee data updated successfully.");
+//       navigate("/employees");
+//     } catch (error: any) {
+//       let errMessage =
+//         "Something went wrong. Please try again with required fields filled with correct values.";
+
+//       // Check if the error response exists and extract the backend error message
+//       if (error.response && error.response.data) {
+//         const { status, data } = error.response;
+
+//         if (status === 400 && data.detail) {
+//           errMessage = data.detail;
+//         } else if (status === 400 && data.message) {
+//           errMessage = data.message;
+//         } else if (data.error) {
+//           errMessage = data.error;
+//         } else if (
+//           status === 500 &&
+//           data.detail?.includes("users_alternate_phone_number_key")
+//         ) {
+//           errMessage = "AlternatePhoneNumber already exists.";
+//         } else if (
+//           status === 500 &&
+//           data.detail?.includes("employees_company_email_id_key")
+//         ) {
+//           errMessage = "Company Emial Id already exists.";
+//         } else if (
+//           status === 500 &&
+//           data.detail?.includes("users_personal_phone_number_key")
+//         ) {
+//           errMessage = "PersonalPhoneNumber already exists.";
+//         }
+//       }
+//       if ((error as any).response?.status === 422) {
+//         const validationErrors =
+//           (error as any).response?.data?.validationError || [];
+//         const formattedErrors = validationErrors
+//           .map((err: any) => {
+//             return `• ${err.errors.join(", ")}`;
+//           })
+//           .join("<br>");
+//         if (formattedErrors.length > 0) {
+//           errorConfirmation(
+//             `Please fill are required fields:<br><br>${formattedErrors}`,
+//           );
+//           return;
+//         }
+//       }
+
+//       // Show error message to the user
+//       errorConfirmation(errMessage);
+//       console.error("API Error:", error.response ? error.response.data : error);
+//     }
+//   };
+
+//   const [isSubmitting, setIsSubmitting] = useState(false);
+
+//   // Enhanced submitStep function with proper loading states and error handling
+//   const submitStep = async (values: any, actions: FormikValues) => {
+//     const currentStepIndex = stepper?.currentStepIndex || activeStepIndex;
+//     const totalStepsNumber = stepper?.totalStepsNumber || newEmployeeWizardSchema.length;
+
+//     // Handle edit mode for final step
+//     if (currentStepIndex === totalStepsNumber && editMode) {
+//       try {
+//         setIsSubmitting(true);
+//         await updateWizardData(values);
+//       } catch (error) {
+//         console.error("Update wizard error:", error);
+//       } finally {
+//         setIsSubmitting(false);
+//       }
+//       return;
+//     }
+
+//     // Navigate to next step if not on final step
+//     if (currentStepIndex !== totalStepsNumber) {
+//       if (stepper) {
+//         stepper.goNext();
+//         setActiveStepIndex(stepper.currentStepIndex);
+//         setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+//       } else {
+//         const nextStepIndex = currentStepIndex + 1;
+//         setActiveStepIndex(nextStepIndex);
+//         setCurrentSchema(newEmployeeWizardSchema[nextStepIndex - 1]);
+//       }
+//       actions.setTouched({});
+//       scrollWizardToTop();
+//     } else {
+//       // Handle final step submission
+//       let savedUserId: string | null = null;
+
+//       try {
+//         setIsSubmitting(true);
+
+//         // Step 1: Save new user
+//         savedUserId = await saveNewUser(values);
+
+//         if (!savedUserId) {
+//           if (typeof savedUserId === "boolean") {
+//             return;
+//           }
+//           throw new Error("Failed to save user, user ID is missing");
+//         }
+
+//         // Step 2: Upload documents
+//         const documentPromises = Object.keys(files).map(async (docId) => {
+//           const fileData = files[docId];
+//           const formData = new FormData();
+//           formData.append("file", fileData);
+
+//           try {
+//             // Get field name from documentFields and convert to dash-separated format
+//             const docField = values.documentFields?.find(
+//               (field: any) => field.id === docId,
+//             );
+//             const fieldName = docField?.fieldName || docId;
+//             // Convert "Aadhar Card" to "aadhar-card"
+//             const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
+//             // Get file extension from uploaded file (e.g., .pdf, .jpg)
+//             const extension = fileData.name.split(".").pop();
+//             const fileName = extension ? `${baseName}.${extension}` : baseName;
+
+//             // All onboarding files (including profile picture) go to onboarding-docs folder
+//             const category = "onboarding-docs";
+//             const response = await uploadUserAsset(
+//               formData,
+//               savedUserId!,
+//               fileName,
+//               category,
+//             );
+//             return {
+//               documentId: docId,
+//               path: response.data.path,
+//               fileName: fileName, // Use renamed fileName instead of original fileData.name
+//             };
+//           } catch (uploadError) {
+//             console.error(`Failed to upload document ${docId}:`, uploadError);
+//             throw new Error(`Failed to upload document: ${fileData.name}`);
+//           }
+//         });
+
+//         const documentUploaded = await Promise.all(documentPromises);
+
+//         // Step 3: Process uploaded documents
+//         const filteredDocs = documentUploaded.filter(
+//           (doc) => doc.documentId !== "userProfilePicture",
+//         );
+
+//         // Set avatar from profile picture
+//         const profilePicture = documentUploaded.find(
+//           (doc) => doc.documentId === "userProfilePicture",
+//         );
+//         if (profilePicture) {
+//           values.avatar = profilePicture.path;
+//         }
+
+//         // Map document info with identity numbers and uploaded files
+//         const documentInfo = values.documentInfo || [];
+//         console.log(
+//           "Original documentInfo before processing uploads:: ",
+//           documentInfo,
+//         );
+//         console.log("filteredDocs (uploaded files):: ", filteredDocs);
+
+//         // Update existing documentInfo with file paths from uploads
+//         const updatedDocs = documentInfo.map((docInfo: any) => {
+//           // Find the corresponding uploaded file by documentId
+//           const uploadedFile = filteredDocs.find(
+//             (doc) => doc.documentId === docInfo.documentId,
+//           );
+//           return {
+//             ...docInfo, // Keep original data including identityNumber
+//             ...(uploadedFile && {
+//               path: uploadedFile.path,
+//               fileName: uploadedFile.fileName,
+//             }), // Add file info only if file was uploaded
+//           };
+//         });
+
+//         console.log(
+//           "Updated documentInfo after processing uploads:: ",
+//           updatedDocs,
+//         );
+//         values.documentInfo = updatedDocs;
+//         await uploadEducationDocuments(values, savedUserId);
+
+//         // Step 4: Save employee data
+//         const savedEmployeeId = await saveNewEmployee(values, savedUserId);
+
+//         if (!savedEmployeeId) {
+//           throw new Error("Failed to save employee data");
+//         }
+
+//         // Step 5: Update employee roles
+//         const appRole = values.appRole;
+//         if (appRole) {
+//           try {
+//             await updateEmployeeRolesById(savedEmployeeId, {
+//               roleIds: [appRole],
+//             });
+//           } catch (roleError) {
+//             console.error("Error while updating employee roles:", roleError);
+//             // Don't throw here as this might not be critical
+//           }
+//         }
+
+//         // Step 6: Save additional employee data
+//         await saveEmployeeData(values, savedEmployeeId);
+//         // debugger;
+//         // Success handling
+//         successConfirmation("Successfully onboarded an employee");
+//         localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+//         stepper?.goto(1);
+//         setActiveStepIndex(1);
+//         setCurrentSchema(newEmployeeWizardSchema[0]);
+//         actions.resetForm();
+//       } catch (error) {
+//         console.error("Submission error:", error);
+
+//         // Cleanup: Archive user if it was created but process failed
+//         if (savedUserId) {
+//           try {
+//             await archiveUser(savedUserId, { status: "archived" });
+//           } catch (archiveError) {
+//             console.error(
+//               "Failed to archive user during cleanup:",
+//               archiveError,
+//             );
+//           }
+//         }
+
+//         // Handle different types of errors
+//         await handleSubmissionError(error);
+//       } finally {
+//         setIsSubmitting(false);
+//       }
+//     }
+
+//     // Update schema for current step
+//     setCurrentSchema(newEmployeeWizardSchema[(stepper?.currentStepIndex || activeStepIndex) - 1]);
+//   };
+
+//   // Separate error handling function for better organization
+//   const handleSubmissionError = async (error: any) => {
+//     try {
+//       // Handle validation errors (422 status)
+//       if (error?.response?.status === 422) {
+//         const validationErrors = error.response?.data?.validationError || [];
+//         const importantFields = [
+//           "firstName",
+//           "lastName",
+//           "personalEmailId",
+//           "personalPhoneNumber",
+//           "dateOfBirth",
+//           "gender",
+//           "dateOfJoining",
+//           "departmentId",
+//           "branchId",
+//           "employeeTypeId",
+//           "companyEmailId",
+//         ];
+
+//         // Filter and format validation errors
+//         const filteredErrors = validationErrors
+//           .filter((err: any) => importantFields.includes(err.field))
+//           .map((err: any) => `• ${err.errors.join(" ")}`)
+//           .join("\n\n");
+
+//         if (filteredErrors.length > 0) {
+//           errorConfirmation(filteredErrors.replace(/\n/g, "<br>"));
+//           return;
+//         } else {
+//           errorConfirmation(
+//             "No specific validation errors found, but the request failed. Please try again.",
+//           );
+//           return;
+//         }
+//       }
+
+//       // Handle other API errors
+//       const responseData = error?.response?.data || {};
+//       const errorMessage =
+//         responseData.detail ||
+//         responseData.message ||
+//         responseData.error ||
+//         responseData.errors?.map((err: string) => `• ${err}`).join("\n") ||
+//         error?.response?.statusText ||
+//         "An unknown error occurred.";
+
+//       errorConfirmation(errorMessage.replace(/\n/g, "<br>"));
+//     } catch (parseError) {
+//       // Handle errors in error parsing
+//       const fallbackMessage =
+//         error instanceof Error
+//           ? `Error during submission: ${error.message}`
+//           : typeof error === "string"
+//             ? `Error during submission: ${error}`
+//             : "An unexpected error occurred during submission.";
+
+//       errorConfirmation(fallbackMessage);
+//     }
+
+//     // Handle network errors
+//     if (!error?.response) {
+//       errorConfirmation(
+//         "A network error occurred. Please check your internet connection and try again.",
+//       );
+//     }
+//   };
+
+//   useEffect(() => {
+//     if (!stepperRef.current) {
+//       return;
+//     }
+//     loadStepper();
+//   }, [stepperRef]);
+
+//   // Synchronize validation schema with the current active step index automatically
+//   useEffect(() => {
+//     setCurrentSchema(newEmployeeWizardSchema[activeStepIndex - 1]);
+//   }, [activeStepIndex]);
+
+//   // Sidebar nav: backward always allowed; forward only if current step is valid
+//   useEffect(() => {
+//     if (!stepper || !stepperRef.current) return;
+
+//     const navItems = Array.from(
+//       stepperRef.current.querySelectorAll('[data-kt-stepper-element="nav"]')
+//     ) as HTMLElement[];
+
+//     const handlers: Array<(e: Event) => void> = [];
+
+//     navItems.forEach((item, index) => {
+//       const targetStep = index + 1;
+//       const handler = (e: Event) => {
+//         const currentIndex = stepper.currentStepIndex;
+//         if (targetStep === currentIndex) {
+//           e.stopImmediatePropagation();
+//           return;
+//         }
+//         if (targetStep < currentIndex) {
+//           // Backward — always allow, update schema
+//           e.stopImmediatePropagation();
+//           stepper.goto(targetStep);
+//           setActiveStepIndex(targetStep);
+//           setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+//           scrollWizardToTop();
+//           return;
+//         }
+//         // Forward — validate current step first
+//         e.stopImmediatePropagation();
+//         if (!formikRef.current) return;
+//         formikRef.current.validateForm().then((errors: any) => {
+//           if (Object.keys(errors).length === 0) {
+//             stepper.goto(targetStep);
+//             setActiveStepIndex(targetStep);
+//             setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+//             scrollWizardToTop();
+//           } else {
+//             // Touch all error fields so UI shows which are invalid
+//             const touchedObj: Record<string, boolean> = {};
+//             const flatten = (obj: any, prefix = "") => {
+//               for (const key of Object.keys(obj)) {
+//                 const path = prefix ? `${prefix}.${key}` : key;
+//                 if (obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) {
+//                   flatten(obj[key], path);
+//                 } else {
+//                   touchedObj[path] = true;
+//                 }
+//               }
+//             };
+//             flatten(errors);
+//             formikRef.current.setTouched(touchedObj, false);
+//           }
+//         });
+//       };
+//       item.addEventListener("click", handler, { capture: true });
+//       handlers.push(handler);
+//     });
+
+//     return () => {
+//       navItems.forEach((item, idx) => {
+//         item.removeEventListener("click", handlers[idx], { capture: true });
+//       });
+//     };
+//   }, [stepper]);
+
+//   useEffect(() => {
+//     if (!editMode) return;
+
+//     async function wizard() {
+//       if (!employeeId) return;
+//       const {
+//         data: { wizardData },
+//       } = await fetchWizardData(employeeId, false);
+      
+//       console.log("[PF DEBUG] RAW API RESPONSE wizardData:", wizardData);
+      
+//       let presentAddress = {};
+//       const { attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime } =
+//         wizardData;
+//       const isSameAddress =
+//         wizardData.addressInfo?.presentAddressLine1 === null;
+//       if (isSameAddress) {
+//         const {
+//           permanentAddressLine1,
+//           permanentAddressLine2,
+//           permanentCountry,
+//           permanentState,
+//           permanentCity,
+//           permanentPostalCode,
+//         } = wizardData.addressInfo;
+//         presentAddress = {
+//           presentAddressLine1: permanentAddressLine1,
+//           presentAddressLine2: permanentAddressLine2,
+//           presentCountry: permanentCountry,
+//           presentState: permanentState,
+//           presentCity: permanentCity,
+//           presentPostalCode: permanentPostalCode,
+//         };
+//       }
+
+//       const newState = {
+//         ...initialState,
+//         ...wizardData,
+//         method: "0",
+//         educationalInfo: withDefaultEducationInfo(wizardData?.educationalInfo),
+//         familyInfo: withDefaultFamilyInfo(wizardData?.familyInfo),
+//         workExpInfo: withDefaultWorkExpInfo(wizardData?.workExpInfo),
+//         addressInfo: { ...wizardData.addressInfo, ...presentAddress },
+//         emergencyDetails: wizardData?.emergencyDetails || {
+//           bloodGroup: "",
+//           allergies: "",
+//           emergencyContactName: "",
+//           emergencyContactNumber: "",
+//         },
+//         appRole: wizardData?.roles[0]?.id,
+//         isEmployeeActive: wizardData?.isActive ? "1" : "0",
+//         isAdmin: wizardData?.isAdmin ? "1" : "0",
+//         attendanceRequestRaiseLimit: attendanceRequestRaiseLimit || 0,
+//         allowedPerMonth: allowedPerMonth || 1,
+//         allowOverTime: allowOverTime,
+//         bloodGroup:
+//           wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
+//         // Map employee type and status config IDs - only if they exist
+//         ...(wizardData?.employeeTypeConfigId && {
+//           employeeTypeConfigId: wizardData.employeeTypeConfigId,
+//         }),
+//         ...(wizardData?.employeeStatusConfigId && {
+//           employeeStatusConfigId: wizardData.employeeStatusConfigId,
+//         }),
+//         // Newly added fields
+//         teamId: wizardData?.teamId || "",
+//         roomOrBlock: wizardData?.roomOrBlock || "",
+//         shift: wizardData?.shift || "",
+//         experienceLevel: wizardData?.experienceLevel || "",
+//         employeeLevelId: wizardData?.employeeLevelId || "",
+//         // Social media fields from users object
+//         linkedInProfileUrl: wizardData?.users?.linkedInProfileUrl || "",
+//         instagramProfileUrl: wizardData?.users?.instagramProfileUrl || "",
+//         facebookProfileUrl: wizardData?.users?.facebookProfileUrl || "",
+//         // Other user fields
+//         hobbies: wizardData?.users?.hobbies || "",
+//         notes: wizardData?.users?.notes || "",
+//         // Discretionary leave fields
+//         discretionaryLeaveBoolean: wizardData?.discretionaryLeaveBoolean
+//           ? "true"
+//           : "false",
+//         discretionaryLeaveBalance: wizardData?.discretionaryLeaveBalance || 0,
+//         // Privacy: load the current visibility setting so the toggle reflects DB state
+//         isHiddenFromStaff: wizardData?.isHiddenFromStaff === true,
+//         // Professional Fees — see helpers at top of file.
+//         professionalFeesEnabled: readProfessionalFeesEnabled(
+//           wizardData?.professionalFeesEnabled ??
+//             (wizardData as any)?.professional_fees_enabled,
+//         ),
+//         professionalFeesAmount: (() => {
+//           const v =
+//             wizardData?.professionalFeesAmount ??
+//             (wizardData as any)?.professional_fees_amount;
+//           return v != null && v !== "" ? String(v) : "";
+//         })(),
+//         professionalFeesPercentage: (() => {
+//           const v =
+//             (wizardData as any)?.professionalFeesPercentage ??
+//             (wizardData as any)?.professional_fees_percentage;
+//           return v != null && v !== "" ? String(v) : "";
+//         })(),
+//         professionalFeesType:
+//           wizardData?.professionalFeesType ||
+//           (wizardData as any)?.professional_fees_type ||
+//           "FIXED",
+//       };
+//       console.log("[PF DEBUG] wizardData prof-fees fields:", {
+//         professionalFeesEnabled: wizardData?.professionalFeesEnabled,
+//         professional_fees_enabled: (wizardData as any)?.professional_fees_enabled,
+//         professionalFeesType: wizardData?.professionalFeesType,
+//         professionalFeesAmount: wizardData?.professionalFeesAmount,
+//         professionalFeesPercentage: (wizardData as any)?.professionalFeesPercentage,
+//       });
+//       console.log("[PF DEBUG] newState prof-fees fields:", {
+//         professionalFeesEnabled: newState.professionalFeesEnabled,
+//         professionalFeesType: newState.professionalFeesType,
+//         professionalFeesAmount: newState.professionalFeesAmount,
+//         professionalFeesPercentage: newState.professionalFeesPercentage,
+//       });
+//       setDefaultState(newState);
+//     }
+
+//     loadStepper();
+//   }, [stepperRef]);
+
+//   // Synchronize validation schema with the current active step index automatically
+//   useEffect(() => {
+//     setCurrentSchema(newEmployeeWizardSchema[activeStepIndex - 1]);
+//   }, [activeStepIndex]);
+
+//   // Sidebar nav: backward always allowed; forward only if current step is valid
+//   useEffect(() => {
+//     if (!stepper || !stepperRef.current) return;
+
+//     const navItems = Array.from(
+//       stepperRef.current.querySelectorAll('[data-kt-stepper-element="nav"]')
+//     ) as HTMLElement[];
+
+//     const handlers: Array<(e: Event) => void> = [];
+
+//     navItems.forEach((item, index) => {
+//       const targetStep = index + 1;
+//       const handler = (e: Event) => {
+//         const currentIndex = stepper.currentStepIndex;
+//         if (targetStep === currentIndex) {
+//           e.stopImmediatePropagation();
+//           return;
+//         }
+//         if (targetStep < currentIndex) {
+//           // Backward — always allow, update schema
+//           e.stopImmediatePropagation();
+//           stepper.goto(targetStep);
+//           setActiveStepIndex(targetStep);
+//           setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+//           scrollWizardToTop();
+//           return;
+//         }
+//         // Forward — validate current step first
+//         e.stopImmediatePropagation();
+//         if (!formikRef.current) return;
+//         formikRef.current.validateForm().then((errors: any) => {
+//           if (Object.keys(errors).length === 0) {
+//             stepper.goto(targetStep);
+//             setActiveStepIndex(targetStep);
+//             setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+//             scrollWizardToTop();
+//           } else {
+//             // Touch all error fields so UI shows which are invalid
+//             const touchedObj: Record<string, boolean> = {};
+//             const flatten = (obj: any, prefix = "") => {
+//               for (const key of Object.keys(obj)) {
+//                 const path = prefix ? `${prefix}.${key}` : key;
+//                 if (obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) {
+//                   flatten(obj[key], path);
+//                 } else {
+//                   touchedObj[path] = true;
+//                 }
+//               }
+//             };
+//             flatten(errors);
+//             formikRef.current.setTouched(touchedObj, false);
+//           }
+//         });
+//       };
+//       item.addEventListener("click", handler, { capture: true });
+//       handlers.push(handler);
+//     });
+
+//     return () => {
+//       navItems.forEach((item, idx) => {
+//         item.removeEventListener("click", handlers[idx], { capture: true });
+//       });
+//     };
+//   }, [stepper]);
+
+//   useEffect(() => {
+//     if (!editMode) return;
+
+//     async function wizard() {
+//       if (!employeeId) return;
+//       const {
+//         data: { wizardData },
+//       } = await fetchWizardData(employeeId, false);
+      
+//       console.log("[PF DEBUG] RAW API RESPONSE wizardData:", wizardData);
+      
+//       let presentAddress = {};
+//       const { attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime } =
+//         wizardData;
+//       const isSameAddress =
+//         wizardData.addressInfo?.presentAddressLine1 === null;
+//       if (isSameAddress) {
+//         const {
+//           permanentAddressLine1,
+//           permanentAddressLine2,
+//           permanentCountry,
+//           permanentState,
+//           permanentCity,
+//           permanentPostalCode,
+//         } = wizardData.addressInfo;
+//         presentAddress = {
+//           presentAddressLine1: permanentAddressLine1,
+//           presentAddressLine2: permanentAddressLine2,
+//           presentCountry: permanentCountry,
+//           presentState: permanentState,
+//           presentCity: permanentCity,
+//           presentPostalCode: permanentPostalCode,
+//         };
+//       }
+
+//       const newState = {
+//         ...initialState,
+//         ...wizardData,
+//         method: "0",
+//         educationalInfo: withDefaultEducationInfo(wizardData?.educationalInfo),
+//         familyInfo: withDefaultFamilyInfo(wizardData?.familyInfo),
+//         workExpInfo: withDefaultWorkExpInfo(wizardData?.workExpInfo),
+//         addressInfo: { ...wizardData.addressInfo, ...presentAddress },
+//         emergencyDetails: wizardData?.emergencyDetails || {
+//           bloodGroup: "",
+//           allergies: "",
+//           emergencyContactName: "",
+//           emergencyContactNumber: "",
+//         },
+//         appRole: wizardData?.roles[0]?.id,
+//         isEmployeeActive: wizardData?.isActive ? "1" : "0",
+//         isAdmin: wizardData?.isAdmin ? "1" : "0",
+//         attendanceRequestRaiseLimit: attendanceRequestRaiseLimit || 0,
+//         allowedPerMonth: allowedPerMonth || 1,
+//         allowOverTime: allowOverTime,
+//         bloodGroup:
+//           wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
+//         // Map employee type and status config IDs - only if they exist
+//         ...(wizardData?.employeeTypeConfigId && {
+//           employeeTypeConfigId: wizardData.employeeTypeConfigId,
+//         }),
+//         ...(wizardData?.employeeStatusConfigId && {
+//           employeeStatusConfigId: wizardData.employeeStatusConfigId,
+//         }),
+//         // Newly added fields
+//         teamId: wizardData?.teamId || "",
+//         roomOrBlock: wizardData?.roomOrBlock || "",
+//         shift: wizardData?.shift || "",
+//         experienceLevel: wizardData?.experienceLevel || "",
+//         employeeLevelId: wizardData?.employeeLevelId || "",
+//         // Social media fields from users object
+//         linkedInProfileUrl: wizardData?.users?.linkedInProfileUrl || "",
+//         instagramProfileUrl: wizardData?.users?.instagramProfileUrl || "",
+//         facebookProfileUrl: wizardData?.users?.facebookProfileUrl || "",
+//         // Other user fields
+//         hobbies: wizardData?.users?.hobbies || "",
+//         notes: wizardData?.users?.notes || "",
+//         // Discretionary leave fields
+//         discretionaryLeaveBoolean: wizardData?.discretionaryLeaveBoolean
+//           ? "true"
+//           : "false",
+//         discretionaryLeaveBalance: wizardData?.discretionaryLeaveBalance || 0,
+//         // Privacy: load the current visibility setting so the toggle reflects DB state
+//         isHiddenFromStaff: wizardData?.isHiddenFromStaff === true,
+//         // Professional Fees — see helpers at top of file.
+//         professionalFeesEnabled: readProfessionalFeesEnabled(
+//           wizardData?.professionalFeesEnabled ??
+//             (wizardData as any)?.professional_fees_enabled,
+//         ),
+//         professionalFeesAmount: (() => {
+//           const v =
+//             wizardData?.professionalFeesAmount ??
+//             (wizardData as any)?.professional_fees_amount;
+//           return v != null && v !== "" ? String(v) : "";
+//         })(),
+//         professionalFeesPercentage: (() => {
+//           const v =
+//             (wizardData as any)?.professionalFeesPercentage ??
+//             (wizardData as any)?.professional_fees_percentage;
+//           return v != null && v !== "" ? String(v) : "";
+//         })(),
+//         professionalFeesType:
+//           wizardData?.professionalFeesType ||
+//           (wizardData as any)?.professional_fees_type ||
+//           "FIXED",
+//       };
+//       console.log("[PF DEBUG] wizardData prof-fees fields:", {
+//         professionalFeesEnabled: wizardData?.professionalFeesEnabled,
+//         professional_fees_enabled: (wizardData as any)?.professional_fees_enabled,
+//         professionalFeesType: wizardData?.professionalFeesType,
+//         professionalFeesAmount: wizardData?.professionalFeesAmount,
+//         professionalFeesPercentage: (wizardData as any)?.professionalFeesPercentage,
+//       });
+//       console.log("[PF DEBUG] newState prof-fees fields:", {
+//         professionalFeesEnabled: newState.professionalFeesEnabled,
+//         professionalFeesType: newState.professionalFeesType,
+//         professionalFeesAmount: newState.professionalFeesAmount,
+//         professionalFeesPercentage: newState.professionalFeesPercentage,
+//       });
+//       setDefaultState(newState);
+//     }
+
+//     wizard();
+//   }, [employeeId, defaultState.method]);
+
+//   const handleClose = () => {
+//     setShow(false);
+//     navigate("/employees");
+//   };
+
+//   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+//   useEffect(() => {
+//     const handleResize = () => setWindowWidth(window.innerWidth);
+//     window.addEventListener("resize", handleResize);
+//     return () => window.removeEventListener("resize", handleResize);
+//   }, []);
+
+//   // Keyboard shortcut for Continue
+//   useEffect(() => {
+//     const handleKeyDown = (e: KeyboardEvent) => {
+//       if (e.ctrlKey && e.key === "Enter") {
+//         e.preventDefault();
+//         // Use formikRef if defined to submit, or let the form button handle it if focused.
+//         if (formikRef.current) {
+//           formikRef.current.submitForm();
+//         }
+//       }
+//     };
+//     window.addEventListener("keydown", handleKeyDown);
+//     return () => window.removeEventListener("keydown", handleKeyDown);
+//   }, []);
+
+//   return (
+//     <>
+//       <Modal
+//         show={show}
+//         onHide={handleClose}
+//         dialogClassName="full-width-modal"
+//         className="full-width-modal"
+//       >
+//         <Modal.Body ref={modalBodyRef} className="employee__form_wizard__modal_body ob-modal-body">
+//           <Formik
+//             initialValues={defaultState}
+//             validationSchema={currentSchema}
+//             onSubmit={submitStep}
+//             enableReinitialize={true}
+//           >
+//             {(formikProps) => {
+//               formikRef.current = formikProps;
+
+//               useEffect(() => {
+//                 formikProps.validateForm();
+//               }, [activeStepIndex, defaultState]);
+
+//               const completion = calculateProfileCompletion(formikProps.values);
+//               const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
+
+//               return (
+//                 <Form
+//                   className="ob-wizard-root"
+//                   data-theme={isDarkMode ? "dark" : "light"}
+//                   noValidate
+//                   id="employee_onboarding_form"
+//                   placeholder={undefined}
+//                 >
+//                   <div
+//                     ref={stepperRef}
+//                     className="stepper stepper-pills d-flex flex-column flex-row-fluid"
+//                     id="kt_create_account_stepper"
+//                   >
+//                     <header className="ob-header-bar">
+//                       <div className="ob-header-left">
+//                         <h2 className="ob-header-title">Employee Onboarding</h2>
+//                         {editMode && defaultState.firstName && (
+//                           <span className="ob-header-user-chip">{defaultState.firstName} {defaultState.lastName}</span>
+//                         )}
+//                       </div>
+//                       <div className="ob-header-right">
+//                         <div className="ob-profile-completion">
+//                           <span className="ob-completion-label">{completion}% Complete</span>
+//                           <div className="ob-completion-bar-track">
+//                             <div className="ob-completion-bar-fill" style={{ width: `${completion}%` }} />
+//                           </div>
+//                         </div>
+//                         <button
+//                           type="button"
+//                           className="ob-darkmode-toggle"
+//                           onClick={() => setIsDarkMode((d: boolean) => !d)}
+//                           aria-label="Toggle dark mode"
+//                           title="Toggle dark mode"
+//                         >
+//                           {isDarkMode ? "☀" : "☾"}
+//                         </button>
+//                       </div>
+//                     </header>
+
+//                     <nav className="ob-stepper-nav-bar">
+//                       <div className="ob-horiz-stepper">
+//                         <div className={`stepper-item ob-step-item ${activeStepIndex === 1 ? "current" : ""} ${activeStepIndex > 1 ? "completed" : ""} ${activeStepIndex < 1 ? "inactive" : ""}`} data-kt-stepper-element="nav">
+//                           <div className="ob-step-circle">
+//                             {activeStepIndex > 1 ? <KTIcon iconName="check" className="fs-6 text-white stepper-check-anim" /> : "1"}
+//                           </div>
+//                           <div className="ob-step-labels">
+//                             <div className="ob-step-name">Personal Details</div>
+//                             <div className="ob-step-desc">~2 min</div>
+//                           </div>
+//                         </div>
+//                         <div className={`ob-step-connector ${activeStepIndex > 1 ? "completed" : ""}`} />
+//                         <div className={`stepper-item ob-step-item ${activeStepIndex === 2 ? "current" : ""} ${activeStepIndex > 2 ? "completed" : ""} ${activeStepIndex < 2 ? "inactive" : ""}`} data-kt-stepper-element="nav">
+//                           <div className="ob-step-circle">
+//                             {activeStepIndex > 2 ? <KTIcon iconName="check" className="fs-6 text-white stepper-check-anim" /> : "2"}
+//                           </div>
+//                           <div className="ob-step-labels">
+//                             <div className="ob-step-name">Company Details</div>
+//                             <div className="ob-step-desc">~3 min</div>
+//                           </div>
+//                         </div>
+//                         <div className={`ob-step-connector ${activeStepIndex > 2 ? "completed" : ""}`} />
+//                         <div className={`stepper-item ob-step-item ${activeStepIndex === 3 ? "current" : ""} ${activeStepIndex > 3 ? "completed" : ""} ${activeStepIndex < 3 ? "inactive" : ""}`} data-kt-stepper-element="nav">
+//                           <div className="ob-step-circle">
+//                             {activeStepIndex > 3 ? <KTIcon iconName="check" className="fs-6 text-white stepper-check-anim" /> : "3"}
+//                           </div>
+//                           <div className="ob-step-labels">
+//                             <div className="ob-step-name">App Settings</div>
+//                             <div className="ob-step-desc">~2 min</div>
+//                           </div>
+//                         </div>
+//                         <div className={`ob-step-connector ${activeStepIndex > 3 ? "completed" : ""}`} />
+//                         <div className={`stepper-item ob-step-item ${activeStepIndex === 4 ? "current" : ""} ${activeStepIndex < 4 ? "inactive" : ""}`} data-kt-stepper-element="nav">
+//                           <div className="ob-step-circle">
+//                             {activeStepIndex > 4 ? <KTIcon iconName="check" className="fs-6 text-white stepper-check-anim" /> : "4"}
+//                           </div>
+//                           <div className="ob-step-labels">
+//                             <div className="ob-step-name">Documents</div>
+//                             <div className="ob-step-desc">~1 min</div>
+//                           </div>
+//                         </div>
+//                       </div>
+//                     </nav>
+
+//                     <main className="ob-main-layout">
+//                       <div key={activeStepIndex} className="wizard-step-transition">
+//                         {activeStepIndex === 1 ? (
+//                           <div className="ob-two-col-layout">
+//                             <aside className="ob-sections-sidebar">
+//                               <nav>
+//                                 {NAV_SECTIONS.map((section) => {
+//                                   const { filled, total } = COMPLETION_FNS[section.id]?.(formikProps.values) ?? { filled: 0, total: 0 };
+//                                   const isComplete = total > 0 && filled >= total;
+//                                   const isActive = activeSection === section.id;
+//                                   return (
+//                                     <button
+//                                       key={section.id}
+//                                       type="button"
+//                                       className={`ob-section-nav-link${isActive ? ' active' : ''}${isComplete ? ' complete' : ''}`}
+//                                       onClick={() => setActiveSection(section.id)}
+//                                     >
+//                                       <span className="ob-section-nav-icon">{section.icon}</span>
+//                                       <span className="ob-section-nav-label">{section.label}</span>
+//                                       {isComplete && (
+//                                         <span className="ob-section-nav-check">
+//                                           <CheckCircle size={13} />
+//                                         </span>
+//                                       )}
+//                                     </button>
+//                                   );
+//                                 })}
+//                               </nav>
+//                             </aside>
+//                             <div className="ob-form-area">
+//                               <Step2
+//                                 formikProps={formikProps}
+//                                 setFile={addFileToState}
+//                                 setEducationFile={addEducationFileToState}
+//                                 activeSection={activeSection}
+//                                 onSectionChange={setActiveSection}
+//                               />
+//                             </div>
+//                           </div>
+//                         ) : null}
+
+//                         {activeStepIndex === 2 ? (
+//                           <Step3 formikProps={formikProps} editMode={editMode} />
+//                         ) : null}
+
+//                         {activeStepIndex === 3 ? (
+//                           <StepAppSettings formikProps={formikProps} editMode={editMode} />
+//                         ) : null}
+
+//                         {activeStepIndex === 4 ? (
+//                           <Step4 formikProps={formikProps} setFile={addFileToState} />
+//                         ) : null}
+//                       </div>
+//                     </main>
+
+//                     <footer className="ob-footer-bar">
+//                       <button type="button" className="ob-cancel-onboarding-btn" onClick={handleClose}>
+//                         <KTIcon iconName="cross" className="fs-4" />
+//                         Cancel Onboarding
+//                       </button>
+//                       <div className="ob-footer-actions">
+//                         <button
+//                           onClick={prevStep}
+//                           type="button"
+//                           className="ob-back-btn"
+//                           disabled={activeStepIndex === 1}
+//                         >
+//                           <KTIcon iconName="arrow-left" className="fs-4" />
+//                           Back
+//                         </button>
+//                         <button
+//                           type="button"
+//                           className="ob-save-draft-btn"
+//                           disabled={isSubmitting}
+//                           onClick={() => saveDraftToCache(formikProps.values)}
+//                         >
+//                           <KTIcon iconName="save-2" className="fs-4 me-1" />
+//                           {draftSavedAt ? "Draft Saved" : "Save Draft"}
+//                         </button>
+//                         <button type="submit" className="ob-continue-btn" disabled={isSubmitting}>
+//                           {isLastStep ? (
+//                             isSubmitting ? (
+//                               <>
+//                                 Please wait...
+//                                 <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+//                               </>
+//                             ) : (
+//                               "Submit"
+//                             )
+//                           ) : (
+//                             <>
+//                               Continue
+//                               <KTIcon iconName="arrow-right" className="fs-4" />
+//                             </>
+//                           )}
+//                         </button>
+//                         <div className="ob-shortcut-hint">Ctrl + Enter</div>
+//                       </div>
+//                     </footer>
+
+//                     {draftSavedAt && (
+//                       <div className="ob-autosave-toast">
+//                         Last saved {Math.max(0, Math.floor((Date.now() - new Date(draftSavedAt).getTime()) / 1000))} seconds ago.
+//                       </div>
+//                     )}
+//                   </div>
+//                 </Form>
+//               );
+//             }}
+//           </Formik>
+//         </Modal.Body>
+//       </Modal>
+//     </>
+//   );
+// }
+
+// export default NewEmployeeWizard;
+
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
@@ -7,10 +2817,12 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-// import Step1 from "./steps/Step1"; // Commented out - wizard now starts at Personal Details
-import Step2 from "./steps/Step2";
+import Step2, { NAV_SECTIONS, COMPLETION_FNS } from "./steps/Step2";
+import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
+import StepAppSettings from "./steps/StepAppSettings";
+import "./steps/Step2.css";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
   createAddressDetails,
@@ -41,61 +2853,15 @@ import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
 
 /**
- * Professional Fees helpers — single source of truth for translating between
- * the radio-input form state ("true"/"false" strings) and whatever shape the
- * backend / DB happens to hand us. The DB column is BOOLEAN, but depending on
- * the path (Prisma model vs raw query vs serialized response) we may receive
- * true, 1, "1", "true", or a Node Buffer like {type:"Buffer",data:[1]}.
+ * Professional Fees helpers
  */
-function readProfessionalFeesEnabled(
-  raw: unknown
-): "true" | "false" {
-  console.log(
-    "PF RAW VALUE:",
-    raw,
-    typeof raw
-  );
-
-  if (
-    raw === null ||
-    raw === undefined
-  ) {
-    return "false";
+function readProfessionalFeesEnabled(raw: unknown): "true" | "false" {
+  if (raw === null || raw === undefined) return "false";
+  if (raw === false || raw === 0 || raw === "0" || raw === "false" || raw === "FALSE") return "false";
+  if (raw === true || raw === 1 || raw === "1" || raw === "true" || raw === "TRUE") return "true";
+  if (typeof raw === "object" && raw !== null && "data" in (raw as any)) {
+    return (raw as any).data?.[0] ? "true" : "false";
   }
-
-  // false cases
-  if (
-    raw === false ||
-    raw === 0 ||
-    raw === "0" ||
-    raw === "false" ||
-    raw === "FALSE"
-  ) {
-    return "false";
-  }
-
-  // true cases
-  if (
-    raw === true ||
-    raw === 1 ||
-    raw === "1" ||
-    raw === "true" ||
-    raw === "TRUE"
-  ) {
-    return "true";
-  }
-
-  // MySQL tinyint buffer case
-  if (
-    typeof raw === "object" &&
-    raw !== null &&
-    "data" in (raw as any)
-  ) {
-    return (raw as any).data?.[0]
-      ? "true"
-      : "false";
-  }
-
   return "false";
 }
 
@@ -115,10 +2881,8 @@ function buildProfessionalFeesPayload(values: {
   professionalFeesPercentage: unknown;
   professionalFeesType: unknown;
 }) {
-  const enabled =
-    readProfessionalFeesEnabled(values.professionalFeesEnabled) === "true";
-  const type =
-    values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+  const enabled = readProfessionalFeesEnabled(values.professionalFeesEnabled) === "true";
+  const type = values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
 
   if (!enabled) {
     return {
@@ -153,414 +2917,393 @@ const PROF_FEES_KEYS = new Set([
   "professionalFeesPercentage",
 ]);
 
+const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
+
+const hasDraftValue = (value: any) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.length > 0;
+  return String(value).trim() !== "";
+};
+
+const calculateProfileCompletion = (values: any) => {
+  const education = values.educationalInfo?.[0] || {};
+  const family = values.familyInfo?.[0] || {};
+  const emergency = values.emergencyDetails || {};
+  const bank = values.bankInfo || {};
+  const address = values.addressInfo || {};
+
+  const trackedFields = [
+    values.firstName, values.lastName, values.nickName,
+    values.dateOfBirth, values.gender, values.maritalStatus,
+    values.personalEmailId, values.personalPhoneNumber, values.alternatePhoneNumber,
+    education.instituteName, education.qualificationName || education.degree,
+    education.passingYear || education.fromDate, education.percentage || education.cgpa,
+    family.name, family.relationship, family.mobileNumber, family.dateOfBirth,
+    emergency.emergencyContactName, emergency.emergencyContactNumber,
+    bank.accountNumber, bank.accountName, bank.ifscCode,
+    address.presentAddressLine1, address.presentCountry,
+    address.presentCity, address.presentPostalCode,
+    values.dateOfJoining, values.companyEmailId, values.departmentId,
+    values.designationId, values.branchId, values.appRole,
+    values.documentInfo?.some((doc: any) => doc?.path || doc?.fileName || doc?.identityNumber),
+  ];
+
+  const completed = trackedFields.filter(hasDraftValue).length;
+  return Math.round((completed / trackedFields.length) * 100);
+};
+
+const hasStartedEducationInfo = (education: any) =>
+  Boolean(
+    education?.instituteName || education?.qualificationMasterId ||
+    education?.qualificationName || education?.degree ||
+    education?.specialization || education?.stream || education?.customStream ||
+    education?.fromDate || education?.toDate || education?.passingYear ||
+    education?.percentage || education?.cgpa || education?.filePath || education?.fileName,
+  );
+
+const isSchoolQualification = (education: any) =>
+  ["SSC", "HSC"].includes(String(education?.qualificationName || education?.degree || "").trim());
+
+const isHscQualification = (education: any) =>
+  String(education?.qualificationName || education?.degree || "").trim() === "HSC";
+
+const createDefaultWorkExpInfo = () => ({ companyName: "", jobTitle: "", fromDate: "", toDate: "" });
+
+const hasWorkExpInfo = (workExp: any) =>
+  Boolean(workExp?.companyName || workExp?.jobTitle || workExp?.fromDate || workExp?.toDate);
+
+const withDefaultWorkExpInfo = (workExpInfo: any) =>
+  Array.isArray(workExpInfo) && workExpInfo.length > 0 ? workExpInfo : [createDefaultWorkExpInfo()];
+
+const optionalString = () =>
+  Yup.string().transform((value) => (value === "" ? undefined : value)).notRequired();
+
 const newEmployeeWizardSchema = [
-  // Step 1 commented out - wizard now starts at Personal Details
-  // Yup.object({
-  //   method: Yup.string().required().label('Method'),
-  // }),
   Yup.object({
     avatar: Yup.string(),
-    firstName: Yup.string()
-      .required("First name is required")
+    firstName: Yup.string().required("First name is required")
       .min(4, "First name must be at least 4 characters")
       .max(20, "First name must be at most 20 characters")
-      .matches(
-        employeeOnBardingFormRegexes["firstName"],
-        "First name can only contain alphabetic characters",
-      ),
-    lastName: Yup.string()
-      .required()
-      .label("Last Name")
+      .matches(employeeOnBardingFormRegexes["firstName"], "First name can only contain alphabetic characters"),
+    lastName: Yup.string().required().label("Last Name")
       .min(4, "Last name must be at least 4 characters")
       .max(20, "Last name must be at most 20 characters")
-      .matches(
-        employeeOnBardingFormRegexes["lastName"],
-        "Last name can only contain alphabetic characters",
-      ),
-    nickName: Yup.string(),
+      .matches(employeeOnBardingFormRegexes["lastName"], "Last name can only contain alphabetic characters"),
+    nickName: optionalString(),
     gender: Yup.string().required().label("Gender"),
-    maritalStatus: Yup.string().label("Marital Status"),
+    maritalStatus: optionalString().label("Marital Status"),
     dateOfBirth: Yup.string().required().label("Date Of Birth"),
-    anniversary: Yup.string().label("Anniversary Date"),
-    bloodGroup: Yup.string().label("Blood Group"),
-    personalEmailId: Yup.string()
-      .email()
-      .required()
-      .label("Personal Email Address")
-      .matches(
-        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-        "Invalid email address",
-      ),
-    personalPhoneNumber: Yup.string()
-      .required()
-      .label("Personal Phone Number")
+    anniversary: optionalString().label("Anniversary Date"),
+    bloodGroup: optionalString().label("Blood Group"),
+    personalEmailId: Yup.string().email().required().label("Personal Email Address")
+      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Invalid email address"),
+    personalPhoneNumber: Yup.string().required().label("Personal Phone Number")
       .min(10, "Phone Number must be at least 10 characters")
       .max(20, "Phone Number must be at most 20 characters")
-      .matches(
-        employeeOnBardingFormRegexes["personalPhoneNumber"],
-        "Phone Number can only contain numeric characters",
-      ),
-    personalPhoneNumberExtension: Yup.string().label(
-      "Personal Phone Number Extension",
-    ),
-    alternatePhoneNumber: Yup.string()
-      .label("Alternate Phone Number")
+      .matches(employeeOnBardingFormRegexes["personalPhoneNumber"], "Phone Number can only contain numeric characters"),
+    personalPhoneNumberExtension: optionalString().label("Personal Phone Number Extension"),
+    alternatePhoneNumber: optionalString().label("Alternate Phone Number")
       .min(10, "Phone Number must be at least 10 characters")
       .max(20, "Phone Number must be at most 20 characters")
-      .matches(
-        employeeOnBardingFormRegexes["alternatePhoneNumber"],
-        "Phone Number can only contain numeric characters",
-      ),
-    meal: Yup.string().label("Meal"),
-    educationalInfo: Yup.array()
-      .of(
-        Yup.object({
-          instituteName: Yup.string()
-            .label("Institute Name")
-            .min(4, "Institute Name must be at least 4 characters")
-            .max(20, "Institute Name must be at most 20 characters"),
-          degree: Yup.string()
-            .label("Degree")
-            .min(2, "Degree Name must be at least 2 characters")
-            .max(20, "Degree Name must be at most 20 characters"),
-          specialization: Yup.string().label("Specialization"),
-          fromDate: Yup.string().required().label("Date Started"),
-          toDate: Yup.string().required().label("Date Ended"),
-          filePath: Yup.string().label("Upload Certificate"),
+      .matches(employeeOnBardingFormRegexes["alternatePhoneNumber"], "Phone Number can only contain numeric characters"),
+    meal: optionalString().label("Meal"),
+    educationalInfo: Yup.array().of(
+      Yup.object({
+        instituteName: optionalString().label("Institute Name")
+          .min(4, "Institute Name must be at least 4 characters")
+          .max(100, "Institute Name must be at most 100 characters"),
+        qualificationMasterId: optionalString().label("Qualification"),
+        qualificationName: optionalString().label("Qualification"),
+        degree: optionalString().label("Degree")
+          .min(2, "Degree Name must be at least 2 characters")
+          .max(80, "Degree Name must be at most 80 characters"),
+        specialization: optionalString().label("Specialization"),
+        stream: optionalString().label("Stream"),
+        customStream: optionalString().label("Custom Stream Name"),
+        fromDate: optionalString().label("Date Started"),
+        toDate: optionalString().label("Date Ended"),
+        passingYear: optionalString().label("Passing Year"),
+        percentage: Yup.number().typeError("Percentage must be a number")
+          .min(0, "Percentage cannot be less than 0").max(100, "Percentage cannot be more than 100")
+          .nullable().transform((v, o) => o === "" ? null : v),
+        cgpa: Yup.number().typeError("CGPA must be a number")
+          .min(0, "CGPA cannot be less than 0").max(10, "CGPA cannot be more than 10")
+          .nullable().transform((v, o) => o === "" ? null : v),
+        filePath: optionalString().label("Upload Certificate"),
+      })
+        .test("education-qualification", "Qualification is required", function (value) {
+          if (!hasStartedEducationInfo(value) || value?.qualificationName || value?.degree) return true;
+          return this.createError({ path: `${this.path}.qualificationMasterId`, message: "Qualification is required" });
+        })
+        .test("education-school-passing-year", "Passing Year is required", function (value) {
+          if (!hasStartedEducationInfo(value) || !isSchoolQualification(value) || value?.passingYear) return true;
+          return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year is required" });
+        })
+        .test("education-passing-year-format", "Passing Year must be a valid year", function (value) {
+          if (!value?.passingYear) return true;
+          const year = Number(value.passingYear);
+          const currentYear = new Date().getFullYear();
+          if (/^\d{4}$/.test(String(value.passingYear)) && year >= 1900 && year <= currentYear) return true;
+          return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year must be between 1900 and the current year" });
+        })
+        .test("education-hsc-stream", "Stream is required", function (value) {
+          if (!hasStartedEducationInfo(value) || !isHscQualification(value) || value?.stream) return true;
+          return this.createError({ path: `${this.path}.stream`, message: "Stream is required" });
+        })
+        .test("education-custom-stream", "Custom Stream Name is required", function (value) {
+          if (!hasStartedEducationInfo(value) || !isHscQualification(value) || value?.stream !== "Others" || value?.customStream) return true;
+          return this.createError({ path: `${this.path}.customStream`, message: "Custom Stream Name is required" });
+        })
+        .test("education-from-date", "Date Started is required", function (value) {
+          if (!hasStartedEducationInfo(value) || isSchoolQualification(value) || value?.fromDate) return true;
+          return this.createError({ path: `${this.path}.fromDate`, message: "Date Started is required" });
+        })
+        .test("education-to-date", "Date Completed is required", function (value) {
+          if (!hasStartedEducationInfo(value) || isSchoolQualification(value) || value?.toDate) return true;
+          return this.createError({ path: `${this.path}.toDate`, message: "Date Completed is required" });
+        })
+        .test("education-date-order", "Date Completed cannot be before Date Started", function (value) {
+          if (!value?.fromDate || !value?.toDate) return true;
+          if (new Date(value.toDate) >= new Date(value.fromDate)) return true;
+          return this.createError({ path: `${this.path}.toDate`, message: "Date Completed cannot be before Date Started" });
+        })
+        .test("education-future-completion", "Date Completed cannot be in the future", function (value) {
+          if (!value?.toDate) return true;
+          const completedAt = new Date(value.toDate);
+          const today = new Date(); today.setHours(23, 59, 59, 999);
+          if (completedAt <= today) return true;
+          return this.createError({ path: `${this.path}.toDate`, message: "Date Completed cannot be in the future" });
         }),
-      )
-      .required(),
-    familyInfo: Yup.array()
-      .of(
-        Yup.object({
-          name: Yup.string()
-            .label("Family Member Name")
-            .min(4, "Family Member name must be at least 4 characters")
-            .max(20, "Family Member name must be at most 20 characters")
-            .matches(
-              employeeOnBardingFormRegexes["familyInfo.name"],
-              "Family Member name can only contain alphabetic characters",
-            ),
-          relationship: Yup.string()
-            .label("Member Relationship")
-            .min(3, "Member Relationship name must be at least 3 characters")
-            .max(20, "Member Relationship name must be at most 20 characters")
-            .matches(
-              employeeOnBardingFormRegexes["familyInfo.relationship"],
-              "Member Relationship name can only contain alphabetic characters",
-            ),
-          mobileNumber: Yup.string()
-            .label("Member Phone Number")
-            .min(10, "Phone Number must be at least 10 characters")
-            .max(20, "Phone Number must be at most 20 characters")
-            .matches(
-              employeeOnBardingFormRegexes["familyInfo.mobileNumber"],
-              "Phone Number can only contain numeric characters",
-            ),
-          dateOfBirth: Yup.string().label("Date of Birth"),
-        }),
-      )
-      .required()
-      .label("Family info"),
+    ).required()
+      .test("education-duplicates", "Duplicate qualification entry found", function (educations) {
+        const seen = new Set<string>();
+        for (let index = 0; index < (educations || []).length; index++) {
+          const education = educations?.[index];
+          if (!hasStartedEducationInfo(education)) continue;
+          const key = [education?.qualificationName || education?.degree, education?.specialization || education?.stream || education?.customStream || ""].join("|").toLowerCase();
+          if (seen.has(key)) return this.createError({ path: `${this.path}.${index}.qualificationMasterId`, message: "Duplicate qualification entry found" });
+          seen.add(key);
+        }
+        return true;
+      })
+      .test("education-sequence", "Academic sequence is invalid", function (educations) {
+        const rows = (educations || []).filter(hasStartedEducationInfo);
+        const byName = (name: string) => rows.find((row: any) => String(row?.qualificationName || row?.degree) === name);
+        const ssc = byName("SSC"); const hsc = byName("HSC");
+        const degree = byName("Degree"); const masters = byName("Masters");
+        if (ssc?.passingYear && hsc?.passingYear && Number(hsc.passingYear) < Number(ssc.passingYear))
+          return this.createError({ path: `${this.path}.${educations?.indexOf(hsc)}.passingYear`, message: "HSC passing year cannot be before SSC" });
+        if (masters && !degree)
+          return this.createError({ path: `${this.path}.${educations?.indexOf(masters)}.qualificationMasterId`, message: "Masters requires a Degree entry first" });
+        return true;
+      }),
+    familyInfo: Yup.array().of(
+      Yup.object({
+        name: optionalString().label("Family Member Name")
+          .min(4, "Family Member name must be at least 4 characters").max(20, "Family Member name must be at most 20 characters")
+          .matches(employeeOnBardingFormRegexes["familyInfo.name"], "Family Member name can only contain alphabetic characters"),
+        relationship: optionalString().label("Member Relationship")
+          .min(3, "Member Relationship name must be at least 3 characters").max(20, "Member Relationship name must be at most 20 characters")
+          .matches(employeeOnBardingFormRegexes["familyInfo.relationship"], "Member Relationship name can only contain alphabetic characters"),
+        mobileNumber: optionalString().label("Member Phone Number")
+          .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
+          .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
+        dateOfBirth: optionalString().label("Date of Birth"),
+      }),
+    ).required().label("Family info"),
     emergencyDetails: Yup.object({
-      bloodGroup: Yup.string().label("Blood Group"),
-      allergies: Yup.string()
-        .label("Allergies")
-        .max(100, "Allergies must be at most 100 characters"),
-      emergencyContactName: Yup.string()
-        .label("Emergency Contact Name")
-        .min(4, "Emergency Contact name must be at least 4 characters")
-        .max(100, "Emergency Contact name must be at most 100 characters")
-        .matches(
-          employeeOnBardingFormRegexes["emergencyDetails.emergencyContactName"],
-          "Emergency Contact name can only contain alphabetic characters",
-        ),
-      emergencyContactNumber: Yup.string()
-        .label("Emergency Contact Number")
-        .min(10, "Phone Number must be at least 10 characters")
-        .max(20, "Phone Number must be at most 20 characters")
-        .matches(
-          employeeOnBardingFormRegexes[
-            "emergencyDetails.emergencyContactNumber"
-          ],
-          "Phone Number can only contain numeric characters",
-        ),
+      bloodGroup: optionalString().label("Blood Group"),
+      allergies: optionalString().label("Allergies").max(100, "Allergies must be at most 100 characters"),
+      emergencyContactName: optionalString().label("Emergency Contact Name")
+        .min(4, "Emergency Contact name must be at least 4 characters").max(100, "Emergency Contact name must be at most 100 characters")
+        .matches(employeeOnBardingFormRegexes["emergencyDetails.emergencyContactName"], "Emergency Contact name can only contain alphabetic characters"),
+      emergencyContactNumber: optionalString().label("Emergency Contact Number")
+        .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
+        .matches(employeeOnBardingFormRegexes["emergencyDetails.emergencyContactNumber"], "Phone Number can only contain numeric characters"),
     }).required(),
     bankInfo: Yup.object({
-      accountName: Yup.string()
-        .label("Account Holder Name")
-        .min(4, "Account Holder name must be at least 4 characters")
-        .max(20, "Account Holder name must be at most 20 characters")
-        .matches(
-          employeeOnBardingFormRegexes["bankInfo.accountName"],
-          "Account Holder name can only contain alphabetic characters",
-        ),
-      accountNumber: Yup.string()
-        .label("Account Number")
-        .min(8, "Account Number must be at least 8 characters")
-        .max(20, "Account Number must be at most 20 characters")
-        .matches(
-          employeeOnBardingFormRegexes["bankInfo.accountNumber"],
-          "Account Number can only contain numeric characters",
-        ),
-      ifscCode: Yup.string().label("IFSC Code"),
-      filePath: Yup.string().label("Upload Bank Proof"),
+      accountName: optionalString().label("Account Holder Name")
+        .min(4, "Account Holder name must be at least 4 characters").max(20, "Account Holder name must be at most 20 characters")
+        .matches(employeeOnBardingFormRegexes["bankInfo.accountName"], "Account Holder name can only contain alphabetic characters"),
+      accountNumber: optionalString().label("Account Number")
+        .min(8, "Account Number must be at least 8 characters").max(20, "Account Number must be at most 20 characters")
+        .matches(employeeOnBardingFormRegexes["bankInfo.accountNumber"], "Account Number can only contain numeric characters"),
+      ifscCode: optionalString().label("IFSC Code"),
+      filePath: optionalString().label("Upload Bank Proof"),
     }).required(),
     addressInfo: Yup.object({
-      permanentAddressLine1: Yup.string()
-        .label("Address Line 1")
-        .min(8, "Address Line must be at least 8 characters"),
-      permanentAddressLine2: Yup.string()
-        .label("Address Line 2")
-        .min(8, "Address Line must be at least 8 characters"),
-      permanentCountry: Yup.string().label("Country"),
-      permanentState: Yup.string().label("State"),
-      permanentCity: Yup.string().label("City"),
-      permanentPostalCode: Yup.string()
-        .label("Postal Code")
-        .min(4, "Postal Code must be at least 4 characters")
-        .max(16, "Postal Code must be at most 16 characters")
-        .matches(
-          employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"],
-          "Postal Code can only contain numeric characters",
-        ),
-      presentAddressLine1: Yup.string(),
-      presentAddressLine2: Yup.string(),
-      presentCountry: Yup.string(),
-      presentState: Yup.string(),
-      presentCity: Yup.string(),
-      presentPostalCode: Yup.string(),
+      permanentAddressLine1: optionalString().label("Address Line 1").min(8, "Address Line must be at least 8 characters"),
+      permanentAddressLine2: optionalString().label("Address Line 2").min(8, "Address Line must be at least 8 characters"),
+      permanentCountry: optionalString().label("Country"),
+      permanentState: optionalString().label("State"),
+      permanentCity: optionalString().label("City"),
+      permanentPostalCode: optionalString().label("Postal Code")
+        .min(4, "Postal Code must be at least 4 characters").max(16, "Postal Code must be at most 16 characters")
+        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Postal Code can only contain numeric characters"),
+      presentAddressLine1: optionalString(),
+      presentAddressLine2: optionalString(),
+      presentCountry: optionalString(),
+      presentState: optionalString(),
+      presentCity: optionalString(),
+      presentPostalCode: optionalString(),
     }).required(),
   }),
   Yup.object({
     designationId: Yup.string().required().label("Job Profile"),
     departmentId: Yup.string().required().label("Department"),
     branchId: Yup.string().required().label("Branch"),
-    employeeTypeId: Yup.string().label("Employee Type (Old)"),
-    employeeTypeConfigId: Yup.string().optional().label("Employee Type"),
-    workingMethodId: Yup.string().required().label("Working Method"),
-    companyEmailId: Yup.string()
-      .required()
-      .label("Company Email Address")
-      .matches(
-        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-        "Invalid email address",
-      ),
-    companyPhoneNumber: Yup.string()
-      .required()
-      .label("Company Phone Number")
-      .min(10, "Phone Number must be at least 10 characters")
-      .max(20, "Phone Number must be at most 20 characters")
-      .matches(
-        employeeOnBardingFormRegexes["companyPhoneNumber"],
-        "Phone Number can only contain numeric characters",
-      ),
-    companyPhoneExtension: Yup.string()
-      .required()
-      .label("Company Phone Extension"),
-    sourceOfHireId: Yup.string().required().label("Source Of Hire"),
-    referredById: Yup.string(),
-    dateOfJoining: Yup.string().required().label("Date Of Joining"),
-    dateOfExit: Yup.string(),
+    employeeTypeId: optionalString().label("Employee Type (Old)"),
+    employeeTypeConfigId: optionalString().label("Employee Type"),
+    workingMethodId: optionalString().label("Working Method"),
+    companyEmailId: optionalString().label("Company Email Address")
+      .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Invalid email address"),
+    companyPhoneNumber: optionalString().label("Company Phone Number")
+      .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
+      .matches(employeeOnBardingFormRegexes["companyPhoneNumber"], "Phone Number can only contain numeric characters"),
+    companyPhoneExtension: optionalString().label("Company Phone Extension"),
+    sourceOfHireId: optionalString().label("Source Of Hire"),
+    referredById: optionalString(),
+    dateOfJoining: optionalString().label("Date Of Joining"),
+    dateOfExit: optionalString(),
     rejoinHistory: Yup.array().of(
-      Yup.object({
-        dateOfReJoining: Yup.string(),
-        dateOfReExit: Yup.string(),
-        reason: Yup.string(),
-      }),
+      Yup.object({ dateOfReJoining: optionalString(), dateOfReExit: optionalString(), reason: optionalString() }),
     ),
-    employeeStatusId: Yup.string().label("Employee Status (Old)"),
-    employeeStatusConfigId: Yup.string().label("Employee Status"),
-    ctcInLpa: Yup.string().required().label("CTC In LPA"),
+    employeeStatusId: optionalString().label("Employee Status (Old)"),
+    employeeStatusConfigId: optionalString().label("Employee Status"),
     workExpInfo: Yup.array().of(
       Yup.object({
-        companyName: Yup.string().required().label("Company Name"),
-        jobTitle: Yup.string().required().label("Job Title"),
-        fromDate: Yup.string().required().label("From Date"),
-        toDate: Yup.string().required().label("To Date"),
-      }),
+        companyName: optionalString().label("Company Name"),
+        jobTitle: optionalString().label("Job Title"),
+        fromDate: optionalString().label("From Date"),
+        toDate: optionalString().label("To Date"),
+      })
+        .test("work-company-name", "Company Name is required", function (value) {
+          if (!hasWorkExpInfo(value) || value?.companyName) return true;
+          return this.createError({ path: `${this.path}.companyName`, message: "Company Name is required" });
+        })
+        .test("work-job-title", "Job Title is required", function (value) {
+          if (!hasWorkExpInfo(value) || value?.jobTitle) return true;
+          return this.createError({ path: `${this.path}.jobTitle`, message: "Job Title is required" });
+        })
+        .test("work-from-date", "From Date is required", function (value) {
+          if (!hasWorkExpInfo(value) || value?.fromDate) return true;
+          return this.createError({ path: `${this.path}.fromDate`, message: "From Date is required" });
+        })
+        .test("work-to-date", "To Date is required", function (value) {
+          if (!hasWorkExpInfo(value) || value?.toDate) return true;
+          return this.createError({ path: `${this.path}.toDate`, message: "To Date is required" });
+        }),
     ),
-    appRole: Yup.string().required().label("App Role"),
   }),
   Yup.object({
-    obj: Yup.string(),
+    reportsToId: optionalString().label("Reporting Manager"),
+    ctcInLpa: optionalString().label("CTC In LPA"),
+    appRole: optionalString().label("App Role"),
+    attendanceRequestRaiseLimit: optionalString().label("Attendance Request Limit"),
+    allowedPerMonth: optionalString().label("Allowed Per Month"),
+  }),
+  Yup.object({
+    obj: optionalString(),
     documentInfo: Yup.array().of(
       Yup.object({
-        fileName: Yup.string(),
-        identityNumber: Yup.string(),
-        path: Yup.string(),
-        documentId: Yup.string(),
-        employeeId: Yup.string(),
+        fileName: optionalString(), identityNumber: optionalString(),
+        path: optionalString(), documentId: optionalString(), employeeId: optionalString(),
       }),
     ),
   }),
 ];
 
+const createDefaultEducationInfo = () => ({
+  instituteName: "", qualificationMasterId: "", qualificationName: "", degree: "",
+  specialization: "", stream: "", customStream: "", fromDate: "", toDate: "",
+  passingYear: "", percentage: "", cgpa: "", filePath: "", fileName: "",
+});
+
+const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "", dateOfBirth: "" });
+
+const hasEducationInfo = hasStartedEducationInfo;
+
+const buildEducationPayload = (education: any, employeeId?: string) => ({
+  ...(education.instituteName && { instituteName: education.instituteName }),
+  ...(education.qualificationMasterId && { qualificationMasterId: education.qualificationMasterId }),
+  ...((education.qualificationName || education.degree) && { qualificationName: education.qualificationName || education.degree }),
+  ...(education.degree && { degree: education.degree }),
+  ...(education.specialization && { specialization: education.specialization }),
+  ...(education.stream && { stream: education.stream }),
+  ...(education.customStream && { customStream: education.customStream }),
+  ...(education.filePath && { filePath: education.filePath }),
+  ...(education.fileName && { fileName: education.fileName }),
+  ...(education.fromDate && { fromDate: education.fromDate }),
+  ...(education.toDate && { toDate: education.toDate }),
+  ...(education.passingYear && { passingYear: education.passingYear }),
+  ...(education.percentage && { percentage: education.percentage }),
+  ...(education.cgpa && { cgpa: education.cgpa }),
+  ...(employeeId && { employeeId }),
+});
+
+const hasFamilyInfo = (familyMember: any) =>
+  Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber || familyMember?.dateOfBirth);
+
+const withDefaultEducationInfo = (educationalInfo: any) =>
+  Array.isArray(educationalInfo) && educationalInfo.length > 0 ? educationalInfo : [createDefaultEducationInfo()];
+
+const withDefaultFamilyInfo = (familyInfo: any) =>
+  Array.isArray(familyInfo) && familyInfo.length > 0 ? familyInfo : [createDefaultFamilyInfo()];
+
 const initialState = {
-  method: "0", // Default method set to "0" since Step1 is now skipped
-  avatar: "",
-  firstName: "",
-  isAdmin: "0",
-  isEmployeeActive: "1",
-  lastName: "",
-  nickName: "",
-  gender: "",
-  maritalStatus: "",
-  reportsToId: "",
-  dateOfBirth: "",
-  bloodGroup: "",
-  personalEmailId: "",
-  personalPhoneNumber: "",
-  alternatePhoneNumber: "",
-  personalPhoneNumberExtension: "",
-  linkedInProfileUrl: "",
-  instagramProfileUrl: "",
-  facebookProfileUrl: "",
-  hobbies: "",
-  notes: "",
-  meal: "",
-  educationalInfo: [
-    {
-      instituteName: "",
-      degree: "",
-      specialization: "",
-      fromDate: "",
-      toDate: "",
-      filePath: "",
-    },
-  ],
-  familyInfo: [
-    {
-      name: "",
-      relationship: "",
-      mobileNumber: "",
-      dateOfBirth: "",
-    },
-  ],
-  emergencyDetails: {
-    bloodGroup: "",
-    allergies: "",
-    emergencyContactName: "",
-    emergencyContactNumber: "",
-  },
-  bankInfo: {
-    accountName: "",
-    accountNumber: "",
-    ifscCode: "",
-    filePath: "",
-  },
+  method: "0", avatar: "", firstName: "", isAdmin: "0", isEmployeeActive: "1",
+  lastName: "", nickName: "", gender: "", maritalStatus: "", reportsToId: "",
+  dateOfBirth: "", bloodGroup: "", personalEmailId: "", personalPhoneNumber: "",
+  alternatePhoneNumber: "", personalPhoneNumberExtension: "", linkedInProfileUrl: "",
+  instagramProfileUrl: "", facebookProfileUrl: "", hobbies: "", notes: "", meal: "",
+  educationalInfo: [createDefaultEducationInfo()],
+  familyInfo: [createDefaultFamilyInfo()],
+  emergencyDetails: { bloodGroup: "", allergies: "", emergencyContactName: "", emergencyContactNumber: "" },
+  bankInfo: { accountName: "", accountNumber: "", ifscCode: "", filePath: "" },
   addressInfo: {
-    permanentAddressLine1: "",
-    permanentAddressLine2: "",
-    permanentCountry: "",
-    permanentState: "",
-    permanentCity: "",
-    permanentPostalCode: "",
-    presentAddressLine1: "",
-    presentAddressLine2: "",
-    presentCountry: "",
-    presentState: "",
-    presentCity: "",
-    presentPostalCode: "",
+    permanentAddressLine1: "", permanentAddressLine2: "", permanentCountry: "",
+    permanentState: "", permanentCity: "", permanentPostalCode: "",
+    presentAddressLine1: "", presentAddressLine2: "", presentCountry: "",
+    presentState: "", presentCity: "", presentPostalCode: "",
   },
-  designationId: "",
-  departmentId: "",
-  branchId: "",
-  teamId: "",
-  roomOrBlock: "",
-  employeeTypeId: "",
-  employeeTypeConfigId: "",
-  workingMethodId: "",
-  shift: "",
-  experienceLevel: "",
-  employeeLevelId: "",
-  companyEmailId: "",
-  companyPhoneNumber: "",
-  companyPhoneExtension: "",
-  sourceOfHire: "",
-  referredBy: "",
-  dateOfJoining: "",
-  dateOfExit: "",
-  rejoinHistory: [
-    {
-      dateOfReJoining: "",
-      dateOfReExit: "",
-      reason: "",
-    },
-  ],
-  employeeStatusId: "",
-  employeeStatusConfigId: "",
-  ctcInLpa: "",
-  appRole: "",
-  attendanceRequestRaiseLimit: "",
-  allowedPerMonth: 1,
-  allowOverTime: "0",
-  discretionaryLeaveBoolean: "false",
-  discretionaryLeaveBalance: 0,
+  designationId: "", departmentId: "", branchId: "", teamId: "", roomOrBlock: "",
+  employeeTypeId: "", employeeTypeConfigId: "", workingMethodId: "", shift: "",
+  experienceLevel: "", employeeLevelId: "", companyEmailId: "", companyPhoneNumber: "",
+  companyPhoneExtension: "", sourceOfHire: "", referredBy: "", dateOfJoining: "",
+  dateOfExit: "", rejoinHistory: [{ dateOfReJoining: "", dateOfReExit: "", reason: "" }],
+  employeeStatusId: "", employeeStatusConfigId: "", ctcInLpa: "", appRole: "",
+  attendanceRequestRaiseLimit: "", allowedPerMonth: 1, allowOverTime: "0",
+  discretionaryLeaveBoolean: "false", discretionaryLeaveBalance: 0,
   leaveAllocations: [] as any[],
-  workExpInfo: [
-    {
-      companyName: "",
-      jobTitle: "",
-      fromDate: "",
-      toDate: "",
-    },
-  ],
-  documentInfo: [
-    {
-      identityNumber: "",
-      employeeId: "",
-      documentId: "",
-      path: "",
-      fileName: "",
-    },
-  ],
+  workExpInfo: [createDefaultWorkExpInfo()],
+  documentInfo: [{ identityNumber: "", employeeId: "", documentId: "", path: "", fileName: "" }],
   roles: [] as any[],
-  professionalFeesEnabled: "false",
-  professionalFeesAmount: "",
-  professionalFeesPercentage: "",
-  professionalFeesType: "FIXED",
+  professionalFeesEnabled: "false", professionalFeesAmount: "",
+  professionalFeesPercentage: "", professionalFeesType: "FIXED",
+  isHiddenFromStaff: false,
 };
 
 const newEmployeeWizardBreadcrumb: Array<PageLink> = [
-  {
-    title: "Employee Management",
-    path: "/employees",
-    isSeparator: false,
-    isActive: false,
-  },
-  {
-    title: "",
-    path: "",
-    isSeparator: true,
-    isActive: false,
-  },
+  { title: "Employee Management", path: "/employees", isSeparator: false, isActive: false },
+  { title: "", path: "", isSeparator: true, isActive: false },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Save helpers (unchanged from original)
+// ─────────────────────────────────────────────────────────────────────────────
 
 const saveNewUser = async (values: any) => {
   const {
-    firstName,
-    lastName,
-    dateOfBirth,
-    appRole,
-    personalPhoneNumber,
-    personalEmailId,
-    alternatePhoneNumber,
-    personalPhoneNumberExtension,
-    isEmployeeActive,
-    bloodGroup,
-    hobbies,
-    notes,
-    linkedInProfileUrl,
-    instagramProfileUrl,
-    facebookProfileUrl,
+    firstName, lastName, dateOfBirth, personalPhoneNumber, personalEmailId,
+    alternatePhoneNumber, personalPhoneNumberExtension, isEmployeeActive,
+    bloodGroup, hobbies, notes, linkedInProfileUrl, instagramProfileUrl, facebookProfileUrl,
   } = values;
+
   const user = {
-    firstName,
-    lastName,
-    isActive: isEmployeeActive === "1" ? true : false,
+    firstName, lastName,
+    isActive: isEmployeeActive === "1",
     isAdmin: false,
-    // isAdmin: appRole.toLowerCase() === "admin" ? true : false,
     dateOfBirth,
     ...(personalPhoneNumber && { personalPhoneNumber }),
     ...(personalEmailId && { personalEmailId }),
@@ -568,1565 +3311,927 @@ const saveNewUser = async (values: any) => {
     ...(alternatePhoneNumber && { alternatePhoneNumber }),
     ...(bloodGroup && { bloodGroup }),
     ...(notes && { notes }),
-    ...(hobbies && { hobbies: values.hobbies }),
+    ...(hobbies && { hobbies }),
     ...(linkedInProfileUrl && { linkedInProfileUrl }),
     ...(instagramProfileUrl && { instagramProfileUrl }),
     ...(facebookProfileUrl && { facebookProfileUrl }),
   };
-  console.log("appRole:: ", appRole);
-  if (!appRole) {
-    errorConfirmation("Please select a user role");
-    return false;
-  }
-  const {
-    data: { id: savedUserId },
-  } = await createNewUser(user);
 
+  const { data: { id: savedUserId } } = await createNewUser(user);
   return savedUserId;
 };
 
 const saveNewEmployee = async (values: any, userId: string) => {
-  const {
-    data: { companyOverview },
-  } = await fetchCompanyOverview();
+  const { data: { companyOverview } } = await fetchCompanyOverview();
   const companyId = companyOverview[0].id;
-  let vegMealPreference = undefined;
-  let nonVegMealPreference = undefined;
-  let veganMealPreference = undefined;
+  let vegMealPreference, nonVegMealPreference, veganMealPreference;
 
   const {
-    dateOfJoining,
-    ctcInLpa,
-    gender,
-    designationId,
-    branchId,
-    dateOfExit,
-    employeeTypeId,
-    employeeTypeConfigId,
-    maritalStatus,
-    sourceOfHireId,
-    workingMethodId,
-    departmentId,
-    companyEmailId,
-    referredById,
-    method,
-    nickName,
-    employeeCode,
-    companyPhoneNumber,
-    companyPhoneExtension,
-    employeeStatusId,
-    employeeStatusConfigId,
-    avatar,
-    meal,
-    reportsToId,
-    anniversary,
-    documentFields,
-    documentInfo,
-    appRole,
-    isAdmin,
-    rejoinHistory,
-    teamId,
-    roomOrBlock,
-    shift,
-    experienceLevel,
-    employeeLevelId,
-    discretionaryLeaveBoolean,
-    discretionaryLeaveBalance,
-    attendanceRequestRaiseLimit,
-    allowedPerMonth,
-    allowOverTime,
-    professionalFeesEnabled,
-    professionalFeesAmount,
-    professionalFeesPercentage,
-    professionalFeesType,
+    dateOfJoining, ctcInLpa, gender, designationId, branchId, dateOfExit,
+    employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId,
+    workingMethodId, departmentId, companyEmailId, referredById, method,
+    nickName, employeeCode, companyPhoneNumber, companyPhoneExtension,
+    employeeStatusId, employeeStatusConfigId, avatar, meal, reportsToId,
+    anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
+    teamId, roomOrBlock, shift, experienceLevel, employeeLevelId,
+    discretionaryLeaveBoolean, discretionaryLeaveBalance,
+    attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime,
+    professionalFeesEnabled, professionalFeesAmount,
+    professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
 
-  const aadharCardDocument = values?.documentFields?.filter(
-    (doc: any) =>
-      doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "aadharcard",
-  );
-  const aadharDocumentId = aadharCardDocument?.[0]?.id;
-  const panCardDocument = values?.documentFields?.filter(
-    (doc: any) =>
-      doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "pancard",
-  );
-  const panDocumentId = panCardDocument?.[0]?.id;
+  const aadharDocumentId = values?.documentFields?.find(
+    (doc: any) => doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "aadharcard"
+  )?.id;
+  const panDocumentId = values?.documentFields?.find(
+    (doc: any) => doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "pancard"
+  )?.id;
 
-  if (
-    documentInfo &&
-    documentInfo?.findIndex(
-      (doc: any) => doc?.documentId === aadharDocumentId,
-    ) !== -1
-  ) {
-    const mostRecentAadharDoc = documentInfo
-      ?.filter((doc: any) => doc?.documentId === aadharDocumentId)
-      ?.sort(
-        (doc1: any, doc2: any) =>
-          new Date(doc2.createdAt).getTime() -
-          new Date(doc1.createdAt).getTime(),
-      )[0];
-    aadharCardPath = mostRecentAadharDoc?.path;
-    aadharNumber = mostRecentAadharDoc?.identityNumber;
+  if (documentInfo?.findIndex((doc: any) => doc?.documentId === aadharDocumentId) !== -1) {
+    const r = documentInfo?.filter((doc: any) => doc?.documentId === aadharDocumentId)
+      ?.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    aadharCardPath = r?.path; aadharNumber = r?.identityNumber;
   }
-  if (
-    documentInfo &&
-    documentInfo?.findIndex((doc: any) => doc?.documentId === panDocumentId) !==
-      -1
-  ) {
-    const mostRecentPanDoc = documentInfo
-      ?.filter((doc: any) => doc?.documentId === panDocumentId)
-      ?.sort(
-        (doc1: any, doc2: any) =>
-          new Date(doc2.createdAt).getTime() -
-          new Date(doc1.createdAt).getTime(),
-      )[0];
-    panCardPath = mostRecentPanDoc?.path;
-    panNumber = mostRecentPanDoc?.identityNumber;
+  if (documentInfo?.findIndex((doc: any) => doc?.documentId === panDocumentId) !== -1) {
+    const r = documentInfo?.filter((doc: any) => doc?.documentId === panDocumentId)
+      ?.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    panCardPath = r?.path; panNumber = r?.identityNumber;
   }
 
   if (meal === "0") vegMealPreference = true;
   if (meal === "1") nonVegMealPreference = true;
   if (meal === "2") veganMealPreference = true;
 
-  const employee = {
-    ...(avatar && { avatar }),
-    userId,
-    isActive: true,
-    ...(employeeTypeId && { employeeTypeId }), // Old field (optional for backward compatibility)
-    ...(employeeTypeConfigId && { employeeTypeConfigId }), // New field for employee_configurations
+  const employee: any = {
+    ...(avatar && { avatar }), userId, isActive: true,
+    ...(employeeTypeId && { employeeTypeId }),
+    ...(employeeTypeConfigId && { employeeTypeConfigId }),
     sourceOfHireId,
-    ...(employeeStatusId && { employeeStatusId }), // Old field (optional for backward compatibility)
-    ...(employeeStatusConfigId && { employeeStatusConfigId }), // New field for employee_configurations
-    companyId,
-    method: parseInt(method),
-    dateOfJoining,
-    gender: parseInt(gender),
-    ...(isAdmin && { isAdmin: isAdmin == "1" ? true : false }),
+    ...(employeeStatusId && { employeeStatusId }),
+    ...(employeeStatusConfigId && { employeeStatusConfigId }),
+    companyId, method: parseInt(method), dateOfJoining, gender: parseInt(gender),
+    ...(isAdmin && { isAdmin: isAdmin == "1" }),
     ...(branchId && { branchId }),
     ...(anniversary && { anniversary }),
     reportsToId,
-    ...(aadharNumber && { aadharNumber }),
-    ...(aadharCardPath && { aadharCardPath }),
-    ...(panNumber && { panNumber }),
-    ...(panCardPath && { panCardPath }),
+    ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
+    ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
     ...(workingMethodId && { workingMethodId }),
-    ...(departmentId && { departmentId }),
-    ...(ctcInLpa && { ctcInLpa }),
+    ...(departmentId && { departmentId }), ...(ctcInLpa && { ctcInLpa }),
     ...(designationId && { designationId }),
     ...(maritalStatus && { maritalStatus: parseInt(maritalStatus) }),
-    ...(companyEmailId && { companyEmailId }),
-    ...(referredById && { referredById }),
+    ...(companyEmailId && { companyEmailId }), ...(referredById && { referredById }),
     ...(companyPhoneNumber && { companyPhoneNumber }),
     ...(companyPhoneExtension && { companyPhoneExtension }),
-    ...(employeeCode && { employeeCode }),
-    ...(nickName && { nickName }),
+    ...(employeeCode && { employeeCode }), ...(nickName && { nickName }),
     ...(dateOfExit && { dateOfExit }),
     ...(vegMealPreference && { vegMealPreference }),
     ...(nonVegMealPreference && { nonVegMealPreference }),
     ...(veganMealPreference && { veganMealPreference }),
-    ...(teamId && { teamId }),
-    ...(roomOrBlock && { roomOrBlock }),
-    ...(shift && { shift }),
-    ...(experienceLevel && { experienceLevel }),
+    ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
+    ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
     ...(attendanceRequestRaiseLimit && { attendanceRequestRaiseLimit }),
     ...(allowedPerMonth && { allowedPerMonth }),
     ...(allowOverTime && { allowOverTime }),
-    // Discretionary leave: always send boolean, only send balance if true
-    discretionaryLeaveBoolean:
-      discretionaryLeaveBoolean === "true" ||
-      discretionaryLeaveBoolean === true,
-    ...((discretionaryLeaveBoolean === "true" ||
-      discretionaryLeaveBoolean === true) &&
-      discretionaryLeaveBalance && {
-        discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0,
-      }),
-    // Always send leaveAllocations so the backend can replace-all (including resets to default).
-    ...(Array.isArray(values.leaveAllocations) && {
-      leaveAllocations: values.leaveAllocations,
-    }),
-    ...buildProfessionalFeesPayload({
-      professionalFeesEnabled,
-      professionalFeesAmount,
-      professionalFeesPercentage,
-      professionalFeesType,
-    }),
+    discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
+    ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && { discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0 }),
+    ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
+    ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+    isHiddenFromStaff: isHiddenFromStaff === true,
   };
-  // Clean up empty values but preserve gender, maritalStatus, discretionaryLeaveBoolean,
-  // and the professional-fees fields (even when null — null is meaningful: "clear column").
+
   Object.keys(employee).forEach((key) => {
-    if (
-      key === "gender" ||
-      key === "maritalStatus" ||
-      key === "discretionaryLeaveBoolean" ||
-      PROF_FEES_KEYS.has(key)
-    )
-      return;
-    if (!employee[key] && employee[key] !== 0 && employee[key] !== false) {
-      delete employee[key];
-    }
+    if (key === "gender" || key === "maritalStatus" || key === "discretionaryLeaveBoolean" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+    if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
+  if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
+  if (!employee.employeeStatusConfigId) delete employee.employeeStatusConfigId;
 
-  // IMPORTANT: Remove config fields to prevent foreign key errors if empty
-  if (!employee.employeeTypeConfigId) {
-    delete employee.employeeTypeConfigId;
-  }
-  if (!employee.employeeStatusConfigId) {
-    delete employee.employeeStatusConfigId;
-  }
-
-  const {
-    data: { id: savedEmployeeId },
-  } = await createNewEmployee(employee);
-
+  const { data: { id: savedEmployeeId } } = await createNewEmployee(employee);
   return savedEmployeeId;
 };
 
 const saveEmployeeData = async (values: any, employeeId: string) => {
-  const {
-    workExpInfo,
-    addressInfo,
-    bankInfo,
-    familyInfo,
-    documentInfo: documents,
-    educationalInfo,
-    rejoinHistory,
-    emergencyDetails,
-  } = values;
-
+  const { workExpInfo, addressInfo, bankInfo, familyInfo, documentInfo: documents, educationalInfo, rejoinHistory, emergencyDetails } = values;
   try {
-    const isSameAddress =
-      addressInfo.permanentAddressLine1 === addressInfo.presentAddressLine1;
+    const filledFamilyInfo = familyInfo.filter(hasFamilyInfo);
+    const filledEducationalInfo = educationalInfo.filter(hasEducationInfo);
+    const filledWorkExpInfo = workExpInfo.filter(hasWorkExpInfo);
+    const isSameAddress = addressInfo.permanentAddressLine1 === addressInfo.presentAddressLine1;
+
     const reqPromises = [
-      () =>
-        createPreviousExperienceDetails(
-          workExpInfo.map((el: any) => ({
-            ...(el.companyName && { companyName: el.companyName }),
-            ...(el.jobTitle && { jobTitle: el.jobTitle }),
-            ...(el.fromDate && { fromDate: el.fromDate }),
-            ...(el.toDate && { toDate: el.toDate }),
-            employeeId,
-          })),
-        ),
-      () =>
-        createRejoinHistoryDetails(
-          rejoinHistory
-            .filter(
-              (el: any) => el.dateOfReJoining || el.dateOfReExit || el.reason,
-            )
-            .map((el: any) => ({
-              ...(el.dateOfReJoining && {
-                dateOfReJoining: el.dateOfReJoining,
-              }),
-              ...(el.dateOfReExit && { dateOfReExit: el.dateOfReExit }),
-              ...(el.reason && { reason: el.reason }),
-              employeeId,
-            })),
-        ),
-      () =>
-        createEmergencyContacts(
-          familyInfo.map((el: any) => ({
-            ...(el.name && { name: el.name }),
-            ...(el.mobileNumber && { mobileNumber: el.mobileNumber }),
-            ...(el.dateOfBirth && { dateOfBirth: el.dateOfBirth }),
-            ...(el.relationship && { relation: el.relationship }),
-            employeeId,
-          })),
-        ),
-      () =>
-        createEducationalDetails(
-          educationalInfo.map((el: any) => ({
-            ...(el.instituteName && { instituteName: el.instituteName }),
-            ...(el.degree && { degree: el.degree }),
-            ...(el.specialization && { specialization: el.specialization }),
-            ...(el.filePath && { filePath: el.filePath }),
-            ...(el.fromDate && { fromDate: el.fromDate }),
-            ...(el.toDate && { toDate: el.toDate }),
-            employeeId,
-          })),
-        ),
-      () =>
-        createAddressDetails({
-          ...addressInfo,
-          employeeId,
-          ...(isSameAddress && {
-            presentAddressLine1: undefined,
-            presentAddressLine2: undefined,
-            presentCountry: undefined,
-            presentState: undefined,
-            presentCity: undefined,
-            presentPostalCode: undefined,
-          }),
-        }),
-      () =>
-        createBankDetails({
-          ...(bankInfo.accountNumber && {
-            accountNumber: bankInfo.accountNumber,
-          }),
-          ...(bankInfo.accountName && { accountName: bankInfo.accountName }),
-          ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }),
-          ...(bankInfo.filePath && { filePath: bankInfo.filePath }),
-          employeeId,
-        }),
-      () =>
-        createEmergencyDetails({
-          ...(emergencyDetails.bloodGroup && {
-            bloodGroup: emergencyDetails.bloodGroup,
-          }),
-          ...(emergencyDetails.allergies && {
-            allergies: emergencyDetails.allergies,
-          }),
-          ...(emergencyDetails.emergencyContactName && {
-            emergencyContactName: emergencyDetails.emergencyContactName,
-          }),
-          ...(emergencyDetails.emergencyContactNumber && {
-            emergencyContactNumber: emergencyDetails.emergencyContactNumber,
-          }),
-          employeeId,
-        }),
-      () =>
-        createDocumentsDetails(
-          documents.map((el: any) => ({ ...el, employeeId })),
-        ),
+      () => createPreviousExperienceDetails(filledWorkExpInfo.map((el: any) => ({
+        ...(el.companyName && { companyName: el.companyName }),
+        ...(el.jobTitle && { jobTitle: el.jobTitle }),
+        ...(el.fromDate && { fromDate: el.fromDate }),
+        ...(el.toDate && { toDate: el.toDate }),
+        employeeId,
+      }))),
+      () => createRejoinHistoryDetails(rejoinHistory.filter((el: any) => el.dateOfReJoining || el.dateOfReExit || el.reason).map((el: any) => ({
+        ...(el.dateOfReJoining && { dateOfReJoining: el.dateOfReJoining }),
+        ...(el.dateOfReExit && { dateOfReExit: el.dateOfReExit }),
+        ...(el.reason && { reason: el.reason }),
+        employeeId,
+      }))),
+      () => createEmergencyContacts(filledFamilyInfo.map((el: any) => ({
+        ...(el.name && { name: el.name }),
+        ...(el.mobileNumber && { mobileNumber: el.mobileNumber }),
+        ...(el.dateOfBirth && { dateOfBirth: el.dateOfBirth }),
+        ...(el.relationship && { relation: el.relationship }),
+        employeeId,
+      }))),
+      () => createEducationalDetails(filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId))),
+      () => createAddressDetails({ ...addressInfo, employeeId, ...(isSameAddress && { presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }) }),
+      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
+      () => createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }),
+      () => createDocumentsDetails(documents.map((el: any) => ({ ...el, employeeId }))),
     ];
 
     const responses = await Promise.all(reqPromises.map((fn) => fn()));
-    const allSuccessful = responses.every(
-      (response) => response?.statusCode === 200,
-    );
-    // debugger;
-    if (!allSuccessful) {
-      throw new Error("Some operations failed to complete successfully");
-    }
+    const allSuccessful = responses.every((response) => response?.statusCode === 200);
+    if (!allSuccessful) throw new Error("Some operations failed to complete successfully");
     return true;
-  } catch (err) {
-    console.log(err);
-  }
+  } catch (err) { console.log(err); }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
 
 function NewEmployeeWizard({ editMode, openModal }: any) {
   const { employeeId } = useParams();
   const navigate = useNavigate();
   const stepperRef = useRef<HTMLDivElement | null>(null);
+  const modalBodyRef = useRef<HTMLDivElement | null>(null);
+  const formikRef = useRef<any>(null);
   const [stepper, setStepper] = useState<StepperComponent | null>(null);
-  const [currentSchema, setCurrentSchema] = useState(
-    newEmployeeWizardSchema[0],
-  );
+  const [activeStepIndex, setActiveStepIndex] = useState(1);
+  const [currentSchema, setCurrentSchema] = useState(newEmployeeWizardSchema[0]);
   const [show, setShow] = useState(openModal);
   const [files, setFiles] = useState<{ [key: string]: File }>({});
+  const [educationFiles, setEducationFiles] = useState<{ [key: string]: File }>({});
   const [defaultState, setDefaultState] = useState(initialState);
+  const [activeSection, setActiveSection] = useState("personal-info");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const addFileToState = (documentId: string, file: File) => {
-    setFiles((prevFiles: any) => ({
-      ...prevFiles,
-      [documentId]: file,
+  // Clear any stale draft on mount so new employee form starts blank
+  useEffect(() => {
+    if (!editMode) localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+  }, []);
+
+  // Mobile: modal-body scrolls. Desktop: fixed panels; inner section-body scrolls.
+  useEffect(() => {
+    const el = modalBodyRef.current;
+    if (!show || !el) return;
+
+    const mq = window.matchMedia("(max-width: 991px)");
+    const syncModalLayout = () => {
+      el.style.height = "100dvh";
+      el.style.maxHeight = "100dvh";
+      el.style.overflowX = "hidden";
+      if (mq.matches) {
+        el.style.display = "block";
+        el.style.overflowY = "auto";
+        (el.style as CSSStyleDeclaration & { webkitOverflowScrolling?: string }).webkitOverflowScrolling = "touch";
+      } else {
+        el.style.display = "flex";
+        el.style.flexDirection = "column";
+        el.style.overflowY = "hidden";
+        (el.style as CSSStyleDeclaration & { webkitOverflowScrolling?: string }).webkitOverflowScrolling = "";
+      }
+    };
+
+    syncModalLayout();
+    mq.addEventListener("change", syncModalLayout);
+    return () => {
+      mq.removeEventListener("change", syncModalLayout);
+      el.style.overflowY = "";
+      el.style.overflowX = "";
+      el.style.height = "";
+      el.style.maxHeight = "";
+      el.style.display = "";
+      el.style.flexDirection = "";
+      (el.style as CSSStyleDeclaration & { webkitOverflowScrolling?: string }).webkitOverflowScrolling = "";
+    };
+  }, [show]);
+
+  const addFileToState = (documentId: string, file: File) =>
+    setFiles((prev: any) => ({ ...prev, [documentId]: file }));
+
+  const addEducationFileToState = (index: number, file: File | null) => {
+    setEducationFiles((prev: any) => {
+      const next = { ...prev };
+      if (file) next[String(index)] = file; else delete next[String(index)];
+      return next;
+    });
+  };
+
+  const uploadEducationDocuments = async (values: any, userId: string) => {
+    const entries = Object.entries(educationFiles);
+    if (!entries.length) return;
+    await Promise.all(entries.map(async ([indexKey, fileData]) => {
+      const index = Number(indexKey);
+      const education = values.educationalInfo?.[index];
+      if (!education || education.filePath) return;
+      const formData = new FormData();
+      const employeeName = `${values.firstName || "employee"}-${values.lastName || "education"}`;
+      const fileExtension = (fileData as File).name.split(".").pop();
+      const fileName = `${employeeName.toLowerCase().replace(/\s+/g, "")}-education-${index + 1}.${fileExtension}`;
+      formData.append("file", new File([fileData as File], fileName, { type: (fileData as File).type }));
+      const response = await uploadUserAsset(formData, userId, fileName, "education-docs");
+      values.educationalInfo[index] = { ...education, filePath: response.data.path, fileName: (fileData as File).name };
     }));
   };
 
   const loadStepper = () => {
-    setStepper(
-      StepperComponent.createInsance(stepperRef.current as HTMLDivElement),
-    );
+    const createdStepper = StepperComponent.createInsance(stepperRef.current as HTMLDivElement);
+    if (!createdStepper) return;
+    setStepper(createdStepper);
+    setActiveStepIndex(createdStepper.currentStepIndex);
+  };
+
+  const scrollWizardToTop = () => {
+    window.requestAnimationFrame(() => {
+      modalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      stepperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const prevStep = () => {
-    if (!stepper) {
-      return;
+    if (activeStepIndex <= 1) return;
+    if (stepper) {
+      stepper.goPrev();
+      setActiveStepIndex(stepper.currentStepIndex);
+      setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+    } else {
+      const prev = activeStepIndex - 1;
+      setActiveStepIndex(prev);
+      setCurrentSchema(newEmployeeWizardSchema[prev - 1]);
     }
-
-    stepper.goPrev();
-
-    setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+    if (activeStepIndex === 2) setActiveSection("personal-info");
+    scrollWizardToTop();
   };
 
   const updateWizardData = async (values: any) => {
-    const {
-      data: { companyOverview },
-    } = await fetchCompanyOverview();
+    const { data: { companyOverview } } = await fetchCompanyOverview();
     const companyId = companyOverview[0].id;
     const {
-      userId,
-      firstName,
-      lastName,
-      dateOfBirth,
-      appRole,
-      personalPhoneNumber,
-      personalEmailId,
-      alternatePhoneNumber,
-      personalPhoneNumberExtension,
-      isEmployeeActive,
-      bloodGroup,
-      hobbies,
-      notes,
-      linkedInProfileUrl,
-      instagramProfileUrl,
-      facebookProfileUrl,
+      userId, firstName, lastName, dateOfBirth, appRole,
+      personalPhoneNumber, personalEmailId, alternatePhoneNumber,
+      personalPhoneNumberExtension, isEmployeeActive, bloodGroup,
+      hobbies, notes, linkedInProfileUrl, instagramProfileUrl, facebookProfileUrl,
     } = values;
-
-    // console.log("approle::", appRole);
 
     const documentPromise = Object.keys(files).map(async (docId) => {
       const fileData = files[docId];
       const formData = new FormData();
       formData.append("file", fileData);
-
-      // Get field name from documentFields and convert to dash-separated format
-      const docField = values.documentFields?.find(
-        (field: any) => field.id === docId,
-      );
+      const docField = values.documentFields?.find((f: any) => f.id === docId);
       const fieldName = docField?.fieldName || docId;
-      // Convert "Aadhar Card" to "aadhar-card"
       const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
-      // Get file extension from uploaded file (e.g., .pdf, .jpg)
       const extension = fileData.name.split(".").pop();
       const fileName = extension ? `${baseName}.${extension}` : baseName;
-
-      // All onboarding files (including profile picture) go to onboarding-docs folder
-      const category = "onboarding-docs";
-      const response = await uploadUserAsset(
-        formData,
-        userId,
-        fileName,
-        category,
-      );
-      return {
-        documentId: docId,
-        path: response.data.path,
-        fileName: fileName, // Use renamed fileName instead of original fileData.name
-      };
+      const response = await uploadUserAsset(formData, userId, fileName, "onboarding-docs");
+      return { documentId: docId, path: response.data.path, fileName };
     });
 
     const documentInfo = values.documentInfo;
     const documentUploaded = await Promise.all(documentPromise);
+    const filteredDocs = documentUploaded.filter((doc: any) => doc.documentId !== "userProfilePicture");
+    documentUploaded.forEach((doc: any) => doc.documentId === "userProfilePicture" ? (values.avatar = doc.path) : null);
 
-    const filteredDocs = documentUploaded.filter(
-      (doc: any) => doc.documentId !== "userProfilePicture",
-    );
-    documentUploaded.forEach((doc: any) =>
-      doc.documentId === "userProfilePicture"
-        ? (values.avatar = doc.path)
-        : null,
-    );
-
-    // Update existing documentInfo with file paths from uploads (edit mode)
-    const doc = documentInfo.map((docInfo: any) => {
-      // Find the corresponding uploaded file by documentId
-      const uploadedFile = filteredDocs.find(
-        (uploadedDoc: any) => uploadedDoc.documentId === docInfo.documentId,
-      );
-      return {
-        ...docInfo, // Keep original data including identityNumber
-        ...(uploadedFile && {
-          path: uploadedFile.path,
-          fileName: uploadedFile.fileName,
-        }), // Add file info only if file was uploaded
-      };
+    values.documentInfo = documentInfo.map((docInfo: any) => {
+      const uploadedFile = filteredDocs.find((d: any) => d.documentId === docInfo.documentId);
+      return { ...docInfo, ...(uploadedFile && { path: uploadedFile.path, fileName: uploadedFile.fileName }) };
     });
 
-    values.documentInfo = doc;
+    await uploadEducationDocuments(values, userId);
 
-    let vegMealPreference = undefined;
-    let nonVegMealPreference = undefined;
-    let veganMealPreference = undefined;
+    let vegMealPreference, nonVegMealPreference, veganMealPreference;
 
     const userPayload = {
-      firstName,
-      lastName,
-      isActive: isEmployeeActive === "1" ? true : false,
+      firstName, lastName, isActive: isEmployeeActive === "1",
       ...(dateOfBirth && { dateOfBirth }),
       ...(personalPhoneNumber && { personalPhoneNumber }),
       ...(personalEmailId && { personalEmailId }),
       ...(personalPhoneNumberExtension && { personalPhoneNumberExtension }),
       ...(alternatePhoneNumber && { alternatePhoneNumber }),
       ...(bloodGroup && { bloodGroup }),
-      ...(hobbies && { hobbies: values.hobbies }),
-      ...(notes && { notes: values.notes }),
+      ...(hobbies && { hobbies }),
+      ...(notes && { notes }),
       ...(linkedInProfileUrl && { linkedInProfileUrl }),
       ...(instagramProfileUrl && { instagramProfileUrl }),
       ...(facebookProfileUrl && { facebookProfileUrl }),
     };
 
     const {
-      employeeId,
-      dateOfJoining,
-      ctcInLpa,
-      gender,
-      designationId,
-      branchId,
-      dateOfExit,
-      employeeTypeId,
-      employeeTypeConfigId,
-      maritalStatus,
-      sourceOfHireId,
-      workingMethodId,
-      departmentId,
-      companyEmailId,
-      referredById,
-      method,
-      nickName,
-      employeeCode,
-      companyPhoneNumber,
-      companyPhoneExtension,
-      employeeStatusId,
-      employeeStatusConfigId,
-      avatar,
-      meal,
-      anniversary,
-      reportsToId,
-      documentFields,
-      attendanceRequestRaiseLimit,
-      allowedPerMonth,
-      allowOverTime,
-      professionalFeesEnabled,
-      professionalFeesAmount,
-      professionalFeesPercentage,
-      professionalFeesType,
-      isAdmin,
-      rejoinHistory,
-      teamId,
-      roomOrBlock,
-      shift,
-      experienceLevel,
-      employeeLevelId,
-      discretionaryLeaveBoolean,
-      discretionaryLeaveBalance,
+      employeeId, dateOfJoining, ctcInLpa, gender, designationId, branchId, dateOfExit,
+      employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId, workingMethodId,
+      departmentId, companyEmailId, referredById, method, nickName, employeeCode,
+      companyPhoneNumber, companyPhoneExtension, employeeStatusId, employeeStatusConfigId,
+      avatar, meal, anniversary, reportsToId, attendanceRequestRaiseLimit,
+      allowedPerMonth, allowOverTime, professionalFeesEnabled, professionalFeesAmount,
+      professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
+      roomOrBlock, shift, experienceLevel, employeeLevelId, discretionaryLeaveBoolean,
+      discretionaryLeaveBalance, isHiddenFromStaff: isHiddenFromStaffEdit,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
-    if (!appRole) {
-      errorConfirmation("Please select a user role");
-      return;
-    }
-    try {
-      const res = await updateEmployeeRolesById(employeeId, {
-        roleIds: [appRole],
-      });
-      // console.log("resFromUpdateEmployeeRolesById", res);
-    } catch (error) {
-      console.log("Error while updating employee roles", error);
-    }
-    const aadharCardDocument = values?.documentFields?.filter(
-      (doc: any) =>
-        doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "aadharcard",
-    );
-    const aadharDocumentId = aadharCardDocument?.[0]?.id;
-    const panCardDocument = values?.documentFields?.filter(
-      (doc: any) =>
-        doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "pancard",
-    );
-    const panDocumentId = panCardDocument?.[0]?.id;
-    if (
-      documentInfo &&
-      documentInfo?.findIndex(
-        (doc: any) => doc?.documentId === aadharDocumentId,
-      ) !== -1
-    ) {
-      const mostRecentAadharDoc = documentInfo
-        ?.filter((doc: any) => doc?.documentId === aadharDocumentId)
-        ?.sort(
-          (doc1: any, doc2: any) =>
-            new Date(doc2.createdAt).getTime() -
-            new Date(doc1.createdAt).getTime(),
-        )[0];
-      aadharCardPath = mostRecentAadharDoc?.path;
-      aadharNumber = mostRecentAadharDoc?.identityNumber;
-      if (
-        mostRecentAadharDoc?.id &&
-        mostRecentAadharDoc?.identityNumber &&
-        mostRecentAadharDoc?.path
-      ) {
-        await updateDocumentDetails(mostRecentAadharDoc.id, {
-          ...mostRecentAadharDoc,
-          identityNumber: aadharNumber,
-        });
-      }
+
+    if (appRole) {
+      try { await updateEmployeeRolesById(employeeId, { roleIds: [appRole] }); }
+      catch (error) { console.log("Error while updating employee roles", error); }
     }
 
-    if (
-      documentInfo &&
-      documentInfo?.findIndex(
-        (doc: any) => doc?.documentId === panDocumentId,
-      ) !== -1
-    ) {
-      const mostRecentPanDoc = documentInfo
-        ?.filter((doc: any) => doc?.documentId === panDocumentId)
-        ?.sort(
-          (doc1: any, doc2: any) =>
-            new Date(doc2.createdAt).getTime() -
-            new Date(doc1.createdAt).getTime(),
-        )[0];
-      panCardPath = mostRecentPanDoc?.path;
-      panNumber = mostRecentPanDoc?.identityNumber;
-      if (
-        mostRecentPanDoc?.id &&
-        mostRecentPanDoc?.identityNumber &&
-        mostRecentPanDoc?.path
-      ) {
-        await updateDocumentDetails(mostRecentPanDoc.id, {
-          ...mostRecentPanDoc,
-          identityNumber: panNumber,
-        });
-      }
+    const aadharDocumentId = values?.documentFields?.find(
+      (doc: any) => doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "aadharcard"
+    )?.id;
+    const panDocumentId = values?.documentFields?.find(
+      (doc: any) => doc?.fieldName?.toLowerCase().trim().replace(" ", "") === "pancard"
+    )?.id;
+
+    if (documentInfo?.findIndex((doc: any) => doc?.documentId === aadharDocumentId) !== -1) {
+      const r = documentInfo?.filter((doc: any) => doc?.documentId === aadharDocumentId)
+        ?.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      aadharCardPath = r?.path; aadharNumber = r?.identityNumber;
+      if (r?.id && r?.identityNumber && r?.path) await updateDocumentDetails(r.id, { ...r, identityNumber: aadharNumber });
+    }
+
+    if (documentInfo?.findIndex((doc: any) => doc?.documentId === panDocumentId) !== -1) {
+      const r = documentInfo?.filter((doc: any) => doc?.documentId === panDocumentId)
+        ?.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      panCardPath = r?.path; panNumber = r?.identityNumber;
+      if (r?.id && r?.identityNumber && r?.path) await updateDocumentDetails(r.id, { ...r, identityNumber: panNumber });
     }
 
     if (meal === "0") vegMealPreference = true;
     if (meal === "1") nonVegMealPreference = true;
     if (meal === "2") veganMealPreference = true;
 
-    const employeePayload = {
-      ...(avatar && { avatar }),
-      id: employeeId,
-      userId,
-      dateOfJoining,
-      ctcInLpa,
-      gender: parseInt(gender),
-      designationId,
-      branchId,
-      isActive: isEmployeeActive === "1" ? true : false,
-      ...(employeeTypeId && { employeeTypeId }), // Old field (optional for backward compatibility)
-      ...(employeeTypeConfigId && { employeeTypeConfigId }), // New field for employee_configurations
-      maritalStatus: parseInt(maritalStatus),
-      reportsToId,
-      sourceOfHireId,
-      workingMethodId,
-      departmentId,
-      companyEmailId,
-      ...(employeeStatusId && { employeeStatusId }), // Old field (optional for backward compatibility)
-      ...(employeeStatusConfigId && { employeeStatusConfigId }), // New field for employee_configurations
-      companyId,
-      method: parseInt(method),
-      companyPhoneNumber,
-      companyPhoneExtension,
-      employeeCode,
-      ...(isAdmin && { isAdmin: isAdmin === "1" ? true : false }),
+    const employeePayload: any = {
+      ...(avatar && { avatar }), id: employeeId, userId, dateOfJoining, ctcInLpa,
+      gender: parseInt(gender), designationId, branchId,
+      isActive: isEmployeeActive === "1",
+      ...(employeeTypeId && { employeeTypeId }),
+      ...(employeeTypeConfigId && { employeeTypeConfigId }),
+      maritalStatus: parseInt(maritalStatus), reportsToId, sourceOfHireId,
+      workingMethodId, departmentId, companyEmailId,
+      ...(employeeStatusId && { employeeStatusId }),
+      ...(employeeStatusConfigId && { employeeStatusConfigId }),
+      companyId, method: parseInt(method), companyPhoneNumber, companyPhoneExtension, employeeCode,
+      ...(isAdmin && { isAdmin: isAdmin === "1" }),
       ...(attendanceRequestRaiseLimit && { attendanceRequestRaiseLimit }),
       ...(allowedPerMonth && { allowedPerMonth }),
       ...(allowOverTime && { allowOverTime }),
-      ...(aadharNumber && { aadharNumber }),
-      ...(aadharCardPath && { aadharCardPath }),
-      ...(panNumber && { panNumber }),
-      ...(panCardPath && { panCardPath }),
-      ...(anniversary && { anniversary }),
-      ...(referredById && { referredById }),
-      ...(nickName && { nickName }),
-      ...(dateOfExit && { dateOfExit }),
+      ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
+      ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
+      ...(anniversary && { anniversary }), ...(referredById && { referredById }),
+      ...(nickName && { nickName }), ...(dateOfExit && { dateOfExit }),
       ...(vegMealPreference && { vegMealPreference }),
       ...(nonVegMealPreference && { nonVegMealPreference }),
       ...(veganMealPreference && { veganMealPreference }),
-      ...(teamId && { teamId }),
-      ...(roomOrBlock && { roomOrBlock }),
-      ...(shift && { shift }),
-      ...(experienceLevel && { experienceLevel }),
+      ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
+      ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
-      // Discretionary leave: always send boolean, only send balance if true
-      discretionaryLeaveBoolean:
-        discretionaryLeaveBoolean === "true" ||
-        discretionaryLeaveBoolean === true,
-      ...((discretionaryLeaveBoolean === "true" ||
-        discretionaryLeaveBoolean === true) &&
-        discretionaryLeaveBalance && {
-          discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0,
-        }),
-      // Always send leaveAllocations (replace-all on backend).
-      ...(Array.isArray(values.leaveAllocations) && {
-        leaveAllocations: values.leaveAllocations,
-      }),
-      ...buildProfessionalFeesPayload({
-        professionalFeesEnabled,
-        professionalFeesAmount,
-        professionalFeesPercentage,
-        professionalFeesType,
-      }),
+      discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
+      ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && { discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0 }),
+      ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
+      ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+      isHiddenFromStaff: isHiddenFromStaffEdit === true,
     };
-    // Clean up empty values but preserve gender, maritalStatus, discretionaryLeaveBoolean,
-    // and the professional-fees fields (null means "clear this column" and must survive).
-    Object.keys(employeePayload).forEach((key) => {
-      if (
-        key === "gender" ||
-        key === "maritalStatus" ||
-        key === "discretionaryLeaveBoolean" ||
-        PROF_FEES_KEYS.has(key)
-      )
-        return;
-      if (
-        !employeePayload[key] &&
-        employeePayload[key] !== 0 &&
-        employeePayload[key] !== false
-      ) {
-        delete employeePayload[key];
-      }
-    });
 
-    // IMPORTANT: Remove config fields to prevent foreign key errors if empty
-    if (!employeePayload.employeeTypeConfigId) {
-      delete employeePayload.employeeTypeConfigId;
-    }
-    if (!employeePayload.employeeStatusConfigId) {
-      delete employeePayload.employeeStatusConfigId;
-    }
+    Object.keys(employeePayload).forEach((key) => {
+      if (key === "gender" || key === "maritalStatus" || key === "discretionaryLeaveBoolean" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+      if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
+    });
+    if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
+    if (!employeePayload.employeeStatusConfigId) delete employeePayload.employeeStatusConfigId;
+
     const reqPromise = [
       () => updateUser(userId, userPayload),
       () => updateEmployee(employeeId, employeePayload),
     ];
 
-    const {
-      workExpInfo,
-      bankInfo,
-      educationalInfo,
-      familyInfo,
-      addressInfo,
-      emergencyDetails,
-    } = values;
+    const { workExpInfo, bankInfo, educationalInfo, familyInfo, addressInfo, emergencyDetails } = values;
 
-    if (addressInfo.permanentAddressLine1 == addressInfo.presentAddressLine1) {
-      const newAddressInfo = {
-        ...addressInfo,
-        presentAddressLine1: undefined,
-        presentAddressLine2: undefined,
-        presentCountry: undefined,
-        presentState: undefined,
-        presentCity: undefined,
-        presentPostalCode: undefined,
-      };
-      reqPromise.push(() =>
-        addressInfo?.id
-          ? updateAddressDetails(addressInfo.id, newAddressInfo)
-          : createAddressDetails({ ...newAddressInfo, employeeId }),
-      );
-    } else {
-      reqPromise.push(() =>
-        addressInfo?.id
-          ? updateAddressDetails(addressInfo.id, addressInfo)
-          : createAddressDetails({ ...addressInfo, employeeId }),
-      );
-    }
+    const addrPayload = addressInfo.permanentAddressLine1 === addressInfo.presentAddressLine1
+      ? { ...addressInfo, presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }
+      : addressInfo;
+    reqPromise.push(() => addressInfo?.id ? updateAddressDetails(addressInfo.id, addrPayload) : createAddressDetails({ ...addrPayload, employeeId }));
 
-    workExpInfo.forEach((workExp: any) =>
-      reqPromise.push(() =>
-        workExp?.id
-          ? updatePreviousExpDetails(workExp.id, workExp)
-          : createPreviousExperienceDetails([
-              {
-                ...(workExp.companyName && {
-                  companyName: workExp.companyName,
-                }),
-                ...(workExp.jobTitle && { jobTitle: workExp.jobTitle }),
-                ...(workExp.fromDate && { fromDate: workExp.fromDate }),
-                ...(workExp.toDate && { toDate: workExp.toDate }),
-                employeeId,
-              },
-            ]),
-      ),
-    );
-    educationalInfo.forEach((edInfo: any) =>
-      reqPromise.push(() =>
-        edInfo?.id
-          ? updateEducationalDetails(edInfo.id, edInfo)
-          : createEducationalDetails([
-              {
-                ...(edInfo.instituteName && {
-                  instituteName: edInfo.instituteName,
-                }),
-                ...(edInfo.degree && { degree: edInfo.degree }),
-                ...(edInfo.specialization && {
-                  specialization: edInfo.specialization,
-                }),
-                ...(edInfo.filePath && { filePath: edInfo.filePath }),
-                ...(edInfo.fromDate && { fromDate: edInfo.fromDate }),
-                ...(edInfo.toDate && { toDate: edInfo.toDate }),
-                employeeId,
-              },
-            ]),
-      ),
-    );
-    familyInfo.forEach((famInfo: any) =>
-      reqPromise.push(() =>
-        famInfo?.id
-          ? updateEmergencyContact(famInfo.id, famInfo)
-          : createEmergencyContacts([
-              {
-                ...(famInfo.name && { name: famInfo.name }),
-                ...(famInfo.mobileNumber && {
-                  mobileNumber: famInfo.mobileNumber,
-                }),
-                ...(famInfo.dateOfBirth && {
-                  dateOfBirth: famInfo.dateOfBirth,
-                }),
-                ...(famInfo.relationship && { relation: famInfo.relationship }),
-                employeeId,
-              },
-            ]),
-      ),
-    );
+    workExpInfo.filter((w: any) => w?.id || hasWorkExpInfo(w)).forEach((w: any) =>
+      reqPromise.push(() => w?.id ? updatePreviousExpDetails(w.id, w) : createPreviousExperienceDetails([{ ...(w.companyName && { companyName: w.companyName }), ...(w.jobTitle && { jobTitle: w.jobTitle }), ...(w.fromDate && { fromDate: w.fromDate }), ...(w.toDate && { toDate: w.toDate }), employeeId }])));
 
-    // Handle rejoin history separately to ensure proper order (delete before create)
-    const filteredRejoinHistory = rejoinHistory?.filter(
-      (rejoinInfo: any) =>
-        rejoinInfo.dateOfReJoining ||
-        rejoinInfo.dateOfReExit ||
-        rejoinInfo.reason,
-    );
+    educationalInfo.filter((e: any) => e?.id || hasEducationInfo(e)).forEach((e: any) =>
+      reqPromise.push(() => e?.id ? updateEducationalDetails(e.id, buildEducationPayload(e)) : createEducationalDetails([buildEducationPayload(e, employeeId)])));
 
-    // Execute rejoin history operations sequentially
+    familyInfo.filter((f: any) => f?.id || hasFamilyInfo(f)).forEach((f: any) =>
+      reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.dateOfBirth && { dateOfBirth: f.dateOfBirth }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
+
+    const filteredRejoinHistory = rejoinHistory?.filter((r: any) => r.dateOfReJoining || r.dateOfReExit || r.reason);
     await deleteAllRejoinHistoryByEmployeeId(employeeId);
-
     if (filteredRejoinHistory.length > 0) {
-      // Create new rejoin history entries only after delete completes
-      await createRejoinHistoryDetails(
-        filteredRejoinHistory.map((rejoinInfo: any) => ({
-          ...(rejoinInfo.dateOfReJoining && {
-            dateOfReJoining: rejoinInfo.dateOfReJoining,
-          }),
-          ...(rejoinInfo.dateOfReExit && {
-            dateOfReExit: rejoinInfo.dateOfReExit,
-          }),
-          ...(rejoinInfo.reason && { reason: rejoinInfo.reason }),
-          employeeId,
-        })),
-      );
+      await createRejoinHistoryDetails(filteredRejoinHistory.map((r: any) => ({
+        ...(r.dateOfReJoining && { dateOfReJoining: r.dateOfReJoining }),
+        ...(r.dateOfReExit && { dateOfReExit: r.dateOfReExit }),
+        ...(r.reason && { reason: r.reason }),
+        employeeId,
+      })));
     }
 
-    reqPromise.push(() =>
-      bankInfo?.id
-        ? updateBankDetails(bankInfo.id, bankInfo)
-        : createBankDetails({
-            ...(bankInfo.accountNumber && {
-              accountNumber: bankInfo.accountNumber,
-            }),
-            ...(bankInfo.accountName && { accountName: bankInfo.accountName }),
-            ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }),
-            ...(bankInfo.filePath && { filePath: bankInfo.filePath }),
-            employeeId,
-          }),
-    );
-    reqPromise.push(() =>
-      emergencyDetails?.id
-        ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)
-        : createEmergencyDetails({
-            ...(emergencyDetails.bloodGroup && {
-              bloodGroup: emergencyDetails.bloodGroup,
-            }),
-            ...(emergencyDetails.allergies && {
-              allergies: emergencyDetails.allergies,
-            }),
-            ...(emergencyDetails.emergencyContactName && {
-              emergencyContactName: emergencyDetails.emergencyContactName,
-            }),
-            ...(emergencyDetails.emergencyContactNumber && {
-              emergencyContactNumber: emergencyDetails.emergencyContactNumber,
-            }),
-            employeeId,
-          }),
-    );
-    values.documentInfo.forEach((docInfo: any) => {
-      reqPromise.push(() =>
-        docInfo?.id
-          ? updateDocumentDetails(docInfo?.id, { ...docInfo, employeeId })
-          : createDocumentsDetails([{ ...docInfo, employeeId }]),
-      );
-    });
-    // debugger;
+    reqPromise.push(() => bankInfo?.id
+      ? updateBankDetails(bankInfo.id, bankInfo)
+      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }));
+
+    reqPromise.push(() => emergencyDetails?.id
+      ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)
+      : createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }));
+
+    values.documentInfo.forEach((docInfo: any) =>
+      reqPromise.push(() => docInfo?.id ? updateDocumentDetails(docInfo?.id, { ...docInfo, employeeId }) : createDocumentsDetails([{ ...docInfo, employeeId }])));
+
     try {
       await Promise.all(reqPromise.map((fn) => fn()));
       await successConfirmation("Employee data updated successfully.");
       navigate("/employees");
     } catch (error: any) {
-      let errMessage =
-        "Something went wrong. Please try again with required fields filled with correct values.";
-
-      // Check if the error response exists and extract the backend error message
-      if (error.response && error.response.data) {
+      let errMessage = "Something went wrong. Please try again with required fields filled with correct values.";
+      if (error.response?.data) {
         const { status, data } = error.response;
-
-        if (status === 400 && data.detail) {
-          errMessage = data.detail;
-        } else if (status === 400 && data.message) {
-          errMessage = data.message;
-        } else if (data.error) {
-          errMessage = data.error;
-        } else if (
-          status === 500 &&
-          data.detail?.includes("users_alternate_phone_number_key")
-        ) {
-          errMessage = "AlternatePhoneNumber already exists.";
-        } else if (
-          status === 500 &&
-          data.detail?.includes("employees_company_email_id_key")
-        ) {
-          errMessage = "Company Emial Id already exists.";
-        } else if (
-          status === 500 &&
-          data.detail?.includes("users_personal_phone_number_key")
-        ) {
-          errMessage = "PersonalPhoneNumber already exists.";
-        }
+        if (status === 400 && data.detail) errMessage = data.detail;
+        else if (status === 400 && data.message) errMessage = data.message;
+        else if (data.error) errMessage = data.error;
+        else if (status === 500 && data.detail?.includes("users_alternate_phone_number_key")) errMessage = "AlternatePhoneNumber already exists.";
+        else if (status === 500 && data.detail?.includes("employees_company_email_id_key")) errMessage = "Company Email Id already exists.";
+        else if (status === 500 && data.detail?.includes("users_personal_phone_number_key")) errMessage = "PersonalPhoneNumber already exists.";
       }
-      if ((error as any).response?.status === 422) {
-        const validationErrors =
-          (error as any).response?.data?.validationError || [];
-        const formattedErrors = validationErrors
-          .map((err: any) => {
-            return `• ${err.errors.join(", ")}`;
-          })
-          .join("<br>");
-        if (formattedErrors.length > 0) {
-          errorConfirmation(
-            `Please fill are required fields:<br><br>${formattedErrors}`,
-          );
-          return;
-        }
+      if (error.response?.status === 422) {
+        const validationErrors = error.response?.data?.validationError || [];
+        const formattedErrors = validationErrors.map((e: any) => `• ${e.errors.join(", ")}`).join("<br>");
+        if (formattedErrors.length > 0) { errorConfirmation(`Please fill all required fields:<br><br>${formattedErrors}`); return; }
       }
-
-      // Show error message to the user
       errorConfirmation(errMessage);
-      console.error("API Error:", error.response ? error.response.data : error);
     }
   };
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Enhanced submitStep function with proper loading states and error handling
   const submitStep = async (values: any, actions: FormikValues) => {
-    if (!stepper) {
+    const currentStepIndex = stepper?.currentStepIndex || activeStepIndex;
+    const totalStepsNumber = stepper?.totalStepsNumber || newEmployeeWizardSchema.length;
+
+    if (currentStepIndex === totalStepsNumber && editMode) {
+      try { setIsSubmitting(true); await updateWizardData(values); }
+      catch (error) { console.error("Update wizard error:", error); }
+      finally { setIsSubmitting(false); }
       return;
     }
-    // Handle edit mode for final step
-    if (stepper.currentStepIndex === stepper.totalStepsNumber && editMode) {
-      try {
-        setIsSubmitting(true);
-        await updateWizardData(values);
-      } catch (error) {
-        console.error("Update wizard error:", error);
-      } finally {
-        setIsSubmitting(false);
+
+    if (currentStepIndex !== totalStepsNumber) {
+      if (stepper) {
+        stepper.goNext();
+        setActiveStepIndex(stepper.currentStepIndex);
+        setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+      } else {
+        const next = currentStepIndex + 1;
+        setActiveStepIndex(next);
+        setCurrentSchema(newEmployeeWizardSchema[next - 1]);
       }
-      return;
-    }
-
-    // Navigate to next step if not on final step
-    if (stepper.currentStepIndex !== stepper.totalStepsNumber) {
-      stepper.goNext();
+      setActiveSection("personal-info");
       actions.setTouched({});
+      scrollWizardToTop();
     } else {
-      // Handle final step submission
       let savedUserId: string | null = null;
-
       try {
         setIsSubmitting(true);
-
-        // Step 1: Save new user
         savedUserId = await saveNewUser(values);
+        if (!savedUserId) { if (typeof savedUserId === "boolean") return; throw new Error("Failed to save user"); }
 
-        if (!savedUserId) {
-          if (typeof savedUserId === "boolean") {
-            return;
-          }
-          throw new Error("Failed to save user, user ID is missing");
-        }
-
-        // Step 2: Upload documents
         const documentPromises = Object.keys(files).map(async (docId) => {
           const fileData = files[docId];
           const formData = new FormData();
           formData.append("file", fileData);
-
           try {
-            // Get field name from documentFields and convert to dash-separated format
-            const docField = values.documentFields?.find(
-              (field: any) => field.id === docId,
-            );
+            const docField = values.documentFields?.find((f: any) => f.id === docId);
             const fieldName = docField?.fieldName || docId;
-            // Convert "Aadhar Card" to "aadhar-card"
             const baseName = fieldName.toLowerCase().replace(/\s+/g, "-");
-            // Get file extension from uploaded file (e.g., .pdf, .jpg)
             const extension = fileData.name.split(".").pop();
             const fileName = extension ? `${baseName}.${extension}` : baseName;
-
-            // All onboarding files (including profile picture) go to onboarding-docs folder
-            const category = "onboarding-docs";
-            const response = await uploadUserAsset(
-              formData,
-              savedUserId!,
-              fileName,
-              category,
-            );
-            return {
-              documentId: docId,
-              path: response.data.path,
-              fileName: fileName, // Use renamed fileName instead of original fileData.name
-            };
-          } catch (uploadError) {
-            console.error(`Failed to upload document ${docId}:`, uploadError);
-            throw new Error(`Failed to upload document: ${fileData.name}`);
-          }
+            const response = await uploadUserAsset(formData, savedUserId!, fileName, "onboarding-docs");
+            return { documentId: docId, path: response.data.path, fileName };
+          } catch (uploadError) { throw new Error(`Failed to upload document: ${fileData.name}`); }
         });
 
         const documentUploaded = await Promise.all(documentPromises);
+        const filteredDocs = documentUploaded.filter((doc) => doc.documentId !== "userProfilePicture");
+        const profilePicture = documentUploaded.find((doc) => doc.documentId === "userProfilePicture");
+        if (profilePicture) values.avatar = profilePicture.path;
 
-        // Step 3: Process uploaded documents
-        const filteredDocs = documentUploaded.filter(
-          (doc) => doc.documentId !== "userProfilePicture",
-        );
-
-        // Set avatar from profile picture
-        const profilePicture = documentUploaded.find(
-          (doc) => doc.documentId === "userProfilePicture",
-        );
-        if (profilePicture) {
-          values.avatar = profilePicture.path;
-        }
-
-        // Map document info with identity numbers and uploaded files
-        const documentInfo = values.documentInfo || [];
-        console.log(
-          "Original documentInfo before processing uploads:: ",
-          documentInfo,
-        );
-        console.log("filteredDocs (uploaded files):: ", filteredDocs);
-
-        // Update existing documentInfo with file paths from uploads
-        const updatedDocs = documentInfo.map((docInfo: any) => {
-          // Find the corresponding uploaded file by documentId
-          const uploadedFile = filteredDocs.find(
-            (doc) => doc.documentId === docInfo.documentId,
-          );
-          return {
-            ...docInfo, // Keep original data including identityNumber
-            ...(uploadedFile && {
-              path: uploadedFile.path,
-              fileName: uploadedFile.fileName,
-            }), // Add file info only if file was uploaded
-          };
+        values.documentInfo = (values.documentInfo || []).map((docInfo: any) => {
+          const uploadedFile = filteredDocs.find((doc) => doc.documentId === docInfo.documentId);
+          return { ...docInfo, ...(uploadedFile && { path: uploadedFile.path, fileName: uploadedFile.fileName }) };
         });
 
-        console.log(
-          "Updated documentInfo after processing uploads:: ",
-          updatedDocs,
-        );
-        values.documentInfo = updatedDocs;
-
-        // Step 4: Save employee data
+        await uploadEducationDocuments(values, savedUserId);
         const savedEmployeeId = await saveNewEmployee(values, savedUserId);
+        if (!savedEmployeeId) throw new Error("Failed to save employee data");
 
-        if (!savedEmployeeId) {
-          throw new Error("Failed to save employee data");
+        if (values.appRole) {
+          try { await updateEmployeeRolesById(savedEmployeeId, { roleIds: [values.appRole] }); }
+          catch (roleError) { console.error("Error while updating employee roles:", roleError); }
         }
 
-        // Step 5: Update employee roles
-        const appRole = values.appRole;
-        if (appRole) {
-          try {
-            await updateEmployeeRolesById(savedEmployeeId, {
-              roleIds: [appRole],
-            });
-          } catch (roleError) {
-            console.error("Error while updating employee roles:", roleError);
-            // Don't throw here as this might not be critical
-          }
-        }
-
-        // Step 6: Save additional employee data
         await saveEmployeeData(values, savedEmployeeId);
-        // debugger;
-        // Success handling
         successConfirmation("Successfully onboarded an employee");
-        stepper.goto(1);
+        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+        stepper?.goto(1);
+        setActiveStepIndex(1);
+        setActiveSection("personal-info");
+        setCurrentSchema(newEmployeeWizardSchema[0]);
         actions.resetForm();
       } catch (error) {
         console.error("Submission error:", error);
-
-        // Cleanup: Archive user if it was created but process failed
         if (savedUserId) {
-          try {
-            await archiveUser(savedUserId, { status: "archived" });
-          } catch (archiveError) {
-            console.error(
-              "Failed to archive user during cleanup:",
-              archiveError,
-            );
-          }
+          try { await archiveUser(savedUserId, { status: "archived" }); }
+          catch (archiveError) { console.error("Failed to archive user during cleanup:", archiveError); }
         }
-
-        // Handle different types of errors
         await handleSubmissionError(error);
-      } finally {
-        setIsSubmitting(false);
-      }
+      } finally { setIsSubmitting(false); }
     }
 
-    // Update schema for current step
-    setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+    setCurrentSchema(newEmployeeWizardSchema[(stepper?.currentStepIndex || activeStepIndex) - 1]);
   };
 
-  // Separate error handling function for better organization
   const handleSubmissionError = async (error: any) => {
     try {
-      // Handle validation errors (422 status)
       if (error?.response?.status === 422) {
         const validationErrors = error.response?.data?.validationError || [];
-        const importantFields = [
-          "firstName",
-          "lastName",
-          "personalEmailId",
-          "personalPhoneNumber",
-          "dateOfBirth",
-          "gender",
-          "dateOfJoining",
-          "departmentId",
-          "branchId",
-          "employeeTypeId",
-          "companyEmailId",
-        ];
-
-        // Filter and format validation errors
-        const filteredErrors = validationErrors
-          .filter((err: any) => importantFields.includes(err.field))
-          .map((err: any) => `• ${err.errors.join(" ")}`)
-          .join("\n\n");
-
-        if (filteredErrors.length > 0) {
-          errorConfirmation(filteredErrors.replace(/\n/g, "<br>"));
-          return;
-        } else {
-          errorConfirmation(
-            "No specific validation errors found, but the request failed. Please try again.",
-          );
-          return;
-        }
+        const importantFields = ["firstName","lastName","personalEmailId","personalPhoneNumber","dateOfBirth","gender","dateOfJoining","departmentId","branchId","employeeTypeId","companyEmailId"];
+        const filteredErrors = validationErrors.filter((e: any) => importantFields.includes(e.field)).map((e: any) => `• ${e.errors.join(" ")}`).join("\n\n");
+        if (filteredErrors.length > 0) { errorConfirmation(filteredErrors.replace(/\n/g, "<br>")); return; }
+        else { errorConfirmation("No specific validation errors found, but the request failed. Please try again."); return; }
       }
-
-      // Handle other API errors
       const responseData = error?.response?.data || {};
-      const errorMessage =
-        responseData.detail ||
-        responseData.message ||
-        responseData.error ||
-        responseData.errors?.map((err: string) => `• ${err}`).join("\n") ||
-        error?.response?.statusText ||
-        "An unknown error occurred.";
-
+      const errorMessage = responseData.detail || responseData.message || responseData.error || responseData.errors?.map((e: string) => `• ${e}`).join("\n") || error?.response?.statusText || "An unknown error occurred.";
       errorConfirmation(errorMessage.replace(/\n/g, "<br>"));
-    } catch (parseError) {
-      // Handle errors in error parsing
-      const fallbackMessage =
-        error instanceof Error
-          ? `Error during submission: ${error.message}`
-          : typeof error === "string"
-            ? `Error during submission: ${error}`
-            : "An unexpected error occurred during submission.";
-
-      errorConfirmation(fallbackMessage);
+    } catch {
+      const fallback = error instanceof Error ? `Error during submission: ${error.message}` : typeof error === "string" ? `Error during submission: ${error}` : "An unexpected error occurred during submission.";
+      errorConfirmation(fallback);
     }
-
-    // Handle network errors
-    if (!error?.response) {
-      errorConfirmation(
-        "A network error occurred. Please check your internet connection and try again.",
-      );
-    }
+    if (!error?.response) errorConfirmation("A network error occurred. Please check your internet connection and try again.");
   };
 
   useEffect(() => {
-    if (!stepperRef.current) {
-      return;
-    }
+    if (!stepperRef.current) return;
     loadStepper();
   }, [stepperRef]);
 
   useEffect(() => {
-    if (!editMode) return;
+    setCurrentSchema(newEmployeeWizardSchema[activeStepIndex - 1]);
+  }, [activeStepIndex]);
 
+  // Sidebar nav click handler
+  useEffect(() => {
+    if (!stepper || !stepperRef.current) return;
+    const navItems = Array.from(stepperRef.current.querySelectorAll('[data-kt-stepper-element="nav"]')) as HTMLElement[];
+    const handlers: Array<(e: Event) => void> = [];
+
+    navItems.forEach((item, index) => {
+      const targetStep = index + 1;
+      const handler = (e: Event) => {
+        const currentIndex = stepper.currentStepIndex;
+        if (targetStep === currentIndex) { e.stopImmediatePropagation(); return; }
+        if (targetStep < currentIndex) {
+          e.stopImmediatePropagation();
+          stepper.goto(targetStep);
+          setActiveStepIndex(targetStep);
+          setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+          if (targetStep === 1) setActiveSection("personal-info");
+          scrollWizardToTop(); return;
+        }
+        e.stopImmediatePropagation();
+        if (!formikRef.current) return;
+        formikRef.current.validateForm().then((errors: any) => {
+          if (Object.keys(errors).length === 0) {
+            stepper.goto(targetStep);
+            setActiveStepIndex(targetStep);
+            setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+            scrollWizardToTop();
+          } else {
+            const touchedObj: Record<string, boolean> = {};
+            const flatten = (obj: any, prefix = "") => {
+              for (const key of Object.keys(obj)) {
+                const path = prefix ? `${prefix}.${key}` : key;
+                if (obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) flatten(obj[key], path);
+                else touchedObj[path] = true;
+              }
+            };
+            flatten(errors);
+            formikRef.current.setTouched(touchedObj, false);
+          }
+        });
+      };
+      item.addEventListener("click", handler, { capture: true });
+      handlers.push(handler);
+    });
+
+    return () => { navItems.forEach((item, idx) => item.removeEventListener("click", handlers[idx], { capture: true })); };
+  }, [stepper]);
+
+  // Edit mode data load
+  useEffect(() => {
+    if (!editMode) return;
     async function wizard() {
       if (!employeeId) return;
-      const {
-        data: { wizardData },
-      } = await fetchWizardData(employeeId, false);
-      
-      console.log("[PF DEBUG] RAW API RESPONSE wizardData:", wizardData);
-      
+      const { data: { wizardData } } = await fetchWizardData(employeeId, false);
+
       let presentAddress = {};
-      const { attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime } =
-        wizardData;
-      const isSameAddress =
-        wizardData.addressInfo?.presentAddressLine1 === null;
+      const { attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime } = wizardData;
+      const isSameAddress = wizardData.addressInfo?.presentAddressLine1 === null;
       if (isSameAddress) {
-        const {
-          permanentAddressLine1,
-          permanentAddressLine2,
-          permanentCountry,
-          permanentState,
-          permanentCity,
-          permanentPostalCode,
-        } = wizardData.addressInfo;
-        presentAddress = {
-          presentAddressLine1: permanentAddressLine1,
-          presentAddressLine2: permanentAddressLine2,
-          presentCountry: permanentCountry,
-          presentState: permanentState,
-          presentCity: permanentCity,
-          presentPostalCode: permanentPostalCode,
-        };
+        const { permanentAddressLine1, permanentAddressLine2, permanentCountry, permanentState, permanentCity, permanentPostalCode } = wizardData.addressInfo;
+        presentAddress = { presentAddressLine1: permanentAddressLine1, presentAddressLine2: permanentAddressLine2, presentCountry: permanentCountry, presentState: permanentState, presentCity: permanentCity, presentPostalCode: permanentPostalCode };
       }
 
       const newState = {
-        ...initialState,
-        ...wizardData,
-        method: "0",
+        ...initialState, ...wizardData, method: "0",
+        educationalInfo: withDefaultEducationInfo(wizardData?.educationalInfo),
+        familyInfo: withDefaultFamilyInfo(wizardData?.familyInfo),
+        workExpInfo: withDefaultWorkExpInfo(wizardData?.workExpInfo),
         addressInfo: { ...wizardData.addressInfo, ...presentAddress },
-        emergencyDetails: wizardData?.emergencyDetails || {
-          bloodGroup: "",
-          allergies: "",
-          emergencyContactName: "",
-          emergencyContactNumber: "",
-        },
+        emergencyDetails: wizardData?.emergencyDetails || { bloodGroup: "", allergies: "", emergencyContactName: "", emergencyContactNumber: "" },
         appRole: wizardData?.roles[0]?.id,
         isEmployeeActive: wizardData?.isActive ? "1" : "0",
         isAdmin: wizardData?.isAdmin ? "1" : "0",
         attendanceRequestRaiseLimit: attendanceRequestRaiseLimit || 0,
         allowedPerMonth: allowedPerMonth || 1,
-        allowOverTime: allowOverTime,
-        bloodGroup:
-          wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
-        // Map employee type and status config IDs - only if they exist
-        ...(wizardData?.employeeTypeConfigId && {
-          employeeTypeConfigId: wizardData.employeeTypeConfigId,
-        }),
-        ...(wizardData?.employeeStatusConfigId && {
-          employeeStatusConfigId: wizardData.employeeStatusConfigId,
-        }),
-        // Newly added fields
-        teamId: wizardData?.teamId || "",
-        roomOrBlock: wizardData?.roomOrBlock || "",
-        shift: wizardData?.shift || "",
-        experienceLevel: wizardData?.experienceLevel || "",
+        allowOverTime,
+        bloodGroup: wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
+        ...(wizardData?.employeeTypeConfigId && { employeeTypeConfigId: wizardData.employeeTypeConfigId }),
+        ...(wizardData?.employeeStatusConfigId && { employeeStatusConfigId: wizardData.employeeStatusConfigId }),
+        teamId: wizardData?.teamId || "", roomOrBlock: wizardData?.roomOrBlock || "",
+        shift: wizardData?.shift || "", experienceLevel: wizardData?.experienceLevel || "",
         employeeLevelId: wizardData?.employeeLevelId || "",
-        // Social media fields from users object
         linkedInProfileUrl: wizardData?.users?.linkedInProfileUrl || "",
         instagramProfileUrl: wizardData?.users?.instagramProfileUrl || "",
         facebookProfileUrl: wizardData?.users?.facebookProfileUrl || "",
-        // Other user fields
-        hobbies: wizardData?.users?.hobbies || "",
-        notes: wizardData?.users?.notes || "",
-        // Discretionary leave fields
-        discretionaryLeaveBoolean: wizardData?.discretionaryLeaveBoolean
-          ? "true"
-          : "false",
+        hobbies: wizardData?.users?.hobbies || "", notes: wizardData?.users?.notes || "",
+        discretionaryLeaveBoolean: wizardData?.discretionaryLeaveBoolean ? "true" : "false",
         discretionaryLeaveBalance: wizardData?.discretionaryLeaveBalance || 0,
-        // Professional Fees — see helpers at top of file.
-        professionalFeesEnabled: readProfessionalFeesEnabled(
-          wizardData?.professionalFeesEnabled ??
-            (wizardData as any)?.professional_fees_enabled,
-        ),
-        professionalFeesAmount: (() => {
-          const v =
-            wizardData?.professionalFeesAmount ??
-            (wizardData as any)?.professional_fees_amount;
-          return v != null && v !== "" ? String(v) : "";
-        })(),
-        professionalFeesPercentage: (() => {
-          const v =
-            (wizardData as any)?.professionalFeesPercentage ??
-            (wizardData as any)?.professional_fees_percentage;
-          return v != null && v !== "" ? String(v) : "";
-        })(),
-        professionalFeesType:
-          wizardData?.professionalFeesType ||
-          (wizardData as any)?.professional_fees_type ||
-          "FIXED",
+        isHiddenFromStaff: wizardData?.isHiddenFromStaff === true,
+        professionalFeesEnabled: readProfessionalFeesEnabled(wizardData?.professionalFeesEnabled ?? (wizardData as any)?.professional_fees_enabled),
+        professionalFeesAmount: (() => { const v = wizardData?.professionalFeesAmount ?? (wizardData as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
+        professionalFeesPercentage: (() => { const v = (wizardData as any)?.professionalFeesPercentage ?? (wizardData as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
+        professionalFeesType: wizardData?.professionalFeesType || (wizardData as any)?.professional_fees_type || "FIXED",
       };
-      console.log("[PF DEBUG] wizardData prof-fees fields:", {
-        professionalFeesEnabled: wizardData?.professionalFeesEnabled,
-        professional_fees_enabled: (wizardData as any)?.professional_fees_enabled,
-        professionalFeesType: wizardData?.professionalFeesType,
-        professionalFeesAmount: wizardData?.professionalFeesAmount,
-        professionalFeesPercentage: (wizardData as any)?.professionalFeesPercentage,
-      });
-      console.log("[PF DEBUG] newState prof-fees fields:", {
-        professionalFeesEnabled: newState.professionalFeesEnabled,
-        professionalFeesType: newState.professionalFeesType,
-        professionalFeesAmount: newState.professionalFeesAmount,
-        professionalFeesPercentage: newState.professionalFeesPercentage,
-      });
       setDefaultState(newState);
     }
-
     wizard();
   }, [employeeId, defaultState.method]);
 
-  const handleClose = () => {
-    setShow(false);
-    navigate("/employees");
-  };
-
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth); // for responsive design previously it was breaking when resizing the window
+  // Ctrl+Enter shortcut
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-
-    return () => window.removeEventListener("resize", handleResize);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); formikRef.current?.submitForm(); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const handleClose = () => { setShow(false); navigate("/employees"); };
 
   return (
     <>
-      <Modal
-        show={show}
-        onHide={handleClose}
-        dialogClassName="full-width-modal"
-        className="full-width-modal"
-      >
-        <Modal.Header closeButton>
-          {editMode && defaultState.firstName && (
-            <div className="d-flex align-items-center gap-3">
-              <div className="symbol symbol-40px">
-                {defaultState.avatar ? (
-                  <img
-                    src={defaultState.avatar}
-                    alt={`${defaultState.firstName} ${defaultState.lastName}`}
-                  />
-                ) : (
-                  <div className="symbol-label fs-2 fw-bold text-primary bg-light-primary">
-                    {defaultState.firstName.charAt(0).toUpperCase()}
-                    {defaultState.lastName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div className="d-flex flex-column">
-                <h4 className="mb-0">
-                  {defaultState.firstName} {defaultState.lastName}
-                </h4>
-                <span className="text-muted fs-7">
-                  {defaultState.appRole && defaultState.roles?.[0]?.name
-                    ? defaultState.roles[0].name
-                    : "No role assigned"}
-                </span>
-              </div>
-            </div>
-          )}
-        </Modal.Header>
-        <Modal.Body className="employee__form_wizard__modal_body">
-          <div
-            ref={stepperRef}
-            className="stepper stepper-pills stepper-column d-flex flex-column flex-xl-row flex-row-fluid"
-            id="kt_create_account_stepper"
+      <Modal show={show} onHide={handleClose} dialogClassName="full-width-modal" className="full-width-modal">
+        <Modal.Body ref={modalBodyRef} className="employee__form_wizard__modal_body ob-modal-body">
+          <Formik
+            initialValues={defaultState}
+            validationSchema={currentSchema}
+            onSubmit={submitStep}
+            enableReinitialize={true}
           >
-            {/* begin::Aside*/}
-            <div
-              className="d-flex justify-content-center justify-content-xl-start flex-row-auto w-100 w-xl-300px w-xxl-400px me-9"
-              style={{
-                position: windowWidth >= 1200 ? "sticky" : "relative",
-                top: windowWidth >= 1200 ? "0" : "unset",
-                alignSelf: "flex-start",
-              }}
-            >
-              {/* begin::Wrapper*/}
-              <div className="card-body px-6 px-lg-10 px-xxl-15 py-20">
-                {/* begin::Nav*/}
-                <div className="stepper-nav">
-                  {/* <h3 className="mb-10 text-uppercase">Add new employee</h3> */}
-                  {/* Step 1 (Choose Method) commented out - wizard now starts at Personal Details */}
-                  {/* <div className='stepper-item current' data-kt-stepper-element='nav'>
-                    <div className='stepper-wrapper'>
-                      <div className='stepper-icon w-40px h-40px'>
-                        <i className='stepper-check fas fa-check'></i>
-                        <span className='stepper-number'>1</span>
-                      </div>
-                      <div className='stepper-label'>
-                        <h3 className='stepper-title'>Choose Method</h3>
-                        <div className='stepper-desc fw-semibold'>Select onboarding method</div>
-                      </div>
-                    </div>
-                    <div className='stepper-line h-20px'></div>
-                  </div> */}
+            {(formikProps) => {
+              formikRef.current = formikProps;
 
-                  {/* begin::Step 1 (Previously Step 2)*/}
-                  <div
-                    className="stepper-item current"
-                    data-kt-stepper-element="nav"
-                  >
-                    {/* begin::Wrapper*/}
-                    <div className="stepper-wrapper">
-                      {/* begin::Icon*/}
-                      <div className="stepper-icon w-40px h-40px">
-                        <i className="stepper-check fas fa-check"></i>
-                        <span className="stepper-number">1</span>
-                      </div>
-                      {/* end::Icon*/}
+              useEffect(() => { formikProps.validateForm(); }, [activeStepIndex, defaultState]);
 
-                      {/* begin::Label*/}
-                      <div className="stepper-label">
-                        <h3 className="stepper-title">Personal Details</h3>
-                        <div className="stepper-desc fw-semibold">
-                          Fill in personal details
+              const completion = calculateProfileCompletion(formikProps.values);
+              const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
+
+              // Determine if required fields for this step are filled (for CTA styling)
+              const isStepReady = (() => {
+                const v = formikProps.values;
+                if (activeStepIndex === 1) return [v.firstName, v.lastName, v.dateOfBirth, v.gender, v.personalEmailId, v.personalPhoneNumber].every(hasDraftValue);
+                if (activeStepIndex === 2) return [v.designationId, v.departmentId, v.branchId].every(hasDraftValue);
+                return true;
+              })();
+
+              return (
+                <Form className="ob-wizard-root" noValidate id="employee_onboarding_form" placeholder={undefined}>
+                  <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
+
+                    {/* ── Header Bar ── */}
+                    <header className="ob-header-bar">
+                      <div className="ob-header-left">
+                        <h2 className="ob-header-title">Employee Onboarding</h2>
+                        {editMode && defaultState.firstName && (
+                          <span className="ob-header-user-chip">{defaultState.firstName} {defaultState.lastName}</span>
+                        )}
+                      </div>
+                      <div className="ob-header-right">
+                        <div className="ob-profile-completion">
+                          <span className="ob-completion-label">{completion}% Complete</span>
+                          <div className="ob-completion-bar-track">
+                            <div className="ob-completion-bar-fill" style={{ width: `${completion}%` }} />
+                          </div>
                         </div>
                       </div>
-                      {/* end::Label*/}
-                    </div>
-                    {/* end::Wrapper*/}
+                    </header>
 
-                    {/* begin::Line*/}
-                    <div className="stepper-line h-20px"></div>
-                    {/* end::Line*/}
-                  </div>
-                  {/* end::Step 1*/}
-
-                  {/* begin::Step 2 (Previously Step 3)*/}
-                  <div className="stepper-item" data-kt-stepper-element="nav">
-                    {/* begin::Wrapper*/}
-                    <div className="stepper-wrapper">
-                      {/* begin::Icon*/}
-                      <div className="stepper-icon w-40px h-40px">
-                        <i className="stepper-check fas fa-check"></i>
-                        <span className="stepper-number">2</span>
+                    {/* ── Stepper Nav ── */}
+                    <nav className="ob-stepper-nav-bar">
+                      <div className="ob-horiz-stepper">
+                        {[
+                          { label: "Personal Details", desc: "~2 min" },
+                          { label: "Company Details", desc: "~3 min" },
+                          { label: "App Settings", desc: "~2 min" },
+                          { label: "Documents", desc: "~1 min" },
+                        ].map((step, i) => {
+                          const stepNum = i + 1;
+                          const isCurrent = activeStepIndex === stepNum;
+                          const isCompleted = activeStepIndex > stepNum;
+                          return (
+                            <>
+                              <div
+                                key={stepNum}
+                                className={`stepper-item ob-step-item ${isCurrent ? "current" : ""} ${isCompleted ? "completed" : ""}`}
+                                data-kt-stepper-element="nav"
+                              >
+                                <div className="ob-step-circle">
+                                  {isCompleted ? <KTIcon iconName="check" className="fs-6 text-white" /> : stepNum}
+                                </div>
+                                <div className="ob-step-labels">
+                                  <div className="ob-step-name">{step.label}</div>
+                                  <div className="ob-step-desc">{step.desc}</div>
+                                </div>
+                              </div>
+                              {i < 3 && (
+                                <div key={`conn-${i}`} className={`ob-step-connector ${isCompleted ? "completed" : ""}`} />
+                              )}
+                            </>
+                          );
+                        })}
                       </div>
-                      {/* end::Icon*/}
+                    </nav>
 
-                      {/* begin::Label*/}
-                      <div className="stepper-label">
-                        <h3 className="stepper-title">Company details</h3>
-                        <div className="stepper-desc fw-semibold">
-                          Fill in company details
-                        </div>
+                    {/* ── Main Content ── */}
+                    <main className="ob-main-layout">
+                      <div key={activeStepIndex} className="wizard-step-transition">
+
+                        {/* STEP 1 */}
+                        {activeStepIndex === 1 && (
+                          <div className="ob-two-col-layout">
+                            <ObSectionsSidebar
+                              sections={[
+                                ...NAV_SECTIONS.map((section) => {
+                                  const { filled, total } =
+                                    COMPLETION_FNS[section.id]?.(formikProps.values) ?? { filled: 0, total: 0 };
+                                  return {
+                                    id: section.id,
+                                    label: section.label,
+                                    icon: section.icon,
+                                    isComplete: total > 0 && filled >= total,
+                                  };
+                                }),
+                                (() => {
+                                  const { filled, total } =
+                                    COMPLETION_FNS.meal?.(formikProps.values) ?? { filled: 0, total: 0 };
+                                  return {
+                                    id: "meal",
+                                    label: "Additional Details",
+                                    icon: (
+                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M12 8v4l3 3" />
+                                      </svg>
+                                    ),
+                                    isComplete: total > 0 && filled >= total,
+                                  };
+                                })(),
+                              ]}
+                              activeSection={activeSection}
+                              onSectionChange={setActiveSection}
+                            />
+                            <div className="ob-form-area">
+                              <Step2
+                                formikProps={formikProps}
+                                setFile={addFileToState}
+                                setEducationFile={addEducationFileToState}
+                                activeSection={activeSection}
+                                onSectionChange={setActiveSection}
+                                completion={completion}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} />}
+                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} />}
+                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} />}
                       </div>
-                      {/* end::Label*/}
-                    </div>
-                    {/* end::Wrapper*/}
+                    </main>
 
-                    {/* begin::Line*/}
-                    <div className="stepper-line h-20px"></div>
-                    {/* end::Line*/}
-                  </div>
-                  {/* end::Step 2*/}
+                    {/* ── Floating Action Buttons ── */}
+                    <div className="ob-floating-actions">
+                      {/* Cancel */}
+                      <button type="button" className="ob-float-cancel-btn" onClick={handleClose}>
+                        <KTIcon iconName="cross" className="fs-5" />
+                        Cancel
+                      </button>
 
-                  {/* begin::Step 3 (Previously Step 4)*/}
-                  <div className="stepper-item" data-kt-stepper-element="nav">
-                    {/* begin::Wrapper*/}
-                    <div className="stepper-wrapper">
-                      {/* begin::Icon*/}
-                      <div className="stepper-icon w-40px h-40px">
-                        <i className="stepper-check fas fa-check"></i>
-                        <span className="stepper-number">3</span>
-                      </div>
-                      {/* end::Icon*/}
+                      {/* Back (hidden on step 1) */}
+                      {activeStepIndex > 1 && (
+                        <button type="button" className="ob-float-back-btn" onClick={prevStep} disabled={isSubmitting}>
+                          <KTIcon iconName="arrow-left" className="fs-5" />
+                          Back
+                        </button>
+                      )}
 
-                      {/* begin::Label*/}
-                      <div className="stepper-label">
-                        <h3 className="stepper-title">Documents</h3>
-                        <div className="stepper-desc fw-semibold">
-                          Upload employee documents
-                        </div>
-                      </div>
-                      {/* end::Label*/}
-                    </div>
-                    {/* end::Wrapper*/}
-                  </div>
-                  {/* end::Step 3*/}
-                </div>
-                {/* end::Nav*/}
-              </div>
-              {/* end::Wrapper*/}
-            </div>
-            {/* begin::Aside*/}
-
-            <div className="d-flex flex-column flex-row-fluid align-items-start  rounded">
-              <Formik
-                initialValues={defaultState}
-                onSubmit={submitStep}
-                enableReinitialize={true}
-              >
-                {(formikProps) => {
-                  useEffect(() => {
-                    formikProps.validateForm();
-                  }, [stepper?.currentStepIndex, defaultState]);
-
-                  return (
-                    <Form
-                      className="d-flex flex-column flex-grow-1 py-5 w-100 px-8"
-                      noValidate
-                      id="employee_onboarding_form"
-                      placeholder={undefined}
-                    >
-                      <div className="flex-grow-1">
-                        {/* Step1 (Choose Method) is now commented out - wizard starts at Personal Details */}
-                        <div
-                          className="current"
-                          data-kt-stepper-element="content"
+                      {/* Continue / Submit */}
+                      {activeStepIndex === 1 ? (
+                        <button
+                          type="button"
+                          className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                          disabled={isSubmitting}
+                          onClick={() => {
+                            formikProps.validateForm().then((errors) => {
+                              if (Object.keys(errors).length === 0) {
+                                if (stepper) {
+                                  stepper.goNext();
+                                  setActiveStepIndex(stepper.currentStepIndex);
+                                  setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+                                } else {
+                                  setActiveStepIndex(2);
+                                  setCurrentSchema(newEmployeeWizardSchema[1]);
+                                }
+                                formikProps.setTouched({});
+                                scrollWizardToTop();
+                              } else {
+                                formikProps.submitForm();
+                              }
+                            });
+                          }}
                         >
-                          {stepper?.currentStepIndex === 1 ? (
-                            <Step2
-                              formikProps={formikProps}
-                              setFile={addFileToState}
-                            />
-                          ) : null}
-                        </div>
+                          Continue
+                          <KTIcon iconName="arrow-right" className="fs-5" />
+                        </button>
+                      ) : isLastStep ? (
+                        <button
+                          type="submit"
+                          className="ob-float-submit-btn"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <>
+                              Saving...
+                              <span className="spinner-border spinner-border-sm align-middle ms-1" />
+                            </>
+                          ) : (
+                            <>
+                              Submit
+                              <KTIcon iconName="check" className="fs-5" />
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          type="submit"
+                          className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <>
+                              Please wait...
+                              <span className="spinner-border spinner-border-sm align-middle ms-1" />
+                            </>
+                          ) : (
+                            <>
+                              Continue
+                              <KTIcon iconName="arrow-right" className="fs-5" />
+                            </>
+                          )}
+                        </button>
+                      )}
 
-                        <div data-kt-stepper-element="content">
-                          {stepper?.currentStepIndex === 2 ? (
-                            <Step3
-                              formikProps={formikProps}
-                              editMode={editMode}
-                            />
-                          ) : null}
-                        </div>
+                      {/* <span className="ob-float-shortcut">Ctrl + Enter</span> */}
+                    </div>
 
-                        <div data-kt-stepper-element="content">
-                          {stepper?.currentStepIndex === 3 ? (
-                            <Step4
-                              formikProps={formikProps}
-                              setFile={addFileToState}
-                            />
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="d-flex flex-stack pt-20">
-                        <div className="mr-2">
-                          <button
-                            onClick={prevStep}
-                            type="button"
-                            className="btn btn-lg btn-light-primary me-3"
-                            data-kt-stepper-action="previous"
-                          >
-                            <KTIcon
-                              iconName="arrow-left"
-                              className="fs-4 me-1"
-                            />
-                            Back
-                          </button>
-                        </div>
-                        <div>
-                          <button
-                            type="submit"
-                            className="btn btn-lg btn-primary me-3"
-                            disabled={!formikProps.isValid || isSubmitting}
-                          >
-                            <span className="indicator-label">
-                              {stepper?.currentStepIndex !==
-                                stepper?.totalStepsNumber && "Continue"}
-                              {stepper?.currentStepIndex ===
-                                stepper?.totalStepsNumber &&
-                                (isSubmitting ? (
-                                  <span
-                                    className="indicator-progress"
-                                    style={{ display: "block" }}
-                                  >
-                                    Please wait...
-                                    <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                  </span>
-                                ) : (
-                                  "Submit"
-                                ))}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    </Form>
-                  );
-                }}
-              </Formik>
-            </div>
-          </div>
+                  </div>
+                </Form>
+              );
+            }}
+          </Formik>
         </Modal.Body>
       </Modal>
     </>

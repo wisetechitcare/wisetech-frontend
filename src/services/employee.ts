@@ -455,6 +455,28 @@ export const updateEducationalDetails = async (id: string, payload: any) => {
     }
 }
 
+export const fetchQualificationMasters = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_QUALIFICATION_MASTER}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const createQualificationMaster = async (payload: { name: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_QUALIFICATION_MASTER}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const updateRejoinHistoryDetails = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_REJOIN_HISTORY_BY_ID}?id=${id}`;
