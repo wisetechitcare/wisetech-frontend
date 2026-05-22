@@ -130,6 +130,7 @@ export const transformLeaveRequests = (
         ? `${leave.rejectedByEmployee.users.firstName || ""} ${leave.rejectedByEmployee.users.lastName || ""}`.trim()
         : "",
       updatedAt: leave.updatedAt,
+      hasApprovalInstance: (leave as any).hasApprovalInstance ?? false,
     };
   });
 

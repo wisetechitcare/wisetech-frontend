@@ -24,6 +24,8 @@ import { getWorkingDays } from '@utils/leaves';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import LeaveRequestCalendar from './LeaveRequestCalendar';
+import { SmartBalanceCard } from './leave/SmartBalanceCard';
+import { computeTypeBalanceStats, formatFiscalResetLabel } from './leave/balanceStats';
 
 const extractApiErrorMessage = (err: any): string | null => {
   const data = err?.response?.data;
@@ -85,7 +87,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   // Use fetched leaves data (populated in useEffect) - fallback to Redux if not loaded yet
   const employeeLeavesData = fetchedEmployeeLeavesData.length > 0 ? fetchedEmployeeLeavesData : (employeeLeavesDataFromRedux || []);
   const [warningMessage, setWarningMessage] = useState('');
-  const [sandwhichConfiguration, setsandwhichConfiguration] = useState('')
+  const [sandwichLeaveEnabled, setSandwichLeaveEnabled] = useState(false);
   const [limit, setLimit] = useState<number>(0);
   const [usedLeaves, setUsedLeaves] = useState<number>(0);
   const [countTotalLeaves, setCountTotalLeaves]= useState<number>(0);
@@ -343,17 +345,16 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         const floaterLeavesTaken = fiscalYearFilteredLeaves.filter(
           (leave: any) => leave.leaveOptions.leaveType === FLOATER_LEAVES && leave.status === Status.Approved
         );
-        const unpaidLeavesTaken = fiscalYearFilteredLeaves.filter(
-          (leave: any) => leave.leaveOptions.leaveType === UNPAID_LEAVES && leave.status === Status.Approved
-        );
-
         // Calculate total days taken (not just count of records)
         const casualDaysTaken = casualLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
         const annualDaysTaken = annualLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
         const maternalDaysTaken = maternalLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
         const sickDaysTaken = sickLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
         const floaterDaysTaken = floaterLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
-        const unpaidDaysTaken = unpaidLeavesTaken.reduce((total:any, leave:any) => total + calculateLeaveDays(leave), 0);
+        // Use the shared utility for unpaid so the count matches the Balance page calculation.
+        const publicHolidayDatesForUnpaid = publicHolidays.map((h: any) => dayjs(h.date).format('YYYY-MM-DD'));
+        const approvedOnlyTaken = calculateLeavesTakenByType(fiscalYearFilteredLeaves, publicHolidayDatesForUnpaid, workingAndOffDays, false);
+        const unpaidDaysTaken = approvedOnlyTaken[UNPAID_LEAVES] || 0;
 
         // Pending days per paid type — mirrors backend's usedDays+pendingDays cumulative check
         const casualDaysPending = fiscalYearFilteredLeaves
@@ -451,18 +452,18 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           // console.log("Total leaves to subtract (transfer + encash):", currentFiscalTransferredLeaves);
         }
 
-        // Derive the effective unpaid leave allocation.
-        // Unpaid leaves are NOT a separate 365-day bucket — they represent the remaining days
-        // of the year after all paid leave types are accounted for.
-        // Formula: unpaidBudget = 365 - sum(all paid leave type allocations)
-        // This keeps the dropdown consistent with the Balance page (balanceProgressUtils.ts buildLeaveData).
-        // Maternal leaves are excluded from cumulative pacing — they carry full allocation
-        // from day 1 and must not count against the monthly pro-rated limit.
-        // Unpaid leaves are also excluded (they are derived, not a separate allocation).
-        const totalPaidAllocated = allLeaveOption
-            .filter((opt: any) => opt.leaveType !== UNPAID_LEAVES && opt.leaveType !== MATERNAL_LEAVES)
-            .reduce((sum: number, opt: any) => sum + (leaveBalanceMap[opt.leaveType] ?? (Number(opt.numberOfDays) || 0)), 0);
-        const derivedUnpaidDays = Math.max(0, 365 - totalPaidAllocated);
+        // Use the backend-derived unpaidDays from the same LeaveBalance API that drives
+        // the Balance card — this guarantees the dropdown is always consistent with 2/351 etc.
+        // Fallback: recompute from leaveBalanceMap keys only (not allLeaveOption, which can
+        // include branch-default leave types not present in the employee's LeaveBalance and
+        // cause the total to drift vs. the balance page).
+        const backendUnpaidDays = balanceResponse?.data?.unpaidDays;
+        const totalPaidAllocated = Object.entries(leaveBalanceMap)
+            .filter(([leaveType]) => leaveType !== UNPAID_LEAVES && leaveType !== MATERNAL_LEAVES)
+            .reduce((sum: number, [, days]) => sum + days, 0);
+        const derivedUnpaidDays = typeof backendUnpaidDays === 'number'
+            ? backendUnpaidDays
+            : Math.max(0, 365 - totalPaidAllocated);
 
         // Cumulative allowance summary for the modal info block.
         // Matches dashboard logic: uses centralized utility from balanceProgressUtils.
@@ -672,7 +673,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             const configuration = await fetchConfiguration(SANDWICH_LEAVE_KEY);
             const jsonObjectSandwhich = JSON.parse(configuration.data.configuration.configuration);
             const customRules = jsonObjectSandwhich.isSandwichLeaveSixthEnabled || jsonObjectSandwhich.isSandwichLeaveFifthEnabled || jsonObjectSandwhich.isSandwichLeaveFourthEnabled || jsonObjectSandwhich.isSandwichLeaveThirdEnabled || jsonObjectSandwhich.isSandwichLeaveSecondEnabled || jsonObjectSandwhich.isSandwichLeaveFirstEnabled;
-            setsandwhichConfiguration(customRules);
+            setSandwichLeaveEnabled(!!customRules);
             // console.log("customRules",customRules);
           }
           catch (error ) {
@@ -753,7 +754,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         let leaveDays = 0;
         for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
           const dayOfWeek = date.getDay();
-          if (sandwhichConfiguration) {
+          if (sandwichLeaveEnabled) {
             leaveDays += 1;
           } else if (dayOfWeek !== 0 && dayOfWeek !== 6) {
             leaveDays += 1;
@@ -920,7 +921,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               const dayOfWeek = date.getDay();
               let countDay = false;
 
-              if (sandwhichConfiguration) {
+              if (sandwichLeaveEnabled) {
                 leaveDays += 1;
                 countDay = true;
               } else if (dayOfWeek !== 0 && dayOfWeek !== 6 ){
@@ -1129,37 +1130,9 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 </div>
               )} */}
 
-              {/* Cumulative Leave Allowance Summary */}
-              {cumulativeSummary && (
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: '#f0f9ff',
-                  border: '1px solid #bae6fd',
-                  borderRadius: '8px',
-                  marginBottom: '20px',
-                  fontSize: '13px',
-                  fontFamily: 'Inter, sans-serif'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                    <i className="bi bi-info-circle" style={{ color: '#0369a1' }}></i>
-                    <span style={{ fontWeight: '600', color: '#0369a1' }}>Cumulative Leave Allowance</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                    <span style={{ color: '#374151' }}>Allowed till now: <strong>{cumulativeSummary.allowedTillNow}</strong></span>
-                    <span style={{ color: '#374151' }}>Used: <strong>{cumulativeSummary.used}</strong></span>
-                    <span style={{ color: cumulativeSummary.remaining > 0 ? '#059669' : '#dc2626' }}>
-                      Remaining: <strong>{cumulativeSummary.remaining}</strong>
-                    </span>
-                  </div>
-                  <div style={{ marginTop: '6px', color: '#6b7280', fontSize: '12px' }}>
-                    Leave limits are applied on total paid leaves combined, not per leave type.
-                  </div>
-                </div>
-              )}
-
-              <div className="row mb-9">
-                <div className="col-lg-12">
-                  <label className="required fs-6 fw-bold mb-3">Leave Type</label>
+              <div className="lrc-zone1 mb-9">
+                <div className="lrc-zone1__type">
+                  <label className="required fs-6 fw-bold mb-2">Leave Type</label>
                   <Select
                     options={statusOptions}
                     value={statusOptions.find(
@@ -1170,7 +1143,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                       setWarningMessage('');
                       setFieldValue('leaveTypeId', leaveTypeId);
                       setLeaveTypeId(leaveTypeId.toString());
-                      // console.log("allLeaveOption:: ",allLeaveOption);
                       setLeaveTypeSelected(statusOptions?.filter(val=>val.value === leaveTypeId)[0] || null);
                     }}
                     placeholder="Select leave type"
@@ -1178,19 +1150,33 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                     classNamePrefix="select"
                     styles={customStyles}
                   />
+                  {startDateNew && endDateNew && (
+                    <p className="lrc-zone1__fiscal-hint">
+                      Fiscal period: {dayjs(startDateNew).format('MMM YYYY')} – {dayjs(endDateNew).format('MMM YYYY')}
+                    </p>
+                  )}
                   {touched.leaveTypeId && errors.leaveTypeId && (
                     <div className="fv-plugins-message-container">
                       <div className="fv-help-block">{errors.leaveTypeId}</div>
                     </div>
                   )}
                 </div>
-                {warningMessage && (
-                  <div className="col-lg-12 mt-4">  
-                    <div className="alert alert-warning" role="alert">
-                      {warningMessage}
-                    </div>
-                  </div>
-                )}
+                <SmartBalanceCard
+                  stats={
+                    leaveTypeSelected
+                      ? computeTypeBalanceStats(
+                          leaveTypeSelected.value,
+                          leaveTypeSelected.label,
+                          leaveTypeSelected.limit,
+                          employeeLeavesData,
+                          startDateNew,
+                          endDateNew,
+                        )
+                      : null
+                  }
+                  cumulativeSummary={cumulativeSummary}
+                  fiscalResetLabel={formatFiscalResetLabel(endDateNew)}
+                />
               </div>
 
               <LeaveRequestCalendar
@@ -1205,6 +1191,11 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                 leaveCount={leaveCount}
                 countTotalLeaves={countTotalLeaves}
                 cumulativeSummary={cumulativeSummary}
+                employeeLeavesData={employeeLeavesData}
+                isUnpaidType={leaveTypeSelected?.label?.toLowerCase().includes('unpaid') || false}
+                editingLeaveId={leave?.id}
+                inlineFormWarning={warningMessage || undefined}
+                sandwichLeaveEnabled={sandwichLeaveEnabled}
               />
 
               <div className="row mb-9">
@@ -1241,7 +1232,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               <div className="d-flex justify-content-end" style={{ position: 'sticky', bottom: 0, background: '#fff', paddingTop: '12px', paddingBottom: '4px', zIndex: 10, borderTop: '1px solid #e5e7eb', marginTop: '8px' }}>
                 <button
                   type="submit"
-                  className="btn btn-primary me-2"
+                  className="btn btn-primary me-2 lrc-submit-btn"
                   disabled={
                     !isValid || isSubmitting || leaveCount === 0 || loading ||
                     (!isAdmin && leaveCount > countTotalLeaves) ||

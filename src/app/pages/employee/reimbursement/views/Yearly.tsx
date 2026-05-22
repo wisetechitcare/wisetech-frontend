@@ -7,11 +7,13 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { Dayjs } from "dayjs";
 import { fetchEmpYearlyReimbursements, fetchYearlyReimbursementsOfAllEmp } from "@utils/statistics";
-import { deleteEmployeeReimbursement } from "@services/employee";
+import { deleteEmployeeReimbursement, fetchApprovalInstanceByRequest } from "@services/employee";
 import { deleteConfirmation } from "@utils/modal";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { useEventBus } from "@hooks/useEventBus";
+import { Modal } from "react-bootstrap";
+import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 
 function Yearly({ year,showEditDeleteOption=false, showIdCol=false, showName=false, onEdit, selectedEmployeeId, resource="", viewOwn=false, viewOthers=false, checkOwnWithOthers=false}: { year: Dayjs,  showEditDeleteOption:boolean, showIdCol:boolean, showName:boolean,  onEdit: (row: IReimbursementsUpdate) => void, selectedEmployeeId?:string, resource:string, viewOwn?:boolean, viewOthers?:boolean, checkOwnWithOthers?:boolean}) {
   const leaves = useSelector((state: RootState) => state.leaves.personalLeaves);
@@ -26,13 +28,29 @@ function Yearly({ year,showEditDeleteOption=false, showIdCol=false, showName=fal
   );
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
+  const [trackingRequestId, setTrackingRequestId] = useState<string | null>(null);
+  const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
+  const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
+
+  const openTracker = async (requestId: string) => {
+    setTrackingRequestId(requestId);
+    setTrackInstanceId(null);
+    setTrackInstanceLoading(true);
+    try {
+      const res = await fetchApprovalInstanceByRequest('Reimbursement', requestId);
+      const instance = res?.data ?? res;
+      setTrackInstanceId(instance?.id ?? null);
+    } catch {
+      setTrackInstanceId(null);
+    } finally {
+      setTrackInstanceLoading(false);
+    }
+  };
+
   const handleEdit = async (row: IReimbursementsUpdate) => {
-    // console.log("Edit clicked for row:", row.id);
-    // console.log("row data: ", row);
     const finalRow =Object.fromEntries( Object.entries(row).filter(
       ([key, value]) =>value!=null,
     ));
-    // console.log("finalRow: ",finalRow);
     onEdit(finalRow)
   };
 
@@ -125,13 +143,14 @@ function Yearly({ year,showEditDeleteOption=false, showIdCol=false, showName=fal
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const isApproved = row.original.status === 'Approved';
+          const isPending = row.original.status === 'Pending';
           const resEdit = !isApproved && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
           const resDelete = !isApproved && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
-          
+
           if (isApproved) {
             return <span className="text-muted">No actions available</span>;
           }
-          
+
           return(
             <div className="flex items-center justify-center space-x-4">
               {resEdit && <button
@@ -146,7 +165,16 @@ function Yearly({ year,showEditDeleteOption=false, showIdCol=false, showName=fal
               >
                 <KTIcon iconName="trash" className="inline fs-4 text-red-500" />
               </button>}
-              {(!resEdit && !resDelete) && "Not Allowed"}
+              {isPending && row.original.hasApprovalInstance && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                  title="Track Approval"
+                  onClick={() => openTracker(row.original.id)}
+                >
+                  <KTIcon iconName="map" className="fs-3" />
+                </button>
+              )}
+              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && "Not Allowed"}
             </div>
           )
         }
@@ -220,6 +248,31 @@ function Yearly({ year,showEditDeleteOption=false, showIdCol=false, showName=fal
         checkOwnWithOthers={checkOwnWithOthers}
         employeeId={employeeId}
       />
+      <Modal
+        show={!!trackingRequestId}
+        onHide={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '20px 24px' }}>
+          {trackInstanceLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <span className="spinner-border spinner-border-sm text-primary me-2" />
+              <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+            </div>
+          ) : trackInstanceId ? (
+            <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <KTIcon iconName="information" className="fs-3x text-muted mb-3" />
+              <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
     </>
   );
 }

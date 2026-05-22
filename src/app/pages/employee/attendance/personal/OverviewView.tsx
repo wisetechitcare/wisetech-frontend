@@ -13,8 +13,9 @@ import AttendanceCalendar from "./views/overview/AttendanceCalendar";
 import MarkAttendance from "./views/overview/MarkAttendance";
 const AttendanceGraphicalOverview = lazy(() => import("./views/overview/AttendanceGraphicalOverview"));
 import { customLeaves, filterLeavesPublicHolidays } from "@utils/statistics";
-import { saveFilteredLeaves, saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from "@redux/slices/attendanceStats";
+import { saveFilteredLeaves, saveFilteredPublicHolidays, saveLeaves, savePublicHolidays, saveToggleChange } from "@redux/slices/attendanceStats";
 import { fetchAllPublicHolidays, fetchCompanyOverview } from "@services/company";
+import { getSocket } from "@utils/socketClient";
 
 
 export interface FormattedDate {
@@ -217,6 +218,7 @@ export const transformLeaves = (leaves: LeaveResponse[]): ILeaves[] => {
             updatedAt: leave.updatedAt,
             approvedByName: leave.approvedByEmployee?.users ? `${leave.approvedByEmployee.users.firstName || ''} ${leave.approvedByEmployee.users.lastName || ''}`.trim() : '',
             rejectedByName: leave.rejectedByEmployee?.users ? `${leave.rejectedByEmployee.users.firstName || ''} ${leave.rejectedByEmployee.users.lastName || ''}`.trim() : '',
+            hasApprovalInstance: (leave as any).hasApprovalInstance ?? false,
         }
     });
 
@@ -311,6 +313,19 @@ function OverviewView() {
         } else {
             dispatch(toggleLocationPermission(false));
         }
+    }, []);
+
+    // When an approval completes (admin approves via Approval Inbox), the backend
+    // emits 'approval:updated' to the requester's socket room. Re-fetch attendance
+    // so the calendar and report tables reflect the newly written attendance record.
+    useEffect(() => {
+        const socket = getSocket();
+        const handler = () => {
+            setActiveStartDate(prev => new Date(prev.getTime()));
+            dispatch(saveToggleChange(!store.getState().attendanceStats.toggleChange));
+        };
+        socket.on('approval:updated', handler);
+        return () => { socket.off('approval:updated', handler); };
     }, []);
 
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);

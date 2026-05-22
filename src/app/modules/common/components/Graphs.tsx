@@ -30,7 +30,8 @@ import { fetchWorkingMethods } from '@services/options';
 import DropDownInput from '../inputs/DropdownInput';
 import dayjs, { Dayjs } from 'dayjs';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
-import { createUpdateAttendanceRequest, deleteAttendanceRequestById, sendAttendanceRequestResetLimit } from '@services/employee';
+import { createUpdateAttendanceRequest, deleteAttendanceRequestById, sendAttendanceRequestResetLimit, fetchApprovalInstanceByRequest } from '@services/employee';
+import ApprovalStatusTracker from '@app/pages/approvals/ApprovalStatusTracker';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { fetchCompanyOverview, fetchConfiguration } from '@services/company';
 import { getAttendanceRequest } from '@services/employee';
@@ -1990,6 +1991,9 @@ export const ReportsTable = ({
     const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
     const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
     const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
+    const [trackingRequestId, setTrackingRequestId] = useState<string | null>(null);
+    const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
+    const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
     const maxAttendanceRequestLimit = useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
     const [latitudeNew, setLatitudeNew] = useState<any>()
     const [longitudeNew, setLongitudeNew] = useState<any>()
@@ -2037,6 +2041,21 @@ export const ReportsTable = ({
             dispatch(saveToggleChange(!toggleChange));
         }
     }
+
+    const openTracker = async (requestId: string) => {
+        setTrackingRequestId(requestId);
+        setTrackInstanceId(null);
+        setTrackInstanceLoading(true);
+        try {
+            const res = await fetchApprovalInstanceByRequest('AttendanceRequests', requestId);
+            const instance = res?.data ?? res;
+            setTrackInstanceId(instance?.id ?? null);
+        } catch {
+            setTrackInstanceId(null);
+        } finally {
+            setTrackInstanceLoading(false);
+        }
+    };
 
     const [date, setDate] = useState('');
     const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
@@ -2271,27 +2290,36 @@ export const ReportsTable = ({
         },
         {
             accessorKey: "approvedById",
-            header: "Approved By ",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => allEmployees?.find((emp: any) => emp.employeeId === renderedCellValue)?.employeeName || '-NA-'
-        },
-        {
-            accessorKey: "rejectedById",
-            header: "Rejected By ",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => allEmployees?.find((emp: any) => emp.employeeId === renderedCellValue)?.employeeName || '-NA-'
-        },
-        {
-            accessorKey: "approvedOrRejectedDate",
-            header: "Last Updated",
-            size: 150,
-            minSize: 120,
-            maxSize: 180,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ? dayjs(renderedCellValue).format('DD MMM YYYY hh:mm A') : '-NA-'
+            header: "Approved / Rejected By",
+            size: 180,
+            minSize: 150,
+            maxSize: 220,
+            Cell: ({ row }: any) => {
+                const { status, approvedById, rejectedById } = row.original;
+                const isApproved = status === LeaveStatus.Approved;
+                const isRejected = status === LeaveStatus.Rejected;
+                const actorId = isApproved ? approvedById : isRejected ? rejectedById : null;
+                const name = actorId ? allEmployees?.find((emp: any) => emp.employeeId === actorId)?.employeeName : null;
+                const date = row.original.approvedOrRejectedDate
+                    ? dayjs(row.original.approvedOrRejectedDate).format('DD MMM YYYY hh:mm A')
+                    : null;
+
+                if (!name) return <span className='text-muted fs-7'>-NA-</span>;
+
+                return (
+                    <div className='d-flex align-items-center gap-2'>
+                        <div className='symbol symbol-30px'>
+                            <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
+                                {name.charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                        <div className='d-flex flex-column'>
+                            <span className='text-dark fw-semibold fs-7'>{name}</span>
+                            {date && <span className='text-muted fs-8'>{date}</span>}
+                        </div>
+                    </div>
+                );
+            },
         },
         ...(!fromAdmin ? [{
             accessorKey: "actions",
@@ -2302,6 +2330,7 @@ export const ReportsTable = ({
             Cell: ({ row }: any) => {
                 const deleteRes = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                 const isApproved = row.original.status === Status.Approved || row.original.statusNumber === Status.Approved;
+                const isPending = row.original.status === LeaveStatus.ApprovalPending;
                 const editRes = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOwn, row?.original);
                 return (
                     <>
@@ -2317,7 +2346,16 @@ export const ReportsTable = ({
                         >
                             <KTIcon iconName='trash' className='fs-3' />
                         </button>}
-                        {((!editRes && !deleteRes) || isApproved) && "Not Allowed"}
+                        {isPending && row.original.hasApprovalInstance && (
+                            <button
+                                className='ms-2 btn btn-icon btn-bg-light btn-active-color-info btn-sm'
+                                title='Track Approval'
+                                onClick={() => openTracker(row.original.id)}
+                            >
+                                <KTIcon iconName='map' className='fs-3' />
+                            </button>
+                        )}
+                        {((!editRes && !deleteRes) || isApproved) && !isPending && "Not Allowed"}
                     </>
                 );
             },
@@ -2509,6 +2547,31 @@ export const ReportsTable = ({
                     </Formik>
                 </Modal.Body>
             </Modal >
+            <Modal
+                show={!!trackingRequestId}
+                onHide={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}
+                centered
+                size='lg'
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
+                </Modal.Header>
+                <Modal.Body style={{ padding: '20px 24px' }}>
+                    {trackInstanceLoading ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                            <span className='spinner-border spinner-border-sm text-primary me-2' />
+                            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+                        </div>
+                    ) : trackInstanceId ? (
+                        <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                            <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
+                            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+                        </div>
+                    )}
+                </Modal.Body>
+            </Modal>
         </>
     );
 }
