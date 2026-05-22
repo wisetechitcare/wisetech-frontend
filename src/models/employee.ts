@@ -238,11 +238,23 @@ export interface IWeeklyAttendance {
 }
 
 export interface ILeaves {
+  id?: string;
   date: string;
   day: string;
+  dateFrom?: string;
+  dateTo?: string;
   type: string;
   remark: string | null;
+  reason?: string | null;
   status: string;
+  statusNumber?: number;
+  leaveTypeId?: string;
+  employeeId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  approvedByName?: string;
+  rejectedByName?: string;
+  hasApprovalInstance?: boolean;
 }
 
 export interface ILeaveBalance {
@@ -384,6 +396,7 @@ export interface IAttendanceRequests {
   rejectedById?: string,
   approvedOrRejectedDate?: string,
   reportsToId?: string | null,
+  hasApprovalInstance?: boolean,
 }
 
 export interface ApprovedAttendanceRequest {

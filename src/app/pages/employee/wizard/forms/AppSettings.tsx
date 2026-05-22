@@ -7,6 +7,8 @@ import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
 import { useParams } from "react-router-dom";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { deleteApprovalWorkflowConfig, fetchAllEmployeesSelectedData, fetchApprovalWorkflowConfigs, saveApprovalWorkflowChain } from "@services/employee";
+import Select from "react-select";
+import { ColourOption, SingleValue, DropdownIndicator } from "@app/modules/common/inputs/ColorInDropdwon";
 
 const showAppSettingsRadioBtn: RadioButton[] = [
     {
@@ -35,8 +37,7 @@ function AppSettings() {
     const fieldName = 'appRole';
     const [roleOptions, setRoleOptions] = useState([]);
     const [field, , helpers] = useField(fieldName);
-    const attendanceRequestLimit = useField('attendanceRequestRaiseLimit');
-    const [approverOptions, setApproverOptions] = useState<Array<{ value: string; label: string }>>([]);
+    const [approverOptions, setApproverOptions] = useState<Array<{ value: string; label: string; avatar?: string | null }>>([]);
     const [isApprovalLoading, setIsApprovalLoading] = useState(false);
     const [isApprovalSaving, setIsApprovalSaving] = useState<Record<string, boolean>>({});
     const [workflowChains, setWorkflowChains] = useState<Record<string, Array<string>>>({
@@ -81,7 +82,9 @@ function AppSettings() {
                     .map((emp: any) => ({
                         value: String(emp.id),
                         label: `${emp?.users?.firstName || emp?.firstName || ''} ${emp?.users?.lastName || emp?.lastName || ''}`.trim() || emp.id,
-                    }));
+                        avatar: emp.avatar ?? null,
+                    }))
+                    .sort((a: any, b: any) => a.label.localeCompare(b.label));
                 setApproverOptions(options);
 
                 const configs = workflowsRes?.data || workflowsRes || [];
@@ -286,18 +289,17 @@ function AppSettings() {
                                         {[0, 1, 2, 3, 4].map((levelIndex) => (
                                             <div key={`${module.key}-l${levelIndex + 1}`} className="col-12 col-md-6 col-lg-2">
                                                 <label className="form-label">Level {levelIndex + 1}</label>
-                                                <select
-                                                    className="employee__form_wizard__input form-select"
-                                                    value={workflowChains[module.key]?.[levelIndex] || ""}
-                                                    onChange={(e) => handleLevelChange(module.key, levelIndex, e.target.value)}
-                                                >
-                                                    <option value="">{levelIndex === 0 ? "Select approver" : "N/A"}</option>
-                                                    {approverOptions.map((opt) => (
-                                                        <option key={opt.value} value={opt.value}>
-                                                            {opt.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <Select
+                                                    options={approverOptions}
+                                                    value={approverOptions.find(opt => opt.value === workflowChains[module.key]?.[levelIndex]) || null}
+                                                    onChange={(selected) => handleLevelChange(module.key, levelIndex, selected?.value || '')}
+                                                    placeholder={levelIndex === 0 ? "Select approver" : "N/A"}
+                                                    isClearable
+                                                    isSearchable
+                                                    components={{ Option: ColourOption, SingleValue, DropdownIndicator }}
+                                                    classNamePrefix="react-select"
+                                                    className="react-select-styled"
+                                                />
                                             </div>
                                         ))}
 

@@ -22,8 +22,10 @@ import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { deleteConfirmation, errorConfirmation, rejectConfirmation, successConfirmation } from "@utils/modal";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { approveMultipleReimbursements } from "@services/employee";
+import { approveMultipleReimbursements, fetchApprovalInstanceByRequest } from "@services/employee";
 import { toast } from "react-toastify";
+import { Modal } from "react-bootstrap";
+import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 
 function AllEmployee() {
   const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
@@ -45,7 +47,25 @@ function AllEmployee() {
   const [processingRowId, setProcessingRowId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<'approve' | 'reject' | 'approveAll' | null>(null);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
-  
+  const [trackingRequestId, setTrackingRequestId] = useState<string | null>(null);
+  const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
+  const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
+
+  const openTracker = async (requestId: string) => {
+    setTrackingRequestId(requestId);
+    setTrackInstanceId(null);
+    setTrackInstanceLoading(true);
+    try {
+      const res = await fetchApprovalInstanceByRequest('Reimbursement', requestId);
+      const instance = res?.data ?? res;
+      setTrackInstanceId(instance?.id ?? null);
+    } catch {
+      setTrackInstanceId(null);
+    } finally {
+      setTrackInstanceLoading(false);
+    }
+  };
+
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
@@ -289,33 +309,45 @@ function AllEmployee() {
               enableColumnActions: false,
               Cell: ({ row }: any) => {
                 const resEdit = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOthers, row?.original);
-            
+                const isPending = row.original.status === 'Pending';
+
                 return (
-                  resEdit ? (<div className="flex items-center justify-center space-x-4">
-                    {" "}
-                    <button
-                      className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                      onClick={() => handleApprove(row.original)}
-                      disabled={loading || processingRowId === row.original.id}
-                    >
-                      {processingRowId === row.original.id && processingAction === 'approve' ? (
-                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  <div className="flex items-center justify-center space-x-4">
+                    {resEdit && <>
+                      <button
+                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                        onClick={() => handleApprove(row.original)}
+                        disabled={loading || processingRowId === row.original.id}
+                      >
+                        {processingRowId === row.original.id && processingAction === 'approve' ? (
+                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                         ) : (
-                            <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} />
+                          <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} />
                         )}
-                    </button>
-                    <button
-                      className="btn btn-icon btn-active-color-primary btn-sm w-4"
-                      onClick={() => handleReject(row.original)}
-                      disabled={loading || processingRowId === row.original.id}
-                    >
-                      {processingRowId === row.original.id && processingAction === 'reject' ? (
-                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                      </button>
+                      <button
+                        className="btn btn-icon btn-active-color-primary btn-sm w-4"
+                        onClick={() => handleReject(row.original)}
+                        disabled={loading || processingRowId === row.original.id}
+                      >
+                        {processingRowId === row.original.id && processingAction === 'reject' ? (
+                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                         ) : (
-                            <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} />
+                          <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} />
                         )}
-                    </button>
-                  </div>): "Not Allowed"
+                      </button>
+                    </>}
+                    {isPending && row.original.hasApprovalInstance && (
+                      <button
+                        className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                        title="Track Approval"
+                        onClick={() => openTracker(row.original.id)}
+                      >
+                        <KTIcon iconName="map" className="fs-3" />
+                      </button>
+                    )}
+                    {!resEdit && !row.original.hasApprovalInstance && "Not Allowed"}
+                  </div>
                 )
               }
             },
@@ -377,6 +409,31 @@ function AllEmployee() {
         viewOwn={true}
         checkOwnWithOthers={true}
       />
+      <Modal
+        show={!!trackingRequestId}
+        onHide={() => { setTrackingRequestId(null); setTrackInstanceId(null); }}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '20px 24px' }}>
+          {trackInstanceLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <span className="spinner-border spinner-border-sm text-primary me-2" />
+              <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+            </div>
+          ) : trackInstanceId ? (
+            <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <KTIcon iconName="information" className="fs-3x text-muted mb-3" />
+              <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
     </>
   );
 }

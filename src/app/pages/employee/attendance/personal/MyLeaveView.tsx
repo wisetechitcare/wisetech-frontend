@@ -108,11 +108,19 @@ const PersonalLeaveView = () => {
                 </div>
             </div>
             <h3 className='fw-bold font-barlow mb-0'>Leaves</h3>
-            <Modal show={open} onHide={handleClose} centered size="lg" scrollable>
-                <Modal.Header closeButton>
+            <Modal
+                show={open}
+                onHide={handleClose}
+                centered
+                size="lg"
+                scrollable
+                dialogClassName="lrc-leave-modal"
+                contentClassName="lrc-leave-modal__content"
+            >
+                <Modal.Header closeButton className="lrc-leave-modal__header">
                     <Modal.Title>Optimize Leave Request</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="lrc-leave-modal__body">
                     <LeaveRequestForm onClose={handleClose} startDateNew={startDateNew} endDateNew={endDateNew} />
                 </Modal.Body>
             </Modal>

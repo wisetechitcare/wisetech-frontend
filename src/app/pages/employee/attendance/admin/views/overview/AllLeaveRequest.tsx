@@ -6,19 +6,20 @@ import { useEffect, useMemo, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
-import { deleteLeaveRequestById } from "@services/employee";
+import { deleteLeaveRequestById, fetchApprovalInstanceByRequest } from "@services/employee";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { hasPermission } from "@utils/authAbac";
 import { usePermission } from "@hooks/usePermission";
 import { fetchLeaveRequest } from "@services/employee";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from "@constants/statistics";
 import { formatDateFromISTString } from "@utils/statistics";
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
 import Loader from "@app/modules/common/utils/Loader";
 import { fetchColorAndStoreInSlice, generateFiscalYearFromGivenYear } from "@utils/file";
 import { Modal } from "react-bootstrap";
 import LeaveRequestForm from "@pages/employee/attendance/personal/views/my-leaves/LeaveRequestForm";
+import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import dayjs from "dayjs";
 function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -28,9 +29,27 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
 
     const dispatch = useDispatch();
 
-    // State for edit modal
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedLeave, setSelectedLeave] = useState<any>(null);
+    const [trackingLeaveId, setTrackingLeaveId] = useState<string | null>(null);
+    const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
+
+    const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
+
+    const openTracker = async (leaveId: string) => {
+        setTrackingLeaveId(leaveId);
+        setTrackInstanceId(null);
+        setTrackInstanceLoading(true);
+        try {
+            const res = await fetchApprovalInstanceByRequest('LeaveTracker', leaveId);
+            const instance = res?.data ?? res;
+            setTrackInstanceId(instance?.id ?? null);
+        } catch {
+            setTrackInstanceId(null);
+        } finally {
+            setTrackInstanceLoading(false);
+        }
+    };
     const [fiscalYearStart, setFiscalYearStart] = useState<string>('');
     const [fiscalYearEnd, setFiscalYearEnd] = useState<string>('');
 
@@ -174,63 +193,76 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         },
         {
             accessorKey: "approvedByName",
-            header: "Approved By",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || '-NA-'
+            header: "Approved / Rejected By",
+            Cell: ({ row }: any) => {
+                const { statusNumber, approvedByName, rejectedByName, updatedAt } = row.original;
+                const isApproved = statusNumber === Status.Approved;
+                const isRejected = statusNumber === Status.Rejected;
+                const name = isApproved ? approvedByName : isRejected ? rejectedByName : null;
+                const date = updatedAt ? dayjs(updatedAt).format('DD MMM YYYY, hh:mm A') : null;
+
+                if (!name) return <span className='text-muted fs-7'>-NA-</span>;
+
+                return (
+                    <div className='d-flex align-items-center gap-2'>
+                        <div className='symbol symbol-30px'>
+                            <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
+                                {name.charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                        <div className='d-flex flex-column'>
+                            <span className='text-dark fw-semibold fs-7'>{name}</span>
+                            {date && <span className='text-muted fs-8'>{date}</span>}
+                        </div>
+                    </div>
+                );
+            }
         },
         {
-            accessorKey: "rejectedByName",
-            header: "Rejected By",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || '-NA-'
+            accessorKey: "actions",
+            header: "Actions",
+            Cell: ({ row }: any) => {
+                const editRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.editOthers);
+                const deleteRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.deleteOthers);
+                const isApproved = row.original.statusText;
+                const pending = row.original.statusNumber === 0;
+                const today = new Date();
+                const dateTo = new Date(row.original.dateTo);
+                const isFutureOrToday = dateTo >= new Date(today.setHours(0, 0, 0, 0));
+
+                return (
+                    <div className='d-flex align-items-center gap-1'>
+                        {editRes && (
+                            <button
+                                title="Edit Leave"
+                                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                                onClick={() => handleEditClick(row)}
+                            >
+                                <KTIcon iconName="pencil" className="fs-3" />
+                            </button>
+                        )}
+                        {deleteRes && isApproved && isFutureOrToday && (
+                            <button
+                                title="Revoke Leave"
+                                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                                onClick={() => deleteLeaveRequest(row.original.id)}
+                            >
+                                <KTIcon iconName="trash" className="fs-3" />
+                            </button>
+                        )}
+                        {pending && row.original.hasApprovalInstance && (
+                            <button
+                                title="Track Approval"
+                                className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                                onClick={() => openTracker(row.original.id)}
+                            >
+                                <KTIcon iconName="map" className="fs-3" />
+                            </button>
+                        )}
+                    </div>
+                );
+            },
         },
-        {
-            accessorKey: "updatedAt",
-            header: "Updated At",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ? dayjs(renderedCellValue).format('DD MMM YYYY, hh:mm A') : '-NA-'
-        },
-        ...(isAdmin
-                    ? [{
-                        accessorKey: "actions",
-                        header: "Actions",
-                        Cell: ({ row }: any) => {
-
-                            const editRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.editOthers);
-                            const deleteRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.deleteOthers);
-                            const isApproved = row.original.statusText;
-
-                            const today = new Date();
-                            const dateTo = new Date(row.original.dateTo);
-                            const isFutureOrToday = dateTo >= new Date(today.setHours(0, 0, 0, 0));
-
-                            return (
-                                <>
-                                {/* Edit button - always visible for admin */}
-                                {editRes && (
-                                  <button
-                                    title="Edit Leave"
-                                    className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1"
-                                    onClick={() => handleEditClick(row)}
-                                  >
-                                    <KTIcon iconName="pencil" className="fs-3" />
-                                  </button>
-                                )}
-                                {/* Delete button */}
-                                {deleteRes && isApproved && isFutureOrToday && (
-                                  <button
-                                    title="Revoke Leave"
-                                    className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                                    onClick={() => deleteLeaveRequest(row.original.id)}
-                                  >
-                                    <KTIcon iconName="trash" className="fs-3 text-red-500" />
-                                  </button>
-                                )}
-
-                                {(!editRes && (!isApproved || !isFutureOrToday)) && "Not Allowed"}
-                              </>
-
-                            );
-                        },
-                    }]
-                    : []),
     ], []);
 
     if (isInitialLoading) {
@@ -260,6 +292,32 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
             />
 
             {/* Edit Leave Modal */}
+            <Modal
+                show={!!trackingLeaveId}
+                onHide={() => { setTrackingLeaveId(null); setTrackInstanceId(null); }}
+                centered
+                size='lg'
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
+                </Modal.Header>
+                <Modal.Body style={{ padding: '20px 24px' }}>
+                    {trackInstanceLoading ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                            <span className='spinner-border spinner-border-sm text-primary me-2' />
+                            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+                        </div>
+                    ) : trackInstanceId ? (
+                        <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                            <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
+                            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+                        </div>
+                    )}
+                </Modal.Body>
+            </Modal>
+
             <Modal show={showEditModal} onHide={handleCloseEditModal} centered>
                 <Modal.Header closeButton>
                     <Modal.Title>Edit Leave Request</Modal.Title>

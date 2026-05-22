@@ -2917,6 +2917,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             rejectedById: attendanceRequest.rejectById,
             approvedOrRejectedDate: attendanceRequest.updatedAt,
             reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
+            hasApprovalInstance: attendanceRequest.hasApprovalInstance ?? false,
         }
 
         result.push(request);

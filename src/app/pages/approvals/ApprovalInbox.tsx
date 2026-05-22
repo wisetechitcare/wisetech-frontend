@@ -324,30 +324,26 @@ function ApprovalInbox() {
         const step = row.original;
         const isProcessing = processingId === step.id;
         return (
-          <div className='d-flex gap-2 align-items-center'>
+          <div className='d-flex align-items-center gap-1'>
             <button
-              className='btn btn-sm btn-light-success d-flex align-items-center gap-1'
+              className='btn btn-icon btn-sm'
+              title='Approve'
               disabled={isProcessing}
               onClick={() => approve(step)}
-              style={{ padding: '5px 12px', fontSize: 12 }}
             >
               {isProcessing ? (
                 <span className='spinner-border spinner-border-sm text-success' />
               ) : (
-                <>
-                  <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' style={{ width: 14 }} />
-                  <span>Approve</span>
-                </>
+                <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />
               )}
             </button>
             <button
-              className='btn btn-sm btn-light-danger d-flex align-items-center gap-1'
+              className='btn btn-icon btn-sm'
+              title='Reject'
               disabled={isProcessing}
               onClick={() => setRejectTarget(step)}
-              style={{ padding: '5px 12px', fontSize: 12 }}
             >
-              <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' style={{ width: 14 }} />
-              <span>Reject</span>
+              <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
             </button>
           </div>
         );

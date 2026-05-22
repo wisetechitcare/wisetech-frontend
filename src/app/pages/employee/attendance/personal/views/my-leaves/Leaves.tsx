@@ -52,12 +52,26 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
         {
             accessorKey: "date",
             header: "Leave Date",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            Cell: ({ row }: any) => (
+                <div>
+                    <div className='fw-semibold fs-7'>{row.original.date}</div>
+                    <div className='text-muted fs-8'>{row.original.day}</div>
+                </div>
+            )
         },
         {
-            accessorKey: "day",
-            header: "Day",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            accessorKey: "totalDays",
+            header: "Total Days",
+            Cell: ({ row }: any) => {
+                const { dateFrom, dateTo } = row.original;
+                if (!dateFrom || !dateTo) return <span className='text-muted fs-7'>-</span>;
+                const days = dayjs(dateTo).diff(dayjs(dateFrom), 'day') + 1;
+                return (
+                    <span className='badge badge-light-primary fw-bold fs-8'>
+                        {days} {days === 1 ? 'day' : 'days'}
+                    </span>
+                );
+            }
         },
         {
             accessorKey: "type",
@@ -105,21 +119,26 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             accessorKey: "approvedByName",
             header: "Approved / Rejected By",
             Cell: ({ row }: any) => {
-                const { statusNumber, approvedByName, rejectedByName } = row.original;
+                const { statusNumber, approvedByName, rejectedByName, updatedAt } = row.original;
                 const isApproved = statusNumber === Status.Approved;
                 const isRejected = statusNumber === Status.Rejected;
                 const name = isApproved ? approvedByName : isRejected ? rejectedByName : null;
 
                 if (!name) return <span className='text-muted fs-7'>-NA-</span>;
 
+                const date = updatedAt ? dayjs(updatedAt).format('DD MMM YYYY, hh:mm A') : null;
+
                 return (
                     <div className='d-flex align-items-center gap-2'>
-                        <div className='symbol symbol-30px'>
+                        <div className='symbol symbol-30px flex-shrink-0'>
                             <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
                                 {name.charAt(0).toUpperCase()}
                             </span>
                         </div>
-                        <span className='text-dark fw-semibold fs-7'>{name}</span>
+                        <div className='d-flex flex-column'>
+                            <span className='text-dark fw-semibold fs-7'>{name}</span>
+                            {date && <span className='text-muted fs-8'>{date}</span>}
+                        </div>
                     </div>
                 );
             }
@@ -149,7 +168,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                             >
                                 <KTIcon iconName='trash' className='fs-3' />
                             </button>}
-                            {isPending && (
+                            {isPending && row.original.hasApprovalInstance && (
                                 <button
                                     className='ms-2 btn btn-icon btn-bg-light btn-active-color-info btn-sm'
                                     title='Track Approval'
@@ -193,6 +212,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     const [isFetchingLeaves, setIsFetchingLeaves] = useState(false);
     const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
     const [trackingLeaveId, setTrackingLeaveId] = useState<string | null>(null);
+    const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
 
     async function fetchLeaves() {
         if (!selectedEmployeeId) return;
@@ -228,12 +248,16 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
 
     const openTracker = async (leaveId: string) => {
         setTrackingLeaveId(leaveId);
+        setTrackInstanceId(null);
+        setTrackInstanceLoading(true);
         try {
             const res = await fetchApprovalInstanceByRequest('LeaveTracker', leaveId);
             const instance = res?.data ?? res;
             setTrackInstanceId(instance?.id ?? null);
         } catch {
             setTrackInstanceId(null);
+        } finally {
+            setTrackInstanceLoading(false);
         }
     };
 
@@ -278,15 +302,19 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                     <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
                 </Modal.Header>
                 <Modal.Body style={{ padding: '20px 24px' }}>
-                    {trackInstanceId
-                        ? <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
-                        : (
-                            <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                                <span className='spinner-border spinner-border-sm text-primary me-2' />
-                                <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
-                            </div>
-                        )
-                    }
+                    {trackInstanceLoading ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                            <span className='spinner-border spinner-border-sm text-primary me-2' />
+                            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+                        </div>
+                    ) : trackInstanceId ? (
+                        <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                            <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
+                            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+                        </div>
+                    )}
                 </Modal.Body>
             </Modal>
         </>
