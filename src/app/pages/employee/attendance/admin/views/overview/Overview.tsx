@@ -199,10 +199,20 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | null;
 
+type StatCardAccent =
+    | 'working'
+    | 'leave'
+    | 'late'
+    | 'checkout-missing'
+    | 'early'
+    | 'extra'
+    | 'absent';
+
 type StatCardConfig = {
     type: Exclude<ModalType, null>;
     stat: string;
     label: string;
+    accent: StatCardAccent;
     img?: string;
     iconClass?: string;
     iconBg?: string;
@@ -1278,20 +1288,21 @@ function Overview({ date }: OverviewProps) {
     }, []);
 
     const cardsData: StatCardConfig[] = [
-        { type: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },
-        { type: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
-        { type: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
+        { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
+            accent: 'checkout-missing',
             iconClass: 'bi bi-person-exclamation',
             iconBg: '#FFF4E6',
             iconColor: '#F59E0B',
             stat: `${checkoutMissingCount}`,
             label: 'Check-out Missing',
         },
-        { type: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
-        { type: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
-        { type: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
+        { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
+        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
     ];
 
     // if (isLoading) {
@@ -1311,39 +1322,31 @@ function Overview({ date }: OverviewProps) {
             </Alert>
         );
     }
-    const rowTopCards = cardsData.slice(0, 4);
-    const rowBottomCards = cardsData.slice(4);
-
     const renderStatCard = (card: StatCardConfig) => (
         <Card
             key={card.type}
-            className="overview-stat-card text-center border-0 shadow-sm p-1"
+            className={`overview-stat-card overview-stat-card--${card.accent}`}
             onClick={() => handleCardClick(card.type)}
         >
             <Card.Body>
-                <div className="d-flex align-items-center justify-content-start mb-2">
-                    {card.iconClass ? (
-                        <span
-                            className="overview-stat-card-icon me-2"
-                            style={{ backgroundColor: card.iconBg, color: card.iconColor }}
-                        >
-                            <i className={card.iconClass} style={{ fontSize: '1.25rem' }} />
-                        </span>
-                    ) : (
-                        <span className="fs-4 text-gray-800 fw-bold me-2">
-                            <img src={card.img} alt={card.label} />
-                        </span>
-                    )}
-                    <span className="fs-4 fw-bold" style={{ color: '#1a1a1a' }}>
-                        {card.stat || 0}
-                    </span>
+                <div className="overview-stat-card-content">
+                    <div className="overview-stat-card-metric">
+                        {card.iconClass ? (
+                            <span
+                                className="overview-stat-card-icon"
+                                style={{ backgroundColor: card.iconBg, color: card.iconColor }}
+                            >
+                                <i className={card.iconClass} style={{ fontSize: '1.25rem' }} />
+                            </span>
+                        ) : (
+                            <span className="overview-stat-card-icon">
+                                <img src={card.img} alt={card.label} />
+                            </span>
+                        )}
+                        <span className="overview-stat-card-value">{card.stat || 0}</span>
+                    </div>
+                    <p className="overview-stat-card-label">{card.label}</p>
                 </div>
-                <Card.Text
-                    className="fw-semibold text-muted mb-0"
-                    style={{ fontSize: '1rem', color: '#1a1a1a', textAlign: 'start' }}
-                >
-                    {card.label}
-                </Card.Text>
             </Card.Body>
         </Card>
     );
@@ -1351,12 +1354,7 @@ function Overview({ date }: OverviewProps) {
     return (
         <>
             <div className="overview-stats-container mt-3">
-                <div className="overview-stats-row-top">
-                    {rowTopCards.map(renderStatCard)}
-                </div>
-                <div className="overview-stats-row-bottom">
-                    {rowBottomCards.map(renderStatCard)}
-                </div>
+                {cardsData.map(renderStatCard)}
             </div>
 
             <CustomModal
