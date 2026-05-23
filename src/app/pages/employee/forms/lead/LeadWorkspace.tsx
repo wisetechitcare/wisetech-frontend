@@ -90,13 +90,17 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
   React.useEffect(() => {
     const templatesLoaded = props.proposalTemplates && props.proposalTemplates.length > 0;
     const templateIdChanged = values.proposalTemplateId !== lastTemplateIdRef.current;
-    const templatesListChanged = props.proposalTemplates !== loadedTemplatesRef.current;
+    
+    // Robust check using IDs to avoid infinite loops from new array references
+    const currentTplIds = (props.proposalTemplates || []).map((t: any) => t.id).join(',');
+    const loadedTplIds = (loadedTemplatesRef.current || []).map((t: any) => t.id).join(',');
+    const templatesListChanged = currentTplIds !== loadedTplIds;
 
     if (templateIdChanged || (templatesListChanged && templatesLoaded)) {
       lastTemplateIdRef.current = values.proposalTemplateId;
       loadedTemplatesRef.current = props.proposalTemplates || [];
 
-      const tpl = props.proposalTemplates?.find((t) => t.id === values.proposalTemplateId);
+      const tpl = props.proposalTemplates?.find((t: any) => t.id === values.proposalTemplateId);
       if (tpl) {
         // Only override if the form fields are currently empty (prevent overwriting user modifications on reload)
         const hasStages = values.globalPaymentStages && values.globalPaymentStages.length > 0;
@@ -151,7 +155,8 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         }
       }
     }
-  }, [values.proposalTemplateId, props.proposalTemplates, setFieldValue, values.globalPaymentStages, values.rules]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.proposalTemplateId, props.proposalTemplates, setFieldValue]);
 
   // ── 7 Wizard Pages ─────────────────────────────────────────────────────────
   // Each page is its own focused viewport — no accordion, no scrolling between steps.

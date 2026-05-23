@@ -2698,12 +2698,18 @@ const LeadFormModal = ({
     // Added: Map leadTeams for multiple team entries
     const mappedLeadTeams =
       formData?.leadTeams
-        ?.map((team: any) => ({
-          companyTypeId: team.companyTypeId,
-          companyId: team.companyId,
-          subCompanyId: team.subCompanyId,
-          contactId: team.contactId,
-        }))
+        ?.map((team: any) => {
+          // Only send companyTypeId+companyId together — never one without the other
+          // to prevent backend "Company does not belong to Company Type" 400 errors
+          const hasCompanyType = !!team.companyTypeId;
+          const hasCompany = !!team.companyId;
+          return {
+            ...(hasCompanyType && hasCompany && { companyTypeId: team.companyTypeId }),
+            ...(hasCompany && hasCompanyType && { companyId: team.companyId }),
+            subCompanyId: team.subCompanyId,
+            contactId: team.contactId,
+          };
+        })
         ?.filter(
           (team: any) =>
             team.companyTypeId ||
@@ -3045,6 +3051,7 @@ const LeadFormModal = ({
             : "Saving lead…",
         );
 
+        console.log('DEBUG finalCleanPayload being sent to updateLead:', JSON.stringify(finalCleanPayload, null, 2));
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {
           closeSavingOverlay();
@@ -3087,6 +3094,7 @@ const LeadFormModal = ({
           if (onClose) onClose();
         }
       } else {
+        console.log('DEBUG createLead payload:', JSON.stringify(finalCleanPayload, null, 2));
         const res = await createLead(finalCleanPayload);
         if (res?.hasError) {
           errorConfirmation("Failed to create lead. Please try again.");

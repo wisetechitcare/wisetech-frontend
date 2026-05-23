@@ -66,14 +66,16 @@ export const renameDocument = async (documentId: string, newName: string) => {
 };
 
 export const deleteDocument = async (documentId: string) => {
-  const actualId = documentId.split('-')[0];
+  // Strip only the trailing file-type suffix (-docx or -pdf), preserving the full UUID
+  const actualId = documentId.replace(/-(docx|pdf)$/i, '');
   const response = await axios.delete(`${API_BASE_URL}/api/leads/export/documents/${actualId}`);
   return response.data;
 };
 
 export const deleteDocuments = async (documentIds: string[]) => {
-  // map `docId-docx` back to `docId` to avoid duplicate deletions and 404s
-  const actualIds = [...new Set(documentIds.map(id => id.split('-')[0]))];
+  // Strip only the trailing file-type suffix (-docx or -pdf), preserving full UUIDs
+  // Then deduplicate so we don't call delete twice for the same document (docx + pdf)
+  const actualIds = [...new Set(documentIds.map(id => id.replace(/-(docx|pdf)$/i, '')))];
   const deletions = actualIds.map(id => axios.delete(`${API_BASE_URL}/api/leads/export/documents/${id}`));
   const results = await Promise.all(deletions);
   return results.map(r => r.data);

@@ -48,9 +48,9 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
 
         const stats = standardMonths.map(m => ({
             month: m,
-            basicSalary: 0,
-            netSalary: 0,
-            difference: 0
+            basicSalary: null as number | null,
+            netSalary: null as number | null,
+            average: null as number | null
         }));
 
         if (ComparisonData && Array.isArray(ComparisonData)) {
@@ -72,23 +72,24 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                     else if (item.paidAmount && item.paidAmount !== '-') net = parseAmount(item.paidAmount);
                     else if (item.basicSalary && item.basicSalary !== '-') net = parseAmount(item.basicSalary);
 
-                    // Perfect visual difference ALWAYS matches the absolute gap between the two rendered bars
-                    const diff = Math.abs(basic - net);
+                    // Calculate average between basic and net
+                    const avg = (basic + net) / 2;
 
                     stats[index].basicSalary = basic;
                     stats[index].netSalary = net;
-                    stats[index].difference = diff;
+                    stats[index].average = avg;
                 }
             });
         }
+
         setMonthlyStats(stats);
     }, [ComparisonData]);
 
     // Compute KPI values
-    const totalBasic = monthlyStats.reduce((sum, item) => sum + item.basicSalary, 0);
-    const totalNet = monthlyStats.reduce((sum, item) => sum + item.netSalary, 0);
+    const totalBasic = monthlyStats.reduce((sum, item) => sum + (item.basicSalary || 0), 0);
+    const totalNet = monthlyStats.reduce((sum, item) => sum + (item.netSalary || 0), 0);
     
-    const activeMonths = monthlyStats.filter(item => item.basicSalary > 0);
+    const activeMonths = monthlyStats.filter(item => (item.basicSalary || 0) > 0);
     const activeCount = activeMonths.length > 0 ? activeMonths.length : 12;
 
     const avgBasic = Math.round(totalBasic / activeCount);
@@ -116,9 +117,9 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
             data: monthlyStats.map(item => item.netSalary)
         },
         {
-            name: 'Difference',
+            name: 'Average',
             type: 'line',
-            data: monthlyStats.map(item => item.difference)
+            data: monthlyStats.map(item => item.average)
         }
     ];
 
@@ -238,7 +239,7 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                 const month = w.globals.categoryHeaders[dataPointIndex];
                 const basic = series[0][dataPointIndex] || 0;
                 const net = series[1][dataPointIndex] || 0;
-                const diff = series[2][dataPointIndex] || 0;
+                const avg = series[2][dataPointIndex] || 0;
                 
                 return `
                     <div style="
@@ -268,9 +269,9 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 6px;">
                             <span style="display: inline-flex; align-items: center; gap: 6px; color: #64748b;">
                                 <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #AA393D; display: inline-block;"></span>
-                                Difference:
+                                Average:
                             </span>
-                            <span style="font-weight: 600; color: #AA393D;">₹${diff.toLocaleString('en-IN')}</span>
+                            <span style="font-weight: 600; color: #AA393D;">₹${avg.toLocaleString('en-IN')}</span>
                         </div>
                     </div>
                 `;
@@ -380,7 +381,7 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                     }}>
                         <span style={{ width: '6px', height: '6px', backgroundColor: '#AA393D', borderRadius: '50%', display: 'inline-block' }}></span>
                     </span>
-                    Difference (₹)
+                    Average (₹)
                 </div>
             </div>
 

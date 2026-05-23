@@ -50,6 +50,8 @@ const removeAuth = () => {
 
 export function setupAxios(axios: any) {
   axios.defaults.headers.Accept = 'application/json'
+  
+  // Request Interceptor
   axios.interceptors.request.use(
     (config: {headers: {Authorization: string}}) => {
       const auth = getAuth()
@@ -60,6 +62,22 @@ export function setupAxios(axios: any) {
       return config
     },
     (err: any) => Promise.reject(err)
+  )
+
+  // Response Interceptor
+  axios.interceptors.response.use(
+    (response: any) => response,
+    (error: any) => {
+      // Check for network errors or specific 5xx server errors
+      if (
+        error.code === 'ERR_NETWORK' ||
+        error.message === 'Network Error' ||
+        (error.response && [500, 502, 503, 504].includes(error.response.status))
+      ) {
+        window.dispatchEvent(new Event('backend-down'));
+      }
+      return Promise.reject(error);
+    }
   )
 }
 

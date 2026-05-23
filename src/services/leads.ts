@@ -39,7 +39,10 @@ export const createLead = async (leadData: any) => {
     const {data} = await axios.post(endpoint, leadData);
     return data;
   } catch (error: any) {
-    throw error.response.data;
+    console.error('Error creating lead - status:', error?.response?.status);
+    console.error('Error creating lead - data:', error?.response?.data);
+    console.error('Error creating lead - message:', error?.response?.data?.message || error?.message);
+    throw error.response?.data || error;
   }
 };
 

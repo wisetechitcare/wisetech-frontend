@@ -11,14 +11,37 @@ import GlobalTimerModal from '../components/GlobalTimerModal';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
+import { MaintenancePage } from './modules/errors/MaintenancePage';
+import { NoInternetPage } from './modules/errors/NoInternetPage';
 
 const App = () => {
   const dispatch = useDispatch<AppDispatch>();
+
+  // Global Error States
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isMaintenance, setIsMaintenance] = useState(false);
 
   // Get authentication state
   const currentUser  = useSelector((state: RootState) => state.auth.currentUser);
   const employeeId   = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const isAuthenticated = !!currentUser?.id;
+
+  // Listen for online/offline and backend-down events
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    const handleBackendDown = () => setIsMaintenance(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('backend-down', handleBackendDown);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('backend-down', handleBackendDown);
+    };
+  }, []);
 
   // Initialize timer with user ID when user is authenticated
   useEffect(() => {
@@ -35,6 +58,14 @@ const App = () => {
 
   // Browser push notifications: register SW + subscribe when employee is loaded
   usePushSubscription(isAuthenticated ? employeeId : null);
+
+  if (isOffline) {
+    return <NoInternetPage />;
+  }
+
+  if (isMaintenance) {
+    return <MaintenancePage />;
+  }
 
   return (
     <>

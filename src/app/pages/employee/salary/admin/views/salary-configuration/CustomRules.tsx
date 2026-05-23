@@ -193,9 +193,16 @@ function CustomRules() {
   ];
 
   return (
-    <div className="mb-10 mt-10 bg-white p-8" style={{ borderRadius: "15px" }}>
-      <div>
-        <h2>Custom Rules</h2>
+    <div className="mb-10 p-8" style={{ backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div className="d-flex justify-content-between align-items-center mb-6">
+        <h2 style={{
+          fontFamily: 'Barlow, sans-serif',
+          fontWeight: 700,
+          fontSize: '24px',
+          color: '#181C32',
+          letterSpacing: '-0.5px',
+          margin: 0
+        }}>Custom Rules</h2>
       </div>
       <MaterialTable
         columns={columnsCustomRules}
@@ -236,12 +243,34 @@ function CustomRules() {
       </div>}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            Edit {oldValue.name || "Custom Rule"}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '32px 40px',
+        }}>
+          <div className="d-flex justify-content-between align-items-center mb-5">
+            <div style={{
+              fontFamily: 'Barlow, sans-serif',
+              fontWeight: 700,
+              fontSize: '22px',
+              color: '#181C32',
+              letterSpacing: '-0.5px',
+            }}>
+              Edit {oldValue.name || "Custom Rule"}
+            </div>
+            <button 
+              onClick={handleClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                color: '#A1A5B7',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
           <Formik
             initialValues={initialState}
             onSubmit={handleSubmit}
@@ -277,21 +306,55 @@ function CustomRules() {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-4">
+                <div className="d-flex justify-content-end mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E1E3EA',
+                      borderRadius: '8px',
+                      color: '#3F4254',
+                      height: '44px',
+                      padding: '0 24px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: 'pointer',
+                      marginRight: '12px',
+                    }}
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
-                    className="btn btn-primary"
                     disabled={loading || !formikProps.isValid}
+                    style={{
+                      backgroundColor: '#9d4141',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      height: '44px',
+                      padding: '0 28px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
+                      opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
+                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseOver={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseOut={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
-                    {!loading && "Submit"}
+                    {!loading && "Save Rule"}
                     {loading && (
-                      <span
-                        className="indicator-progress"
-                        style={{ display: "block" }}
-                      >
-                        Please wait...{" "}
-                        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                      </span>
+                      <>
+                        Saving... <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+                      </>
                     )}
                   </button>
                 </div>

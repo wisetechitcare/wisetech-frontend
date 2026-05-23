@@ -88,6 +88,17 @@ const Increments = memo(({ salaryData, loading = false, compact = false }: Incre
                 }
             });
         }
+
+        // Forward-fill the last known salary so the chart doesn't drop to 0
+        let lastKnownSalary = 0;
+        for (let i = 0; i < stats.length; i++) {
+            if (stats[i].basicSalary > 0) {
+                lastKnownSalary = stats[i].basicSalary;
+            } else if (lastKnownSalary > 0) {
+                stats[i].basicSalary = lastKnownSalary;
+            }
+        }
+
         setMonthlyStats(stats);
     }, [salaryData]);
 

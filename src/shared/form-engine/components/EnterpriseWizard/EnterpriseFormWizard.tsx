@@ -106,54 +106,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
 
         {/* Header action buttons */}
         <div className="wizard-header-actions" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          {actions.isEditMode && (actions.exportPdf || actions.exportDocx) && (
-            <div className="wt-header-exports d-flex gap-2 align-items-center me-2">
-              {actions.exportPdf && (
-                <button
-                  type="button"
-                  className="wt-export-btn wt-export-pdf"
-                  onClick={actions.exportPdf}
-                  title="Export PDF"
-                  style={{ minWidth: "75px", padding: "0.35rem 0.5rem" }}
-                >
-                  <PictureAsPdf style={{ fontSize: "0.9rem" }} />
-                  <span>PDF</span>
-                </button>
-              )}
-              {actions.exportDocx && (
-                <button
-                  type="button"
-                  className="wt-export-btn wt-export-docx"
-                  onClick={actions.exportDocx}
-                  title="Export DOCX"
-                  style={{ minWidth: "75px", padding: "0.35rem 0.5rem" }}
-                >
-                  <Description style={{ fontSize: "0.9rem" }} />
-                  <span>DOCX</span>
-                </button>
-              )}
-            </div>
-          )}
-          {actions.onSaveDraft && (
-            <button
-              type="button"
-              className="wt-btn wt-btn-ghost"
-              onClick={actions.onSaveDraft}
-              disabled={actions.isSubmitting || actions.isSavingDraft}
-              title="Save your progress as a draft (no validation required)"
-              style={{ borderStyle: 'dashed' }}
-            >
-              {actions.isSavingDraft ? 'Saving…' : '💾 Save Draft'}
-            </button>
-          )}
-          <button
-            type="button"
-            className="wt-btn wt-btn-ghost"
-            onClick={actions.onCancel}
-            disabled={actions.isSubmitting}
-          >
-            Cancel
-          </button>
+          {/* Export buttons moved to Summary sidebar */}
         </div>
       </div>
 
@@ -198,21 +151,53 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
         </main>
 
         {/* ── RIGHT: Summary Panel ──────────────────────────────────────── */}
-        <aside className="wizard-summary-panel" aria-label="Lead summary">
-          <SummarySidebar
-            title={summary.title}
-            rows={summaryRows}
-            warningMessage={summary.warningMessage}
-            {...actions}
-            hideSubmitButton
-          />
+        <aside className="wizard-summary-panel" aria-label="Lead summary" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <SummarySidebar
+              title={summary.title}
+              rows={summaryRows}
+              warningMessage={summary.warningMessage}
+              {...actions}
+              hideSubmitButton
+            />
+          </div>
+          
+          {/* Export Buttons at Bottom of Summary (Last Step Only) */}
+          {isLastStep && actions.isEditMode && (actions.exportPdf || actions.exportDocx) && (
+            <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
+              {actions.exportPdf && (
+                <button
+                  type="button"
+                  className="wt-btn wt-btn-outline-primary"
+                  onClick={actions.exportPdf}
+                  title="Export to PDF"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
+                >
+                  <PictureAsPdf style={{ fontSize: "1.1rem", color: '#e2445c' }} />
+                  <span className="fw-bold">Export PDF</span>
+                </button>
+              )}
+              {actions.exportDocx && (
+                <button
+                  type="button"
+                  className="wt-btn wt-btn-outline-primary"
+                  onClick={actions.exportDocx}
+                  title="Export to Word Document"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
+                >
+                  <Description style={{ fontSize: "1.1rem", color: '#2563eb' }} />
+                  <span className="fw-bold">Export DOCX</span>
+                </button>
+              )}
+            </div>
+          )}
         </aside>
       </div>
 
       {/* ═══ BOTTOM STICKY FOOTER BAR ═══════════════════════════════════════ */}
-      <div className="wizard-footer-bar" role="navigation" aria-label="Step navigation" style={{ justifyContent: 'flex-end' }}>
+      <div className="wizard-footer-bar" role="navigation" aria-label="Step navigation" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
-        <div className="wizard-footer-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div className="wizard-footer-left" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           {/* Cancel button */}
           <button
             type="button"
@@ -224,6 +209,22 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
             Cancel
           </button>
 
+          {/* Save Draft button */}
+          {actions.onSaveDraft && (
+            <button
+              type="button"
+              className="wt-btn wt-btn-ghost"
+              onClick={actions.onSaveDraft}
+              disabled={actions.isSubmitting || actions.isSavingDraft}
+              title="Save your progress as a draft (no validation required)"
+              style={{ borderStyle: 'dashed' }}
+            >
+              {actions.isSavingDraft ? 'Saving…' : '💾 Save Draft'}
+            </button>
+          )}
+        </div>
+
+        <div className="wizard-footer-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           {/* Back button */}
           <button
             type="button"

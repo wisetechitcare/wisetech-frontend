@@ -25,12 +25,14 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
 
   // Perform auto-calculation for a given row
   const recalculateRow = (index: number, updatedFields: Partial<any>) => {
-    const item = { ...items[index], ...updatedFields };
+    // Merge the latest values array with the incoming change to bypass stale closures
+    const currentItems = values[arrayPath] || [];
+    const item = { ...(currentItems[index] || {}), ...updatedFields };
 
     if (isLead) {
-      const area = parseFloat(updatedFields.projectArea !== undefined ? updatedFields.projectArea : item.projectArea) || 0;
-      const rate = parseFloat(updatedFields.rate !== undefined ? updatedFields.rate : item.rate) || 0;
-      const costType = updatedFields.costType !== undefined ? updatedFields.costType : item.costType;
+      const area = parseFloat(item.projectArea) || 0;
+      const rate = parseFloat(item.rate) || 0;
+      const costType = String(item.costType);
 
       if (costType === "1") {
         // Rate cost type: calculate total
@@ -44,13 +46,13 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
           setFieldError(`projectAreas.${index}.cost`, "");
         }
       } else if (costType === "2") {
-        // Lumpsum: rate is 0
+        // Lumpsum: clear rate
         setFieldValue(`projectAreas.${index}.rate`, "0");
       }
     } else {
-      const area = parseFloat(updatedFields.area !== undefined ? updatedFields.area : item.area) || 0;
-      const rate = parseFloat(updatedFields.rate !== undefined ? updatedFields.rate : item.rate) || 0;
-      const costType = updatedFields.costType !== undefined ? updatedFields.costType : item.costType;
+      const area = parseFloat(item.area) || 0;
+      const rate = parseFloat(item.rate) || 0;
+      const costType = String(item.costType);
 
       if (costType === "RATE") {
         const calculatedCost = parseFloat((area * rate).toFixed(4));
