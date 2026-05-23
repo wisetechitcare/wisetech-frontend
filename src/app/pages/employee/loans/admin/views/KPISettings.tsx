@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Modal, Button, Container, OverlayTrigger, Tooltip as RBTooltip, Form } from "react-bootstrap";
 import { kpiAttendanceIcons } from "@metronic/assets/sidepanelicons";
 import { getAllKpiFactors, updateKpiFactors, getAllKpiModules, createKpiFactor } from "@services/employee";
@@ -556,7 +556,7 @@ export default function KpiSettings() {
             }}
           >
             {({ values, setFieldValue }) => (
-              <FormikForm placeholder={""}>
+              <FormikForm>
                 <Modal.Body>
                   <div className="pb-3" style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 14 }}>
                     {editModal.moduleName} : {editModal.item.name}
@@ -669,7 +669,7 @@ export default function KpiSettings() {
           }}
         >
           {({ values, setFieldValue, errors, touched }) => (
-            <FormikForm placeholder={""}>
+            <FormikForm>
               <Modal.Body>
                 <p className="text-muted fs-6 mb-4">
                   New factors will be used in future KPI calculations. Existing scores are not affected.

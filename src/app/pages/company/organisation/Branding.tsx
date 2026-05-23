@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import TabsComponent from './Tabs';
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Formik, Form, Field, ErrorMessage } from 'formik';
@@ -40,7 +40,7 @@ const Branding: React.FC = () => {
         }}
       >
         {({ isSubmitting }) => (
-          <Form className="form" placeholder={''}>
+          <Form className="form">
             <KTCard className="my-6 shadow-sm">
               <KTCardBody className="p-0">
                 <div className="card-header border-0 cursor-pointer d-flex align-items-center justify-content-between">

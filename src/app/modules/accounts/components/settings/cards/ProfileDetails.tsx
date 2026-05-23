@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import * as Yup from 'yup'
 import Flatpickr from "react-flatpickr";
 import { isEmpty } from 'lodash';
@@ -204,7 +204,7 @@ const ProfileDetails: React.FC = () => {
         <Formik onSubmit={handleSubmit} initialValues={defaultState} className='form' enableReinitialize={true}>
           {(formikProps) => {
             return (
-              <Form placeholder={undefined}>
+              <Form>
                 <div className='card-body border-top p-9'>
                   <div className='row mb-6'>
                     <label className='col-lg-4 col-form-label fw-bold fs-6'>Avatar</label>

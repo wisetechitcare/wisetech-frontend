@@ -1,4 +1,4 @@
-import {
+﻿import {
   createClientCompany,
   getAllCompanyTypes,
   updateClientCompany,
@@ -727,7 +727,7 @@ const NewCompanyForm: React.FC<Props> = ({
               }, [values.latitude, values.longitude, setFieldValue, values.googleMapsLink]);
 
               return (
-              <FormikForm placeholder={""}>
+              <FormikForm>
                 {/* <Modal.Header>
 
               </Modal.Header> */}

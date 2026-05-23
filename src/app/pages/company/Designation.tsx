@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
 import { Modal } from "react-bootstrap";
@@ -194,7 +194,7 @@ function Designations() {
                 <Modal.Body>
                     <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={designationSchema}>
                         {(formikProps) => (
-                            <Form className='des-flex flex-column' placeholder={''}>
+                            <Form className='des-flex flex-column'>
                                 <div className="row">
                                     <div className="col-lg-12">
                                         <TextInput

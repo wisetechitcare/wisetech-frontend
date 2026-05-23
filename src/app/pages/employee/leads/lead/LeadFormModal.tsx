@@ -1,4 +1,4 @@
-import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+﻿import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -2967,7 +2967,7 @@ const LeadFormModal = ({
                 }, [values.statusId, leadStatuses]);
 
                 return (
-                  <FormikForm placeholder={""}>
+                  <FormikForm>
                     {/* Project Details Section */}
                     <Box sx={{ mb: 4 }}>
                       {/* Lead Details Section */}

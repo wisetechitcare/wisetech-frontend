@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
@@ -408,7 +408,7 @@ export default function MeetingsForm({ onClose, selectedDateTimeInfo }: { onClos
                 }}
             >
                 {({ values, setFieldValue, errors, touched, isSubmitting }) => (
-                    <Form placeholder={''}>
+                    <Form>
                         <Modal.Body className='p-2'>
                             {/* Meeting Type Selection */}
                             <BootstrapForm.Group className='mb-1'>

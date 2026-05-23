@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
@@ -161,7 +161,7 @@ const LeaveTypesBalance: React.FC = () => {
         }, [leaveOptionInitialValues]);
 
         return (
-          <FormikForm placeholder={''}>
+          <FormikForm>
             <div style={{ padding: '24px 20px', backgroundColor: '#f7f9fc' }}>
               {/* Branch Specific Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Modal, Button, OverlayTrigger, Tooltip as BSTooltip } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import * as Yup from 'yup';
@@ -352,7 +352,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                             const allFields = [...existingFields, ...dynamicFields];
 
                             return (
-                                <Form className='d-flex flex-column' noValidate placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate>
                                     <div className="alert alert-dismissible bg-light-primary border border-primary border-dashed d-flex flex-column flex-sm-row p-5 mb-8">
                                         <InfoOutlined className="fs-2 text-primary me-4 mb-5 mb-sm-0" />
                                         <div className="d-flex flex-column pe-0 pe-sm-10">

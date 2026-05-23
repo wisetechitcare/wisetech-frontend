@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Route, Routes, Outlet, Navigate } from "react-router-dom";
@@ -360,7 +360,7 @@ function Reimbursement() {
                   className="d-flex flex-column"
                   noValidate
                   id="employee_reimbursement_form"
-                  placeholder={undefined}
+                 
                 >
                   <div className="row">
                     <div

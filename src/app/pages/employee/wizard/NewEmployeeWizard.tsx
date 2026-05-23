@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues } from "formik";
@@ -1218,7 +1218,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
               })();
 
               return (
-                <Form className="ob-wizard-root" noValidate id="employee_onboarding_form" placeholder={undefined}>
+                <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}

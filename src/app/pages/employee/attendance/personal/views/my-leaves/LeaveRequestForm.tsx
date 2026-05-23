@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Formik, Form, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import Select from 'react-select';
 import { KTCardBody } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeDiscretionaryBalanceById, fetchEmployeeLeaveBalance } from '@services/employee';
+import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeDiscretionaryBalanceById, fetchEmployeeLeaveBalance, getAllLeaveManagements } from '@services/employee';
+import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
 import { ILeaveRequest } from '@models/employee';
 import { useDispatch, useSelector } from 'react-redux';
@@ -189,7 +190,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   
 
         // Fetch TRANSFER requests
-        const { getAllLeaveManagements } = await import('@services/employee');
         const transferResponse = await getAllLeaveManagements(employeeId);
         const transferRequests = transferResponse.data.leaveManagements || [];
 
@@ -200,7 +200,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
 
         // Get the actual current fiscal year (where today's date falls)
-        const { generateFiscalYearFromGivenYear } = await import('@utils/file');
         const { startDate: actualCurrentFiscalStart, endDate: actualCurrentFiscalEnd } = await generateFiscalYearFromGivenYear(dayjs());
 
         // console.log("LeaveRequestForm - Actual current fiscal year (today):", actualCurrentFiscalStart, "to", actualCurrentFiscalEnd);
@@ -1058,7 +1057,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         };
 
         return (
-          <Form onSubmit={handleSubmit} noValidate className="form" placeholder={''}>
+          <Form onSubmit={handleSubmit} noValidate className="form">
             <KTCardBody className="p-2">
               {/* Monthly Limit Info Banner */}
               {/* {showMonthlyLimitInfo && !leave && (

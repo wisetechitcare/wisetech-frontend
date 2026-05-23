@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 import { IconButton, Box, Typography, Grid } from '@mui/material';
 import { Close, Add, Label } from '@mui/icons-material';
 import { useCallback, useEffect, useState, useRef } from 'react';
@@ -370,7 +370,7 @@ const TaskForm = ({
                 return () => clearTimeout(timeoutId);
               }, [values.startTime, values.dueTime]);
               return (
-                <FormikForm placeholder={""}>
+                <FormikForm>
                   {/* Project Details Section */}
                   <Box>
                     <Grid container spacing={1} className='card-body  p-md-10' sx={{ backgroundColor: { xs: 'transparent', md: 'white', borderRadius: '8px' } }}>

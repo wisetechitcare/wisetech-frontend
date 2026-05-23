@@ -27,8 +27,8 @@ import { calculateTotalDuration } from "@utils/calculateTotalDuration";
 import LazySection from "@app/modules/common/components/LazySection";
 import Loader from "@app/modules/common/utils/Loader";
 
+import DailyAttendance from "./views/overview/DailyAttendance";
 // Lazy load heavy components
-const DailyAttendance = lazy(() => import("./views/overview/DailyAttendance"));
 const OpenAttendanceRequests = lazy(
   () => import("./views/overview/OpenAttendanceRequests"),
 );

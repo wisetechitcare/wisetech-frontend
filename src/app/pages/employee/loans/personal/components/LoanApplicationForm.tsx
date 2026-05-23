@@ -1,4 +1,4 @@
-import DateInput from '@app/modules/common/inputs/DateInput';
+﻿import DateInput from '@app/modules/common/inputs/DateInput';
 import DropDownInput from '@app/modules/common/inputs/DropdownInput';
 import NumberInput from '@app/modules/common/inputs/NumberInput';
 import RadioInput from '@app/modules/common/inputs/RadioInput';
@@ -133,7 +133,7 @@ function LoanApplicationForm({ setShowModalFunc, defaultData, isUpdate = false, 
                 }, [employeeId, defaultData]);
 
         return (
-                    <Form className="form" placeholder={''}>
+                    <Form className="form">
                         <div className="row px-3 my-3">
                             <div className="col-lg-12 fv-row">
                 <TextInput
