@@ -3,6 +3,7 @@
 //
 // Bootstrap & Custom Variables
 // Safely override any variable in _variables.custom.scss
+@use 'sass:color';
 //
 
 $gray-100-dark:  #1B1C22 !default;
@@ -321,7 +322,7 @@ $rating-color-active-dark: #FFAD0F !default;
 // Keenthemes ribbon component 
 $ribbon-label-box-shadow-dark: 0px -1px 5px 0px rgba($white, 0.1) !default;
 $ribbon-label-bg-dark: $primary !default;
-$ribbon-label-border-color-dark: darken($primary, 20%) !default;
+$ribbon-label-border-color-dark: color.adjust($primary, $lightness: -20%) !default;
 $ribbon-clip-bg-dark: $light !default;
 
 // Engage panel

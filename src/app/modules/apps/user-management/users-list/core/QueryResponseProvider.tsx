@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 /* eslint-disable react-hooks/exhaustive-deps */
 import {FC, useContext, useState, useEffect, useMemo} from 'react'
-import {useQuery} from 'react-query'
+import {useQuery} from '@tanstack/react-query'
 import {
   createResponseContext,
   initialQueryResponse,
@@ -31,13 +31,13 @@ const QueryResponseProvider: FC<WithChildren> = ({children}) => {
     isFetching,
     refetch,
     data: response,
-  } = useQuery(
-    `${QUERIES.USERS_LIST}-${query}`,
-    () => {
-      return getUsers(query)
-    },
-    {cacheTime: 0, keepPreviousData: true, refetchOnWindowFocus: false}
-  )
+  } = useQuery({
+    queryKey: [`${QUERIES.USERS_LIST}-${query}`],
+    queryFn: () => getUsers(query),
+    gcTime: 0,
+    placeholderData: (prev: any) => prev,
+    refetchOnWindowFocus: false,
+  })
 
   return (
     <QueryResponseContext.Provider value={{isLoading: isFetching, refetch, response, query}}>

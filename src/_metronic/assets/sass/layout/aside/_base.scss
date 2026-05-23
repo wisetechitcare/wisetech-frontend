@@ -1,6 +1,7 @@
 //
 // Aside Default
 //
+@use 'sass:color';
 
 // General mode(all devices)
 .aside {
@@ -37,7 +38,7 @@
 				background-color: #2C2C41;
 				border-color: #2C2C41;
 				@include placeholder(#7E8299);
-				color: lighten(#7E8299, 3%);
+				color: color.adjust(#7E8299, $lightness: 3%);
 			}		
 		}
 	}
