@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Button, Form } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
@@ -397,7 +397,7 @@ const handleSubmit = async (values: ShiftValues) => {
       onSubmit={handleSubmit}
     >
       {({ values, setFieldValue }) => (
-        <FormikForm placeholder={''}>
+        <FormikForm>
           <div style={{
             // backgroundColor: '#f7f9fc',
             padding: '24px 20px',

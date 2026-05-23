@@ -1,8 +1,9 @@
 //
 // Custom utilities
 //
+@use 'sass:map';
 
-$utilities: map-merge(
+$utilities: map.merge(
     $utilities,
     (
         "cursor": (

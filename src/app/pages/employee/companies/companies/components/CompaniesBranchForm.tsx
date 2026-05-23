@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Modal, Button, Spinner } from "react-bootstrap";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
@@ -347,7 +347,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
             key={editingBranchId || "new"} // Force re-render when editing different branch
           >
             {({ setFieldValue, values, isSubmitting, handleSubmit }) => (
-              <FormikForm onSubmit={handleSubmit} placeholder="">
+              <FormikForm onSubmit={handleSubmit}>
                 <Modal.Header>
                   <Typography
                     variant="h6"

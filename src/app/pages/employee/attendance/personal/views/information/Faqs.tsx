@@ -1,4 +1,4 @@
-import TextInput from '@app/modules/common/inputs/TextInput';
+﻿import TextInput from '@app/modules/common/inputs/TextInput';
 import { KTIcon } from '@metronic/helpers';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
@@ -188,7 +188,7 @@ const Faqs = ({ fromAdmin = false, typeKey = '' }: { fromAdmin?: boolean, typeKe
                         enableReinitialize
                     >
                         {(formikProps) => (
-                            <Form className='d-flex flex-column' noValidate id='faq_form' placeholder={''}>
+                            <Form className='d-flex flex-column' noValidate id='faq_form'>
                                 <div className="col-lg">
                                     <TextInput
                                         isRequired={true}

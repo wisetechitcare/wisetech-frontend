@@ -1,4 +1,4 @@
-import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
+﻿import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
 import {
   fetchAllCities,
@@ -638,7 +638,7 @@ const SubCompanyForm: React.FC<Props> = ({
               }, [values.latitude, values.longitude, setFieldValue, values.googleMapsLink]);
 
               return (
-              <FormikForm placeholder={""}>
+              <FormikForm>
                 <Modal.Body style={{ maxHeight: "80vh", overflowY: "auto" }}>
                   {isDataLoading ? (
                     <div className="text-center p-4">

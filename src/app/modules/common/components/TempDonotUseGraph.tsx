@@ -1,4 +1,4 @@
-import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+﻿import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import { RootState, store } from '@redux/store';
 import ReactApexChart from 'react-apexcharts';
 import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
@@ -1763,7 +1763,7 @@ const StatisticsTable = ({ approvedLeaves, attendance, attendanceRequests, fromA
                         <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
                             {(formikProps) => {
                                 return (
-                                    <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                    <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                         {requestType === 'checkin' && (
                                             <div className="col-lg">
                                                 <TimePickerInput
@@ -2244,7 +2244,7 @@ const ReportsTable = ({ attendanceRequests, fromAdmin = false, resource = "", vi
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
                         {(formikProps) => {
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="col-lg">
                                         <TimePickerInput
                                             isRequired={true}

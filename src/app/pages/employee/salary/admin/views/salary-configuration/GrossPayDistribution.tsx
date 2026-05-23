@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
 import { Modal } from "react-bootstrap";
@@ -317,7 +317,7 @@ const GrossPayDistribution = () => {
                 className="d-flex flex-column"
                 noValidate
                 id="gross_pay_distribution_form"
-                placeholder={undefined}
+               
               >
                 <div className="row">
                   <div className="col-lg-6">

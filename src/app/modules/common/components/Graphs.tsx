@@ -1,4 +1,4 @@
-import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
+﻿import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
 import AttendanceCheckCell, {
     AttendanceCoordinates,
@@ -1842,7 +1842,7 @@ export const StatisticsTable = ({
                         <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
                             {(formikProps) => {
                                 return (
-                                    <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                    <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
 
                                         {requestType === 'checkin' && <div className="col-lg">
                                             {isIOSMobile ? (
@@ -2492,7 +2492,7 @@ export const ReportsTable = ({
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
                         {(formikProps) => {
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="col-lg">
                                         <TimePickerInput
                                             isRequired={true}

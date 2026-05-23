@@ -1,4 +1,4 @@
-import TextInput from '@app/modules/common/inputs/TextInput';
+﻿import TextInput from '@app/modules/common/inputs/TextInput';
 import { KTIcon } from '@metronic/helpers';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
@@ -159,7 +159,7 @@ const Faqs = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema} enableReinitialize>
                         {(formikProps) => {
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="col-lg">
                                         <TextInput
                                             isRequired={true}
