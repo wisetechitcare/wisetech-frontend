@@ -816,7 +816,7 @@ const LocationMarker = React.memo(({
             variant="danger" 
             size="sm"
             onClick={handleSubmitError}
-            disabled={isSubmitting || (!isError && remark.trim() === "")}
+            disabled={isSubmitting || (!isError && remark.trim() === "" && !loc.item?.isLocationIncorrect)}
           >
             {isSubmitting ? "Submitting..." : "Submit Report"}
           </Button>
