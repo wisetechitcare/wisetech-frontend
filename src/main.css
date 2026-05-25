@@ -8,6 +8,20 @@
 .responsive-gap {
     gap: 40px;
   }
+  
+  /* Remove transparent effect from sidebar */
+  .aside, #kt_aside {
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    opacity: 1 !important;
+  }
+  
+  [data-bs-theme="dark"] .aside,
+  [data-bs-theme="dark"] #kt_aside {
+    background-color: #1c1c28 !important;
+  }
+  
   @media (max-width: 1024px) {
     .responsive-gap {
       gap: 20px;
