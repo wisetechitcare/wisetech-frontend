@@ -453,7 +453,6 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         show={newContactModal}
         onClose={() => setNewContactModal(false)}
         contactId={null}
-        key="add-new"
         initialData={undefined}
       />
     </div>

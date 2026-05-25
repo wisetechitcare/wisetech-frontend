@@ -729,6 +729,19 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
     },
   });
 
+  const allEnabledFields = [...sortedResourcesConfig, ...sortedUiControlConfig].flatMap(r =>
+    r.actions.filter(a => !a.disabled).map(a => ({ resourceKey: r.resourceKey, action: a.action }))
+  );
+  const isAllSelected = allEnabledFields.length > 0 && allEnabledFields.every(
+    f => !!(formik.values as any)[f.resourceKey]?.[f.action]
+  );
+  const handleSelectAll = () => {
+    const newValue = !isAllSelected;
+    allEnabledFields.forEach(f => {
+      formik.setFieldValue(`${f.resourceKey}.${f.action}`, newValue);
+    });
+  };
+
   /**
    * handleSave - For each resource and its actions:
    *  - If the action is disabled, skip saving.
@@ -801,6 +814,17 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
       <hr style={{ backgroundColor: '#E1E7EF', color: '#E1E7EF', height: '3px' }} />
 
       <form onSubmit={formik.handleSubmit} className='d-lg-block d-md-flex' style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        {/* Select All / Deselect All */}
+        <div className="d-flex justify-content-end mb-2 mt-4">
+          <button
+            type="button"
+            className={`btn btn-sm ${isAllSelected ? 'btn-light-danger' : 'btn-light-success'}`}
+            onClick={handleSelectAll}
+          >
+            {isAllSelected ? 'Deselect All' : 'Select All'}
+          </button>
+        </div>
+
         {/* Accordion for grouped permissions */}
         <Accordion defaultActiveKey="0" className="mt-5">
           {sortedGroupNames.map((groupName, groupIndex) => (

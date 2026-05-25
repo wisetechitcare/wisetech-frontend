@@ -622,12 +622,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Columns ──────────────────────────────────────────────────────────────────
   const columns = [
+
     {
-      accessorKey: "id",
-      header: "ID",
-      size: 80,
-      enableEditing: false,
-      Cell: ({ row }: { row: any }) => row.index + 1,
+      accessorKey: "inquiryDate",
+      header: "Inquiry Date",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) => {
+        const v = cell.getValue();
+        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+      },
     },
     {
       accessorKey: "prefix",
@@ -760,15 +763,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       Cell: ({ cell }: { cell: any }) =>
         allemployees?.find((e: any) => e.employeeId === cell.getValue())
           ?.employeeName || "N/A",
-    },
-    {
-      accessorKey: "inquiryDate",
-      header: "Inquiry Date",
-      size: 150,
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-      },
     },
     {
       accessorKey: "startDate",
