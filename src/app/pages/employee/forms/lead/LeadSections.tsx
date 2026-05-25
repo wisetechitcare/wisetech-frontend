@@ -31,7 +31,7 @@ interface LeadSectionsProps {
   contacts: any[];
   companyTypes: any[];
   proposalTemplates?: any[];
-  
+
   // inline create modal triggers
   setShowCategoryModal: (show: boolean) => void;
   setShowSubcategoryModal: (show: boolean) => void;
@@ -84,7 +84,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           </Box>
         </Grid>
         <Grid item xs={12} md={6}>
-              <TextInput formikField="leadInquiryDate" label="Lead Inquiry Date" isRequired={false} />
+          <TextInput formikField="leadInquiryDate" label="Lead Inquiry Date" isRequired={false} />
         </Grid>
         <Grid item xs={12}>
           <TextInput formikField="projectName" label="Lead Name" isRequired={true} />
@@ -224,20 +224,20 @@ export const ProjectDetailsSection: React.FC = () => {
           <TextInput formikField="plotArea" label="Plot Area" type="number" />
         </Grid>
         <Grid item xs={12} md={6}>
-              <DropDownInput formikField="plotAreaUnit" inputLabel="Plot Area Unit" options={[
-      { value: "SFT", label: "Sq. Ft" },
-      { value: "SQM", label: "Sq. M" },
-      { value: "ACRE", label: "Acres" },
-    ]} isRequired={false} />
+          <DropDownInput formikField="plotAreaUnit" inputLabel="Plot Area Unit" options={[
+            { value: "SFT", label: "Sq. Ft" },
+            { value: "SQM", label: "Sq. M" },
+            { value: "ACRE", label: "Acres" },
+          ]} isRequired={false} />
         </Grid>
         <Grid item xs={12} md={6}>
           <TextInput formikField="builtUpArea" label="Built Up Area" type="number" />
         </Grid>
         <Grid item xs={12} md={6}>
-              <DropDownInput formikField="builtUpAreaUnit" inputLabel="Built Up Area Unit" options={[
-      { value: "SFT", label: "Sq. Ft" },
-      { value: "SQM", label: "Sq. M" },
-    ]} isRequired={false} />
+          <DropDownInput formikField="builtUpAreaUnit" inputLabel="Built Up Area Unit" options={[
+            { value: "SFT", label: "Sq. Ft" },
+            { value: "SQM", label: "Sq. M" },
+          ]} isRequired={false} />
         </Grid>
         <Grid item xs={12}>
           <TextAreaInput formikField="buildingDetail" label="Building Detail / Spec" rows={3} />
@@ -481,10 +481,10 @@ export const AdditionalDetailsSection: React.FC = () => {
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
         <Grid item xs={12}>
-              <TextAreaInput formikField="remarks" label="Remarks" rows={2} isRequired={false} />
+          <TextAreaInput formikField="remarks" label="Remarks" rows={2} isRequired={false} />
         </Grid>
         <Grid item xs={12}>
-              <TextAreaInput formikField="description" label="Detailed Description" rows={3} isRequired={false} />
+          <TextAreaInput formikField="description" label="Detailed Description" rows={3} isRequired={false} />
         </Grid>
       </Grid>
     </div>
@@ -551,7 +551,7 @@ export const PODetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <TextInput formikField="poNumber" label="PO Number" />
         </Grid>
         <Grid item xs={12} md={4}>
-              <DateInput formikField="poDate" inputLabel="PO Date" formikProps={props.formikProps} placeHolder="Select PO Date" isRequired={false} />
+          <DateInput formikField="poDate" inputLabel="PO Date" formikProps={props.formikProps} placeHolder="Select PO Date" isRequired={false} />
         </Grid>
       </Grid>
     </div>
@@ -1048,6 +1048,13 @@ export const ProposalConfigurationSection: React.FC<LeadSectionsProps> = (props)
     setFieldValue("rules", [...otherRules, ...updatedAreaRules]);
   };
 
+  const templateOptions = React.useMemo(() => {
+    return (props.proposalTemplates || []).map((t: any) => ({
+      value: t.id,
+      label: t.templateName || t.templateCode || t.id,
+    }));
+  }, [props.proposalTemplates]);
+
   return (
     <div className="d-flex flex-column gap-6">
       {/* Template selector card */}
@@ -1058,10 +1065,7 @@ export const ProposalConfigurationSection: React.FC<LeadSectionsProps> = (props)
             <FormikDropdownInput
               formikField="proposalTemplateId"
               inputLabel="Proposal Template"
-              options={(props.proposalTemplates || []).map((t: any) => ({
-                value: t.id,
-                label: t.templateName || t.templateCode || t.id,
-              }))}
+              options={templateOptions}
               placeholder="Select a Proposal Template..."
               isRequired={false}
             />

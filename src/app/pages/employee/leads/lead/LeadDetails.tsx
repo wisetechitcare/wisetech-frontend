@@ -169,7 +169,7 @@ const LeadDetails: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [leadId, lead]);
+    }, [leadId]);
 
     // Enhanced function to map lead data to project form
     const mapLeadToProjectForm = useCallback((lead: any) => {
@@ -440,7 +440,16 @@ const LeadDetails: React.FC = () => {
                                 ) : (
                                     <KTIcon iconName="file-down" className="fs-2" />
                                 )}
-                                Export
+                                Generate Offer
+                            </Button>
+
+                            <Button
+                                variant="warning"
+                                onClick={() => navigate(`/dynamic-offer/${lead.id}`, { state: { leadData: lead, companyData: company, contactData: contact } })}
+                                className="me-2"
+                            >
+                                <KTIcon iconName="document" className="fs-2" />
+                                Dynamic Offer
                             </Button>
 
                             <Button

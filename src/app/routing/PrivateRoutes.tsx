@@ -68,6 +68,7 @@ const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
 const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
 const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
+const OfferBuilderPage = lazy(() => import('@app/modules/offer-v2/OfferBuilderPage').then(module => ({ default: module.OfferBuilderPage })))
 
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
@@ -531,6 +532,14 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <SearchResultsPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path='/dynamic-offer/:leadId'
+          element={
+            <SuspensedView>
+              <OfferBuilderPage />
             </SuspensedView>
           }
         />

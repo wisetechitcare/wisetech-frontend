@@ -1,4 +1,4 @@
-﻿import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -107,7 +107,9 @@ import { getAllLeadCancellationReasons } from "@services/lead";
 import Swal from "sweetalert2";
 import { getDocxPreviewHtml } from "./components/dms/utils/dmsUtils";
 
+import { useNavigate } from "react-router-dom";
 import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
+import ProposalTemplatePage from "./components/ProposalTemplatePage";
 import { useDraft } from "@hooks/useDraft";
 import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
 import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
@@ -340,35 +342,48 @@ const LeadFormModal = ({
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [proposalTemplates, setProposalTemplates] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const navigate = useNavigate();
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposalModalTemplateId, setProposalModalTemplateId] = useState<string>("");
 
-  const handleExport = async (type: "docx" | "pdf", values: any) => {
+  const handleExport = async (type: "docx" | "pdf", values: any, directPreview: boolean = false) => {
     if (!values.id) return;
 
-    // Prompt user for Preview vs Download
-    const result = await Swal.fire({
-      title: `Export ${type.toUpperCase()}`,
-      text: `Would you like to preview the ${type.toUpperCase()} document or download it to your device?`,
-      icon: "question",
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: "Preview",
-      denyButtonText: "Download",
-      cancelButtonText: "Cancel",
-      customClass: {
-        confirmButton: "btn btn-primary me-2",
-        denyButton: "btn btn-success me-2",
-        cancelButton: "btn btn-secondary",
-      },
-      buttonsStyling: false,
-    });
+    let isConfirmed = false;
+    let isDenied = false;
+    let newTab: Window | null = null;
 
-    if (result.isDismissed || result.dismiss === Swal.DismissReason.cancel) {
-      return; // User cancelled
+    if (directPreview) {
+      // Direct preview mode (opens in new tab)
+      isConfirmed = true; 
+    } else {
+      // Prompt user for Preview vs Download
+      const result = await Swal.fire({
+        title: `Export ${type.toUpperCase()}`,
+        text: `Would you like to preview the ${type.toUpperCase()} document or download it to your device?`,
+        icon: "question",
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: "Preview",
+        denyButtonText: "Download",
+        cancelButtonText: "Cancel",
+        customClass: {
+          confirmButton: "btn btn-primary me-2",
+          denyButton: "btn btn-success me-2",
+          cancelButton: "btn btn-secondary",
+        },
+        buttonsStyling: false,
+      });
+
+      if (result.isDismissed || result.dismiss === Swal.DismissReason.cancel) {
+        return; // User cancelled
+      }
+
+      isConfirmed = result.isConfirmed;
+      isDenied = result.isDenied;
     }
 
-    let newTab: Window | null = null;
-    if (result.isConfirmed) {
+    if (isConfirmed) {
       newTab = window.open("", "_blank");
       if (newTab) {
         newTab.document.title = `Generating Preview...`;
@@ -405,6 +420,10 @@ const LeadFormModal = ({
         categories,
         userId,
       });
+      
+      if (directPreview || isConfirmed) {
+        (exportData as any).exportType = "preview";
+      }
 
       const data =
         type === "docx"
@@ -418,7 +437,7 @@ const LeadFormModal = ({
             : "application/pdf",
       });
 
-      if (result.isConfirmed) {
+      if (isConfirmed) {
         if (newTab) {
           if (type === "docx") {
             const checkChildReady = setInterval(() => {
@@ -444,12 +463,16 @@ const LeadFormModal = ({
           }
         }
         console.log(`✅ ${type.toUpperCase()} preview loaded in new tab`);
-      } else if (result.isDenied) {
+      } else if (isDenied) {
+        const downloadName = directPreview 
+          ? `Preview_Lead_${values.projectName || values.id}.${type}`
+          : `Lead_${values.projectName || values.id}.${type}`;
+
         // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
         if ("showSaveFilePicker" in window) {
           try {
             const handle = await (window as any).showSaveFilePicker({
-              suggestedName: `Lead_${values.projectName || values.id}.${type}`,
+              suggestedName: downloadName,
               types: [
                 {
                   description: type === "docx" ? "Word Document" : "PDF Document",
@@ -477,7 +500,7 @@ const LeadFormModal = ({
         link.href = url;
         link.setAttribute(
           "download",
-          `Lead_${values.projectName || values.id}.${type}`,
+          downloadName,
         );
         document.body.appendChild(link);
         link.click();
@@ -1526,9 +1549,9 @@ const LeadFormModal = ({
   // fetching all the details:
   const fetchProposalTemplates = useCallback(async () => {
     try {
-      const data = await getProposalConfigurations();
-      setProposalTemplates(data || []);
-      return data || [];
+      const { LOCAL_TEMPLATES } = await import('../../../../modules/offer-v2/data/templateRegistry');
+      setProposalTemplates(LOCAL_TEMPLATES);
+      return LOCAL_TEMPLATES;
     } catch (error) {
       console.error("Error fetching proposal templates:", error);
       return [];
@@ -3254,7 +3277,7 @@ const LeadFormModal = ({
                 }, [values.statusId, leadStatuses]);
 
                 return (
-                  <FormikForm placeholder={""}>
+                  <FormikForm>
                     <LeadWorkspace
                       categories={categories}
                       subcategories={subcategories}
@@ -3298,8 +3321,10 @@ const LeadFormModal = ({
                       proposalTemplates={proposalTemplates}
                       hasDefaultStatus={hasDefaultStatus}
                       onHide={handleLeadCancelWithDirtyCheck}
-                      exportPdf={isEditMode ? () => handleExport("pdf", values) : undefined}
-                      exportDocx={isEditMode ? () => handleExport("docx", values) : undefined}
+                      exportPdf={() => { setProposalModalTemplateId(values.proposalTemplateId || ""); setShowProposalModal(true); }}
+                      exportDocx={() => { setProposalModalTemplateId(values.proposalTemplateId || ""); setShowProposalModal(true); }}
+                      previewDocx={() => { setProposalModalTemplateId(values.proposalTemplateId || ""); setShowProposalModal(true); }}
+                      openProposalEditor={values.proposalTemplateId && currLeadData?.id ? () => { navigate(`/dynamic-offer/${currLeadData.id}`, { state: { leadData: { ...currLeadData, proposalTemplateId: values.proposalTemplateId } } }); } : undefined}
                       onFinalSave={
                         isEditMode
                           ? async () => {
@@ -3417,6 +3442,16 @@ const LeadFormModal = ({
           title="Company Type"
           type="company-type"
         />
+
+        {/* Auto-export mode: opens ExportCenterModal directly */}
+        <ProposalTemplatePage
+          show={showProposalModal}
+          onHide={() => setShowProposalModal(false)}
+          leadData={currLeadData}
+          initialTemplateId={proposalModalTemplateId}
+          autoExport
+        />
+
       </div>
     </div>
   );

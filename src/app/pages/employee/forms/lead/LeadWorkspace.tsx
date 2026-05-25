@@ -69,6 +69,8 @@ interface LeadWorkspaceProps {
   onHide: () => void;
   exportPdf?: () => void;
   exportDocx?: () => void;
+  previewDocx?: () => void;
+  openProposalEditor?: () => void;
   onSaveUpdate?: () => void;
   onSaveRevision?: () => void;
   onFinalSave?: () => void;
@@ -102,11 +104,11 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
 
       const tpl = props.proposalTemplates?.find((t: any) => t.id === values.proposalTemplateId);
       if (tpl) {
-        // Only override if the form fields are currently empty (prevent overwriting user modifications on reload)
+        // Always reload on user-initiated template switch; only guard on passive list refresh
         const hasStages = values.globalPaymentStages && values.globalPaymentStages.length > 0;
         const hasRules = values.rules && values.rules.length > 0;
 
-        if (!hasStages && !hasRules) {
+        if (templateIdChanged || (!hasStages && !hasRules)) {
           const globalPaymentStages: any[] = [];
           const rules: any[] = [];
           if (Array.isArray(tpl.rules)) {
@@ -461,6 +463,8 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         onCancel: props.onHide,
         exportPdf: props.exportPdf,
         exportDocx: props.exportDocx,
+        previewDocx: props.previewDocx,
+        openProposalEditor: props.openProposalEditor,
         onSaveUpdate: props.onSaveUpdate,
         onSaveRevision: props.onSaveRevision,
         onFinalSave: props.onFinalSave,

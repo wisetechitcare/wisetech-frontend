@@ -1897,7 +1897,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
                 };
 
                 return (
-                  <FormikForm placeholder={""}>
+                  <FormikForm>
                     <DraftAutoSave
                       onAutoSave={(vals, step) => autoSaveProjectDraft(vals, step, {})}
                       currentStep={draftCurrentStep}

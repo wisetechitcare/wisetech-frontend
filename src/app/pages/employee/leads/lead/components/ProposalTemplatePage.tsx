@@ -22,6 +22,9 @@ interface ProposalTemplatePageProps {
   companyData?: any;
   contactData?: any;
   projectData?: any;
+  initialTemplateId?: string;
+  /** Skip the builder UI and open the ExportCenterModal directly */
+  autoExport?: boolean;
 }
 
 interface ProposalConfiguration {
@@ -49,6 +52,8 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   companyData,
   contactData,
   projectData,
+  initialTemplateId,
+  autoExport = false,
 }) => {
   const { currentUser } = useAuth();
   const [templates, setTemplates] = useState<any[]>([]);
@@ -529,6 +534,15 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   }, [show, leadData, availableFields]);
 
   // Removed duplicate state declaration
+
+  // Auto-select initialTemplateId when modal opens and data is ready.
+  // Runs after the show/leadData effect (which resets selectedTemplateId to ""),
+  // so definition order guarantees this fires last and wins.
+  useEffect(() => {
+    if (!show || !initialTemplateId || templates.length === 0 || availableFields.length === 0) return;
+    handleTemplateChange(initialTemplateId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, initialTemplateId, templates.length, availableFields.length]);
 
   useEffect(() => {
     if (!selectedTemplateId && !templateBase64) return;
@@ -1012,6 +1026,22 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   };
 
   const canExport = (selectedTemplateId || templateBase64) && !isGenerating;
+
+  // Auto-export mode: skip the builder UI, render only ExportCenterModal
+  if (autoExport) {
+    return (
+      <ExportCenterModal
+        show={show && !!(selectedTemplateId || templateBase64)}
+        onHide={onHide}
+        leadData={leadData}
+        templateId={selectedTemplateId || "custom"}
+        isDataModified={false}
+        onExport={async (config) => {
+          await handleExport((config.format as "docx" | "pdf") || "docx", config);
+        }}
+      />
+    );
+  }
 
   return (
     <Modal

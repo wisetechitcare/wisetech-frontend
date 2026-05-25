@@ -112,6 +112,8 @@ export interface WizardActionConfig {
   onCancel: () => void;
   exportPdf?: () => void;
   exportDocx?: () => void;
+  previewDocx?: () => void;
+  openProposalEditor?: () => void;
   submitDisabled?: boolean;
   submitText?: string;
   onSaveUpdate?: () => void;
