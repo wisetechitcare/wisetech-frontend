@@ -10,11 +10,19 @@ export type ObSectionItem = {
   isComplete?: boolean;
 };
 
+export type ObSidebarProfile = {
+  name: string;
+  avatar?: string;
+  initials: string;
+  animate?: boolean;
+};
+
 type ObSectionsSidebarProps = {
   sections: ObSectionItem[];
   activeSection: string;
   onSectionChange: (sectionId: string) => void;
   title?: string;
+  profile?: ObSidebarProfile;
 };
 
 function SectionNavButton({
@@ -51,6 +59,7 @@ function ObSectionsSidebar({
   activeSection,
   onSectionChange,
   title = "Sections",
+  profile,
 }: ObSectionsSidebarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const activeItem = sections.find((s) => s.id === activeSection) ?? sections[0];
@@ -79,6 +88,17 @@ function ObSectionsSidebar({
     setDrawerOpen(false);
   };
 
+  const sidebarProfile = profile && (profile.name || profile.avatar) ? (
+    <div className={`ob-sidebar-profile${profile.animate ? " animate-in" : ""}`}>
+      <span className="ob-sidebar-profile-avatar" aria-hidden>
+        {profile.avatar ? <img src={profile.avatar} alt="" /> : profile.initials}
+      </span>
+      <span className="ob-sidebar-profile-name" title={profile.name}>
+        {profile.name}
+      </span>
+    </div>
+  ) : null;
+
   return (
     <>
       <div className="ob-mobile-sections-bar">
@@ -99,7 +119,7 @@ function ObSectionsSidebar({
 
       <aside className="ob-sections-sidebar" aria-label={title}>
         <div className="ob-sections-sidebar-title">{title}</div>
-        <nav>
+        <nav className="ob-sections-sidebar-nav">
           {sections.map((section) => (
             <SectionNavButton
               key={section.id}
@@ -109,6 +129,7 @@ function ObSectionsSidebar({
             />
           ))}
         </nav>
+        {sidebarProfile}
       </aside>
 
       {drawerOpen && (

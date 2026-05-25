@@ -202,7 +202,7 @@ function MonthlyLeaveLimit() {
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-function StepAppSettings({ formikProps, editMode }: { formikProps: any; editMode: boolean }) {
+function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProps: any; editMode: boolean; sidebarProfile?: any }) {
     const [activeSection, setActiveSection] = useState("reporting");
 
     useEffect(() => {
@@ -260,6 +260,7 @@ function StepAppSettings({ formikProps, editMode }: { formikProps: any; editMode
             sections={sections}
             activeSection={activeSection}
             onSectionChange={setActiveSection}
+            sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}
         </WizardSectionLayout>

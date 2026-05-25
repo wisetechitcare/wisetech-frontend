@@ -15,7 +15,6 @@ import FamilyInfo from '../forms/FamilyInfo';
 import PersonalContactInfo from '../forms/PersonalContactInfo';
 import ProfilePicture from '../forms/ProfilePicture';
 import MealPreferences from '../forms/MealPreference';
-import { getAvatar } from '@utils/avatar';
 import { fetchQualificationMasters } from '@services/employee';
 import './Step2.css';
 
@@ -260,7 +259,6 @@ function Step2({ formikProps, setFile, setEducationFile, activeSection, onSectio
         <ProfilePicture
           setFile={setFile}
           avatar={values?.avatar}
-          defaultImageUrl={getAvatar(values?.avatar, values?.gender)}
         />
         <div className="ob-personal-info-fields">
           <BasicInfo formikProps={formikProps} />

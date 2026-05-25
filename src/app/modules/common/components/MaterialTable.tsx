@@ -230,7 +230,10 @@ function MaterialTable({
       processedData = data;
     }
 
-    return processedData;
+    // Both viewOthers and checkOwnWithOthers filter from the same source array,
+    // so a row that passes both permission checks gets appended twice. Deduplicate
+    // by object reference before returning.
+    return Array.from(new Set(processedData));
   }, [data, resource, viewOthers, viewOwn, checkOwnWithOthers]);
 
   const { mode: metronicMode } = useThemeMode();
