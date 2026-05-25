@@ -12,7 +12,7 @@ const createInitialDocumentInfo = (documentId: string) => ({
     fileName: "",
 });
 
-function Step4({ formikProps, setFile }: any) {
+function Step4({ formikProps, setFile, sidebarProfile }: any) {
     const { values: { documentFields, documentInfo: docInfo }, setFieldValue } = formikProps;
     const [activeSection, setActiveSection] = useState("upload_docs");
 
@@ -69,6 +69,7 @@ function Step4({ formikProps, setFile }: any) {
             sections={sections}
             activeSection={activeSection}
             onSectionChange={setActiveSection}
+            sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}
         </WizardSectionLayout>

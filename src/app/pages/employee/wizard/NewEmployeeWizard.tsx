@@ -116,6 +116,11 @@ const hasDraftValue = (value: any) => {
   return String(value).trim() !== "";
 };
 
+const getNameInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return (parts[0]?.[0] || "").concat(parts[1]?.[0] || "").toUpperCase() || "U";
+};
+
 const calculateProfileCompletion = (values: any) => {
   const education = values.educationalInfo?.[0] || {};
   const family = values.familyInfo?.[0] || {};
@@ -657,6 +662,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const stepperRef = useRef<HTMLDivElement | null>(null);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const formikRef = useRef<any>(null);
+  const profilePhotoPreviewRef = useRef<string>("");
   const [stepper, setStepper] = useState<StepperComponent | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(1);
   const [currentSchema, setCurrentSchema] = useState(newEmployeeWizardSchema[0]);
@@ -666,6 +672,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [defaultState, setDefaultState] = useState(initialState);
   const [activeSection, setActiveSection] = useState("personal-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mobileProfilePhotoPreview, setMobileProfilePhotoPreview] = useState("");
+  const [sidebarProfileHasAppeared, setSidebarProfileHasAppeared] = useState(false);
+  const [sidebarProfileShouldAnimate, setSidebarProfileShouldAnimate] = useState(false);
 
   // Clear any stale draft on mount so new employee form starts blank
   useEffect(() => {
@@ -708,8 +717,31 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
   }, [show]);
 
-  const addFileToState = (documentId: string, file: File) =>
+  const addFileToState = (documentId: string, file: File) => {
     setFiles((prev: any) => ({ ...prev, [documentId]: file }));
+
+    if (documentId === "userProfilePicture") {
+      if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
+      const previewUrl = URL.createObjectURL(file);
+      profilePhotoPreviewRef.current = previewUrl;
+      setMobileProfilePhotoPreview(previewUrl);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeStepIndex > 1 && !sidebarProfileHasAppeared) {
+      setSidebarProfileHasAppeared(true);
+      setSidebarProfileShouldAnimate(true);
+      const timer = window.setTimeout(() => setSidebarProfileShouldAnimate(false), 400);
+      return () => window.clearTimeout(timer);
+    }
+  }, [activeStepIndex, sidebarProfileHasAppeared]);
 
   const addEducationFileToState = (index: number, file: File | null) => {
     setEducationFiles((prev: any) => {
@@ -1208,6 +1240,22 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               const completion = calculateProfileCompletion(formikProps.values);
               const isLastStep = activeStepIndex === newEmployeeWizardSchema.length;
+              const headerEmployeeName = `${formikProps.values.firstName || ""} ${formikProps.values.lastName || ""}`.trim();
+              const headerEmployeeAvatar = mobileProfilePhotoPreview || formikProps.values.avatar || "";
+              const headerEmployeeInitials = getNameInitials(headerEmployeeName);
+              const mobileRingSize = 40;
+              const mobileRingRadius = 18;
+              const mobileRingCircumference = 2 * Math.PI * mobileRingRadius;
+              const mobileRingOffset = mobileRingCircumference * (1 - completion / 100);
+              const sidebarProfile =
+                activeStepIndex > 1 && (headerEmployeeName || headerEmployeeAvatar)
+                  ? {
+                    name: headerEmployeeName,
+                    avatar: headerEmployeeAvatar,
+                    initials: headerEmployeeInitials,
+                    animate: sidebarProfileShouldAnimate,
+                  }
+                  : undefined;
 
               // Determine if required fields for this step are filled (for CTA styling)
               const isStepReady = (() => {
@@ -1236,6 +1284,47 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                             <div className="ob-completion-bar-fill" style={{ width: `${completion}%` }} />
                           </div>
                         </div>
+                        {(headerEmployeeName || headerEmployeeAvatar) && (
+                          <span className="ob-header-mobile-profile" title={headerEmployeeName}>
+                            <span className="ob-header-mobile-avatar" aria-hidden>
+                              <svg
+                                className="ob-header-mobile-ring"
+                                width={mobileRingSize}
+                                height={mobileRingSize}
+                                viewBox={`0 0 ${mobileRingSize} ${mobileRingSize}`}
+                              >
+                                <circle
+                                  className="ob-header-mobile-ring-track"
+                                  cx={mobileRingSize / 2}
+                                  cy={mobileRingSize / 2}
+                                  r={mobileRingRadius}
+                                />
+                                <circle
+                                  key={`${activeStepIndex}-${completion}`}
+                                  className="ob-header-mobile-ring-progress"
+                                  cx={mobileRingSize / 2}
+                                  cy={mobileRingSize / 2}
+                                  r={mobileRingRadius}
+                                  style={{
+                                    "--ring-circumference": mobileRingCircumference,
+                                    "--ring-offset": mobileRingOffset,
+                                  } as any}
+                                />
+                              </svg>
+                              <span className="ob-header-mobile-avatar-inner">
+                              {headerEmployeeAvatar ? (
+                                <img src={headerEmployeeAvatar} alt="" />
+                              ) : (
+                                headerEmployeeInitials
+                              )}
+                              </span>
+                            </span>
+                            <span className="ob-header-mobile-copy">
+                              <span className="ob-header-mobile-name">{headerEmployeeName}</span>
+                              <span className="ob-header-mobile-percent">{completion}%</span>
+                            </span>
+                          </span>
+                        )}
                       </div>
                     </header>
 
@@ -1326,9 +1415,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                           </div>
                         )}
 
-                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} />}
-                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} />}
-                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} />}
+                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} />}
+                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} />}
+                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} />}
                       </div>
                     </main>
 
