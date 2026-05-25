@@ -1,4 +1,4 @@
-import CommonCard from '@app/modules/common/components/CommonCard';
+﻿import CommonCard from '@app/modules/common/components/CommonCard';
 import { Donut } from '@app/modules/common/components/Graphs';
 import { customPaidLoanInstallment, fetchLoanById, skipLoanInstallment } from '@services/employee'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -586,7 +586,7 @@ function LoanDetails() {
                 }, [isEditMode, selectedInstallmentForEdit]);
 
                 return (
-                  <Form className="form" placeholder={""}>
+                  <Form className="form">
                     {/* Attendance Request Limit */}
                     {!showSkipForm && (
                       <div className="row px-3 my-3">

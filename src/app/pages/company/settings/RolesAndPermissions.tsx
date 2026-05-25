@@ -1,7 +1,8 @@
 import { permissionConstToUseWithHasPermission, ResourceMapWithName, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { KTIcon } from '@metronic/helpers';
-import { createRole, fetchRoles, createPermissionForRoleById, updatePermissionForRoleById, updateRoleById, deleteRoleById } from '@services/roles';
+import { createRole, fetchRoles, createPermissionForRoleById, updatePermissionForRoleById, updateRoleById, deleteRoleById, deletePermissionForRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
+import { fetchAllEmployees } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
@@ -22,6 +23,7 @@ interface RoleData {
   id: string;
   name: string;
   isActive: boolean;
+  isSystem?: boolean;
   createdAt: string;
   permissions: {
     id: string;
@@ -751,13 +753,18 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
           );
 
           if (existingPerm) {
-            promises.push(
-              updatePermissionForRoleById(role.id, existingPerm.id, {
-                resource: resource.resourceKey,
-                action: actionObj.action,
-                allow: allowValue,
-              })
-            );
+            if (allowValue) {
+              promises.push(
+                updatePermissionForRoleById(role.id, existingPerm.id, {
+                  resource: resource.resourceKey,
+                  action: actionObj.action,
+                  allow: true,
+                })
+              );
+            } else {
+              // True delete path for permissions when unchecked.
+              promises.push(deletePermissionForRoleById(role.id, existingPerm.id));
+            }
           } else {
             if (allowValue) {
               promises.push(
@@ -974,44 +981,136 @@ function EditRole({ handleCloseEditModal, roleDetails, setRefetch }: { handleClo
 }
 
 function StaffMemberForGivenRole({ handleCloseEditModal, setRefetch, roleDetails }: { handleCloseEditModal: (show: boolean) => void, setRefetch: (show: boolean) => void, roleDetails: any }) {
-  const [roleName, setRoleName] = useState(roleDetails?.name || '');
+  const [allEmployees, setAllEmployees] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>(roleDetails?.employees ?? []);
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const handleFormSubmit = async () => {
+  useEffect(() => {
+    fetchAllEmployees(true)
+      .then((res) => {
+        const list = res?.data ?? res ?? [];
+        setAllEmployees(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {});
+  }, []);
+
+  const assignedIds = new Set(members.map((m: any) => m.id));
+
+  const filtered = allEmployees.filter((emp: any) => {
+    if (assignedIds.has(emp.id)) return false;
+    const name = `${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`.toLowerCase();
+    return name.includes(search.toLowerCase());
+  });
+
+  const handleAdd = async () => {
+    if (!selectedId) return;
+    setAdding(true);
     try {
-      const res = await updateRoleById(roleDetails?.id, { name: roleName });
-      // console.log("resFromUpdate::: ", res);
-      if (!res?.hasError) {
-        successConfirmation("Role updated successfully");
-        setRefetch(true);
-      }
-      else {
-        errorConfirmation("Error: Something went wrong please try again");
-      }
-    } catch (error) {
-      // console.log("error: ", error);
-      errorConfirmation("Error: Something went wrong please try again");
+      await addEmployeeToRole(roleDetails.id, selectedId);
+      const emp = allEmployees.find((e) => e.id === selectedId);
+      if (emp) setMembers((prev) => [...prev, emp]);
+      setSelectedId('');
+      setSearch('');
+      setRefetch(true);
+    } catch {
+      errorConfirmation('Failed to assign employee to role.');
+    } finally {
+      setAdding(false);
     }
-    finally {
-      handleCloseEditModal(true);
+  };
+
+  const handleRemove = async (employeeId: string) => {
+    setRemovingId(employeeId);
+    try {
+      await removeEmployeeFromRole(roleDetails.id, employeeId);
+      setMembers((prev) => prev.filter((m: any) => m.id !== employeeId));
+      setRefetch(true);
+    } catch {
+      errorConfirmation('Failed to remove employee from role.');
+    } finally {
+      setRemovingId(null);
     }
-  }
+  };
 
   return (
-    <div
-      className='d-flex flex-column my-3 p-5 p-md-10 bg-white'
-      style={{ borderRadius: '10px', fontFamily: 'Inter' }}
-    >
-      <h4>Staff members using this role</h4>
-      <div className='my-3'>
-        {roleDetails?.employees?.map((employee: any) => (
-          <div key={employee.id} className='d-flex flex-row align-items-center justify-content-start w-full gap-2 py-1' style={{ backgroundColor: '#FFFFFF', fontSize: '14px', color: '#000000' }}>
-            <img src={employee?.avatar || getAvatar(employee.avatar, employee.gender)} className='col-3' style={{ objectFit: "cover", width: "32px", height: "32px", borderRadius: "50%" }} />
-            <div className='col-9' style={{ fontSize: '14px', color: '#000000' }}>{employee?.users?.firstName + ' ' + employee?.users?.lastName}</div>
+    <div className='d-flex flex-column my-3 p-5 p-md-10 bg-white' style={{ borderRadius: '10px', fontFamily: 'Inter' }}>
+      <h4 className='mb-4'>Staff members using this role</h4>
+
+      <div className='d-flex gap-2 mb-4'>
+        <div className='position-relative flex-grow-1'>
+          <input
+            type='text'
+            className='form-control form-control-sm'
+            placeholder='Search employee to add...'
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelectedId(''); }}
+          />
+          {search && filtered.length > 0 && (
+            <div
+              className='position-absolute bg-white border rounded shadow-sm w-100'
+              style={{ zIndex: 10, maxHeight: '180px', overflowY: 'auto', top: '100%' }}
+            >
+              {filtered.slice(0, 10).map((emp: any) => (
+                <div
+                  key={emp.id}
+                  className='px-3 py-2 cursor-pointer'
+                  style={{ fontSize: '13px', cursor: 'pointer' }}
+                  onMouseDown={() => {
+                    setSelectedId(emp.id);
+                    setSearch(`${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`);
+                  }}
+                >
+                  {emp.users?.firstName} {emp.users?.lastName}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          className='btn btn-sm btn-light-primary'
+          disabled={!selectedId || adding}
+          onClick={handleAdd}
+        >
+          {adding ? <span className='spinner-border spinner-border-sm' /> : 'Add'}
+        </button>
+      </div>
+
+      <div className='d-flex flex-column gap-1'>
+        {members.length === 0 && (
+          <span className='text-muted fs-7'>No staff members assigned yet.</span>
+        )}
+        {members.map((employee: any) => (
+          <div
+            key={employee.id}
+            className='d-flex align-items-center justify-content-between py-2 px-3 rounded'
+            style={{ backgroundColor: '#f9f9f9', fontSize: '14px' }}
+          >
+            <div className='d-flex align-items-center gap-2'>
+              <img
+                src={employee?.avatar || getAvatar(employee.avatar, employee.gender)}
+                style={{ objectFit: 'cover', width: '32px', height: '32px', borderRadius: '50%' }}
+                alt=''
+              />
+              <span style={{ color: '#000' }}>{employee?.users?.firstName} {employee?.users?.lastName}</span>
+            </div>
+            <button
+              className='btn btn-icon btn-sm btn-light-danger'
+              title='Remove'
+              disabled={removingId === employee.id}
+              onClick={() => handleRemove(employee.id)}
+            >
+              {removingId === employee.id
+                ? <span className='spinner-border spinner-border-sm text-danger' />
+                : <KTIcon iconName='cross' className='fs-6 text-danger' />}
+            </button>
           </div>
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function EditRoleName({ handleCloseEditModal, setRefetch, roleDetails }: { handleCloseEditModal: (show: boolean) => void, setRefetch: (show: boolean) => void, roleDetails: any }) {
@@ -1113,9 +1212,9 @@ function RolesAndPermissions() {
     setshowEditModal(false);
   }
 
-  const handleDeleteRole = async (roleId: number) => {
+  const handleDeleteRole = async (roleId: string) => {
     try {
-      const res = await deleteRoleById(roleId.toString());
+      const res = await deleteRoleById(roleId);
       // console.log("res::: ", res);
       if (!res?.hasError) {
         successConfirmation("Role deleted successfully");
@@ -1155,9 +1254,9 @@ function RolesAndPermissions() {
                   className="fs-3 cursor-pointer"
                 />
               </div>
-              {(!role?.name?.toLowerCase()?.includes("admin") && !role?.name?.toLowerCase()?.includes("guest")) && <div
+              {(!role?.isSystem) && <div
                 className="btn p-0 btn-active-color-primary btn-sm"
-                onClick={() => handleDeleteRole(role.id)}
+                onClick={() => handleDeleteRole(String(role.id))}
               >
                 <KTIcon
                   iconName="trash"

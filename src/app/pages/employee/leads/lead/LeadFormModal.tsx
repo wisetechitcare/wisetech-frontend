@@ -1,4 +1,4 @@
-import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+﻿import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -948,40 +948,33 @@ const LeadFormModal = ({
           numberOfPages: "",
         }),
 
-        // Additional fields for mep / blank type
-        ...((leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.mep?.toString() ||
-          leadTemplateId?.toString() ===
-            leadAndProjectTemplateTypeId.newLead?.toString()) && {
-          projectAreas: [
-            {
-              label: "",
-              projectArea: "",
-              costType: "",
-              rate: "",
-              cost: "",
-            },
-          ],
-          addresses: [
-            {
-              projectAddress: initialData.projectAddress || "",
-              zipCode: initialData.zipCode || "",
-              mapLocation: initialData.mapLocation || "",
-              latitude: initialData.latitude || "",
-              longitude: initialData.longitude || "",
-              country: initialData.country || "",
-              state: initialData.state || "",
-              city: initialData.city || "",
-              locality: initialData.locality || "",
-              googleMapLink: initialData.googleMapLink || "",
-              googleMyBusinessLink: initialData.googleMyBusinessLink || "",
-              isDefault: initialData.isDefault || false,
-            },
-          ],
-          poNumber: "",
-          poDate: "",
-          useCalculatedAmount: true,
-        }),
+        // Always include addresses for all forms
+        addresses: [
+          {
+            projectAddress: initialData.projectAddress || "",
+            zipCode: initialData.zipCode || "",
+            mapLocation: initialData.mapLocation || "",
+            latitude: initialData.latitude || "",
+            longitude: initialData.longitude || "",
+            country: initialData.country || "",
+            state: initialData.state || "",
+            city: initialData.city || "",
+            locality: initialData.locality || "",
+            googleMapLink: initialData.googleMapLink || "",
+            googleMyBusinessLink: initialData.googleMyBusinessLink || "",
+            isDefault: initialData.isDefault || false,
+          },
+        ],
+        projectAreas: [
+          {
+            label: "",
+            projectArea: "",
+            costType: "",
+            rate: "",
+            cost: "",
+          },
+        ],
+        useCalculatedAmount: true,
 
         // status: 'new',
         budget: "",
@@ -1328,59 +1321,49 @@ const LeadFormModal = ({
         numberOfPages: additionalDetailsArray[0]?.numberOfPages || "",
       }),
 
-      // Additional fields for mep / blank type
-      ...((leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.mep?.toString() ||
-        leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.newLead?.toString()) && {
-        projectAreas:
-          projectAreas.length > 0
-            ? projectAreas
-            : [
-                {
-                  label: "",
-                  projectArea: "",
-                  costType: "",
-                  rate: "",
-                  cost: "",
-                },
-              ],
-        addresses:
-          addresses.length > 0
-            ? addresses
-            : [
-                {
-                  projectAddress: "",
-                  zipCode: "",
-                  mapLocation: "",
-                  latitude: "",
-                  longitude: "",
-                  country: "",
-                  state: "",
-                  city: "",
-                  locality: "",
-                  googleMapLink: "",
-                  googleMyBusinessLink: "",
-                  isDefault: false,
-                },
-              ],
-        poNumber: additionalDetailsArray[0]?.poNumber || "",
-        poDate: additionalDetailsArray[0]?.poDate
-          ? new Date(additionalDetailsArray[0].poDate)
-              .toISOString()
-              .split("T")[0]
-          : "",
-        useCalculatedAmount: true,
-      }),
+      // Always include addresses for all forms
+      addresses:
+        addresses.length > 0
+          ? addresses
+          : [
+              {
+                projectAddress: "",
+                zipCode: "",
+                mapLocation: "",
+                latitude: "",
+                longitude: "",
+                country: "",
+                state: "",
+                city: "",
+                locality: "",
+                googleMapLink: "",
+                googleMyBusinessLink: "",
+                isDefault: false,
+              },
+            ],
+      projectAreas:
+        projectAreas.length > 0
+          ? projectAreas
+          : [
+              {
+                label: "",
+                projectArea: "",
+                costType: "",
+                rate: "",
+                cost: "",
+              },
+            ],
+      poNumber: additionalDetailsArray[0]?.poNumber || "",
+      poDate: additionalDetailsArray[0]?.poDate
+        ? new Date(additionalDetailsArray[0].poDate)
+            .toISOString()
+            .split("T")[0]
+        : "",
+      useCalculatedAmount: true,
 
       ...initialFormData,
-      // PO fields: always use fresh data from currLeadData (API) — overrides stale initialFormData
-      poNumber:
-        additionalDetailsArray[0]?.poNumber || initialFormData?.poNumber || "",
-      poDate: additionalDetailsArray[0]?.poDate
-        ? new Date(additionalDetailsArray[0].poDate).toISOString().split("T")[0]
-        : initialFormData?.poDate || "",
-      poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
+
+      poStatus:leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
       proposalTemplateId: leadData?.proposalTemplateId || "",
       globalPaymentStages: [],
@@ -1514,35 +1497,30 @@ const LeadFormModal = ({
       .of(Yup.string().uuid("Invalid subcategory ID"))
       .optional(),
     // All other fields are optional
-    ...((leadTemplateId?.toString() ===
-      leadAndProjectTemplateTypeId.mep?.toString() ||
-      leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.newLead?.toString()) && {
-      projectAreas: Yup.array().of(
-        Yup.object().shape({
-          label: Yup.string().optional(), // Label is optional
-          projectArea: Yup.string(),
-          costType: Yup.string(),
-          rate: Yup.string(),
-          cost: Yup.string(),
-        }),
-      ),
-      addresses: Yup.array().of(
-        Yup.object().shape({
-          // projectAddress: Yup.string().required("Address is required"),
-          projectAddress: Yup.string(),
-          country: Yup.string(),
-          state: Yup.string(),
-          city: Yup.string(),
-          zipCode: Yup.string(),
-          locality: Yup.string(),
-          googleMapLink: Yup.string(),
-          googleMyBusinessLink: Yup.string(),
-          latitude: Yup.string(),
-          longitude: Yup.string(),
-        }),
-      ),
-    }),
+    addresses: Yup.array().of(
+      Yup.object().shape({
+        // projectAddress: Yup.string().required("Address is required"),
+        projectAddress: Yup.string(),
+        country: Yup.string(),
+        state: Yup.string(),
+        city: Yup.string(),
+        zipCode: Yup.string(),
+        locality: Yup.string(),
+        googleMapLink: Yup.string(),
+        googleMyBusinessLink: Yup.string(),
+        latitude: Yup.string(),
+        longitude: Yup.string(),
+      }),
+    ),
+    projectAreas: Yup.array().of(
+      Yup.object().shape({
+        label: Yup.string().optional(), // Label is optional
+        projectArea: Yup.string(),
+        costType: Yup.string(),
+        rate: Yup.string(),
+        cost: Yup.string(),
+      }),
+    ),
   });
 
   // fetching all the details:
@@ -2430,9 +2408,7 @@ const LeadFormModal = ({
         isEditMode &&
         currLeadData &&
         countries.length > 0 &&
-        formikRef.current &&
-        (leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-          leadTemplateId === leadAndProjectTemplateTypeId.newLead)
+        formikRef.current
       ) {
         // Get the address data from additionalDetails
         const additionalDetails = currLeadData.additionalDetails;
@@ -2633,10 +2609,8 @@ const LeadFormModal = ({
       return;
     }
     const additionalDetailsFields = [
-      ...((leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-      leadTemplateId === leadAndProjectTemplateTypeId.newLead)
-        ? ["projectArea", "addresses"]
-        : ["type", "numberOfPages"]),
+      "projectArea", "addresses",
+      ...((leadTemplateId === leadAndProjectTemplateTypeId.webDev) ? ["type", "numberOfPages"] : [])
     ];
 
     const selectedCountryData = countries.find(
@@ -3184,8 +3158,6 @@ const LeadFormModal = ({
 
                 useEffect(() => {
                   if (
-                    (leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-                      leadTemplateId === leadAndProjectTemplateTypeId.newLead) &&
                     useCalculatedAmount
                   ) {
                     const cost =

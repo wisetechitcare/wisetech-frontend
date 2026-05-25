@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
@@ -186,7 +186,7 @@ function EmployeeTypes() {
                 <Modal.Body>
                     <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={employeeTypeSchema}>
                         {(formikProps) => (
-                            <Form className='des-flex flex-column' placeholder={''}>
+                            <Form className='des-flex flex-column'>
                                 <div className="row">
                                     <div className="col-lg-12">
                                         <TextInput

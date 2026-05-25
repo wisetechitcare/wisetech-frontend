@@ -11,12 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchCompanyOverview } from "@services/company";
 import {
   getPendingAttendanceRequests,
-  approveAttendanceRequest,
-  rejectAttendanceRequest,
   fetchLeaveRequest,
-  updateLeaveStatus,
-  getAllKpiFactors,
-  createKpiScore
 } from "@services/employee";
 import {
   transformAttendanceRequest,
@@ -27,7 +22,7 @@ import {
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import { LeaveStatus, LEAVE_STATUS, WORKING_METHOD_TYPE } from "@constants/attendance";
-import { successConfirmation, rejectConfirmation, deleteConfirmation, errorConfirmation } from "@utils/modal";
+import { successConfirmation, deleteConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
 import { convertTo12HourFormat } from "@utils/date";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
@@ -36,6 +31,9 @@ import { fetchConfiguration } from "@services/company";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
+import { fetchApprovalInstanceByRequest } from "@services/employee";
+import { Modal } from "react-bootstrap";
+import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 
 interface PendingRequest {
   id: string;
@@ -59,10 +57,28 @@ const PendingRequestsTable = () => {
   const [reimbursementRequests, setReimbursementRequests] = useState<IReimbursementsFetch[]>([]);
   const [processingRowId, setProcessingRowId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<'approve' | 'reject' | null>(null);
-  const [allTheFactorDetails, setAllTheFactorDetails] = useState<any>([]);
   const [leaveConfiguration, setLeaveConfiguration] = useState<any>();
+  const [trackingId, setTrackingId] = useState<string | null>(null);
+  const [trackRequestModel, setTrackRequestModel] = useState<'AttendanceRequests' | 'LeaveTracker' | 'Reimbursement'>('LeaveTracker');
+  const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
+  const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
+
+  const openTracker = async (requestId: string, requestModel: 'AttendanceRequests' | 'LeaveTracker' | 'Reimbursement') => {
+    setTrackingId(requestId);
+    setTrackRequestModel(requestModel);
+    setTrackInstanceId(null);
+    setTrackInstanceLoading(true);
+    try {
+      const res = await fetchApprovalInstanceByRequest(requestModel, requestId);
+      const instance = res?.data ?? res;
+      setTrackInstanceId(instance?.id ?? null);
+    } catch {
+      setTrackInstanceId(null);
+    } finally {
+      setTrackInstanceLoading(false);
+    }
+  };
   const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
-  const [lateCheckInThreshold, setLateCheckInThreshold] = useState('');
   const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
 
   const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation);
@@ -71,28 +87,9 @@ const PendingRequestsTable = () => {
   const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
   const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const isAdminUser = useSelector((state: RootState) => (state.auth as any).currentUser?.isAdmin);
-  const currentEmployeeRoles = useSelector((state: RootState) => state.employee.currentEmployee.roles || []);
-  const isHROrAdmin = isAdminUser || currentEmployeeRoles.some((r: any) =>
-    ['hr', 'admin', 'super_admin', 'superadmin', 'super admin'].includes((r?.name || r?.role || '').toLowerCase())
-  );
-
   const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
-    const { attendance, employee, auth } = state;
-    const currentEmpId = employee.currentEmployee.id;
-    const isAdmin = (auth as any).currentUser?.isAdmin;
-    const roles: any[] = employee.currentEmployee.roles || [];
-    const isHR = isAdmin || roles.some((r: any) =>
-      ['hr', 'admin', 'super_admin', 'superadmin', 'super admin'].includes((r?.name || r?.role || '').toLowerCase())
-    );
-    return attendance.leaveRequests.filter((el: any) => {
-      if (el.status === LeaveStatus.PendingHR) return true;
-      if (el.status === LeaveStatus.ApprovalPending) {
-        if (isHR) return true;
-        return el.reportsToId === currentEmpId;
-      }
-      return false;
-    });
+    const { attendance } = state;
+    return attendance.leaveRequests.filter((el: any) => el.status === LeaveStatus.ApprovalPending);
   });
 
   // Fetch pending attendance requests
@@ -125,19 +122,6 @@ const PendingRequestsTable = () => {
       setIsLoading(false);
     }
   }, [dispatch]);
-
-  // Fetch KPI factors
-  useEffect(() => {
-    async function fetchAllTheFactorDetails() {
-      try {
-        const { data: { factors } } = await getAllKpiFactors();
-        setAllTheFactorDetails(factors);
-      } catch (error) {
-        console.error('Error fetching factor details:', error);
-      }
-    }
-    fetchAllTheFactorDetails();
-  }, []);
 
   // Fetch leave configuration
   useEffect(() => {
@@ -192,7 +176,6 @@ const PendingRequestsTable = () => {
 
         if (thresholds) {
           setEmployeeThresholds(thresholds.employeesWithThresholds);
-          setLateCheckInThreshold(thresholds.defaultThresholds.lateCheckInThreshold);
           setEarlyCheckOutThreshold(thresholds.defaultThresholds.earlyCheckOutThreshold);
         }
       } catch (error) {
@@ -202,231 +185,6 @@ const PendingRequestsTable = () => {
 
     initThresholds();
   }, [attendanceRequests]);
-
-  // Approve attendance request handler
-  const approveAttendanceRequestHandler = async (request: any) => {
-    try {
-      setProcessingRowId(request.id);
-      setProcessingAction('approve');
-
-      const attendance = {
-        requestId: request.id,
-        employeeId: request.employeeId,
-        checkIn: request.checkIn,
-        checkOut: request.checkOut,
-        latitude: request.latitude,
-        longitude: request.longitude,
-        remarks: request.remarks,
-        workingMethodId: request.workingMethodId,
-        approvedById: employeeIdCurrent // Track who approved the request
-      };
-
-      const requestRaised = allTheFactorDetails.find((el: any) => el?.name?.toLowerCase() === 'request raised');
-
-      // FIX: Enforce sign using -Math.abs() instead of mutable conditional negation
-      const requestRaisedWeightageType = requestRaised?.type;
-      const requestRaisedWeight =
-        requestRaisedWeightageType === 'NEGATIVE'
-          ? -Math.abs(Number(requestRaised?.weightage || 0))
-          : Math.abs(Number(requestRaised?.weightage || 0));
-      const workingDaysFactorId = requestRaised?.id;
-
-      // FIX: Use factor.maxValue to cap rawValue; fallback to 30 if missing
-      const requestRaisedMaxValue = Number(requestRaised?.maxValue) || 30;
-      const requestRaisedRawValue = 1;
-      const requestRaisedNormalized = Math.min(requestRaisedRawValue, requestRaisedMaxValue);
-      const workingDaysScore = requestRaisedNormalized * requestRaisedWeight;
-
-      const workingDaysPayload = {
-        employeeId: request?.employeeId,
-        factorId: workingDaysFactorId,
-        value: requestRaisedNormalized,        // FIX: was hardcoded 1, now properly normalized
-        score: workingDaysScore.toString(),
-      };
-
-      const isCheckoutMissing = !attendance.checkOut || attendance.checkOut === "-NA-" || attendance.checkOut === "";
-      if (!isCheckoutMissing) {
-        await createKpiScore(workingDaysPayload);
-      }
-
-      const formattedDate = dayjs(request.date, "DD MMM YYYY").format("YYYY-MM-DD");
-
-      if (attendance.checkIn && attendance.checkIn !== "" && attendance.checkIn !== "-NA-") {
-        const checkInDateTime = dayjs(`${formattedDate} ${attendance.checkIn}`, "YYYY-MM-DD HH:mm").toString();
-        const checkInDateObject = new Date(checkInDateTime);
-        const checkInUTC = checkInDateObject.toISOString();
-        attendance.checkIn = checkInUTC;
-      } else {
-        delete attendance.checkIn;
-      }
-
-      if (attendance.checkOut !== "" && attendance.checkOut !== "-NA-") {
-        const checkOutDateTime = dayjs(`${formattedDate} ${attendance.checkOut}`, "YYYY-MM-DD HH:mm").toString();
-        const checkOutDateObject = new Date(checkOutDateTime);
-        const checkOutUTC = checkOutDateObject.toISOString();
-        attendance.checkOut = checkOutUTC;
-      } else {
-        delete attendance.checkOut;
-      }
-
-      await approveAttendanceRequest(attendance);
-      successConfirmation(
-        request.status === LeaveStatus.ApprovalPending && !isHROrAdmin
-          ? 'Attendance request forwarded to HR for final approval.'
-          : 'Attendance request approved successfully'
-      );
-      fetchAttendanceRequests();
-    } catch (error) {
-      console.log("approveRequest error", error);
-    } finally {
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
-
-  // Reject attendance request handler
-  const rejectAttendanceRequestHandler = async (requestId: string) => {
-    try {
-      setProcessingRowId(requestId);
-      setProcessingAction('reject');
-      const sure = await rejectConfirmation('Yes, reject it!');
-      if (sure) {
-        await rejectAttendanceRequest(requestId, employeeIdCurrent);
-        successConfirmation('Attendance request rejected successfully');
-        fetchAttendanceRequests();
-      }
-    } finally {
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
-
-  // Approve leave request handler
-  const approveLeaveHandler = async (leave: any) => {
-    try {
-      setProcessingRowId(leave.id);
-      setProcessingAction('approve');
-
-      const currentStatus = Number(leave?.status);
-      const nextStatus =
-        currentStatus === LeaveStatus.ApprovalPending
-          ? LeaveStatus.PendingHR
-          : currentStatus === LeaveStatus.PendingHR
-            ? LeaveStatus.Approved
-            : LeaveStatus.Approved;
-
-      // KPI creation logic (same as OpenLeaveRequests.tsx)
-      const requestToHandle = leave;
-      const typeOfleave = requestToHandle?.type?.toLowerCase()?.includes("unpaid") ? "total unpaid leaves taken" : "total paid leaves taken";
-
-      const requestRaised = allTheFactorDetails.find((el: any) => el?.name?.toLowerCase() === typeOfleave);
-
-      // FIX: Enforce sign using -Math.abs() instead of mutable conditional negation
-      const leaveWeightageType = requestRaised?.type;
-      const leaveWeight =
-        leaveWeightageType === 'NEGATIVE'
-          ? -Math.abs(Number(requestRaised?.weightage || 0))
-          : Math.abs(Number(requestRaised?.weightage || 0));
-
-      const fromDate = requestToHandle?.dateFrom;
-      const toDate = requestToHandle?.dateTo;
-      let leaveDays = 0;
-      if (fromDate && toDate) {
-          const start = new Date(fromDate);
-          const end = new Date(toDate);
-          if (start > end) {
-              leaveDays = 0;
-          }
-          else{
-              // Get off days from employee configuration (days where value is '0')
-              const employeeWorkingAndOffDays = getAllWeekends ? JSON.parse(getAllWeekends) : {};
-              const offDays = Object.keys(employeeWorkingAndOffDays)
-                  .filter((day: string) => employeeWorkingAndOffDays[day] === '0')
-                  .map((day: string) => day.toLowerCase());
-
-              const currentDate = new Date(start);
-              while (currentDate <= end) {
-                const dayName = dayjs(currentDate).format('dddd').toLowerCase(); // "monday", "tuesday", etc.
-
-                // Count if it's a working day (not in offDays)
-                if (!offDays.includes(dayName)) {
-                  leaveDays += 1;
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
-              }
-          }
-      }
-
-      leaveDays = Number(leaveDays);
-      const workingDaysFactorId = requestRaised?.id;
-
-      // FIX: Use factor.maxValue to cap leaveDays; fallback to 30 if missing
-      const leaveMaxValue = Number(requestRaised?.maxValue) || 30;
-      const leaveNormalized = Math.min(leaveDays, leaveMaxValue);
-      const workingDaysScore = leaveNormalized * leaveWeight;
-
-      const workingDaysPayload = {
-          employeeId: leave?.employeeId,
-          factorId: workingDaysFactorId,
-          value: leaveNormalized.toString(),   // FIX: was leaveDays (uncapped), now normalized
-          score: workingDaysScore.toString(),  // FIX: score uses normalized value × correct-sign weight
-      };
-
-      await updateLeaveStatus({ id: leave.id, status: nextStatus });
-
-      // Only create KPI score on final approval (HR stage). Stage 1 (PendingHR) is not a final decision.
-      // KPI should never block leave approval; treat KPI failures as non-fatal.
-      if (nextStatus === LeaveStatus.Approved && workingDaysFactorId) {
-        try {
-          await createKpiScore(workingDaysPayload);
-        } catch (kpiErr) {
-          console.error('[KPI] Failed to create KPI score for leave approval', kpiErr);
-        }
-      }
-      successConfirmation(
-        nextStatus === LeaveStatus.PendingHR
-          ? 'Leave request forwarded to HR successfully'
-          : 'Leave request approved successfully'
-      );
-      fetchLeaveRequests();
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail;
-      const validationError = error?.response?.data?.validationError;
-      const validationMsg =
-        Array.isArray(validationError) && validationError.length > 0
-          ? `${validationError?.[0]?.field ? `${validationError[0].field}: ` : ''}${(validationError[0]?.errors || []).join(', ')}`
-          : null;
-      errorConfirmation(detail || validationMsg || 'Failed to update leave status');
-    } finally {
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
-
-  // Reject leave request handler
-  const rejectLeaveHandler = async (leaveId: string) => {
-    try {
-      setProcessingRowId(leaveId);
-      setProcessingAction('reject');
-      const sure = await rejectConfirmation('Yes, reject it!');
-      if (sure) {
-        await updateLeaveStatus({ id: leaveId, status: LeaveStatus.Rejected, rejectedById: employeeIdCurrent });
-        successConfirmation('Leave request rejected successfully');
-        fetchLeaveRequests();
-      }
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail;
-      const validationError = error?.response?.data?.validationError;
-      const validationMsg =
-        Array.isArray(validationError) && validationError.length > 0
-          ? `${validationError?.[0]?.field ? `${validationError[0].field}: ` : ''}${(validationError[0]?.errors || []).join(', ')}`
-          : null;
-      errorConfirmation(detail || validationMsg || 'Failed to reject leave request');
-    } finally {
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
 
   // Approve reimbursement request handler
   const approveReimbursementHandler = async (rowDetails: IReimbursementsFetch) => {
@@ -617,51 +375,24 @@ const PendingRequestsTable = () => {
       {
         accessorKey: "actions",
         header: "Actions",
-        size: 120,
+        size: 100,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
-          const isReportingManagerForThis = row.original.reportsToId === employeeIdCurrent;
-
-          if (!isReportingManagerForThis) {
-            return (
-              <span style={{ fontSize: "11px", color: "#b45309", backgroundColor: "#fef3c7", padding: "3px 8px", borderRadius: "10px", fontWeight: 500 }}>
-                Awaiting Manager
-              </span>
-            );
-          }
-
+          const isPending = row.original.status === LeaveStatus.ApprovalPending;
+          if (!isPending || !row.original.hasApprovalInstance) return null;
           return (
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                className='btn btn-icon btn-sm'
-                onClick={() => approveAttendanceRequestHandler(row.original)}
-                title="Approve"
-                disabled={processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === 'approve' ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} />
-                )}
-              </button>
-              <button
-                className='btn btn-icon btn-sm'
-                onClick={() => rejectAttendanceRequestHandler(row.original.id)}
-                title="Reject"
-                disabled={processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === 'reject' ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} />
-                )}
-              </button>
-            </div>
+            <button
+              className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+              title="Track Approval"
+              onClick={() => openTracker(row.original.id, 'AttendanceRequests')}
+            >
+              <KTIcon iconName="map" className="fs-3" />
+            </button>
           );
         },
       },
     ],
-    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold, processingRowId, processingAction, employeeIdCurrent]
+    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold]
   );
 
   const hasLeaveEditPermission = hasPermission(
@@ -727,77 +458,24 @@ const PendingRequestsTable = () => {
       {
         accessorKey: "actions",
         header: "Actions",
-        size: 120,
+        size: 100,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
-          const isReportingManagerForThisLeave = row.original.reportsToId === employeeIdCurrent;
-
-          // Manager stage (ApprovalPending): only the reporting manager acts
-          if (row.original.status === LeaveStatus.ApprovalPending && !isReportingManagerForThisLeave) {
-            return (
-              <span style={{
-                fontSize: "11px",
-                color: "#b45309",
-                backgroundColor: "#fef3c7",
-                padding: "3px 8px",
-                borderRadius: "10px",
-                fontWeight: 500,
-              }}>
-                Awaiting Manager
-              </span>
-            );
-          }
-
-          // HR stage (PendingHR): reporting manager already forwarded it, HR acts next
-          if (row.original.status === LeaveStatus.PendingHR && !isHROrAdmin) {
-            return (
-              <span style={{
-                fontSize: "11px",
-                color: "#166534",
-                backgroundColor: "#dcfce7",
-                padding: "3px 8px",
-                borderRadius: "10px",
-                fontWeight: 500,
-              }}>
-                Forwarded to HR
-              </span>
-            );
-          }
-
-          // Status 4 + HR: final approval
-          // Status 0 + reporting manager: forward to HR
+          const isPending = row.original.status === LeaveStatus.ApprovalPending;
+          if (!isPending || !row.original.hasApprovalInstance) return null;
           return (
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                className='btn btn-icon btn-sm'
-                onClick={() => approveLeaveHandler(row.original)}
-                title="Approve Leave"
-                disabled={processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === 'approve' ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} />
-                )}
-              </button>
-              <button
-                className='btn btn-icon btn-sm'
-                onClick={() => rejectLeaveHandler(row.original.id)}
-                title="Reject Leave"
-                disabled={processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === 'reject' ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} />
-                )}
-              </button>
-            </div>
+            <button
+              className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+              title="Track Approval"
+              onClick={() => openTracker(row.original.id, 'LeaveTracker')}
+            >
+              <KTIcon iconName="map" className="fs-3" />
+            </button>
           );
         },
       },
     ],
-    [processingRowId, processingAction, leaveTypeColors, isHROrAdmin, employeeIdCurrent]
+    [processingRowId, processingAction, leaveTypeColors]
   );
 
   // Reimbursement columns
@@ -884,35 +562,46 @@ const PendingRequestsTable = () => {
             permissionConstToUseWithHasPermission.editOthers
           );
 
-          return hasEditPermission ? (
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                className='btn btn-icon btn-sm'
-                onClick={() => approveReimbursementHandler(row.original)}
-                title="Approve"
-                disabled={processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === 'approve' ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} />
-                )}
-              </button>
-              <button
-                className='btn btn-icon btn-sm'
-                onClick={() => rejectReimbursementHandler(row.original)}
-                title="Reject"
-                disabled={processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === 'reject' ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} />
-                )}
-              </button>
+          const isPending = row.original.status === 'Pending';
+          return (
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {hasEditPermission && <>
+                <button
+                  className='btn btn-icon btn-sm'
+                  onClick={() => approveReimbursementHandler(row.original)}
+                  title="Approve"
+                  disabled={processingRowId === row.original.id}
+                >
+                  {processingRowId === row.original.id && processingAction === 'approve' ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  ) : (
+                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} />
+                  )}
+                </button>
+                <button
+                  className='btn btn-icon btn-sm'
+                  onClick={() => rejectReimbursementHandler(row.original)}
+                  title="Reject"
+                  disabled={processingRowId === row.original.id}
+                >
+                  {processingRowId === row.original.id && processingAction === 'reject' ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  ) : (
+                    <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} />
+                  )}
+                </button>
+              </>}
+              {isPending && row.original.hasApprovalInstance && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                  title="Track Approval"
+                  onClick={() => openTracker(row.original.id, 'Reimbursement')}
+                >
+                  <KTIcon iconName="map" className="fs-3" />
+                </button>
+              )}
+              {!hasEditPermission && !row.original.hasApprovalInstance && "Not Allowed"}
             </div>
-          ) : (
-            "Not Allowed"
           );
         },
       },
@@ -940,6 +629,7 @@ const PendingRequestsTable = () => {
   }
 
   return (
+    <>
     <div
       style={{
         backgroundColor: "white",
@@ -1133,12 +823,7 @@ const PendingRequestsTable = () => {
         {activeTab === "attendance" && (
           <MaterialTable
             columns={attendanceColumns}
-            data={markWeekendOrHoliday(attendanceRequests.filter((req: any) => {
-              // Only show status=0 in this table. HR sees all status=0; managers see their team's.
-              if (req.status !== LeaveStatus.ApprovalPending) return false;
-              if (isHROrAdmin) return true;
-              return req.reportsToId === employeeIdCurrent;
-            }), getAllWeekends, allHolidays)}
+            data={markWeekendOrHoliday(attendanceRequests.filter((req: any) => req.status === LeaveStatus.ApprovalPending), getAllWeekends, allHolidays)}
             tableName="PendingAttendanceRequests"
             isLoading={isLoading}
             hideFilters={true}
@@ -1289,6 +974,33 @@ const PendingRequestsTable = () => {
         )}
       </div>
     </div>
+
+    <Modal
+      show={!!trackingId}
+      onHide={() => { setTrackingId(null); setTrackInstanceId(null); }}
+      centered
+      size='lg'
+    >
+      <Modal.Header closeButton>
+        <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Approval Status</Modal.Title>
+      </Modal.Header>
+      <Modal.Body style={{ padding: '20px 24px' }}>
+        {trackInstanceLoading ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <span className='spinner-border spinner-border-sm text-primary me-2' />
+            <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading approval status...</span>
+          </div>
+        ) : trackInstanceId ? (
+          <ApprovalStatusTracker instanceId={trackInstanceId} showAuditLog />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <KTIcon iconName='information' className='fs-3x text-muted mb-3' />
+            <div style={{ fontSize: 13, color: '#a1a5b7' }}>No approval workflow found for this request.</div>
+          </div>
+        )}
+      </Modal.Body>
+    </Modal>
+    </>
   );
 };
 

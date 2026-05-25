@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { KTIcon } from "@metronic/helpers";
 import { useMemo, useState, useEffect } from "react";
 import { MRT_ColumnDef } from "material-react-table";
@@ -385,7 +385,7 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
                             }, [selectedInstallmentForEdit]);
 
                             return (
-                                <Form className="form" placeholder={''}>
+                                <Form className="form">
                                     {/* Attendance Request Limit */}
                                     {!showSkipForm && <div className="row px-3 my-3">
                                         <div className="col-lg-12 fv-row">

@@ -1,0 +1,36 @@
+.attendance-duration-cell__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #fee2e2;
+  color: #dc3545;
+  font-size: inherit;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.attendance-duration-cell__warn {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.attendance-duration-cell__normal {
+  color: #212529;
+}
+
+.duration-pill-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #dc3545;
+  font-weight: 500;
+}
+
+.attendance-duration-cell__muted {
+  color: #6c757d;
+}

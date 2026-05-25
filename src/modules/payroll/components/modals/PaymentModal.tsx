@@ -176,7 +176,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         const { values, setFieldValue } = formikProps;
                         
                         return (
-                            <FormikForm className="p-8" placeholder="">
+                            <FormikForm className="p-8">
                                 <Row className="g-8">
                                     {/* Left Column: Transaction Metadata */}
                                     <Col lg={4}>

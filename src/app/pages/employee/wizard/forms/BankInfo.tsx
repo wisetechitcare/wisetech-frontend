@@ -1,26 +1,22 @@
 import React, { useState } from "react";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import { uploadUserAsset } from "@services/uploader"; // updated import
+import { uploadUserAsset } from "@services/uploader";
+import ObFileUpload from "../components/ObFileUpload";
 
 function BankInfo({ formikProps, userId }: any) {
     const [showInfo, setShowInfo] = useState(false);
 
-    const uploadFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const {
-            target: { files },
-        } = event;
-        if (files && files.length > 0) {
-            const form = new FormData();
-            form.append("file", files[0]);
-            try {
-                const {
-                    data: { path },
-                } = await uploadUserAsset(form, userId, 'passbook', 'bank-docs');
-                formikProps.setFieldValue("bankInfo.filePath", path, true);
-                console.log("File uploaded successfully!");
-            } catch (error) {
-                console.error("Failed to upload file. Please try again.");
-            }
+    const handlePassbookFile = async (file: File | null) => {
+        if (!file) return;
+        const form = new FormData();
+        form.append("file", file);
+        try {
+            const {
+                data: { path },
+            } = await uploadUserAsset(form, userId, "passbook", "bank-docs");
+            formikProps.setFieldValue("bankInfo.filePath", path, true);
+        } catch (error) {
+            console.error("Failed to upload file. Please try again.");
         }
     };
 
@@ -76,19 +72,13 @@ function BankInfo({ formikProps, userId }: any) {
         </div>
       )}
 
-      <div
-        onClick={() => !userId && setShowInfo(true)}
-        style={{ cursor: !userId ? "not-allowed" : "auto" }}
-      >
-        <input
-          type="file"
-          className="form-control form-control-lg form-control-solid mt-n2"
-          onChange={uploadFile}
-          disabled={!userId}
-          style={{ pointerEvents: !userId ? "none" : "auto" }}
-          title={!userId ? "Please save user details first" : ""}
-        />
-      </div>
+      <ObFileUpload
+        disabled={!userId}
+        accept=".pdf,.jpg,.jpeg,.png"
+        hint="PDF or image — max 5MB"
+        onDisabledClick={() => setShowInfo(true)}
+        onChange={handlePassbookFile}
+      />
 
       {formikProps.touched.filePath && formikProps.errors.filePath && (
         <div className="fv-plugins-message-container">

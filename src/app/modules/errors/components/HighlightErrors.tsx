@@ -7,12 +7,9 @@ interface HighlightErrorsProps {
 
 function HighlightErrors({ formikField, isRequired }: HighlightErrorsProps) {
     return (
-        <>
-            {isRequired ? (<div className='text-danger mt-2'>
-                <ErrorMessage name={formikField} />
-            </div>
-            ) : null}
-        </>
+        <div className='text-danger mt-2 fs-7'>
+            <ErrorMessage name={formikField} />
+        </div>
     );
 }
 

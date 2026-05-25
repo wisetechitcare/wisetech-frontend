@@ -1,4 +1,4 @@
-import { KTIcon } from '@metronic/helpers';
+﻿import { KTIcon } from '@metronic/helpers';
 import { fetchConfiguration, updateConfigurationById } from '@services/company';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
@@ -241,7 +241,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={ruleSchema}>
                         {(formikProps) => {
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="col-lg">
                                         <TextInput
                                             isRequired={true}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Modal, Button, Container, OverlayTrigger, Tooltip as RBTooltip, Form } from "react-bootstrap";
 import { kpiAttendanceIcons } from "@metronic/assets/sidepanelicons";
 import { getAllKpiFactors, updateKpiFactors, getAllKpiModules, createKpiFactor } from "@services/employee";
@@ -527,12 +527,13 @@ export default function KpiSettings() {
             onSubmit={async (values) => {
               setSaving(true);
               try {
-                const signedPoint =
-                  values.type === "positive"
-                    ? Math.abs(values.point)
-                    : -Math.abs(values.point);
+                // weightage is ALWAYS stored as a positive number.
+                // kpiservice.calculateNegativeScore() applies the minus sign
+                // at calculation time based on factor.type — storing a negative
+                // weightage here causes double-negation and makes NEGATIVE factor
+                // scores show as positive on the leaderboard.
                 const payload = {
-                  weightage: signedPoint,
+                  weightage: Math.abs(values.point),
                   type: values.type.toUpperCase(),
                   isActive: values.isActive,
                 };
@@ -541,7 +542,7 @@ export default function KpiSettings() {
                 setAllFactors((prev) =>
                   prev.map((f) =>
                     f.id === editModal.item.id
-                      ? { ...f, weightage: signedPoint, type: values.type.toUpperCase(), isActive: values.isActive }
+                      ? { ...f, weightage: Math.abs(values.point), type: values.type.toUpperCase(), isActive: values.isActive }
                       : f
                   )
                 );
@@ -555,7 +556,7 @@ export default function KpiSettings() {
             }}
           >
             {({ values, setFieldValue }) => (
-              <FormikForm placeholder={""}>
+              <FormikForm>
                 <Modal.Body>
                   <div className="pb-3" style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 14 }}>
                     {editModal.moduleName} : {editModal.item.name}
@@ -668,7 +669,7 @@ export default function KpiSettings() {
           }}
         >
           {({ values, setFieldValue, errors, touched }) => (
-            <FormikForm placeholder={""}>
+            <FormikForm>
               <Modal.Body>
                 <p className="text-muted fs-6 mb-4">
                   New factors will be used in future KPI calculations. Existing scores are not affected.

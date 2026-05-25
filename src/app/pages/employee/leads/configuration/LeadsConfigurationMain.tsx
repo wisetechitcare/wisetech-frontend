@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
+import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
 import { Container } from "react-bootstrap";
@@ -282,7 +283,6 @@ const LeadsConfigurationMain = () => {
     try {
       const category = projectCategories.find((c) => c.id === id);
       if (category && category.subCategories && category.subCategories > 0) {
-        const Swal = (await import("sweetalert2")).default;
         await Swal.fire({
           icon: "warning",
           title: "Cannot Delete",

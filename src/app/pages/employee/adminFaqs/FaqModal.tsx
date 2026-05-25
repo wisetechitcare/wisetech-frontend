@@ -1,4 +1,4 @@
-import { IFaqs } from '@models/company';
+﻿import { IFaqs } from '@models/company';
 import { Field, Form, Formik, FormikValues } from 'formik';
 import { Modal } from 'react-bootstrap';
 import * as Yup from 'yup';
@@ -51,7 +51,7 @@ const FaqModal = ({ show, editMode, initialValues, loading, onClose, onSubmit }:
                     enableReinitialize
                 >
                     {(formikProps) => (
-                        <Form className='d-flex flex-column' style={{ gap:'20px' }} noValidate placeholder={''}>
+                        <Form className='d-flex flex-column' style={{ gap:'20px' }} noValidate>
                             <h2
                                 className="fw-semibold mb-0"
                                 style={{ fontSize: '24px', letterSpacing: '0.24px' }}

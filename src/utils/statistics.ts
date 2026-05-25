@@ -2870,7 +2870,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             status: status,
             checkInLocation: attendanceRecord?.checkInLocation || '-NA-',
             checkOutLocation: attendanceRecord?.checkOutLocation || '-NA-',
-            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
+            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || undefined,
         };
     });
 
@@ -2917,6 +2917,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             rejectedById: attendanceRequest.rejectById,
             approvedOrRejectedDate: attendanceRequest.updatedAt,
             reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
+            hasApprovalInstance: attendanceRequest.hasApprovalInstance ?? false,
         }
 
         result.push(request);

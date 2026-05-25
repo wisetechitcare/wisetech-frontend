@@ -30,7 +30,7 @@ import {
 import { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { deleteConfirmation } from "@utils/modal";
+import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/TaskConfigForm";
 import { Container } from "react-bootstrap";
 import Loader from "@app/modules/common/utils/Loader";
@@ -570,9 +570,7 @@ const TasksConfigure = () => {
                           try {
                             await deletePresetTask(stakeholder.id);
                             fetchProjectServices();
-                            import("@utils/modal").then(({ successConfirmation }) => {
-                              successConfirmation("Preset Task deleted successfully");
-                            });
+                            successConfirmation("Preset Task deleted successfully");
                           } catch (err) {
                             alert('Failed to delete preset task.');
                           }

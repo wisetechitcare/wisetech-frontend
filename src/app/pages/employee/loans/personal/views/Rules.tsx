@@ -1,4 +1,4 @@
-import { KTIcon } from '@metronic/helpers';
+﻿import { KTIcon } from '@metronic/helpers';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
@@ -170,7 +170,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 <Modal.Body>
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={loanSchema} enableReinitialize>
                         {(formikProps) => (
-                            <Form className='d-flex flex-column' noValidate id='loan_rule_form' placeholder={''}>
+                            <Form className='d-flex flex-column' noValidate id='loan_rule_form'>
                                 <div className="col-lg">
                                     <TextInput isRequired={true} label="Rule" margin="mb-7" formikField="name" />
                                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Row, Col, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
@@ -423,13 +423,18 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       let profilePhotoUrl: string | null = null;
       if (formValues.profilePhoto && formValues.profilePhoto instanceof File) {
-        const formData = new FormData();
-        formData.append("file", formValues.profilePhoto);
-        const uploadResult = await uploadCompanyAsset(formData);
-        const {
-          data: { path },
-        } = uploadResult;
-        profilePhotoUrl = path;
+        try {
+          const formData = new FormData();
+          formData.append("file", formValues.profilePhoto);
+          const uploadResult = await uploadCompanyAsset(formData);
+          const {
+            data: { path },
+          } = uploadResult;
+          profilePhotoUrl = path;
+        } catch (uploadError) {
+          console.error("Error uploading profile photo:", uploadError);
+          errorConfirmation("Image upload failed, but contact will still be saved.");
+        }
       }
 
       // Get country, state, city names from their IDs
@@ -613,7 +618,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                 }, [values.companyId, companies]);
 
                 return (
-                  <FormikForm placeholder="">
+                  <FormikForm>
                     {/* Profile Photo */}
                     <div className="mb-3 text-start">
                       <div className="d-flex align-items-start justify-content-start">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
@@ -323,7 +323,7 @@ const OtherSettings: React.FC = () => {
       onSubmit={handleSubmit}
     >
       {({ values }) => (
-        <FormikForm placeholder={''}>
+        <FormikForm>
           <div style={{ padding: '24px 20px' }}>
             <Card style={{ borderRadius: '12px', border: 'none' }}>
               <Card.Body style={{ padding: '20px 25px' }}>

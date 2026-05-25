@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+﻿import { useState, useEffect, ChangeEvent } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { dateFormatter } from '@utils/date';
@@ -332,7 +332,7 @@ const OrganisationProfileForm = () => {
                             fetchCompanyDetails();
                         }, [isCreate]);
 
-                        return (<Form className="form" placeholder={''}>
+                        return (<Form className="form">
                                     {/* Logo and Stamp Upload Section */}
                                     <div className="mb-4">
                                         <fieldset

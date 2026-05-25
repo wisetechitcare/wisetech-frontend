@@ -1,4 +1,4 @@
-
+﻿
 import React, {useEffect, useRef} from 'react'
 import {KTIcon} from '../../../helpers'
 import ApexCharts, {ApexOptions} from 'apexcharts'
@@ -167,22 +167,22 @@ function getChartOptions(
         filter: {
           type: 'none',
           value: 0,
-        },
+        } as any,
       },
       hover: {
         filter: {
           type: 'none',
           value: 0,
-        },
+        } as any,
       },
       active: {
         allowMultipleDataPointsSelection: false,
         filter: {
           type: 'none',
           value: 0,
-        },
+        } as any,
       },
-    },
+    } as any,
     tooltip: {
       style: {
         fontSize: '12px',

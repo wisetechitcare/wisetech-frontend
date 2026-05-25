@@ -1,107 +1,110 @@
-import React, { useState } from 'react';
-import { KTIcon } from "@metronic/helpers";
+import React, { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Upload, Camera, X, Image } from 'lucide-react';
 
-const styles = {
-    container: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-    },
-    imageLabel: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      cursor: 'pointer',
-    },
-    image: {
-      width: '64px',
-      height: '64px',
-      borderRadius: '50%',
-      objectFit: 'cover' as React.CSSProperties['objectFit'],
-      border: '1px solid #CDD4E3',
-      backgroundColor: '#EEF1F7',
-    },
-    placeholderContainer: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-    },
-    placeholder: {
-      width: '64px',
-      height: '64px',
-      borderRadius: '50%',
-      backgroundColor: '#EEF1F7',
-      border: '1px solid #CDD4E3',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '10px',
-    },
-    uploadText: {
-      fontFamily: 'Inter',
-      fontWeight: 500,
-      fontSize: '15px',
-      color: '#000000',
-    },
-    fileInput: {
-      display: 'none',
-    },
+interface ProfilePictureProps {
+  setFile: (id: string, file: File) => void;
+  avatar: string;
+  defaultImageUrl?: string;
+}
+
+const ACCEPTED_FORMATS = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] };
+const MAX_SIZE_MB = 5;
+
+const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, defaultImageUrl }) => {
+  const [preview, setPreview] = useState<string | null>(avatar || null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const processFile = useCallback((file: File) => {
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) return;
+    setFile('userProfilePicture', file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result) setPreview(reader.result.toString());
+    };
+    reader.readAsDataURL(file);
+  }, [setFile]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: ACCEPTED_FORMATS,
+    maxSize: MAX_SIZE_MB * 1024 * 1024,
+    multiple: false,
+    onDrop: (accepted) => { if (accepted[0]) processFile(accepted[0]); },
+    onDragEnter: () => setIsDragOver(true),
+    onDragLeave: () => setIsDragOver(false),
+    onDropAccepted: () => setIsDragOver(false),
+    onDropRejected: () => setIsDragOver(false),
+  });
+
+  const removePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPreview(null);
   };
 
-  interface ProfilePictureProps {
-    setFile:  any;
-    avatar: string;
-    defaultImageUrl?: string;
-  }
-const ProfilePicture = ({ setFile, avatar, defaultImageUrl }: ProfilePictureProps) => {
-  const [image, setImage] = useState<string | null>(avatar);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFile('userProfilePicture', file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          setImage(reader.result.toString());
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const hasPhoto = Boolean(preview);
 
   return (
-    <div style={styles.container}>
-      <label style={styles.imageLabel}>
-        {image ? (
-          <>
-            <img src={image} alt="Profile" style={styles.image} />
-            <p style={styles.uploadText}>Upload photo*</p>
-          </>
-        ) :
-        (
-          defaultImageUrl ? (
-            <div style={styles.placeholderContainer}>
-              <img src={defaultImageUrl} alt="Profile" style={styles.image} />
-              <p style={styles.uploadText}>Upload photo*</p>
-            </div>
-          ):(
-          <div style={styles.placeholderContainer}>
-              <div style={styles.placeholder}>
-                <KTIcon iconName='user-edit' className='fs-3x' />
+    <div className="ob-photo-section ob-photo-section--vertical">
+      {/* Drop zone wrapped so remove button can sit outside the clipped circle */}
+      <div className="ob-dropzone-wrapper">
+        <div
+          {...getRootProps()}
+          className={`ob-dropzone ${isDragActive || isDragOver ? 'drag-over' : ''}`}
+          role="button"
+          tabIndex={0}
+          aria-label="Upload profile photo"
+        >
+          <input {...getInputProps()} />
+
+          {hasPhoto ? (
+            <div className="ob-dropzone-preview">
+              <img src={preview!} alt="Profile preview" />
+              <div className="ob-dropzone-preview-overlay">
+                <Camera size={16} />
+                <span>Change photo</span>
               </div>
-              <p style={styles.uploadText}>Upload photo*</p>
-          </div>
-          )
-        )
-        }
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
-          style={styles.fileInput}
-        />
-      </label>
+            </div>
+          ) : (
+            <>
+              <div className="ob-dropzone-icon">
+                {isDragActive ? <Upload size={28} /> : <Image size={28} />}
+              </div>
+              <p className="ob-dropzone-hint">
+                {isDragActive ? 'Drop to upload' : 'Drag & drop or click'}
+              </p>
+              <p className="ob-dropzone-formats">JPG · PNG · WEBP · Max {MAX_SIZE_MB}MB</p>
+            </>
+          )}
+        </div>
+
+        {hasPhoto && (
+          <button
+            type="button"
+            className="ob-photo-remove-btn"
+            onClick={removePhoto}
+            aria-label="Remove photo"
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      
+      {/* Helper text below drop zone */}
+      <div className="ob-photo-meta">
+        <p className="ob-photo-meta-title">Profile Photo</p>
+        <p className="ob-photo-meta-desc">
+          A clear, professional photo. Recommended 400×400px or larger.
+        </p>
+        {!hasPhoto && defaultImageUrl && (
+          <button
+            type="button"
+            className="ob-photo-meta-default-btn"
+            onClick={() => setPreview(defaultImageUrl)}
+          >
+            Use default avatar
+          </button>
+        )}
+      </div>
     </div>
   );
 };

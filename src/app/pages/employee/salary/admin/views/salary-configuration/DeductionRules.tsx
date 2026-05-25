@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { Form, Formik } from "formik";
 import * as Yup from "yup";
@@ -595,7 +595,7 @@ function DeductionRules() {
 
 
               return (
-              <Form placeholder={undefined} >
+              <Form >
                 {/* Male Section */}
                 <div style={{ ...styles.sectionHeader, marginTop: '10px' }}>
                   <div style={styles.sectionLine}></div>
@@ -952,7 +952,7 @@ function DeductionRules() {
             enableReinitialize
           >
             {({ isValid }) => (
-              <Form placeholder={undefined}>
+              <Form>
                 <div style={{ marginBottom: '20px' }}>
                   <div style={{
                     fontFamily: 'Inter, sans-serif',
