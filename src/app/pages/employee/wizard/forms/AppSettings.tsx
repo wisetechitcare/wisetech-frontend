@@ -314,7 +314,7 @@ function AppSettings() {
 
                 const employeeList = employeesRes?.data?.employees || employeesRes?.data || [];
                 const options = employeeList
-                    .filter((emp: any) => emp?.id && emp?.id !== employeeId)
+                    .filter((emp: any) => emp?.id && emp?.id !== employeeId && emp?.isActive !== false)
                     .map((emp: any) => ({
                         value: String(emp.id),
                         label: `${emp?.users?.firstName || emp?.firstName || ''} ${emp?.users?.lastName || emp?.lastName || ''}`.trim() || emp.id,
