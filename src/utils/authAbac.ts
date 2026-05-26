@@ -54,7 +54,7 @@ const resourceToRbacModule: Record<string, string> = {
 const uiControlToPermissionKey: Record<string, string> = {
   'calendar': 'attendance.view.self',
   'attendanceAndLeaves->personal': 'attendance.view.self',
-  'attendanceAndLeaves->employees': 'attendance.view.team',
+  'attendanceAndLeaves->employees': 'attendance.view.all',
   'people->employees': 'users.view.team',
   'people->documents': 'users.view.team',
   'company->organisationProfile': 'settings.manage.all',

@@ -1309,6 +1309,37 @@ export const fetchApprovalInstanceByRequest = async (requestModel: string, reque
     return data;
 }
 
+export const fetchMyApprovees = async () => {
+    const { data } = await axios.get(`${API_BASE_URL}/api/approvals/my-approvees`);
+    return data;
+}
+
+export const fetchAllApprovalInstances = async (tab: 'pending' | 'awaiting' | 'completed') => {
+    const { data } = await axios.get(`${API_BASE_URL}/api/approvals/all-instances?tab=${tab}`);
+    return data;
+}
+
+export const fetchDelegations = async () => {
+    const { data } = await axios.get(`${API_BASE_URL}/api/approvals/delegations`);
+    return data;
+}
+
+export const createApprovalDelegation = async (payload: {
+    originalApproverId: string;
+    delegateToId: string;
+    startDate: string;
+    endDate: string;
+    reason?: string;
+}) => {
+    const { data } = await axios.post(`${API_BASE_URL}/api/approvals/delegations`, payload);
+    return data;
+}
+
+export const cancelApprovalDelegation = async (id: string) => {
+    const { data } = await axios.patch(`${API_BASE_URL}/api/approvals/delegations/${id}/cancel`);
+    return data;
+}
+
 /**
  * Creates a new permission for a specific employee by their ID.
  * @param employeeId - The ID of the employee.

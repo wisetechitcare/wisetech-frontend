@@ -1,10 +1,17 @@
 import dayjs from 'dayjs';
 
+export interface AffectedDay {
+  iso: string;
+  type: 'weekend' | 'holiday';
+  name?: string;
+}
+
 export interface SandwichPreviewResult {
   baseChargeable: number;
   sandwichDaysAdded: number;
   totalChargeable: number;
   affectedDates: string[];
+  affectedDays: AffectedDay[];
   bridgeDescription: string | null;
 }
 
@@ -26,7 +33,11 @@ export function previewSandwichImpact(
   dateTo: string,
   holidaySet: Set<string>,
   isWeekend: (d: Date) => boolean,
+  holidayNames?: Array<{ date: string; name: string }>,
 ): SandwichPreviewResult {
+  const holidayNameMap = new Map(
+    (holidayNames || []).map((h) => [h.date.slice(0, 10), h.name]),
+  );
   const start = dayjs(dateFrom);
   const end = dayjs(dateTo);
   const rangeStart = start.isBefore(end) ? start : end;
@@ -45,6 +56,7 @@ export function previewSandwichImpact(
       sandwichDaysAdded: 0,
       totalChargeable: 0,
       affectedDates: [],
+      affectedDays: [],
       bridgeDescription: null,
     };
   }
@@ -65,6 +77,7 @@ export function previewSandwichImpact(
       sandwichDaysAdded: 0,
       totalChargeable: 0,
       affectedDates: [],
+      affectedDays: [],
       bridgeDescription: null,
     };
   }
@@ -81,6 +94,12 @@ export function previewSandwichImpact(
   const sandwichDaysAdded = affectedDates.length;
   const totalChargeable = baseChargeable + sandwichDaysAdded;
 
+  const affectedDays: AffectedDay[] = affectedDates.map((iso) => {
+    const holidayName = holidayNameMap.get(iso);
+    if (holidayName) return { iso, type: 'holiday', name: holidayName };
+    return { iso, type: 'weekend' };
+  });
+
   let bridgeDescription: string | null = null;
   if (sandwichDaysAdded > 0) {
     const firstWork = days[firstIdx].format('ddd D MMM');
@@ -93,6 +112,7 @@ export function previewSandwichImpact(
     sandwichDaysAdded,
     totalChargeable,
     affectedDates,
+    affectedDays,
     bridgeDescription,
   };
 }

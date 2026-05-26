@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef, useEffect } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -11,16 +11,20 @@ dayjs.extend(isBetween);
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function buildMonthGrid(month: Dayjs): Dayjs[] {
+function buildWeekRows(month: Dayjs): Dayjs[][] {
   const start = month.startOf('month').startOf('week');
   const end = month.endOf('month').endOf('week');
-  const days: Dayjs[] = [];
+  const weeks: Dayjs[][] = [];
   let cur = start;
   while (cur.isBefore(end) || cur.isSame(end, 'day')) {
-    days.push(cur);
-    cur = cur.add(1, 'day');
+    const week: Dayjs[] = [];
+    for (let i = 0; i < 7; i++) {
+      week.push(cur);
+      cur = cur.add(1, 'day');
+    }
+    weeks.push(week);
   }
-  return days;
+  return weeks;
 }
 
 export interface LeaveCalendarGridProps {
@@ -36,6 +40,7 @@ export interface LeaveCalendarGridProps {
   onHoverIso: (iso: string | null) => void;
   onFocusIso: (iso: string) => void;
   onSelectIso: (iso: string) => void;
+  onClearSelection?: () => void;
   holidaySet: Set<string>;
   holidays: Holiday[];
   publicHolidaysRaw: any[];
@@ -59,6 +64,7 @@ export function LeaveCalendarGrid({
   onHoverIso,
   onFocusIso,
   onSelectIso,
+  onClearSelection,
   holidaySet,
   holidays,
   publicHolidaysRaw,
@@ -69,7 +75,15 @@ export function LeaveCalendarGrid({
   sandwichRiskDates = new Set(),
 }: LeaveCalendarGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
+  const keyboardNavActive = useRef(false);
   const months = twoMonthView ? [viewMonth, viewMonth.add(1, 'month')] : [viewMonth];
+
+  useEffect(() => {
+    if (!keyboardNavActive.current) return;
+    keyboardNavActive.current = false;
+    const el = gridRef.current?.querySelector<HTMLButtonElement>('[data-focused="true"]');
+    el?.focus({ preventScroll: false });
+  }, [focusIso]);
 
   const committedRange = useMemo(() => {
     if (phase !== 'committed' || !dateFrom || !dateTo) return null;
@@ -94,13 +108,26 @@ export function LeaveCalendarGrid({
       .slice(0, 5);
   }, [holidays, months]);
 
-  const isExistingLeave = useCallback(
-    (d: Dayjs) =>
-      existingLeaves.some((l) =>
-        d.isBetween(dayjs(l.dateFrom), dayjs(l.dateTo), 'day', '[]'),
-      ),
-    [existingLeaves],
-  );
+  const existLeaveMap = useMemo(() => {
+    const map = new Map<string, 'start' | 'mid' | 'end' | 'single'>();
+    for (const l of existingLeaves) {
+      const from = dayjs(l.dateFrom);
+      const to = dayjs(l.dateTo);
+      if (from.isSame(to, 'day')) {
+        map.set(from.format('YYYY-MM-DD'), 'single');
+      } else {
+        let cur = from;
+        while (cur.isBefore(to) || cur.isSame(to, 'day')) {
+          const iso = cur.format('YYYY-MM-DD');
+          if (cur.isSame(from, 'day')) map.set(iso, 'start');
+          else if (cur.isSame(to, 'day')) map.set(iso, 'end');
+          else map.set(iso, 'mid');
+          cur = cur.add(1, 'day');
+        }
+      }
+    }
+    return map;
+  }, [existingLeaves]);
 
   const isPast = useCallback(
     (d: Dayjs) => !!(minDate && d.isBefore(dayjs(minDate), 'day')),
@@ -109,25 +136,60 @@ export function LeaveCalendarGrid({
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (disabled) return;
-    const delta: Record<string, number> = {
-      ArrowLeft: -1,
-      ArrowRight: 1,
-      ArrowUp: -7,
-      ArrowDown: 7,
-    };
-    if (delta[e.key] !== undefined) {
+
+    const navigate = (next: string) => {
       e.preventDefault();
-      const next = dayjs(focusIso).add(delta[e.key], 'day').format('YYYY-MM-DD');
+      keyboardNavActive.current = true;
       onFocusIso(next);
-    }
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onSelectIso(focusIso);
+      // Auto-advance month view when focus crosses a month boundary
+      const nextDay = dayjs(next);
+      const lastVisible = twoMonthView ? viewMonth.add(1, 'month') : viewMonth;
+      if (nextDay.isAfter(lastVisible, 'month')) {
+        onViewMonthChange(viewMonth.add(1, 'month'));
+      } else if (nextDay.isBefore(viewMonth, 'month')) {
+        onViewMonthChange(viewMonth.subtract(1, 'month'));
+      }
+    };
+
+    const cur = dayjs(focusIso);
+
+    switch (e.key) {
+      case 'ArrowLeft':  navigate(cur.subtract(1, 'day').format('YYYY-MM-DD')); break;
+      case 'ArrowRight': navigate(cur.add(1, 'day').format('YYYY-MM-DD')); break;
+      case 'ArrowUp':    navigate(cur.subtract(7, 'day').format('YYYY-MM-DD')); break;
+      case 'ArrowDown':  navigate(cur.add(7, 'day').format('YYYY-MM-DD')); break;
+      case 'Home':
+        e.preventDefault();
+        navigate(cur.startOf('week').format('YYYY-MM-DD'));
+        break;
+      case 'End':
+        e.preventDefault();
+        navigate(cur.endOf('week').format('YYYY-MM-DD'));
+        break;
+      case 'PageUp':
+        e.preventDefault();
+        navigate(cur.subtract(1, 'month').format('YYYY-MM-DD'));
+        onViewMonthChange(viewMonth.subtract(1, 'month'));
+        break;
+      case 'PageDown':
+        e.preventDefault();
+        navigate(cur.add(1, 'month').format('YYYY-MM-DD'));
+        onViewMonthChange(viewMonth.add(1, 'month'));
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        onSelectIso(focusIso);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        onClearSelection?.();
+        break;
     }
   };
 
   const renderMonth = (month: Dayjs) => {
-    const days = buildMonthGrid(month);
+    const weeks = buildWeekRows(month);
     return (
       <div key={month.format('YYYY-MM')} className="lrc-month">
         <h3 className="lrc-month__title">{month.format('MMMM YYYY')}</h3>
@@ -143,7 +205,14 @@ export function LeaveCalendarGrid({
           ))}
         </div>
         <div className="lrc-month__grid" role="rowgroup">
-          {days.map((d) => {
+          {weeks.map((week, wi) => {
+            const density = week.filter(
+              (d) => d.isSame(month, 'month') && existLeaveMap.has(d.format('YYYY-MM-DD')),
+            ).length;
+            const densityCls = density > 0 ? ` lrc-week-row--d${Math.min(density, 5)}` : '';
+            return (
+              <div key={wi} className={`lrc-week-row${densityCls}`} role="row">
+                {week.map((d) => {
             const iso = d.format('YYYY-MM-DD');
             const inMonth = d.isSame(month, 'month');
             const past = isPast(d);
@@ -155,7 +224,20 @@ export function LeaveCalendarGrid({
             const isHol = holidaySet.has(iso);
             const isWk = isWeekend(d.toDate());
             const isSun = d.day() === 0;
-            const existing = isExistingLeave(d);
+            const existPos = existLeaveMap.get(iso) ?? null;
+            const existing = existPos !== null;
+
+            const existClasses: string[] = [];
+            if (existPos && !inRange) {
+              existClasses.push(`lrc-day--exist-${existPos}`);
+              if (existPos === 'mid') {
+                if (d.day() === 0) existClasses.push('lrc-day--exist-row-start');
+                else if (d.day() === 6) existClasses.push('lrc-day--exist-row-end');
+              }
+              if (existPos === 'start' && d.day() === 6) existClasses.push('lrc-day--exist-row-end');
+              if (existPos === 'end' && d.day() === 0) existClasses.push('lrc-day--exist-row-start');
+            }
+
             const isSandwich = sandwichRiskDates.has(iso);
             const focused = iso === focusIso;
             const holRecord = publicHolidaysRaw.find(
@@ -176,8 +258,8 @@ export function LeaveCalendarGrid({
               isWk && !inRange && 'lrc-day--weekend',
               isSun && !inRange && 'lrc-day--sunday',
               isHol && 'lrc-day--holiday',
-              existing && !inRange && 'lrc-day--existing',
               focused && 'lrc-day--focused',
+              ...existClasses,
             ]
               .filter(Boolean)
               .join(' ');
@@ -192,25 +274,18 @@ export function LeaveCalendarGrid({
                 aria-disabled={past || disabled}
                 disabled={past || disabled}
                 tabIndex={focused ? 0 : -1}
+                data-focused={focused || undefined}
                 onClick={() => onSelectIso(iso)}
                 onMouseEnter={() => onHoverIso(iso)}
                 onMouseLeave={() => onHoverIso(null)}
                 onFocus={() => onFocusIso(iso)}
               >
                 <span className="lrc-day__num">{d.format('D')}</span>
-                {isHol && (
-                  <span className="lrc-day__badge lrc-day__badge--holiday" aria-hidden="true">
-                    H
-                  </span>
-                )}
-                {!isHol && isWk && !inRange && (
-                  <span className="lrc-day__badge lrc-day__badge--weekend" aria-hidden="true">
-                    W
-                  </span>
-                )}
-                {isSandwich && (
-                  <span className="lrc-day__badge lrc-day__badge--sandwich" aria-hidden="true">
-                    S
+                {(isHol || (isWk && !inRange) || isSandwich) && (
+                  <span className="lrc-day__badges" aria-hidden="true">
+                    {isHol && <span className="lrc-day__badge lrc-day__badge--holiday">H</span>}
+                    {isWk && !inRange && <span className="lrc-day__badge lrc-day__badge--weekend">W</span>}
+                    {isSandwich && <span className="lrc-day__badge lrc-day__badge--sandwich">S</span>}
                   </span>
                 )}
                 {isHol && <span className="lrc-day__dot" aria-hidden="true" />}
@@ -230,6 +305,9 @@ export function LeaveCalendarGrid({
               >
                 {dayButton}
               </DateCellTooltip>
+            );
+          })}
+              </div>
             );
           })}
         </div>

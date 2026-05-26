@@ -1773,23 +1773,31 @@ export const StatisticsTable = ({
                             [ATTENDANCE_STATUS.ON_LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || "#dc3545",
                         };
 
-                        // Get background color based on status (subtle tint at 15% opacity)
-                        const bgColor = statusColors[status] || "#ffffff";
-                        const backgroundColor = status === ATTENDANCE_STATUS.CHECK_OUT_MISSING ? '#ffffff' : `${bgColor}26`;
+                        // Tint all rows uniformly — 15% opacity of the status colour.
+                        // Previously CHECK_OUT_MISSING was forced to white, which broke
+                        // the visual rhythm. Now every status gets the same tint treatment.
+                        const bgColor = statusColors[status] || null;
+                        const backgroundColor = bgColor ? `${bgColor}22` : 'transparent';
+                        const borderColor = statusColors[status] ?? 'transparent';
 
                         return {
                             sx: {
                                 backgroundColor,
-                                borderLeft: `4px solid ${statusColors[status] ?? "transparent"}`,
-                                '&:hover': { backgroundColor: `${bgColor}40` },
-                                color: "#333",
+                                borderLeft: `4px solid ${borderColor}`,
+                                '&:hover td': { backgroundColor: bgColor ? `${bgColor}3a !important` : '#F8FAFC' },
                                 transition: 'background-color 0.15s ease-in-out',
                                 '& .MuiTableCell-root': {
-                                    padding: '12px 16px',
+                                    padding: '11px 16px',
                                     verticalAlign: 'middle',
                                     textAlign: 'left',
                                     fontSize: '13px',
-                                    color: '#334155',
+                                    // Ensure text is readable on any tinted background
+                                    color: '#1e293b',
+                                },
+                                // "—" dashes that use the muted helper class
+                                '& .attendance-duration-cell__muted': {
+                                    color: '#64748b',
+                                    fontWeight: 500,
                                 },
                             }
                         };

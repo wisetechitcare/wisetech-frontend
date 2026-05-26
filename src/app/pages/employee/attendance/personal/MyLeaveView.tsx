@@ -118,7 +118,7 @@ const PersonalLeaveView = () => {
                 contentClassName="lrc-leave-modal__content"
             >
                 <Modal.Header closeButton className="lrc-leave-modal__header">
-                    <Modal.Title>Optimize Leave Request</Modal.Title>
+                    <Modal.Title>Leave Request</Modal.Title>
                 </Modal.Header>
                 <Modal.Body className="lrc-leave-modal__body">
                     <LeaveRequestForm onClose={handleClose} startDateNew={startDateNew} endDateNew={endDateNew} />
