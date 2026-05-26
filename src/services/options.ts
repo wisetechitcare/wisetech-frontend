@@ -63,7 +63,7 @@ export const deletePrefixSetting = async (id: string) => {
 export const fetchCountryName = async (ciso: string) => {
     try {
         const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries`);
-        return (data.data as { iso2: string }[]).find((c) => c.iso2 === ciso) ?? null;
+        return (data.data as any[]).find((c) => c.iso2 === ciso) ?? null;
     } catch (err) {
         throw err;
     }
@@ -81,7 +81,7 @@ export const fetchAllStates = async (ciso: string) => {
 export const fetchStateName = async (ciso: string, siso: string) => {
     try {
         const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states`);
-        return (data.data as { iso2: string }[]).find((s) => s.iso2 === siso) ?? null;
+        return (data.data as any[]).find((s) => s.iso2 === siso) ?? null;
     } catch (err) {
         throw err;
     }
