@@ -1,25 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Dropdown } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
-import { getLeadById, exportLeadDocx, exportLeadPdf } from '@services/leads';
+import { getLeadById } from '@services/leads';
 import { getClientCompanyById, getClientContactById } from '@services/companies';
 import { getAllProjectDataForOverviewById } from '@services/projects';
 import { getAllLeadStatus } from '@services/lead';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
-import { leadAndProjectTemplateTypeId } from '@constants/statistics';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { mapLeadToFormInitialValues } from './utils';
-import dayjs from 'dayjs';
-import { useAuth } from '../../../../modules/auth';
 
 import LeadOverview from './components/LeadOverview';
 import LeadFiles from './components/LeadFiles';
 import LeadFormModal from './LeadFormModal';
 import BlankBasicProjectForm from '@pages/employee/projects/overview/components/BlankBasicProjectForm';
-import ProposalTemplatePage from './components/ProposalTemplatePage';
-import { DMSProvider } from './components/dms/store/DmsContext';
 
 type TabType = 'overview' | 'files';
 
@@ -31,7 +26,6 @@ interface EntityBase {
 }
 
 const LeadDetails: React.FC = () => {
-    const { currentUser } = useAuth();
     const { leadId } = useParams<{ leadId: string }>();
     const navigate = useNavigate();
 
@@ -47,9 +41,6 @@ const LeadDetails: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [refreshData, setRefreshData] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [showProposalModal, setShowProposalModal] = useState(false);
-
     const [leadDetailsForConvertToProject, setLeadDetailsForConvertToProject] = useState<any>(null);
     const [leadTemplateId, setLeadTemplateId] = useState<any>(null);
 
@@ -57,67 +48,6 @@ const LeadDetails: React.FC = () => {
         { key: 'overview', label: 'Overview' },
         { key: 'files', label: 'Files' },
     ];
-
-    const handleExport = async (type: 'docx' | 'pdf' | 'excel', exportData: any) => {
-        const enhancedExportData = {
-            ...exportData,
-            userId: currentUser?.id,
-            userName: `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim()
-        };
-        if (!lead?.id) return;
-        if (type === 'excel') {
-            alert('Excel export is not supported by the backend yet.');
-            return;
-        }
-        setIsGenerating(true);
-        try {
-            const data = type === 'docx' 
-                ? await exportLeadDocx(lead.id, enhancedExportData) 
-                : await exportLeadPdf(lead.id, enhancedExportData);
-
-            const blob = new Blob([data], {
-                type: type === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf'
-            });
-
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const handle = await (window as any).showSaveFilePicker({
-                        suggestedName: `Lead_${lead.title || lead.id}.${type}`,
-                        types: [{
-                            description: type === 'docx' ? 'Word Document' : 'PDF Document',
-                            accept: { [blob.type]: [`.${type}`] }
-                        }]
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    setIsGenerating(false);
-                    setShowProposalModal(false);
-                    return;
-                } catch (err: any) {
-                    if (err.name === 'AbortError') {
-                        setIsGenerating(false);
-                        return;
-                    }
-                }
-            }
-
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Lead_${lead.title || lead.id}.${type}`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error(`Error exporting ${type}:`, error);
-            alert(`Failed to export ${type}. Please try again.`);
-        } finally {
-            setIsGenerating(false);
-            setShowProposalModal(false);
-        }
-    };
 
     const fetchLeadDetails = useCallback(async () => {
         if (!leadId) {
@@ -361,11 +291,7 @@ const LeadDetails: React.FC = () => {
     }
 
     return (
-        <DMSProvider
-            leadId={lead.id}
-            inquiryNumber={lead.inquiryNo || lead.prefix || 'N/A'}
-            leadTitle={lead.title || lead.name || 'Lead'}
-        >
+        <>
             <div className="d-flex flex-column flex-lg-row p-6">
                 <div className="flex-lg-row-fluid">
                     <div className='d-flex align-items-center justify-content-between flex-wrap'>
@@ -429,30 +355,6 @@ const LeadDetails: React.FC = () => {
                             })()}
 
                             <Button
-                                variant="info"
-                                disabled={isGenerating}
-                                onClick={() => setShowProposalModal(true)}
-                                className="me-2"
-                                style={{ backgroundColor: '#7239ea', borderColor: '#7239ea', color: 'white' }}
-                            >
-                                {isGenerating ? (
-                                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                ) : (
-                                    <KTIcon iconName="file-down" className="fs-2" />
-                                )}
-                                Generate Offer
-                            </Button>
-
-                            <Button
-                                variant="warning"
-                                onClick={() => navigate(`/dynamic-offer/${lead.id}`, { state: { leadData: lead, companyData: company, contactData: contact } })}
-                                className="me-2"
-                            >
-                                <KTIcon iconName="document" className="fs-2" />
-                                Dynamic Offer
-                            </Button>
-
-                            <Button
                                 variant="primary"
                                 className="me-2"
                                 onClick={() => {
@@ -512,16 +414,7 @@ const LeadDetails: React.FC = () => {
                 />
             )}
 
-            <ProposalTemplatePage
-                show={showProposalModal}
-                onHide={() => setShowProposalModal(false)}
-                leadData={lead}
-                companyData={company}
-                contactData={contact}
-                projectData={project}
-            />
-
-        </DMSProvider>
+        </>
     );
 };
 

@@ -58,8 +58,6 @@ const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTe
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
 const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
-const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
-const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
 const ApprovalInbox = lazy(() => import('@pages/approvals/ApprovalInbox'))
 const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
 const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
@@ -68,8 +66,6 @@ const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
 const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
 const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
-const OfferBuilderPage = lazy(() => import('@app/modules/offer-v2/OfferBuilderPage').then(module => ({ default: module.OfferBuilderPage })))
-
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -108,13 +104,6 @@ const PrivateRoutes = () => {
         <Route path='approvals/inbox' element={<ApprovalInbox />} />
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
-        <Route
-          path='/qc/leads/documentation-builder'
-          element={
-            <SuspensedView>
-              <TemplateDocumentationBuilderPage />
-            </SuspensedView>}
-        />
         {/* Lazy Modules */}
         <Route
           path='crafted/pages/profile/*'
@@ -385,13 +374,6 @@ const PrivateRoutes = () => {
             </SuspensedView>}
         />
         <Route
-          path='/qc/leads/configuration'
-          element={
-            <SuspensedView>
-              <ProposalConfigurationPage />
-            </SuspensedView>}
-        />
-        <Route
           path='/qc/leads'
           element={
             <SuspensedView>
@@ -532,14 +514,6 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <SearchResultsPage />
-            </SuspensedView>
-          }
-        />
-        <Route
-          path='/dynamic-offer/:leadId'
-          element={
-            <SuspensedView>
-              <OfferBuilderPage />
             </SuspensedView>
           }
         />

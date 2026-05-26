@@ -50,7 +50,6 @@ import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
 import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
 import { DraftAutoSave } from "@components/draft/DraftAutoSave";
 import { createNewSubcategory } from "@app/modules/common/components/InlineCreateHelpers";
-import { getDocxPreviewHtml } from "@pages/employee/leads/lead/components/dms/utils/dmsUtils";
 import Swal from "sweetalert2";
 
 
@@ -241,7 +240,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         newTab.document.title = `Generating Preview...`;
         if (type === "docx") {
           newTab.document.open();
-          newTab.document.write(getDocxPreviewHtml("DOCX"));
+          newTab.document.write(`<!DOCTYPE html><html><head><title>Generating DOCX Preview...</title><style>body{margin:0;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#ffffff;}@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}.spinner{border:4px solid rgba(255,255,255,0.1);border-top:4px solid #3699ff;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;}</style></head><body><div class="spinner"></div><p style="margin-top:20px;font-size:16px;font-weight:500;">Generating your DOCX preview, please wait...</p></body></html>`);
           newTab.document.close();
         } else {
           newTab.document.body.innerHTML = `

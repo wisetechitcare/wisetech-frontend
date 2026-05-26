@@ -67,13 +67,7 @@ import {
   createLead,
   getLeadById,
   updateLead,
-  exportLeadDocx,
-  exportLeadProposalToCloud,
-  exportLeadPdf,
-  getProposalConfigurations,
 } from "@services/leads";
-import { buildLeadExportPayload } from "./utils/buildLeadExportPayload";
-import { generateRevisionFileName } from "./components/dms/utils/dmsUtils";
 import { uploadUserAsset } from "@services/uploader";
 import {
   customConfirmation,
@@ -105,11 +99,8 @@ import {
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { getAllLeadCancellationReasons } from "@services/lead";
 import Swal from "sweetalert2";
-import { getDocxPreviewHtml } from "./components/dms/utils/dmsUtils";
 
-import { useNavigate } from "react-router-dom";
 import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
-import ProposalTemplatePage from "./components/ProposalTemplatePage";
 import { useDraft } from "@hooks/useDraft";
 import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
 import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
@@ -340,241 +331,11 @@ const LeadFormModal = ({
   const [showDirectSourceModal, setShowDirectSourceModal] = useState(false);
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
-  const [proposalTemplates, setProposalTemplates] = useState<any[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const navigate = useNavigate();
-  const [showProposalModal, setShowProposalModal] = useState(false);
-  const [proposalModalTemplateId, setProposalModalTemplateId] = useState<string>("");
-
-  const handleExport = async (type: "docx" | "pdf", values: any, directPreview: boolean = false) => {
-    if (!values.id) return;
-
-    let isConfirmed = false;
-    let isDenied = false;
-    let newTab: Window | null = null;
-
-    if (directPreview) {
-      // Direct preview mode (opens in new tab)
-      isConfirmed = true; 
-    } else {
-      // Prompt user for Preview vs Download
-      const result = await Swal.fire({
-        title: `Export ${type.toUpperCase()}`,
-        text: `Would you like to preview the ${type.toUpperCase()} document or download it to your device?`,
-        icon: "question",
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "Preview",
-        denyButtonText: "Download",
-        cancelButtonText: "Cancel",
-        customClass: {
-          confirmButton: "btn btn-primary me-2",
-          denyButton: "btn btn-success me-2",
-          cancelButton: "btn btn-secondary",
-        },
-        buttonsStyling: false,
-      });
-
-      if (result.isDismissed || result.dismiss === Swal.DismissReason.cancel) {
-        return; // User cancelled
-      }
-
-      isConfirmed = result.isConfirmed;
-      isDenied = result.isDenied;
-    }
-
-    if (isConfirmed) {
-      newTab = window.open("", "_blank");
-      if (newTab) {
-        newTab.document.title = `Generating Preview...`;
-        if (type === "docx") {
-          newTab.document.open();
-          newTab.document.write(getDocxPreviewHtml("DOCX"));
-          newTab.document.close();
-        } else {
-          newTab.document.body.innerHTML = `
-            <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#ffffff;margin:0;padding:0;">
-              <div style="border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #3699ff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;"></div>
-              <p style="margin-top:20px;font-size:16px;font-weight:500;">Generating your PDF preview, please wait...</p>
-              <style>
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              </style>
-            </div>
-          `;
-        }
-      }
-    }
-
-    setIsGenerating(true);
-    try {
-      const exportData = buildLeadExportPayload(values, {
-        countries,
-        states,
-        cities,
-        companies,
-        allCompanyTypes,
-        services,
-        categories,
-        userId,
-      });
-      
-      if (directPreview || isConfirmed) {
-        (exportData as any).exportType = "preview";
-      }
-
-      const data =
-        type === "docx"
-          ? await exportLeadDocx(values.id, exportData)
-          : await exportLeadPdf(values.id, exportData);
-
-      const blob = new Blob([data], {
-        type:
-          type === "docx"
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "application/pdf",
-      });
-
-      if (isConfirmed) {
-        if (newTab) {
-          if (type === "docx") {
-            const checkChildReady = setInterval(() => {
-              if (!newTab || newTab.closed) {
-                clearInterval(checkChildReady);
-                return;
-              }
-              if (typeof (newTab as any).renderDocx === "function") {
-                clearInterval(checkChildReady);
-                const filename = `Lead_${values.projectName || values.id}.docx`;
-                (newTab as any).renderDocx(blob, filename);
-              }
-            }, 100);
-            setTimeout(() => clearInterval(checkChildReady), 15000);
-          } else {
-            const fileURL = window.URL.createObjectURL(blob);
-            newTab.location.href = fileURL;
-            setTimeout(() => {
-              if (newTab) {
-                newTab.document.title = `Lead_${values.projectName || values.id}.${type}`;
-              }
-            }, 500);
-          }
-        }
-        console.log(`✅ ${type.toUpperCase()} preview loaded in new tab`);
-      } else if (isDenied) {
-        const downloadName = directPreview 
-          ? `Preview_Lead_${values.projectName || values.id}.${type}`
-          : `Lead_${values.projectName || values.id}.${type}`;
-
-        // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
-        if ("showSaveFilePicker" in window) {
-          try {
-            const handle = await (window as any).showSaveFilePicker({
-              suggestedName: downloadName,
-              types: [
-                {
-                  description: type === "docx" ? "Word Document" : "PDF Document",
-                  accept: { [blob.type]: [`.${type}`] },
-                },
-              ],
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-            console.log("✅ File saved successfully via Save Picker");
-            return; // Exit if successful
-          } catch (err: any) {
-            if (err.name === "AbortError") return; // User cancelled
-            console.warn(
-              "Save Picker failed, falling back to standard download:",
-              err,
-            );
-          }
-        }
-
-        // FALLBACK: Standard download
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute(
-          "download",
-          downloadName,
-        );
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error(`Error exporting ${type}:`, error);
-      if (newTab) {
-        newTab.document.body.innerHTML = `
-          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;background-color:#1e1e2d;color:#f64e60;padding:20px;text-align:center;">
-            <span style="font-size: 48px; margin-bottom: 20px;">⚠️</span>
-            <h3>Error Generating Preview</h3>
-            <p style="color:#a5a5b5;max-width:500px;margin-top:10px;">An error occurred while generating the document. Please try again or contact support.</p>
-          </div>
-        `;
-      }
-    } finally {
-      setIsGenerating(false);
-    }
-  };
   const employeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
   const [prefix, setPrefix] = useState("");
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
-
-  const getExportPayloadContext = () => ({
-    countries,
-    states,
-    cities,
-    companies,
-    allCompanyTypes,
-    services,
-    categories,
-    userId: employeeId || userId,
-  });
-
-  /** After lead save: auto-upload proposal DOCX+PDF to S3/DMS (no download). */
-  const syncProposalToCloudAfterSave = async (
-    formValues: any,
-    saveAsRevision: boolean,
-    updateResponse: any,
-  ) => {
-    const templateId = formValues.proposalTemplateId;
-    if (!templateId) return;
-
-    const updatedLead = updateResponse?.data?.lead ?? updateResponse?.lead ?? {};
-    const leadId =
-      updatedLead.id || formValues.id || initialFormData?.id;
-    if (!leadId) return;
-
-    const revisionNumber =
-      updatedLead.revisionCount ?? currLeadData?.revisionCount ?? 0;
-    const inquiryNo =
-      prefix || updatedLead.prefix || formValues.inquiry_no || "INQ";
-    const fileName = generateRevisionFileName(
-      inquiryNo,
-      revisionNumber,
-      "revision",
-      formValues.projectName || formValues.project_name,
-    );
-
-    const exportPayload = {
-      ...buildLeadExportPayload(formValues, getExportPayloadContext()),
-      exportType: "revision",
-      replaceExisting: !saveAsRevision,
-      revisionNumber,
-      fileName,
-    };
-    await exportLeadProposalToCloud(leadId, exportPayload);
-
-    window.dispatchEvent(new CustomEvent("dms-refresh"));
-  };
 
   // ── Draft system ───────────────────────────────────────────────────────────
   const draftEntityId = isEditMode ? (initialFormData?.id || initialData?.id || 'new') : 'new';
@@ -1546,17 +1307,6 @@ const LeadFormModal = ({
     ),
   });
 
-  // fetching all the details:
-  const fetchProposalTemplates = useCallback(async () => {
-    try {
-      const { LOCAL_TEMPLATES } = await import('../../../../modules/offer-v2/data/templateRegistry');
-      setProposalTemplates(LOCAL_TEMPLATES);
-      return LOCAL_TEMPLATES;
-    } catch (error) {
-      console.error("Error fetching proposal templates:", error);
-      return [];
-    }
-  }, []);
 
   // Fetch functionsadd an add new button
   const fetchProjectCategories = useCallback(async () => {
@@ -2200,7 +1950,6 @@ const LeadFormModal = ({
         fetchEmployees(), // Added: For internal referrals
         fetchCompanyOverviewData(), // Added: For internal referrals
         fetchLeadCancellationReasons(), //new
-        fetchProposalTemplates(),
       ]);
 
       setDataLoaded(true);
@@ -2223,7 +1972,6 @@ const LeadFormModal = ({
     fetchAllLeadDirectSources,
     fetchLeadStatuses,
     fetchLeadCancellationReasons, //new
-    fetchProposalTemplates,
   ]);
 
   //new
@@ -3059,31 +2807,8 @@ const LeadFormModal = ({
         } else {
           const leadId =
             res?.data?.lead?.id ?? res?.lead?.id ?? res?.id ?? finalCleanPayload.id;
-          let title = "Lead saved";
-          let message = "Your changes were saved successfully.";
-          if (exportFormValues.proposalTemplateId) {
-            try {
-              await syncProposalToCloudAfterSave(
-                exportFormValues,
-                saveAsRevision,
-                res,
-              );
-              title = saveAsRevision ? "Revision saved" : "Lead updated";
-              message = saveAsRevision
-                ? "Lead revision increased. DOCX and PDF are in Files (cloud)."
-                : "Lead updated. Latest DOCX and PDF replaced in Files (cloud).";
-            } catch (cloudErr: any) {
-              console.error("Auto cloud export failed:", cloudErr);
-              const detail =
-                cloudErr?.message ||
-                cloudErr?.response?.data?.message ||
-                "";
-              title = "Lead saved — proposal upload failed";
-              message = detail
-                ? `Lead data was saved, but cloud export failed: ${detail}`
-                : "Lead data was saved, but the proposal could not be uploaded. Select a template, assign the lead, and try Export from the lead page.";
-            }
-          }
+          const title = "Lead saved";
+          const message = "Your changes were saved successfully.";
           closeSavingOverlay();
           await successConfirmation(message, title);
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId });
@@ -3318,13 +3043,8 @@ const LeadFormModal = ({
                       setPrefix={setPrefix}
                       isEditMode={isEditMode}
                       currLeadData={currLeadData}
-                      proposalTemplates={proposalTemplates}
                       hasDefaultStatus={hasDefaultStatus}
                       onHide={handleLeadCancelWithDirtyCheck}
-                      exportPdf={() => { setProposalModalTemplateId(values.proposalTemplateId || ""); setShowProposalModal(true); }}
-                      exportDocx={() => { setProposalModalTemplateId(values.proposalTemplateId || ""); setShowProposalModal(true); }}
-                      previewDocx={() => { setProposalModalTemplateId(values.proposalTemplateId || ""); setShowProposalModal(true); }}
-                      openProposalEditor={values.proposalTemplateId && currLeadData?.id ? () => { navigate(`/dynamic-offer/${currLeadData.id}`, { state: { leadData: { ...currLeadData, proposalTemplateId: values.proposalTemplateId } } }); } : undefined}
                       onFinalSave={
                         isEditMode
                           ? async () => {
@@ -3441,15 +3161,6 @@ const LeadFormModal = ({
           onClose={() => setShowCompanyTypeModal(false)}
           title="Company Type"
           type="company-type"
-        />
-
-        {/* Auto-export mode: opens ExportCenterModal directly */}
-        <ProposalTemplatePage
-          show={showProposalModal}
-          onHide={() => setShowProposalModal(false)}
-          leadData={currLeadData}
-          initialTemplateId={proposalModalTemplateId}
-          autoExport
         />
 
       </div>

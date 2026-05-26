@@ -162,21 +162,6 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
             />
           </div>
           
-          {/* Dynamic Proposal Editor button (Last Step Only) */}
-          {isLastStep && actions.openProposalEditor && (
-            <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100">
-              <button
-                type="button"
-                className="wt-btn wt-btn-primary w-100"
-                onClick={actions.openProposalEditor}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.6rem' }}
-              >
-                <Description style={{ fontSize: "1.1rem" }} />
-                <span className="fw-bold">Open Proposal Editor</span>
-              </button>
-            </div>
-          )}
-
           {/* Export Buttons at Bottom of Summary (Last Step Only) */}
           {isLastStep && (actions.exportPdf || actions.exportDocx) && (
             <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
@@ -202,18 +187,6 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
                 >
                   <Description style={{ fontSize: "1.1rem", color: '#2563eb' }} />
                   <span className="fw-bold">Export DOCX</span>
-                </button>
-              )}
-              {actions.previewDocx && (
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-outline-success"
-                  onClick={actions.previewDocx}
-                  title="Preview Word Document"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
-                >
-                  <Description style={{ fontSize: "1.1rem", color: '#10b981' }} />
-                  <span className="fw-bold">Preview DOCX</span>
                 </button>
               )}
             </div>

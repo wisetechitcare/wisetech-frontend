@@ -67,10 +67,6 @@ interface LeadWorkspaceProps {
   currLeadData?: any;
   hasDefaultStatus: () => boolean;
   onHide: () => void;
-  exportPdf?: () => void;
-  exportDocx?: () => void;
-  previewDocx?: () => void;
-  openProposalEditor?: () => void;
   onSaveUpdate?: () => void;
   onSaveRevision?: () => void;
   onFinalSave?: () => void;
@@ -247,18 +243,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       render: (_p) => <L.CommercialsSection />,
     },
 
-    // ── STEP 5: Proposal Configuration ─────────────────────────────────────
-    {
-      id: "proposal-config",
-      label: "Proposal Configuration",
-      title: "Proposal Configuration",
-      subtitle: "Customise template, payment stages and meeting schedules",
-      fields: ["proposalTemplateId", "globalPaymentStages", "rules"],
-      icon: <SettingsOutlined />,
-      render: (p) => <L.ProposalConfigurationSection {...p} />,
-    },
-
-    // ── STEP 6: Address, Location & Documents ──────────────────────────────
+    // ── STEP 5: Address, Location & Documents ──────────────────────────────
     {
       id: "address-docs",
       label: "Address, Location & Docs",
@@ -461,10 +446,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         isSubmitting,
         isEditMode: props.isEditMode,
         onCancel: props.onHide,
-        exportPdf: props.exportPdf,
-        exportDocx: props.exportDocx,
-        previewDocx: props.previewDocx,
-        openProposalEditor: props.openProposalEditor,
         onSaveUpdate: props.onSaveUpdate,
         onSaveRevision: props.onSaveRevision,
         onFinalSave: props.onFinalSave,

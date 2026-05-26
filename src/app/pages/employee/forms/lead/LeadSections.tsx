@@ -12,9 +12,6 @@ import FormikDropdownInput from "@app/modules/common/inputs/FormikDropdownInput"
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
 import { CommercialsGrid } from "../shared/CommercialsGrid";
 import { SectionWrapper } from "./SectionWrapper";
-import PercentageConfigurationTable from "../../leads/lead/components/PercentageConfigurationTable";
-import MeetingConfigurationTable from "../../leads/lead/components/MeetingConfigurationTable";
-import { KTIcon } from "@metronic/helpers";
 
 interface LeadSectionsProps {
   // dropdown arrays
@@ -30,7 +27,6 @@ interface LeadSectionsProps {
   companies: any[];
   contacts: any[];
   companyTypes: any[];
-  proposalTemplates?: any[];
 
   // inline create modal triggers
   setShowCategoryModal: (show: boolean) => void;
@@ -977,143 +973,3 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
  * Used in Wizard Step 5 — Proposal Configuration.
  * Displays Template dropdown, Percentage table and Meeting count table.
  */
-export const ProposalConfigurationSection: React.FC<LeadSectionsProps> = (props) => {
-  const { values, setFieldValue } = useFormikContext<any>();
-
-  const totalCost = (values.projectAreas || []).reduce(
-    (sum: number, area: any) => sum + (parseFloat(area.cost) || 0),
-    0
-  );
-
-  const area = parseFloat(values.builtUpArea || "0") || 0;
-
-  // Group values.rules by minArea-maxArea to match the right group
-  const groupedRules: any[] = [];
-  const rulesMap = new Map<string, any>();
-  (values.rules || []).forEach((r: any) => {
-    const min = r.minArea !== undefined ? r.minArea : r.min_area;
-    const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
-    const areaKey = `${min}-${max}`;
-    if (!rulesMap.has(areaKey)) {
-      rulesMap.set(areaKey, {
-        minArea: min,
-        maxArea: max,
-        min_area: min,
-        max_area: max,
-        configurations: []
-      });
-      groupedRules.push(rulesMap.get(areaKey));
-    }
-    rulesMap.get(areaKey).configurations.push(r);
-  });
-
-  // Find matching area-specific rule (minArea <= area <= maxArea)
-  const matchingAreaRules = groupedRules.filter(r =>
-    Number(r.minArea) !== -1 &&
-    area >= Number(r.minArea) &&
-    area <= Number(r.maxArea)
-  );
-
-  // Sort by smallest span
-  const bestAreaRule = matchingAreaRules.sort(
-    (a, b) => (Number(a.maxArea) - Number(a.minArea)) - (Number(b.maxArea) - Number(b.minArea))
-  )[0];
-
-  const matchedMeetings = bestAreaRule ? bestAreaRule.configurations : [];
-
-  const setPercentages = (newPercentages: any[]) => {
-    setFieldValue("globalPaymentStages", newPercentages);
-  };
-
-  const setMeetings = (newMeetings: any[]) => {
-    if (!bestAreaRule) return;
-
-    // Filter out rules matching current range
-    const otherRules = (values.rules || []).filter((r: any) => {
-      const min = r.minArea !== undefined ? r.minArea : r.min_area;
-      const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
-      return !(Number(min) === Number(bestAreaRule.minArea) && Number(max) === Number(bestAreaRule.maxArea));
-    });
-
-    const updatedAreaRules = newMeetings.map(m => ({
-      ...m,
-      minArea: bestAreaRule.minArea,
-      maxArea: bestAreaRule.maxArea,
-      min_area: bestAreaRule.minArea,
-      max_area: bestAreaRule.maxArea,
-      configType: "meeting",
-      config_type: "meeting"
-    }));
-
-    setFieldValue("rules", [...otherRules, ...updatedAreaRules]);
-  };
-
-  const templateOptions = React.useMemo(() => {
-    return (props.proposalTemplates || []).map((t: any) => ({
-      value: t.id,
-      label: t.templateName || t.templateCode || t.id,
-    }));
-  }, [props.proposalTemplates]);
-
-  return (
-    <div className="d-flex flex-column gap-6">
-      {/* Template selector card */}
-      <div className="wt-section-card">
-        <div className="wt-section-heading">Proposal Configuration</div>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <FormikDropdownInput
-              formikField="proposalTemplateId"
-              inputLabel="Proposal Template"
-              options={templateOptions}
-              placeholder="Select a Proposal Template..."
-              isRequired={false}
-            />
-          </Grid>
-        </Grid>
-      </div>
-
-      {/* Percentage (Payment breakdown) card */}
-      <div className="wt-section-card">
-        <div className="p-2">
-          <PercentageConfigurationTable
-            percentages={values.globalPaymentStages || []}
-            setPercentages={setPercentages}
-            totalCost={totalCost > 0 ? totalCost : undefined}
-            title="Global Payment Stages"
-            description="Edit payment breakdowns to adjust stages and percentage values"
-          />
-        </div>
-      </div>
-
-      {/* Meetings schedule card */}
-      <div className="wt-section-card">
-        <div className="p-2">
-          {bestAreaRule ? (
-            <MeetingConfigurationTable
-              meetings={matchedMeetings}
-              setMeetings={setMeetings}
-              title={`Meetings & Durations (Range: ${bestAreaRule.minArea} - ${bestAreaRule.maxArea} sqft)`}
-            />
-          ) : (
-            <div className="my-4">
-              <h6 className="fw-bolder mb-3 text-gray-800">
-                <KTIcon iconName="timer" className="text-warning me-2 fs-2" />
-                Meetings & Durations
-              </h6>
-              <div className="alert alert-dismissible bg-light-warning d-flex flex-column flex-sm-row p-5 mb-0 border border-dashed border-warning rounded">
-                <KTIcon iconName="information-5" className="fs-2hx text-warning me-4 mb-5 mb-sm-0" />
-                <div className="d-flex flex-column pe-0 pe-sm-10">
-                  <h4 className="fw-semibold text-warning-emphasis">No Matched Range</h4>
-                  <span className="text-warning-emphasis fs-7">
-                    The current built-up area of <strong>{area} sqft</strong> does not fall within any configured meeting ranges for this template.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};

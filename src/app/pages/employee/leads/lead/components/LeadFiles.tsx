@@ -1,6 +1,4 @@
 import React from 'react';
-import { DocumentManagementCenter } from './dms/components/DocumentManagementCenter';
-import { DMSProvider } from './dms/store/DmsContext';
 
 interface LeadFilesProps {
   lead: any;
@@ -14,15 +12,9 @@ const LeadFiles: React.FC<LeadFilesProps> = ({ lead }) => {
   }
 
   return (
-    <DMSProvider
-      leadId={lead.id}
-      inquiryNumber={lead.inquiryNo || lead.prefix || 'N/A'}
-      leadTitle={lead.title || lead.name || 'Lead'}
-    >
-      <div className="mt-4">
-        <DocumentManagementCenter />
-      </div>
-    </DMSProvider>
+    <div className="mt-4">
+      <div className="alert alert-info">Document management is coming soon.</div>
+    </div>
   );
 };
 
