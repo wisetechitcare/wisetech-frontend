@@ -81,10 +81,11 @@ function TextInput({
         {prefix && <span className="input-group-text">{prefix}</span>}
 
         <Field name={formikField}>
-          {({ field, form }: { field: any; form: any }) => {
+          {({ field, form, meta }: { field: any; form: any; meta: any }) => {
             const fieldBaseName = field.name.replace(/\[\d+\]/g, "");
             const dynamicRegex = employeeOnBardingFormRegexes[fieldBaseName] || /.*/;
             const displayValue = formatter ? formatter(field.value) : field.value;
+            const isInvalid = !!(meta.touched && meta.error);
 
             const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               const raw = e.target.value;
@@ -115,7 +116,7 @@ function TextInput({
                 readOnly={readonly}
                 disabled={readonly}
                 defaultValue={defaultValue}
-                className="form-control"
+                className={`form-control${isInvalid ? " is-invalid" : ""}`}
                 style={{ height: 44 }}
               />
             );

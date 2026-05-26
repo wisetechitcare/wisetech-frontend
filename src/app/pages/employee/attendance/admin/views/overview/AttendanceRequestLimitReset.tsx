@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { RootState } from "@redux/store";
 import {
   getAttendanceRequestLimitResetRequests,
@@ -37,6 +38,7 @@ interface AttendanceRequestLimitResetRequest {
 }
 
 function AttendanceRequestLimitReset() {
+  const { filterIds } = useTeamFilter();
   const [requests, setRequests] = useState<AttendanceRequestLimitResetRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingRowId, setProcessingRowId] = useState<string | null>(null);
@@ -267,7 +269,7 @@ function AttendanceRequestLimitReset() {
         <MaterialTable
           resource={resourceNameMapWithCamelCase.attendanceRequestLimit}
           columns={columns}
-          data={requests}
+          data={filterIds ? requests.filter((r) => filterIds.includes(r.employeeId)) : requests}
           tableName="Pending Limit Reset Requests"
           isLoading={loading}
           viewOthers={true}

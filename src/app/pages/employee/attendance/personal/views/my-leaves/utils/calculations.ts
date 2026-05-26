@@ -15,7 +15,8 @@ export const isWeekend = (date: Date) => {
 export function computeLeaveUsage(
   start: Date,
   end: Date,
-  holidays: Set<string>
+  holidays: Set<string>,
+  isWeekendFn: (d: Date) => boolean = isWeekend,
 ): {
   totalDays: number;
   leaveDays: number;
@@ -27,7 +28,7 @@ export function computeLeaveUsage(
   for (let i = 0; i < totalDays; i++) {
     const cur = dayjs(start).add(i, 'day').toDate();
     const iso = dayjs(cur).format('YYYY-MM-DD');
-    if (isWeekend(cur) || isHoliday(iso, holidays)) continue;
+    if (isWeekendFn(cur) || isHoliday(iso, holidays)) continue;
     leaveDays++;
   }
   const daysOff = totalDays;

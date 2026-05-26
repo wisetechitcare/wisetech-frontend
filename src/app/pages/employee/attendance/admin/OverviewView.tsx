@@ -1,4 +1,5 @@
 import { fetchAllEmployees, fetchLeaveRequest } from "@services/employee";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { useEffect, useState, lazy, Suspense, useCallback } from "react";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
@@ -138,6 +139,7 @@ export const transformLeaveRequests = (
 };
 
 function OverviewView() {
+  const { filterIds } = useTeamFilter();
   const dispatch = useDispatch();
   const [date, setDate] = useState(dayjs()); // Centralized date state
   const employeesPresentAttendance = useSelector(
@@ -192,7 +194,10 @@ function OverviewView() {
         );
 
         // Process employees
-        const employees = employeesRes.data.employees;
+        const allFetched = employeesRes.data.employees;
+        const employees = filterIds
+          ? allFetched.filter((e: any) => filterIds.includes(e.id))
+          : allFetched;
         setUsers(
           employees.map(
             (employee: any) =>

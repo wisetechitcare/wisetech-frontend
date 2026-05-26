@@ -11,13 +11,8 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 export const fetchAllCountries = async () => {
     try {
-        const headers = {
-            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
-        };
-
-        const { data } = await axios.get('https://api.countrystatecity.in/v1/countries', { headers });
-
-        return data;
+        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries`);
+        return data.data;
     } catch (err) {
         throw err;
     }
@@ -67,15 +62,8 @@ export const deletePrefixSetting = async (id: string) => {
 
 export const fetchCountryName = async (ciso: string) => {
     try {
-        const headers = {
-            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
-        };
-
-        const url = `https://api.countrystatecity.in/v1/countries/${ciso}`;
-
-        const { data } = await axios.get(url, { headers });
-
-        return data;
+        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries`);
+        return (data.data as { iso2: string }[]).find((c) => c.iso2 === ciso) ?? null;
     } catch (err) {
         throw err;
     }
@@ -83,15 +71,8 @@ export const fetchCountryName = async (ciso: string) => {
 
 export const fetchAllStates = async (ciso: string) => {
     try {
-        const headers = {
-            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
-        };
-
-        const url = `https://api.countrystatecity.in/v1/countries/${ciso}/states`;
-
-        const { data } = await axios.get(url, { headers });
-
-        return data;
+        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states`);
+        return data.data;
     } catch (err) {
         throw err;
     }
@@ -99,15 +80,8 @@ export const fetchAllStates = async (ciso: string) => {
 
 export const fetchStateName = async (ciso: string, siso: string) => {
     try {
-        const headers = {
-            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
-        };
-
-        const url = `https://api.countrystatecity.in/v1/countries/${ciso}/states/${siso}`;
-
-        const { data } = await axios.get(url, { headers });
-
-        return data;
+        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states`);
+        return (data.data as { iso2: string }[]).find((s) => s.iso2 === siso) ?? null;
     } catch (err) {
         throw err;
     }
@@ -115,15 +89,8 @@ export const fetchStateName = async (ciso: string, siso: string) => {
 
 export const fetchAllCities = async (ciso: string, siso: string) => {
     try {
-        const headers = {
-            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
-        };
-
-        const url = `https://api.countrystatecity.in/v1/countries/${ciso}/states/${siso}/cities`;
-
-        const { data } = await axios.get(url, { headers });
-
-        return data;
+        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states/${siso}/cities`);
+        return data.data;
     } catch (err) {
         throw err;
     }

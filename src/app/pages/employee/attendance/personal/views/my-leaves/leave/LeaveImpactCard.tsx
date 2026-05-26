@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import { Check, AlertTriangle } from 'lucide-react';
 import type { LeaveBreakdown } from '@utils/leaveCalcEngine';
-import type { LeaveAlert } from './leaveTypes';
+import type { LeaveAlert, CumulativeSummary } from './leaveTypes';
 import type { SandwichPreviewResult } from './sandwichPreview';
 
 interface LeaveImpactCardProps {
@@ -15,11 +15,69 @@ interface LeaveImpactCardProps {
   isPreview?: boolean;
   sandwichPreview?: SandwichPreviewResult | null;
   sandwichEnabled?: boolean;
+  cumulativeSummary?: CumulativeSummary | null;
   /** Outcome-only alerts (overlap/quota), not click-time holiday hints */
   outcomeAlerts?: LeaveAlert[];
 }
 
 const IMPACT_ALERT_IDS = new Set(['overlap', 'cumulative', 'type-quota', 'type-empty']);
+
+interface BalanceBarProps {
+  total: number;
+  used: number;
+  request: number;
+}
+
+function BalanceBar({ total, used, request }: BalanceBarProps) {
+  if (total <= 0) return null;
+
+  const usedPct   = Math.min(100, (used / total) * 100);
+  const reqPct    = Math.min(100 - usedPct, (request / total) * 100);
+  const remPct    = Math.max(0, 100 - usedPct - reqPct);
+  const remaining = Math.max(0, total - used - request);
+
+  return (
+    <div className="lrc-balance-bar-wrap" aria-label={`Balance: ${used} used, ${request} this request, ${remaining} remaining of ${total}`}>
+      <div className="lrc-balance-bar" role="img">
+        {usedPct > 0 && (
+          <div
+            className="lrc-balance-bar__seg lrc-balance-bar__seg--used"
+            style={{ width: `${usedPct}%` }}
+            title={`${used} already used`}
+          />
+        )}
+        {reqPct > 0 && (
+          <div
+            className="lrc-balance-bar__seg lrc-balance-bar__seg--request"
+            style={{ width: `${reqPct}%` }}
+            title={`${request} this request`}
+          />
+        )}
+        {remPct > 0 && (
+          <div
+            className="lrc-balance-bar__seg lrc-balance-bar__seg--remaining"
+            style={{ width: `${remPct}%` }}
+            title={`${remaining} remaining`}
+          />
+        )}
+      </div>
+      <div className="lrc-balance-bar__legend">
+        <span className="lrc-balance-bar__legend-item lrc-balance-bar__legend-item--used">
+          <span className="lrc-balance-bar__legend-dot" />
+          {used} used
+        </span>
+        <span className="lrc-balance-bar__legend-item lrc-balance-bar__legend-item--request">
+          <span className="lrc-balance-bar__legend-dot" />
+          +{request} this request
+        </span>
+        <span className="lrc-balance-bar__legend-item lrc-balance-bar__legend-item--remaining">
+          <span className="lrc-balance-bar__legend-dot" />
+          {remaining} remaining
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function LeaveImpactCard({
   breakdown,
@@ -32,6 +90,7 @@ export function LeaveImpactCard({
   isPreview,
   sandwichPreview,
   sandwichEnabled,
+  cumulativeSummary,
   outcomeAlerts = [],
 }: LeaveImpactCardProps) {
   const filteredAlerts = outcomeAlerts.filter((a) => IMPACT_ALERT_IDS.has(a.id));
@@ -69,6 +128,12 @@ export function LeaveImpactCard({
       ? Math.max(0, countTotalLeaves - effectiveChargeable)
       : null;
 
+  const showBar =
+    phase === 'committed' &&
+    cumulativeSummary != null &&
+    cumulativeSummary.total > 0 &&
+    leaveTypeLabel;
+
   return (
     <div
       className={`lrc-impact-card${isPreview ? ' lrc-impact-card--preview' : ''}`}
@@ -105,6 +170,14 @@ export function LeaveImpactCard({
           <span className="lrc-impact-chip__lbl">Chargeable</span>
         </div>
       </div>
+
+      {showBar && cumulativeSummary && (
+        <BalanceBar
+          total={cumulativeSummary.total}
+          used={cumulativeSummary.used}
+          request={effectiveChargeable}
+        />
+      )}
 
       <ul className="lrc-impact-card__checks">
         {afterLeave !== null && (

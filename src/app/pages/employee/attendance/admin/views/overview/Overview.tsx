@@ -1,4 +1,5 @@
 import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { Attendance } from "@models/employee";
 import { Employee } from "@redux/slices/employee";
@@ -244,6 +245,7 @@ interface OverviewProps {
 }
 
 function Overview({ date }: OverviewProps) {
+    const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -1221,8 +1223,11 @@ function Overview({ date }: OverviewProps) {
 
                     // Filter only active employees for state
                     const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
+                    const visibleEmployees = filterIds
+                        ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
+                        : activeEmployees;
 
-                    setAllEmployees(activeEmployees);
+                    setAllEmployees(visibleEmployees);
                     setEmployeesOnLeave(employeesOnLeave);
                     setEmployesLeaveDatas(employesLeaveData);
                     setAttendance(allAttendance);

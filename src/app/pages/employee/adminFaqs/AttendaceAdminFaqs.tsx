@@ -50,8 +50,6 @@ const AttendanceAdminFaqs = () => {
                 companyId: faq.companyId,
                 type: faq.type || ""
             };
-            console.log('Edit mode - FAQ type:', faq.type);
-            console.log('Edit mode - Initial values:', editValues);
             setInitialValues(editValues);
         } else {
             setEditMode(false);
@@ -119,7 +117,6 @@ const AttendanceAdminFaqs = () => {
             const companyId = companyOverview[0].id;
             // Fetch all FAQ types by not passing the type parameter
             const response = await fetchAllFaqs(companyId);
-            console.log('FAQ API Response:', response);
 
             // API returns sections, organize FAQs by section type
             const sections = response?.data?.sections || [];
@@ -138,14 +135,11 @@ const AttendanceAdminFaqs = () => {
                         ...faq,
                         type: faq.type || sectionId
                     }));
-                    // Sort FAQs alphabetically by question
                     groupedFaqs[sectionId] = sectionFaqs.sort((a: IFaqs, b: IFaqs) =>
                         a.question.localeCompare(b.question)
                     );
                 }
             });
-
-            console.log('Grouped FAQ Data:', groupedFaqs);
             setFaqsBySection(groupedFaqs);
         } catch (error) {
             console.log('Error fetching FAQs:', error);

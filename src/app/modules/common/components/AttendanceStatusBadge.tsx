@@ -30,13 +30,16 @@ const AttendanceStatusBadge = ({ status, color }: AttendanceStatusBadgeProps) =>
             padding: '4px 12px',
             borderRadius: '9999px',
             fontSize: '12px',
-            fontWeight: 600,
+            fontWeight: 700,
             lineHeight: 1.4,
             whiteSpace: 'nowrap',
             backgroundColor: color,
             color: '#ffffff',
             border: 'none',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            /* White ring separates the badge from a same-tinted row background */
+            boxShadow: '0 0 0 2px rgba(255,255,255,0.9), 0 2px 6px rgba(0,0,0,0.15)',
+            letterSpacing: '0.01em',
+            textShadow: '0 1px 1px rgba(0,0,0,0.15)',
         }}
     >
         {status}

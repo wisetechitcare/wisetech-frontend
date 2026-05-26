@@ -17,7 +17,7 @@ import { saveAs } from "file-saver";
 import { KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption } from "@metronic/helpers";
 import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { permissionConstToUseWithHasPermission, Status } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
 import {
   HighlightMatch,
@@ -79,6 +79,7 @@ interface MaterialTableProps {
   enableRowVirtualization?: boolean;
   muiTableContainerProps?: any;
   renderDetailPanel?: (props: { row: any; table: any }) => React.ReactNode;
+  enableStatusColorCoding?: boolean;
 }
 
 const defaultColumnSizes = {
@@ -124,6 +125,7 @@ function MaterialTable({
   enableRowVirtualization = false,
   muiTableContainerProps: customMuiTableContainerProps,
   renderDetailPanel,
+  enableStatusColorCoding = true,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -1114,14 +1116,41 @@ function MaterialTable({
           muiTableBodyRowProps={
             muiTableProps?.muiTableBodyRowProps
               ? muiTableProps.muiTableBodyRowProps
-              : ({ row }: any) => ({
-                  sx: {
-                    transition: "background-color 0.12s ease",
-                    "&:hover td": {
-                      backgroundColor: "#F8FAFC",
+              : ({ row }: any) => {
+                  // Status-based row color coding
+                  let rowStatus: 'approved' | 'rejected' | 'pending' | null = null;
+                  if (enableStatusColorCoding) {
+                    const sn = row.original?.statusNumber;
+                    const statusStr = String(row.original?.status || '').toLowerCase();
+                    if (sn !== undefined && sn !== null) {
+                      if (sn === Status.Approved) rowStatus = 'approved';
+                      else if (sn === Status.Rejected) rowStatus = 'rejected';
+                      else if (sn === Status.ApprovalNeeded) rowStatus = 'pending';
+                    } else if (statusStr) {
+                      if (statusStr === 'approved' || statusStr === 'active') rowStatus = 'approved';
+                      else if (statusStr === 'rejected' || statusStr === 'declined' || statusStr === 'inactive') rowStatus = 'rejected';
+                      else if (statusStr === 'pending' || statusStr === 'waiting' || statusStr === 'under review') rowStatus = 'pending';
+                    }
+                  }
+
+                  const colorMap = {
+                    approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
+                    rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
+                    pending:  { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
+                  };
+                  const c = rowStatus ? colorMap[rowStatus] : null;
+
+                  return {
+                    sx: {
+                      backgroundColor: c ? c.bg : undefined,
+                      '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                      transition: 'background-color 0.12s ease',
+                      '&:hover td': {
+                        backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
+                      },
                     },
-                  },
-                })
+                  };
+                }
           }
           renderEmptyRowsFallback={() => (
             <div

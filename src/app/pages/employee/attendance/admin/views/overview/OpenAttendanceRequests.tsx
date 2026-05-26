@@ -69,12 +69,14 @@ export const normalizeAttendanceRequestTime = (value: string | undefined, dateSt
 
 import { useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { pageSize, useServerPagination } from "@hooks/useServerPagination";
 import EditAttendanceRequest from "./EditAttendanceRequest";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 
 const OpenAttendanceRequests = () => {
+    const { filterIds } = useTeamFilter();
     const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation)
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
@@ -168,7 +170,10 @@ const OpenAttendanceRequests = () => {
     }, [allAttendanceRequests]);
 
     // if employee working on weekend/holiday then no late marking and early check out marking
-    const allIsWeekendOrHolidayDataWithAttendanceRequests = markWeekendOrHoliday(allAttendanceRequests, getAllWeekends, allHolidays);
+    const rawAttendanceData = markWeekendOrHoliday(allAttendanceRequests, getAllWeekends, allHolidays);
+    const allIsWeekendOrHolidayDataWithAttendanceRequests = filterIds
+        ? rawAttendanceData.filter((r: any) => filterIds.includes(r.employeeId))
+        : rawAttendanceData;
 
     const allColumns = [
         {
