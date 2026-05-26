@@ -1,4 +1,4 @@
-﻿import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -65,6 +65,7 @@ import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import {
   createLead,
+  getAllLeads,
   getLeadById,
   updateLead,
   exportLeadDocx,
@@ -326,6 +327,13 @@ const LeadFormModal = ({
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [existingLeads, setExistingLeads] = useState<any[]>([]);
+
+  useEffect(() => {
+    getAllLeads()
+      .then((res) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || []))
+      .catch(() => {});
+  }, []);
 
   const handleExport = async (type: "docx" | "pdf", values: any) => {
     if (!values.id) return;
@@ -2697,6 +2705,17 @@ const LeadFormModal = ({
     // Add prefix to payload for backend to use
     if (prefix && prefix.trim()) {
       finalCleanPayload.prefix = prefix.trim();
+    }
+
+    // Case-insensitive duplicate lead name check — excludes the lead currently being edited
+    const newLeadName = (formData.projectName || "").trim().toLowerCase();
+    const duplicateLead = existingLeads.find(
+      (l: any) => (l.title || "").trim().toLowerCase() === newLeadName &&
+        l.id !== (isEditMode ? initialFormData?.id : null)
+    );
+    if (duplicateLead) {
+      errorConfirmation("A lead with this name already exists.");
+      return;
     }
 
     try {

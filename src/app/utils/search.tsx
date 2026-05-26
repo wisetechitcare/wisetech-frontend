@@ -62,8 +62,14 @@ export const HighlightMatch: React.FC<{ text: string; query: string }> = ({ text
   
   // Patterns for phrase vs tokens
   const phrasePattern = escapeRegExp(fullPhrase);
-  const tokenPatterns = tokens.map(escapeRegExp);
-  const uniqueTokens = Array.from(new Set(tokenPatterns)).filter(p => p !== phrasePattern);
+  const tokenPatterns = tokens.map(token => {
+    const escaped = escapeRegExp(token);
+    if (token.length <= 2) {
+      return `\\b${escaped}`;
+    }
+    return escaped;
+  });
+  const uniqueTokens = Array.from(new Set(tokenPatterns)).filter(p => p !== phrasePattern && p !== `\\b${phrasePattern}`);
   
   const allPatterns = [phrasePattern, ...uniqueTokens];
   const regex = new RegExp(`(${allPatterns.join('|')})`, 'gi');
@@ -228,7 +234,13 @@ export const calculateMatchScore = (fieldValue: string, queryInfo: ReturnType<ty
   if (queryInfo.tokens.every(token => val.includes(token))) return 30;
 
   // 5. PARTIAL WORD MATCH (+10 per word)
-  const matchedTokens = queryInfo.tokens.filter(token => val.includes(token));
+  const matchedTokens = queryInfo.tokens.filter(token => {
+    if (token.length <= 2) {
+      // For very short tokens, require word boundary match (e.g. start of word)
+      return new RegExp(`\\b${token}`).test(val);
+    }
+    return val.includes(token);
+  });
   if (matchedTokens.length > 0) return 10 * matchedTokens.length;
 
   return 0;

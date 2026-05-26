@@ -61,6 +61,27 @@ export function setupAxios(axios: any) {
     },
     (err: any) => Promise.reject(err)
   )
-}
+
+  axios.interceptors.response.use(
+    (response: any) => response,
+    (error: any) => {
+      // Ignore canceled requests (very common when components unmount)
+      if (axios.isCancel(error) || error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        return Promise.reject(error);
+      }
+
+      // Determine if the error is a true network failure (no response from server).
+      if (!error.response && error.message === 'Network Error') {
+        // Always dispatch backend-down — App.tsx does the real internet check
+        // (navigator.onLine is unreliable on WiFi with no internet)
+        window.dispatchEvent(new Event('backend-down'));
+      } else if (error.response && [502, 503, 504].includes(error.response.status)) {
+        // Server reachable but returning gateway/service errors — backend is down
+        window.dispatchEvent(new Event('backend-down'));
+      }
+      
+      return Promise.reject(error);
+    }
+  )}
 
 export {getAuth, setAuth, removeAuth, AUTH_LOCAL_STORAGE_KEY}

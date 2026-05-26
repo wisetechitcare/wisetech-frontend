@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Row, Col, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
@@ -11,6 +11,7 @@ import {
   getAllContactRoleTypes,
   getClientContactById,
   getAllContactStatuses,
+  getAllClientContacts,
 } from "@services/companies";
 import {
   getAllClientBranches,
@@ -110,6 +111,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [branchWarning, setBranchWarning] = useState('');
+  const [existingContacts, setExistingContacts] = useState<any[]>([]);
   const [hasSelectedCompany, setHasSelectedCompany] = useState(false);
   const employeeIdCurrent = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
@@ -328,6 +330,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       setCountries(countriesData);
       setBranches(branchesData?.leadBranches || []);
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
+      const contactsData = await getAllClientContacts();
+      setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
     } catch (error) {
       console.error("Error loading initial data:", error);
@@ -523,6 +527,17 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
           delete contactData[key];
         }
       });
+
+      // Case-insensitive duplicate name check — excludes the contact currently being edited
+      const newName = formValues.fullName?.trim().toLowerCase();
+      const duplicate = existingContacts.find(
+        (c) => c.fullName?.trim().toLowerCase() === newName && c.id !== contactId
+      );
+      if (duplicate) {
+        errorConfirmation("A contact with this name already exists.");
+        setLoading(false);
+        return;
+      }
 
       if (contactId) {
         await updateClientContact(contactId, contactData);

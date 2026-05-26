@@ -21,7 +21,7 @@ const newRejoinEntry = {
     reason: "",
 };
 
-function Step3({ formikProps, editMode }: any) {
+function Step3({ formikProps, editMode, sidebarProfile }: any) {
     const { values, setFieldValue } = formikProps;
     const workExpRows = Array.isArray(values.workExpInfo) ? values.workExpInfo : [];
     const rejoinRows = Array.isArray(values.rejoinHistory) ? values.rejoinHistory : [];
@@ -127,6 +127,7 @@ function Step3({ formikProps, editMode }: any) {
             sections={sections}
             activeSection={activeSection}
             onSectionChange={setActiveSection}
+            sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}
         </WizardSectionLayout>

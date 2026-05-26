@@ -232,7 +232,10 @@ function MaterialTable({
       processedData = data;
     }
 
-    return processedData;
+    // Both viewOthers and checkOwnWithOthers filter from the same source array,
+    // so a row that passes both permission checks gets appended twice. Deduplicate
+    // by object reference before returning.
+    return Array.from(new Set(processedData));
   }, [data, resource, viewOthers, viewOwn, checkOwnWithOthers]);
 
   const { mode: metronicMode } = useThemeMode();
@@ -258,6 +261,7 @@ function MaterialTable({
         value: col.accessorKey,
         label: col.header,
         accessorKey: col.accessorKey,
+        accessorFn: col.accessorFn,
       }));
   }, [finalColumns, enableColumnSpecificSearch]);
 
@@ -358,38 +362,47 @@ function MaterialTable({
           let score = 0;
           let isMatch = false;
 
-          // Collect all string values for this row to check cross-column matches
-          const allRowText = Object.values(row)
+          // Collect all string values for this row to check cross-column matches based on columns
+          const rowSearchableValues: any[] = [];
+          effectiveSearchableColumns.forEach((col: any) => {
+            const val = col.accessorFn ? col.accessorFn(row) : row[col.accessorKey];
+            if (val != null) {
+              rowSearchableValues.push(val);
+            }
+          });
+
+          const allRowText = rowSearchableValues
             .filter((v) => typeof v === "string" || typeof v === "number")
             .join(" ")
             .toLowerCase();
 
           if (columnToSearch === "all") {
-            isMatch = intelligentSearchFilterFn(
-              { original: row },
-              "",
-              searchValue,
-            );
-            if (isMatch) {
-              // 1. Calculate individual field scores
-              Object.values(row).forEach((val) => {
-                if (typeof val === "string" || typeof val === "number") {
-                  score += calculateMatchScore(String(val), queryInfo);
-                }
-              });
-
-              // 2. Bonus: If ALL keywords are present across the entire row
-              if (keywords.every((k) => allRowText.includes(k))) {
-                score += 50; // High bonus for row-wide AND match
+            // Calculate individual field scores
+            rowSearchableValues.forEach((val) => {
+              if (typeof val === "string" || typeof val === "number") {
+                score += calculateMatchScore(String(val), queryInfo);
               }
+            });
+
+            // Require either a decent score (>0) OR all keywords matching row-wide for it to be a match
+            // This prevents single characters like 'a' from returning 6000 results if score threshold is adjusted.
+            // Also, AND logic across the row is preferred.
+            if (keywords.every((k) => allRowText.includes(k))) {
+              score += 50; // High bonus for row-wide AND match
+              isMatch = true;
+            } else if (score >= 10) { 
+               // Require at least 10 score to be considered a match to filter out noise
+               isMatch = true;
             }
           } else {
-            const columnValue = row[columnToSearch];
+            const colDef = effectiveSearchableColumns.find((c: any) => c.accessorKey === columnToSearch);
+            const columnValue = colDef ? (colDef.accessorFn ? colDef.accessorFn(row) : row[colDef.accessorKey]) : row[columnToSearch];
+            
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
               isMatch =
-                score > 0 ||
+                score >= 10 ||
                 keywords.every((k) => valStr.toLowerCase().includes(k));
             }
           }

@@ -80,9 +80,16 @@ export const useSalaryCalculations = (
             governmentPaid: Number(governmentPaid.toFixed(2)),
             governmentPending: Math.max(0, fixedSum - governmentPaid),
             totalCompanyPayout: Number((salaryPaid + governmentPaid).toFixed(2)),
-            activeGovType: (apiSalaryData?.deductionBreakdown?.fixed) 
-                ? Object.keys(apiSalaryData.deductionBreakdown.fixed)[0] || 'TDS'
-                : 'TDS'
+            activeGovType: (() => {
+                const fixed = apiSalaryData?.deductionBreakdown?.fixed;
+                if (!fixed) return 'TDS';
+                const activeKeys = Object.keys(fixed).filter(k => Number(fixed[k]?.earned || 0) > 0);
+                const keys = activeKeys.length > 0 ? activeKeys : Object.keys(fixed);
+                if (keys.length === 0) return 'TDS';
+                const profFeesKey = keys.find(k => k.toLowerCase().includes('professional fees'));
+                if (profFeesKey) return profFeesKey;
+                return keys[0] || 'TDS';
+            })()
         };
     }, [monthlyApiData, apiSalaryData, targetMonth, targetYear]);
 

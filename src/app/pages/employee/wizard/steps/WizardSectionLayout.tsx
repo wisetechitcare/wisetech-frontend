@@ -1,7 +1,7 @@
 import { KTIcon } from "@metronic/helpers";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
-import ObSectionsSidebar, { type ObSectionItem } from "./ObSectionsSidebar";
+import ObSectionsSidebar, { type ObSectionItem, type ObSidebarProfile } from "./ObSectionsSidebar";
 
 export type WizardSectionConfig = {
   id: string;
@@ -14,6 +14,7 @@ type WizardSectionLayoutProps = {
   sections: WizardSectionConfig[];
   activeSection: string;
   onSectionChange: (sectionId: string) => void;
+  sidebarProfile?: ObSidebarProfile;
   children: ReactNode;
 };
 
@@ -49,6 +50,7 @@ function WizardSectionLayout({
   sections,
   activeSection,
   onSectionChange,
+  sidebarProfile,
   children,
 }: WizardSectionLayoutProps) {
   const activeSectionConfig =
@@ -66,6 +68,7 @@ function WizardSectionLayout({
         sections={sidebarSections}
         activeSection={activeSection}
         onSectionChange={onSectionChange}
+        profile={sidebarProfile}
       />
 
       {/* ── Form area ── */}

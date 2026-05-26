@@ -15,6 +15,8 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
     // Calculate Gov Pending
     const govPending = Math.max(0, (summaryData.totalFixedDeduction || 0) - (summaryData.governmentPaid || 0));
 
+    const isProfFees = summaryData.activeGovType?.toLowerCase().includes('professional fees');
+
     const cards = [
         { 
             label: 'Salary In Hand', 
@@ -24,14 +26,14 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             color: 'primary', // Blue
             statusLabel: 'Pending'
         },
-        { 
+        ...(isProfFees ? [{ 
             label: `${summaryData.activeGovType || 'Gov Fee'} Payable`, 
             value: summaryData.totalFixedDeduction, 
             pendingValue: govPending,
             icon: 'percentage', 
             color: 'danger', // Pinkish
             statusLabel: 'Pending'
-        },
+        }] : []),
         { 
             label: 'Salary Paid', 
             value: summaryData.salaryPaid, 
@@ -39,13 +41,13 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             color: 'success', // Green
             statusLabel: 'Paid to Employee'
         },
-        { 
+        ...(isProfFees ? [{ 
             label: `${summaryData.activeGovType || 'Gov Fee'} Paid`, 
             value: summaryData.governmentPaid, 
             icon: 'shield-tick', 
             color: 'info', // Purpleish
             statusLabel: 'Paid to Govt'
-        },
+        }] : []),
     ];
 
     return (

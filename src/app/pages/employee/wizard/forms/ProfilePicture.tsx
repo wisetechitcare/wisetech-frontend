@@ -1,19 +1,22 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Camera, X, Image } from 'lucide-react';
 
 interface ProfilePictureProps {
   setFile: (id: string, file: File) => void;
   avatar: string;
-  defaultImageUrl?: string;
 }
 
 const ACCEPTED_FORMATS = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] };
 const MAX_SIZE_MB = 5;
 
-const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, defaultImageUrl }) => {
+const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar }) => {
   const [preview, setPreview] = useState<string | null>(avatar || null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  useEffect(() => {
+    setPreview(avatar || null);
+  }, [avatar]);
 
   const processFile = useCallback((file: File) => {
     if (file.size > MAX_SIZE_MB * 1024 * 1024) return;
@@ -95,15 +98,6 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, defaul
         <p className="ob-photo-meta-desc">
           A clear, professional photo. Recommended 400×400px or larger.
         </p>
-        {!hasPhoto && defaultImageUrl && (
-          <button
-            type="button"
-            className="ob-photo-meta-default-btn"
-            onClick={() => setPreview(defaultImageUrl)}
-          >
-            Use default avatar
-          </button>
-        )}
       </div>
     </div>
   );
