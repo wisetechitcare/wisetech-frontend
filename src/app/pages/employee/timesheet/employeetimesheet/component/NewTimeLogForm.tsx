@@ -1,4 +1,4 @@
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+﻿import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import TimePickerInput from "@app/modules/common/inputs/TimeInput";
@@ -351,7 +351,7 @@ const NewTimeLogForm = ({
               ]);
 
               return (
-                <FormikForm placeholder={undefined}>
+                <FormikForm>
                   <Box sx={{ mb: 2 }}>
                     <DropDownInput
                       options={projects?.map((project: any) => ({

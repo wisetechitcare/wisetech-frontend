@@ -25,7 +25,7 @@ export enum LeaveStatus {
     Approved = 1,
     Rejected = 2,
     Revoked = 3,
-    PendingHR = 4, // Team Lead approved; awaiting final HR sign-off
+    PendingHR = 4,
 }
 
 export const LEAVE_STATUS: { [key in LeaveStatus]: string } = {
@@ -33,7 +33,7 @@ export const LEAVE_STATUS: { [key in LeaveStatus]: string } = {
     [LeaveStatus.Approved]: 'Approved',
     [LeaveStatus.Rejected]: 'Rejected',
     [LeaveStatus.Revoked]: 'Revoked',
-    [LeaveStatus.PendingHR]: 'Pending HR Approval',
+    [LeaveStatus.PendingHR]: 'Pending HR',
 };
 
 export enum LeaveTypes {

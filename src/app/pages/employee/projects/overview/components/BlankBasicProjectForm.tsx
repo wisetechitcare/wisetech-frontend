@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Form, Row, Col, Button, Modal, Dropdown } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
 import * as Yup from "yup";
@@ -1898,7 +1898,7 @@ const handleSubmit = useCallback(
                 };
 
                 return (
-                  <FormikForm placeholder={""} onSubmit={handleSubmit}>
+                  <FormikForm onSubmit={handleSubmit}>
                     {/* Project Details Section */}
                     <div className="form-section mb-4">
                       <Box sx={{ mb: 4 }}>

@@ -24,11 +24,13 @@ import {
   Business as CompanyIcon,
   PushPin as PinIcon,
   Navigation as NavigationIcon,
-  ReportProblemOutlined as ReportIcon
+  ReportProblemOutlined as ReportIcon,
+  LayersOutlined as LayersIcon
 } from "@mui/icons-material";
 import { flagLocationError } from "@services/companies";
 import { Modal, Form, Button } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
+import { mapStyles } from "./mapTheme";
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -74,12 +76,34 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+const getStoredLabelMode = (): 'smart' | 'all' => {
+  try {
+    const stored = localStorage.getItem('mapLabelMode');
+    return stored === 'smart' || stored === 'all' ? stored : 'smart';
+  } catch {
+    return 'smart';
+  }
+};
+
 function ZoomHandler({ setZoom }: { setZoom: (zoom: number) => void }) {
   const map = useMapEvents({
     zoomend: () => {
       setZoom(map.getZoom());
     },
   });
+  return null;
+}
+
+// Forces Leaflet to recalculate tile coverage after the container finishes layout
+function MapInvalidator() {
+  const map = useMap();
+  useEffect(() => {
+    // Small delay lets the parent container finish its CSS layout before invalidation
+    const t = setTimeout(() => {
+      map.invalidateSize({ animate: false });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [map]);
   return null;
 }
 
@@ -93,6 +117,16 @@ function MapCenterHandler({ userLocation }: { userLocation: { lat: number; lng: 
       hasCentered.current = true;
     }
   }, [userLocation, map]);
+
+  return null;
+}
+
+function MapZoomSyncHandler({ setZoom }: { setZoom: (zoom: number) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    setZoom(map.getZoom());
+  }, [map, setZoom]);
 
   return null;
 }
@@ -231,10 +265,12 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
 // Extracted Marker component with enhanced safety and crash-proofing
 const LocationMarker = React.memo(({
   loc,
+  uniqueId,
   isContact,
   isCompany,
   isProject,
   zoom,
+  labelMode,
   handleGoToLocation,
   activeMarkerId,
   setActiveMarkerId,
@@ -242,10 +278,12 @@ const LocationMarker = React.memo(({
   setActiveCompany
 }: {
   loc: any;
+  uniqueId: string;
   isContact: boolean;
   isCompany: boolean;
   isProject: boolean;
   zoom: number;
+  labelMode: 'pins' | 'smart' | 'all';
   handleGoToLocation: (item: any) => void;
   activeMarkerId: string | null;
   setActiveMarkerId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -334,7 +372,8 @@ const LocationMarker = React.memo(({
     }
   }, [initials, markerColor, imageUrl, isError, isRelated, isDimmed]);
 
-  const id = loc.id || loc.projectId || loc.item?.id;
+  const id = uniqueId;
+  const entityId = loc.id || loc.projectId || loc.item?.id;
   const isActive = activeMarkerId === id;
 
   const popupAddress = useMemo(() => {
@@ -352,11 +391,32 @@ const LocationMarker = React.memo(({
     return parts.join(", ");
   }, [item]);
 
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      if (activeMarkerId === id) {
+        setActiveMarkerId(null);
+      }
+    };
+  }, []);
+
   // 4. Interaction Handlers
   const eventHandlers = useMemo(() => ({
-    mouseover: () => setActiveMarkerId(id),
-    mouseout: () => setActiveMarkerId(null),
+    mouseover: () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      setActiveMarkerId(id);
+    },
+    mouseout: () => {
+      hoverTimeoutRef.current = setTimeout(() => {
+        setActiveMarkerId(null);
+      }, 100);
+    },
     click: () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
       setActiveMarkerId(id);
       // If it's a company, set it as the active hub for relationship visualization
       if (loc.entityType === 'company') {
@@ -366,13 +426,11 @@ const LocationMarker = React.memo(({
   }), [id, setActiveMarkerId, setActiveCompany, item, loc.entityType]);
 
   const handleNavigation = () => {
-    if (!id) return;
-    if (isProject) navigate(`/projects/${id}`);
-    else if (isCompany) navigate(`/companies/${id}`);
-    else if (isContact) navigate(`/contacts/${id}`);
+    if (!entityId) return;
+    if (isProject) navigate(`/projects/${entityId}`);
+    else if (isCompany) navigate(`/companies/${entityId}`);
+    else if (isContact) navigate(`/contacts/${entityId}`);
   };
-
-  // (state is declared above the icon memo — see line ~300)
 
   // 6. Relationship Data (Sub-company / Branch connections)
   const parent = loc.item?.mainCompany || loc.item?.company;
@@ -483,21 +541,24 @@ const LocationMarker = React.memo(({
           }}
         />
       )}
-      {isActive && (
+      {/* Progressive Disclosure Label Rule: Show when all mode, smart mode with zoom >= 10, or hovered/active */}
+      {((labelMode === 'all') || (labelMode === 'smart' && zoom >= 10) || isActive) && (
         <Tooltip
+          key={`tooltip-${id}-${position[0]}-${position[1]}`}
           permanent
           direction="top"
           offset={[0, -10]}
-          className={`custom-marker-label ${isActive ? 'active' : ''}`}
+          className={`google-style-label ${isActive ? 'active' : ''} ${activeMarkerId && !isActive ? 'dimmed' : ''}`}
         >
-          {/* Visual Debug: Show country in tooltip */}
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             <span style={{ fontWeight: 700 }}>
-              {itemTitle || "Unknown"}
+              {itemTitle && itemTitle.length > 25 ? `${itemTitle.substring(0, 25)}...` : itemTitle}
             </span>
-            <span style={{ fontSize: "10px", color: "#666", textTransform: "capitalize" }}>
-              {loc.entityType || loc.country || "Location"}
-            </span>
+            {(zoom >= 13 || isActive) && (
+              <span style={{ fontSize: "10px", color: isActive ? "#ffffff" : "#666", textTransform: "capitalize" }}>
+                {loc.entityType || loc.country || "Location"}
+              </span>
+            )}
           </div>
         </Tooltip>
       )}
@@ -755,7 +816,7 @@ const LocationMarker = React.memo(({
             variant="danger" 
             size="sm"
             onClick={handleSubmitError}
-            disabled={isSubmitting || (!isError && remark.trim() === "")}
+            disabled={isSubmitting || (!isError && remark.trim() === "" && !loc.item?.isLocationIncorrect)}
           >
             {isSubmitting ? "Submitting..." : "Submit Report"}
           </Button>
@@ -784,6 +845,34 @@ export default function Maps({
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isWorldFilter, setIsWorldFilter] = useState(false);
   const [activeCompany, setActiveCompany] = useState<any | null>(null);
+  const [labelMode, setLabelMode] = useState<'smart' | 'all'>(getStoredLabelMode);
+
+  const [isLabelPanelExpanded, setIsLabelPanelExpanded] = useState(false);
+  const labelPanelRef = useRef<HTMLDivElement>(null);
+
+  const handleLabelModeChange = (mode: 'smart' | 'all') => {
+    setLabelMode(mode);
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mapLabelMode', labelMode);
+    } catch (e) {
+      console.error("Failed to store mapLabelMode", e);
+    }
+  }, [labelMode]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (labelPanelRef.current && !labelPanelRef.current.contains(event.target as Node)) {
+        setIsLabelPanelExpanded(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -871,15 +960,11 @@ export default function Maps({
     });
   }, [locations, isProject, selectedCountry, selectedState, selectedCity, isWorldFilter]);
 
-  const addressCache = useRef<Record<string, any>>({});
-
   useEffect(() => {
     if (!points || !Array.isArray(points) || points.length === 0) {
       setLocations([]);
       return;
     }
-
-    let isCancelled = false;
 
     // 1. Map initial points (DIRECT DATA SOURCE - NO API)
     const coordCounts: Record<string, number> = {};
@@ -913,7 +998,6 @@ export default function Maps({
       });
 
     setLocations(validPoints);
-    return () => { isCancelled = true; };
   }, [points, projectData, companyData, contactData]);
 
   const handleGoToLocation = useCallback((item: any) => {
@@ -933,23 +1017,45 @@ export default function Maps({
   }, [userLocation]);
 
   return (
-    <div style={{ height: "100vh", width: "100%", fontFamily: "Inter, sans-serif", position: "relative" }}>
+    <div className="map-outer-wrapper" style={{ height: "calc(100vh - 160px)", minHeight: "560px", fontFamily: "Inter, sans-serif", position: "relative", overflow: "hidden" }}>
       <style>{`
-        .custom-marker-label {
-          background-color: white !important;
-          border: none !important;
-          border-radius: 8px !important;
-          padding: 6px 12px !important;
-          font-size: 13px !important;
-          color: #1e293b !important;
-          font-weight: 600 !important;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.12) !important;
-          white-space: nowrap;
-          border: 1px solid rgba(0,0,0,0.05) !important;
+        ${mapStyles}
+
+        /* ── Reduce Bootstrap parent padding, keep small 1rem buffer ── */
+        .map-outer-wrapper {
+          width: calc(100% + 4rem);
+          margin-left: -2rem;
+          margin-top: -1.5rem;
         }
-        .custom-marker-label.active {
-          z-index: 2000 !important;
+        @media (min-width: 992px) {
+          .map-outer-wrapper {
+            width: calc(100% + 7rem);
+            margin-left: -3.5rem;
+            margin-top: -1.5rem;
+          }
         }
+
+        /* ── Mobile: move label toggle below the filter bar ── */
+        @media (max-width: 768px) {
+          .map-control-panel {
+            top: 68px !important;
+          }
+          /* Compact filter bar on small screens */
+          .floating-filter-bar {
+            padding: 7px 12px !important;
+            gap: 6px !important;
+            font-size: 12px;
+          }
+          .pill-button, .total-badge {
+            font-size: 12px !important;
+            padding: 5px 10px !important;
+          }
+          .pill-select {
+            font-size: 12px !important;
+            padding: 5px 28px 5px 10px !important;
+          }
+        }
+
         .leaflet-tooltip-top:before { display: none !important; }
         .custom-marker-icon { 
           background: none !important; 
@@ -1468,13 +1574,15 @@ export default function Maps({
       <MapContainer
         center={[20.5937, 78.9629]}
         zoom={4}
-        style={{ height: isProject ? "100%" : "calc(100% - 4.5rem)", width: "100%" }}
+        style={{ height: isProject ? "100%" : "calc(100% - 4.5rem)", width: "100%", minHeight: "500px" }}
         zoomControl={false}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           attribution="&copy; OpenStreetMap &copy; CARTO"
         />
+        <MapInvalidator />
+        <MapZoomSyncHandler setZoom={setZoom} />
         <ZoomHandler setZoom={setZoom} />
         <MapCenterHandler userLocation={userLocation} />
         <MapClickHandler onClick={() => setActiveCompany(null)} />
@@ -1530,22 +1638,80 @@ export default function Maps({
           </Marker>
         )}
 
-        {filteredLocations.map((loc, idx) => (
-          <LocationMarker
-            key={`${loc.id || loc.projectId || 'marker'}-${idx}`}
-            loc={loc}
-            isContact={isContact}
-            isCompany={isCompany}
-            isProject={isProject}
-            zoom={zoom}
-            handleGoToLocation={handleGoToLocation}
-            activeMarkerId={activeMarkerId}
-            setActiveMarkerId={setActiveMarkerId}
-            activeCompany={activeCompany}
-            setActiveCompany={setActiveCompany}
-          />
-        ))}
+        {filteredLocations.map((loc, idx) => {
+          const uniqueId = `marker-${idx}-${loc.lat}-${loc.lng}`;
+          return (
+            <LocationMarker
+              key={uniqueId}
+              uniqueId={uniqueId}
+              loc={loc}
+              isContact={isContact}
+              isCompany={isCompany}
+              isProject={isProject}
+              zoom={zoom}
+              labelMode={labelMode}
+              handleGoToLocation={handleGoToLocation}
+              activeMarkerId={activeMarkerId}
+              setActiveMarkerId={setActiveMarkerId}
+              activeCompany={activeCompany}
+              setActiveCompany={setActiveCompany}
+            />
+          );
+        })}
       </MapContainer>
+
+      {/* Floating Collapsible Map Labels Control Panel */}
+      <div 
+        ref={labelPanelRef}
+        className={`map-control-panel ${isLabelPanelExpanded ? 'expanded' : 'collapsed'}`}
+      >
+        {!isLabelPanelExpanded ? (
+          <button 
+            className="map-control-toggle-btn"
+            onClick={() => setIsLabelPanelExpanded(true)}
+            title="Label Display"
+          >
+            <LayersIcon
+              style={{
+                fontSize: '20px',
+                color: labelMode === 'smart' || labelMode === 'all' ? '#2c7be5' : '#475569'
+              }}
+            />
+            <div className="active-indicator-dot" />
+          </button>
+        ) : (
+          <div className="map-control-expanded-content">
+            <div className="map-control-header">
+              <span className="map-control-title">Map Labels</span>
+              <button 
+                className="map-control-close-btn"
+                onClick={() => setIsLabelPanelExpanded(false)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <label className="map-control-option">
+              <input 
+                type="radio" 
+                name="labelMode" 
+                checked={labelMode === 'smart'} 
+                onChange={() => handleLabelModeChange('smart')}
+              />
+              Smart labels
+            </label>
+            <label className="map-control-option">
+              <input 
+                type="radio" 
+                name="labelMode" 
+                checked={labelMode === 'all'} 
+                onChange={() => handleLabelModeChange('all')}
+              />
+              All labels
+            </label>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

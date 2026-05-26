@@ -266,7 +266,7 @@ const Yearly = ({
             const totalHours = convertToHours(item.payableHours);
             return {
                 payableDays: acc.payableDays + totalHours / 8,
-                paidAmount: acc.paidAmount + cleanNumber(item.paidAmount),
+                paidAmount: acc.paidAmount + cleanNumber(item.amountPaid ?? item.paidAmount),
                 dueAmount: acc.dueAmount + cleanNumber(item.due),
                 netAmount: acc.netAmount + cleanNumber(item.netAmount)
             };

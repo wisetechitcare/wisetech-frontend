@@ -1,4 +1,4 @@
-// import * as Yup from 'yup';
+﻿// import * as Yup from 'yup';
 // import { RootState, store } from '@redux/store';
 // import { Field, Form, Formik, FormikValues } from 'formik';
 // import { useDispatch, useSelector } from 'react-redux';
@@ -924,7 +924,7 @@
 //     return (
 //         <>
 //             <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={attendanceSchema}>
-//                 <Form placeholder={undefined}>
+//                 <Form>
 //                     <div className="row">
 //                         <div className="col-lg-6">
 //                             <Field
@@ -1984,7 +1984,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     return (
         <>
             <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={attendanceSchema}>
-                <Form placeholder={undefined}>
+                <Form>
                     <div className="row">
                         <div className="col-lg-6">
                             <Field

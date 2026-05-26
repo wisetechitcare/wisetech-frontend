@@ -1,5 +1,6 @@
 //
 // Layout Config
+@use 'sass:color';
 
 $primary-red: #AA393D;
 $primary-red-opacity-1: #ffe3e3;
@@ -60,7 +61,7 @@ $aside-config: (
 	border: 0,
 	border-dark: 1px solid $coal-100,
 	scrollbar-color: #4d4d69,
-	scrollbar-hover-color: lighten(#4d4d69, 2%)	
+	scrollbar-hover-color: color.adjust(#4d4d69, $lightness: 2%)	
 ) !default;
 
 // Aside

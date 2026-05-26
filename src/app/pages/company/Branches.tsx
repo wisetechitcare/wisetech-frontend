@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
 import { Col, Modal, Row } from 'react-bootstrap'
@@ -630,7 +630,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   className='d-flex flex-column'
                   noValidate
                   id='employee_onboarding_form'
-                  placeholder={undefined}
+                 
                 >
                   <div className='row'>
                     <div className='col-lg-12'>

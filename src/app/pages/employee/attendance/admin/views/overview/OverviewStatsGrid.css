@@ -1,0 +1,118 @@
+.overview-stats-container {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.overview-stat-card {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 16px 24px;
+  background: #fff;
+  border: none;
+  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.overview-stat-card:hover {
+  transform: translateY(-1px);
+}
+
+.overview-stat-card .card-body {
+  padding: 0;
+}
+
+.overview-stat-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.overview-stat-card-metric {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.overview-stat-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.overview-stat-card-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.overview-stat-card-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.overview-stat-card-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Tinted shadows matched to card category */
+.overview-stat-card--working {
+  box-shadow: 0 4px 14px 0 rgba(40, 167, 69, 0.14);
+}
+
+.overview-stat-card--leave {
+  box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.16);
+}
+
+.overview-stat-card--late {
+  box-shadow: 0 4px 14px 0 rgba(236, 72, 153, 0.14);
+}
+
+.overview-stat-card--checkout-missing {
+  box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.18);
+}
+
+.overview-stat-card--early {
+  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.14);
+}
+
+.overview-stat-card--extra {
+  box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.14);
+}
+
+.overview-stat-card--absent {
+  box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.14);
+}
+
+@media (max-width: 575px) {
+  .overview-stats-container {
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .overview-stat-card {
+    flex: 1 1 100%;
+  }
+
+  .overview-stat-card-value,
+  .overview-stat-card-label {
+    white-space: normal;
+  }
+}

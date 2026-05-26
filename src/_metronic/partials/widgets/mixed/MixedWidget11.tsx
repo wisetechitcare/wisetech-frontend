@@ -1,4 +1,4 @@
-
+﻿
 import React, {useEffect, useRef} from 'react'
 import ApexCharts, {ApexOptions} from 'apexcharts'
 import {getCSSVariableValue} from '../../../assets/ts/_utils'
@@ -135,22 +135,22 @@ const chartOptions = (chartColor: string, chartHeight: string): ApexOptions => {
         filter: {
           type: 'none',
           value: 0,
-        },
+        } as any,
       },
       hover: {
         filter: {
           type: 'none',
           value: 0,
-        },
+        } as any,
       },
       active: {
         allowMultipleDataPointsSelection: false,
         filter: {
           type: 'none',
           value: 0,
-        },
+        } as any,
       },
-    },
+    } as any,
     tooltip: {
       style: {
         fontSize: '12px',

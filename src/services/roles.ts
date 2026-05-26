@@ -159,3 +159,15 @@ export const deletePermissionForRoleById = async (roleId: string, permissionId: 
         throw error;
     }
 }
+
+export const addEmployeeToRole = async (roleId: string, employeeId: string) => {
+    const endpoint = `${API_BASE_URL}/${ROLES.ADD_EMPLOYEE_TO_ROLE.replace(":id", roleId)}`;
+    const { data } = await axios.post(endpoint, { employeeId });
+    return data;
+}
+
+export const removeEmployeeFromRole = async (roleId: string, employeeId: string) => {
+    const endpoint = `${API_BASE_URL}/${ROLES.REMOVE_EMPLOYEE_FROM_ROLE.replace(":id", roleId).replace(":employeeId", employeeId)}`;
+    const { data } = await axios.delete(endpoint);
+    return data;
+}

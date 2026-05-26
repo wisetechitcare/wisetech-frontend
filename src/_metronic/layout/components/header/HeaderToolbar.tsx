@@ -27,10 +27,6 @@ const HeaderToolbar = () => {
     { label: "All", value: "all" },
   ]);
   const [showAppSettings, setShowAppSettings] = useState(false);
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
-  
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );

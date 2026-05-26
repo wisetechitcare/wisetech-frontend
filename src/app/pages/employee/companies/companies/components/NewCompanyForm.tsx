@@ -1,4 +1,4 @@
-import {
+﻿import {
   createClientCompany,
   getAllCompanyTypes,
   updateClientCompany,
@@ -551,13 +551,18 @@ const NewCompanyForm: React.FC<Props> = ({
     try {
       let logoUrl = "";
       if (logoFile) {
-        const formData = new FormData();
-        formData.append("file", logoFile);
-        const res = await uploadCompanyAsset(formData);
-        const {
-          data: { path },
-        } = res;
-        logoUrl = path;
+        try {
+          const formData = new FormData();
+          formData.append("file", logoFile);
+          const res = await uploadCompanyAsset(formData);
+          const {
+            data: { path },
+          } = res;
+          logoUrl = path;
+        } catch (uploadError) {
+          console.error("Error uploading company logo:", uploadError);
+          errorConfirmation("Logo upload failed, but company will still be saved.");
+        }
       } else if (editingCompanyId && logoPreview) {
         // Keep existing logo if no new file is uploaded
         logoUrl = logoPreview;
@@ -614,6 +619,17 @@ const NewCompanyForm: React.FC<Props> = ({
         }
         return acc;
       }, {} as any);
+
+      // Case-insensitive duplicate name check — excludes the company currently being edited
+      const newName = values.companyName?.trim().toLowerCase();
+      const duplicate = allCompanies.find(
+        (c: any) => c.companyName?.trim().toLowerCase() === newName && c.id !== editingCompanyId
+      );
+      if (duplicate) {
+        errorConfirmation("A company with this name already exists.");
+        setSubmitting(false);
+        return;
+      }
 
       if (editingCompanyId) {
         await updateClientCompany(editingCompanyId, {
@@ -722,7 +738,7 @@ const NewCompanyForm: React.FC<Props> = ({
               }, [values.latitude, values.longitude, setFieldValue, values.googleMapsLink]);
 
               return (
-              <FormikForm placeholder={""}>
+              <FormikForm>
                 {/* <Modal.Header>
 
               </Modal.Header> */}
@@ -1452,7 +1468,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                       formikField="latitude"
                                       label="Latitude"
                                       isRequired={false}
-                                      inputValidation="decimal"
+                                      inputValidation="signed-decimal"
                                     />
                                   </div>
                                   <div className="col-md-3">
@@ -1460,7 +1476,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                       formikField="longitude"
                                       label="Longitude"
                                       isRequired={false}
-                                      inputValidation="decimal"
+                                      inputValidation="signed-decimal"
                                     />
                                   </div>
                                 </div>

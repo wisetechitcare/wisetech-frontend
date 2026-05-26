@@ -6,6 +6,7 @@ import { saveCurrentEmployee } from '@redux/slices/employee';
 import { RootState, store } from '@redux/store';
 import { fetchAllBranches, updateBranchById } from '@services/company';
 import { hasPermission } from '@utils/authAbac';
+import { usePermission } from '@hooks/usePermission';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
 import { MRT_ColumnDef } from 'material-react-table';
@@ -43,7 +44,7 @@ const weekendSchema = Yup.object().shape({
 });
 
 function WeekendsAndWorkingDays() {
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+    const isAdmin = usePermission('settings.manage.all');
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [loading, setLoading] = useState(false);
     const [weekends, setWeekends] = useState<weekends[]>([]);

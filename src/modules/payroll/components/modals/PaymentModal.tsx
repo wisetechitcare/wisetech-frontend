@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Modal, Button, Row, Col, Badge, Form, Card } from 'react-bootstrap';
 import { Formik, Form as FormikForm, FormikValues, Field } from 'formik';
 import * as Yup from 'yup';
@@ -155,7 +155,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         const { values, setFieldValue } = formikProps;
                         
                         return (
-                            <FormikForm className="p-8" placeholder="">
+                            <FormikForm className="p-8">
                                 <Row className="g-8">
                                     {/* Left Column: Transaction Metadata */}
                                     <Col lg={4}>

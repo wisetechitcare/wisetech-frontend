@@ -2,6 +2,7 @@
 // Bootstrap & Custom Variables
 // Safely override any variable in _variables.custom.scss
 //
+@use 'sass:color';
 
 // Prefix for :root CSS variables
 $prefix: bs- !default; // Deprecated in v5.2.0 for the shorter `$prefix`
@@ -1218,7 +1219,7 @@ $rating-color-active: #FFAD0F !default;
 // Keenthemes ribbon component 
 $ribbon-label-box-shadow: 0px -1px 5px 0px rgba($dark, 0.1) !default;
 $ribbon-label-bg: $primary !default;
-$ribbon-label-border-color: darken($primary, 20%) !default;
+$ribbon-label-border-color: color.adjust($primary, $lightness: -20%) !default;
 $ribbon-clip-bg: $dark !default;
 
 // Keenthemes fixed component 
@@ -1239,36 +1240,36 @@ $social-colors: (
 		base: #3b5998,
 		inverse: #ffffff,
 		light: rgba(#3b5998, 0.1),
-		active: darken(#3b5998, 7.5%)
+		active: color.adjust(#3b5998, $lightness: -7.5%)
 	),
 	google: (
 		base: #dd4b39,
 		inverse: #ffffff,
 		light: rgba(#dd4b39, 0.1),
-		active: darken(#dd4b39, 7.5%)
+		active: color.adjust(#dd4b39, $lightness: -7.5%)
 	),
 	twitter: (
 		base: #1da1f2,
 		inverse: #ffffff,
 		light: rgba(#1da1f2, 0.1),
-		active: darken(#1da1f2, 7.5%)
+		active: color.adjust(#1da1f2, $lightness: -7.5%)
 	),
 	instagram: (
 		base: #e1306c,
 		inverse: #ffffff,
 		light: rgba(#e1306c, 0.1),
-		active: darken(#e1306c, 7.5%)
+		active: color.adjust(#e1306c, $lightness: -7.5%)
 	),
 	youtube: (
 		base: #ff0000,
 		inverse: #ffffff,
 		light: rgba(#ff0000, 0.1),
-		active: darken(#ff0000, 7.5%)
+		active: color.adjust(#ff0000, $lightness: -7.5%)
 	),
 	linkedin: (
 		base: #0077b5,
 		inverse: #ffffff,
 		light: rgba(#0077b5, 0.1),
-		active: darken(#0077b5, 7.5%)
+		active: color.adjust(#0077b5, $lightness: -7.5%)
 	)
 ) !default;

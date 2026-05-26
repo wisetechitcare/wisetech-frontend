@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
@@ -867,7 +867,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     ) : (
                         <Formik initialValues={attendanceData[selectedDate] || initialState} enableReinitialize onSubmit={handleSubmit} validationSchema={faqSchema}>
                             {(formikProps) => (
-                                <Form className='d-flex flex-column' noValidate placeholder={''}>
+                                <Form className='d-flex flex-column' noValidate>
                                     {requestType === 'checkin' && <div className="col-lg">
                                         {isIOSMobile ? (
                                             <BootstrapForm.Group controlId="CheckIn" className="mb-3">

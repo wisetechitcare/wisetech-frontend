@@ -1,15 +1,17 @@
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { KTIcon } from '@metronic/helpers';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
-import { Form, Formik, FormikValues } from 'formik';
-import { useEffect, useState } from 'react'
+import { Field, Form, Formik, FormikValues } from 'formik';
+import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
-import { Accordion, Button, Card, Modal } from 'react-bootstrap';
-import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { Modal } from 'react-bootstrap';
+import { deleteConfirmation, successConfirmation } from '@utils/modal';
 import { LOAN_KEY } from '@constants/configurations-key';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import FaqSection from '../../../adminFaqs/FaqSection';
+import FaqItem from '../../../adminFaqs/FaqItem';
+import HighlightErrors from '@app/modules/errors/components/HighlightErrors';
 
 const faqSchema = Yup.object({
     question: Yup.string().required().label('Question'),
@@ -17,184 +19,181 @@ const faqSchema = Yup.object({
     companyId: Yup.string(),
 });
 
-let initialState = {
-    question: "",
-    answer: "",
-    companyId: "",
-};
-
 const Faqs = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     const [faqs, setFaqs] = useState<IFaqs[]>([]);
-
     const [loading, setLoading] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [show, setShow] = useState(false);
-
     const [faqId, setFaqId] = useState('');
+    const [initialValues, setInitialValues] = useState({ question: '', answer: '', companyId: '' });
 
-    const handleClose = () => {
-        setShow(false);
-        setEditMode(false);
-    }
+    const canEdit = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOthers);
+    const canCreate = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.create);
+    const canRead = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers);
+
+    const handleClose = () => { setShow(false); setEditMode(false); };
 
     const handleEdit = (faq?: IFaqs) => {
-        setShow(true);
         if (faq?.id !== undefined) {
             setEditMode(true);
             setFaqId(faq.id);
-            initialState = {
-                question: faq.question,
-                answer: faq.answer,
-                companyId: faq.companyId
-            };
+            setInitialValues({ question: faq.question, answer: faq.answer, companyId: faq.companyId });
         } else {
-            initialState = {
-                answer: '',
-                question: '',
-                companyId: ''
-            };
+            setInitialValues({ answer: '', question: '', companyId: '' });
             setEditMode(false);
         }
-    }
+        setShow(true);
+    };
 
     const handleDelete = async (faq: IFaqs) => {
+        const sure = await deleteConfirmation('FAQ deleted successfully');
+        if (!sure) return;
         try {
             await deleteFaqById(faq.id);
             successConfirmation('FAQ deleted successfully');
             fetchFaqs();
         } catch (e) {
-            console.log(e);
+            console.error(e);
         }
-    }
+    };
 
-    const handleSubmit = async (values: any, actions: FormikValues) => {
+    const handleSubmit = async (values: any, _actions: FormikValues) => {
         try {
             setLoading(true);
             if (editMode) {
                 await updateFaqById(faqId, values, LOAN_KEY);
-                setLoading(false);
                 successConfirmation('FAQ updated successfully');
                 setShow(false);
                 setEditMode(false);
                 fetchFaqs();
+                setLoading(false);
                 return;
             }
             const { data: { companyOverview } } = await fetchCompanyOverview();
             const companyId = companyOverview[0].id;
-            const payload = { 
-                ...values, 
-                companyId,
-                type: LOAN_KEY // Explicitly include type
-            };
-            await createNewFaq(payload);
-            setLoading(false);
+            await createNewFaq({ ...values, companyId, type: LOAN_KEY });
             successConfirmation('FAQ created successfully');
             setShow(false);
             fetchFaqs();
         } catch (err) {
+            console.error(err);
+        } finally {
             setLoading(false);
+        }
+    };
+
+    async function fetchFaqs() {
+        try {
+            const { data: { companyOverview } } = await fetchCompanyOverview();
+            const companyId = companyOverview[0].id;
+            const { data: { faqs } } = await fetchAllFaqs(companyId, LOAN_KEY);
+            setFaqs((faqs || []).filter((f: IFaqs) => f.type === LOAN_KEY));
+        } catch (err) {
+            console.error(err);
         }
     }
 
-    async function fetchFaqs() {
-        const { data: { companyOverview } } = await fetchCompanyOverview();
-        const companyId = companyOverview[0].id;
+    useEffect(() => { fetchFaqs(); }, []);
 
-        const { data: { faqs } } = await fetchAllFaqs(companyId, LOAN_KEY);
-        const filteredFaqs = faqs.filter((faq: IFaqs) => faq.type === LOAN_KEY);
-        setFaqs(filteredFaqs);
-    }
-
-    useEffect(() => {
-        fetchFaqs();
-    }, []);
+    const showAdminActions = fromAdmin && canEdit;
 
     return (
         <>
-            <Card style={{ height: '100%' }}>
-               {/* {hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers) ?  */}
-               
-               <Card.Body className="d-flex flex-column" style={{ height: '100%' }}>
-                    <div className="flex-grow-1">
-                        <h5 className="fw-bold">FAQs</h5>
-                        <Accordion flush>
-                            {faqs.map((faq: IFaqs, index: number) => (
-                                <Accordion.Item eventKey={index.toString()} key={index} style={{ padding: '0' }}>
-                                    <Accordion.Header>
-                                        {fromAdmin && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOthers) && (
-                                            <button
-                                                className="btn btn-icon btn-active-color-primary btn-sm pr-0"
-                                                onClick={() => handleEdit(faq)}
-                                                style={{ backgroundColor: 'transparent', border: 'none' }}>
-                                                <KTIcon iconName="pencil" className="fs-3" />
-                                            </button>
-                                        )}
-                                        {fromAdmin && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOthers) &&
-                                            <button
-                                                className="btn btn-icon btn-active-color-primary btn-sm pr-0"
-                                                onClick={() => handleDelete(faq)}
-                                                style={{ backgroundColor: 'transparent', border: 'none' }}>
-                                                <KTIcon iconName="trash" className="fs-3" />
-                                            </button>}
-                                        {faq.question}
-                                    </Accordion.Header>
-                                    <Accordion.Body>{faq.answer}</Accordion.Body>
-                                </Accordion.Item>
-                            ))}
-                        </Accordion>
+            <FaqSection title="Loans" badge={faqs.length}>
+                {faqs.length === 0 ? (
+                    <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>No FAQs available for this section.</p>
+                ) : (
+                    faqs.map((faq, index) => (
+                        <FaqItem
+                            key={faq.id || index}
+                            faq={faq}
+                            isLast={index === faqs.length - 1}
+                            onEdit={showAdminActions ? handleEdit : undefined}
+                            onDelete={showAdminActions ? handleDelete : undefined}
+                        />
+                    ))
+                )}
+
+                {fromAdmin && canRead && canCreate && (
+                    <div style={{ marginTop: faqs.length > 0 ? '16px' : '0' }}>
+                        <button
+                            type="button"
+                            onClick={() => handleEdit()}
+                            style={{
+                                background: '#9d4141',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '7px',
+                                padding: '7px 18px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            + Add FAQ
+                        </button>
                     </div>
-                    {hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.readOthers) && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.create) && <div className="d-flex justify-content-start mt-3">
-                        <Button style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }}
-                            onClick={() => handleEdit()}>Add FAQs</Button>
-                    </div>}
-                </Card.Body> 
-                {/* : <h2 className="text-center my-5">Not Allowed</h2>} */}
-            </Card>
+                )}
+            </FaqSection>
 
-            <Modal show={show} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>FAQs</Modal.Title>
+            {/* Add / Edit Modal */}
+            <Modal show={show} onHide={handleClose} centered size="lg">
+                <Modal.Header closeButton style={{ borderBottom: '1px solid #f3f4f6', padding: '20px 24px' }}>
+                    <Modal.Title style={{ fontSize: '16px', fontWeight: 700 }}>
+                        {editMode ? 'Edit FAQ' : 'Add FAQ'}
+                    </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
-                    <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={faqSchema} enableReinitialize>
-                        {(formikProps) => {
-                            return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
-                                    <div className="col-lg">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="Question"
-                                            margin="mb-7"
-                                            formikField="question" />
-                                    </div>
+                <Modal.Body style={{ padding: '24px' }}>
+                    <Formik
+                        initialValues={initialValues}
+                        onSubmit={handleSubmit}
+                        validationSchema={faqSchema}
+                        enableReinitialize
+                    >
+                        {(formikProps) => (
+                            <Form className="d-flex flex-column" style={{ gap: '16px' }} noValidate>
+                                <TextInput isRequired label="Question" margin="mb-0" formikField="question" />
 
-                                    <div className="col-lg">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="Answer"
-                                            margin="mb-7"
-                                            formikField="answer" />
-                                    </div>
+                                <div className="d-flex flex-column fv-row">
+                                    <label className="d-flex align-items-center fs-6 form-label mb-2">
+                                        <span className="required">Answer</span>
+                                    </label>
+                                    <Field
+                                        as="textarea"
+                                        name="answer"
+                                        rows={6}
+                                        placeholder="Enter answer…"
+                                        className="form-control"
+                                        style={{ resize: 'vertical', minHeight: '120px' }}
+                                    />
+                                    <HighlightErrors isRequired formikField="answer" />
+                                </div>
 
-                                    <div className='d-flex justify-content-end'>
-                                        <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid}>
-                                            {!loading && 'Save Changes'}
-                                            {loading && (
-                                                <span className='indicator-progress' style={{ display: 'block' }}>
-                                                    Please wait...{' '}
-                                                    <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                                                </span>
-                                            )}
-                                        </button>
-                                    </div>
-                                </Form>
-                            )
-                        }}
+                                <div className="d-flex justify-content-end gap-2">
+                                    <button type="button" className="btn btn-light" onClick={handleClose}>
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn"
+                                        style={{ background: '#9d4141', color: '#fff', border: 'none' }}
+                                        disabled={loading || !formikProps.isValid || !formikProps.dirty}
+                                    >
+                                        {loading ? (
+                                            <span>
+                                                Please wait…{' '}
+                                                <span className="spinner-border spinner-border-sm align-middle ms-2" />
+                                            </span>
+                                        ) : editMode ? 'Update' : 'Save'}
+                                    </button>
+                                </div>
+                            </Form>
+                        )}
                     </Formik>
                 </Modal.Body>
-            </Modal >
+            </Modal>
         </>
-    )
-}
+    );
+};
 
 export default Faqs;

@@ -1,4 +1,4 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+﻿import MaterialTable from '@app/modules/common/components/MaterialTable';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { InstallmentTypeEnum, LoanType, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -258,7 +258,7 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
                             }, [selectedInstallmentForEdit]);
 
                             return (
-                                <Form className="form" placeholder={''}>
+                                <Form className="form">
                                     {/* Attendance Request Limit */}
                                     {!showSkipForm && <div className="row px-3 my-3">
                                         <div className="col-lg-12 fv-row">

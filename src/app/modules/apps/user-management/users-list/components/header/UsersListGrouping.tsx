@@ -1,4 +1,4 @@
-import {useQueryClient, useMutation} from 'react-query'
+import {useQueryClient, useMutation} from '@tanstack/react-query'
 import {QUERIES} from '../../../../../../../_metronic/helpers'
 import {useListView} from '../../core/ListViewProvider'
 import {useQueryResponse} from '../../core/QueryResponseProvider'
@@ -9,11 +9,10 @@ const UsersListGrouping = () => {
   const queryClient = useQueryClient()
   const {query} = useQueryResponse()
 
-  const deleteSelectedItems = useMutation(() => deleteSelectedUsers(selected), {
-    // 💡 response of the mutation is passed to onSuccess
+  const deleteSelectedItems = useMutation({
+    mutationFn: () => deleteSelectedUsers(selected),
     onSuccess: () => {
-      // ✅ update detail view directly
-      queryClient.invalidateQueries([`${QUERIES.USERS_LIST}-${query}`])
+      queryClient.invalidateQueries({queryKey: [`${QUERIES.USERS_LIST}-${query}`]})
       clearSelected()
     },
   })

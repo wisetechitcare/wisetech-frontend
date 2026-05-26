@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { Button, Card, ListGroup, Modal } from "react-bootstrap";
@@ -282,7 +282,7 @@ function DeductionRules() {
                 className="d-flex flex-column"
                 noValidate
                 id="deduction_rules_form"
-                placeholder={undefined}
+               
               >
                 <div className="row">
                   <div className="col-lg-6">

@@ -94,7 +94,7 @@
           enabled: true,
           easing: "easeinout",
           speed: 800,
-        },
+        } as any,
       },
       plotOptions: {
         bar: {

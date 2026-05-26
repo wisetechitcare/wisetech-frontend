@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Formik, Form as FormikForm, Field } from 'formik';
 import * as Yup from 'yup';
 // import NumberInput from '../inputs/NumberInput'; // Commented out - replaced with fiscal year selector
@@ -218,7 +218,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
       onSubmit={handleSubmit}
     >
       {({ isSubmitting, errors, touched }) => (
-        <FormikForm placeholder="">
+        <FormikForm>
           {isLoading && !isSubmitting && (
             <div className="text-center mb-4">
               <div className="spinner-border text-primary" role="status">

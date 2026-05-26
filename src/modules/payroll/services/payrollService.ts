@@ -8,7 +8,7 @@ export const payrollService = {
    */
   getAllPayrolls: async () => {
     const response = await axios.get(`${API_URL}/payroll`);
-    return response.data;
+    return response.data?.data?.payrolls || [];
   },
 
   /**
@@ -16,7 +16,7 @@ export const payrollService = {
    */
   getPayrollById: async (id: string) => {
     const response = await axios.get(`${API_URL}/payroll/${id}`);
-    return response.data;
+    return response.data?.data?.payroll || null;
   },
 
   /**

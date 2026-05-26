@@ -14,6 +14,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { deleteLead, getAllLeads } from "@services/leads";
+import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DetailsModal from "./DetailsModal";
 import { useNavigate } from "react-router-dom";
@@ -92,25 +93,68 @@ const NavigationButtons: React.FC<{
   onPrev: () => void;
   onNext: () => void;
   displayText: string;
-}> = ({ onPrev, onNext, displayText }) => (
-  <div style={{ display: "flex", alignItems: "center" }}>
-    <button className="btn btn-sm p-0" onClick={onPrev}>
-      <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
+  isMobile?: boolean;
+}> = ({ onPrev, onNext, displayText, isMobile }) => (
+  <div style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: isMobile ? "space-between" : "center",
+    background: "#fff",
+    border: "1px solid #E2E8F0",
+    borderRadius: "6px",
+    height: "32px",
+    padding: "0 8px",
+    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+    gap: "6px",
+    width: isMobile ? "100%" : "auto"
+  }}>
+    <button
+      className="btn btn-sm p-0"
+      onClick={onPrev}
+      style={{
+        width: "24px",
+        height: "24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        borderRadius: "4px"
+      }}
+    >
+      <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" style={{ width: "12px", height: "12px" }} />
     </button>
     <span
       className="mx-2"
       style={{
-        fontSize: "13px",
+        fontSize: "12px",
         fontFamily: "Inter, sans-serif",
-        fontWeight: 500,
-        color: "#444",
+        fontWeight: 600,
+        color: "#1E293B",
         whiteSpace: "nowrap",
+        textAlign: "center",
+        flex: isMobile ? 1 : "none"
       }}
     >
       {displayText}
     </span>
-    <button className="btn btn-sm p-0" onClick={onNext}>
-      <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
+    <button
+      className="btn btn-sm p-0"
+      onClick={onNext}
+      style={{
+        width: "24px",
+        height: "24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        borderRadius: "4px"
+      }}
+    >
+      <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" style={{ width: "12px", height: "12px" }} />
     </button>
   </div>
 );
@@ -159,6 +203,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<DateMode>("monthly");
+  const [searchText, setSearchText] = useState("");
 
   // Daily
   const [day, setDay] = useState<Dayjs>(today);
@@ -321,13 +366,43 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     [yearStart, today],
   );
 
-  const handleAlignmentChange = (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}>,
+  const handleAlignmentChange = async (
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
     newVal: string,
   ) => {
     if (!newVal) return;
-    setAlignment(newVal as DateMode);
+    const mode = newVal as DateMode;
+    setAlignment(mode);
+    localStorage.setItem("leadPeriodPreference", mode);
+    try {
+      await saveLeadPeriodPreference(mode);
+    } catch (err) {
+      console.warn("Failed to save period preference to Redis:", err);
+    }
   };
+
+  useEffect(() => {
+    const loadPreference = async () => {
+      // 1. Try local storage first
+      const localPref = localStorage.getItem("leadPeriodPreference") as DateMode | null;
+      if (localPref) {
+        setAlignment(localPref);
+      }
+
+      // 2. Fetch from redis
+      try {
+        const res = await getLeadPeriodPreference();
+        const redisPref = res?.data?.period as DateMode | null;
+        if (redisPref && ["daily", "weekly", "monthly", "yearly", "allyear", "custom"].includes(redisPref)) {
+          setAlignment(redisPref);
+          localStorage.setItem("leadPeriodPreference", redisPref);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch period preference from Redis, using local storage/default:", err);
+      }
+    };
+    loadPreference();
+  }, []);
 
   // ── Data fetch ───────────────────────────────────────────────────────────────
   const fetchAllData = useCallback(async () => {
@@ -436,9 +511,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             totalCost:
               Array.isArray(lead.commercials) && lead.commercials.length > 0
                 ? lead.commercials.reduce(
-                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                    0,
-                  )
+                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                  0,
+                )
                 : lead.budget || 0,
             client:
               lead?.company?.companyName ||
@@ -485,9 +560,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             cost:
               Array.isArray(lead.commercials) && lead.commercials.length > 0
                 ? lead.commercials.reduce(
-                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                    0,
-                  )
+                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                  0,
+                )
                 : 0,
             companyId: lead.companyId || "",
             branchId: lead.branchId || "",
@@ -497,9 +572,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             budget:
               Array.isArray(lead.commercials) && lead.commercials.length > 0
                 ? lead.commercials.reduce(
-                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                    0,
-                  )
+                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                  0,
+                )
                 : lead.budget || "",
             rate: lead.rate || "",
             leadSource:
@@ -547,12 +622,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Columns ──────────────────────────────────────────────────────────────────
   const columns = [
+
     {
-      accessorKey: "id",
-      header: "ID",
-      size: 80,
-      enableEditing: false,
-      Cell: ({ row }: { row: any }) => row.index + 1,
+      accessorKey: "inquiryDate",
+      header: "Inquiry Date",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) => {
+        const v = cell.getValue();
+        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+      },
     },
     {
       accessorKey: "prefix",
@@ -687,15 +765,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           ?.employeeName || "N/A",
     },
     {
-      accessorKey: "inquiryDate",
-      header: "Inquiry Date",
-      size: 150,
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-      },
-    },
-    {
       accessorKey: "startDate",
       header: "Date",
       size: 150,
@@ -776,39 +845,39 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     ...(hideNewLeadButton
       ? []
       : [
-          {
-            accessorKey: "actions",
-            header: "Actions",
-            size: 120,
-            enableEditing: false,
-            Cell: ({ row }: { row: any }) => (
-              <Box sx={{ display: "flex", gap: "8px" }}>
-                <button
-                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const currLead = rawLeadsData.find(
-                      (l: any) => l.id === row.original.id,
-                    );
-                    setFormValues(mapLeadToFormInitialValues(currLead));
-                    setSelectedLead(row.original);
-                  }}
-                >
-                  <KTIcon iconName="pencil" className="fs-2" />
-                </button>
-                <button
-                  className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteLead(row.original.id);
-                  }}
-                >
-                  <KTIcon iconName="trash" className="fs-2" />
-                </button>
-              </Box>
-            ),
-          },
-        ]),
+        {
+          accessorKey: "actions",
+          header: "Actions",
+          size: 120,
+          enableEditing: false,
+          Cell: ({ row }: { row: any }) => (
+            <Box sx={{ display: "flex", gap: "8px" }}>
+              <button
+                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const currLead = rawLeadsData.find(
+                    (l: any) => l.id === row.original.id,
+                  );
+                  setFormValues(mapLeadToFormInitialValues(currLead));
+                  setSelectedLead(row.original);
+                }}
+              >
+                <KTIcon iconName="pencil" className="fs-2" />
+              </button>
+              <button
+                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteLead(row.original.id);
+                }}
+              >
+                <KTIcon iconName="trash" className="fs-2" />
+              </button>
+            </Box>
+          ),
+        },
+      ]),
   ];
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -951,17 +1020,17 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     } else if (alignment === "weekly") {
       dateMatch = d
         ? !d.isBefore(weekStart.startOf("day")) &&
-          !d.isAfter(weekEnd.endOf("day"))
+        !d.isAfter(weekEnd.endOf("day"))
         : false;
     } else if (alignment === "monthly") {
       dateMatch = d
         ? !d.isBefore(monthStart.startOf("day")) &&
-          !d.isAfter(monthEnd.endOf("day"))
+        !d.isAfter(monthEnd.endOf("day"))
         : false;
     } else if (alignment === "yearly" && yearStart && yearEnd) {
       dateMatch = d
         ? !d.isBefore(yearStart.startOf("day")) &&
-          !d.isAfter(yearEnd.endOf("day"))
+        !d.isAfter(yearEnd.endOf("day"))
         : false;
     } else if (alignment === "allyear") {
       dateMatch = true;
@@ -984,13 +1053,41 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         ? !item.assignedTo
         : item.assignedTo === assignedToFilter
       : true;
-    return dateMatch && statusMatch && assignedMatch;
+
+    let searchMatch = true;
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      const employeeName = allemployees?.find((e: any) => e.employeeId === item.assignedTo)?.employeeName || "";
+      const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
+      const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
+      const subCategoryName = projectSubcategories?.find((s: any) => s.id === item.subCategory)?.name || "";
+      const cityName = item.city || "";
+      const stateName = item.state || "";
+      const countryName = item.country || "";
+
+      searchMatch =
+        String(item.projectName || "").toLowerCase().includes(q) ||
+        String(item.prefix || "").toLowerCase().includes(q) ||
+        String(item.client || "").toLowerCase().includes(q) ||
+        String(item.status?.name || "").toLowerCase().includes(q) ||
+        String(employeeName).toLowerCase().includes(q) ||
+        String(serviceName).toLowerCase().includes(q) ||
+        String(categoryName).toLowerCase().includes(q) ||
+        String(subCategoryName).toLowerCase().includes(q) ||
+        String(cityName).toLowerCase().includes(q) ||
+        String(stateName).toLowerCase().includes(q) ||
+        String(countryName).toLowerCase().includes(q) ||
+        String(item.area || "").toLowerCase().includes(q);
+    }
+
+    return dateMatch && statusMatch && assignedMatch && searchMatch;
   });
 
-  const hasAnyFilter = statusFilter || assignedToFilter;
+  const hasAnyFilter = statusFilter || assignedToFilter || searchText;
   const clearAllFilters = () => {
     setStatusFilter("");
     setAssignedToFilter("");
+    setSearchText("");
   };
 
   // ── Total cost for filtered data ─────────────────────────────────────────────
@@ -1007,88 +1104,23 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   };
 
   // ── Shared heights ─────────────────────────────────────────────────────────
-  const FILTER_HEIGHT = isMobile ? "30px" : "36px";
+  const FILTER_HEIGHT = "32px";
 
-  // ── Toggle group sx ───────────────────────────────────────────────────────────
-  const toggleGroupSx = {
-    display: "flex",
-    flexWrap: "wrap" as const,
-    gap: "8px",
-    "& .MuiToggleButton-root": {
-      borderRadius: "20px",
-      borderColor: "#A0B4D2 !important",
-      color: "#000000 !important",
-      paddingX: { xs: "32px", md: "45px" },
-      borderWidth: "2px",
-      fontWeight: "600",
-      width: { xs: "65px", sm: "75px" },
-      fontSize: { xs: "10px", sm: "12px" },
-      height: { xs: "30px", sm: "36px" },
-      fontFamily: "Inter",
-      textTransform: "uppercase" as const,
-    },
-    "& .Mui-selected": {
-      borderColor: "#9D4141 !important",
-      color: "#9D4141 !important",
-      backgroundColor: "transparent !important",
-    },
-    "& .MuiToggleButton-root:hover": {
-      borderColor: "#9D4141 !important",
-      color: "#9D4141 !important",
-    },
-  };
-
-  // ── Mobile select sx ──────────────────────────────────────────────────────────
-  const mobileSelectSx = {
-    borderRadius: "20px",
-    "& .MuiOutlinedInput-root": { borderRadius: "20px" },
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderRadius: "20px",
-      borderColor: "#A0B4D2",
-      borderWidth: "2px",
-    },
-    "& .Mui-selected": {
-      borderColor: "#9D4141 !important",
-      color: "#9D4141 !important",
-    },
-  };
-
-  // ── Pill select sx for Status & Assigned ──────────────────────────────────────
-  const pillSelectSx = (hasValue: boolean) => ({
-    borderRadius: "20px",
-    fontSize: isMobile ? "10px" : "12px",
-    fontFamily: "Inter",
-    fontWeight: 600,
-    height: FILTER_HEIGHT,
-    color: hasValue ? "#9D4141" : "#000000",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#9D4141 !important" : "#A0B4D2 !important",
-      borderWidth: "2px !important",
-      borderRadius: "20px !important",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#9D4141 !important",
-    },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#9D4141 !important",
-    },
-    "& .MuiSelect-icon": { color: hasValue ? "#9D4141" : "#A0B4D2" },
-  });
-
+  // ── Menu styling for selects ─────────────────────────────────────────────────
   const menuSx = {
     PaperProps: {
       sx: {
-        borderRadius: "12px",
+        borderRadius: "6px",
         mt: 0.5,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
         maxHeight: 320,
         "& .MuiMenuItem-root": {
-          fontSize: "14px",
+          fontSize: "12px",
           fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(157,65,65,0.06)" },
+          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
           "&.Mui-selected": {
-            backgroundColor: "rgba(157,65,65,0.1)",
-            color: "#9D4141",
+            backgroundColor: "rgba(170,57,61,0.1)",
+            color: "#AA393D",
             fontWeight: 600,
           },
         },
@@ -1096,75 +1128,211 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
   };
 
+  // ── Pill select sx for Status & Assigned ──────────────────────────────────────
+  const pillSelectSx = (hasValue: boolean) => ({
+    borderRadius: "6px",
+    fontSize: "12px",
+    fontFamily: "Inter",
+    fontWeight: 500,
+    height: FILTER_HEIGHT,
+    color: hasValue ? "#AA393D" : "#1E293B",
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: hasValue ? "#AA393D !important" : "#E2E8F0 !important",
+      borderWidth: "1px !important",
+      borderRadius: "6px !important",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#AA393D !important",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#AA393D !important",
+    },
+    "& .MuiSelect-icon": { color: hasValue ? "#AA393D" : "#94A3B8" },
+  });
+
   return (
     <>
-      <Box sx={{ p: { xs: 3, md: 5 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
-        {/* --- Top Row: Title & Primary Actions --- */}
-        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-8">
-          <div>
-            <h1 style={{ fontFamily: "Barlow", fontSize: "32px", fontWeight: 700, margin: 0, color: '#1e293b', letterSpacing: '-0.02em' }}>
+      <Box sx={{ p: { xs: 2, md: 3 }, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
+        {/* --- ROW 1: PRIMARY TOOLBAR --- */}
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          marginBottom: '20px',
+          flexWrap: 'wrap'
+        }}>
+          {/* Left: Title & Subtitle */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <h1 style={{ fontFamily: "Barlow", fontSize: "20px", fontWeight: 700, margin: 0, color: '#1E293B', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
               Leads Management
             </h1>
-            <p style={{ color: '#64748b', margin: '4px 0 0 0', fontSize: '15px', fontWeight: 500 }}>
-              Track, manage, and optimize your inquiry pipeline
+            <p style={{ color: '#64748B', margin: 0, fontSize: '12px', fontWeight: 500 }}>
+              Manage and track your inquiries and lead pipeline
             </p>
           </div>
-          
-          {!hideNewLeadButton && (
-            <div className="d-flex align-items-center gap-3">
-              <button 
-                className="btn btn-sm btn-light-primary fw-bold"
-                onClick={() => setShowBulkImport(true)}
-              >
-                Bulk Import
-              </button>
-              <button 
-                className="btn btn-sm btn-primary fw-bold"
-                onClick={() => setFormValues({ leadTemplateId: "blank" })}
-                style={{ backgroundColor: "#9D4141", border: "none" }}
-              >
-                + New Lead
-              </button>
-            </div>
-          )}
+
+          {/* Right Section: KPI summary, Bulk Import, and + New Lead */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            marginLeft: isMobile ? '0' : 'auto',
+            width: isMobile ? '100%' : 'auto',
+            justifyContent: isMobile ? 'space-between' : 'flex-end',
+            marginTop: isMobile ? '8px' : '0'
+          }}>
+            {/* Primary Buttons */}
+            {!hideNewLeadButton && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: isMobile ? '100%' : 'auto'
+              }}>
+                <button
+                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                  onClick={() => setShowBulkImport(true)}
+                  style={{
+                    backgroundColor: "#fff",
+                    color: "#AA393D",
+                    border: "1px solid #E2E8F0",
+                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                    borderRadius: "6px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    height: "32px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    flex: isMobile ? 1 : 'none',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+                  Bulk Import
+                </button>
+                <button
+                  className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+                  onClick={() => setFormValues({ leadTemplateId: "blank" })}
+                  style={{
+                    backgroundColor: "#AA393D",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    height: "32px",
+                    display: 'flex',
+                    alignItems: 'center',
+                    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+                    flex: isMobile ? 1 : 'none',
+                    justifyContent: 'center'
+                  }}
+                >
+                  + New Lead
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        
-       
+
+        {/* Custom missing-date hint for Custom Alignment */}
+        {alignment === "custom" && (!customStartDate || !customEndDate) && (
+          <div className="d-flex justify-content-center my-2">
+            <div
+              className="text-center p-2"
+              style={{
+                background: "#FEF2F2",
+                borderRadius: "6px",
+                border: "1px solid #FEE2E2",
+                maxWidth: 420,
+                width: "100%"
+              }}
+            >
+              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#AA393D", fontSize: "12px", marginBottom: "2px" }}>
+                Custom Date Range
+              </h6>
+              <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
+                Please select both <strong>Start Date</strong> and <strong>End Date</strong> to query custom period.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* --- ROW 2: COMPACT FILTER TOOLBAR --- */}
         {!hideNewLeadButton && (
-          <div style={{ marginTop: "16px", marginBottom: "8px" }}>
-            {/* ── Row 1: toggle (or mobile select) | nav / custom pickers ── */}
-            <div className="d-flex flex-row justify-content-between align-items-center mb-3">
-              {/* LEFT: mobile → Select, desktop → ToggleButtonGroup */}
-              <div className="d-flex flex-column d-md-block">
-                  <Select
-                    value={alignment}
-                    onChange={(e) =>
-                      handleAlignmentChange(e as any, e.target.value)
-                    }
-                    displayEmpty
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      ...mobileSelectSx,
-                      width: { xs: "100%", md: "200px" },
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <MenuItem value="daily">Daily</MenuItem>
-                    <MenuItem value="weekly">Weekly</MenuItem>
-                    <MenuItem value="monthly">Monthly</MenuItem>
-                    <MenuItem value="yearly">Yearly</MenuItem>
-                    <MenuItem value="allyear">All Year</MenuItem>
-                    <MenuItem value="custom">Custom</MenuItem>
-                  </Select>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            marginTop: '8px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              {/* Period Selector Tabs */}
+              <div style={{
+                display: "flex",
+                background: "#F1F5F9",
+                borderRadius: "6px",
+                padding: "2px",
+                gap: "2px",
+                width: isMobile ? "100%" : "fit-content",
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                marginRight: "4px"
+              }}>
+                {["daily", "weekly", "monthly", "yearly", "allyear", "custom"].map((mode) => {
+                  const isActive = alignment === mode;
+                  const labels: Record<string, string> = {
+                    daily: "Daily",
+                    weekly: "Weekly",
+                    monthly: "Monthly",
+                    yearly: "Yearly",
+                    allyear: "All Year",
+                    custom: "Custom"
+                  };
+                  return (
+                    <button
+                      key={mode}
+                      onClick={(e) => handleAlignmentChange(e, mode)}
+                      style={{
+                        background: isActive ? "#ffffff" : "transparent",
+                        color: isActive ? "#AA393D" : "#64748B",
+                        border: "none",
+                        borderRadius: "4px",
+                        padding: "4px 10px",
+                        fontSize: "12px",
+                        fontWeight: isActive ? 600 : 500,
+                        fontFamily: "Inter, sans-serif",
+                        boxShadow: isActive ? "0 1px 2px rgba(16, 24, 40, 0.06)" : "none",
+                        transition: "all 0.2s ease",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        flex: isMobile ? 1 : "none"
+                      }}
+                    >
+                      {labels[mode]}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* RIGHT: nav arrows or custom date pickers */}
+              {/* Date Nav placed next to Period Tabs */}
               {alignment === "daily" && (
                 <NavigationButtons
                   onPrev={() => navigateDay("prev")}
                   onNext={() => navigateDay("next")}
                   displayText={day.format("DD MMM, YYYY")}
+                  isMobile={isMobile}
                 />
               )}
               {alignment === "weekly" && (
@@ -1172,13 +1340,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   onPrev={() => navigateWeek("prev")}
                   onNext={() => navigateWeek("next")}
                   displayText={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
+                  isMobile={isMobile}
                 />
               )}
               {alignment === "monthly" && (
                 <NavigationButtons
                   onPrev={() => navigateMonth("prev")}
                   onNext={() => navigateMonth("next")}
-                  displayText={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
+                  displayText={`${monthStart.format("MMMM YYYY")}`}
+                  isMobile={isMobile}
                 />
               )}
               {alignment === "yearly" && yearStart && yearEnd && (
@@ -1186,81 +1356,66 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   onPrev={() => navigateYear("prev")}
                   onNext={() => navigateYear("next")}
                   displayText={fiscalYearDisplay}
+                  isMobile={isMobile}
                 />
               )}
               {alignment === "custom" && (
-                <div className="d-flex align-items-center gap-4">
+                <div className="d-flex align-items-center gap-2">
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
-                      label="Start Date"
+                      label="Start"
                       value={customStartDate ?? null}
                       onChange={(v) => setCustomStartDate(v ?? undefined)}
                       maxDate={customEndDate}
                       format="DD MMM, YYYY"
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          sx: {
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: "6px",
+                              height: "32px",
+                              fontSize: "11px",
+                              width: "110px"
+                            },
+                            "& .MuiInputLabel-root": {
+                              fontSize: "11px",
+                              top: "-3px"
+                            }
+                          }
+                        }
+                      }}
                     />
                     <DatePicker
-                      label="End Date"
+                      label="End"
                       value={customEndDate ?? null}
                       onChange={(v) => setCustomEndDate(v ?? undefined)}
                       minDate={customStartDate}
                       format="DD MMM, YYYY"
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          sx: {
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: "6px",
+                              height: "32px",
+                              fontSize: "11px",
+                              width: "110px"
+                            },
+                            "& .MuiInputLabel-root": {
+                              fontSize: "11px",
+                              top: "-3px"
+                            }
+                          }
+                        }
+                      }}
                     />
                   </LocalizationProvider>
                 </div>
               )}
-            </div>
 
-            {/* Custom missing-date hint */}
-            {alignment === "custom" && (!customStartDate || !customEndDate) && (
-              <div className="d-flex justify-content-center my-3">
-                <div
-                  className="text-center p-4"
-                  style={{
-                    background: "#f9f0f0",
-                    borderRadius: "12px",
-                    border: "1px solid #f0dada",
-                    maxWidth: 420,
-                  }}
-                >
-                  <h5
-                    style={{
-                      fontFamily: "Inter",
-                      fontWeight: 600,
-                      color: "#9D4141",
-                    }}
-                  >
-                    Custom Date Range
-                  </h5>
-                  <p
-                    className="mb-1"
-                    style={{ fontSize: "13px", color: "#666" }}
-                  >
-                    You've selected custom date range mode.
-                  </p>
-                  <p
-                    className="mb-0"
-                    style={{ fontSize: "13px", color: "#555" }}
-                  >
-                    <strong>Missing:</strong> {!customStartDate && "Start Date"}
-                    {!customStartDate && !customEndDate && " & "}
-                    {!customEndDate && "End Date"}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* ── Row 2: Status | Assigned | spacer | count badge | clear ── */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                flexWrap: "wrap",
-                marginTop: "4px",
-              }}
-            >
-              {/* ── Status dropdown ── */}
-              <FormControl size="small" sx={{ minWidth: isMobile ? 140 : 170 }}>
+              {/* Status Filter */}
+              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -1269,53 +1424,18 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   renderValue={(val) => {
                     if (!val) {
                       return (
-                        <span
-                          style={{
-                            color: "#A0B4D2",
-                            fontFamily: "Inter",
-                            fontSize: isMobile ? "10px" : "12px",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Lead Status
+                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
+                          Select Status
                         </span>
                       );
                     }
                     const st = leadStatuses.find((s: any) => s.name === val);
                     return (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          width: "100%",
-                          overflow: "hidden",
-                        }}
-                      >
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
                         {st?.color && (
-                          <span
-                            style={{
-                              width: 10,
-                              height: 10,
-                              minWidth: 10,
-                              borderRadius: "50%",
-                              backgroundColor: st.color,
-                              display: "inline-block",
-                            }}
-                          />
+                          <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
                         )}
-                        <span
-                          style={{
-                            fontFamily: "Inter",
-                            fontSize: isMobile ? "10px" : "12px",
-                            fontWeight: 600,
-                            color: "#9D4141",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            flex: 1,
-                          }}
-                        >
+                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#AA393D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                           {val}
                         </span>
                         <span
@@ -1324,20 +1444,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                             e.stopPropagation();
                             setStatusFilter("");
                           }}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 16,
-                            height: 16,
-                            minWidth: 16,
-                            borderRadius: "50%",
-                            color: "#9D4141",
-                            fontSize: 10,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            lineHeight: 1,
-                          }}
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#AA393D", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
                         >
                           ✕
                         </span>
@@ -1346,33 +1453,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                   }}
                   MenuProps={menuSx}
                 >
-                  <MenuItem value="" sx={{ color: "#999", fontSize: "13px" }}>
+                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
                     All Statuses
                   </MenuItem>
                   {leadStatuses.map((st: any) => (
-                    <MenuItem
-                      key={st.id}
-                      value={st.name}
-                      sx={{ fontSize: "13px" }}
-                    >
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          width: "100%",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            backgroundColor: st.color,
-                            display: "inline-block",
-                            flexShrink: 0,
-                          }}
-                        />
+                    <MenuItem key={st.id} value={st.name} sx={{ fontSize: "12px" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
                         {st.name}
                       </span>
                     </MenuItem>
@@ -1380,119 +1467,42 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 </Select>
               </FormControl>
 
-              {/* ── Assigned To — Autocomplete pill ── */}
+              {/* Assigned To Autocomplete */}
               <Autocomplete
                 size="small"
                 options={assignedToOptions}
-                getOptionLabel={(emp: any) =>
-                  emp.displayName || emp.employeeName
-                }
-                value={
-                  assignedToOptions.find(
-                    (e: any) => e.employeeId === assignedToFilter,
-                  ) ?? null
-                }
-                onChange={(_: any, emp: any) =>
-                  setAssignedToFilter(emp?.employeeId ?? "")
-                }
-                isOptionEqualToValue={(opt: any, val: any) =>
-                  opt.employeeId === val.employeeId
-                }
+                getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
+                value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
+                onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
+                isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
                 filterOptions={(options, { inputValue }) => {
                   const q = inputValue.toLowerCase();
                   if (!q) return options;
-                  return options.filter((o: any) =>
-                    (o.displayName || o.employeeName || "")
-                      .toLowerCase()
-                      .includes(q),
-                  );
+                  return options.filter((o: any) => (o.displayName || o.employeeName || "").toLowerCase().includes(q));
                 }}
-                sx={{ minWidth: isMobile ? 150 : 200 }}
+                sx={{ minWidth: isMobile ? "100%" : 180 }}
                 clearOnEscape
                 renderOption={(props, emp: any) => (
                   <li {...props} key={emp.employeeId}>
                     {emp.employeeId === "__NA__" ? (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          width: "100%",
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: "50%",
-                            flexShrink: 0,
-                            backgroundColor: "#f0f0f0",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "8px",
-                            color: "#999",
-                            fontWeight: 700,
-                            letterSpacing: "0.02em",
-                          }}
-                        >
+                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+                        <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700 }}>
                           N/A
                         </span>
-                        <span
-                          style={{
-                            fontFamily: "Inter",
-                            fontSize: "13px",
-                            color: "#888",
-                          }}
-                        >
+                        <span style={{ fontFamily: "Inter", fontSize: "12px", color: "#888" }}>
                           N/A — UNASSIGNED
                         </span>
                       </span>
                     ) : (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          width: "100%",
-                        }}
-                      >
+                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
                         <img
-                          src={
-                            emp.avatar ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`
-                          }
-                          alt={emp.employeeName}
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            flexShrink: 0,
-                            filter: emp.isInactive ? "grayscale(60%)" : "none",
-                          }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`;
-                          }}
+                          src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
+                          alt=""
+                          style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
+                          onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
                         />
-                        <span style={{ fontFamily: "Inter", fontSize: "13px" }}>
-                          {emp.isInactive ? (
-                            <>
-                              {emp.employeeName}{" "}
-                              <span
-                                style={{
-                                  fontSize: "11px",
-                                  color: "#999",
-                                  fontWeight: 400,
-                                }}
-                              >
-                                (Inactive)
-                              </span>
-                            </>
-                          ) : (
-                            emp.employeeName
-                          )}
+                        <span style={{ fontFamily: "Inter", fontSize: "12px" }}>
+                          {emp.isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName}
                         </span>
                       </span>
                     )}
@@ -1505,53 +1515,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     InputProps={{
                       ...params.InputProps,
                       startAdornment: assignedToFilter ? (
-                        <InputAdornment
-                          position="start"
-                          sx={{ ml: "4px", mr: 0 }}
-                        >
+                        <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
                           {assignedToFilter === "__NA__" ? (
-                            <span
-                              style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: "50%",
-                                backgroundColor: "#f0f0f0",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "7px",
-                                color: "#999",
-                                fontWeight: 700,
-                                letterSpacing: "0.02em",
-                              }}
-                            >
+                            <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700 }}>
                               N/A
                             </span>
                           ) : (
                             <img
-                              src={
-                                assignedEmployeesFromLeads.find(
-                                  (e: any) => e.employeeId === assignedToFilter,
-                                )?.avatar ||
-                                `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                  assignedEmployeesFromLeads.find(
-                                    (e: any) =>
-                                      e.employeeId === assignedToFilter,
-                                  )?.employeeName || "",
-                                )}&size=24&background=random`
-                              }
+                              src={assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || "")}&size=24&background=random`}
                               alt=""
-                              style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                                filter: assignedEmployeesFromLeads.find(
-                                  (e: any) => e.employeeId === assignedToFilter,
-                                )?.isInactive
-                                  ? "grayscale(60%)"
-                                  : "none",
-                              }}
+                              style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none" }}
                             />
                           )}
                         </InputAdornment>
@@ -1559,40 +1532,40 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
-                        borderRadius: "20px",
+                        borderRadius: "6px",
                         height: FILTER_HEIGHT,
                         fontFamily: "Inter",
-                        fontSize: isMobile ? "10px" : "12px",
-                        fontWeight: 600,
-                        color: assignedToFilter ? "#9D4141" : "#000000",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        color: assignedToFilter ? "#AA393D" : "#1E293B",
                         paddingRight: "8px !important",
                         "& fieldset": {
-                          borderColor: assignedToFilter ? "#9D4141" : "#A0B4D2",
-                          borderWidth: "2px",
-                          borderRadius: "20px",
+                          borderColor: assignedToFilter ? "#AA393D" : "#E2E8F0",
+                          borderWidth: "1px",
+                          borderRadius: "6px",
                         },
-                        "&:hover fieldset": { borderColor: "#9D4141" },
-                        "&.Mui-focused fieldset": { borderColor: "#9D4141" },
+                        "&:hover fieldset": { borderColor: "#AA393D" },
+                        "&.Mui-focused fieldset": { borderColor: "#AA393D" },
                       },
                       "& .MuiOutlinedInput-input": {
                         padding: "0 4px !important",
                         fontFamily: "Inter",
-                        fontSize: isMobile ? "10px" : "12px",
-                        fontWeight: 600,
-                        color: assignedToFilter ? "#9D4141" : "#000000",
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        color: assignedToFilter ? "#AA393D" : "#1E293B",
                         "&::placeholder": {
-                          color: "#A0B4D2",
+                          color: "#94A3B8",
                           opacity: 1,
                           fontFamily: "Inter",
-                          fontSize: isMobile ? "10px" : "12px",
-                          fontWeight: 600,
+                          fontSize: "12px",
+                          fontWeight: 500,
                         },
                       },
                       "& .MuiAutocomplete-endAdornment": {
                         right: "6px",
                         "& .MuiSvgIcon-root": {
-                          color: assignedToFilter ? "#9D4141" : "#A0B4D2",
-                          fontSize: "18px",
+                          color: assignedToFilter ? "#AA393D" : "#94A3B8",
+                          fontSize: "16px",
                         },
                       },
                     }}
@@ -1601,20 +1574,18 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 slotProps={{
                   paper: {
                     sx: {
-                      borderRadius: "12px",
+                      borderRadius: "8px",
                       mt: 0.5,
                       boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                       "& .MuiAutocomplete-listbox": {
                         maxHeight: 280,
                         fontFamily: "Inter",
                         "& .MuiAutocomplete-option": {
-                          fontSize: "13px",
-                          "&:hover": {
-                            backgroundColor: "rgba(157,65,65,0.06)",
-                          },
+                          fontSize: "12px",
+                          "&:hover": { backgroundColor: "rgba(170,57,61,0.06)" },
                           '&[aria-selected="true"]': {
-                            backgroundColor: "rgba(157,65,65,0.1)",
-                            color: "#9D4141",
+                            backgroundColor: "rgba(170,57,61,0.1)",
+                            color: "#AA393D",
                             fontWeight: 600,
                           },
                         },
@@ -1624,124 +1595,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                 }}
               />
 
-              {/* Spacer left */}
-              <div style={{ flex: 1 }} />
 
-              {/* ── Combined Stats Badge: No. of Leads | Total Cost ── */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "stretch",
-                  borderRadius: "22px",
-                  border: "2px solid #9D4141",
-                  overflow: "hidden",
-                  background: "#fff",
-                  boxShadow: "0 2px 8px rgba(157,65,65,0.10)",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                }}
-              >
-                {/* Left segment — No. of Leads */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: isMobile ? "4px 10px" : "5px 16px",
-                    background: "#9D4141",
-                    gap: "1px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "Inter",
-                      fontSize: isMobile ? "9px" : "12px",
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.75)",
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Leads
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "Inter",
-                      fontSize: isMobile ? "13px" : "15px",
-                      fontWeight: 800,
-                      color: "#fff",
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    {quickFilteredData?.length ?? 0}
-                    <span
-                      style={{
-                        fontSize: isMobile ? "10px" : "12px",
-                        fontWeight: 500,
-                        color: "rgba(255,255,255,0.65)",
-                        marginLeft: 2,
-                      }}
-                    >
-                      / {tableData?.length ?? 0}
-                    </span>
-                  </span>
-                </div>
 
-                {/* Divider */}
-                <div
-                  style={{
-                    width: "1.5px",
-                    background: "#9D4141",
-                    opacity: 0.25,
-                    alignSelf: "stretch",
-                  }}
-                />
-
-                {/* Right segment — Total Cost */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: isMobile ? "4px 10px" : "5px 16px",
-                    background:
-                      "linear-gradient(135deg, #fdf2f2 0%, #fce8e8 100%)",
-                    gap: "1px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "Inter",
-                      fontSize: isMobile ? "9px" : "12px",
-                      fontWeight: 600,
-                      color: "#b06060",
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Total Cost
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "Inter",
-                      fontSize: isMobile ? "13px" : "15px",
-                      fontWeight: 800,
-                      color: "#9D4141",
-                      lineHeight: 1.1,
-                      letterSpacing: "0.01em",
-                    }}
-                  >
-                    {formatCost(totalFilteredCost)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Spacer right */}
-              <div style={{ flex: 1 }} />
-
-              {/* Clear all filters */}
+              {/* Clear filters trigger */}
               {hasAnyFilter && (
                 <button
                   onClick={clearAllFilters}
@@ -1749,84 +1605,120 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
                     background: "none",
                     border: "none",
                     cursor: "pointer",
-                    fontSize: "13px",
-                    color: "#9D4141",
-                    fontWeight: 700,
-                    fontFamily: "Inter",
-                    padding: "2px 0",
-                    textDecoration: "underline",
-                    textUnderlineOffset: "2px",
-                    whiteSpace: "nowrap",
+                    fontSize: "12px",
+                    color: "#AA393D",
+                    fontWeight: 600,
+                    fontFamily: "Inter, sans-serif",
+                    padding: "2px 8px",
+                    whiteSpace: "nowrap"
                   }}
                 >
                   ✕ Clear filters
                 </button>
               )}
             </div>
+
+            {/* Right side: KPI summary */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              border: '1px solid #E2E8F0',
+              borderRadius: '6px',
+              padding: '0 12px',
+              background: '#F8FAFC',
+              height: '32px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              width: isMobile ? '100%' : 'auto'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
+                <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
+              </div>
+              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
+                <span style={{ fontSize: '14px', color: '#AA393D', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+                  {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
+                </span>
+              </div>
+            </div>
+
+
           </div>
         )}
-
-        <MaterialTable
-          columns={columns}
-          data={quickFilteredData}
-          tableName="LeadsTablesMain"
-          employeeId={currentEmployeeId}
-          resource="LEADS"
-          viewOwn={true}
-          viewOthers={true}
-          checkOwnWithOthers={true}
-          enableColumnResizing={true}
-          layoutMode="grid"
-          muiTableContainerProps={{
-            sx: { maxHeight: "700px", overflowX: "auto" },
-          }}
-          muiTableProps={{
-            sx: {
-              borderCollapse: "separate",
-              borderSpacing: "0 20px !important",
-            },
-            muiTableBodyRowProps: ({ row }: any) => ({
-              sx: {
-                cursor: "pointer",
-                backgroundColor: `${row.original?.status?.color}20`,
-                transition: "all 0.2s ease",
-                "& .MuiTableCell-root": {
-                  fontSize: "15.5px",
-                  fontFamily: "Inter",
-                  fontWeight: "500",
-                  padding: "16px 20px !important",
-                  border: "none",
-                  color: "#333",
-                },
-                "& .MuiTableCell-root:first-of-type": {
-                  borderTopLeftRadius: "12px",
-                  borderBottomLeftRadius: "12px",
-                },
-                "& .MuiTableCell-root:last-of-type": {
-                  borderTopRightRadius: "12px",
-                  borderBottomRightRadius: "12px",
-                },
-                "&:hover": {
-                  backgroundColor: `${row.original?.status?.color}40`,
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                },
-              },
-              onClick: () =>
-                navigate(`/employee/lead/${row.original.id}`, {
-                  state: { leadData: row.original.id },
-                }),
-            }),
-          }}
-        />
-
-        <DetailsModal
-          open={isModalOpen}
-          onClose={handleCloseModal}
-          Datas={templateData}
-        />
       </Box>
 
+      <MaterialTable
+        columns={columns}
+        data={quickFilteredData}
+        tableName="LeadsTablesMain"
+        employeeId={currentEmployeeId}
+        resource="LEADS"
+        viewOwn={true}
+        viewOthers={true}
+        checkOwnWithOthers={true}
+        enableColumnResizing={true}
+        layoutMode="semantic"
+        muiTableContainerProps={{
+          sx: { maxHeight: "700px", overflowX: "auto" },
+        }}
+        muiTableProps={{
+          sx: {
+            borderCollapse: "separate",
+            borderSpacing: "0 4px !important",
+            minWidth: "1600px",
+          },
+          muiTableBodyRowProps: ({ row }: any) => ({
+            sx: {
+              cursor: "pointer",
+              backgroundColor: `${row.original?.status?.color}20`,
+              transition: "all 0.2s ease",
+              "& .MuiTableCell-root": {
+                fontSize: "15.5px",
+                fontFamily: "Inter",
+                fontWeight: "500",
+                padding: "4px 8px !important",
+                border: "none",
+                color: "#333",
+                whiteSpace: "nowrap",
+              },
+              "& .MuiTableCell-root:first-of-type": {
+                borderTopLeftRadius: "12px",
+                borderBottomLeftRadius: "12px",
+                borderLeft: "3px solid transparent !important",
+                transition: "border-color 0.2s ease-in-out !important",
+              },
+              "& .MuiTableCell-root:last-of-type": {
+                borderTopRightRadius: "12px",
+                borderBottomRightRadius: "12px",
+              },
+              "&:hover": {
+                backgroundColor: "#F8FAFC !important",
+                transform: "translateY(-2px)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                "& .MuiTableCell-root": {
+                  backgroundColor: "#F8FAFC !important",
+                },
+                "& .MuiTableCell-root:first-of-type": {
+                  borderLeftColor: `${row.original?.status?.color || "#AA393D"} !important`,
+                },
+              },
+            },
+            onClick: () =>
+              navigate(`/employee/lead/${row.original.id}`, {
+                state: { leadData: row.original.id },
+              }),
+          }),
+        }}
+      />
+
+      <DetailsModal
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        Datas={templateData}
+      />
       {formValues && (
         <LeadFormModal
           key={formValues?.id || "new-lead-modal"}

@@ -1,4 +1,4 @@
-import TextInput from '@app/modules/common/inputs/TextInput';
+﻿import TextInput from '@app/modules/common/inputs/TextInput';
 import React, { useEffect, useState } from 'react'
 import { useFormik, Field, FormikProvider, Formik, Form, ErrorMessage } from "formik";
 import { Container, Row } from 'react-bootstrap';
@@ -169,7 +169,7 @@ function GeneralSettings() {
                 }, [allowedDistanceFromOffice]);
                 // }, [attendanceRequestLimitCount, allowedDistanceFromOffice]);
                 return (
-                    <Form className="form" placeholder={''}>
+                    <Form className="form">
                         {/* Attendance Request Limit */}
                         {/* <div className="row  px-3">
                             <div className="col-lg-12 fv-row">

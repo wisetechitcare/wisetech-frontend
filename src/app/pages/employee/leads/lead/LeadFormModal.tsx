@@ -65,6 +65,7 @@ import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import {
   createLead,
+  getAllLeads,
   getLeadById,
   updateLead,
   exportLeadDocx,
@@ -326,6 +327,13 @@ const LeadFormModal = ({
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [existingLeads, setExistingLeads] = useState<any[]>([]);
+
+  useEffect(() => {
+    getAllLeads()
+      .then((res) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || []))
+      .catch(() => {});
+  }, []);
 
   const handleExport = async (type: "docx" | "pdf", values: any) => {
     if (!values.id) return;
@@ -808,40 +816,33 @@ const LeadFormModal = ({
           numberOfPages: "",
         }),
 
-        // Additional fields for mep / blank type
-        ...((leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.mep?.toString() ||
-          leadTemplateId?.toString() ===
-            leadAndProjectTemplateTypeId.newLead?.toString()) && {
-          projectAreas: [
-            {
-              label: "",
-              projectArea: "",
-              costType: "",
-              rate: "",
-              cost: "",
-            },
-          ],
-          addresses: [
-            {
-              projectAddress: initialData.projectAddress || "",
-              zipCode: initialData.zipCode || "",
-              mapLocation: initialData.mapLocation || "",
-              latitude: initialData.latitude || "",
-              longitude: initialData.longitude || "",
-              country: initialData.country || "",
-              state: initialData.state || "",
-              city: initialData.city || "",
-              locality: initialData.locality || "",
-              googleMapLink: initialData.googleMapLink || "",
-              googleMyBusinessLink: initialData.googleMyBusinessLink || "",
-              isDefault: initialData.isDefault || false,
-            },
-          ],
-          poNumber: "",
-          poDate: "",
-          useCalculatedAmount: true,
-        }),
+        // Always include addresses for all forms
+        addresses: [
+          {
+            projectAddress: initialData.projectAddress || "",
+            zipCode: initialData.zipCode || "",
+            mapLocation: initialData.mapLocation || "",
+            latitude: initialData.latitude || "",
+            longitude: initialData.longitude || "",
+            country: initialData.country || "",
+            state: initialData.state || "",
+            city: initialData.city || "",
+            locality: initialData.locality || "",
+            googleMapLink: initialData.googleMapLink || "",
+            googleMyBusinessLink: initialData.googleMyBusinessLink || "",
+            isDefault: initialData.isDefault || false,
+          },
+        ],
+        projectAreas: [
+          {
+            label: "",
+            projectArea: "",
+            costType: "",
+            rate: "",
+            cost: "",
+          },
+        ],
+        useCalculatedAmount: true,
 
         // status: 'new',
         budget: "",
@@ -1188,59 +1189,49 @@ const LeadFormModal = ({
         numberOfPages: additionalDetailsArray[0]?.numberOfPages || "",
       }),
 
-      // Additional fields for mep / blank type
-      ...((leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.mep?.toString() ||
-        leadTemplateId?.toString() ===
-          leadAndProjectTemplateTypeId.newLead?.toString()) && {
-        projectAreas:
-          projectAreas.length > 0
-            ? projectAreas
-            : [
-                {
-                  label: "",
-                  projectArea: "",
-                  costType: "",
-                  rate: "",
-                  cost: "",
-                },
-              ],
-        addresses:
-          addresses.length > 0
-            ? addresses
-            : [
-                {
-                  projectAddress: "",
-                  zipCode: "",
-                  mapLocation: "",
-                  latitude: "",
-                  longitude: "",
-                  country: "",
-                  state: "",
-                  city: "",
-                  locality: "",
-                  googleMapLink: "",
-                  googleMyBusinessLink: "",
-                  isDefault: false,
-                },
-              ],
-        poNumber: additionalDetailsArray[0]?.poNumber || "",
-        poDate: additionalDetailsArray[0]?.poDate
-          ? new Date(additionalDetailsArray[0].poDate)
-              .toISOString()
-              .split("T")[0]
-          : "",
-        useCalculatedAmount: true,
-      }),
+      // Always include addresses for all forms
+      addresses:
+        addresses.length > 0
+          ? addresses
+          : [
+              {
+                projectAddress: "",
+                zipCode: "",
+                mapLocation: "",
+                latitude: "",
+                longitude: "",
+                country: "",
+                state: "",
+                city: "",
+                locality: "",
+                googleMapLink: "",
+                googleMyBusinessLink: "",
+                isDefault: false,
+              },
+            ],
+      projectAreas:
+        projectAreas.length > 0
+          ? projectAreas
+          : [
+              {
+                label: "",
+                projectArea: "",
+                costType: "",
+                rate: "",
+                cost: "",
+              },
+            ],
+      poNumber: additionalDetailsArray[0]?.poNumber || "",
+      poDate: additionalDetailsArray[0]?.poDate
+        ? new Date(additionalDetailsArray[0].poDate)
+            .toISOString()
+            .split("T")[0]
+        : "",
+      useCalculatedAmount: true,
 
       ...initialFormData,
-      // PO fields: always use fresh data from currLeadData (API) — overrides stale initialFormData
-      poNumber:
-        additionalDetailsArray[0]?.poNumber || initialFormData?.poNumber || "",
-      poDate: additionalDetailsArray[0]?.poDate
-        ? new Date(additionalDetailsArray[0].poDate).toISOString().split("T")[0]
-        : initialFormData?.poDate || "",
-      poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
+
+      poStatus:leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
     };
   };
@@ -1371,35 +1362,30 @@ const LeadFormModal = ({
       .of(Yup.string().uuid("Invalid subcategory ID"))
       .optional(),
     // All other fields are optional
-    ...((leadTemplateId?.toString() ===
-      leadAndProjectTemplateTypeId.mep?.toString() ||
-      leadTemplateId?.toString() ===
-        leadAndProjectTemplateTypeId.newLead?.toString()) && {
-      projectAreas: Yup.array().of(
-        Yup.object().shape({
-          label: Yup.string().optional(), // Label is optional
-          projectArea: Yup.string(),
-          costType: Yup.string(),
-          rate: Yup.string(),
-          cost: Yup.string(),
-        }),
-      ),
-      addresses: Yup.array().of(
-        Yup.object().shape({
-          // projectAddress: Yup.string().required("Address is required"),
-          projectAddress: Yup.string(),
-          country: Yup.string(),
-          state: Yup.string(),
-          city: Yup.string(),
-          zipCode: Yup.string(),
-          locality: Yup.string(),
-          googleMapLink: Yup.string(),
-          googleMyBusinessLink: Yup.string(),
-          latitude: Yup.string(),
-          longitude: Yup.string(),
-        }),
-      ),
-    }),
+    addresses: Yup.array().of(
+      Yup.object().shape({
+        // projectAddress: Yup.string().required("Address is required"),
+        projectAddress: Yup.string(),
+        country: Yup.string(),
+        state: Yup.string(),
+        city: Yup.string(),
+        zipCode: Yup.string(),
+        locality: Yup.string(),
+        googleMapLink: Yup.string(),
+        googleMyBusinessLink: Yup.string(),
+        latitude: Yup.string(),
+        longitude: Yup.string(),
+      }),
+    ),
+    projectAreas: Yup.array().of(
+      Yup.object().shape({
+        label: Yup.string().optional(), // Label is optional
+        projectArea: Yup.string(),
+        costType: Yup.string(),
+        rate: Yup.string(),
+        cost: Yup.string(),
+      }),
+    ),
   });
 
   // fetching all the details:
@@ -2167,9 +2153,7 @@ const LeadFormModal = ({
         isEditMode &&
         currLeadData &&
         countries.length > 0 &&
-        formikRef.current &&
-        (leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-          leadTemplateId === leadAndProjectTemplateTypeId.newLead)
+        formikRef.current
       ) {
         // Get the address data from additionalDetails
         const additionalDetails = currLeadData.additionalDetails;
@@ -2345,10 +2329,8 @@ const LeadFormModal = ({
       return;
     }
     const additionalDetailsFields = [
-      ...((leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-      leadTemplateId === leadAndProjectTemplateTypeId.newLead)
-        ? ["projectArea", "addresses"]
-        : ["type", "numberOfPages"]),
+      "projectArea", "addresses",
+      ...((leadTemplateId === leadAndProjectTemplateTypeId.webDev) ? ["type", "numberOfPages"] : [])
     ];
 
     const selectedCountryData = countries.find(
@@ -2725,6 +2707,17 @@ const LeadFormModal = ({
       finalCleanPayload.prefix = prefix.trim();
     }
 
+    // Case-insensitive duplicate lead name check — excludes the lead currently being edited
+    const newLeadName = (formData.projectName || "").trim().toLowerCase();
+    const duplicateLead = existingLeads.find(
+      (l: any) => (l.title || "").trim().toLowerCase() === newLeadName &&
+        l.id !== (isEditMode ? initialFormData?.id : null)
+    );
+    if (duplicateLead) {
+      errorConfirmation("A lead with this name already exists.");
+      return;
+    }
+
     try {
       if (isEditMode) {
         finalCleanPayload.id = initialFormData.id;
@@ -2897,8 +2890,6 @@ const LeadFormModal = ({
 
                 useEffect(() => {
                   if (
-                    (leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-                      leadTemplateId === leadAndProjectTemplateTypeId.newLead) &&
                     useCalculatedAmount
                   ) {
                     const cost =
@@ -2995,7 +2986,7 @@ const LeadFormModal = ({
                 }, [values.statusId, leadStatuses]);
 
                 return (
-                  <FormikForm placeholder={""}>
+                  <FormikForm>
                     {/* Project Details Section */}
                     <Box sx={{ mb: 4 }}>
                       {/* Lead Details Section */}
@@ -3126,12 +3117,210 @@ const LeadFormModal = ({
                           </Grid>
 
                           {/* Row 1: Lead Inquiry Date, Assigned To, Lead Source */}
-                          <Grid item xs={12} md={15}>
+                          <Grid item xs={12} md={12}>
                             <TextInput
                               formikField="projectName"
                               label="Lead Name"
                               isRequired={true}
                             />
+                          </Grid>
+
+                          {/* Team Details Section (Multiple Companies support) */}
+                          <Grid item xs={12}>
+                            <fieldset
+                              style={{
+                                borderTop: "1px solid #9D4141",
+                                padding: "clamp(14px, 2vw, 15px)",
+                              }}
+                              className="mt-7"
+                            >
+                              <legend
+                                style={{
+                                  fontSize: "17px",
+                                  fontWeight: 600,
+                                  fontFamily: "Inter",
+                                  marginTop: "-25px",
+                                  marginLeft: "-17px",
+                                  backgroundColor: "#F3F4F7",
+                                  width: "auto",
+                                  lineHeight: "1",
+                                  letterSpacing: 0,
+                                  color: "#9D4141",
+                                  padding: "2px 2px 8px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px"
+                                }}
+                              >
+                                <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                                TEAM DETAILS
+                              </legend>
+
+                              <FieldArray name="leadTeams">
+                                {({ push, remove }) => (
+                                  <>
+                                    {values.leadTeams && values.leadTeams.map(
+                                      (team: any, index: any) => {
+                                        const selectedCompanyId = values.leadTeams[index]?.companyId;
+                                        const selectedCompany = companies.find((comp: any) => comp.id === selectedCompanyId);
+
+                                        const filteredSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
+                                          ? selectedCompany.subCompanies
+                                          : [];
+
+                                        const filteredContacts = selectedCompanyId
+                                          ? contacts.filter((contact: any) =>
+                                              contact.companyId === selectedCompanyId
+                                            )
+                                          : contacts;
+
+                                        return (
+                                          <div
+                                            key={index}
+                                            className="card-body card responsive-card p-md-10 p-3 mb-3"
+                                            style={{ position: 'relative' }}
+                                          >
+                                            <Row>
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.companyTypeId`}
+                                                  inputLabel="Company Type"
+                                                  options={allCompanyTypes.map((type: any) => ({
+                                                    value: type.id,
+                                                    label: type.name,
+                                                  }))}
+                                                  isRequired={false}
+                                                  onChange={(option: any) => {
+                                                    setFieldValue(`leadTeams.${index}.companyTypeId`, option?.value || "");
+                                                    setFieldValue(`leadTeams.${index}.companyId`, "");
+                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, "");
+                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                  }}
+                                                />
+                                                <div
+                                                  onClick={() => setShowCompanyTypeModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Company Type
+                                                </div>
+                                              </Col>
+
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.companyId`}
+                                                  inputLabel="Company"
+                                                  options={(team.companyTypeId 
+                                                    ? companies.filter((c: any) => c.companyTypeId === team.companyTypeId)
+                                                    : companies
+                                                  ).map((company: any) => ({
+                                                    value: company.id,
+                                                    label: company.companyName,
+                                                  }))}
+                                                  isRequired={false}
+                                                  onChange={(option: any) => {
+                                                    setFieldValue(`leadTeams.${index}.companyId`, option?.value || "");
+                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, "");
+                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
+                                                  }}
+                                                />
+                                                <div
+                                                  onClick={() => setShowCompanyModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Company
+                                                </div>
+                                              </Col>
+
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.subCompanyId`}
+                                                  inputLabel="Sub Company"
+                                                  options={filteredSubCompanies.map((subCompany: any) => ({
+                                                    value: subCompany.id,
+                                                    label: subCompany.subCompanyName,
+                                                  }))}
+                                                  isRequired={false}
+                                                />
+                                                <div
+                                                  onClick={() => setShowSubCompanyModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Sub Company
+                                                </div>
+                                              </Col>
+
+                                              <Col md={3}>
+                                                <DropDownInput
+                                                  formikField={`leadTeams.${index}.contactId`}
+                                                  inputLabel="Contact Person"
+                                                  options={filteredContacts.map((contact: any) => ({
+                                                    value: contact.id,
+                                                    label: contact.fullName,
+                                                    avatar: contact.profilePhoto
+                                                  }))}
+                                                  showColor={true}
+                                                  isRequired={false}
+                                                />
+                                                <div
+                                                  onClick={() => setShowContactModal(true)}
+                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
+                                                  className="ms-2 mt-1"
+                                                >
+                                                  + New Contact
+                                                </div>
+                                              </Col>
+                                            </Row>
+
+                                            {values.leadTeams.length > 1 && (
+                                              <div
+                                                onClick={() => remove(index)}
+                                                style={{
+                                                  cursor: "pointer",
+                                                  color: "#9D4141",
+                                                  fontSize: "20px",
+                                                  position: "absolute",
+                                                  right: "15px",
+                                                  top: "5px",
+                                                }}
+                                              >
+                                                ×
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                    )}
+
+                                    <div
+                                      onClick={() =>
+                                        push({
+                                          id: Date.now().toString(),
+                                          companyTypeId: "",
+                                          companyId: "",
+                                          subCompanyId: "",
+                                          contactId: "",
+                                        })
+                                      }
+                                      style={{
+                                        cursor: "pointer",
+                                        color: "#9D4141",
+                                        border: "1px dotted #9D4141",
+                                        borderRadius: "5px",
+                                        padding: "8px 10px",
+                                        textAlign: "center",
+                                        marginTop: "10px",
+                                      }}
+                                      className="justify-content-center align-items-center"
+                                    >
+                                      + Add More Companies
+                                    </div>
+                                  </>
+                                )}
+                              </FieldArray>
+                            </fieldset>
                           </Grid>
 
                           {/* <Grid item xs={12} md={6}>
@@ -4503,8 +4692,7 @@ const LeadFormModal = ({
                         </Grid>
                       </fieldset>
 
-                      {(leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-                        leadTemplateId === leadAndProjectTemplateTypeId.newLead) && (
+                      {true && (
                         <fieldset
                           style={{
                             borderTop: "1px solid #9D4141",
@@ -4949,8 +5137,7 @@ const LeadFormModal = ({
                       )}
 
                       {/* Address Details Section */}
-                      {(leadTemplateId === leadAndProjectTemplateTypeId.mep ||
-                        leadTemplateId === leadAndProjectTemplateTypeId.newLead) && (
+                      {true && (
                         <>
                           <fieldset
                             style={{
@@ -5287,7 +5474,7 @@ const LeadFormModal = ({
                                         formikField="addresses.0.latitude"
                                         label="Latitude"
                                         isRequired={false}
-                                        inputValidation="decimal"
+                                        inputValidation="signed-decimal"
                                       />
                                     </Col>
                                     <Col md={3}>
@@ -5295,7 +5482,7 @@ const LeadFormModal = ({
                                         formikField="addresses.0.longitude"
                                         label="Longitude"
                                         isRequired={false}
-                                        inputValidation="decimal"
+                                        inputValidation="signed-decimal"
                                       />
                                     </Col>
                                     <div

@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { RootState } from "@redux/store";
+import { usePermission } from "@hooks/usePermission";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import { Link } from "react-router-dom";
 import { formatNumber, getCompletionAmountOfLoanByLoanIdAndEndDate } from "@utils/statistics";
@@ -27,7 +28,7 @@ interface MyComponentProps {
 
 const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOwn }) => {
   const loans = useSelector((state: RootState) => state.loan.personalLoans);
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  const isAdmin = usePermission('finance.view.all');
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   // 1. Filter only fully disbursed loans

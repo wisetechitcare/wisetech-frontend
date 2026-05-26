@@ -1,9 +1,22 @@
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { fetchConfiguration } from "@services/company";
-import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
+import {
+  ENFORCE_ONSITE_DEADLINE_KEY,
+  GRACE_TIME_ON_SITE_KEY,
+  LEAVE_MANAGEMENT,
+} from "@constants/configurations-key";
+import { isOnsiteDeadlineEnforced } from "@utils/attendanceColorUtils";
 
 dayjs.extend(duration);
+
+function parseOnsiteClockThreshold(graceRaw: string): string {
+  const trimmed = String(graceRaw ?? "").trim().split(/\s+/)[0] ?? "11:00";
+  const parts = trimmed.split(":").map(Number);
+  const hour = Number.isFinite(parts[0]) ? parts[0] : 11;
+  const minute = Number.isFinite(parts[1]) ? parts[1] : 0;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:59`;
+}
 
 // Helper function to calculate thresholds for a specific grace time
 const calculateThresholds = (checkInTime: string, checkOutTime: string, graceTimeRaw: string) => {
@@ -34,37 +47,38 @@ export const getGraceBasedThresholds = async (attendance: any[] = []) => {
 
     const checkInTime = settings["Check-in time"]; // "9:30 AM"
     const checkOutTime = settings["Check-out time"]; // "5:30 PM"
-    const defaultGraceTime = settings["Grace Time"] || "00:30:00 Hrs"; // For Office/Hybrid employees
-    const graceTimeOnSite = settings["Grace Time - On Site"] || "00:10:00 Hrs"; // For On-site employees
-
-    // console.log("checkInTime:: ",checkInTime);
-    // console.log("checkOutTime:: ",checkOutTime);
-    // console.log("defaultGraceTime:: ",defaultGraceTime);
-    // console.log("graceTimeOnSite:: ",graceTimeOnSite);
+    const defaultGraceTime = settings["Grace Time"] || "00:30:00 Hrs";
+    const graceTimeOnSite = settings[GRACE_TIME_ON_SITE_KEY] || "11:00";
+    const enforceOnsite = isOnsiteDeadlineEnforced(settings);
 
     const defaultThresholds = calculateThresholds(checkInTime, checkOutTime, defaultGraceTime);
-    const onSiteThresholds = calculateThresholds(checkInTime, checkOutTime, graceTimeOnSite);
+    const onSiteLateThreshold = enforceOnsite
+      ? parseOnsiteClockThreshold(graceTimeOnSite)
+      : "23:59:59";
+    const onSiteThresholds = {
+      lateCheckInThreshold: onSiteLateThreshold,
+      earlyCheckOutThreshold: defaultThresholds.earlyCheckOutThreshold,
+    };
 
     const processedAttendance = attendance.map(employee => {
-      
       let employeeThresholds;
       let appliedGraceType;
-      
+
       if (employee.workingMethod === "On-site") {
         employeeThresholds = onSiteThresholds;
-        appliedGraceType = "On-site Grace";
-        // console.log(`Using on-site grace for ${employee.name}: ${graceTimeOnSite}`);
+        appliedGraceType = enforceOnsite
+          ? "On-site Deadline"
+          : "On-site (no enforcement)";
       } else {
         employeeThresholds = defaultThresholds;
-        appliedGraceType = "Default Grace";
-        // console.log(`Using default grace for ${employee.name} (${employee.workingMethod}): ${defaultGraceTime}`);
+        appliedGraceType = "Office Grace";
       }
 
       return {
         ...employee,
         lateCheckInThreshold: employeeThresholds.lateCheckInThreshold,
         earlyCheckOutThreshold: employeeThresholds.earlyCheckOutThreshold,
-        appliedGraceType: appliedGraceType
+        appliedGraceType,
       };
     });
 

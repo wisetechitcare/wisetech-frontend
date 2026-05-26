@@ -1,4 +1,5 @@
-import {useQuery} from 'react-query'
+import {useQuery} from '@tanstack/react-query'
+import {useEffect} from 'react'
 import {UserEditModalForm} from './UserEditModalForm'
 import {isNotEmpty, QUERIES} from '../../../../../../_metronic/helpers'
 import {useListView} from '../core/ListViewProvider'
@@ -11,20 +12,19 @@ const UserEditModalFormWrapper = () => {
     isLoading,
     data: user,
     error,
-  } = useQuery(
-    `${QUERIES.USERS_LIST}-user-${itemIdForUpdate}`,
-    () => {
-      return getUserById(itemIdForUpdate)
-    },
-    {
-      cacheTime: 0,
-      enabled: enabledQuery,
-      onError: (err) => {
-        setItemIdForUpdate(undefined)
-        console.error(err)
-      },
+  } = useQuery({
+    queryKey: [`${QUERIES.USERS_LIST}-user-${itemIdForUpdate}`],
+    queryFn: () => getUserById(itemIdForUpdate),
+    gcTime: 0,
+    enabled: enabledQuery,
+  })
+
+  useEffect(() => {
+    if (error) {
+      setItemIdForUpdate(undefined)
+      console.error(error)
     }
-  )
+  }, [error])
 
   if (!itemIdForUpdate) {
     return <UserEditModalForm isUserLoading={isLoading} user={{id: undefined}} />

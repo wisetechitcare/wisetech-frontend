@@ -176,9 +176,8 @@ const ClientContactsMain = ({
       {
         accessorKey: "companyName",
         header: "Company Name",
-        Cell: ({ row }) => {
-          const { companyId, subCompanyId } = row.original;
-
+        accessorFn: (row: any) => {
+          const { companyId, subCompanyId } = row;
           let companyName = companyMap.get(companyId);
 
           if (!companyName && subCompanyId) {
@@ -188,18 +187,15 @@ const ClientContactsMain = ({
               companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
             }
           }
-
           return companyName || "NA";
         },
+        Cell: ({ cell }) => cell.getValue<string>(),
       },
       {
         accessorKey: "branch",
         header: "Branch",
-        Cell: ({ row }) => {
-          const { branch } = row.original;
-          const branchName = branchMap.get(branch);
-          return branchName || "NA";
-        },
+        accessorFn: (row: any) => branchMap.get(row.branch) || "NA",
+        Cell: ({ cell }) => cell.getValue<string>(),
       },
       {
         accessorKey: "roleInCompany",
@@ -453,7 +449,6 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         show={newContactModal}
         onClose={() => setNewContactModal(false)}
         contactId={null}
-        key="add-new"
         initialData={undefined}
       />
     </div>

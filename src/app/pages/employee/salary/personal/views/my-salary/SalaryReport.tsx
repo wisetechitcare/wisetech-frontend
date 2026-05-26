@@ -1,4 +1,4 @@
-import TextInput from '@app/modules/common/inputs/TextInput';
+﻿import TextInput from '@app/modules/common/inputs/TextInput';
 import { CUSTOM_SALARY, DEDUCTIONS, GROSS_PAY, LEAVE_MANAGEMENT, SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import { HOLIDAYS, LATE_CHECKIN, MONTH, ON_LEAVE, Status, YEAR, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -168,10 +168,10 @@ const DeductionPanel = ({
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
                         <div className="fw-bold" style={{ color: '#AA393D' }}>
-                            Total Salary After Variable Deductions (B)
+                            Total Salary After Attendance Adjustments(B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
-                            (A − Variable Deductions)
+                            (Total variable deductions)
                         </div>
                     </div>
                     <div
@@ -253,7 +253,7 @@ const DeductionPanel = ({
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
                         <div className="fw-bold" style={{ color: '#AA393D' }}>
-                            Total Salary After Variable Deductions (B)
+                            Total Salary After Attendance Adjustments (B)
                         </div>
                         <div className="text-muted" style={{ fontSize: 11 }}>
                             (Total Earnings − Total Government Deductions)
@@ -316,7 +316,7 @@ const NetAmountPayable = ({
                     <div>
                         <div className="fw-bold fs-5" style={{ color: '#008C7C' }}>Net Amount Payable</div>
                         <div className="text-muted" style={{ fontSize: 12 }}>
-                            (Total Salary After Variable Deductions − Fixed Deductions)
+                            (Total Salary After Attendance Adjustments - other deductions)
                         </div>
                     </div>
                 </div>
@@ -2751,7 +2751,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                     <Formik initialValues={paymentInitialState} onSubmit={handlePaymentSubmit} validationSchema={paymentSchema}>
                         {(formikProps) => {
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="col-lg" >
                                         <TextInput
                                             isRequired={true}
@@ -2800,7 +2800,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                     <Formik initialValues={initialState} onSubmit={handleSubmit} validationSchema={grossPayDeductionsSchema}>
                         {(formikProps) => {
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <Modal.Title className='mb-6'>
                                         Gross Pay
                                     </Modal.Title>
@@ -2903,7 +2903,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 const allFields = [...existingFields, ...dynamicFields];
 
                                 return (
-                                    <Form className='d-flex flex-column' noValidate placeholder={undefined}>
+                                    <Form className='d-flex flex-column' noValidate>
                                         {/* Add New Field Button */}
                                         <div className="d-flex justify-content-between align-items-center mb-4">
                                             <h6 className="mb-0">Gross Distribution Fields</h6>

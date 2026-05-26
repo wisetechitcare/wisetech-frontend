@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react'
+﻿import {useEffect, useRef, useState} from 'react'
 import {KTIcon} from '../../../../_metronic/helpers'
 import {Step1} from './steps/Step1'
 import {Step2} from './steps/Step2'
@@ -207,7 +207,7 @@ const Vertical = () => {
           <div className='d-flex flex-row-fluid flex-center bg-body rounded'>
             <Formik validationSchema={currentSchema} initialValues={initValues} onSubmit={submitStep}>
               {() => (
-                <Form className='py-20 w-100 w-xl-700px px-9' noValidate id='kt_create_account_form' placeholder={undefined}>
+                <Form className='py-20 w-100 w-xl-700px px-9' noValidate id='kt_create_account_form'>
                   <div className='current' data-kt-stepper-element='content'>
                     <Step1 />
                   </div>

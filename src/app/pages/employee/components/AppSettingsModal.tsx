@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
@@ -133,7 +133,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                     enableReinitialize
                 >
                     {() => (
-                        <FormikForm placeholder={""}>
+                        <FormikForm>
                             <Modal.Body style={{ paddingTop: "16px" }}>
                                 {error && <div className="alert alert-danger mb-3">{error}</div>}
 

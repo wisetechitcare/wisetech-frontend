@@ -1,7 +1,7 @@
 import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
-function FamilyInfo({ index, formikProps }: any) {
+function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
   const element = `familyInfo[${index}]`;
 
   return (
@@ -20,9 +20,18 @@ function FamilyInfo({ index, formikProps }: any) {
         >
           Relative {index + 1}
         </p>
-        <div style={{ width: "20px", height: "20px", cursor: "pointer" }}>
-          {/* Add delete icon here if needed */}
-        </div>
+        {canRemove ? (
+          <button
+            type="button"
+            className="btn btn-sm btn-icon btn-light-danger"
+            aria-label={`Remove relative ${index + 1}`}
+            onClick={onRemove}
+          >
+            X
+          </button>
+        ) : (
+          <div style={{ width: "20px", height: "20px" }} />
+        )}
       </div>
 
       <div className="d-flex flex-column gap-4">

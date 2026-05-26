@@ -5,7 +5,8 @@ export const AUTH = {
     LOGOUT: "api/auth/logout",
     RESET_PASSWORD: "api/auth/resetPassword/:resetToken",
     CHANGE_PASSWORD: "api/auth/changePassword",
-    FORGOT_PASSWORD: "api/auth/forgotPassword"
+    FORGOT_PASSWORD: "api/auth/forgotPassword",
+    CAPABILITIES: "api/auth/capabilities",
 }
 
 export const USERS = {
@@ -16,6 +17,8 @@ export const USERS = {
     GET_ALL_USERS: "api/users",
     SAVE_USER_TABLE_PREFERENCES: '/api/users/table-preferences',
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
+    SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
+    GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
 }
 
 export const COMPANY = {
@@ -105,6 +108,8 @@ export const EMPLOYEE = {
     CREATE_EDUCATIONAL_DETAILS: "api/employee/educational-details",
     GET_EDUCATIONAL_DETAILS: "api/employee/educational-details?employeeId=",
     UPDATE_EDUCATIONAL_DETAILS_BY_ID: "api/employee/educational-details",
+    GET_QUALIFICATION_MASTER: "api/employee/qualification-master",
+    CREATE_QUALIFICATION_MASTER: "api/employee/qualification-master",
     CREATE_REJOIN_HISTORY: "api/employee/rejoin-history",
     FETCH_REJOIN_HISTORY: "api/employee/rejoin-history?employeeId=",
     UPDATE_REJOIN_HISTORY_BY_ID: "api/employee/rejoin-history",
@@ -169,10 +174,10 @@ export const EMPLOYEE = {
     GET_PAID_SALARY_RECORDS: "api/company/salary/records",
     GET_Total_salary_By_Year: "api/company/get-total-salaryByYear",
     GET_TOTAL_MONTHLY_SALARY: "api/company/get-total-monthly-salary",
-    CREATE_TODOS: "api/employee/todo",
-    UPDATE_TODOS: "api/employee/todo",
-    GET_TODOS: "api/employee/todo",
-    DELETE_TODOS: "api/employee/todo",
+    CREATE_TODOS: "api/employee/todos",
+    UPDATE_TODOS: "api/employee/todos",
+    GET_TODOS: "api/employee/todos",
+    DELETE_TODOS: "api/employee/todos",
     CREATE_MEETINGS: "api/employee/meetings",
     GET_MEETINGS: "api/employee/meetings",
     UPDATE_MEETING: "/api/employee/meetings",
@@ -310,6 +315,8 @@ export const ROLES = {
     CREATE_PERMISSION_FOR_ROLE: "api/roles/:id/permissions",
     UPDATE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
+    ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
+    REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
 }
 
 export const DAY_WISE_SHIFT = {

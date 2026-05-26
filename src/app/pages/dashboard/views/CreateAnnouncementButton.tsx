@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useEffect, useState } from "react";
 import { createAnnouncement, getAllAnnouncements } from "@services/company";
 import { RootState, store } from "@redux/store";
@@ -149,7 +149,7 @@ function CreateAnnouncementButton({
                 className="d-flex flex-column"
                 noValidate
                 id="employee_reimbursement_form"
-                placeholder={undefined}
+               
               >
                 <div className="row d-flex flex-direction-column">
                   <label className="col-lg-4 col-form-label fs-6 small">

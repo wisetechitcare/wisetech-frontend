@@ -1,4 +1,5 @@
 import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { Attendance } from "@models/employee";
 import { Employee } from "@redux/slices/employee";
@@ -14,6 +15,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
+import { isCheckOutMissing } from "@app/modules/common/components/attendanceDurationUtils";
+import "./OverviewStatsGrid.css";
 
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
 
@@ -195,12 +198,33 @@ const CustomModal: React.FC<CustomModalProps> = ({
     );
 };
 
-type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
+type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | null;
+
+type StatCardAccent =
+    | 'working'
+    | 'leave'
+    | 'late'
+    | 'checkout-missing'
+    | 'early'
+    | 'extra'
+    | 'absent';
+
+type StatCardConfig = {
+    type: Exclude<ModalType, null>;
+    stat: string;
+    label: string;
+    accent: StatCardAccent;
+    img?: string;
+    iconClass?: string;
+    iconBg?: string;
+    iconColor?: string;
+};
 
 interface EmployeeWithAttendance {
     _id: string;
     firstName: string;
     lastName: string;
+    employeeCode?: string;
     designation?: string;
     avatar?: string | null;  // Changed from profileImage to avatar to match Employee interface
     isActive?: boolean;  // Added to filter inactive employees
@@ -221,6 +245,7 @@ interface OverviewProps {
 }
 
 function Overview({ date }: OverviewProps) {
+    const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -406,7 +431,11 @@ function Overview({ date }: OverviewProps) {
     // undefined which silently makes on-leave employees appear as absent.
     // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
     const absentCount = Math.max(0, (totalEmployee || 0) - (employesLeaveDatas?.length || 0) - (employeePresent || 0));
-    // console.log("lateCheckInsCount ====================================>",lateCheckInsCount, lateEarlyCheckInOut ,extraDays,absentCount)
+
+    const hasCheckInNoCheckOut = (att: Attendance) =>
+        Boolean(att.checkIn) && isCheckOutMissing(att.checkOut);
+
+    const checkoutMissingCount = attendance.filter(hasCheckInNoCheckOut).length;
 
     const handleCardClick = (type: ModalType) => {
         // console.log('Opening modal: ======================>', type, {
@@ -431,6 +460,7 @@ function Overview({ date }: OverviewProps) {
             case 'late': return 'Late Check-ins';
             case 'early': return 'Early Check-outs';
             case 'absent': return 'Absent Employees';
+            case 'checkoutMissing': return 'Employees with Missing Check-out';
             default: return '';
         }
     };
@@ -805,6 +835,138 @@ function Overview({ date }: OverviewProps) {
 
                     break;
 
+                case 'checkoutMissing': {
+                    const checkoutMissingEmployees = allEmployees
+                        .filter(emp => {
+                            const empAttendance = attendance.find(a => a.employeeId === emp._id);
+                            return empAttendance && hasCheckInNoCheckOut(empAttendance);
+                        })
+                        .map(emp => ({
+                            ...emp,
+                            attendance: attendance.find(a => a.employeeId === emp._id),
+                        }));
+
+                    const filtered = filterEmployeesBySearch(checkoutMissingEmployees);
+                    const sorted = sortEmployees(filtered);
+
+                    if (!sorted.length) {
+                        return (
+                            <div className="p-3 text-muted">
+                                {searchQuery.trim()
+                                    ? `No employees found matching "${searchQuery}"`
+                                    : 'No employees with missing check-out'}
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle">
+                                <thead className="table-light">
+                                    <tr>
+                                        <th>Employee Code</th>
+                                        <th>Name</th>
+                                        <th>Check-in Time</th>
+                                        <th>Working Method</th>
+                                        <th>Location</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sorted.map(emp => {
+                                        const att = emp.attendance;
+                                        const workingMethod = att?.workingMethod?.type || '—';
+                                        const wmKey = workingMethod
+                                            ?.replace(/\s/g, '')
+                                            ?.replace(/-/g, '')
+                                            ?.replace(/_/g, '')
+                                            ?.toLowerCase();
+                                        const wmColor =
+                                            workingMethod === 'Office'
+                                                ? workingLocationColors?.officeColor
+                                                : workingMethod === 'Hybrid'
+                                                  ? workingLocationColors?.remoteColor
+                                                  : wmKey?.includes('onsite')
+                                                    ? workingLocationColors?.onSiteColor
+                                                    : '#6c757d';
+
+                                        return (
+                                            <tr key={emp._id}>
+                                                <td>{emp.employeeCode || '—'}</td>
+                                                <td>
+                                                    <div className="d-flex align-items-center">
+                                                        <Image
+                                                            src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                                                            roundedCircle
+                                                            width="36"
+                                                            height="36"
+                                                            className="me-2"
+                                                            alt={`${emp.firstName} ${emp.lastName}`}
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                                            }}
+                                                        />
+                                                        <span className="fw-semibold">
+                                                            {emp.firstName} {emp.lastName}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {att?.checkIn
+                                                        ? dayjs(att.checkIn).format('h:mm A')
+                                                        : '—'}
+                                                </td>
+                                                <td>
+                                                    <span style={{ color: wmColor, fontWeight: 600 }}>
+                                                        {workingMethod}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {att?.checkInLocation ? (
+                                                        att.latitude && att.longitude ? (
+                                                            <OverlayTrigger
+                                                                placement="top"
+                                                                overlay={
+                                                                    <Tooltip id={`loc-${emp._id}`}>
+                                                                        {att.checkInLocation}
+                                                                    </Tooltip>
+                                                                }
+                                                            >
+                                                                <a
+                                                                    href={`https://www.google.com/maps?q=${att.latitude},${att.longitude}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="d-inline-flex align-items-center"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <img
+                                                                        src={locationIcon}
+                                                                        alt="location"
+                                                                        style={{ width: 20, height: 20 }}
+                                                                    />
+                                                                    <span className="ms-1 text-truncate" style={{ maxWidth: 180 }}>
+                                                                        {att.checkInLocation}
+                                                                    </span>
+                                                                </a>
+                                                            </OverlayTrigger>
+                                                        ) : (
+                                                            <span className="text-truncate d-inline-block" style={{ maxWidth: 220 }}>
+                                                                {att.checkInLocation}
+                                                            </span>
+                                                        )
+                                                    ) : (
+                                                        '—'
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    );
+                }
+
                 default:
                     return <div className="p-3 text-muted">No data available</div>;
             }
@@ -1047,6 +1209,7 @@ function Overview({ date }: OverviewProps) {
                     firstName: emp.users?.firstName || 'Unknown',
                     lastName: emp.users?.lastName || 'Employee',
                     designation: emp.designations?.role || 'No designation',
+                    employeeCode: emp.employeeCode || '',
                     avatar: emp.avatar || null,
                     isActive: emp.isActive ?? true,  // Default to true if not specified
                 }));
@@ -1060,8 +1223,11 @@ function Overview({ date }: OverviewProps) {
 
                     // Filter only active employees for state
                     const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
+                    const visibleEmployees = filterIds
+                        ? activeEmployees.filter((emp: any) => filterIds.includes(emp._id))
+                        : activeEmployees;
 
-                    setAllEmployees(activeEmployees);
+                    setAllEmployees(visibleEmployees);
                     setEmployeesOnLeave(employeesOnLeave);
                     setEmployesLeaveDatas(employesLeaveData);
                     setAttendance(allAttendance);
@@ -1126,13 +1292,22 @@ function Overview({ date }: OverviewProps) {
         fetchTimeConfiguration();
     }, []);
 
-    const cardsData = [
-        { type: 'working' as const, img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working employees' },
-        { type: 'leave' as const, img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
-        { type: 'late' as const, img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
-        { type: 'early' as const, img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early check-out' },
-        { type: 'extra' as const, img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
-        { type: 'absent' as const, img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
+    const cardsData: StatCardConfig[] = [
+        { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },
+        { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
+        { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
+        {
+            type: 'checkoutMissing',
+            accent: 'checkout-missing',
+            iconClass: 'bi bi-person-exclamation',
+            iconBg: '#FFF4E6',
+            iconColor: '#F59E0B',
+            stat: `${checkoutMissingCount}`,
+            label: 'Check-out Missing',
+        },
+        { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
+        { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
     ];
 
     // if (isLoading) {
@@ -1152,32 +1327,40 @@ function Overview({ date }: OverviewProps) {
             </Alert>
         );
     }
-    // console.log("employesLeaveDatas==================>>>>>>", employesLeaveDatas)
+    const renderStatCard = (card: StatCardConfig) => (
+        <Card
+            key={card.type}
+            className={`overview-stat-card overview-stat-card--${card.accent}`}
+            onClick={() => handleCardClick(card.type)}
+        >
+            <Card.Body>
+                <div className="overview-stat-card-content">
+                    <div className="overview-stat-card-metric">
+                        {card.iconClass ? (
+                            <span
+                                className="overview-stat-card-icon"
+                                style={{ backgroundColor: card.iconBg, color: card.iconColor }}
+                            >
+                                <i className={card.iconClass} style={{ fontSize: '1.25rem' }} />
+                            </span>
+                        ) : (
+                            <span className="overview-stat-card-icon">
+                                <img src={card.img} alt={card.label} />
+                            </span>
+                        )}
+                        <span className="overview-stat-card-value">{card.stat || 0}</span>
+                    </div>
+                    <p className="overview-stat-card-label">{card.label}</p>
+                </div>
+            </Card.Body>
+        </Card>
+    );
+
     return (
         <>
-            <Row className="g-4 mt-3">
-                {cardsData.map((card, index) => (
-                    <Col md={4} key={index}>
-                        <Card
-                            className="text-center border-0 shadow-sm p-1"
-                            style={{ borderRadius: '10px', height: '100%', cursor: 'pointer' }}
-                            onClick={() => handleCardClick(card.type)}
-                        >
-                            <Card.Body>
-                                <div className="d-flex align-items-center justify-content-start mb-2">
-                                    <span className='fs-4 text-gray-800 fw-bold' style={{ marginRight: '8px' }}>
-                                        <img src={card.img} alt={card.label} />
-                                    </span>
-                                    <span className="fs-4 fw-bold" style={{ color: '#1a1a1a' }}>{card.stat || 0}</span>
-                                </div>
-                                <Card.Text className="fw-semibold text-muted" style={{ fontSize: '1rem', color: '#1a1a1a', textAlign: 'start' }}>
-                                    {card.label}
-                                </Card.Text>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                ))}
-            </Row>
+            <div className="overview-stats-container mt-3">
+                {cardsData.map(renderStatCard)}
+            </div>
 
             <CustomModal
                 show={showModal !== null}

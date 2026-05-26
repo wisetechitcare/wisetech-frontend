@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { mapStyles } from "../../../../companies/companyOverview/components/mapTheme";
 import "leaflet/dist/leaflet.css";
 
 // leaflet icon paths
@@ -55,7 +56,10 @@ function GoogleMaps(): JSX.Element {
   }, []);
 
   return (
-    <div className="leaflet-map-container" style={{ width: '100%', height: '100%', minHeight: '400px' }}>
+    <div className="leaflet-map-container" style={{ width: '100%', height: '100%', minHeight: '400px', position: 'relative' }}>
+      <style>{`
+        ${mapStyles}
+      `}</style>
       {isValidPosition ? (
         <MapContainer
           center={defaultCenter as [number, number]}
@@ -80,6 +84,19 @@ function GoogleMaps(): JSX.Element {
             position={[position.latitude, position.longitude]}
             eventHandlers={{ click: handleMarkerClick }}
           >
+            <Tooltip
+              permanent
+              direction="top"
+              offset={[0, -10]}
+              className="google-style-label"
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <span style={{ fontWeight: 700 }}>My Location</span>
+                <span style={{ fontSize: "11px", color: "#666" }}>
+                  {currentAddress && currentAddress.length > 35 ? `${currentAddress.substring(0, 35)}...` : currentAddress || "Current Location"}
+                </span>
+              </div>
+            </Tooltip>
             {infoWindowShown && (
               <Popup
                 eventHandlers={{ remove: () => setInfoWindowShown(false) }}

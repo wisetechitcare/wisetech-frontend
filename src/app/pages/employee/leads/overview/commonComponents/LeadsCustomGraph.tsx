@@ -1,4 +1,4 @@
-import { FilterDropdown } from "@pages/employee/projects/commonComponents/FilterDropdown";
+﻿import { FilterDropdown } from "@pages/employee/projects/commonComponents/FilterDropdown";
 import React, { useMemo, useState } from "react";
 import ReactApexChart from "react-apexcharts";
 import Chart from "react-apexcharts";
@@ -321,7 +321,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
         width: 12,
         height: 12,
         radius: 6,
-      },
+      } as any,
       itemMargin: {
         horizontal: 10,
         vertical: 5

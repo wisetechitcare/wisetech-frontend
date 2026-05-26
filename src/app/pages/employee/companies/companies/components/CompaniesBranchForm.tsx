@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Modal, Button, Spinner } from "react-bootstrap";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
@@ -347,7 +347,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
             key={editingBranchId || "new"} // Force re-render when editing different branch
           >
             {({ setFieldValue, values, isSubmitting, handleSubmit }) => (
-              <FormikForm onSubmit={handleSubmit} placeholder="">
+              <FormikForm onSubmit={handleSubmit}>
                 <Modal.Header>
                   <Typography
                     variant="h6"
@@ -686,7 +686,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               formikField="latitude"
                               label="Latitude"
                               isRequired={false}
-                              inputValidation="decimal"
+                              inputValidation="signed-decimal"
                             />
                           </div>
                           <div className="col-md-3">
@@ -694,7 +694,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                               formikField="longitude"
                               label="Longitude"
                               isRequired={false}
-                              inputValidation="decimal"
+                              inputValidation="signed-decimal"
                             />
                           </div>
                         </div>

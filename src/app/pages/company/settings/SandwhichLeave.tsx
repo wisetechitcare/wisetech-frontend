@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Formik, Form } from "formik";
 import {
   createNewConfiguration,
@@ -208,7 +208,7 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
     <div className="container mt-4 mb-7" style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', fontFamily: 'Inter' }}>
       <Formik enableReinitialize initialValues={initialValues} onSubmit={handleSubmit}>
         {({ values, handleChange, isSubmitting }) => (
-          <Form placeholder={''}>
+          <Form>
             {/* Date Settings - Commented out as it's now in OtherSettings component */}
             {/* <div className="d-flex justify-content-between align-items-md-center align-items-start mb-8 pt-3 flex-column flex-sm-row gap-5">
               <h5 className="mb-0" style={{ fontWeight: '600', fontSize:'18px' }}>Date Settings <br />
