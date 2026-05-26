@@ -331,7 +331,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       setBranches(branchesData?.leadBranches || []);
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
       const contactsData = await getAllClientContacts();
-      setExistingContacts(contactsData?.data?.clients || []);
+      setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
     } catch (error) {
       console.error("Error loading initial data:", error);
