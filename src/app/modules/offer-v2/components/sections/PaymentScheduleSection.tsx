@@ -4,9 +4,10 @@ import { Notebook, IndianRupee, PieChart } from 'lucide-react';
 interface PaymentScheduleSectionProps {
   id?: string;
   content?: any;
+  savedHtml?: string;
 }
 
-export const PaymentScheduleSection: React.FC<PaymentScheduleSectionProps> = ({ id, content }) => {
+export const PaymentScheduleSection: React.FC<PaymentScheduleSectionProps> = ({ id, content, savedHtml }) => {
   const title = content?.title || 'REMUNERATION & SCHEDULE OF PAYMENT';
   const intro = content?.intro || 'Fee towards Gross Built-up area \u2026';
   const highlights = content?.highlights || [];
@@ -21,8 +22,9 @@ export const PaymentScheduleSection: React.FC<PaymentScheduleSectionProps> = ({ 
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
 
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-
+      <div data-section-id="payment-schedule" style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '30px', gap: '15px' }}>
           <Notebook size={40} color="#c81010" strokeWidth={1.5} />
           <div>
@@ -111,7 +113,8 @@ export const PaymentScheduleSection: React.FC<PaymentScheduleSectionProps> = ({ 
             ))}
           </ul>
         </div>
-
+        </>
+        )}
       </div>
 
     </div>

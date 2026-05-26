@@ -4,12 +4,13 @@ import { Bold, Italic, Underline, List, ListOrdered, FileDown, AlignLeft, AlignC
 interface ToolbarProps {
   onExportPdf: () => void;
   onReset: () => Promise<void>;
+  onSaveProposal?: () => Promise<void>;
   isSyncing?: boolean;
   onBack?: () => void;
   templateName?: string;
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({ onExportPdf, onReset, isSyncing, onBack, templateName }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({ onExportPdf, onReset, onSaveProposal, isSyncing, onBack, templateName }) => {
   const handleFormat = (command: string, value?: string) => {
     document.execCommand(command, false, value);
   };
@@ -106,6 +107,27 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onExportPdf, onReset, isSyncin
             }}
           >
             Sync Data
+          </button>
+        )}
+        {onSaveProposal && (
+          <button
+            onClick={onSaveProposal}
+            disabled={isSyncing}
+            style={{
+              background: '#198754',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: isSyncing ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              opacity: isSyncing ? 0.7 : 1
+            }}
+          >
+            {isSyncing ? 'Saving...' : 'Save Proposal'}
           </button>
         )}
         <button

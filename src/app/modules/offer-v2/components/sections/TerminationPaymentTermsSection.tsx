@@ -4,9 +4,10 @@ import { XCircle, CreditCard } from 'lucide-react';
 interface TerminationPaymentTermsSectionProps {
   id?: string;
   content?: any;
+  savedHtml?: string;
 }
 
-export const TerminationPaymentTermsSection: React.FC<TerminationPaymentTermsSectionProps> = ({ id, content }) => {
+export const TerminationPaymentTermsSection: React.FC<TerminationPaymentTermsSectionProps> = ({ id, content, savedHtml }) => {
   const items = content?.items || [];
   const closing = content?.closing || {};
 
@@ -19,8 +20,9 @@ export const TerminationPaymentTermsSection: React.FC<TerminationPaymentTermsSec
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
       
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-        
+      <div data-section-id="termination-terms" style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         {items.map((item: any, index: number) => {
           const isTerminate = item.title?.toLowerCase().includes('terminate');
           
@@ -95,7 +97,8 @@ export const TerminationPaymentTermsSection: React.FC<TerminationPaymentTermsSec
             </div>
           )}
         </div>
-
+        </>
+        )}
       </div>
 
     </div>

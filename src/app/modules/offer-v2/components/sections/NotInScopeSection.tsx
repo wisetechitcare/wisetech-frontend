@@ -4,9 +4,10 @@ import { AlertTriangle } from 'lucide-react';
 interface NotInScopeSectionProps {
   id?: string;
   content?: any;
+  savedHtml?: string;
 }
 
-export const NotInScopeSection: React.FC<NotInScopeSectionProps> = ({ id, content }) => {
+export const NotInScopeSection: React.FC<NotInScopeSectionProps> = ({ id, content, savedHtml }) => {
   const title = content?.title || 'Not including in our scope of work';
   const intro = content?.intro || 'The following shall not be part of our scope of work:';
   const categories = content?.categories || [];
@@ -15,8 +16,9 @@ export const NotInScopeSection: React.FC<NotInScopeSectionProps> = ({ id, conten
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
       
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '12px', lineHeight: '1.4', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-        
+      <div data-section-id="not-in-scope" style={{ flex: 1, fontSize: '12px', lineHeight: '1.4', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingLeft: '34px', pageBreakInside: 'avoid' }}>
           <AlertTriangle size={24} color="#c81010" strokeWidth={2} />
           <div style={{ color: '#c81010', fontWeight: 'bold', fontSize: '14px', textDecoration: 'underline' }}>{title}</div>
@@ -55,7 +57,8 @@ export const NotInScopeSection: React.FC<NotInScopeSectionProps> = ({ id, conten
             ))}
           </ol>
         </div>
-
+        </>
+        )}
       </div>
 
     </div>

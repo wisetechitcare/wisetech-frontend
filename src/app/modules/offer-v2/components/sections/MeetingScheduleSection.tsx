@@ -4,9 +4,10 @@ import { Presentation } from 'lucide-react';
 interface MeetingScheduleSectionProps {
   id?: string;
   content?: any;
+  savedHtml?: string;
 }
 
-export const MeetingScheduleSection: React.FC<MeetingScheduleSectionProps> = ({ id, content }) => {
+export const MeetingScheduleSection: React.FC<MeetingScheduleSectionProps> = ({ id, content, savedHtml }) => {
   const title = content?.title || 'Meeting Schedule';
   const intro = content?.intro || 'Please find below the on-site meeting schedule for the project.';
   const tables = content?.tables || [];
@@ -15,8 +16,9 @@ export const MeetingScheduleSection: React.FC<MeetingScheduleSectionProps> = ({ 
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
       
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-        
+      <div data-section-id="meeting-schedule" style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingLeft: '34px', pageBreakInside: 'avoid' }}>
           <Presentation size={24} color="#c81010" strokeWidth={2} />
           <div style={{ color: '#c81010', fontWeight: 'bold', fontSize: '14px', textDecoration: 'underline' }}>{title}</div>
@@ -88,7 +90,8 @@ export const MeetingScheduleSection: React.FC<MeetingScheduleSectionProps> = ({ 
             );
           })}
         </div>
-
+        </>
+        )}
       </div>
 
     </div>

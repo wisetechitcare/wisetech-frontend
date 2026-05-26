@@ -7,12 +7,15 @@ interface CoverSectionProps {
   offer: OfferData;
   onUpdate: (field: keyof OfferData, value: string) => void;
   content?: any;
+  savedHtml?: string;
 }
 
-export const CoverSection: React.FC<CoverSectionProps> = ({ id, offer, onUpdate, content }) => {
+export const CoverSection: React.FC<CoverSectionProps> = ({ id, offer, onUpdate, content, savedHtml }) => {
   return (
     <div id={id} style={{ display: 'flex', flexDirection: 'column', minHeight: '1000px', position: 'relative' }}>
-
+      <div data-section-id="cover-page" style={{ flex: 1, display: 'flex', flexDirection: 'column' }} dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
       {/* Absolute positioned geometric shapes for top right */}
       <div style={{ position: 'absolute', top: 0, right: -40, width: '250px', height: '250px', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-20px', right: '40px', width: '120px', height: '120px', backgroundColor: '#1c345c', transform: 'rotate(45deg)' }} />
@@ -83,6 +86,9 @@ export const CoverSection: React.FC<CoverSectionProps> = ({ id, offer, onUpdate,
 
           </div>
         </div>
+      </div>
+      </>
+      )}
       </div>
     </div>
   );

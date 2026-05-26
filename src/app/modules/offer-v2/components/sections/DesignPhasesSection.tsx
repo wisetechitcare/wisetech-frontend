@@ -4,9 +4,10 @@ import { Calendar, Pencil, PenTool, ClipboardList } from 'lucide-react';
 interface DesignPhasesSectionProps {
   id?: string;
   content?: any;
+  savedHtml?: string;
 }
 
-export const DesignPhasesSection: React.FC<DesignPhasesSectionProps> = ({ id, content }) => {
+export const DesignPhasesSection: React.FC<DesignPhasesSectionProps> = ({ id, content, savedHtml }) => {
   const title = content?.title || 'PHASES OF DESIGN AND TIME SCHEDULE';
   const intro = content?.intro || 'Design and Engineering work will be carried out by\nWISETECH MEP CONSULTANTS PVT LTD in the following stages:';
   const phases = content?.phases || [];
@@ -25,8 +26,9 @@ export const DesignPhasesSection: React.FC<DesignPhasesSectionProps> = ({ id, co
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
 
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-
+      <div data-section-id="design-phases" style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '40px', gap: '15px' }}>
           <Calendar size={40} color="#c81010" strokeWidth={1.5} />
           <div>
@@ -87,7 +89,8 @@ export const DesignPhasesSection: React.FC<DesignPhasesSectionProps> = ({ id, co
             </div>
           </div>
         ))}
-
+        </>
+        )}
       </div>
 
     </div>

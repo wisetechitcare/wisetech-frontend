@@ -5,15 +5,17 @@ interface GeneralTermsSectionProps {
   id?: string;
   offer: any;
   content?: any;
+  savedHtml?: string;
 }
 
-export const GeneralTermsSection: React.FC<GeneralTermsSectionProps> = ({ id, offer, content }) => {
+export const GeneralTermsSection: React.FC<GeneralTermsSectionProps> = ({ id, offer, content, savedHtml }) => {
   return (
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
       
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-        
+      <div data-section-id="general-terms" style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '40px', gap: '15px' }}>
           <Notebook size={40} color="#c81010" strokeWidth={1.5} />
           <div>
@@ -69,7 +71,8 @@ export const GeneralTermsSection: React.FC<GeneralTermsSectionProps> = ({ id, of
             )}
           </div>
         </div>
-
+        </>
+        )}
       </div>
 
     </div>

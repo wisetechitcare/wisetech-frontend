@@ -6,9 +6,10 @@ interface ScopeOfWorkSectionProps {
   id?: string;
   offer: OfferData;
   content?: any;
+  savedHtml?: string;
 }
 
-export const ScopeOfWorkSection: React.FC<ScopeOfWorkSectionProps> = ({ id, offer, content }) => {
+export const ScopeOfWorkSection: React.FC<ScopeOfWorkSectionProps> = ({ id, offer, content, savedHtml }) => {
   const getIcon = (categoryId: string) => {
     switch (categoryId) {
       case 'electrical': return <Zap size={24} color="#c81010" strokeWidth={2} />;
@@ -30,8 +31,9 @@ export const ScopeOfWorkSection: React.FC<ScopeOfWorkSectionProps> = ({ id, offe
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
 
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
-
+      <div data-section-id="scope-of-work" style={{ flex: 1, fontSize: '13px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '40px', gap: '15px' }}>
           <BookOpen size={40} color="#c81010" strokeWidth={1.5} />
           <div>
@@ -71,7 +73,8 @@ export const ScopeOfWorkSection: React.FC<ScopeOfWorkSectionProps> = ({ id, offe
             </div>
           </div>
         ))}
-
+        </>
+        )}
       </div>
 
     </div>

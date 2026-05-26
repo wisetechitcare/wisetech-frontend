@@ -5,9 +5,10 @@ interface CoverLetterSectionProps {
   id?: string;
   offer: OfferData;
   content?: any;
+  savedHtml?: string;
 }
 
-export const CoverLetterSection: React.FC<CoverLetterSectionProps> = ({ id, offer, content }) => {
+export const CoverLetterSection: React.FC<CoverLetterSectionProps> = ({ id, offer, content, savedHtml }) => {
   const replacePlaceholders = (text: string) => {
     if (!text) return '';
     return text
@@ -39,7 +40,9 @@ export const CoverLetterSection: React.FC<CoverLetterSectionProps> = ({ id, offe
     <div id={id} style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', paddingBottom: '40px' }}>
 
       {/* Content */}
-      <div style={{ flex: 1, fontSize: '14px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning>
+      <div data-section-id="cover-letter" style={{ flex: 1, fontSize: '14px', lineHeight: '1.6', outline: 'none', whiteSpace: 'pre-wrap' }} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={savedHtml ? { __html: savedHtml } : undefined}>
+        {!savedHtml && (
+          <>
 
         <div style={{ fontWeight: 'bold', marginBottom: '20px' }}>
           <div>M/s. <span>{offer.companyName}</span></div>
@@ -108,7 +111,8 @@ export const CoverLetterSection: React.FC<CoverLetterSectionProps> = ({ id, offe
             </div>
           ))}
         </div>
-
+        </>
+        )}
       </div>
 
     </div>

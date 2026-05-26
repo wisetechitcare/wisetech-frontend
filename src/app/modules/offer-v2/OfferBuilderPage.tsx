@@ -105,6 +105,34 @@ export const OfferBuilderPage: React.FC = () => {
     }
   };
 
+  const handleSaveToCloud = async () => {
+    try {
+      setIsSyncing(true);
+      const sectionsHtmlJson: any = {};
+      document.querySelectorAll('[data-section-id]').forEach(el => {
+        const sectionId = el.getAttribute('data-section-id');
+        if (sectionId) {
+          sectionsHtmlJson[sectionId] = el.innerHTML;
+        }
+      });
+      
+      console.log('Would save to DB:', {
+        leadId,
+        offerData: offer,
+        sectionsHtmlJson,
+        templateSnapshot: templateData
+      });
+      
+      alert('Proposal saved successfully! (Backend bypassed per instructions)');
+      
+    } catch (err) {
+      console.error('Failed to save proposal:', err);
+      alert('Failed to save proposal.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const currentTemplateName = React.useMemo(() => {
     if (!offer?.proposalTemplateId) return '';
     const found = LOCAL_TEMPLATES.find(t => t.id === offer.proposalTemplateId);
@@ -121,6 +149,7 @@ export const OfferBuilderPage: React.FC = () => {
       <Toolbar
         onExportPdf={handleExportPdf}
         onReset={handleSyncData}
+        onSaveProposal={handleSaveToCloud}
         isSyncing={isSyncing}
         onBack={() => navigate(-1)}
         templateName={currentTemplateName}
