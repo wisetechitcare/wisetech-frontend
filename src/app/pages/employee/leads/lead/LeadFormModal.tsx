@@ -1,4 +1,4 @@
-﻿import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -331,7 +331,7 @@ const LeadFormModal = ({
 
   useEffect(() => {
     getAllLeads()
-      .then((res) => setExistingLeads(res?.data?.data?.leads || []))
+      .then((res) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || []))
       .catch(() => {});
   }, []);
 
