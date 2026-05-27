@@ -331,7 +331,7 @@ const LeadFormModal = ({
 
   useEffect(() => {
     getAllLeads()
-      .then((res) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || []))
+      .then((res) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
       .catch(() => {});
   }, []);
 
@@ -2710,7 +2710,7 @@ const LeadFormModal = ({
     // Case-insensitive duplicate lead name check — excludes the lead currently being edited
     const newLeadName = (formData.projectName || "").trim().toLowerCase();
     const duplicateLead = existingLeads.find(
-      (l: any) => (l.title || "").trim().toLowerCase() === newLeadName &&
+      (l: any) => (l.title || l.projectName || "").trim().toLowerCase() === newLeadName &&
         l.id !== (isEditMode ? initialFormData?.id : null)
     );
     if (duplicateLead) {
