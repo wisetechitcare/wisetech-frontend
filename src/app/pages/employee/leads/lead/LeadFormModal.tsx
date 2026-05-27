@@ -331,8 +331,8 @@ const LeadFormModal = ({
 
   useEffect(() => {
     getAllLeads()
-      .then((res) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
-      .catch(() => {});
+      .then((res: any) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
+      .catch(() => { });
   }, []);
 
   const handleExport = async (type: "docx" | "pdf", values: any) => {
@@ -404,11 +404,11 @@ const LeadFormModal = ({
         addresses: values.addresses?.map((addr: any, index: number) =>
           index === 0
             ? {
-                ...addr,
-                country: resolvedCountry,
-                state: resolvedState,
-                city: resolvedCity,
-              }
+              ...addr,
+              country: resolvedCountry,
+              state: resolvedState,
+              city: resolvedCity,
+            }
             : addr,
         ),
         address:
@@ -863,136 +863,136 @@ const LeadFormModal = ({
     // For MEP projects, extract project areas from commercials array (new structure)
     const projectAreas = leadData.commercials
       ? leadData.commercials.map((commercial: any) => ({
-          id: commercial.id, // Include ID for edit mode
-          label: commercial.label || "",
-          projectArea: commercial.area || "",
-          costType:
-            commercial.costType === "RATE"
-              ? "1"
-              : commercial.costType === "LUMPSUM"
-                ? "2"
-                : "",
-          rate: commercial.rate || "",
-          cost: commercial.cost || "",
-        }))
+        id: commercial.id, // Include ID for edit mode
+        label: commercial.label || "",
+        projectArea: commercial.area || "",
+        costType:
+          commercial.costType === "RATE"
+            ? "1"
+            : commercial.costType === "LUMPSUM"
+              ? "2"
+              : "",
+        rate: commercial.rate || "",
+        cost: commercial.cost || "",
+      }))
       : additionalDetailsArray.map((detail: any) => ({
-          // Fallback for legacy data that still has projectAreas in additionalDetails
-          projectArea: detail.projectArea || "",
-          costType: detail.costType || "",
-          rate: detail.rate || "",
-          cost: detail.cost || "",
-          label: "", // Default empty label for legacy data
-        }));
+        // Fallback for legacy data that still has projectAreas in additionalDetails
+        projectArea: detail.projectArea || "",
+        costType: detail.costType || "",
+        rate: detail.rate || "",
+        cost: detail.cost || "",
+        label: "", // Default empty label for legacy data
+      }));
 
     // Handle addresses from single additionalDetails object (one-to-one relationship)
     const addresses =
       leadData.additionalDetails && !Array.isArray(leadData.additionalDetails)
         ? [
-            {
-              projectAddress: leadData.additionalDetails.projectAddress || "",
-              zipCode: leadData.additionalDetails.zipCode || "",
-              mapLocation: leadData.additionalDetails.mapLocation || "",
-              latitude: leadData.additionalDetails.latitude || "",
-              longitude: leadData.additionalDetails.longitude || "",
-              // Store country/state/city names - will be converted to IDs in useEffect
-              country: leadData.additionalDetails.country || "",
-              state: leadData.additionalDetails.state || "",
-              city: leadData.additionalDetails.city || "",
-              locality: leadData.additionalDetails.locality || "",
-              googleMapLink: leadData.additionalDetails.googleMapLink || "",
-              googleMyBusinessLink:
-                leadData.additionalDetails.googleMyBusinessLink || "",
-              isDefault: false,
-            },
-          ]
+          {
+            projectAddress: leadData.additionalDetails.projectAddress || "",
+            zipCode: leadData.additionalDetails.zipCode || "",
+            mapLocation: leadData.additionalDetails.mapLocation || "",
+            latitude: leadData.additionalDetails.latitude || "",
+            longitude: leadData.additionalDetails.longitude || "",
+            // Store country/state/city names - will be converted to IDs in useEffect
+            country: leadData.additionalDetails.country || "",
+            state: leadData.additionalDetails.state || "",
+            city: leadData.additionalDetails.city || "",
+            locality: leadData.additionalDetails.locality || "",
+            googleMapLink: leadData.additionalDetails.googleMapLink || "",
+            googleMyBusinessLink:
+              leadData.additionalDetails.googleMyBusinessLink || "",
+            isDefault: false,
+          },
+        ]
         : additionalDetailsArray.length > 0
           ? additionalDetailsArray.map((detail: any) => ({
-              projectAddress: detail.projectAddress || "",
-              zipCode: detail.zipCode || "",
-              mapLocation: detail.mapLocation || "",
-              latitude: detail.latitude || "",
-              longitude: detail.longitude || "",
-              // Convert country name back to ID for form dropdown
-              country: (() => {
-                const countryName = detail.country;
-                const foundCountry = countries.find(
-                  (c) => c.name === countryName,
-                );
-                return foundCountry ? foundCountry.id : countryName;
-              })(),
-              // Convert state name back to ID for form dropdown
-              state: (() => {
-                const stateName = detail.state;
-                const foundState = states.find((s) => s.name === stateName);
-                return foundState ? foundState.id : stateName;
-              })(),
-              // Convert city name back to ID for form dropdown
-              city: (() => {
-                const cityName = detail.city;
-                const foundCity = cities.find((c) => c.name === cityName);
-                return foundCity ? foundCity.id : cityName;
-              })(),
-              locality: detail.locality || "",
-              googleMapLink: detail.googleMapLink || "",
-              googleMyBusinessLink: detail.googleMyBusinessLink || "",
-              isDefault: detail.isDefault || false,
-            }))
+            projectAddress: detail.projectAddress || "",
+            zipCode: detail.zipCode || "",
+            mapLocation: detail.mapLocation || "",
+            latitude: detail.latitude || "",
+            longitude: detail.longitude || "",
+            // Convert country name back to ID for form dropdown
+            country: (() => {
+              const countryName = detail.country;
+              const foundCountry = countries.find(
+                (c) => c.name === countryName,
+              );
+              return foundCountry ? foundCountry.id : countryName;
+            })(),
+            // Convert state name back to ID for form dropdown
+            state: (() => {
+              const stateName = detail.state;
+              const foundState = states.find((s) => s.name === stateName);
+              return foundState ? foundState.id : stateName;
+            })(),
+            // Convert city name back to ID for form dropdown
+            city: (() => {
+              const cityName = detail.city;
+              const foundCity = cities.find((c) => c.name === cityName);
+              return foundCity ? foundCity.id : cityName;
+            })(),
+            locality: detail.locality || "",
+            googleMapLink: detail.googleMapLink || "",
+            googleMyBusinessLink: detail.googleMyBusinessLink || "",
+            isDefault: detail.isDefault || false,
+          }))
           : [
-              {
-                projectAddress: "",
-                zipCode: "",
-                mapLocation: "",
-                latitude: "",
-                longitude: "",
-                country: "",
-                state: "",
-                city: "",
-                locality: "",
-                googleMapLink: "",
-                googleMyBusinessLink: "",
-                isDefault: false,
-              },
-            ];
+            {
+              projectAddress: "",
+              zipCode: "",
+              mapLocation: "",
+              latitude: "",
+              longitude: "",
+              country: "",
+              state: "",
+              city: "",
+              locality: "",
+              googleMapLink: "",
+              googleMyBusinessLink: "",
+              isDefault: false,
+            },
+          ];
 
     // Process referrals for edit mode
     const processedReferrals =
       leadData.referrals && leadData.referrals.length > 0
         ? leadData.referrals.map((ref: any) => {
-            const companyId = ref.referringCompany?.id || ref.companyId || "";
-            // Derive companyTypeId from the full Company object returned by backend (includes companyTypeId)
-            const companyTypeId =
-              ref.referringCompany?.companyTypeId ||
-              ref.referringCompanyTypeId ||
-              "";
-            // For internal referrals, referredByEmployee.id is the employee's primary key (same as allEmployees.list[].employeeId)
-            const referredByEmployeeId =
-              ref.referredByEmployee?.id || ref.referredByEmployeeId || "";
-            return {
-              id: ref.id || Date.now().toString(),
-              referralType:
-                ref.referralType?.id || ref.leadReferralTypeId || "",
-              referringCompanyType: companyTypeId,
-              referringCompany: companyId,
-              referringSubCompany:
-                ref.referringSubCompany?.id || ref.subCompanyId || "",
-              referringContact:
-                ref.referredByContact?.id || ref.contactId || "",
-              referredByEmployeeId: referredByEmployeeId,
-              companyName: ref.companyName || "",
-            };
-          })
+          const companyId = ref.referringCompany?.id || ref.companyId || "";
+          // Derive companyTypeId from the full Company object returned by backend (includes companyTypeId)
+          const companyTypeId =
+            ref.referringCompany?.companyTypeId ||
+            ref.referringCompanyTypeId ||
+            "";
+          // For internal referrals, referredByEmployee.id is the employee's primary key (same as allEmployees.list[].employeeId)
+          const referredByEmployeeId =
+            ref.referredByEmployee?.id || ref.referredByEmployeeId || "";
+          return {
+            id: ref.id || Date.now().toString(),
+            referralType:
+              ref.referralType?.id || ref.leadReferralTypeId || "",
+            referringCompanyType: companyTypeId,
+            referringCompany: companyId,
+            referringSubCompany:
+              ref.referringSubCompany?.id || ref.subCompanyId || "",
+            referringContact:
+              ref.referredByContact?.id || ref.contactId || "",
+            referredByEmployeeId: referredByEmployeeId,
+            companyName: ref.companyName || "",
+          };
+        })
         : [
-            {
-              id: Date.now().toString(),
-              referralType: "",
-              referringCompanyType: "",
-              referringCompany: "",
-              referringSubCompany: "",
-              referringContact: "",
-              referredByEmployeeId: "",
-              companyName: "",
-            },
-          ];
+          {
+            id: Date.now().toString(),
+            referralType: "",
+            referringCompanyType: "",
+            referringCompany: "",
+            referringSubCompany: "",
+            referringContact: "",
+            referredByEmployeeId: "",
+            companyName: "",
+          },
+        ];
 
     return {
       leadTemplateId: leadData.leadTemplateId || leadTemplateId,
@@ -1194,44 +1194,44 @@ const LeadFormModal = ({
         addresses.length > 0
           ? addresses
           : [
-              {
-                projectAddress: "",
-                zipCode: "",
-                mapLocation: "",
-                latitude: "",
-                longitude: "",
-                country: "",
-                state: "",
-                city: "",
-                locality: "",
-                googleMapLink: "",
-                googleMyBusinessLink: "",
-                isDefault: false,
-              },
-            ],
+            {
+              projectAddress: "",
+              zipCode: "",
+              mapLocation: "",
+              latitude: "",
+              longitude: "",
+              country: "",
+              state: "",
+              city: "",
+              locality: "",
+              googleMapLink: "",
+              googleMyBusinessLink: "",
+              isDefault: false,
+            },
+          ],
       projectAreas:
         projectAreas.length > 0
           ? projectAreas
           : [
-              {
-                label: "",
-                projectArea: "",
-                costType: "",
-                rate: "",
-                cost: "",
-              },
-            ],
+            {
+              label: "",
+              projectArea: "",
+              costType: "",
+              rate: "",
+              cost: "",
+            },
+          ],
       poNumber: additionalDetailsArray[0]?.poNumber || "",
       poDate: additionalDetailsArray[0]?.poDate
         ? new Date(additionalDetailsArray[0].poDate)
-            .toISOString()
-            .split("T")[0]
+          .toISOString()
+          .split("T")[0]
         : "",
       useCalculatedAmount: true,
 
       ...initialFormData,
 
-      poStatus:leadData?.poStatus || initialFormData?.poStatus || "Pending",
+      poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
     };
   };
@@ -3152,7 +3152,7 @@ const LeadFormModal = ({
                                   gap: "8px"
                                 }}
                               >
-                                <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
+                                <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
                                 TEAM DETAILS
                               </legend>
 
@@ -3170,8 +3170,8 @@ const LeadFormModal = ({
 
                                         const filteredContacts = selectedCompanyId
                                           ? contacts.filter((contact: any) =>
-                                              contact.companyId === selectedCompanyId
-                                            )
+                                            contact.companyId === selectedCompanyId
+                                          )
                                           : contacts;
 
                                         return (
@@ -3210,7 +3210,7 @@ const LeadFormModal = ({
                                                 <DropDownInput
                                                   formikField={`leadTeams.${index}.companyId`}
                                                   inputLabel="Company"
-                                                  options={(team.companyTypeId 
+                                                  options={(team.companyTypeId
                                                     ? companies.filter((c: any) => c.companyTypeId === team.companyTypeId)
                                                     : companies
                                                   ).map((company: any) => ({
@@ -4032,20 +4032,20 @@ const LeadFormModal = ({
                               {/* Show message when no referrals exist */}
                               {(!values.referrals ||
                                 values.referrals.length === 0) && (
-                                <Grid item xs={12}>
-                                  <Box
-                                    sx={{
-                                      textAlign: "center",
-                                      py: 3,
-                                      color: "#666",
-                                      // fontStyle: 'italic'
-                                    }}
-                                  >
-                                    No referrals added yet. Click "Add another
-                                    Referral" to get started.
-                                  </Box>
-                                </Grid>
-                              )}
+                                  <Grid item xs={12}>
+                                    <Box
+                                      sx={{
+                                        textAlign: "center",
+                                        py: 3,
+                                        color: "#666",
+                                        // fontStyle: 'italic'
+                                      }}
+                                    >
+                                      No referrals added yet. Click "Add another
+                                      Referral" to get started.
+                                    </Box>
+                                  </Grid>
+                                )}
 
                               {/* Dynamic Referral Rows */}
                               {(values.referrals || []).map(
@@ -4103,17 +4103,17 @@ const LeadFormModal = ({
                                       )}
                                       {(values.referrals || []).length ===
                                         1 && (
-                                        <IconButton
-                                          onClick={() => {
-                                            // Allow removing the last referral - set to empty array
-                                            setFieldValue("referrals", []);
-                                          }}
-                                          sx={{ color: "#d32f2f" }}
-                                          title="Remove all referrals"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
+                                          <IconButton
+                                            onClick={() => {
+                                              // Allow removing the last referral - set to empty array
+                                              setFieldValue("referrals", []);
+                                            }}
+                                            sx={{ color: "#d32f2f" }}
+                                            title="Remove all referrals"
+                                          >
+                                            <Close />
+                                          </IconButton>
+                                        )}
                                     </Box>
                                     <Grid item xs={12} md={3}>
                                       <Box
@@ -4237,7 +4237,7 @@ const LeadFormModal = ({
                                                 allEmployees?.list || [],
                                                 values.referrals[index]
                                                   ?.referredByEmployeeId ||
-                                                  undefined,
+                                                undefined,
                                               )}
                                               showColor={true}
                                               onChange={(value: any) => {
@@ -4391,8 +4391,8 @@ const LeadFormModal = ({
                                                     !values.referrals[index]
                                                       ?.referringCompanyType ||
                                                     c.companyTypeId ===
-                                                      values.referrals[index]
-                                                        ?.referringCompanyType,
+                                                    values.referrals[index]
+                                                      ?.referringCompanyType,
                                                 )
                                                 .map((c) => ({
                                                   value: c.id,
@@ -4480,18 +4480,18 @@ const LeadFormModal = ({
                                                 values.referrals[index]
                                                   ?.referringCompany
                                                   ? {
-                                                      value:
-                                                        values.referrals[index]
-                                                          .referringCompany,
-                                                      label:
-                                                        companies.find(
-                                                          (c) =>
-                                                            c.id ===
-                                                            values.referrals[
-                                                              index
-                                                            ].referringCompany,
-                                                        )?.companyName || "",
-                                                    }
+                                                    value:
+                                                      values.referrals[index]
+                                                        .referringCompany,
+                                                    label:
+                                                      companies.find(
+                                                        (c) =>
+                                                          c.id ===
+                                                          values.referrals[
+                                                            index
+                                                          ].referringCompany,
+                                                      )?.companyName || "",
+                                                  }
                                                   : null
                                               }
                                             />
@@ -4573,7 +4573,7 @@ const LeadFormModal = ({
                                               formikField={`referrals[${index}].referringContact`}
                                               options={(
                                                 referralFilteredContacts[
-                                                  index
+                                                index
                                                 ] || []
                                               ).map((contact) => ({
                                                 value: contact.id,
@@ -4595,24 +4595,13 @@ const LeadFormModal = ({
                                                 values.referrals[index]
                                                   ?.referringContact
                                                   ? {
-                                                      value:
-                                                        values.referrals[index]
-                                                          .referringContact,
-                                                      label:
-                                                        (
-                                                          referralFilteredContacts[
-                                                            index
-                                                          ] || []
-                                                        ).find(
-                                                          (c) =>
-                                                            c.id ===
-                                                            values.referrals[
-                                                              index
-                                                            ].referringContact,
-                                                        )?.fullName || "",
-                                                      avatar: (
+                                                    value:
+                                                      values.referrals[index]
+                                                        .referringContact,
+                                                    label:
+                                                      (
                                                         referralFilteredContacts[
-                                                          index
+                                                        index
                                                         ] || []
                                                       ).find(
                                                         (c) =>
@@ -4620,8 +4609,19 @@ const LeadFormModal = ({
                                                           values.referrals[
                                                             index
                                                           ].referringContact,
-                                                      )?.profilePhoto,
-                                                    }
+                                                      )?.fullName || "",
+                                                    avatar: (
+                                                      referralFilteredContacts[
+                                                      index
+                                                      ] || []
+                                                    ).find(
+                                                      (c) =>
+                                                        c.id ===
+                                                        values.referrals[
+                                                          index
+                                                        ].referringContact,
+                                                    )?.profilePhoto,
+                                                  }
                                                   : null
                                               }
                                             />
@@ -4743,20 +4743,20 @@ const LeadFormModal = ({
                             {/* Show message when no project areas exist */}
                             {(!values.projectAreas ||
                               values.projectAreas.length === 0) && (
-                              <Grid item xs={12}>
-                                <Box
-                                  sx={{
-                                    textAlign: "center",
-                                    py: 3,
-                                    color: "#666",
-                                    // fontStyle: 'italic'
-                                  }}
-                                >
-                                  No project areas added yet. Click "Add New
-                                  Project Area" to get started.
-                                </Box>
-                              </Grid>
-                            )}
+                                <Grid item xs={12}>
+                                  <Box
+                                    sx={{
+                                      textAlign: "center",
+                                      py: 3,
+                                      color: "#666",
+                                      // fontStyle: 'italic'
+                                    }}
+                                  >
+                                    No project areas added yet. Click "Add New
+                                    Project Area" to get started.
+                                  </Box>
+                                </Grid>
+                              )}
 
                             {(values.projectAreas || []).map(
                               (area: any, index: number) => (
@@ -4807,18 +4807,18 @@ const LeadFormModal = ({
                                     )}
                                     {(values.projectAreas || []).length ===
                                       1 && (
-                                      <IconButton
-                                        onClick={() => {
-                                          // Allow removing the last project area - but keep addresses intact
-                                          setFieldValue("projectAreas", []);
-                                          // Note: Addresses remain untouched as they are independent of project areas
-                                        }}
-                                        sx={{ color: "#d32f2f" }}
-                                        title="Remove all project areas"
-                                      >
-                                        <Close />
-                                      </IconButton>
-                                    )}
+                                        <IconButton
+                                          onClick={() => {
+                                            // Allow removing the last project area - but keep addresses intact
+                                            setFieldValue("projectAreas", []);
+                                            // Note: Addresses remain untouched as they are independent of project areas
+                                          }}
+                                          sx={{ color: "#d32f2f" }}
+                                          title="Remove all project areas"
+                                        >
+                                          <Close />
+                                        </IconButton>
+                                      )}
                                   </Box>
 
                                   <Grid item xs={12} md={3}>
@@ -4834,7 +4834,7 @@ const LeadFormModal = ({
                                     xs={12}
                                     md={
                                       values.projectAreas[index].costType ===
-                                      "2"
+                                        "2"
                                         ? 3
                                         : 2
                                     }
@@ -4882,7 +4882,7 @@ const LeadFormModal = ({
                                     xs={12}
                                     md={
                                       values.projectAreas[index].costType ===
-                                      "2"
+                                        "2"
                                         ? 3
                                         : 2
                                     }
@@ -4937,54 +4937,54 @@ const LeadFormModal = ({
 
                                   {values.projectAreas[index].costType !==
                                     "2" && (
-                                    <Grid item xs={12} md={2}>
-                                      <EnhancedDecimalInput
-                                        formikField={`projectAreas.${index}.rate`}
-                                        label="Rate"
-                                        onCalculatedCost={(rate) => {
-                                          // If cost type is Rate, calculate total cost and validate it
-                                          if (
-                                            values.projectAreas[index]
-                                              .costType === "1"
-                                          ) {
-                                            const area =
-                                              parseFloat(
-                                                values.projectAreas[index]
-                                                  .projectArea,
-                                              ) || 0;
-                                            const totalCost = area * rate;
-                                            const roundedCost = parseFloat(
-                                              totalCost.toFixed(4),
-                                            );
-                                            setFieldValue(
-                                              `projectAreas.${index}.cost`,
-                                              roundedCost.toString(),
-                                            );
+                                      <Grid item xs={12} md={2}>
+                                        <EnhancedDecimalInput
+                                          formikField={`projectAreas.${index}.rate`}
+                                          label="Rate"
+                                          onCalculatedCost={(rate) => {
+                                            // If cost type is Rate, calculate total cost and validate it
+                                            if (
+                                              values.projectAreas[index]
+                                                .costType === "1"
+                                            ) {
+                                              const area =
+                                                parseFloat(
+                                                  values.projectAreas[index]
+                                                    .projectArea,
+                                                ) || 0;
+                                              const totalCost = area * rate;
+                                              const roundedCost = parseFloat(
+                                                totalCost.toFixed(4),
+                                              );
+                                              setFieldValue(
+                                                `projectAreas.${index}.cost`,
+                                                roundedCost.toString(),
+                                              );
 
-                                            // Validate calculated cost using Formik's setFieldError
-                                            if (roundedCost > 10000000000) {
-                                              formikProps.setFieldError(
-                                                `projectAreas.${index}.cost`,
-                                                "Calculated cost exceeds 100 Crores limit",
-                                              );
-                                            } else {
-                                              formikProps.setFieldError(
-                                                `projectAreas.${index}.cost`,
-                                                "",
-                                              );
+                                              // Validate calculated cost using Formik's setFieldError
+                                              if (roundedCost > 10000000000) {
+                                                formikProps.setFieldError(
+                                                  `projectAreas.${index}.cost`,
+                                                  "Calculated cost exceeds 100 Crores limit",
+                                                );
+                                              } else {
+                                                formikProps.setFieldError(
+                                                  `projectAreas.${index}.cost`,
+                                                  "",
+                                                );
+                                              }
                                             }
-                                          }
-                                        }}
-                                      />
-                                    </Grid>
-                                  )}
+                                          }}
+                                        />
+                                      </Grid>
+                                    )}
 
                                   <Grid
                                     item
                                     xs={12}
                                     md={
                                       values.projectAreas[index].costType ===
-                                      "2"
+                                        "2"
                                         ? 3
                                         : 2
                                     }
@@ -5280,15 +5280,15 @@ const LeadFormModal = ({
                                     value={
                                       values.addresses?.[0]?.country
                                         ? {
-                                            label:
-                                              countries.find(
-                                                (c) =>
-                                                  c.id ===
-                                                  values.addresses[0].country,
-                                              )?.name ||
-                                              values.addresses[0].country,
-                                            value: values.addresses[0].country,
-                                          }
+                                          label:
+                                            countries.find(
+                                              (c) =>
+                                                c.id ===
+                                                values.addresses[0].country,
+                                            )?.name ||
+                                            values.addresses[0].country,
+                                          value: values.addresses[0].country,
+                                        }
                                         : null
                                     }
                                   />
@@ -5348,13 +5348,13 @@ const LeadFormModal = ({
                                     value={
                                       values.addressStateSelections?.[0]
                                         ? {
-                                            label:
-                                              values.addressStateSelections[0]
-                                                .name,
-                                            value:
-                                              values.addressStateSelections[0]
-                                                .id,
-                                          }
+                                          label:
+                                            values.addressStateSelections[0]
+                                              .name,
+                                          value:
+                                            values.addressStateSelections[0]
+                                              .id,
+                                        }
                                         : null
                                     }
                                     placeholder={
@@ -5404,13 +5404,13 @@ const LeadFormModal = ({
                                     value={
                                       values.addressCitySelections?.[0]
                                         ? {
-                                            label:
-                                              values.addressCitySelections[0]
-                                                .name,
-                                            value:
-                                              values.addressCitySelections[0]
-                                                .id,
-                                          }
+                                          label:
+                                            values.addressCitySelections[0]
+                                              .name,
+                                          value:
+                                            values.addressCitySelections[0]
+                                              .id,
+                                        }
                                         : null
                                     }
                                     placeholder={
@@ -5681,25 +5681,25 @@ const LeadFormModal = ({
                           </Row>
                           {leadTemplateId ===
                             leadAndProjectTemplateTypeId.webDev && (
-                            <Grid container spacing={1}>
-                              <Grid item xs={12} md={6}>
-                                <TextInput
-                                  formikField="type"
-                                  label="Type"
-                                  isRequired={false}
-                                />
+                              <Grid container spacing={1}>
+                                <Grid item xs={12} md={6}>
+                                  <TextInput
+                                    formikField="type"
+                                    label="Type"
+                                    isRequired={false}
+                                  />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                  <TextInput
+                                    formikField="numberOfPages"
+                                    label="Number of Page"
+                                    isRequired={false}
+                                    inputTypeNumber={true}
+                                    inputValidation="numbers"
+                                  />
+                                </Grid>
                               </Grid>
-                              <Grid item xs={12} md={6}>
-                                <TextInput
-                                  formikField="numberOfPages"
-                                  label="Number of Page"
-                                  isRequired={false}
-                                  inputTypeNumber={true}
-                                  inputValidation="numbers"
-                                />
-                              </Grid>
-                            </Grid>
-                          )}
+                            )}
 
                           {/* {leadTemplateId === leadAndProjectTemplateTypeId.mep && ( */}
                           <>
@@ -5750,9 +5750,9 @@ const LeadFormModal = ({
                                           e.target.value,
                                         )
                                       }
-                                      // style={{
-                                      //   backgroundColor: "#F3F4F7",
-                                      // }}
+                                    // style={{
+                                    //   backgroundColor: "#F3F4F7",
+                                    // }}
                                     />
                                     <Form.Text className="text-muted">
                                       {(values.description || "").length}/200
@@ -6023,20 +6023,20 @@ const LeadFormModal = ({
                               {/* Empty state */}
                               {(!values.handledByEntries ||
                                 values.handledByEntries.length === 0) && (
-                                <Box
-                                  sx={{
-                                    textAlign: "center",
-                                    py: 3,
-                                    color: "#666",
-                                    // fontStyle: 'italic',
-                                    fontSize: "14px",
-                                    fontFamily: "Inter",
-                                  }}
-                                >
-                                  No handled by added yet. Click "+ Add Handle
-                                  By" to get started.
-                                </Box>
-                              )}
+                                  <Box
+                                    sx={{
+                                      textAlign: "center",
+                                      py: 3,
+                                      color: "#666",
+                                      // fontStyle: 'italic',
+                                      fontSize: "14px",
+                                      fontFamily: "Inter",
+                                    }}
+                                  >
+                                    No handled by added yet. Click "+ Add Handle
+                                    By" to get started.
+                                  </Box>
+                                )}
 
                               {/* Dynamic Handled By entries */}
                               {(values.handledByEntries || []).map(
