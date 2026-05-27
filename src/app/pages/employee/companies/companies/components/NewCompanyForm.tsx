@@ -621,6 +621,17 @@ const NewCompanyForm: React.FC<Props> = ({
         return acc;
       }, {} as any);
 
+      // Case-insensitive duplicate name check — excludes the company currently being edited
+      const newName = values.companyName?.trim().toLowerCase();
+      const duplicate = allCompanies.find(
+        (c: any) => c.companyName?.trim().toLowerCase() === newName && c.id !== editingCompanyId
+      );
+      if (duplicate) {
+        errorConfirmation("A company with this name already exists.");
+        setSubmitting(false);
+        return;
+      }
+
       if (editingCompanyId) {
         await updateClientCompany(editingCompanyId, {
           ...finalCleanPayload,

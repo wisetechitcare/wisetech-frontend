@@ -5,11 +5,11 @@ interface HighlightErrorsProps {
     isRequired: boolean;
 }
 
-function HighlightErrors({ formikField, isRequired }: HighlightErrorsProps) {
+function HighlightErrors({ formikField }: HighlightErrorsProps) {
     return (
-        <div className='text-danger mt-2 fs-7'>
-            <ErrorMessage name={formikField} />
-        </div>
+        <ErrorMessage name={formikField}>
+            {(msg) => <div className='text-danger mt-2 fs-7'>{msg}</div>}
+        </ErrorMessage>
     );
 }
 

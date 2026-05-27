@@ -21,7 +21,9 @@ import { Modal } from "react-bootstrap";
 import LeaveRequestForm from "@pages/employee/attendance/personal/views/my-leaves/LeaveRequestForm";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import dayjs from "dayjs";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
+    const { filterIds } = useTeamFilter();
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const isAdmin = usePermission('approvals.approve.team');
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
@@ -273,11 +275,15 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
         );
     }
 
+    const visibleLeaveRequests = filterIds
+        ? leaveRequests.filter((l: any) => filterIds.includes(l.employeeId))
+        : leaveRequests;
+
     return (
         <>
             <h3 className='pt-8 fw-bold'>All Leave Requests</h3>
             <MaterialTable
-                data={leaveRequests}
+                data={visibleLeaveRequests}
                 columns={columns}
                 tableName="All Leave Requests"
                 resource={resourceNameMapWithCamelCase.leave}

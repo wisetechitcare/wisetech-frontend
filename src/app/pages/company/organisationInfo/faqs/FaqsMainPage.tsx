@@ -39,8 +39,6 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
   const fetchFAQs = async (compId: string) => {
     try {
       const response = await fetchAllFaqs(compId);
-      console.log("response=======================>response", response);
-      console.log('FAQs API Response:', response);
 
       if (response?.data?.sections && Array.isArray(response.data.sections)) {
         const transformedSections = response.data.sections.map((section: any) => ({
@@ -57,7 +55,6 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
           transformedSections.push({ id: 'general_rules', title: 'General Rules', faqs: [] });
         }
 
-        console.log('Transformed FAQ Sections ================>:', transformedSections);
         setFaqSections(transformedSections);
       } else {
         const defaultSections: FAQSection[] = [
@@ -68,7 +65,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
           { id: 'general_rules', title: 'General Rules', faqs: [] },
         ];
         setFaqSections(defaultSections);
-        console.log('No FAQs found, using default empty sections');
+;
       }
     } catch (error) {
       console.error('Error fetching FAQs:', error);

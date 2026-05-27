@@ -3,13 +3,13 @@ import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
-import { fetchPendingApprovals, processApprovalAction } from '@services/employee';
+import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { Modal } from 'react-bootstrap';
 import { getSocket } from '@utils/socketClient';
-import ApprovalStatusTracker from './ApprovalStatusTracker';
+import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 
 type RequestDetails = {
   subType?: string | null;
@@ -23,6 +23,8 @@ type ApprovalStep = {
   id: string;
   instanceId: string;
   level: number;
+  status: string;
+  delegatedFrom?: string | null;
   requestDetails?: RequestDetails | null;
   instance: {
     id: string;
@@ -31,12 +33,19 @@ type ApprovalStep = {
     requestModel: string;
     currentLevel: number;
     totalLevels: number;
+    status: string;
     createdAt: string;
     employee: {
       id: string;
       users: { firstName: string; lastName: string };
     };
   };
+};
+
+type TabKey = 'pending' | 'awaiting' | 'completed';
+type DomainApprovalQueueProps = {
+  domainTypes: string[];
+  mode?: 'include' | 'exclude';
 };
 
 const ATTENDANCE_BADGE_COLOR = '#f1bc00';
@@ -147,9 +156,10 @@ function ExpandedDetail({ instanceId }: { instanceId: string }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-function ApprovalInbox() {
+function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQueueProps) {
   const canApprove = usePermission('approvals.approve.team');
   const leaveTypeColors = useSelector((state: RootState) => (state as any).customColors?.leaveTypes);
+  const [activeTab, setActiveTab] = useState<TabKey>('pending');
   const [steps, setSteps] = useState<ApprovalStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -168,20 +178,26 @@ function ApprovalInbox() {
     return '#3498DB';
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (tab: TabKey = activeTab) => {
     setLoading(true);
     try {
-      const res = await fetchPendingApprovals();
+      const res = tab === 'pending'
+        ? await fetchPendingApprovals()
+        : await fetchAllApprovalInstances(tab);
       const raw = res?.data ?? res ?? [];
-      setSteps(Array.isArray(raw) ? raw : []);
+      const rows = Array.isArray(raw) ? raw : [];
+      setSteps(rows.filter((item: ApprovalStep) => {
+        const workflowType = (item.instance.workflowType || '').toLowerCase();
+        return mode === 'exclude' ? !domainTypes.includes(workflowType) : domainTypes.includes(workflowType);
+      }));
     } catch {
       setSteps([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab, domainTypes, mode]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(activeTab); }, [activeTab]);
 
   // Auto-refresh when a new approval is pending for this approver
   useEffect(() => {
@@ -318,13 +334,37 @@ function ApprovalInbox() {
     {
       accessorKey: 'actions',
       header: 'Actions',
-      size: 130,
+      size: 160,
       enableSorting: false,
       Cell: ({ row }) => {
         const step = row.original;
         const isProcessing = processingId === step.id;
+
+        // Awaiting others or completed — read-only
+        if (activeTab === 'awaiting') {
+          return (
+            <span className='badge badge-light-warning fw-semibold fs-8'>
+              Awaiting L{step.instance.currentLevel}
+            </span>
+          );
+        }
+        if (activeTab === 'completed') {
+          const isApproved = step.instance.status === 'approved';
+          return (
+            <span className={`badge ${isApproved ? 'badge-light-success' : 'badge-light-danger'} fw-semibold fs-8`}>
+              {isApproved ? 'Approved' : 'Rejected'}
+            </span>
+          );
+        }
+
+        // Pending tab — show delegation badge if applicable
         return (
-          <div className='d-flex align-items-center gap-1'>
+          <div className='d-flex align-items-center gap-1 flex-wrap'>
+            {step.delegatedFrom && (
+              <span className='badge badge-light-info fw-semibold fs-9 mb-1 w-100' title={`Delegated from ${step.delegatedFrom}`}>
+                🔄 {step.delegatedFrom}
+              </span>
+            )}
             <button
               className='btn btn-icon btn-sm'
               title='Approve'
@@ -349,7 +389,7 @@ function ApprovalInbox() {
         );
       },
     },
-  ], [processingId, leaveTypeColors]);
+  ], [processingId, leaveTypeColors, activeTab]);
 
   if (!canApprove) {
     return (
@@ -362,24 +402,40 @@ function ApprovalInbox() {
     );
   }
 
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: 'pending', label: 'Pending My Action' },
+    { key: 'awaiting', label: 'Awaiting Others' },
+    { key: 'completed', label: 'Completed' },
+  ];
+
   return (
     <>
-      <div className='d-flex align-items-center justify-content-between pt-8 pb-4'>
-        <h3 className='fw-bold mb-0'>Approval Inbox</h3>
-        <button
-          className='btn btn-sm btn-light-primary d-flex align-items-center gap-2'
-          onClick={load}
-          disabled={loading}
-        >
-          <KTIcon iconName='arrows-circle' className='fs-5' />
-          {loading ? 'Refreshing...' : 'Refresh'}
+      <div className='d-flex align-items-center justify-content-end pt-0 pb-4'>
+        <button className='btn btn-sm btn-light-primary d-flex align-items-center gap-2' onClick={() => load(activeTab)} disabled={loading}>
+          <KTIcon iconName='arrows-circle' className='fs-5' />{loading ? 'Refreshing...' : 'Refresh'}
         </button>
+      </div>
+
+      {/* Tab strip */}
+      <div className='d-flex gap-2 mb-4'>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
+            onClick={() => setActiveTab(t.key)}
+          >
+            {t.label}
+            {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
+              <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       <MaterialTable
         data={steps}
         columns={columns}
-        tableName='Approval Inbox'
+        tableName='Approvals'
         hideFilters={false}
         hideExportCenter
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
@@ -397,4 +453,4 @@ function ApprovalInbox() {
   );
 }
 
-export default ApprovalInbox;
+export default DomainApprovalQueue;

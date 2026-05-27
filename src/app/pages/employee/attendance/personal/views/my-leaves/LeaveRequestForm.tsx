@@ -27,6 +27,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import LeaveRequestCalendar from './LeaveRequestCalendar';
 import { SmartBalanceCard } from './leave/SmartBalanceCard';
 import { computeTypeBalanceStats, formatFiscalResetLabel } from './leave/balanceStats';
+import { computeLeaveBreakdown } from '@utils/leaveCalcEngine';
 
 const extractApiErrorMessage = (err: any): string | null => {
   const data = err?.response?.data;
@@ -907,29 +908,54 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               setLeaveCount(0);
               return;
             }
+            // Build holiday set and isWeekend function — shared by breakdown and monthly tracking
+            const holidaySet = new Set(
+              (publicHolidays || [])
+                .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
+                .filter(Boolean)
+            );
+
+            const isWeekendFn = (date: Date): boolean => {
+              const dayName = dayNames[date.getDay()];
+              return hasWorkingDaysConfig
+                ? workingAndOffDays[dayName] === '0'
+                : (date.getDay() === 0 || date.getDay() === 6);
+            };
+
+            // Use the same engine as LeaveImpactCard so leaveCount and chargeable stay in sync.
+            // Previously a naive loop excluded weekends but not public holidays, causing the
+            // submit button to block valid submissions when holidays fell inside the range.
+            const breakdown = sandwichLeaveEnabled
+              ? null
+              : computeLeaveBreakdown(start, end, holidaySet, isWeekendFn);
+
             let leaveDays = 0;
 
             // Track leaves per month for monthly limit validation
             const requestedLeavesPerMonth: Record<string, number> = {};
 
-            for (
-              let date = new Date(start);
-              date <= end;
-              date.setDate(date.getDate() + 1)
-            ) {
-              const dayOfWeek = date.getDay();
-              let countDay = false;
-
-              if (sandwichLeaveEnabled) {
-                leaveDays += 1;
-                countDay = true;
-              } else if (dayOfWeek !== 0 && dayOfWeek !== 6 ){
-                leaveDays +=1;
-                countDay = true;
+            if (breakdown) {
+              // Non-sandwich: use engine-computed chargeable (excludes weekends + holidays)
+              leaveDays = breakdown.chargeable;
+              for (
+                let date = new Date(start);
+                date <= end;
+                date.setDate(date.getDate() + 1)
+              ) {
+                const iso = dayjs(date).format('YYYY-MM-DD');
+                if (!isWeekendFn(date) && !holidaySet.has(iso)) {
+                  const monthKey = iso.substring(0, 7);
+                  requestedLeavesPerMonth[monthKey] = (requestedLeavesPerMonth[monthKey] || 0) + 1;
+                }
               }
-
-              // Track working days per month for monthly limit check
-              if (countDay) {
+            } else {
+              // Sandwich: count all calendar days (sandwich adds non-working days between leave days)
+              for (
+                let date = new Date(start);
+                date <= end;
+                date.setDate(date.getDate() + 1)
+              ) {
+                leaveDays += 1;
                 const monthKey = dayjs(date).format('YYYY-MM');
                 requestedLeavesPerMonth[monthKey] = (requestedLeavesPerMonth[monthKey] || 0) + 1;
               }
@@ -938,11 +964,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             // Calculate existing leaves per month (approved + pending, all leave types)
             const existingLeavesPerMonth: Record<string, number> = {};
             const countedLeaveTypes = [ANNUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES, CASUAL_LEAVES, MATERNAL_LEAVES];
-            const holidaySet = new Set(
-              (publicHolidays || [])
-                .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
-                .filter(Boolean)
-            );
 
             if (employeeLeavesData && employeeLeavesData.length > 0) {
               const relevantLeaves = employeeLeavesData.filter((existingLeave: any) => {

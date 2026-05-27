@@ -32,5 +32,7 @@
 }
 
 .attendance-duration-cell__muted {
-  color: #6c757d;
+  color: #64748b;
+  font-weight: 500;
+  opacity: 0.85;
 }

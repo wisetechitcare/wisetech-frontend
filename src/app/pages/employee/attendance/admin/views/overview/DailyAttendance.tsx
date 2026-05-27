@@ -33,6 +33,7 @@ import { convertMinutesIntoHrMinFormat, convertMinutesIntoHrMinFormats, customLe
 import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slices/attendanceStats";
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import { fetchColorAndStoreInSlice } from "@utils/file";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 // TODO: Pull timezone and date format settings from db
 
 const MUMBAI_TZ = 'Asia/Kolkata';
@@ -176,6 +177,7 @@ interface DailyAttendanceProps {
 }
 
 function DailyAttendance({ date }: DailyAttendanceProps) {
+    const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
@@ -379,8 +381,10 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         // Apply weekend/holiday marking logic
         const isWeekendOrHolidayData = markWeekendOrHoliday(dataToProcess, getAllWeekends, allHolidays);
 
-        return isWeekendOrHolidayData;
-    }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays]);
+        return filterIds
+            ? isWeekendOrHolidayData.filter((row: any) => filterIds.includes(row.employeeId))
+            : isWeekendOrHolidayData;
+    }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays, filterIds]);
 
     const columns = useMemo<MRT_ColumnDef<IEmployeesAttendance>[]>(() => [
         {

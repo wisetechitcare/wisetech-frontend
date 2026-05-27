@@ -10,7 +10,7 @@ import './LeaveRequestCalendar.css';
 
 import { computeLeaveBreakdown } from '@utils/leaveCalcEngine';
 
-import { generateMonthlySuggestions } from './utils/suggestionEngine';
+import { generateSmartSuggestions, generatePersonalizedSuggestions } from './utils/suggestionEngine';
 
 import { Status } from '@constants/statistics';
 
@@ -280,9 +280,18 @@ const LeaveRequestCalendar = ({
 
   }, [committedRange, holidaySet, isWeekend]);
 
+  // Shows the impact card as soon as the first date is clicked, even before hovering to a second date.
+  const singleDayBreakdown = useMemo(() => {
 
+    if (phase !== 'pick-end' || !fromDate) return null;
 
-  const activeBreakdown = committedBreakdown ?? hoverBreakdown;
+    const d = dayjs(fromDate).toDate();
+
+    return computeLeaveBreakdown(d, d, holidaySet, isWeekend);
+
+  }, [phase, fromDate, holidaySet, isWeekend]);
+
+  const activeBreakdown = committedBreakdown ?? hoverBreakdown ?? singleDayBreakdown;
 
 
 
@@ -306,7 +315,7 @@ const LeaveRequestCalendar = ({
 
     if (!rangeFrom || !rangeTo || rangeFrom === rangeTo) return null;
 
-    return previewSandwichImpact(rangeFrom, rangeTo, holidaySet, isWeekend);
+    return previewSandwichImpact(rangeFrom, rangeTo, holidaySet, isWeekend, holidays);
 
   }, [sandwichLeaveEnabled, isUnpaidType, phase, fromDate, toDate, hoverIso, holidaySet, isWeekend]);
 
@@ -384,13 +393,78 @@ const LeaveRequestCalendar = ({
 
 
 
-  const suggestions = useMemo(
+  const generalSuggestions = useMemo(() => {
 
-    () => generateMonthlySuggestions(viewMonth.toDate(), holidaySet, countTotalLeaves || 5),
+    const today = new Date();
 
-    [viewMonth, holidaySet, countTotalLeaves],
+    return generateSmartSuggestions({
 
+      windowStart: today,
+
+      windowEnd: dayjs(today).add(90, 'day').toDate(),
+
+      holidays: holidaySet,
+
+      isWeekendFn: isWeekend,
+
+      balanceAvailable: countTotalLeaves || 0,
+
+      capRemaining: cumulativeSummary?.remaining ?? Infinity,
+
+      existingLeaves: existingLeaves.map(l => ({ dateFrom: l.dateFrom, dateTo: l.dateTo })),
+
+    });
+
+  }, [holidaySet, isWeekend, countTotalLeaves, cumulativeSummary, existingLeaves]);
+
+  const leaveHistory = useMemo(
+    () =>
+      (employeeLeavesData || []).map((l: any) => ({
+        dateFrom: l.dateFrom,
+        dateTo: l.dateTo,
+        statusNumber: typeof l.statusNumber === 'number' ? l.statusNumber : l.status,
+      })),
+    [employeeLeavesData],
   );
+
+  const isPersonalizedFallback = useMemo(
+    () => leaveHistory.filter((l: any) => l.statusNumber === 1).length < 2,
+    [leaveHistory],
+  );
+
+  const personalizedSuggestions = useMemo(() => {
+
+    const today = new Date();
+
+    return generatePersonalizedSuggestions(
+
+      {
+
+        windowStart: today,
+
+        windowEnd: dayjs(today).add(365, 'day').toDate(),
+
+        holidays: holidaySet,
+
+        isWeekendFn: isWeekend,
+
+        balanceAvailable: countTotalLeaves || 0,
+
+        capRemaining: cumulativeSummary?.remaining ?? Infinity,
+
+        existingLeaves: existingLeaves.map(l => ({ dateFrom: l.dateFrom, dateTo: l.dateTo })),
+
+        leaveHistory,
+
+      },
+
+      generalSuggestions,
+
+      2,
+
+    );
+
+  }, [holidaySet, isWeekend, countTotalLeaves, cumulativeSummary, existingLeaves, leaveHistory, generalSuggestions]);
 
 
 
@@ -408,9 +482,9 @@ const LeaveRequestCalendar = ({
 
       const to = formatIso(end);
 
-      setFieldValue('dateFrom', from, true);
+      setFieldValue('dateFrom', from, false);
 
-      setFieldValue('dateTo', to, true);
+      setFieldValue('dateTo', to, false);
 
       calculateLeaveCount(from, to);
 
@@ -438,9 +512,9 @@ const LeaveRequestCalendar = ({
 
       if (phase === 'idle' || phase === 'committed') {
 
-        setFieldValue('dateFrom', iso, true);
+        setFieldValue('dateFrom', iso, false);
 
-        setFieldValue('dateTo', iso, true);
+        setFieldValue('dateTo', iso, false);
 
         setViewMonth(dayjs(iso).startOf('month'));
 
@@ -460,9 +534,9 @@ const LeaveRequestCalendar = ({
 
         const to = a.isBefore(b) ? formatIso(b) : formatIso(a);
 
-        setFieldValue('dateFrom', from, true);
+        setFieldValue('dateFrom', from, false);
 
-        setFieldValue('dateTo', to, true);
+        setFieldValue('dateTo', to, false);
 
         calculateLeaveCount(from, to);
 
@@ -610,6 +684,8 @@ const LeaveRequestCalendar = ({
 
           onSelectIso={handleSelectIso}
 
+          onClearSelection={clearSelection}
+
           holidaySet={holidaySet}
 
           holidays={holidays}
@@ -642,7 +718,17 @@ const LeaveRequestCalendar = ({
 
       {!calendarDisabled && (
 
-        <SmartSuggestionsPanel suggestions={suggestions} onApply={applyRange} />
+        <SmartSuggestionsPanel
+
+          general={generalSuggestions}
+
+          personalized={personalizedSuggestions}
+
+          isPersonalizedFallback={isPersonalizedFallback}
+
+          onApply={applyRange}
+
+        />
 
       )}
 
@@ -669,6 +755,8 @@ const LeaveRequestCalendar = ({
         sandwichPreview={sandwichPreview}
 
         sandwichEnabled={sandwichLeaveEnabled && !isUnpaidType}
+
+        cumulativeSummary={cumulativeSummary}
 
         outcomeAlerts={calendarAlerts}
 

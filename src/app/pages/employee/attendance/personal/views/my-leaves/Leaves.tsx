@@ -278,11 +278,19 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
                 isLoading={isFetchingLeaves || !datesReady}
             />
 
-            <Modal show={showLeaveRequestForm} onHide={handleCloseLeaveRequestForm} centered>
-                <Modal.Header closeButton>
+            <Modal
+                show={showLeaveRequestForm}
+                onHide={handleCloseLeaveRequestForm}
+                centered
+                size="lg"
+                scrollable
+                dialogClassName="lrc-leave-modal"
+                contentClassName="lrc-leave-modal__content"
+            >
+                <Modal.Header closeButton className="lrc-leave-modal__header">
                     <Modal.Title>Edit Leave Request</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="lrc-leave-modal__body">
                     <LeaveRequestForm
                         onClose={handleCloseLeaveRequestForm}
                         leave={leave}

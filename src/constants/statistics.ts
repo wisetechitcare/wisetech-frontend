@@ -160,6 +160,7 @@ export const resourceNameMapWithCamelCase = {
     leaveCashTransfer: "leaveCashTransfer",
     attendanceRequestLimit: "attendanceRequestLimit",
     organisationProfile: "organisationprofile",
+    approvals: "approvals",
 }
 
 export const uiControlResourceNameMapWithCamelCase = {
