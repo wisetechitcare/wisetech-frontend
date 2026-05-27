@@ -5,6 +5,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import { createQualificationMaster } from "@services/employee";
 import { uploadUserAsset } from "@services/uploader";
 import ObFileUpload from "../components/ObFileUpload";
+import { getEducationDisplayTitle, getQualificationConfig, resetEducationFieldsForQualification } from "../../../../../utils/educationUtils";
 
 const ADD_NEW_QUALIFICATION = "__ADD_NEW__";
 const ADD_NEW_STREAM = "__ADD_NEW_STREAM__";
@@ -42,9 +43,8 @@ function EducationalInfo({
   const streamPopoverRef = useRef<HTMLDivElement | null>(null);
 
   const qualificationName = String(education.qualificationName || education.degree || "");
-  const isSSC = qualificationName === "SSC";
-  const isHSC = qualificationName === "HSC";
-  const usesPassingYear = isSSC || isHSC;
+  const qualificationConfig = getQualificationConfig(qualificationName);
+  const usesPassingYear = qualificationConfig.usesPassingYear;
   const selectedQualification = useMemo(() => {
     if (education.qualificationMasterId) {
       return qualificationOptions.find((option: any) => option.value === education.qualificationMasterId) || null;
@@ -69,13 +69,12 @@ function EducationalInfo({
   }, [education.stream, education.customStream]);
 
   const selectedStream = useMemo(() => {
-    if (!education.stream) return null;
-    return hscStreamOptions.find((option) => option.value === education.stream) || null;
-  }, [education.stream, hscStreamOptions]);
+    const streamValue = education.stream || education.customStream || "";
+    if (!streamValue) return null;
+    return hscStreamOptions.find((option) => option.value === streamValue) || { value: streamValue, label: streamValue };
+  }, [education.stream, education.customStream, hscStreamOptions]);
 
-  const title = qualificationName
-    ? [qualificationName, education.specialization || education.customStream].filter(Boolean).join(" - ")
-    : `Education ${index + 1}`;
+  const title = getEducationDisplayTitle(education) || `Education ${index + 1}`;
 
   const getFileNameFromUrl = (url: string) => {
     if (!url) return "";
@@ -114,18 +113,16 @@ function EducationalInfo({
     setShowNewQualification(false);
     const nextName = option?.name || option?.label || "";
     formikProps.setFieldValue(`${element}.qualificationMasterId`, option?.isDefault ? "" : option?.value || "");
-    formikProps.setFieldValue(`${element}.qualificationName`, nextName);
-    formikProps.setFieldValue(`${element}.degree`, nextName);
 
-    if (["SSC", "HSC"].includes(nextName)) {
-      formikProps.setFieldValue(`${element}.fromDate`, "");
-      formikProps.setFieldValue(`${element}.toDate`, "");
-      formikProps.setFieldValue(`${element}.specialization`, "");
-    } else {
-      formikProps.setFieldValue(`${element}.passingYear`, "");
-      formikProps.setFieldValue(`${element}.stream`, "");
-      formikProps.setFieldValue(`${element}.customStream`, "");
-    }
+    const resetRow = resetEducationFieldsForQualification(education, nextName);
+    formikProps.setFieldValue(`${element}.qualificationName`, resetRow.qualificationName);
+    formikProps.setFieldValue(`${element}.degree`, resetRow.degree);
+    formikProps.setFieldValue(`${element}.specialization`, resetRow.specialization);
+    formikProps.setFieldValue(`${element}.stream`, resetRow.stream);
+    formikProps.setFieldValue(`${element}.customStream`, resetRow.customStream);
+    formikProps.setFieldValue(`${element}.fromDate`, resetRow.fromDate);
+    formikProps.setFieldValue(`${element}.toDate`, resetRow.toDate);
+    formikProps.setFieldValue(`${element}.passingYear`, resetRow.passingYear);
   };
 
   const handleStreamChange = (option: any) => {
@@ -351,7 +348,7 @@ function EducationalInfo({
             )}
           </div>
 
-          {isHSC ? (
+          {qualificationConfig.usesStream ? (
             <div className="col-lg-4 col-md-6 col-sm-12 education-popover-anchor">
               <DropDownInput
                 isRequired={false}
@@ -390,11 +387,11 @@ function EducationalInfo({
                 </div>
               )}
             </div>
-          ) : !isSSC && (
+          ) : qualificationConfig.usesSpecialization ? (
             <div className="col-lg-4 col-md-6 col-sm-12">
               <TextInput isRequired={false} label="Degree/Course" margin="mb-0" formikField={`${element}.specialization`} />
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="row g-3">

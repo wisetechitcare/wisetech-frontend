@@ -753,7 +753,8 @@
 .ob-wizard-root .MuiOutlinedInput-root.Mui-focused {
   background: linear-gradient(135deg, rgba(139,26,26,0.025) 0%, rgba(27,58,107,0.018) 100%) !important;
 }
-.ob-wizard-root .ph-wrap:focus-within {
+.ob-wizard-root .ph-wrap:focus-within,
+.ob-wizard-root .phone-input-container:focus-within {
   border-color: rgba(139,26,26,0.45) !important;
   background: linear-gradient(135deg, rgba(139,26,26,0.025) 0%, rgba(27,58,107,0.018) 100%) !important;
   box-shadow: 0 0 0 3px rgba(139,26,26,0.10), 0 2px 8px rgba(139,26,26,0.06) !important;
@@ -869,12 +870,14 @@
 /* ════════════════════════════════════════
    Phone / File inputs
    ════════════════════════════════════════ */
-.ob-wizard-root .ph-wrap {
+.ob-wizard-root .ph-wrap,
+.ob-wizard-root .phone-input-container {
   border: 1.5px solid var(--ob-border) !important; border-radius: var(--ob-r) !important;
   height: var(--ob-input-h) !important; background: var(--ob-surface) !important;
   transition: border-color var(--ob-tr), background var(--ob-tr), box-shadow var(--ob-tr) !important;
 }
-.ob-wizard-root .ph-wrap:hover:not(:focus-within) { border-color: var(--ob-border-2) !important; background: var(--ob-surface-2) !important; }
+.ob-wizard-root .ph-wrap:hover:not(:focus-within),
+.ob-wizard-root .phone-input-container:hover:not(:focus-within) { border-color: var(--ob-border-2) !important; background: var(--ob-surface-2) !important; }
 
 .ob-wizard-root input[type="file"].form-control {
   height: var(--ob-input-h) !important; line-height: calc(var(--ob-input-h) - 4px) !important;
