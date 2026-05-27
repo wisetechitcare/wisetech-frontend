@@ -103,7 +103,7 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
 
       <HighlightErrors isRequired={isRequired} formikField={formikField} />
 
-      <style jsx>{`
+      <style>{`
         .radio-container {
           position: relative;
           display: flex;
@@ -112,40 +112,43 @@ function RadioInput({ isRequired, inputLabel, radioBtns, formikField, customCss 
           font-size: 14px;
           font-family: 'Inter', sans-serif;
           font-weight: 400;
-          color: #000000;
+          color: #252f4a;
+          line-height: 1;
         }
 
-        .radio-container input {
+        .radio-container input[type="radio"] {
           position: absolute;
           opacity: 0;
           cursor: pointer;
+          width: 0;
+          height: 0;
         }
 
         /* custom radio circle */
         .custom-radio {
-          height: 21px;
-          width: 21px;
+          flex-shrink: 0;
+          height: 20px;
+          width: 20px;
           border-radius: 50%;
           background-color: #EEF1F7;
-          display: inline-block;
-          position: relative;
+          border: 2px solid #d1d5e0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           transition: all 0.2s ease-in-out;
         }
 
         /* When checked, show red fill */
-        .radio-container input:checked ~ .custom-radio {
+        .radio-container input[type="radio"]:checked ~ .custom-radio {
           background-color: #F1CCCC;
+          border-color: #9D4141;
         }
 
         /* inner dot */
-        .radio-container input:checked ~ .custom-radio::after {
+        .radio-container input[type="radio"]:checked ~ .custom-radio::after {
           content: "";
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 10px;
-          height: 10px;
+          width: 9px;
+          height: 9px;
           border-radius: 50%;
           background: #9D4141;
         }

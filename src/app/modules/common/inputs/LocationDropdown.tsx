@@ -1,7 +1,8 @@
 import { useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import Select from "react-select";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 
 interface LocationDropdownProps {
@@ -25,6 +26,10 @@ const LocationDropdown = ({ formikField, inputLabel, options, isRequired, placeh
     const [show, setShow] = useState(false);
     const handleShow = () => setShow(true);
 
+    const sortedOptions = useMemo(() => {
+        return sortOptionsAlphabetically(options || []);
+    }, [options]);
+
     return (
         <>
      <div className="d-flex flex-row justify-content-between">
@@ -36,7 +41,7 @@ const LocationDropdown = ({ formikField, inputLabel, options, isRequired, placeh
             <Select
                 name={formikField}
                 isDisabled={isDisabled}
-                options={options}
+                options={sortedOptions}
                 onChange={handleChange}
                 placeholder={placeholder}
                 classNamePrefix={"react-select"}

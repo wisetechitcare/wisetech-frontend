@@ -1,3 +1,4 @@
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
@@ -50,13 +51,12 @@ function EmergencyDetails({ formikProps }: any) {
     </div>
 
     <div className="col-lg-6 col-md-6 col-sm-12">
-      <TextInput
-        isRequired={false}
+      <PhoneNumberInput
         label="Emergency Contact Number"
+        isRequired={false}
         formikField="emergencyDetails.emergencyContactNumber"
+        formikProps={formikProps}
         placeholder="Enter emergency contact number"
-        inputValidation="numbers"
-        margin="mb-0"
       />
     </div>
   </div>

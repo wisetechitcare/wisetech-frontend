@@ -3,6 +3,8 @@ import { isEmpty } from 'lodash';
 import { useThemeMode } from "@metronic/partials";
 import { useDispatch } from 'react-redux';
 import { saveCurrentBranchInfo, saveCurrentCompanyInfo } from '@redux/slices/company';
+import { useMemo } from 'react';
+import { sortOptionsAlphabetically } from '@utils/sortUtils';
 
 const colors = {
     white: '#fff',
@@ -33,6 +35,10 @@ function SelectInput({ options, placeholder, dropdown, value, passData }: Select
         primary, secondary
     } = colors;
     const dispatch = useDispatch();
+
+    const sortedOptions = useMemo(() => {
+        return sortOptionsAlphabetically(options || []);
+    }, [options]);
 
     const customStyles = {
         control: (provided: any, state: any) => ({
@@ -76,7 +82,7 @@ function SelectInput({ options, placeholder, dropdown, value, passData }: Select
             classNamePrefix={"react-select"}
             className='react-select-styled'
             placeholder={placeholder}
-            options={options}
+            options={sortedOptions}
             styles={customStyles}
             menuPortalTarget={document.body}
             {...(!isEmpty(value) ? { value } : {})}

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useThemeMode } from "@metronic/partials";
 import HighlightErrors from '@app/modules/errors/components/HighlightErrors';
 import Select, { MultiValue, ActionMeta, OnChangeValue, components } from 'react-select'
+import { sortOptionsAlphabetically } from '@utils/sortUtils';
 
 type OptionType = {
   value: string
@@ -109,25 +110,28 @@ function MultiSelectInput({
   const formattedOptions = useMemo(() => {
     if (!Array.isArray(options)) return []
 
+    let result = []
     if (options.length > 0 && 'label' in options[0] && 'value' in options[0]) {
-      return options
+      result = options
+    } else {
+      result = options.map((opt) => {
+        // Extract color from nested objects if colorKey contains dot notation (e.g., 'companyType.color')
+        const getColorFromPath = (obj: any, path: string) => {
+          return path.split('.').reduce((current, key) => current?.[key], obj);
+        };
+
+        const color = getColorFromPath(opt, colorKey) || opt[colorKey];
+        
+        return {
+          value: opt[optionValueKey],
+          label: optionLabelKeys.map((k) => opt[k]).join(' '),
+          color: color, // Include color in formatted options
+          id: opt[optionValueKey]
+        };
+      })
     }
 
-    return options.map((opt) => {
-      // Extract color from nested objects if colorKey contains dot notation (e.g., 'companyType.color')
-      const getColorFromPath = (obj: any, path: string) => {
-        return path.split('.').reduce((current, key) => current?.[key], obj);
-      };
-
-      const color = getColorFromPath(opt, colorKey) || opt[colorKey];
-      
-      return {
-        value: opt[optionValueKey],
-        label: optionLabelKeys.map((k) => opt[k]).join(' '),
-        color: color, // Include color in formatted options
-        id: opt[optionValueKey]
-      };
-    })
+    return sortOptionsAlphabetically(result);
   }, [options, optionValueKey, optionLabelKeys, colorKey])
 
   useEffect(() => {
