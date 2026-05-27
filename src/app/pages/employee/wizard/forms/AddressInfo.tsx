@@ -257,7 +257,7 @@ function AddressInfo({ formikProps }: any) {
         fontFamily: "Inter",
         fontWeight: 500,
         fontSize: "14px",
-        color: "#798DB3",
+        color: "var(--ob-text-2, #2D3748)",
         textTransform: "uppercase",
         margin: 0,
       }}
@@ -265,31 +265,22 @@ function AddressInfo({ formikProps }: any) {
       Current Address
     </p>
 
-    {/* Row 1: Address Line 1, Address Line 2 */}
+    {/* Row 1: Address */}
     <div className="row g-3">
-      <div className="col-lg-6 col-md-6 col-sm-12">
+      <div className="col-12">
         <TextInput
           isRequired={false}
-          label="Address Line 1"
+          label="Address"
           margin="mb-0"
           formikField="addressInfo.presentAddressLine1"
         />
       </div>
-
-      <div className="col-lg-6 col-md-6 col-sm-12">
-        <TextInput
-          isRequired={false}
-          label="Address Line 2"
-          margin="mb-0"
-          formikField="addressInfo.presentAddressLine2"
-        />
-      </div>
     </div>
 
-    {/* Row 2: Country, State, City, Postal Code */}
+    {/* Row 2: Country, State, City */}
     <div className="row g-3">
       <div
-        className="col-lg-3 col-md-6 col-sm-12"
+        className="col-lg-4 col-md-6 col-sm-12"
         onClick={fetchCountries}
       >
         <LocationDropdown
@@ -319,13 +310,14 @@ function AddressInfo({ formikProps }: any) {
       </div>
 
       <div
-        className="col-lg-3 col-md-6 col-sm-12"
+        className="col-lg-4 col-md-6 col-sm-12"
         onClick={fetchPresentStates}
       >
         <LocationDropdown
           isDisabled={selectedPresentCountry == null}
           value={selectedPresentState}
           isRequired={false}
+          placeholder={selectedPresentCountry ? "Select state" : "Select country first"}
           handleChange={(option: any) => {
             handleChange(
               option,
@@ -345,13 +337,14 @@ function AddressInfo({ formikProps }: any) {
       </div>
 
       <div
-        className="col-lg-3 col-md-6 col-sm-12"
+        className="col-lg-4 col-md-6 col-sm-12"
         onClick={fetchPresentCities}
       >
         <LocationDropdown
           isDisabled={selectedPresentState == null}
           isRequired={false}
           value={selectedPresentCity}
+          placeholder={selectedPresentState ? "Select city" : "Select state first"}
           handleChange={(option: any) => {
             handleChange(
               option,
@@ -365,11 +358,23 @@ function AddressInfo({ formikProps }: any) {
           options={presentCitiesOption}
         />
       </div>
+    </div>
 
-      <div className="col-lg-3 col-md-6 col-sm-12">
+    {/* Row 3: Locality, Zip Code */}
+    <div className="row g-3">
+      <div className="col-lg-6 col-md-6 col-sm-12">
         <TextInput
           isRequired={false}
-          label="Postal Code"
+          label="Locality"
+          margin="mb-0"
+          formikField="addressInfo.presentAddressLine2"
+        />
+      </div>
+
+      <div className="col-lg-6 col-md-6 col-sm-12">
+        <TextInput
+          isRequired={false}
+          label="Zip Code"
           margin="mb-0"
           formikField="addressInfo.presentPostalCode"
         />
@@ -385,7 +390,7 @@ function AddressInfo({ formikProps }: any) {
         fontFamily: "Inter",
         fontWeight: 500,
         fontSize: "14px",
-        color: "#798DB3",
+        color: "var(--ob-text-2, #2D3748)",
         textTransform: "uppercase",
         margin: 0,
       }}
@@ -409,31 +414,22 @@ function AddressInfo({ formikProps }: any) {
       </label>
     </div>
 
-    {/* Row 1: Address Line 1, Address Line 2 */}
+    {/* Row 1: Address */}
     <div className="row g-3">
-      <div className="col-lg-6 col-md-6 col-sm-12">
+      <div className="col-12">
         <TextInput
           isRequired={false}
-          label="Address Line 1"
+          label="Address"
           margin="mb-0"
           formikField="addressInfo.permanentAddressLine1"
         />
       </div>
-
-      <div className="col-lg-6 col-md-6 col-sm-12">
-        <TextInput
-          isRequired={false}
-          label="Address Line 2"
-          margin="mb-0"
-          formikField="addressInfo.permanentAddressLine2"
-        />
-      </div>
     </div>
 
-    {/* Row 2: Country, State, City, Postal Code */}
+    {/* Row 2: Country, State, City */}
     <div className="row g-3">
       <div
-        className="col-lg-3 col-md-6 col-sm-12"
+        className="col-lg-4 col-md-6 col-sm-12"
         onClick={fetchCountries}
       >
         <LocationDropdown
@@ -461,13 +457,14 @@ function AddressInfo({ formikProps }: any) {
       </div>
 
       <div
-        className="col-lg-3 col-md-6 col-sm-12"
+        className="col-lg-4 col-md-6 col-sm-12"
         onClick={fetchPermanentStates}
       >
         <LocationDropdown
           isDisabled={selectedPermanentCountry == null}
           value={selectedPermanentState}
           isRequired={false}
+          placeholder={selectedPermanentCountry ? "Select state" : "Select country first"}
           handleChange={(option: any) => {
             handleChange(
               option,
@@ -487,13 +484,14 @@ function AddressInfo({ formikProps }: any) {
       </div>
 
       <div
-        className="col-lg-3 col-md-6 col-sm-12"
+        className="col-lg-4 col-md-6 col-sm-12"
         onClick={fetchPermanentCities}
       >
         <LocationDropdown
           isDisabled={selectedPermanentState == null}
           isRequired={false}
           value={selectedPermanentCity}
+          placeholder={selectedPermanentState ? "Select city" : "Select state first"}
           handleChange={(option: any) => {
             handleChange(
               option,
@@ -507,11 +505,23 @@ function AddressInfo({ formikProps }: any) {
           options={permanentCitiesOption}
         />
       </div>
+    </div>
 
-      <div className="col-lg-3 col-md-6 col-sm-12">
+    {/* Row 3: Locality, Zip Code */}
+    <div className="row g-3">
+      <div className="col-lg-6 col-md-6 col-sm-12">
         <TextInput
           isRequired={false}
-          label="Postal Code"
+          label="Locality"
+          margin="mb-0"
+          formikField="addressInfo.permanentAddressLine2"
+        />
+      </div>
+
+      <div className="col-lg-6 col-md-6 col-sm-12">
+        <TextInput
+          isRequired={false}
+          label="Zip Code"
           margin="mb-0"
           formikField="addressInfo.permanentPostalCode"
         />

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Container, Row, Col, Form } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 
 type EmployeeStatus = 'all' | 'active' | 'inactive';
 
@@ -37,6 +38,7 @@ const AllEmployeesSearchDropdown = () => {
     (state: RootState) => state.employee.currentEmployee
   );
 
+  const { filterIds } = useTeamFilter();
   const [selectedDropdownEmployee, setSelectedDropdownEmployee] =
     useState<Employee>(loggedInEmployee);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
@@ -73,7 +75,8 @@ const AllEmployeesSearchDropdown = () => {
       }
 
       const { data } = await fetchAllEmployees(isActive);
-      setAllEmployees(data.employees);
+      const employees: Employee[] = data.employees;
+      setAllEmployees(filterIds ? employees.filter((e) => filterIds.includes(e.id)) : employees);
 
       // Only set logged-in employee on initial load (when statusFilter is 'all')
       // For other filters or filter changes, show placeholder

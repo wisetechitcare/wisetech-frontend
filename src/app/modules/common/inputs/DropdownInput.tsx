@@ -2,6 +2,7 @@ import { Field, useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import  Select  from "react-select";
 import { useState, useMemo } from "react";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import { ColourOption, SingleValue, DropdownIndicator } from "./ColorInDropdwon";
 
@@ -67,6 +68,12 @@ function DropDownInput({
         }
         return options || [];
     }, [enableSmartSort, smartFilterFunction, options, inputValue]);
+
+    // Centralized case-insensitive alphabetical sorting
+    const sortedOptions = useMemo(() => {
+        const listToSort = enableSmartSort ? processedOptions : (options || []);
+        return sortOptionsAlphabetically(listToSort);
+    }, [enableSmartSort, processedOptions, options]);
 
     // Use propValue if provided, otherwise use formik field value
     let selectedValue;
@@ -160,7 +167,7 @@ function DropDownInput({
             </div>
         <Select
             name={formikField}
-            options={enableSmartSort ? processedOptions : options}
+            options={sortedOptions}
             onChange={handleChange}
             onInputChange={(newInputValue) => {
                 if (enableSmartSort) {

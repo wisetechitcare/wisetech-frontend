@@ -13,6 +13,7 @@ type Props = {
   activeIcon?: string
   fontIcon?: string
   hasBullet?: boolean
+  badgeCount?: number
 }
 
 const AsideMenuItem: FC<Props & WithChildren> = ({
@@ -23,6 +24,7 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
   activeIcon,
   fontIcon,
   hasBullet = false,
+  badgeCount,
 }) => {
   const {pathname} = useLocation()
   const isActive = checkIsActive(pathname, to)
@@ -51,7 +53,14 @@ const AsideMenuItem: FC<Props & WithChildren> = ({
         {fontIcon && aside.menuIcon === 'font' && (
           <i className={clsx('bi fs-3', fontIcon)}></i>
         )}
-        <span className='menu-title'>{title}</span>
+        <span className='menu-title d-flex align-items-center gap-2'>
+          <span>{title}</span>
+          {typeof badgeCount === 'number' && badgeCount > 0 && (
+            <span className='badge badge-circle badge-light-danger text-danger fw-bold fs-9'>
+              {badgeCount > 99 ? '99+' : badgeCount}
+            </span>
+          )}
+        </span>
       </Link>
       {children}
     </div>

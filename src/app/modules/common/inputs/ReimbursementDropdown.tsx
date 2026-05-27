@@ -1,6 +1,8 @@
 import { Field, useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import  Select  from "react-select"
+import { useMemo } from "react";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 
 interface DropDownInputProps {
     isRequired: boolean;
@@ -20,12 +22,16 @@ function ReimbursementDropdown({ formikField, inputLabel, options, isRequired, p
         </div>
     );
 
+    const sortedOptions = useMemo(() => {
+        return sortOptionsAlphabetically(options || []);
+    }, [options]);
+
     return (
         <>
             <label className={`form-label ${isRequired ? 'required' : ''}`}>{inputLabel}</label>
             <Select
                 name={formikField}
-                options={options}
+                options={sortedOptions}
                 onChange={handleChange}
                 placeholder={placeholder}
                 isClearable

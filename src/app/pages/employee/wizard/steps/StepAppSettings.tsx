@@ -6,7 +6,6 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import NumberInput from "@app/modules/common/inputs/NumberInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import LeaveAllocationStep from "../forms/LeaveAllocationStep";
-import DiscretionaryLeave from "../forms/DiscretionaryLeave";
 import AppSettings from "../forms/AppSettings";
 import WizardSectionLayout from "./WizardSectionLayout";
 import "./Step2.css";
@@ -92,10 +91,10 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                     <RadioInput
                         formikField="professionalFeesEnabled"
-                        inputLabel="Professional Fees Enabled"
+                        inputLabel="Employee Type"
                         radioBtns={[
-                            { label: "Yes", value: "true" },
-                            { label: "No", value: "false" },
+                            { label: "Contract Based", value: "true" },
+                            { label: "Salary Based", value: "false" },
                         ]}
                         isRequired={false}
                     />
@@ -220,7 +219,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
             setActiveSection("leaves");
             return;
         }
-        if (errors.appRole || errors.attendanceRequestRaiseLimit) {
+        if (errors.appRole) {
             setActiveSection("access");
             return;
         }
@@ -242,12 +241,6 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
                 <LeaveAllocationStep />
                 <div style={{ marginTop: "24px" }}>
                     <MonthlyLeaveLimit />
-                </div>
-                <div style={{ marginTop: "24px" }}>
-                    <div className="fw-semibold text-gray-700 fs-6 mb-3">
-                        Discretionary Leave Settings
-                    </div>
-                    <DiscretionaryLeave />
                 </div>
             </>
         ),

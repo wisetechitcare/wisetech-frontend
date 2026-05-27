@@ -551,6 +551,19 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
         { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
         { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
       ]
+    },
+    {
+      resourceKey: resourceNameMapWithCamelCase.approvals,
+      displayName: 'Approvals',
+      actions: [
+        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
+        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
+        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: true },
+        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
+        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: true },
+        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
+        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: true },
+      ]
     }
   ];
 
@@ -804,6 +817,18 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
       setLoading(false);
     }
   };
+
+  if (role?.isSystem) {
+    return (
+      <div className='text-center py-10'>
+        <KTIcon iconName='shield-tick' className='fs-3x text-primary mb-4' />
+        <div className='fw-bold fs-5'>System Role — Permissions are managed by the system</div>
+        <div className='text-muted fs-7 mt-2'>
+          Assign this role to employees from their profile settings.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1266,18 +1291,37 @@ function RolesAndPermissions() {
         {allRoles.map((role: any) => (
           <div key={role.id} className='d-flex flex-row align-items-center justify-content-start w-full m-1' style={{ backgroundColor: '#FFFFFF', fontSize: '14px', color: '#000000' }}>
             {/* <div>RolesAndPermissions</div> */}
-            <div className='col-4 col-md-4'>{role.name}</div>
+            <div className='col-4 col-md-4'>
+              {role.name}
+              {role?.isSystem && (
+                <span className='badge badge-light-primary fs-8 ms-2'>System</span>
+              )}
+            </div>
             <div className='col-4 col-md-3'>{role?.employees?.length}</div>
             <div className='col-4 col-md-3'>
-              <div
-                className="btn p-0 btn-active-color-primary btn-sm"
-                onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
-              >
-                <KTIcon
-                  iconName="pencil"
-                  className="fs-3 cursor-pointer"
-                />
-              </div>
+              {!role?.isSystem && (
+                <div
+                  className="btn p-0 btn-active-color-primary btn-sm"
+                  onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
+                >
+                  <KTIcon
+                    iconName="pencil"
+                    className="fs-3 cursor-pointer"
+                  />
+                </div>
+              )}
+              {role?.isSystem && (
+                <div
+                  className="btn p-0 btn-active-color-info btn-sm"
+                  onClick={() => { setRoleToEdit(role); setshowEditModal(true) }}
+                  title="View permissions"
+                >
+                  <KTIcon
+                    iconName="eye"
+                    className="fs-3 cursor-pointer"
+                  />
+                </div>
+              )}
               {(!role?.isSystem) && <div
                 className="btn p-0 btn-active-color-primary btn-sm"
                 onClick={() => handleDeleteRole(String(role.id))}

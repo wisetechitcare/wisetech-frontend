@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { RootState } from "@redux/store";
 import {
   getAllLeaveManagements,
@@ -33,6 +34,7 @@ interface LeaveManagementRequest {
 }
 
 function LeaveManagementRequests() {
+  const { filterIds } = useTeamFilter();
   const [requests, setRequests] = useState<LeaveManagementRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingRowId, setProcessingRowId] = useState<string | null>(null);
@@ -363,7 +365,7 @@ function LeaveManagementRequests() {
         </h3>
         <MaterialTable
           columns={columns}
-          data={requests}
+          data={filterIds ? requests.filter((r) => filterIds.includes(r.employeeId)) : requests}
           tableName="Pending Leave Management Requests"
           isLoading={loading}
           viewOthers={true}

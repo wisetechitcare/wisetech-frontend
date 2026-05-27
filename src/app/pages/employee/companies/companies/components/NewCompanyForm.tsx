@@ -19,6 +19,7 @@ import {
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, FieldArray } from "formik";
 import * as Yup from "yup";
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { useEffect, useState } from "react";
@@ -1255,19 +1256,19 @@ const NewCompanyForm: React.FC<Props> = ({
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
                             <div className="col-md-4">
-                              <TextInput
+                              <PhoneNumberInput
                                 formikField="phone"
                                 label="Phone"
                                 isRequired={false}
-                                inputValidation="numbers"
+                                placeholder="Enter phone"
                               />
                             </div>
                             <div className="col-md-4">
-                              <TextInput
+                              <PhoneNumberInput
                                 formikField="phone2"
                                 label="Phone 2"
                                 isRequired={false}
-                                inputValidation="numbers"
+                                placeholder="Enter phone 2"
                               />
                             </div>
                             <div className="col-md-4">

@@ -14,6 +14,7 @@ import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import { fetchAuthzCapabilities } from '@redux/slices/authz'
 import { fetchCurrentEmployeeByEmpId } from '@services/employee'
 import { useSelector } from 'react-redux'
+import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
 const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
@@ -60,7 +61,10 @@ const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisati
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
 const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
 const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
-const ApprovalInbox = lazy(() => import('@pages/approvals/ApprovalInbox'))
+const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
+const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
+const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
+const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
 const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
 const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
 const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
@@ -106,7 +110,30 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
-        <Route path='approvals/inbox' element={<ApprovalInbox />} />
+        {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
+          <Route index element={<Navigate to='/my-team/overview' replace />} />
+          <Route path='overview' element={<MyTeamOverview />} />
+          <Route path='members' element={<Navigate to='/employees' replace />} />
+          <Route path='attendance' element={<Navigate to='/my-team/overview' replace />} />
+          <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
+          <Route path='conveyance' element={<Navigate to='/finance/bills' replace />} />
+          <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
+          <Route path='tasks' element={<Navigate to='/tasks/employee-level-teams' replace />} />
+          <Route path='projects' element={<Navigate to='/qc/projects' replace />} />
+          <Route path='leads' element={<Navigate to='/qc/leads' replace />} />
+          <Route path='approvals' element={<MyTeamApprovals />} />
+          <Route path='delegations' element={<MyTeamDelegations />} />
+        </Route>}
+
+        {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='approvals/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='approvals/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/approval-inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
         <Route

@@ -1,7 +1,7 @@
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import PhoneInputField from "@app/modules/common/inputs/PhoneInput";
 
-function WorkContactInfo() {
+function WorkContactInfo({ formikProps }: { formikProps: any }) {
   return (
     <>
       <div className="row">
@@ -14,12 +14,14 @@ function WorkContactInfo() {
         </div>
 
         <div className="col-lg-6 col-md-6 col-sm-12">
-          <PhoneInputField
+          <PhoneNumberInput
             isRequired={false}
             label="Work Mobile Number"
             formikField="companyPhoneNumber"
+            formikProps={formikProps}
             extensionField="companyPhoneExtension"
             defaultCountry="91"
+            placeholder="Phone number"
           />
         </div>
       </div>
