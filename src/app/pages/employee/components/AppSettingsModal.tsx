@@ -12,7 +12,6 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings from "@app/components/ApprovalSettings";
 import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
-import DiscretionaryLeave from "@app/pages/employee/wizard/forms/DiscretionaryLeave";
 
 // ─── Professional fees helpers (mirror of NewEmployeeWizard) ─────────────────
 function readProfessionalFeesEnabled(raw: unknown): "true" | "false" {
@@ -94,10 +93,6 @@ function LeaveSection() {
                         </div>
                     </div>
                 </div>
-            </div>
-            <div className="mt-4">
-                <div className="fw-semibold text-gray-700 fs-6 mb-3">Discretionary Leave Settings</div>
-                <DiscretionaryLeave />
             </div>
         </>
     );
@@ -351,8 +346,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // leave
         allowedPerMonth: 1,
         leaveAllocations: [],
-        discretionaryLeaveBoolean: "false",
-        discretionaryLeaveBalance: 0,
         branchId: "",
         employeeId: "",
         // reporting
@@ -391,8 +384,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // leave
                     allowedPerMonth: w?.allowedPerMonth ?? 1,
                     leaveAllocations: [],
-                    discretionaryLeaveBoolean: w?.discretionaryLeaveBoolean ? "true" : "false",
-                    discretionaryLeaveBalance: w?.discretionaryLeaveBalance ?? 0,
                     branchId: w?.branchId ?? "",
                     employeeId,
                     // reporting
@@ -447,10 +438,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 isActive: values.isEmployeeActive === "1",
                 appRole: values.appRole || null,
                 isHiddenFromStaff: values.isHiddenFromStaff === true,
-                discretionaryLeaveBoolean: values.discretionaryLeaveBoolean === "true" || values.discretionaryLeaveBoolean === true,
-                ...((values.discretionaryLeaveBoolean === "true" || values.discretionaryLeaveBoolean === true) && values.discretionaryLeaveBalance
-                    ? { discretionaryLeaveBalance: parseInt(values.discretionaryLeaveBalance) || 0 }
-                    : {}),
                 ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
                     ? { leaveAllocations: values.leaveAllocations }
                     : {}),

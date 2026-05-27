@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
-import { Form, Formik, FormikValues } from "formik";
+import { Form, Formik, FormikValues, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
@@ -386,7 +386,6 @@ const newEmployeeWizardSchema = [
     reportsToId: optionalString().label("Reporting Manager"),
     ctcInLpa: optionalString().label("CTC In LPA"),
     appRole: optionalString().label("App Role"),
-    attendanceRequestRaiseLimit: optionalString().label("Attendance Request Limit"),
     allowedPerMonth: optionalString().label("Allowed Per Month"),
   }),
   Yup.object({
@@ -439,7 +438,7 @@ const initialState = {
   companyPhoneExtension: "", sourceOfHire: "", referredBy: "", dateOfJoining: "",
   dateOfExit: "", rejoinHistory: [{ dateOfReJoining: "", dateOfReExit: "", reason: "" }],
   employeeStatusId: "", employeeStatusConfigId: "", ctcInLpa: "", appRole: "",
-  attendanceRequestRaiseLimit: "", allowedPerMonth: 1, allowOverTime: "0",
+  allowedPerMonth: 1, allowOverTime: "0",
   discretionaryLeaveBoolean: "false", discretionaryLeaveBalance: 0,
   leaveAllocations: [] as any[],
   workExpInfo: [createDefaultWorkExpInfo()],
@@ -501,7 +500,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
     teamId, roomOrBlock, shift, experienceLevel, employeeLevelId,
     discretionaryLeaveBoolean, discretionaryLeaveBalance,
-    attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime,
+    allowedPerMonth, allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
   } = values;
@@ -559,7 +558,6 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
-    ...(attendanceRequestRaiseLimit && { attendanceRequestRaiseLimit }),
     ...(allowedPerMonth && { allowedPerMonth }),
     ...(allowOverTime && { allowOverTime }),
     discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
@@ -622,6 +620,53 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
     return true;
   } catch (err) { console.log(err); }
 };
+
+function FormikValidationErrorFocus() {
+  const { errors, submitCount } = useFormikContext<any>();
+
+  useEffect(() => {
+    if (submitCount > 0 && Object.keys(errors).length > 0) {
+      const getFirstErrorField = (errs: any, prefix = ""): string => {
+        if (typeof errs === "string") {
+          return prefix;
+        }
+        if (Array.isArray(errs)) {
+          for (let i = 0; i < errs.length; i++) {
+            if (errs[i]) {
+              return getFirstErrorField(errs[i], `${prefix}.${i}`);
+            }
+          }
+        }
+        if (typeof errs === "object" && errs !== null) {
+          const keys = Object.keys(errs);
+          if (keys.length > 0) {
+            return getFirstErrorField(errs[keys[0]], prefix ? `${prefix}.${keys[0]}` : keys[0]);
+          }
+        }
+        return prefix;
+      };
+
+      const fieldName = getFirstErrorField(errors);
+      if (fieldName) {
+        setTimeout(() => {
+          let inputEl = document.querySelector(`[name="${fieldName}"]`) as HTMLElement;
+          if (!inputEl) {
+            inputEl = document.getElementById(fieldName) as HTMLElement;
+          }
+          if (!inputEl) {
+            inputEl = document.querySelector(`[name^="${fieldName}"]`) as HTMLElement;
+          }
+          if (inputEl) {
+            inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            inputEl.focus({ preventScroll: true });
+          }
+        }, 150);
+      }
+    }
+  }, [submitCount]);
+
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
@@ -825,7 +870,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       employeeTypeId, employeeTypeConfigId, maritalStatus, sourceOfHireId, workingMethodId,
       departmentId, companyEmailId, referredById, method, nickName, employeeCode,
       companyPhoneNumber, companyPhoneExtension, employeeStatusId, employeeStatusConfigId,
-      avatar, meal, anniversary, reportsToId, attendanceRequestRaiseLimit,
+      avatar, meal, anniversary, reportsToId,
       allowedPerMonth, allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
       roomOrBlock, shift, experienceLevel, employeeLevelId, discretionaryLeaveBoolean,
@@ -876,7 +921,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(employeeStatusConfigId && { employeeStatusConfigId }),
       companyId, method: parseInt(method), companyPhoneNumber, companyPhoneExtension, employeeCode,
       ...(isAdmin && { isAdmin: isAdmin === "1" }),
-      ...(attendanceRequestRaiseLimit && { attendanceRequestRaiseLimit }),
       ...(allowedPerMonth && { allowedPerMonth }),
       ...(allowOverTime && { allowOverTime }),
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
@@ -1140,7 +1184,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const { data: { wizardData } } = await fetchWizardData(employeeId, false);
 
       let presentAddress = {};
-      const { attendanceRequestRaiseLimit, allowedPerMonth, allowOverTime } = wizardData;
+      const { allowedPerMonth, allowOverTime } = wizardData;
       const isSameAddress = wizardData.addressInfo?.presentAddressLine1 === null;
       if (isSameAddress) {
         const { permanentAddressLine1, permanentAddressLine2, permanentCountry, permanentState, permanentCity, permanentPostalCode } = wizardData.addressInfo;
@@ -1157,7 +1201,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         appRole: wizardData?.roles[0]?.id,
         isEmployeeActive: wizardData?.isActive ? "1" : "0",
         isAdmin: wizardData?.isAdmin ? "1" : "0",
-        attendanceRequestRaiseLimit: attendanceRequestRaiseLimit || 0,
         allowedPerMonth: allowedPerMonth || 1,
         allowOverTime,
         bloodGroup: wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
@@ -1238,6 +1281,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               return (
                 <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
+                  <FormikValidationErrorFocus />
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}

@@ -63,39 +63,15 @@ function AppSettings() {
                 </div>
             </div>
 
-            {/* Row 2: App Role, Attendance Request Limit */}
+            {/* Row 2: App Role */}
             <div className="row mb-4">
-                <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
+                <div className="col-lg-6 col-md-6 col-sm-12">
                     <DropDownInput
                         isRequired={true}
                         formikField={fieldName}
                         inputLabel="App Role"
                         options={roleOptions}
                     />
-                </div>
-                <div className="col-lg-6 col-md-6 col-sm-12">
-                    <NumberInput
-                        isRequired={true}
-                        formikField="attendanceRequestRaiseLimit"
-                        label="Attendance Request Limit"
-                        margin="mb-0"
-                    />
-                </div>
-            </div>
-
-            {/* Row 3: Allowed Per Month */}
-            <div className="row mb-4">
-                <div className="col-lg-6 col-md-6 col-sm-12">
-                    <NumberInput
-                        isRequired={true}
-                        formikField="allowedPerMonth"
-                        label="Allowed Per Month"
-                        margin="mb-0"
-                    />
-                    <div className="form-text text-muted mt-2">
-                        <i className="bi bi-info-circle me-1"></i>
-                        <strong>Combined monthly limit</strong> across Annual, Sick, Floater, Casual, and Maternal leaves. Example: If set to 5, employee can take maximum 5 total leaves per month (e.g., 2 Annual + 1 Sick + 1 Casual + 1 Floater = 5).
-                    </div>
                 </div>
             </div>
 
