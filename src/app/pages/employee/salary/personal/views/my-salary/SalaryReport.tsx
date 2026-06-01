@@ -1067,22 +1067,41 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const amountToDeductForLateCheckinBasedOnPercentage = Math.floor(dailySalary * (multiLateCheckinDeductionPercent / 100));
     const multipleLateCheckinEarned = parseInt(((Math.floor((lateAttendance || 0) / multipleLateCheckinCountLimit)) * amountToDeductForLateCheckinBasedOnPercentage).toString());
     
-    // ------------------ Fixed Deductions (Calculated on Intermediate Salary) ------------------------
+    // ------------------ Fixed Deductions ------------------------
     const countOfMonthsEmployeePresentInAYear = getCountOfMonthsEmployeePresentOrOnLeaveInAYear(stats);
     
-    // Intermediate Salary Base for calculations
+    // Intermediate Salary Base for non-PT calculations.
     const intermediateSalaryBase = Math.max(0, (isApiDataLoaded ? (apiTotalGrossPayAmount || 0) : totalGrossPayEarnedFinal) - multipleLateCheckinEarned);
+    const monthlyFixedSalaryBase = parseFloat(employee?.ctcInLpa || '0') / 12;
+    const professionalTaxRuleEntries = Object.entries(deductionsRule || {}).filter(([name]) =>
+        name.toLowerCase().includes('professional tax')
+    );
+    const otherFixedDeductionRuleEntries = Object.entries(deductionsRule || {}).filter(([name]) =>
+        !name.toLowerCase().includes('professional tax')
+    );
 
-    let taxes = salaryCalculationsForDays(
+    const otherFixedDeductions = salaryCalculationsForDays(
         totalDaysOfMonthOrYear, 
         allDaysForMonthOrYear, 
-        deductionsRule, 
+        Object.fromEntries(otherFixedDeductionRuleEntries), 
         intermediateSalaryBase, 
         isYearly, 
         countOfMonthsEmployeePresentInAYear, 
         true, 
         totalListOfMonthsPresent.size
     );
+    const professionalTaxDeductions = salaryCalculationsForDays(
+        totalDaysOfMonthOrYear,
+        allDaysForMonthOrYear,
+        Object.fromEntries(professionalTaxRuleEntries),
+        monthlyFixedSalaryBase,
+        isYearly,
+        countOfMonthsEmployeePresentInAYear,
+        true,
+        totalListOfMonthsPresent.size
+    );
+
+    let taxes = [...otherFixedDeductions, ...professionalTaxDeductions];
 
     const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[₹,]/g, "")), 0);
 
