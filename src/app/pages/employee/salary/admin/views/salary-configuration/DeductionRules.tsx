@@ -393,7 +393,7 @@ function DeductionRules() {
 
         <div className="row">
           <div className="col-md-6">
-            <div style={styles.columnHeader}>Monthly Gross Salary</div>
+            <div style={styles.columnHeader}>Monthly Basic Salary</div>
             {professionalTax ? (
               <>
                 {professionalTax.male.till.isActive && (
@@ -567,7 +567,7 @@ function DeductionRules() {
                   {/* Header Row */}
                   <div className="row mb-3" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '14px', color: '#8998ab'}}>
                     <div className="col-2"></div>
-                    <div className="col-4">Monthly Gross Salary</div>
+                    <div className="col-4">Monthly Basic Salary</div>
                     <div className="col-4">Monthly Tax</div>
                     <div className="col-2 text-end">Enable</div>
                   </div>
