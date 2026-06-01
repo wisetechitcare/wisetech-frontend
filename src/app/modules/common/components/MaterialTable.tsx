@@ -250,7 +250,7 @@ function MaterialTable({
 
     const excludedColumns = ["avatar", "actions"]; // Columns to exclude from search
 
-    return finalColumns
+    return columns
       .filter(
         (col: any) =>
           col.accessorKey &&
@@ -263,7 +263,7 @@ function MaterialTable({
         accessorKey: col.accessorKey,
         accessorFn: col.accessorFn,
       }));
-  }, [finalColumns, enableColumnSpecificSearch]);
+  }, [columns, enableColumnSpecificSearch]);
 
   // Use auto-generated searchable columns
   const effectiveSearchableColumns = useMemo(() => {
@@ -418,7 +418,7 @@ function MaterialTable({
 
       setFilteredData(sortedResults);
     },
-    [finalData],
+    [finalData, effectiveSearchableColumns],
   );
 
   // Handle column selector change
@@ -611,8 +611,6 @@ function MaterialTable({
     enableColumnSpecificSearch,
     filteredData,
     finalData,
-    selectedSearchColumn,
-    globalFilterValue,
   ]);
 
   if (preferencesLoading || !isInitialized) {
@@ -990,6 +988,7 @@ function MaterialTable({
 
         <MaterialReactTable
           key={`${tableName}-${employeeId}-${isInitialized}-${selectedSearchColumn}`}
+          getRowId={(row: any, index: number) => row.id ? String(row.id) : String(index)}
           renderDetailPanel={renderDetailPanel}
           state={{
             columnVisibility: preferences.columnVisibility,
@@ -1000,7 +999,7 @@ function MaterialTable({
             pagination: paginationState || preferences.pagination,
             density: preferences.density,
             expanded: preferences.expanded,
-            globalFilter: debouncedFilterValue,
+            globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
             isLoading: isLoading,
             showProgressBars: isLoading,
           }}
