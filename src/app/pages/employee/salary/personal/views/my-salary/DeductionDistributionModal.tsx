@@ -5,7 +5,7 @@ import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { KTIcon } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { createUpdateDeductionConfiguration, fetchDeductionConfiguration, validateDeductionConfigurationJson } from '@services/employee';
+import { createUpdateDeductionConfiguration, fetchDeductionConfiguration, validateDeductionConfigurationJson, updateEmployee } from '@services/employee';
 import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
 import { Close, InfoOutlined } from '@mui/icons-material';
@@ -238,19 +238,17 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             setLoading(true);
 
             const transformedData: any = {};
+            const pfAmount = Number(values['Professional Fees'] || 0);
 
             // Handle existing fields (not deleted)
             Object.entries(deductionDistributionData)
                 .filter(([key]) => !deletedFields.includes(key))
                 .forEach(([key, fieldData]: [string, any]) => {
-                    // Business Rule: Only active deduction should accept extra amount
                     const isProfTax = key === 'Professional Tax';
-                    const isProfFees = key === 'Professional Fees';
-                    
+                    // When PF has a positive amount the employee switches to contract-based,
+                    // so suppress any PT additional amount to avoid double-deduction.
                     let finalValue = Number(values[key]);
-                    
-                    if (isProfTax && !profTaxEnabled) finalValue = 0;
-                    if (isProfFees && !profFeesEnabled) finalValue = 0;
+                    if (isProfTax && pfAmount > 0) finalValue = 0;
 
                     transformedData[key] = {
                         ...fieldData,
@@ -278,6 +276,30 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             };
 
             await createUpdateDeductionConfiguration(apiPayload as any);
+
+            // Sync Professional Fees to employee's Financial Config (App Settings)
+            // so the two places always stay in agreement.
+            if (pfAmount > 0) {
+                // Entering a PF amount means the employee is contract-based.
+                await updateEmployee(employeeId, {
+                    id: employeeId,
+                    professionalFeesEnabled: true,
+                    professionalFeesType: "FIXED",
+                    professionalFeesAmount: pfAmount,
+                    professionalFeesPercentage: null,
+                });
+            } else if (profFeesEnabled) {
+                // PF was previously active but has been zeroed out — revert to salary-based
+                // so PT is re-enabled on next calculation.
+                await updateEmployee(employeeId, {
+                    id: employeeId,
+                    professionalFeesEnabled: false,
+                    professionalFeesType: "FIXED",
+                    professionalFeesAmount: null,
+                    professionalFeesPercentage: null,
+                });
+            }
+
             successConfirmation(`Additional deductions updated successfully!`);
             onSuccess();
             onClose();
@@ -380,17 +402,15 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                         {allFields.map((field) => {
                                             const isProfTax = field.id === 'Professional Tax';
                                             const isProfFees = field.id === 'Professional Fees';
-                                            
-                                            let isDisabled = false;
-                                            let disabledReason = '';
 
-                                            if (isProfTax && !profTaxEnabled) {
-                                                isDisabled = true;
-                                                disabledReason = "Professional Tax disabled because Professional Fees is active";
-                                            } else if (isProfFees && !profFeesEnabled) {
-                                                isDisabled = true;
-                                                disabledReason = "Professional Fees disabled because Professional Tax is active";
-                                            }
+                                            // Professional Tax is disabled when Professional Fees has an amount
+                                            // or when the employee is already contract-based.
+                                            const pfCurrentValue = Number(formikProps.values['Professional Fees'] || 0);
+                                            const isDisabled = isProfTax && (profFeesEnabled || pfCurrentValue > 0);
+                                            const disabledReason = isDisabled ? "Professional Tax disabled because Professional Fees is active" : '';
+
+                                            // Show a sync hint on the PF card when the employee is currently salary-based
+                                            const showSyncHint = isProfFees && !profFeesEnabled;
 
                                             const currentExtra = Number(formikProps.values[field.id] || 0);
 
@@ -436,6 +456,16 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                             </IconButton>
                                                         </div>
 
+                                                        {/* Sync hint: entering a PF amount will switch the employee to Contract Based */}
+                                                        {showSyncHint && (
+                                                            <div className="alert alert-dismissible bg-light-warning border border-warning border-dashed d-flex align-items-start gap-2 p-3 mb-3">
+                                                                <InfoOutlined sx={{ fontSize: 15, color: '#f6c000', flexShrink: 0, mt: '1px' }} />
+                                                                <span className="fs-8 text-gray-700">
+                                                                    Entering an amount here will automatically switch this employee to <strong>Contract Based</strong> and sync the value to <strong>App Settings → Financial Config</strong>.
+                                                                </span>
+                                                            </div>
+                                                        )}
+
                                                         <div className="mb-2">
                                                             <label className={`form-label fw-bold fs-8 text-uppercase ${isDisabled ? 'text-gray-500' : 'text-gray-700'}`}>
                                                                 Additional Deduction Amount
@@ -451,7 +481,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                         </div>
 
                                                         {!isDisabled && renderPreview(field.isNew ? field.id : field.name || field.id, currentExtra)}
-                                                        
+
                                                         {isDisabled && (
                                                             <div className="text-center py-4 bg-gray-100 rounded border border-dashed border-gray-300 mt-2">
                                                                 <span className="text-muted fs-8 fw-bold italic">{disabledReason}</span>
