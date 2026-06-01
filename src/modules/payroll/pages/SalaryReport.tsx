@@ -184,6 +184,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                             fallbackNetAmount={0}
                             showSensitiveData={showSensitiveData}
                             isApiDataLoaded={!!apiSalaryData}
+                            payrollTotalDeductions={parseCurrencyString(apiSalaryData?.totalDeductedAmount)}
                         />
                     </div>
                 </Card>
