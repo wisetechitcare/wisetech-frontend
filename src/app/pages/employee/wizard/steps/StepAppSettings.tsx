@@ -6,7 +6,6 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import NumberInput from "@app/modules/common/inputs/NumberInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import LeaveAllocationStep from "../forms/LeaveAllocationStep";
-import DiscretionaryLeave from "../forms/DiscretionaryLeave";
 import AppSettings from "../forms/AppSettings";
 import WizardSectionLayout from "./WizardSectionLayout";
 import "./Step2.css";
@@ -180,27 +179,6 @@ function PrivacyControls() {
     );
 }
 
-function MonthlyLeaveLimit() {
-    return (
-        <div className="row">
-            <div className="col-lg-6 col-md-6 col-sm-12">
-                <NumberInput
-                    isRequired={false}
-                    formikField="allowedPerMonth"
-                    label="Allowed Per Month"
-                    margin="mb-0"
-                />
-                <div className="form-text text-muted mt-2">
-                    <i className="bi bi-info-circle me-1"></i>
-                    <strong>Combined monthly limit</strong> across Annual, Sick, Floater,
-                    Casual, and Maternal leaves. Example: If set to 5, employee can take
-                    maximum 5 total leaves per month.
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ── Root component ────────────────────────────────────────────────────────────
 function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProps: any; editMode: boolean; sidebarProfile?: any }) {
     const [activeSection, setActiveSection] = useState("reporting");
@@ -216,11 +194,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
             setActiveSection("financial");
             return;
         }
-        if (errors.allowedPerMonth) {
-            setActiveSection("leaves");
-            return;
-        }
-        if (errors.appRole || errors.attendanceRequestRaiseLimit) {
+        if (errors.appRole) {
             setActiveSection("access");
             return;
         }
@@ -240,15 +214,6 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         leaves: (
             <>
                 <LeaveAllocationStep />
-                <div style={{ marginTop: "24px" }}>
-                    <MonthlyLeaveLimit />
-                </div>
-                <div style={{ marginTop: "24px" }}>
-                    <div className="fw-semibold text-gray-700 fs-6 mb-3">
-                        Discretionary Leave Settings
-                    </div>
-                    <DiscretionaryLeave />
-                </div>
             </>
         ),
         access: <AppSettings />,

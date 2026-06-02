@@ -34,9 +34,6 @@ const OpenAttendanceRequests = lazy(
   () => import("./views/overview/OpenAttendanceRequests"),
 );
 const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
-const AttendanceRequestLimitReset = lazy(
-  () => import("./views/overview/AttendanceRequestLimitReset"),
-);
 const LeaveManagementRequests = lazy(
   () => import("./views/overview/LeaveManagementRequests"),
 );
@@ -325,12 +322,6 @@ function OverviewView() {
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
           <DailyAttendance date={date} />
-        </Suspense>
-      </LazySection>
-
-      <LazySection minHeight="400px" rootMargin="300px">
-        <Suspense fallback={<Loader />}>
-          <AttendanceRequestLimitReset />
         </Suspense>
       </LazySection>
 

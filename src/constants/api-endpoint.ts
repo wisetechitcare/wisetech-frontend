@@ -86,7 +86,6 @@ export const EMPLOYEE = {
     CREATE_EMPLOYEE: "api/employee",
     GET_ALL_EMPLOYEE: "api/employee/all",
     GET_ALL_EMPLOYEE_SELECTED_DATA: "api/employee/all-employees-selected-data",
-    GET_EMPLOYEE_DISCRETIONARY_BALANCE: "api/employee/discretionary-balance/:id",
     GET_ALL_LEAVES: "api/employee/employee-on-leaves",
     UPDATE_EMPLOYEE_BY_ID: "api/employee",
     GET_EMPLOYEE_BY_ID: "api/employee",

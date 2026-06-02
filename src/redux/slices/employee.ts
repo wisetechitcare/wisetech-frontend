@@ -58,7 +58,6 @@ export interface Employee {
     departments: Department,
     roles: any[],
     hourlySalary?: number,
-    allowedPerMonth?: number,
     allowOverTime: boolean,
 }
 

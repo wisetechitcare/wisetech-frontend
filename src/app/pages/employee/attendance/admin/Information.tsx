@@ -21,9 +21,7 @@ const Information = () => {
     const dispatch = useDispatch();
     const featureConfig = useSelector((state: any) => state.featureConfiguration);
     const [isLoading, setIsLoading] = useState(true);
-    const [attendanceRequestRaiseLimit, setAttendanceRequestRaiseLimit] = useState<number>(4);
     const [companyId, setCompanyId] = useState<string>("");
-    const [isSavingLimit, setIsSavingLimit] = useState(false);
     const [lunchDeductionTimeValue, setLunchDeductionTimeValue] = useState<boolean>(false);
     const [isSavingLunchConfig, setIsSavingLunchConfig] = useState(false);
     const [restrictToNDaysValue, setRestrictToNDaysValue] = useState<number>(1);
@@ -150,39 +148,6 @@ const Information = () => {
         }
     };
 
-    const handleLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newValue = parseInt(e.target.value);
-        setAttendanceRequestRaiseLimit(newValue);
-    };
-
-    const handleSaveLimit = async () => {
-        if (!attendanceRequestRaiseLimit || attendanceRequestRaiseLimit === 0) {
-            errorConfirmation("Please enter a valid limit greater than 0");
-            setAttendanceRequestRaiseLimit(4);
-            return;
-        }
-
-        if (!companyId) {
-            errorConfirmation("Company ID not found. Please refresh the page.");
-            return;
-        }
-
-        try {
-            setIsSavingLimit(true);
-
-            await updateCompanyOverview(companyId, {
-                attendanceRequestRaiseLimit: attendanceRequestRaiseLimit.toString(),
-            });
-
-            successConfirmation("Attendance request raise limit saved successfully!");
-        } catch (error) {
-            console.error("Failed to save attendance request raise limit:", error);
-            errorConfirmation("Failed to save attendance request raise limit.");
-        } finally {
-            setIsSavingLimit(false);
-        }
-    };
-
     useEffect(() => {
         const loadConfigurations = async () => {
             try {
@@ -213,7 +178,6 @@ const Information = () => {
                 const companyOverview = companyOverviewRes?.data?.companyOverview?.[0];
                 if (companyOverview) {
                     setCompanyId(companyOverview.id);
-                    setAttendanceRequestRaiseLimit(companyOverview.attendanceRequestRaiseLimit || 4);
                 }
 
                 // Set the initial lunch value directly from parsed config
@@ -349,45 +313,6 @@ const Information = () => {
                                             </div>
                                         )}
                                     </Formik>
-                                </div>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-
-            <Row>
-                <Col md={12} className="mb-3">
-                    <Card>
-                        <Card.Body>
-                            <div className="d-flex justify-content-between align-items-center">
-                                <label className="form-label mb-0" htmlFor="attendance-request-raise-limit">
-                                    Attendance Request Raise Limit
-                                </label>
-                                <div className="d-flex gap-2 align-items-center">
-                                    <input
-                                        type="number"
-                                        className="form-control form-control-sm"
-                                        id="attendance-request-raise-limit"
-                                        value={attendanceRequestRaiseLimit}
-                                        onChange={handleLimitChange}
-                                        disabled={isSavingLimit}
-                                        min="1"
-                                        style={{ width: "80px", textAlign: "center" }}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary btn-sm"
-                                        onClick={handleSaveLimit}
-                                        disabled={isSavingLimit}
-                                        style={{ minWidth: "80px", height: "33px" }}
-                                    >
-                                        {isSavingLimit ? (
-                                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                        ) : (
-                                            "Save"
-                                        )}
-                                    </button>
                                 </div>
                             </div>
                         </Card.Body>

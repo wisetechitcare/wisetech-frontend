@@ -123,19 +123,6 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
       ]
     },
     {
-      resourceKey: resourceNameMapWithCamelCase.attendanceRequestLimit,
-      displayName: 'Attendance Request Limit',
-      actions: [
-        { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.create, label: PermissionConts.create, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOthers, label: PermissionConts.editOthers, disabled: false },
-        { action: permissionConstToUseWithHasPermission.editOwn, label: PermissionConts.editOwn, disabled: false },
-        { action: permissionConstToUseWithHasPermission.deleteOthers, label: PermissionConts.deleteOthers, disabled: true },
-        { action: permissionConstToUseWithHasPermission.deleteOwn, label: PermissionConts.deleteOwn, disabled: false },
-      ]
-    },
-    {
       resourceKey: resourceNameMapWithCamelCase.attendanceReport,
       displayName: 'Attendance Report',
       actions: [

@@ -56,17 +56,6 @@ export const fetchAllEmployeesSelectedData = async () => {
     }
 }
 
-export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (error) {
-        throw error;
-    }
-};
-
-
 export const createTodo = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_TODOS}`;

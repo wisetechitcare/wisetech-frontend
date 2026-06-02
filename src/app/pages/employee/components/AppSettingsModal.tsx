@@ -28,12 +28,6 @@ const allowOverTimeRadioBtn: RadioButton[] = [
 const validationSchema = Yup.object().shape({
     isAdmin: Yup.string().required("This field is required"),
     allowOverTime: Yup.string().required("This field is required"),
-    allowedPerMonth: Yup.number()
-        .required("This field is required")
-        .min(1, "Must be at least 1"),
-    attendanceRequestRaiseLimit: Yup.number()
-        .required("This field is required")
-        .min(0, "Cannot be negative"),
 });
 
 const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
@@ -48,8 +42,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
     const [initialValues, setInitialValues] = useState({
         isAdmin: "0",
         allowOverTime: "0",
-        allowedPerMonth: 1,
-        attendanceRequestRaiseLimit: 0,
     });
 
     useEffect(() => {
@@ -65,8 +57,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                 setInitialValues({
                     isAdmin: wizardData?.isAdmin ? "1" : "0",
                     allowOverTime: wizardData?.allowOverTime =="1" ? "1" : "0",
-                    allowedPerMonth: wizardData?.allowedPerMonth || 1,
-                    attendanceRequestRaiseLimit: wizardData?.attendanceRequestRaiseLimit || 0,
                 });
             } catch (err: any) {
                 console.error("Error loading employee data:", err);
@@ -88,8 +78,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                 id: employeeId,
                 isAdmin: values.isAdmin === "1" ? true : false,
                 allowOverTime: values.allowOverTime,
-                allowedPerMonth: Number(values.allowedPerMonth),
-                attendanceRequestRaiseLimit: Number(values.attendanceRequestRaiseLimit),
             };
 
             await updateEmployee(employeeId, payload);
@@ -157,29 +145,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                                     />
                                 </div>
 
-                                {/* Allowed Per Month */}
-                                <div className="mb-4">
-                                    <NumberInput
-                                        isRequired={true}
-                                        formikField="allowedPerMonth"
-                                        label="Allowed Per Month"
-                                        min={1}
-                                    />
-                                    <div className="form-text text-muted mt-1" style={{ fontSize: "12px" }}>
-                                        <i className="bi bi-info-circle me-1"></i>
-                                        Combined monthly leave limit across all leave types.
-                                    </div>
-                                </div>
-
-                                {/* Attendance Request Limit */}
-                                <div className="mb-4">
-                                    <NumberInput
-                                        isRequired={true}
-                                        formikField="attendanceRequestRaiseLimit"
-                                        label="Attendance Request Limit"
-                                        min={0}
-                                    />
-                                </div>
                             </Modal.Body>
 
                             <Modal.Footer style={{ borderTop: "none", paddingTop: "0" }}>
