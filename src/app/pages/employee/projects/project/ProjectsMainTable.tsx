@@ -165,9 +165,15 @@ const ProjectsMainTable = ({
     setChooseProjectTypeModal(true);
   };
 
-  const handleEditProject = (project: any, projectTempletId: any) => {
+  const handleEditProject = (project: any, _projectTempletId: any) => {
+    // If the project has a linked lead, open the Lead form (single source of truth).
+    const linkedLeadId = project?.leads?.[0]?.id;
+    if (linkedLeadId) {
+      navigate(`/leads/${linkedLeadId}`, { state: { openEditModal: true } });
+      return;
+    }
+    // Fallback for legacy orphan projects that have no lead link.
     setEditProject(project);
-    setEditProjectTempletId(projectTempletId);
     setEditProjectModal(true);
   };
 

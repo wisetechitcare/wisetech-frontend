@@ -5,8 +5,6 @@ import {
   MenuItem,
   Select,
   FormControl,
-  ToggleButton,
-  ToggleButtonGroup,
   useTheme,
   useMediaQuery,
   Autocomplete,
@@ -51,7 +49,9 @@ import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import { Modal } from "react-bootstrap";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { KTIcon } from "@metronic/helpers";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -95,68 +95,13 @@ const NavigationButtons: React.FC<{
   displayText: string;
   isMobile?: boolean;
 }> = ({ onPrev, onNext, displayText, isMobile }) => (
-  <div style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: isMobile ? "space-between" : "center",
-    background: "#fff",
-    border: "1px solid #E2E8F0",
-    borderRadius: "6px",
-    height: "32px",
-    padding: "0 8px",
-    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-    gap: "6px",
-    width: isMobile ? "100%" : "auto"
-  }}>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onPrev}
-      style={{
-        width: "24px",
-        height: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: "4px"
-      }}
-    >
-      <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" style={{ width: "12px", height: "12px" }} />
-    </button>
-    <span
-      className="mx-2"
-      style={{
-        fontSize: "12px",
-        fontFamily: "Inter, sans-serif",
-        fontWeight: 600,
-        color: "#1E293B",
-        whiteSpace: "nowrap",
-        textAlign: "center",
-        flex: isMobile ? 1 : "none"
-      }}
-    >
-      {displayText}
-    </span>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onNext}
-      style={{
-        width: "24px",
-        height: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: "4px"
-      }}
-    >
-      <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" style={{ width: "12px", height: "12px" }} />
-    </button>
-  </div>
+  <PeriodNavigator
+    label={displayText}
+    onPrevious={onPrev}
+    onNext={onNext}
+    minWidth={isMobile ? "100%" : 174}
+    sx={{ width: isMobile ? "100%" : "auto" }}
+  />
 );
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -622,15 +567,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
 
   // ── Columns ──────────────────────────────────────────────────────────────────
   const columns = [
-
     {
-      accessorKey: "inquiryDate",
-      header: "Inquiry Date",
-      size: 150,
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-      },
+      accessorKey: "id",
+      header: "ID",
+      size: 80,
+      enableEditing: false,
+      Cell: ({ row }: { row: any }) => row.index + 1,
     },
     {
       accessorKey: "prefix",
@@ -763,6 +705,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       Cell: ({ cell }: { cell: any }) =>
         allemployees?.find((e: any) => e.employeeId === cell.getValue())
           ?.employeeName || "N/A",
+    },
+    {
+      accessorKey: "inquiryDate",
+      header: "Inquiry Date",
+      size: 150,
+      Cell: ({ cell }: { cell: any }) => {
+        const v = cell.getValue();
+        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+      },
     },
     {
       accessorKey: "startDate",
@@ -1278,53 +1229,19 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               flexWrap: 'wrap',
               width: isMobile ? '100%' : 'auto'
             }}>
-              {/* Period Selector Tabs */}
-              <div style={{
-                display: "flex",
-                background: "#F1F5F9",
-                borderRadius: "6px",
-                padding: "2px",
-                gap: "2px",
-                width: isMobile ? "100%" : "fit-content",
-                overflowX: "auto",
-                scrollbarWidth: "none",
-                marginRight: "4px"
-              }}>
-                {["daily", "weekly", "monthly", "yearly", "allyear", "custom"].map((mode) => {
-                  const isActive = alignment === mode;
-                  const labels: Record<string, string> = {
-                    daily: "Daily",
-                    weekly: "Weekly",
-                    monthly: "Monthly",
-                    yearly: "Yearly",
-                    allyear: "All Year",
-                    custom: "Custom"
-                  };
-                  return (
-                    <button
-                      key={mode}
-                      onClick={(e) => handleAlignmentChange(e, mode)}
-                      style={{
-                        background: isActive ? "#ffffff" : "transparent",
-                        color: isActive ? "#AA393D" : "#64748B",
-                        border: "none",
-                        borderRadius: "4px",
-                        padding: "4px 10px",
-                        fontSize: "12px",
-                        fontWeight: isActive ? 600 : 500,
-                        fontFamily: "Inter, sans-serif",
-                        boxShadow: isActive ? "0 1px 2px rgba(16, 24, 40, 0.06)" : "none",
-                        transition: "all 0.2s ease",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flex: isMobile ? 1 : "none"
-                      }}
-                    >
-                      {labels[mode]}
-                    </button>
-                  );
-                })}
-              </div>
+              <PeriodTabs
+                value={alignment}
+                onChange={(selected: any) => handleAlignmentChange(null as any, selected)}
+                options={[
+                  { label: "Daily", value: "daily" },
+                  { label: "Weekly", value: "weekly" },
+                  { label: "Monthly", value: "monthly" },
+                  { label: "Yearly", value: "yearly" },
+                  { label: "All Year", value: "allyear" },
+                  { label: "Custom", value: "custom" },
+                ]}
+                sx={{ width: isMobile ? "100%" : "fit-content", mr: "4px" }}
+              />
 
               {/* Date Nav placed next to Period Tabs */}
               {alignment === "daily" && (

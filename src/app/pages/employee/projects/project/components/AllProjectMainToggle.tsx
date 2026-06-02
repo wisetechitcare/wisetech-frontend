@@ -271,15 +271,20 @@ const AllProjectMainToggle = () => {
           <div className="d-flex align-items-center gap-2">
             {activeTab === "overview" && (
               <Button
-                onClick={() => setShowBlankBasicProjectForm(true)}
-                variant="primary"
-                style={{
-                  fontFamily: "Barlow",
-                  fontWeight: "600",
-                  fontSize: "16px",
+                onClick={() => {
+                  // Navigate to the linked Lead form (Lead is the single source of truth).
+                  const linkedLeadId = projectData?.leads?.[0]?.id;
+                  if (linkedLeadId) {
+                    navigate(`/leads/${linkedLeadId}`, { state: { openEditModal: true } });
+                  } else {
+                    // Fallback: open legacy project form for orphan projects with no lead
+                    setShowBlankBasicProjectForm(true);
+                  }
                 }}
+                variant="primary"
+                style={{ fontFamily: "Barlow", fontWeight: "600", fontSize: "16px" }}
               >
-                Edit Project
+                Edit Lead / Project
               </Button>
             )}
             {/* Edit Button show only for tab overview */}

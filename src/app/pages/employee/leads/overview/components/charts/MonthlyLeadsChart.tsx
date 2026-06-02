@@ -17,6 +17,7 @@ import {
   getMonthlyTargets,
   getDailyMonthlyRunRate,
 } from "@services/lead";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 
@@ -399,54 +400,11 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
 
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center bg-light rounded-3 p-1 border shadow-sm"
-                style={{ height: "32px" }}
-              >
-                <Button
-                  variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
-                  onClick={() => navigateMonth("prev")}
-                  style={{
-                    height: "100%",
-                    width: "30px",
-                    textDecoration: "none",
-                  }}
-                >
-                  <i
-                    className="bi bi-chevron-left"
-                    style={{ fontSize: "12px" }}
-                  ></i>
-                </Button>
-                <div className="px-3 border-start border-end">
-                  <span
-                    className="fw-bold text-primary"
-                    style={{
-                      fontSize: "12px",
-                      minWidth: "90px",
-                      textAlign: "center",
-                      display: "inline-block",
-                    }}
-                  >
-                    {currentDate.format("MMMM YYYY")}
-                  </span>
-                </div>
-                <Button
-                  variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
-                  onClick={() => navigateMonth("next")}
-                  style={{
-                    height: "100%",
-                    width: "30px",
-                    textDecoration: "none",
-                  }}
-                >
-                  <i
-                    className="bi bi-chevron-right"
-                    style={{ fontSize: "12px" }}
-                  ></i>
-                </Button>
-              </div>
+              <PeriodNavigator
+                label={currentDate.format("MMMM YYYY")}
+                onPrevious={() => navigateMonth("prev")}
+                onNext={() => navigateMonth("next")}
+              />
             </div>
 
             <div

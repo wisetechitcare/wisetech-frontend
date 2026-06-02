@@ -86,7 +86,8 @@ const LeadOverview = ({ lead }: { lead: any }) => {
   const [cancellationReasons, setCancellationReasons] = useState<any[]>([]);
   const [allCompanyTypes, setAllCompanyTypes] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
-  const leadTemplateId = lead?.leadTemplateId;
+  // Hardcoded to MEP for now as requested
+  const leadTemplateId = leadAndProjectTemplateTypeId.mep;
 
   //new
   const dispatch = useDispatch<AppDispatch>();
@@ -1063,8 +1064,8 @@ const LeadOverview = ({ lead }: { lead: any }) => {
         </div>
 
         {/* Second Row - Additional Details & Portal */}
-        {leadTemplateId==leadAndProjectTemplateTypeId.mep &&  <div className="col-12 col-md-6">
-          <InfoCard title="Project Address" icon="bi bi-gear">
+        <div className="col-12 col-md-6">
+          <InfoCard title="Project Address" icon="bi bi-geo-alt">
             <InfoRow label="Project Address" value={lead?.additionalDetails?.projectAddress || "-"} />
             <InfoRow label="Locality" value={lead?.additionalDetails?.locality || "-"} />
             <InfoRow label="City" value={lead?.additionalDetails?.city || "-"} />
@@ -1099,7 +1100,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
               </div>
             )}
           </InfoCard>
-        </div>}
+        </div>
        
 
         <div className="col-12 col-md-6">

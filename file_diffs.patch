@@ -1,0 +1,420 @@
+﻿diff --git a/src/app/routing/PrivateRoutes.tsx b/src/app/routing/PrivateRoutes.tsx
+index e411326..5486b4e 100644
+--- a/src/app/routing/PrivateRoutes.tsx
++++ b/src/app/routing/PrivateRoutes.tsx
+@@ -14,7 +14,6 @@ import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
+ import { fetchAuthzCapabilities } from '@redux/slices/authz'
+ import { fetchCurrentEmployeeByEmpId } from '@services/employee'
+ import { useSelector } from 'react-redux'
+-import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
+ 
+ const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
+ const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
+@@ -59,12 +58,7 @@ const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTe
+ const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
+ const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
+ const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
+-const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
+-const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
+-const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
+-const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
+-const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
+-const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
++const ApprovalInbox = lazy(() => import('@pages/approvals/ApprovalInbox'))
+ const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
+ const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
+ const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
+@@ -72,9 +66,6 @@ const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
+ const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
+ const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
+ const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
+-const PayrollLedger = lazy(() => import('../../modules/payroll/pages/PayrollLedger'))
+-const PayrollDetails = lazy(() => import('../../modules/payroll/pages/PayrollDetails'))
+-
+ const PrivateRoutes = () => {
+   const [isStored, setIsStored] = useState(false)
+   const employeeId = useSelector(
+@@ -110,39 +101,9 @@ const PrivateRoutes = () => {
+         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
+         {/* Pages */}
+         <Route path='dashboard' element={<DashboardWrapper />} />
+-        {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
+-          <Route index element={<Navigate to='/my-team/overview' replace />} />
+-          <Route path='overview' element={<MyTeamOverview />} />
+-          <Route path='members' element={<Navigate to='/employees' replace />} />
+-          <Route path='attendance' element={<Navigate to='/my-team/overview' replace />} />
+-          <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
+-          <Route path='conveyance' element={<Navigate to='/finance/bills' replace />} />
+-          <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
+-          <Route path='tasks' element={<Navigate to='/tasks/employee-level-teams' replace />} />
+-          <Route path='projects' element={<Navigate to='/qc/projects' replace />} />
+-          <Route path='leads' element={<Navigate to='/qc/leads' replace />} />
+-          <Route path='approvals' element={<MyTeamApprovals />} />
+-          <Route path='delegations' element={<MyTeamDelegations />} />
+-        </Route>}
+-
+-        {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+-        {NEW_MY_TEAM_IA && <Route path='approvals/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
+-        {NEW_MY_TEAM_IA && <Route path='approvals/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
+-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
+-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/approval-inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+-        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
+-        {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
+-        {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
+-        {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
++        <Route path='approvals/inbox' element={<ApprovalInbox />} />
+         <Route path='builder' element={<BuilderPageWrapper />} />
+         <Route path='menu-test' element={<MenuTestPage />} />
+-        <Route
+-          path='/qc/leads/documentation-builder'
+-          element={
+-            <SuspensedView>
+-              <TemplateDocumentationBuilderPage />
+-            </SuspensedView>}
+-        />
+         {/* Lazy Modules */}
+         <Route
+           path='crafted/pages/profile/*'
+@@ -183,20 +144,6 @@ const PrivateRoutes = () => {
+               <Salary />
+             </SuspensedView>}
+         />}
+-        <Route
+-          path='/payroll/ledger'
+-          element={
+-            <SuspensedView>
+-              <PayrollLedger />
+-            </SuspensedView>}
+-        />
+-        <Route
+-          path='/payroll/ledger/:id'
+-          element={
+-            <SuspensedView>
+-              <PayrollDetails />
+-            </SuspensedView>}
+-        />
+         <Route
+           path='/finance/loans'
+           element={
+@@ -426,13 +373,6 @@ const PrivateRoutes = () => {
+               <PersonalKpiMain />
+             </SuspensedView>}
+         />
+-        <Route
+-          path='/qc/leads/configuration'
+-          element={
+-            <SuspensedView>
+-              <ProposalConfigurationPage />
+-            </SuspensedView>}
+-        />
+         <Route
+           path='/qc/leads'
+           element={
+diff --git a/src/constants/api-endpoint.ts b/src/constants/api-endpoint.ts
+index 15d9a0c..0c116ae 100644
+--- a/src/constants/api-endpoint.ts
++++ b/src/constants/api-endpoint.ts
+@@ -590,3 +590,8 @@ export const EMPLOYEE_CONFIGURATION = {
+     UPDATE: '/api/employee-configurations/:id',
+     DELETE: '/api/employee-configurations/:id',
+ };
++export const DRAFT = {
++    SAVE: 'api/draft/save',
++    GET: 'api/draft/:entityType/:entityId',
++    DELETE: 'api/draft/:entityType/:entityId',
++};
+diff --git a/src/constants/statistics.ts b/src/constants/statistics.ts
+index e4ab2ab..11f7953 100644
+--- a/src/constants/statistics.ts
++++ b/src/constants/statistics.ts
+@@ -160,7 +160,6 @@ export const resourceNameMapWithCamelCase = {
+     leaveCashTransfer: "leaveCashTransfer",
+     attendanceRequestLimit: "attendanceRequestLimit",
+     organisationProfile: "organisationprofile",
+-    approvals: "approvals",
+ }
+ 
+ export const uiControlResourceNameMapWithCamelCase = {
+diff --git a/src/main.css b/src/main.css
+index 4a9eff2..e9e692e 100644
+--- a/src/main.css
++++ b/src/main.css
+@@ -8,20 +8,6 @@
+ .responsive-gap {
+     gap: 40px;
+   }
+-  
+-  /* Remove transparent effect from sidebar */
+-  .aside, #kt_aside {
+-    background-color: #ffffff !important;
+-    backdrop-filter: none !important;
+-    -webkit-backdrop-filter: none !important;
+-    opacity: 1 !important;
+-  }
+-  
+-  [data-bs-theme="dark"] .aside,
+-  [data-bs-theme="dark"] #kt_aside {
+-    background-color: #1c1c28 !important;
+-  }
+-  
+   @media (max-width: 1024px) {
+     .responsive-gap {
+       gap: 20px;
+diff --git a/src/services/leads.ts b/src/services/leads.ts
+index 803585d..46c6f92 100644
+--- a/src/services/leads.ts
++++ b/src/services/leads.ts
+@@ -39,7 +39,10 @@ export const createLead = async (leadData: any) => {
+     const {data} = await axios.post(endpoint, leadData);
+     return data;
+   } catch (error: any) {
+-    throw error.response.data;
++    console.error('Error creating lead - status:', error?.response?.status);
++    console.error('Error creating lead - data:', error?.response?.data);
++    console.error('Error creating lead - message:', error?.response?.data?.message || error?.message);
++    throw error.response?.data || error;
+   }
+ };
+ 
+@@ -231,93 +234,3 @@ export const updateLeadCancellationReason = async (id: string, payload: any) =>
+     }
+ }
+ 
+-export const exportLeadDocx = async (leadId: string, payload: any) => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/docx`;
+-        const { data } = await axios.post(endpoint, {
+-            ...payload,
+-            lead_id: leadId,
+-            templateId: payload.templateId,
+-            templateBase64: payload.templateBase64 || payload.customTemplate,
+-            userId: payload.userId,
+-            edited_data: payload,
+-        }, { responseType: 'blob' });
+-        return data;
+-    } catch (error) {
+-        console.error('Error exporting lead as DOCX:', error);
+-        throw error;
+-    }
+-}
+-
+-export const exportLeadPdf = async (leadId: string, payload: any) => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/pdf`;
+-        const { data } = await axios.post(endpoint, {
+-            ...payload,
+-            lead_id: leadId,
+-            templateId: payload.templateId,
+-            templateBase64: payload.templateBase64 || payload.customTemplate,
+-            userId: payload.userId,
+-            edited_data: payload,
+-        }, { responseType: 'blob' });
+-        return data;
+-    } catch (error) {
+-        console.error('Error exporting lead as PDF:', error);
+-        throw error;
+-    }
+-}
+-
+-export const getProposalConfigurations = async () => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/configurations`;
+-        const { data } = await axios.get(endpoint);
+-        return data.data;
+-    } catch (error) {
+-        console.error('Error fetching proposal configurations:', error);
+-        throw error;
+-    }
+-}
+-
+-export const getProposalRules = async (templateId: string, area: string | number) => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/rules?templateId=${templateId}&area=${area}`;
+-        const { data } = await axios.get(endpoint);
+-        return data.data;
+-    } catch (error) {
+-        console.error('Error fetching proposal rules:', error);
+-        throw error;
+-    }
+-}
+-
+-export const getAvailableExportFields = async () => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/available-fields`;
+-        const { data } = await axios.get(endpoint);
+-        return data.data;
+-    } catch (error) {
+-        console.error('Error fetching available export fields:', error);
+-        throw error;
+-    }
+-}
+-
+-export const saveProposalConfiguration = async (config: any, templateBase64?: string) => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/configurations`;
+-        const { data } = await axios.post(endpoint, { config, templateBase64 });
+-        return data;
+-    } catch (error) {
+-        console.error('Error saving proposal configuration:', error);
+-        throw error;
+-    }
+-}
+-
+-export const deleteProposalConfiguration = async (id: string) => {
+-    try {
+-        const endpoint = `${API_BASE_URL}/api/leads/export/configurations/${id}`;
+-        const { data } = await axios.delete(endpoint);
+-        return data;
+-    } catch (error) {
+-        console.error('Error deleting proposal configuration:', error);
+-        throw error;
+-    }
+-}
+diff --git a/src/services/options.ts b/src/services/options.ts
+index ecba83d..da556f3 100644
+--- a/src/services/options.ts
++++ b/src/services/options.ts
+@@ -11,8 +11,13 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+ 
+ export const fetchAllCountries = async () => {
+     try {
+-        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries`);
+-        return data.data;
++        const headers = {
++            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
++        };
++
++        const { data } = await axios.get('https://api.countrystatecity.in/v1/countries', { headers });
++
++        return data;
+     } catch (err) {
+         throw err;
+     }
+@@ -62,8 +67,15 @@ export const deletePrefixSetting = async (id: string) => {
+ 
+ export const fetchCountryName = async (ciso: string) => {
+     try {
+-        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries`);
+-        return (data.data as any[]).find((c) => c.iso2 === ciso) ?? null;
++        const headers = {
++            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
++        };
++
++        const url = `https://api.countrystatecity.in/v1/countries/${ciso}`;
++
++        const { data } = await axios.get(url, { headers });
++
++        return data;
+     } catch (err) {
+         throw err;
+     }
+@@ -71,8 +83,15 @@ export const fetchCountryName = async (ciso: string) => {
+ 
+ export const fetchAllStates = async (ciso: string) => {
+     try {
+-        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states`);
+-        return data.data;
++        const headers = {
++            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
++        };
++
++        const url = `https://api.countrystatecity.in/v1/countries/${ciso}/states`;
++
++        const { data } = await axios.get(url, { headers });
++
++        return data;
+     } catch (err) {
+         throw err;
+     }
+@@ -80,8 +99,15 @@ export const fetchAllStates = async (ciso: string) => {
+ 
+ export const fetchStateName = async (ciso: string, siso: string) => {
+     try {
+-        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states`);
+-        return (data.data as any[]).find((s) => s.iso2 === siso) ?? null;
++        const headers = {
++            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
++        };
++
++        const url = `https://api.countrystatecity.in/v1/countries/${ciso}/states/${siso}`;
++
++        const { data } = await axios.get(url, { headers });
++
++        return data;
+     } catch (err) {
+         throw err;
+     }
+@@ -89,8 +115,15 @@ export const fetchStateName = async (ciso: string, siso: string) => {
+ 
+ export const fetchAllCities = async (ciso: string, siso: string) => {
+     try {
+-        const { data } = await axios.get(`${API_BASE_URL}/api/location/geo/countries/${ciso}/states/${siso}/cities`);
+-        return data.data;
++        const headers = {
++            'X-CSCAPI-KEY': 'NUtqYkpPTjNVMmlRbUhCM3FxMnVlSnlUTXRPSE93cGY4VnJKMXVaQw==',
++        };
++
++        const url = `https://api.countrystatecity.in/v1/countries/${ciso}/states/${siso}/cities`;
++
++        const { data } = await axios.get(url, { headers });
++
++        return data;
+     } catch (err) {
+         throw err;
+     }
+diff --git a/src/utils/modal.ts b/src/utils/modal.ts
+index 66c683c..5688a25 100644
+--- a/src/utils/modal.ts
++++ b/src/utils/modal.ts
+@@ -141,16 +141,33 @@ export const rejectConfirmation = async (confirmButtonText: string = 'Reject'):
+     return result.isConfirmed;
+ };
+ 
+-export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<boolean> => {
++export const showSavingOverlay = (message: string = 'Saving your changesΓÇª') => {
++    void Swal.fire({
++        ...commonOptions,
++        title: 'Please wait',
++        html: `<p class="fs-6 text-gray-700 mb-0">${message}</p>`,
++        allowOutsideClick: false,
++        allowEscapeKey: false,
++        showConfirmButton: false,
++        didOpen: () => Swal.showLoading(),
++    });
++};
++
++export const closeSavingOverlay = () => {
++    Swal.close();
++};
++
++/** @returns true = Save Revision, false = Update Only, null = cancelled */
++export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<boolean | null> => {
+     const result = await Swal.fire({
+         ...commonOptions,
+-        title: 'Update Lead Information',
++        title: 'How should we save this lead?',
+         html: `
+-            <div class="mb-4">
+-                <p class="fs-6 text-gray-700 mb-4 text-center">You are about to save changes to this lead. Choose how you would like to handle this update:</p>
+-                <div class="d-flex flex-column gap-2 bg-light p-4 rounded-1 border">
+-                    <div class="fs-7 fw-bold"><i class="fa fa-info-circle text-primary me-2"></i><strong>Save Revision:</strong> Increments version number and creates a history record.</div>
+-                    <div class="fs-7 fw-bold mt-2"><i class="fa fa-sync text-muted me-2"></i><strong>Update Only:</strong> Modifies the current record without version tracking.</div>
++            <div class="mb-2">
++                <p class="fs-6 text-gray-700 mb-4 text-center">Choose whether this save counts as a new revision or only updates the current one. Your proposal (DOCX &amp; PDF) will be saved to the cloud automatically.</p>
++                <div class="d-flex flex-column gap-2 bg-light p-4 rounded-1 border text-start">
++                    <div class="fs-7 fw-bold"><i class="fa fa-layer-group text-primary me-2"></i><strong>Save Revision</strong> ΓÇö New revision number; new proposal files in Files.</div>
++                    <div class="fs-7 fw-bold mt-2"><i class="fa fa-sync text-muted me-2"></i><strong>Update Only</strong> ΓÇö Same revision; replaces the latest proposal files.</div>
+                 </div>
+             </div>
+         `,
+@@ -165,7 +182,9 @@ export const customConfirmation = async (confirmButtonText: string = 'Save Revis
+         width: '450px'
+     });
+ 
+-    return result.isConfirmed;
++    if (result.isConfirmed) return true;
++    if (result.dismiss === Swal.DismissReason.cancel) return false;
++    return null;
+ };
+ 
+ export const warningNotification = (message: string, title: string = "Notification") => {

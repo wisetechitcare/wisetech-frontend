@@ -32,8 +32,9 @@ const ERROR_MESSAGES: Record<SimpleInputType, string> = {
   "signed-decimal": "Input Type Should Be Number",
 };
 
+
 interface TextInputProps {
-  isRequired: boolean;
+  isRequired?: boolean;
   formikField: string;
   readonly?: boolean;
   margin?: string;
@@ -81,11 +82,10 @@ function TextInput({
         {prefix && <span className="input-group-text">{prefix}</span>}
 
         <Field name={formikField}>
-          {({ field, form, meta }: { field: any; form: any; meta: any }) => {
+          {({ field, form }: { field: any; form: any }) => {
             const fieldBaseName = field.name.replace(/\[\d+\]/g, "");
             const dynamicRegex = employeeOnBardingFormRegexes[fieldBaseName] || /.*/;
             const displayValue = formatter ? formatter(field.value) : field.value;
-            const isInvalid = !!(meta.touched && meta.error);
 
             const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               const raw = e.target.value;
@@ -116,7 +116,7 @@ function TextInput({
                 readOnly={readonly}
                 disabled={readonly}
                 defaultValue={defaultValue}
-                className={`form-control${isInvalid ? " is-invalid" : ""}`}
+                className="form-control"
                 style={{ height: 44 }}
               />
             );
@@ -130,7 +130,7 @@ function TextInput({
         <div className="text-danger mt-1 fs-7">{validationError}</div>
       )}
 
-      <HighlightErrors isRequired={isRequired} formikField={formikField} />
+      <HighlightErrors isRequired={Boolean(isRequired)} formikField={formikField} />
     </div>
   );
 }

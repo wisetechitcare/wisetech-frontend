@@ -59,8 +59,6 @@ const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTe
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
 const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
-const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
-const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
 const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
 const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
@@ -136,13 +134,6 @@ const PrivateRoutes = () => {
         {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
-        <Route
-          path='/qc/leads/documentation-builder'
-          element={
-            <SuspensedView>
-              <TemplateDocumentationBuilderPage />
-            </SuspensedView>}
-        />
         {/* Lazy Modules */}
         <Route
           path='crafted/pages/profile/*'
@@ -424,13 +415,6 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <PersonalKpiMain />
-            </SuspensedView>}
-        />
-        <Route
-          path='/qc/leads/configuration'
-          element={
-            <SuspensedView>
-              <ProposalConfigurationPage />
             </SuspensedView>}
         />
         <Route

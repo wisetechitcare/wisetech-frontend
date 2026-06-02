@@ -65,16 +65,15 @@ import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import {
   createLead,
-  getAllLeads,
   getLeadById,
   updateLead,
-  exportLeadDocx,
-  exportLeadPdf,
 } from "@services/leads";
 import { uploadUserAsset } from "@services/uploader";
 import {
   customConfirmation,
+  closeSavingOverlay,
   errorConfirmation,
+  showSavingOverlay,
   successConfirmation,
 } from "@utils/modal";
 import ProjectConfigForm from "@pages/employee/projects/configure/components/ProjectConfigForm";
@@ -99,6 +98,13 @@ import {
 } from "@app/modules/common/components/InlineCreateHelpers";
 import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { getAllLeadCancellationReasons } from "@services/lead";
+import { getAllLeadProjectStatuses } from "@services/leadProjectMeta";
+import Swal from "sweetalert2";
+
+import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
+import { useDraft } from "@hooks/useDraft";
+import { DraftRecoveryModal } from "@components/draft/DraftRecoveryModal";
+import { UnsavedChangesModal } from "@components/draft/UnsavedChangesModal";
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -239,6 +245,9 @@ const LeadFormModal = ({
   leadSources = [], // rm
   // referralTypes = [] // rm
 }: LeadFormModalProps) => {
+  // Hardcoded to MEP for now as requested
+  leadTemplateId = leadAndProjectTemplateTypeId.mep;
+  
   const [selectedCompany, setSelectedCompany] = useState<boolean>(false);
   const [referrals, setReferrals] = useState([
     {
@@ -253,6 +262,7 @@ const LeadFormModal = ({
     },
   ]);
   const formikRef = useRef<any>(null);
+  const leadSaveModeRef = useRef<"update" | "revision" | null>(null);
   const dispatch = useDispatch<AppDispatch>();
   const createdById = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
@@ -325,165 +335,73 @@ const LeadFormModal = ({
   const [showDirectSourceModal, setShowDirectSourceModal] = useState(false);
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showProposalModal, setShowProposalModal] = useState(false);
-  const [existingLeads, setExistingLeads] = useState<any[]>([]);
-
-  useEffect(() => {
-    getAllLeads()
-      .then((res: any) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
-      .catch(() => { });
-  }, []);
-
-  const handleExport = async (type: "docx" | "pdf", values: any) => {
-    if (!values.id) return;
-    setIsGenerating(true);
-    try {
-      // Resolve Company Names for File Location
-      const selectedCompanyType =
-        allCompanyTypes.find(
-          (t) => String(t.id) == String(values.fileLocationCompanyType),
-        )?.name || "";
-      const selectedCompany =
-        companies.find(
-          (c) => String(c.id) == String(values.fileLocationCompany),
-        )?.companyName || "";
-
-      // Resolve Address Names (picking from first row)
-      const firstAddr = values.addresses?.[0] || {};
-
-      // Use selections from Formik state first (if user interacted)
-      const stateSelection = values.addressStateSelections?.[0];
-      const citySelection = values.addressCitySelections?.[0];
-
-      const resolvedCountry =
-        countries.find((c) => String(c.id) == String(firstAddr.country))
-          ?.name ||
-        firstAddr.country ||
-        "";
-
-      // Try to resolve State and City from selection, then from the full list, then from the options array in Formik values
-      const stateOptions = values.addressStatesOptions?.[0] || [];
-      const cityOptions = values.addressCitiesOptions?.[0] || [];
-
-      const resolvedState =
-        stateSelection?.name ||
-        states.find((s) => String(s.id) == String(firstAddr.state))?.name ||
-        stateOptions.find((s: any) => String(s.id) == String(firstAddr.state))
-          ?.name ||
-        firstAddr.state ||
-        "";
-
-      const resolvedCity =
-        citySelection?.name ||
-        cities.find((c) => String(c.id) == String(firstAddr.city))?.name ||
-        cityOptions.find((c: any) => String(c.id) == String(firstAddr.city))
-          ?.name ||
-        firstAddr.city ||
-        "";
-
-      // Resolve Multiple Services and Categories
-      const resolvedServices = (values.serviceIds || []).map(
-        (id: string) =>
-          services.find((s) => String(s.id) == String(id))?.name || id,
-      );
-      const resolvedCategories = (values.categoryIds || []).map(
-        (id: string) =>
-          categories.find((c) => String(c.id) == String(id))?.name || id,
-      );
-
-      const exportData = {
-        ...values,
-        fileLocationCompanyType:
-          selectedCompanyType || values.fileLocationCompanyType,
-        fileLocationCompany: selectedCompany || values.fileLocationCompany,
-        // Override service/category lists with names
-        service_names: resolvedServices,
-        category_names: resolvedCategories,
-        // Override address fields with names
-        addresses: values.addresses?.map((addr: any, index: number) =>
-          index === 0
-            ? {
-              ...addr,
-              country: resolvedCountry,
-              state: resolvedState,
-              city: resolvedCity,
-            }
-            : addr,
-        ),
-        address:
-          values.addresses?.[0]?.projectAddress || values.projectAddress || "",
-        // Use selected template or default to placeholder.docx
-        templateName:
-          values.selected_template ||
-          values.exportTemplate ||
-          "placeholder.docx",
-      };
-
-      const data =
-        type === "docx"
-          ? await exportLeadDocx(values.id, exportData)
-          : await exportLeadPdf(values.id, exportData);
-
-      const blob = new Blob([data], {
-        type:
-          type === "docx"
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "application/pdf",
-      });
-
-      // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
-      if ("showSaveFilePicker" in window) {
-        try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: `Lead_${values.projectName || values.id}.${type}`,
-            types: [
-              {
-                description: type === "docx" ? "Word Document" : "PDF Document",
-                accept: { [blob.type]: [`.${type}`] },
-              },
-            ],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          console.log("✅ File saved successfully via Save Picker");
-          return; // Exit if successful
-        } catch (err: any) {
-          if (err.name === "AbortError") return; // User cancelled
-          console.warn(
-            "Save Picker failed, falling back to standard download:",
-            err,
-          );
-        }
-      }
-
-      // FALLBACK: Standard download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `Lead_${values.projectName || values.id}.${type}`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(`Error exporting ${type}:`, error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  const [leadProjectStatuses, setLeadProjectStatuses] = useState<any[]>([]);
   const employeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
   const [prefix, setPrefix] = useState("");
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
+
+  // ── Draft system ───────────────────────────────────────────────────────────
+  const draftEntityId = isEditMode ? (initialFormData?.id || initialData?.id || 'new') : 'new';
+  const [draftCurrentStep, setDraftCurrentStep] = useState(0);
+  const [resumeStep, setResumeStep] = useState<number | undefined>(undefined);
+  const {
+    existingDraft: leadDraft,
+    showRecoveryModal: showLeadRecoveryModal,
+    showUnsavedModal: showLeadUnsavedModal,
+    isSaving: isLeadDraftSaving,
+    saveDraft: saveLeadDraft,
+    discardDraft: discardLeadDraft,
+    clearDraftAfterSave: clearLeadDraftAfterSave,
+    isDirty: isLeadDraftDirty,
+    setShowRecoveryModal: setShowLeadRecoveryModal,
+    setShowUnsavedModal: setShowLeadUnsavedModal,
+  } = useDraft({ entityType: 'lead', entityId: draftEntityId, enabled: open, totalSteps: 7, manualOnly: true });
+
+  const handleResumeDraft = () => {
+    if (leadDraft?.formData && formikRef.current) {
+      formikRef.current.setValues({ ...formikRef.current.values, ...leadDraft.formData });
+    }
+    if (leadDraft?.currentStep !== undefined) {
+      setResumeStep(leadDraft.currentStep);
+    }
+    setShowLeadRecoveryModal(false);
+  };
+
+  const handleDiscardLeadDraft = async () => {
+    await discardLeadDraft();
+    setShowLeadRecoveryModal(false);
+  };
+
+  const handleSaveLeadDraftManual = async () => {
+    if (formikRef.current) {
+      await saveLeadDraft(formikRef.current.values, draftCurrentStep, {});
+    }
+    setShowLeadUnsavedModal(false);
+  };
+
+  const handleLeadCancelWithDirtyCheck = () => {
+    if (isLeadDraftDirty) {
+      setShowLeadUnsavedModal(true);
+    } else {
+      if (onClose) onClose();
+    }
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   const [currLeadData, setCurrLeadData] = useState<any>();
   const [filteredSubCompanies, setFilteredSubCompanies] = useState<any[]>([]);
   const [referralSubCompanies, setReferralSubCompanies] = useState<{
+    [key: number]: any[];
+  }>({});
+  // Added: State for filtered companies per team
+  const [teamFilteredCompanies, setTeamFilteredCompanies] = useState<{
+    [key: number]: any[];
+  }>({});
+  // Added: State for filtered sub-companies per team
+  const [teamFilteredSubCompanies, setTeamFilteredSubCompanies] = useState<{
     [key: number]: any[];
   }>({});
   // Added: State for filtered contacts per team
@@ -746,6 +664,7 @@ const LeadFormModal = ({
         service: "",
         category: "",
         statusId: "", // Will be set to default status after statuses are loaded
+        projectStatusId: "", // Project execution status — only used when statusId.isReceivedTrigger
         subCategory: "",
         // Multi-select arrays for new functionality
         serviceIds: [],
@@ -807,6 +726,9 @@ const LeadFormModal = ({
         otherPoint3Description: "",
         exportTemplate: "placeholder.docx", // Default template
         revision_number: "01",
+        proposalTemplateId: "",
+        globalPaymentStages: [],
+        rules: [],
 
         // additional details
         // Additional fields for web-dev type
@@ -837,7 +759,7 @@ const LeadFormModal = ({
           {
             label: "",
             projectArea: "",
-            costType: "",
+            costType: "1",
             rate: "",
             cost: "",
           },
@@ -863,136 +785,136 @@ const LeadFormModal = ({
     // For MEP projects, extract project areas from commercials array (new structure)
     const projectAreas = leadData.commercials
       ? leadData.commercials.map((commercial: any) => ({
-        id: commercial.id, // Include ID for edit mode
-        label: commercial.label || "",
-        projectArea: commercial.area || "",
-        costType:
-          commercial.costType === "RATE"
-            ? "1"
-            : commercial.costType === "LUMPSUM"
-              ? "2"
-              : "",
-        rate: commercial.rate || "",
-        cost: commercial.cost || "",
-      }))
+          id: commercial.id, // Include ID for edit mode
+          label: commercial.label || "",
+          projectArea: commercial.area || "",
+          costType:
+            commercial.costType === "RATE"
+              ? "1"
+              : commercial.costType === "LUMPSUM"
+                ? "2"
+                : "",
+          rate: commercial.rate || "",
+          cost: commercial.cost || "",
+        }))
       : additionalDetailsArray.map((detail: any) => ({
-        // Fallback for legacy data that still has projectAreas in additionalDetails
-        projectArea: detail.projectArea || "",
-        costType: detail.costType || "",
-        rate: detail.rate || "",
-        cost: detail.cost || "",
-        label: "", // Default empty label for legacy data
-      }));
+          // Fallback for legacy data that still has projectAreas in additionalDetails
+          projectArea: detail.projectArea || "",
+          costType: detail.costType || "",
+          rate: detail.rate || "",
+          cost: detail.cost || "",
+          label: "", // Default empty label for legacy data
+        }));
 
     // Handle addresses from single additionalDetails object (one-to-one relationship)
     const addresses =
       leadData.additionalDetails && !Array.isArray(leadData.additionalDetails)
         ? [
-          {
-            projectAddress: leadData.additionalDetails.projectAddress || "",
-            zipCode: leadData.additionalDetails.zipCode || "",
-            mapLocation: leadData.additionalDetails.mapLocation || "",
-            latitude: leadData.additionalDetails.latitude || "",
-            longitude: leadData.additionalDetails.longitude || "",
-            // Store country/state/city names - will be converted to IDs in useEffect
-            country: leadData.additionalDetails.country || "",
-            state: leadData.additionalDetails.state || "",
-            city: leadData.additionalDetails.city || "",
-            locality: leadData.additionalDetails.locality || "",
-            googleMapLink: leadData.additionalDetails.googleMapLink || "",
-            googleMyBusinessLink:
-              leadData.additionalDetails.googleMyBusinessLink || "",
-            isDefault: false,
-          },
-        ]
-        : additionalDetailsArray.length > 0
-          ? additionalDetailsArray.map((detail: any) => ({
-            projectAddress: detail.projectAddress || "",
-            zipCode: detail.zipCode || "",
-            mapLocation: detail.mapLocation || "",
-            latitude: detail.latitude || "",
-            longitude: detail.longitude || "",
-            // Convert country name back to ID for form dropdown
-            country: (() => {
-              const countryName = detail.country;
-              const foundCountry = countries.find(
-                (c) => c.name === countryName,
-              );
-              return foundCountry ? foundCountry.id : countryName;
-            })(),
-            // Convert state name back to ID for form dropdown
-            state: (() => {
-              const stateName = detail.state;
-              const foundState = states.find((s) => s.name === stateName);
-              return foundState ? foundState.id : stateName;
-            })(),
-            // Convert city name back to ID for form dropdown
-            city: (() => {
-              const cityName = detail.city;
-              const foundCity = cities.find((c) => c.name === cityName);
-              return foundCity ? foundCity.id : cityName;
-            })(),
-            locality: detail.locality || "",
-            googleMapLink: detail.googleMapLink || "",
-            googleMyBusinessLink: detail.googleMyBusinessLink || "",
-            isDefault: detail.isDefault || false,
-          }))
-          : [
             {
-              projectAddress: "",
-              zipCode: "",
-              mapLocation: "",
-              latitude: "",
-              longitude: "",
-              country: "",
-              state: "",
-              city: "",
-              locality: "",
-              googleMapLink: "",
-              googleMyBusinessLink: "",
+              projectAddress: leadData.additionalDetails.projectAddress || "",
+              zipCode: leadData.additionalDetails.zipCode || "",
+              mapLocation: leadData.additionalDetails.mapLocation || "",
+              latitude: leadData.additionalDetails.latitude || "",
+              longitude: leadData.additionalDetails.longitude || "",
+              // Store country/state/city names - will be converted to IDs in useEffect
+              country: leadData.additionalDetails.country || "",
+              state: leadData.additionalDetails.state || "",
+              city: leadData.additionalDetails.city || "",
+              locality: leadData.additionalDetails.locality || "",
+              googleMapLink: leadData.additionalDetails.googleMapLink || "",
+              googleMyBusinessLink:
+                leadData.additionalDetails.googleMyBusinessLink || "",
               isDefault: false,
             },
-          ];
+          ]
+        : additionalDetailsArray.length > 0
+          ? additionalDetailsArray.map((detail: any) => ({
+              projectAddress: detail.projectAddress || "",
+              zipCode: detail.zipCode || "",
+              mapLocation: detail.mapLocation || "",
+              latitude: detail.latitude || "",
+              longitude: detail.longitude || "",
+              // Convert country name back to ID for form dropdown
+              country: (() => {
+                const countryName = detail.country;
+                const foundCountry = countries.find(
+                  (c) => c.name === countryName,
+                );
+                return foundCountry ? foundCountry.id : countryName;
+              })(),
+              // Convert state name back to ID for form dropdown
+              state: (() => {
+                const stateName = detail.state;
+                const foundState = states.find((s) => s.name === stateName);
+                return foundState ? foundState.id : stateName;
+              })(),
+              // Convert city name back to ID for form dropdown
+              city: (() => {
+                const cityName = detail.city;
+                const foundCity = cities.find((c) => c.name === cityName);
+                return foundCity ? foundCity.id : cityName;
+              })(),
+              locality: detail.locality || "",
+              googleMapLink: detail.googleMapLink || "",
+              googleMyBusinessLink: detail.googleMyBusinessLink || "",
+              isDefault: detail.isDefault || false,
+            }))
+          : [
+              {
+                projectAddress: "",
+                zipCode: "",
+                mapLocation: "",
+                latitude: "",
+                longitude: "",
+                country: "",
+                state: "",
+                city: "",
+                locality: "",
+                googleMapLink: "",
+                googleMyBusinessLink: "",
+                isDefault: false,
+              },
+            ];
 
     // Process referrals for edit mode
     const processedReferrals =
       leadData.referrals && leadData.referrals.length > 0
         ? leadData.referrals.map((ref: any) => {
-          const companyId = ref.referringCompany?.id || ref.companyId || "";
-          // Derive companyTypeId from the full Company object returned by backend (includes companyTypeId)
-          const companyTypeId =
-            ref.referringCompany?.companyTypeId ||
-            ref.referringCompanyTypeId ||
-            "";
-          // For internal referrals, referredByEmployee.id is the employee's primary key (same as allEmployees.list[].employeeId)
-          const referredByEmployeeId =
-            ref.referredByEmployee?.id || ref.referredByEmployeeId || "";
-          return {
-            id: ref.id || Date.now().toString(),
-            referralType:
-              ref.referralType?.id || ref.leadReferralTypeId || "",
-            referringCompanyType: companyTypeId,
-            referringCompany: companyId,
-            referringSubCompany:
-              ref.referringSubCompany?.id || ref.subCompanyId || "",
-            referringContact:
-              ref.referredByContact?.id || ref.contactId || "",
-            referredByEmployeeId: referredByEmployeeId,
-            companyName: ref.companyName || "",
-          };
-        })
+            const companyId = ref.referringCompany?.id || ref.companyId || "";
+            // Derive companyTypeId from the full Company object returned by backend (includes companyTypeId)
+            const companyTypeId =
+              ref.referringCompany?.companyTypeId ||
+              ref.referringCompanyTypeId ||
+              "";
+            // For internal referrals, referredByEmployee.id is the employee's primary key (same as allEmployees.list[].employeeId)
+            const referredByEmployeeId =
+              ref.referredByEmployee?.id || ref.referredByEmployeeId || "";
+            return {
+              id: ref.id || Date.now().toString(),
+              referralType:
+                ref.referralType?.id || ref.leadReferralTypeId || "",
+              referringCompanyType: companyTypeId,
+              referringCompany: companyId,
+              referringSubCompany:
+                ref.referringSubCompany?.id || ref.subCompanyId || "",
+              referringContact:
+                ref.referredByContact?.id || ref.contactId || "",
+              referredByEmployeeId: referredByEmployeeId,
+              companyName: ref.companyName || "",
+            };
+          })
         : [
-          {
-            id: Date.now().toString(),
-            referralType: "",
-            referringCompanyType: "",
-            referringCompany: "",
-            referringSubCompany: "",
-            referringContact: "",
-            referredByEmployeeId: "",
-            companyName: "",
-          },
-        ];
+            {
+              id: Date.now().toString(),
+              referralType: "",
+              referringCompanyType: "",
+              referringCompany: "",
+              referringSubCompany: "",
+              referringContact: "",
+              referredByEmployeeId: "",
+              companyName: "",
+            },
+          ];
 
     return {
       leadTemplateId: leadData.leadTemplateId || leadTemplateId,
@@ -1008,7 +930,8 @@ const LeadFormModal = ({
       service: leadData.projectService?.id || leadData.projectServiceId || "",
       category:
         leadData.projectCategory?.id || leadData.projectCategoryId || "",
-      statusId: leadData.status?.id || leadData.statusId || "",
+      // statusId and projectStatusId are set after ...initialFormData spread below
+      // so fresh API values always win over stale initialFormData.
       cancellationReasonId: leadData?.cancellationReasonId || "", //new
       handledBy: leadData?.handledBy || "", //new
       handledByEntries: (() => {
@@ -1194,45 +1117,76 @@ const LeadFormModal = ({
         addresses.length > 0
           ? addresses
           : [
-            {
-              projectAddress: "",
-              zipCode: "",
-              mapLocation: "",
-              latitude: "",
-              longitude: "",
-              country: "",
-              state: "",
-              city: "",
-              locality: "",
-              googleMapLink: "",
-              googleMyBusinessLink: "",
-              isDefault: false,
-            },
-          ],
+              {
+                projectAddress: "",
+                zipCode: "",
+                mapLocation: "",
+                latitude: "",
+                longitude: "",
+                country: "",
+                state: "",
+                city: "",
+                locality: "",
+                googleMapLink: "",
+                googleMyBusinessLink: "",
+                isDefault: false,
+              },
+            ],
       projectAreas:
         projectAreas.length > 0
           ? projectAreas
           : [
-            {
-              label: "",
-              projectArea: "",
-              costType: "",
-              rate: "",
-              cost: "",
-            },
-          ],
+              {
+                label: "",
+                projectArea: "",
+                costType: "1",
+                rate: "",
+                cost: "",
+              },
+            ],
       poNumber: additionalDetailsArray[0]?.poNumber || "",
       poDate: additionalDetailsArray[0]?.poDate
         ? new Date(additionalDetailsArray[0].poDate)
-          .toISOString()
-          .split("T")[0]
+            .toISOString()
+            .split("T")[0]
         : "",
       useCalculatedAmount: true,
 
       ...initialFormData,
 
+      // Always override with freshest values from the API response (currLeadData)
       poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
+      proposalTemplateId: leadData?.proposalTemplateId || "",
+
+      // Status — always use actual DB values, never default
+      statusId: leadData?.status?.id || leadData?.statusId || initialFormData?.statusId || "",
+      projectStatusId: leadData?.projectStatus?.id || leadData?.projectStatusId || initialFormData?.projectStatusId || "",
+
+      // Project execution metadata — map from fresh API response
+      ...(leadData?.projectMeta ? {
+        projectMeta: {
+          projectStatusId:      leadData.projectMeta.projectStatusId      || "",
+          projectManagerId:     leadData.projectMeta.projectManagerId     || "",
+          teamId:               leadData.projectMeta.teamId               || "",
+          projectAccess:        leadData.projectMeta.projectAccess        || "PRIVATE",
+          isProjectOpen:        leadData.projectMeta.isProjectOpen        !== false,
+          isLive:               !!leadData.projectMeta.isLive,
+          executionContactId:   leadData.projectMeta.executionContactId   || "",
+          clientTypeId:         leadData.projectMeta.clientTypeId         || "",
+          stakeholderServiceId: leadData.projectMeta.stakeholderServiceId || "",
+          contractRate:         leadData.projectMeta.contractRate         || "",
+          finalCost:            leadData.projectMeta.finalCost            || "",
+          locationCountry:      leadData.projectMeta.locationCountry      || "",
+          locationState:        leadData.projectMeta.locationState        || "",
+          locationCity:         leadData.projectMeta.locationCity         || "",
+          isLocationIncorrect:  !!leadData.projectMeta.isLocationIncorrect,
+          locationRemark:       leadData.projectMeta.locationRemark       || "",
+        }
+      } : {}),
+
+      globalPaymentStages: [],
+      rules: [],
     };
   };
 
@@ -1379,7 +1333,18 @@ const LeadFormModal = ({
     ),
     projectAreas: Yup.array().of(
       Yup.object().shape({
-        label: Yup.string().optional(), // Label is optional
+        label: Yup.string().test(
+          'is-required-if-filled',
+          'Name is required when entering commercial details',
+          function (value) {
+            const { projectArea, rate, cost } = this.parent;
+            // If any of the area, rate, or cost is filled, label is required
+            if ((projectArea || rate || cost) && (!value || value.trim() === '')) {
+              return false;
+            }
+            return true;
+          }
+        ),
         projectArea: Yup.string(),
         costType: Yup.string(),
         rate: Yup.string(),
@@ -1388,7 +1353,7 @@ const LeadFormModal = ({
     ),
   });
 
-  // fetching all the details:
+
   // Fetch functionsadd an add new button
   const fetchProjectCategories = useCallback(async () => {
     // if (categories.length > 0) return categories;
@@ -1544,6 +1509,11 @@ const LeadFormModal = ({
   }, []);
 
   const fetchLeadStatuses = useCallback(async () => {
+    // Fetch both lead lifecycle statuses and project execution statuses in parallel
+    getAllLeadProjectStatuses()
+      .then((res: any) => setLeadProjectStatuses(res?.data || []))
+      .catch(() => {});
+
     try {
       const response = await getAllLeadStatus();
       const data = response?.leadStatuses || [];
@@ -1598,34 +1568,120 @@ const LeadFormModal = ({
     }
   }, []);
 
-  // Added: Fetch contacts by company ID for team filtering
-  const fetchContactsByCompanyId = useCallback(
+  // Added: Fetch companies by company type ID for team filtering
+  const fetchCompaniesByCompanyTypeId = useCallback(
+    (companyTypeId: string, teamIndex: number) => {
+      if (!companyTypeId) {
+        setTeamFilteredCompanies((prev) => ({ ...prev, [teamIndex]: [] }));
+        return [];
+      }
+      const filtered = companies.filter(
+        (c: any) => String(c.companyTypeId) === String(companyTypeId)
+      );
+      const sorted = sortCompaniesByName(filtered);
+      setTeamFilteredCompanies((prev) => ({ ...prev, [teamIndex]: sorted }));
+      return sorted;
+    },
+    [companies],
+  );
+
+  // Added: Fetch sub-companies by company ID for team filtering
+  const fetchSubCompaniesByCompanyId = useCallback(
     async (companyId: string, teamIndex: number) => {
       try {
         if (!companyId) {
-          // Clear contacts for this team if no company selected
+          setTeamFilteredSubCompanies((prev) => ({ ...prev, [teamIndex]: [] }));
+          return [];
+        }
+        const response = await fetchSubCompaniesByMainCompanyId(companyId);
+        const data = response?.data?.subCompanies || response?.subCompanies || [];
+        setTeamFilteredSubCompanies((prev) => ({ ...prev, [teamIndex]: data }));
+        return data;
+      } catch (error) {
+        console.error("Error fetching sub-companies for company:", error);
+        setTeamFilteredSubCompanies((prev) => ({ ...prev, [teamIndex]: [] }));
+        return [];
+      }
+    },
+    [],
+  );
+
+  // Added: Fetch contacts by sub-company ID for team filtering (with companyId fallback)
+  const fetchContactsBySubCompanyId = useCallback(
+    async (subCompanyId: string, teamIndex: number, companyId?: string) => {
+      try {
+        if (!subCompanyId) {
+          if (companyId) {
+            const response = await getClientContactsByCompanyId(companyId);
+            const data = response?.data?.contacts || [];
+            const sortedData = sortContactsByName(data);
+            setTeamFilteredContacts((prev) => ({
+              ...prev,
+              [teamIndex]: sortedData,
+            }));
+            return sortedData;
+          }
           setTeamFilteredContacts((prev) => ({ ...prev, [teamIndex]: [] }));
           return [];
         }
+        const response = await getAllClientContacts({ subCompanyId });
+        const subContacts = response?.data?.contacts || response?.contacts || [];
 
-        const response = await getClientContactsByCompanyId(companyId);
-        const data = response?.data?.contacts || [];
-        const sortedData = sortContactsByName(data);
+        let parentContacts: any[] = [];
+        if (companyId) {
+          const parentResponse = await getClientContactsByCompanyId(companyId);
+          parentContacts = (parentResponse?.data?.contacts || []).filter((c: any) => !c.subCompanyId);
+        }
 
-        // Update contacts for this specific team
+        // Remove duplicates and sort
+        const combined = [...subContacts, ...parentContacts.filter((pc: any) => !subContacts.some((sc: any) => sc.id === pc.id))];
+        const sortedData = sortContactsByName(combined);
         setTeamFilteredContacts((prev) => ({
           ...prev,
           [teamIndex]: sortedData,
         }));
         return sortedData;
       } catch (error) {
-        console.error("Error fetching contacts for company:", error);
-        // Set empty array on error
+        console.error("Error fetching contacts for sub company:", error);
         setTeamFilteredContacts((prev) => ({ ...prev, [teamIndex]: [] }));
         return [];
       }
     },
     [],
+  );
+
+  // Company cascade handlers passed to LeadWorkspace → ClientCompaniesSection
+  const handleCompanyTypeChange = useCallback(
+    (index: number, typeId: string, setFieldValue: Function) => {
+      setFieldValue(`leadTeams[${index}].companyTypeId`, typeId);
+      setFieldValue(`leadTeams[${index}].companyId`, "");
+      setFieldValue(`leadTeams[${index}].subCompanyId`, "");
+      setFieldValue(`leadTeams[${index}].contactId`, "");
+      fetchCompaniesByCompanyTypeId(typeId, index);
+      setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+      setTeamFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+    },
+    [fetchCompaniesByCompanyTypeId],
+  );
+
+  const handleCompanyChange = useCallback(
+    async (index: number, companyId: string, setFieldValue: Function) => {
+      setFieldValue(`leadTeams[${index}].companyId`, companyId);
+      setFieldValue(`leadTeams[${index}].subCompanyId`, "");
+      setFieldValue(`leadTeams[${index}].contactId`, "");
+      await fetchSubCompaniesByCompanyId(companyId, index);
+      await fetchContactsBySubCompanyId("", index, companyId);
+    },
+    [fetchSubCompaniesByCompanyId, fetchContactsBySubCompanyId],
+  );
+
+  const handleSubCompanyChange = useCallback(
+    async (index: number, subCompanyId: string, companyId: string, setFieldValue: Function) => {
+      setFieldValue(`leadTeams[${index}].subCompanyId`, subCompanyId);
+      setFieldValue(`leadTeams[${index}].contactId`, "");
+      await fetchContactsBySubCompanyId(subCompanyId, index, companyId);
+    },
+    [fetchContactsBySubCompanyId],
   );
 
   // Added: Fetch contacts by company ID for referral filtering (external referrals only)
@@ -1834,12 +1890,34 @@ const LeadFormModal = ({
   const handleCompanyModalClose = useCallback(async () => {
     setShowCompanyModal(false);
     await fetchCompanies();
-  }, [fetchCompanies]);
+
+    // Refresh companies for all teams that have a company type selected
+    if (formikRef.current?.values?.leadTeams) {
+      const leadTeams = formikRef.current.values.leadTeams;
+      for (let index = 0; index < leadTeams.length; index++) {
+        const team = leadTeams[index];
+        if (team.companyTypeId) {
+          fetchCompaniesByCompanyTypeId(team.companyTypeId, index);
+        }
+      }
+    }
+  }, [fetchCompanies, fetchCompaniesByCompanyTypeId]);
 
   const handleSubCompanyModalClose = useCallback(async () => {
     setShowSubCompanyModal(false);
     await fetchCompanies();
-  }, [fetchCompanies]);
+
+    // Refresh sub-companies for all teams that have a company selected
+    if (formikRef.current?.values?.leadTeams) {
+      const leadTeams = formikRef.current.values.leadTeams;
+      for (let index = 0; index < leadTeams.length; index++) {
+        const team = leadTeams[index];
+        if (team.companyId) {
+          await fetchSubCompaniesByCompanyId(team.companyId, index);
+        }
+      }
+    }
+  }, [fetchCompanies, fetchSubCompaniesByCompanyId]);
 
   const handleBranchModalClose = useCallback(async () => {
     setShowBranchModal(false);
@@ -1850,14 +1928,13 @@ const LeadFormModal = ({
     setShowContactModal(false);
     await fetchContacts();
 
-    // Added: Refresh team-specific filtered contacts for all teams that have a company selected
     if (formikRef.current?.values?.leadTeams) {
       const leadTeams = formikRef.current.values.leadTeams;
       for (let index = 0; index < leadTeams.length; index++) {
         const team = leadTeams[index];
-        if (team.companyId) {
+        if (team.subCompanyId || team.companyId) {
           // Refresh contacts for this team
-          await fetchContactsByCompanyId(team.companyId, index);
+          await fetchContactsBySubCompanyId(team.subCompanyId || "", index, team.companyId);
         }
       }
     }
@@ -1883,7 +1960,7 @@ const LeadFormModal = ({
     }
   }, [
     fetchContacts,
-    fetchContactsByCompanyId,
+    fetchContactsBySubCompanyId,
     fetchContactsByCompanyIdForReferral,
     isInternalReferralType,
   ]);
@@ -2242,25 +2319,49 @@ const LeadFormModal = ({
     loadAddressLocationData();
   }, [isEditMode, currLeadData, countries, leadTemplateId]);
 
-  // Added: Effect to populate filtered contacts for each team in edit mode
+  // Added: Effect to populate filtered companies, sub-companies, and contacts for each team in edit mode
   useEffect(() => {
-    if (isEditMode && currLeadData?.leadTeams && companies.length > 0) {
-      currLeadData.leadTeams.forEach(async (team: any, index: number) => {
-        const companyId = team.company?.id || team.companyId;
-        if (companyId) {
-          try {
-            // Fetch contacts for this company and populate the team's filtered contacts
-            const response = await getClientContactsByCompanyId(companyId);
-            const data = response?.data?.contacts || [];
-            setTeamFilteredContacts((prev) => ({ ...prev, [index]: data }));
-          } catch (error) {
-            console.error(`Error fetching contacts for team ${index}:`, error);
-            setTeamFilteredContacts((prev) => ({ ...prev, [index]: [] }));
+    const loadTeamDropdownsSequential = async () => {
+      if (isEditMode && currLeadData?.leadTeams && companies.length > 0) {
+        for (let index = 0; index < currLeadData.leadTeams.length; index++) {
+          const team = currLeadData.leadTeams[index];
+          const companyTypeId = team.companyType?.id || team.companyTypeId;
+          const companyId = team.company?.id || team.companyId;
+          const subCompanyId = team.subCompany?.id || team.subCompanyId;
+
+          // 1. Populate filtered companies
+          if (companyTypeId) {
+            const filtered = companies.filter(
+              (c: any) => String(c.companyTypeId) === String(companyTypeId)
+            );
+            const sorted = sortCompaniesByName(filtered);
+            setTeamFilteredCompanies((prev) => ({ ...prev, [index]: sorted }));
+          } else {
+            setTeamFilteredCompanies((prev) => ({ ...prev, [index]: [] }));
           }
+
+          // 2. Populate filtered sub-companies
+          if (companyId) {
+            try {
+              const response = await fetchSubCompaniesByMainCompanyId(companyId);
+              const subComps = response?.data?.subCompanies || response?.subCompanies || [];
+              setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: subComps }));
+            } catch (error) {
+              console.error(`Error loading sub-companies for team ${index}:`, error);
+              setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+            }
+          } else {
+            setTeamFilteredSubCompanies((prev) => ({ ...prev, [index]: [] }));
+          }
+
+          // 3. Populate filtered contacts
+          await fetchContactsBySubCompanyId(subCompanyId || "", index, companyId || undefined);
         }
-      });
-    }
-  }, [isEditMode, currLeadData?.leadTeams, companies.length]);
+      }
+    };
+
+    loadTeamDropdownsSequential();
+  }, [isEditMode, currLeadData?.leadTeams, companies]);
 
   // Added: Effect to populate filtered contacts for each referral in edit mode (external referrals only)
   useEffect(() => {
@@ -2316,6 +2417,7 @@ const LeadFormModal = ({
   // };
 
   const handleSubmit = async (formData: any) => {
+    const exportFormValues = { ...formData };
     const values = formData;
     // Handle addresses from both form structure and direct payload
     let allAddressDetails =
@@ -2392,12 +2494,18 @@ const LeadFormModal = ({
     // Added: Map leadTeams for multiple team entries
     const mappedLeadTeams =
       formData?.leadTeams
-        ?.map((team: any) => ({
-          companyTypeId: team.companyTypeId,
-          companyId: team.companyId,
-          subCompanyId: team.subCompanyId,
-          contactId: team.contactId,
-        }))
+        ?.map((team: any) => {
+          // Only send companyTypeId+companyId together — never one without the other
+          // to prevent backend "Company does not belong to Company Type" 400 errors
+          const hasCompanyType = !!team.companyTypeId;
+          const hasCompany = !!team.companyId;
+          return {
+            ...(hasCompanyType && hasCompany && { companyTypeId: team.companyTypeId }),
+            ...(hasCompany && hasCompanyType && { companyId: team.companyId }),
+            subCompanyId: team.subCompanyId,
+            contactId: team.contactId,
+          };
+        })
         ?.filter(
           (team: any) =>
             team.companyTypeId ||
@@ -2487,6 +2595,7 @@ const LeadFormModal = ({
       leadTemplateId: formData.leadTemplateId,
       title: formData.title || formData.projectName,
       statusId: formData.statusId,
+      projectStatusId: formData.projectStatusId || null,
       // Comment: Removed projectAreas from additionalDetails - moved to separate commercials array
       // projectAreas: (formData.projectAreas || formData.additionalDetails?.projectAreas || [])?.map((area: any, index: number) => {
       //     // Include additional details ID for upsert operations in edit mode
@@ -2674,6 +2783,8 @@ const LeadFormModal = ({
     // delete finalData.fileLocationCompanyType;//new
     // delete finalData.fileLocationCompany; //new
     delete finalData.exportTemplate;
+    delete finalData.globalPaymentStages;
+    delete finalData.rules;
 
     if (
       finalData?.useCalculatedAmount === false ||
@@ -2690,7 +2801,7 @@ const LeadFormModal = ({
         || key === "cancellationReasonId" || key === "handledBy"
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
-        || key === "leadAssignedTo") {
+        || key === "leadAssignedTo" || key === "proposalTemplateId") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
@@ -2707,51 +2818,74 @@ const LeadFormModal = ({
       finalCleanPayload.prefix = prefix.trim();
     }
 
-    // Case-insensitive duplicate lead name check — excludes the lead currently being edited
-    const newLeadName = (formData.projectName || "").trim().toLowerCase();
-    const duplicateLead = existingLeads.find(
-      (l: any) => (l.title || l.projectName || "").trim().toLowerCase() === newLeadName &&
-        l.id !== (isEditMode ? initialFormData?.id : null)
-    );
-    if (duplicateLead) {
-      errorConfirmation("A lead with this name already exists.");
-      return;
-    }
-
     try {
       if (isEditMode) {
         finalCleanPayload.id = initialFormData.id;
         if (employeeId) {
           finalCleanPayload.updatedById = employeeId;
         }
-        const result = await customConfirmation();
+        const explicitMode = leadSaveModeRef.current;
+        leadSaveModeRef.current = null;
 
-        if (result) {
-          finalCleanPayload.revisionCount =
-            Number(currLeadData?.revisionCount || 0) + 1;
+        let saveAsRevision = false;
+        if (explicitMode === "revision") {
+          saveAsRevision = true;
+          finalCleanPayload.isRevision = true;
+        } else if (explicitMode === "update") {
+          // Update only — no revision bump
+        } else {
+          const result = await customConfirmation();
+          if (result === null) return;
+          if (result) {
+            saveAsRevision = true;
+            finalCleanPayload.isRevision = true;
+          }
         }
 
+        showSavingOverlay(
+          exportFormValues.proposalTemplateId
+            ? "Saving lead and uploading proposal (DOCX & PDF) to cloud…"
+            : "Saving lead…",
+        );
+
+        console.log('DEBUG finalCleanPayload being sent to updateLead:', JSON.stringify(finalCleanPayload, null, 2));
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {
-          errorConfirmation("Failed to update lead. Please try again.");
+          closeSavingOverlay();
+          errorConfirmation(
+            "Could not save the lead. Please check required fields and try again.",
+            "Save failed",
+          );
         } else {
-          successConfirmation("Lead Updated successfully!");
-          eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
+          const leadId =
+            res?.data?.lead?.id ?? res?.lead?.id ?? res?.id ?? finalCleanPayload.id;
+          const title = "Lead saved";
+          const message = "Your changes were saved successfully.";
+          closeSavingOverlay();
+          await successConfirmation(message, title);
+          eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId });
+          await clearLeadDraftAfterSave();
           if (onClose) onClose();
         }
       } else {
+        console.log('DEBUG createLead payload:', JSON.stringify(finalCleanPayload, null, 2));
         const res = await createLead(finalCleanPayload);
         if (res?.hasError) {
           errorConfirmation("Failed to create lead. Please try again.");
         } else {
           eventBus.emit(EVENT_KEYS.leadCreated, { id: res.id });
           successConfirmation("Lead created successfully!");
+          await clearLeadDraftAfterSave();
           if (onClose) onClose();
         }
       }
     } catch (error: any) {
+      closeSavingOverlay();
       console.error('Error creating lead:', error);
-      alert(`Backend Error: ${error?.message || error?.error || JSON.stringify(error)}`);
+      errorConfirmation(
+        error?.message || error?.error || "An unexpected error occurred.",
+        "Save failed",
+      );
       // Refetch so the list reflects any partial save that succeeded before the error
       eventBus.emit(EVENT_KEYS.leadUpdated, { id: finalCleanPayload?.id ?? '' });
     }
@@ -2800,77 +2934,11 @@ const LeadFormModal = ({
       <Modal
         show={open}
         onHide={onClose}
-        size="xl"
-        className="responsive-modal"
-        centered
-        dialogClassName="responsive-modal"
+        fullscreen={true}
+        className="lead-wizard-modal"
+        dialogClassName="lead-wizard-dialog"
       >
-        <Box
-          sx={{
-            position: "relative",
-            backgroundColor: "#F3F4F7",
-            p: { xs: 1, md: 3 },
-          }}
-        >
-          <IconButton
-            onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: { xs: 4, md: 8 },
-              top: { xs: 4, md: 8 },
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
-          <div className="d-flex flex-row align-items-center justify-content-between mx-3">
-            <Typography
-              variant="h6"
-              component="h2"
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: "18px", md: "20px" },
-                fontFamily: "Barlow",
-              }}
-            >
-              {title}
-            </Typography>
-            <div className="d-flex flex-row align-items-center justify-content-between mx-5">
-              {/* <PrefixInlineEdit
-                value={prefix}
-                label="INQUIRY NO."
-                onChange={setPrefix}
-                disabled={false}
-              /> */}
-              {isEditMode && currLeadData?.revisionCount !== undefined && (
-                <div className="d-flex flex-column align-items-end mx-5">
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontFamily: "Inter",
-                      color: "#798DB3",
-                    }}
-                  >
-                    {prefix && `Rev No.`}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontFamily: "Inter",
-                      color: "#00000",
-                    }}
-                  >
-                    {prefix && `${currLeadData?.revisionCount || 0}`}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-          {isEditMode && initialValues?.prefix}
-          <Modal.Body
-            className="responsive-modal"
-            style={{ maxHeight: "80vh", overflowY: "auto" }}
-          >
+        <Modal.Body style={{ padding: 0, overflow: "hidden", height: "100vh" }}>
             <Formik
               initialValues={initialValues}
               validationSchema={validationSchema}
@@ -2987,3491 +3055,90 @@ const LeadFormModal = ({
 
                 return (
                   <FormikForm>
-                    {/* Project Details Section */}
-                    <Box sx={{ mb: 4 }}>
-                      {/* Lead Details Section */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "16px",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          LEAD DETAILS
-                        </legend>
-
-                        <Grid
-                          container
-                          spacing={1}
-                          className="card-body  p-md-10"
-                          sx={{
-                            backgroundColor: {
-                              xs: "transparent",
-                              md: "white",
-                              borderRadius: "8px",
-                            },
-                          }}
-                        >
-                          <Grid item xs={12} md={6}>
-                            {/* Top Label (same pattern as Lead Inquiry Date) */}
-                            <Typography
-                              sx={{
-                                mb: 0.8,
-                                fontSize: "14px",
-                                fontFamily: "Inter",
-                                fontWeight: 500,
-                                color: "black",
-                              }}
-                            >
-                              Inquiry No.
-                            </Typography>
-
-                            {/* Input Box */}
-                            <Box
-                              sx={{
-                                border: "1px solid #D0D5DD",
-                                borderRadius: "5px",
-                                px: 2,
-                                py: 1.6,
-                                height: "45px", // match MUI input height
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                "&:hover": {
-                                  borderColor: "black",
-                                },
-                              }}
-                            >
-                              <PrefixInlineEdit
-                                value={prefix}
-                                label="" // remove internal label
-                                onChange={setPrefix}
-                                disabled={false}
-                              />
-
-                              {isEditMode &&
-                                currLeadData?.revisionCount !== undefined && (
-                                  <Box className="d-flex flex-column align-items-end">
-                                    {/* <Typography
-          sx={{
-            fontSize: "12px",
-            color: "#798DB3",
-            lineHeight: 1,
-          }}
-        >
-          Rev No.
-        </Typography>
-
-        <Typography
-          sx={{
-            fontSize: "14px",
-            fontWeight: 500,
-            lineHeight: 1.4,
-          }}
-        >
-          {currLeadData?.revisionCount || 0}
-        </Typography> */}
-                                  </Box>
-                                )}
-                            </Box>
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            {/* <TextInput
-                            formikField='leadInquiryDate'
-                            label='Lead Inquiry Date'
-                            isRequired={false}
-                          /> */}
-                            <DateInput
-                              formikField="leadInquiryDate"
-                              inputLabel="Lead Inquiry Date"
-                              formikProps={formikProps}
-                              placeHolder="1/3/2025"
-                              isRequired={false}
-                            />
-                          </Grid>
-
-                          {/* Row 1: Lead Inquiry Date, Assigned To, Lead Source */}
-                          <Grid item xs={12} md={12}>
-                            <TextInput
-                              formikField="projectName"
-                              label="Lead Name"
-                              isRequired={true}
-                            />
-                          </Grid>
-
-                          {/* Team Details Section (Multiple Companies support) */}
-                          <Grid item xs={12}>
-                            <fieldset
-                              style={{
-                                borderTop: "1px solid #9D4141",
-                                padding: "clamp(14px, 2vw, 15px)",
-                              }}
-                              className="mt-7"
-                            >
-                              <legend
-                                style={{
-                                  fontSize: "17px",
-                                  fontWeight: 600,
-                                  fontFamily: "Inter",
-                                  marginTop: "-25px",
-                                  marginLeft: "-17px",
-                                  backgroundColor: "#F3F4F7",
-                                  width: "auto",
-                                  lineHeight: "1",
-                                  letterSpacing: 0,
-                                  color: "#9D4141",
-                                  padding: "2px 2px 8px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "8px"
-                                }}
-                              >
-                                <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                                TEAM DETAILS
-                              </legend>
-
-                              <FieldArray name="leadTeams">
-                                {({ push, remove }) => (
-                                  <>
-                                    {values.leadTeams && values.leadTeams.map(
-                                      (team: any, index: any) => {
-                                        const selectedCompanyId = values.leadTeams[index]?.companyId;
-                                        const selectedCompany = companies.find((comp: any) => comp.id === selectedCompanyId);
-
-                                        const filteredSubCompanies = selectedCompanyId && selectedCompany?.subCompanies
-                                          ? selectedCompany.subCompanies
-                                          : [];
-
-                                        const filteredContacts = selectedCompanyId
-                                          ? contacts.filter((contact: any) =>
-                                            contact.companyId === selectedCompanyId
-                                          )
-                                          : contacts;
-
-                                        return (
-                                          <div
-                                            key={index}
-                                            className="card-body card responsive-card p-md-10 p-3 mb-3"
-                                            style={{ position: 'relative' }}
-                                          >
-                                            <Row>
-                                              <Col md={3}>
-                                                <DropDownInput
-                                                  formikField={`leadTeams.${index}.companyTypeId`}
-                                                  inputLabel="Company Type"
-                                                  options={allCompanyTypes.map((type: any) => ({
-                                                    value: type.id,
-                                                    label: type.name,
-                                                  }))}
-                                                  isRequired={false}
-                                                  onChange={(option: any) => {
-                                                    setFieldValue(`leadTeams.${index}.companyTypeId`, option?.value || "");
-                                                    setFieldValue(`leadTeams.${index}.companyId`, "");
-                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, "");
-                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
-                                                  }}
-                                                />
-                                                <div
-                                                  onClick={() => setShowCompanyTypeModal(true)}
-                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
-                                                  className="ms-2 mt-1"
-                                                >
-                                                  + New Company Type
-                                                </div>
-                                              </Col>
-
-                                              <Col md={3}>
-                                                <DropDownInput
-                                                  formikField={`leadTeams.${index}.companyId`}
-                                                  inputLabel="Company"
-                                                  options={(team.companyTypeId
-                                                    ? companies.filter((c: any) => c.companyTypeId === team.companyTypeId)
-                                                    : companies
-                                                  ).map((company: any) => ({
-                                                    value: company.id,
-                                                    label: company.companyName,
-                                                  }))}
-                                                  isRequired={false}
-                                                  onChange={(option: any) => {
-                                                    setFieldValue(`leadTeams.${index}.companyId`, option?.value || "");
-                                                    setFieldValue(`leadTeams.${index}.subCompanyId`, "");
-                                                    setFieldValue(`leadTeams.${index}.contactId`, "");
-                                                  }}
-                                                />
-                                                <div
-                                                  onClick={() => setShowCompanyModal(true)}
-                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
-                                                  className="ms-2 mt-1"
-                                                >
-                                                  + New Company
-                                                </div>
-                                              </Col>
-
-                                              <Col md={3}>
-                                                <DropDownInput
-                                                  formikField={`leadTeams.${index}.subCompanyId`}
-                                                  inputLabel="Sub Company"
-                                                  options={filteredSubCompanies.map((subCompany: any) => ({
-                                                    value: subCompany.id,
-                                                    label: subCompany.subCompanyName,
-                                                  }))}
-                                                  isRequired={false}
-                                                />
-                                                <div
-                                                  onClick={() => setShowSubCompanyModal(true)}
-                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
-                                                  className="ms-2 mt-1"
-                                                >
-                                                  + New Sub Company
-                                                </div>
-                                              </Col>
-
-                                              <Col md={3}>
-                                                <DropDownInput
-                                                  formikField={`leadTeams.${index}.contactId`}
-                                                  inputLabel="Contact Person"
-                                                  options={filteredContacts.map((contact: any) => ({
-                                                    value: contact.id,
-                                                    label: contact.fullName,
-                                                    avatar: contact.profilePhoto
-                                                  }))}
-                                                  showColor={true}
-                                                  isRequired={false}
-                                                />
-                                                <div
-                                                  onClick={() => setShowContactModal(true)}
-                                                  style={{ cursor: "pointer", color: "#9D4141", fontSize: "12px" }}
-                                                  className="ms-2 mt-1"
-                                                >
-                                                  + New Contact
-                                                </div>
-                                              </Col>
-                                            </Row>
-
-                                            {values.leadTeams.length > 1 && (
-                                              <div
-                                                onClick={() => remove(index)}
-                                                style={{
-                                                  cursor: "pointer",
-                                                  color: "#9D4141",
-                                                  fontSize: "20px",
-                                                  position: "absolute",
-                                                  right: "15px",
-                                                  top: "5px",
-                                                }}
-                                              >
-                                                ×
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      }
-                                    )}
-
-                                    <div
-                                      onClick={() =>
-                                        push({
-                                          id: Date.now().toString(),
-                                          companyTypeId: "",
-                                          companyId: "",
-                                          subCompanyId: "",
-                                          contactId: "",
-                                        })
-                                      }
-                                      style={{
-                                        cursor: "pointer",
-                                        color: "#9D4141",
-                                        border: "1px dotted #9D4141",
-                                        borderRadius: "5px",
-                                        padding: "8px 10px",
-                                        textAlign: "center",
-                                        marginTop: "10px",
-                                      }}
-                                      className="justify-content-center align-items-center"
-                                    >
-                                      + Add More Companies
-                                    </div>
-                                  </>
-                                )}
-                              </FieldArray>
-                            </fieldset>
-                          </Grid>
-
-                          {/* <Grid item xs={12} md={6}>
-                            <FormikDropdownInput
-                              formikField="statusId"
-                              inputLabel="Status"
-                              isRequired={true}
-                              options={leadStatuses.map((s: any) => ({ value: s.id, label: s.name, color: s.color }))}
-                              placeholder="Select status"
-                            />
-                          </Grid> */}
-
-                          <Grid item xs={12} md={4}>
-                            <MultiSelectWithInlineCreate
-                              formikField="serviceIds"
-                              inputLabel="Services"
-                              options={transformToOptions(services)}
-                              placeholder="Select services..."
-                              isRequired={false}
-                              onCreate={createNewService}
-                              onRefreshOptions={async () => {
-                                await fetchProjectServices();
-                              }}
-                              createModalTitle="Create New Service"
-                              createButtonText="Add New Service"
-                              createFieldLabel="Service Name"
-                              createFieldPlaceholder="Enter service name..."
-                            />
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <MultiSelectWithInlineCreate
-                              formikField="categoryIds"
-                              inputLabel="Lead Categories"
-                              options={transformToOptions(categories)}
-                              placeholder="Select categories..."
-                              isRequired={false}
-                              onCreate={createNewCategory}
-                              onRefreshOptions={async () => {
-                                await fetchProjectCategories();
-                              }}
-                              createModalTitle="Create New Category"
-                              createButtonText="Add New Category"
-                              createFieldLabel="Category Name"
-                              createFieldPlaceholder="Enter category name..."
-                            />
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <MultiSelectWithInlineCreate
-                              formikField="subcategoryIds"
-                              inputLabel="Lead Sub Categories"
-                              options={transformToOptions(subcategories)}
-                              placeholder="Select subcategories..."
-                              isRequired={false}
-                              onCreate={(name) => {
-                                // For subcategories, we need to pass the first selected category
-                                const categoryIds = values.categoryIds || [];
-                                const firstCategoryId =
-                                  categoryIds.length > 0
-                                    ? categoryIds[0]
-                                    : undefined;
-
-                                if (!firstCategoryId) {
-                                  throw new Error(
-                                    "Please select a category first before creating a subcategory",
-                                  );
-                                }
-
-                                return createNewSubcategory(
-                                  name,
-                                  firstCategoryId,
-                                );
-                              }}
-                              onRefreshOptions={async () => {
-                                await fetchProjectSubcategories();
-                              }}
-                              createModalTitle="Create New Sub Category"
-                              createButtonText="Add New Sub Category"
-                              createFieldLabel="Sub Category Name"
-                              createFieldPlaceholder="Enter subcategory name..."
-                            />
-                          </Grid>
-                          <h5 style={{ color: "#9D4141", marginTop: "8px" }}>
-                            Note: You can add more then one categories
-                          </h5>
-                        </Grid>
-                        {/* Warning message for missing default status */}
-                      </fieldset>
-
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "16px",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          PROJECT DETAILS 1
-                        </legend>
-
-                        <Grid
-                          container
-                          spacing={2}
-                          className="card-body p-md-10"
-                          sx={{
-                            backgroundColor: {
-                              xs: "transparent",
-                              md: "white",
-                              borderRadius: "8px",
-                            },
-                          }}
-                        >
-                          {/* Row 1: Plot Area + Unit | Built-Up Area + Unit */}
-                          <Grid item xs={12} md={6}>
-                            <div className="d-flex flex-column fv-row">
-                              <div
-                                className="d-flex"
-                                style={{ gap: "8px", marginBottom: "8px" }}
-                              >
-                                <label
-                                  className="d-flex align-items-center fs-6 form-label mb-0"
-                                  style={{ flex: 1 }}
-                                >
-                                  <span>Plot Area</span>
-                                </label>
-                                <label
-                                  className="d-flex align-items-center fs-6 form-label mb-0"
-                                  style={{ width: "140px" }}
-                                >
-                                  <span>Unit</span>
-                                </label>
-                              </div>
-                              <div
-                                className="d-flex"
-                                style={{ gap: "8px", alignItems: "flex-end" }}
-                              >
-                                <div style={{ flex: 1 }}>
-                                  <Field name="plotArea">
-                                    {({ field }: { field: any }) => (
-                                      <input
-                                        {...field}
-                                        type="text"
-                                        className="employee__form_wizard__input form-control"
-                                        placeholder="Enter Plot Area"
-                                      />
-                                    )}
-                                  </Field>
-                                </div>
-                                <div style={{ width: "140px" }}>
-                                  <DropDownInput
-                                    formikField="plotAreaUnit"
-                                    inputLabel=""
-                                    isRequired={false}
-                                    options={[
-                                      { value: "sqft", label: "sqft" },
-                                      { value: "sqm", label: "sqm" },
-                                      { value: "acre", label: "acre" },
-                                    ]}
-                                    placeholder="Unit"
-                                  />
-                                </div>
-                              </div>
-                              <HighlightErrors
-                                isRequired={false}
-                                formikField="plotArea"
-                              />
-                            </div>
-                          </Grid>
-
-                          <Grid item xs={12} md={6}>
-                            <div className="d-flex flex-column fv-row">
-                              <div
-                                className="d-flex"
-                                style={{ gap: "8px", marginBottom: "8px" }}
-                              >
-                                <label
-                                  className="d-flex align-items-center fs-6 form-label mb-0"
-                                  style={{ flex: 1 }}
-                                >
-                                  <span>Built-Up Area</span>
-                                </label>
-                                <label
-                                  className="d-flex align-items-center fs-6 form-label mb-0"
-                                  style={{ width: "140px" }}
-                                >
-                                  <span>Unit</span>
-                                </label>
-                              </div>
-                              <div
-                                className="d-flex"
-                                style={{ gap: "8px", alignItems: "flex-end" }}
-                              >
-                                <div style={{ flex: 1 }}>
-                                  <Field name="builtUpArea">
-                                    {({ field }: { field: any }) => (
-                                      <input
-                                        {...field}
-                                        type="text"
-                                        className="employee__form_wizard__input form-control"
-                                        placeholder="Enter Built-Up Area"
-                                      />
-                                    )}
-                                  </Field>
-                                </div>
-                                <div style={{ width: "140px" }}>
-                                  <DropDownInput
-                                    formikField="builtUpAreaUnit"
-                                    inputLabel=""
-                                    isRequired={false}
-                                    options={[
-                                      { value: "sqft", label: "sqft" },
-                                      { value: "sqm", label: "sqm" },
-                                      { value: "acre", label: "acre" },
-                                    ]}
-                                    placeholder="Unit"
-                                  />
-                                </div>
-                              </div>
-                              <HighlightErrors
-                                isRequired={false}
-                                formikField="builtUpArea"
-                              />
-                            </div>
-                          </Grid>
-
-                          {/* Row 2: Building Detail (full width) */}
-                          <Grid item xs={12}>
-                            <TextInput
-                              formikField="buildingDetail"
-                              label="Building Detail"
-                              isRequired={false}
-                            />
-                          </Grid>
-
-                          {/* Other Points header */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-center"
-                              style={{ gap: "8px", marginBottom: "4px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  fontWeight: 500,
-                                  fontSize: "13px",
-                                  color: "#555",
-                                  fontFamily: "Inter",
-                                }}
-                              ></div>
-                              <div
-                                style={{
-                                  flex: 1,
-                                  fontWeight: 600,
-                                  fontSize: "13px",
-                                  color: "#444",
-                                  fontFamily: "Inter",
-                                }}
-                              >
-                                Heading
-                              </div>
-                              <div
-                                style={{
-                                  flex: 2,
-                                  fontWeight: 600,
-                                  fontSize: "13px",
-                                  color: "#444",
-                                  fontFamily: "Inter",
-                                }}
-                              >
-                                Description
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 1 */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-start"
-                              style={{ gap: "8px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  paddingTop: "10px",
-                                  fontWeight: 500,
-                                  fontSize: "14px",
-                                  color: "#333",
-                                  fontFamily: "Inter",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Other Point - 1
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint1Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint1Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 2 */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-start"
-                              style={{ gap: "8px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  paddingTop: "10px",
-                                  fontWeight: 500,
-                                  fontSize: "14px",
-                                  color: "#333",
-                                  fontFamily: "Inter",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Other Point - 2
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint2Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint2Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 3 */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-start"
-                              style={{ gap: "8px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  paddingTop: "10px",
-                                  fontWeight: 500,
-                                  fontSize: "14px",
-                                  color: "#333",
-                                  fontFamily: "Inter",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Other Point - 3
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint3Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint3Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-                        </Grid>
-                      </fieldset>
-
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "16px",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          LEAD ASSIGNED
-                        </legend>
-
-                        <Grid
-                          container
-                          spacing={1}
-                          className="card-body p-md-10"
-                          sx={{
-                            backgroundColor: {
-                              xs: "transparent",
-                              md: "white",
-                              borderRadius: "8px",
-                            },
-                          }}
-                        >
-                          <Grid item xs={12} md={6}>
-                            <DropDownInput
-                              formikField="leadAssignedTo"
-                              inputLabel="Lead Assigned To"
-                              isRequired={false}
-                              options={buildEmployeeOptions(
-                                allEmployees?.list || [],
-                                values.leadAssignedTo || undefined,
-                              )}
-                              showColor={true}
-                              placeholder="Select employee"
-                            />
-                          </Grid>
-                        </Grid>
-                      </fieldset>
-
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "16px",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          FILE LOCATION IN COMPUTER
-                        </legend>
-
-                        <Grid
-                          container
-                          spacing={1}
-                          className="card-body p-md-10"
-                          sx={{
-                            backgroundColor: {
-                              xs: "transparent",
-                              md: "white",
-                              borderRadius: "8px",
-                            },
-                          }}
-                        >
-                          <Grid item xs={12} md={6}>
-                            <DropDownInput
-                              formikField="fileLocationCompanyType"
-                              inputLabel="Company Type"
-                              isRequired={false}
-                              onChange={(val: any) => {
-                                const newCompanyType = val?.value || "";
-                                setFieldValue(
-                                  "fileLocationCompanyType",
-                                  newCompanyType,
-                                );
-
-                                // Clear company when type changes
-                                if (
-                                  values.fileLocationCompanyType !==
-                                  newCompanyType
-                                ) {
-                                  setFieldValue("fileLocationCompany", "");
-                                }
-                              }}
-                              options={allCompanyTypes.map((type: any) => ({
-                                value: type.id,
-                                label: type.name,
-                              }))}
-                              placeholder="Select company type"
-                            />
-                            <small
-                              className="text-primary"
-                              onClick={() => setShowCompanyTypeModal(true)}
-                              style={{ cursor: "pointer" }}
-                            >
-                              + New
-                            </small>
-                          </Grid>
-
-                          <Grid item xs={12} md={6}>
-                            <DropDownInput
-                              formikField="fileLocationCompany"
-                              inputLabel="Company"
-                              isRequired={false}
-                              disabled={!values.fileLocationCompanyType}
-                              options={
-                                companies
-                                  ?.filter(
-                                    (c: any) =>
-                                      c.companyTypeId ===
-                                      values.fileLocationCompanyType,
-                                  )
-                                  ?.map((c: any) => ({
-                                    value: c.id,
-                                    label: c.companyName,
-                                  })) || []
-                              }
-                              placeholder={
-                                !values.fileLocationCompanyType
-                                  ? "Select company type first"
-                                  : "Select company"
-                              }
-                            />
-                            <small
-                              className="text-primary"
-                              onClick={() => setShowCompanyModal(true)}
-                              style={{ cursor: "pointer" }}
-                            >
-                              + New
-                            </small>
-                          </Grid>
-                        </Grid>
-                      </fieldset>
-
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "16px",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          REFERRAL DETAILS
-                        </legend>
-                        <Grid
-                          container
-                          spacing={1}
-                          className="card-body  p-md-10"
-                          sx={{
-                            backgroundColor: {
-                              xs: "transparent",
-                              md: "white",
-                              borderRadius: "8px",
-                            },
-                          }}
-                        >
-                          {/* Lead Source dropdown - conditional sizing based on source type */}
-                          <Grid
-                            item
-                            xs={12}
-                            md={values.leadSourceType === "DIRECT" ? 6 : 12}
-                          >
-                            <DropDownInput
-                              formikField="leadSourceType"
-                              inputLabel="Lead Source"
-                              isRequired={false}
-                              options={[
-                                { value: "DIRECT", label: "Direct" },
-                                { value: "REFERRAL", label: "External" },
-                              ]}
-                              // value={values.leadSourceType}
-                              placeholder="Select lead source"
-                            />
-                          </Grid>
-
-                          {/* Conditional Rendering Based on Lead Source */}
-                          {values.leadSourceType === "DIRECT" && (
-                            <Grid item xs={12} md={6}>
-                              <DropDownInput
-                                formikField="leadDirectSource"
-                                inputLabel="Lead Direct Sources"
-                                isRequired={false}
-                                options={leadDirectSources.map((source) => ({
-                                  value: source.id,
-                                  label:
-                                    source.name ||
-                                    "Uncategorized Direct Source",
-                                }))}
-                                placeholder="Select direct source"
-                              />
-                            </Grid>
-                          )}
-
-                          {values.leadSourceType === "REFERRAL" && (
-                            <>
-                              {/* Show message when no referrals exist */}
-                              {(!values.referrals ||
-                                values.referrals.length === 0) && (
-                                  <Grid item xs={12}>
-                                    <Box
-                                      sx={{
-                                        textAlign: "center",
-                                        py: 3,
-                                        color: "#666",
-                                        // fontStyle: 'italic'
-                                      }}
-                                    >
-                                      No referrals added yet. Click "Add another
-                                      Referral" to get started.
-                                    </Box>
-                                  </Grid>
-                                )}
-
-                              {/* Dynamic Referral Rows */}
-                              {(values.referrals || []).map(
-                                (referral: any, index: any) => (
-                                  <Grid
-                                    container
-                                    spacing={1}
-                                    sx={{
-                                      margin: "auto",
-                                      position: "relative",
-                                      mb: 2,
-                                    }}
-                                    key={referral.id}
-                                  >
-                                    {/* Add header with cross button for each referral */}
-                                    <Box
-                                      sx={{
-                                        width: "100%",
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                        mb: 2,
-                                        px: 2,
-                                      }}
-                                    >
-                                      <Typography
-                                        style={{
-                                          color: "#798DB3",
-                                          fontSize: "14px",
-                                          fontFamily: "Inter",
-                                        }}
-                                      >
-                                        Referral {index + 1}
-                                      </Typography>
-                                      {(values.referrals || []).length > 1 && (
-                                        <IconButton
-                                          onClick={() => {
-                                            const currentReferrals =
-                                              values.referrals || [];
-                                            const newReferrals =
-                                              currentReferrals.filter(
-                                                (_: any, i: number) =>
-                                                  i !== index,
-                                              );
-                                            setFieldValue(
-                                              "referrals",
-                                              newReferrals,
-                                            );
-                                          }}
-                                          sx={{ color: "#d32f2f" }}
-                                          title="Remove this referral"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
-                                      {(values.referrals || []).length ===
-                                        1 && (
-                                          <IconButton
-                                            onClick={() => {
-                                              // Allow removing the last referral - set to empty array
-                                              setFieldValue("referrals", []);
-                                            }}
-                                            sx={{ color: "#d32f2f" }}
-                                            title="Remove all referrals"
-                                          >
-                                            <Close />
-                                          </IconButton>
-                                        )}
-                                    </Box>
-                                    <Grid item xs={12} md={3}>
-                                      <Box
-                                        sx={{
-                                          display: "flex",
-                                          flexDirection: "column",
-                                          gap: 1,
-                                        }}
-                                      >
-                                        <DropDownInput
-                                          formikField={`referrals[${index}].referralType`}
-                                          inputLabel="Referral Type"
-                                          isRequired={false}
-                                          options={referralTypes.map(
-                                            (type) => ({
-                                              value: type.id,
-                                              label:
-                                                type.name ||
-                                                "Uncategorized Referral Type",
-                                            }),
-                                          )}
-                                          placeholder="Select referral type"
-                                          onChange={(val: any) => {
-                                            const newReferralTypeId =
-                                              val?.value || "";
-                                            setFieldValue(
-                                              `referrals[${index}].referralType`,
-                                              newReferralTypeId,
-                                            );
-
-                                            // Only clear dependent fields if the referral type actually changed
-                                            if (
-                                              values.referrals[index]
-                                                ?.referralType !==
-                                              newReferralTypeId
-                                            ) {
-                                              // Clear all referral fields when type changes
-                                              setFieldValue(
-                                                `referrals[${index}].referringCompany`,
-                                                "",
-                                              );
-                                              setFieldValue(
-                                                `referrals[${index}].referringSubCompany`,
-                                                "",
-                                              );
-                                              setFieldValue(
-                                                `referrals[${index}].referringContact`,
-                                                "",
-                                              );
-                                              setFieldValue(
-                                                `referrals[${index}].referredByEmployeeId`,
-                                                "",
-                                              );
-                                              setFieldValue(
-                                                `referrals[${index}].companyName`,
-                                                "",
-                                              );
-                                            }
-                                          }}
-                                        />
-                                        <small
-                                          className="text-primary"
-                                          onClick={() =>
-                                            setShowReferralTypeModal(true)
-                                          }
-                                          style={{ cursor: "pointer" }}
-                                        >
-                                          + New Referral Type
-                                        </small>
-                                      </Box>
-                                    </Grid>
-                                    {/* Conditional rendering based on referral type */}
-                                    {isInternalReferralType(
-                                      values.referrals?.[index]?.referralType,
-                                    ) ? (
-                                      <>
-                                        {/* Internal Referral Fields */}
-                                        {/* Referring Company - fixed to Wisetech MEP */}
-                                        <Grid item xs={12} md={3}>
-                                          <Box
-                                            sx={{
-                                              display: "flex",
-                                              flexDirection: "column",
-                                              gap: 1,
-                                            }}
-                                          >
-                                            <DropDownInput
-                                              inputLabel="Referring Company"
-                                              placeholder="Wisetech MEP"
-                                              isRequired={false}
-                                              formikField={`referrals[${index}].referringCompany`}
-                                              disabled={true}
-                                              options={[
-                                                {
-                                                  value: "wisetech-mep",
-                                                  label: "Wisetech MEP",
-                                                },
-                                              ]}
-                                              value={{
-                                                value: "wisetech-mep",
-                                                label: "Wisetech MEP",
-                                              }}
-                                            />
-                                          </Box>
-                                        </Grid>
-                                        {/* Referring Contact - all employees (same as Lead Assigned To) */}
-                                        <Grid item xs={12} md={6}>
-                                          <Box
-                                            sx={{
-                                              display: "flex",
-                                              flexDirection: "column",
-                                              gap: 1,
-                                            }}
-                                          >
-                                            <DropDownInput
-                                              inputLabel="Referring Contact"
-                                              placeholder="Select employee"
-                                              isRequired={false}
-                                              formikField={`referrals[${index}].referredByEmployeeId`}
-                                              options={buildEmployeeOptions(
-                                                allEmployees?.list || [],
-                                                values.referrals[index]
-                                                  ?.referredByEmployeeId ||
-                                                undefined,
-                                              )}
-                                              showColor={true}
-                                              onChange={(value: any) => {
-                                                const employeeId =
-                                                  value?.value || value;
-                                                setFieldValue(
-                                                  `referrals[${index}].referredByEmployeeId`,
-                                                  employeeId,
-                                                );
-                                                // Auto-fill company name
-                                                if (
-                                                  employeeId &&
-                                                  companyOverview.length > 0
-                                                ) {
-                                                  const companyName =
-                                                    companyOverview[0]?.name ||
-                                                    "Wisetech MEP";
-                                                  setFieldValue(
-                                                    `referrals[${index}].companyName`,
-                                                    companyName,
-                                                  );
-                                                }
-                                              }}
-                                              value={(() => {
-                                                const empId =
-                                                  values.referrals[index]
-                                                    ?.referredByEmployeeId;
-                                                if (!empId) return null;
-                                                const emp = (
-                                                  allEmployees?.list || []
-                                                ).find(
-                                                  (item: any) =>
-                                                    item.employeeId === empId,
-                                                );
-                                                if (!emp) return null;
-                                                const isInactive =
-                                                  emp.isActive === false;
-                                                return {
-                                                  value: empId,
-                                                  label: isInactive
-                                                    ? `${emp.employeeName} (Inactive)`
-                                                    : emp.employeeName,
-                                                  avatar: emp.avatar,
-                                                  isDisabled: isInactive,
-                                                };
-                                              })()}
-                                            />
-                                          </Box>
-                                        </Grid>
-                                      </>
-                                    ) : (
-                                      <>
-                                        {/* External Referral Fields */}
-                                        {/* Referring Company Type - new field */}
-                                        <Grid item xs={12} md={3}>
-                                          <Box
-                                            sx={{
-                                              display: "flex",
-                                              flexDirection: "column",
-                                              gap: 1,
-                                            }}
-                                          >
-                                            <DropDownInput
-                                              formikField={`referrals[${index}].referringCompanyType`}
-                                              inputLabel="Referring Company Type"
-                                              isRequired={false}
-                                              onChange={(val: any) => {
-                                                const newTypeId =
-                                                  val?.value || "";
-                                                setFieldValue(
-                                                  `referrals[${index}].referringCompanyType`,
-                                                  newTypeId,
-                                                );
-                                                // Clear company, sub-company and contact when type changes
-                                                if (
-                                                  values.referrals[index]
-                                                    ?.referringCompanyType !==
-                                                  newTypeId
-                                                ) {
-                                                  setFieldValue(
-                                                    `referrals[${index}].referringCompany`,
-                                                    "",
-                                                  );
-                                                  setFieldValue(
-                                                    `referrals[${index}].referringSubCompany`,
-                                                    "",
-                                                  );
-                                                  setFieldValue(
-                                                    `referrals[${index}].referringContact`,
-                                                    "",
-                                                  );
-                                                  setReferralSubCompanies(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [index]: [],
-                                                    }),
-                                                  );
-                                                  setReferralFilteredContacts(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [index]: [],
-                                                    }),
-                                                  );
-                                                }
-                                              }}
-                                              options={allCompanyTypes.map(
-                                                (type: any) => ({
-                                                  value: type.id,
-                                                  label: type.name,
-                                                }),
-                                              )}
-                                              placeholder="Select company type"
-                                            />
-                                            <small
-                                              className="text-primary"
-                                              onClick={() =>
-                                                setShowCompanyTypeModal(true)
-                                              }
-                                              style={{ cursor: "pointer" }}
-                                            >
-                                              + New Company Type
-                                            </small>
-                                          </Box>
-                                        </Grid>
-                                        {/* Referring Company - filtered by company type */}
-                                        <Grid item xs={12} md={3}>
-                                          <Box
-                                            sx={{
-                                              display: "flex",
-                                              flexDirection: "column",
-                                              gap: 1,
-                                            }}
-                                          >
-                                            <DropDownInput
-                                              inputLabel="Referring Company"
-                                              placeholder={
-                                                !values.referrals[index]
-                                                  ?.referringCompanyType
-                                                  ? "Select company type first"
-                                                  : "Select company"
-                                              }
-                                              isRequired={false}
-                                              disabled={
-                                                !values.referrals[index]
-                                                  ?.referringCompanyType
-                                              }
-                                              formikField={`referrals[${index}].referringCompany`}
-                                              options={companies
-                                                .filter(
-                                                  (c: any) =>
-                                                    !values.referrals[index]
-                                                      ?.referringCompanyType ||
-                                                    c.companyTypeId ===
-                                                    values.referrals[index]
-                                                      ?.referringCompanyType,
-                                                )
-                                                .map((c) => ({
-                                                  value: c.id,
-                                                  label: c.companyName,
-                                                }))}
-                                              onChange={async (value: any) => {
-                                                const companyValue =
-                                                  value?.value || value;
-                                                setFieldValue(
-                                                  `referrals[${index}].referringCompany`,
-                                                  companyValue,
-                                                );
-
-                                                // Only clear sub company and contact when company actually changes
-                                                if (
-                                                  values.referrals[index]
-                                                    ?.referringCompany !==
-                                                  companyValue
-                                                ) {
-                                                  setFieldValue(
-                                                    `referrals[${index}].referringSubCompany`,
-                                                    "",
-                                                  );
-                                                  setFieldValue(
-                                                    `referrals[${index}].referringContact`,
-                                                    "",
-                                                  );
-                                                }
-
-                                                if (companyValue) {
-                                                  try {
-                                                    const response =
-                                                      await fetchSubCompaniesByMainCompanyId(
-                                                        companyValue,
-                                                      );
-                                                    const subCompanyData =
-                                                      response?.data
-                                                        ?.subCompanies ||
-                                                      response?.subCompanies ||
-                                                      [];
-                                                    setReferralSubCompanies(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        [index]: subCompanyData,
-                                                      }),
-                                                    );
-                                                    await fetchContactsByCompanyIdForReferral(
-                                                      companyValue,
-                                                      index,
-                                                    );
-                                                  } catch (error) {
-                                                    console.error(
-                                                      "Error fetching sub companies or contacts:",
-                                                      error,
-                                                    );
-                                                    setReferralSubCompanies(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        [index]: [],
-                                                      }),
-                                                    );
-                                                    setReferralFilteredContacts(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        [index]: [],
-                                                      }),
-                                                    );
-                                                  }
-                                                } else {
-                                                  setReferralSubCompanies(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [index]: [],
-                                                    }),
-                                                  );
-                                                  setReferralFilteredContacts(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [index]: [],
-                                                    }),
-                                                  );
-                                                }
-                                              }}
-                                              value={
-                                                values.referrals[index]
-                                                  ?.referringCompany
-                                                  ? {
-                                                    value:
-                                                      values.referrals[index]
-                                                        .referringCompany,
-                                                    label:
-                                                      companies.find(
-                                                        (c) =>
-                                                          c.id ===
-                                                          values.referrals[
-                                                            index
-                                                          ].referringCompany,
-                                                      )?.companyName || "",
-                                                  }
-                                                  : null
-                                              }
-                                            />
-                                            <div>
-                                              {index === 0 && (
-                                                <div
-                                                  onClick={() => {
-                                                    setShowCompanyModal(true);
-                                                  }}
-                                                  style={{
-                                                    whiteSpace: "nowrap",
-                                                    color: "#9D4141",
-                                                    cursor: "pointer",
-                                                  }}
-                                                >
-                                                  + New Company
-                                                </div>
-                                              )}
-                                            </div>
-                                          </Box>
-                                        </Grid>
-                                        {/* <Grid item xs={12} md={3}>
-                                        <Box sx={{ display: 'flex', flexDirection: "column", gap: 1 }}>
-                                          <DropDownInput
-                                            inputLabel="Referring Sub Company"
-                                            placeholder="Select sub company"
-                                            isRequired={false}
-                                            formikField={`referrals[${index}].referringSubCompany`}
-                                            options={(referralSubCompanies[index] || []).map((sc: any) => ({
-                                              value: sc.id,
-                                              label: sc.subCompanyName,
-                                            }))}
-                                            onChange={(value: any) => {
-                                              const subCompanyValue = value?.value || value;
-                                              setFieldValue(`referrals[${index}].referringSubCompany`, subCompanyValue);
-                                            }}
-                                            value={
-                                              values.referrals[index]?.referringSubCompany
-                                                ? {
-                                                  value: values.referrals[index].referringSubCompany,
-                                                  label: (referralSubCompanies[index] || []).find((sc: any) => sc.id === values.referrals[index].referringSubCompany)?.subCompanyName || "",
-                                                }
-                                                : null
-                                            }
-                                          />
-                                          <div>
-                                            {index === 0 && (
-                                              <div
-                                                onClick={() => { setShowSubCompanyModal(true) }}
-                                                style={{ whiteSpace: 'nowrap', color: "#9D4141", cursor: "pointer" }}
-                                              >
-                                                + New Sub Company
-                                              </div>
-                                            )}
-                                          </div>
-                                        </Box>
-                                      </Grid> */}
-                                        <Grid item xs={12} md={3}>
-                                          <Box
-                                            sx={{
-                                              display: "flex",
-                                              flexDirection: "column",
-                                              gap: 1,
-                                            }}
-                                          >
-                                            <DropDownInput
-                                              inputLabel="Referring Contact"
-                                              placeholder={
-                                                !values.referrals[index]
-                                                  ?.referringCompany
-                                                  ? "Please select company first"
-                                                  : "Select contact person"
-                                              }
-                                              isRequired={false}
-                                              disabled={
-                                                !values.referrals[index]
-                                                  ?.referringCompany
-                                              }
-                                              formikField={`referrals[${index}].referringContact`}
-                                              options={(
-                                                referralFilteredContacts[
-                                                index
-                                                ] || []
-                                              ).map((contact) => ({
-                                                value: contact.id,
-                                                label:
-                                                  contact.fullName ||
-                                                  "Unnamed Contact",
-                                                avatar: contact.profilePhoto,
-                                              }))}
-                                              showColor={true}
-                                              onChange={(value: any) => {
-                                                const contactId =
-                                                  value?.value || value;
-                                                setFieldValue(
-                                                  `referrals[${index}].referringContact`,
-                                                  contactId,
-                                                );
-                                              }}
-                                              value={
-                                                values.referrals[index]
-                                                  ?.referringContact
-                                                  ? {
-                                                    value:
-                                                      values.referrals[index]
-                                                        .referringContact,
-                                                    label:
-                                                      (
-                                                        referralFilteredContacts[
-                                                        index
-                                                        ] || []
-                                                      ).find(
-                                                        (c) =>
-                                                          c.id ===
-                                                          values.referrals[
-                                                            index
-                                                          ].referringContact,
-                                                      )?.fullName || "",
-                                                    avatar: (
-                                                      referralFilteredContacts[
-                                                      index
-                                                      ] || []
-                                                    ).find(
-                                                      (c) =>
-                                                        c.id ===
-                                                        values.referrals[
-                                                          index
-                                                        ].referringContact,
-                                                    )?.profilePhoto,
-                                                  }
-                                                  : null
-                                              }
-                                            />
-                                            <div>
-                                              {index === 0 && (
-                                                <div
-                                                  onClick={() => {
-                                                    setShowContactModal(true);
-                                                  }}
-                                                  style={{
-                                                    whiteSpace: "nowrap",
-                                                    color: "#9D4141",
-                                                    cursor: "pointer",
-                                                  }}
-                                                >
-                                                  + New Contact
-                                                </div>
-                                              )}
-                                            </div>
-                                          </Box>
-                                        </Grid>
-                                      </>
-                                    )}
-                                  </Grid>
-                                ),
-                              )}
-
-                              {/* Add Another Referral Button */}
-                              <Grid item xs={12}>
-                                <div
-                                  onClick={() => {
-                                    const newReferral = {
-                                      id: Date.now().toString(),
-                                      referralType: "",
-                                      referringCompanyType: "",
-                                      referringCompany: "",
-                                      referringSubCompany: "",
-                                      referringContact: "",
-                                      referredByEmployeeId: "", // Added: For internal referrals
-                                      companyName: "", // Added: For internal referrals
-                                    };
-                                    // Handle case where referrals array might be empty or undefined
-                                    const currentReferrals =
-                                      values.referrals || [];
-                                    setFieldValue("referrals", [
-                                      ...currentReferrals,
-                                      newReferral,
-                                    ]);
-                                  }}
-                                  style={{
-                                    marginTop: "10px",
-                                    width: "100%",
-                                    padding: "10px 0px",
-                                    borderStyle: "dotted",
-                                    borderColor: "#DBB3B3",
-                                    borderWidth: "1px",
-                                    borderRadius: "12px",
-                                    color: "#9D4141",
-                                    cursor: "pointer",
-                                  }}
-                                  className="justify-content-center align-items-center d-flex text-center"
-                                >
-                                  Add another Referral
-                                </div>
-                              </Grid>
-                            </>
-                          )}
-                        </Grid>
-                      </fieldset>
-
-                      {true && (
-                        <fieldset
-                          style={{
-                            borderTop: "1px solid #9D4141",
-                            padding: "14px",
-                          }}
-                          className="mt-7"
-                        >
-                          <legend
-                            style={{
-                              fontSize: "17px",
-                              fontWeight: 600,
-                              fontFamily: "Inter",
-                              marginTop: "-25px",
-                              marginLeft: "-17px",
-                              backgroundColor: "#F3F4F7",
-                              width: "auto",
-                              lineHeight: "1",
-                              letterSpacing: 0,
-                              color: "#9D4141",
-                              padding: "2px 2px 8px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                            }}
-                          >
-                            <div
-                              className="ms-5"
-                              style={{
-                                borderTop: "1px solid #9D4141",
-                                width: "30px",
-                                height: "0px",
-                              }}
-                            ></div>
-                            COMMERCIALS
-                          </legend>
-                          <Grid
-                            container
-                            spacing={1}
-                            className="card-body p-md-10"
-                            sx={{
-                              backgroundColor: {
-                                xs: "transparent",
-                                md: "white",
-                                borderRadius: "8px",
-                              },
-                            }}
-                          >
-                            {/* Show message when no project areas exist */}
-                            {(!values.projectAreas ||
-                              values.projectAreas.length === 0) && (
-                                <Grid item xs={12}>
-                                  <Box
-                                    sx={{
-                                      textAlign: "center",
-                                      py: 3,
-                                      color: "#666",
-                                      // fontStyle: 'italic'
-                                    }}
-                                  >
-                                    No project areas added yet. Click "Add New
-                                    Project Area" to get started.
-                                  </Box>
-                                </Grid>
-                              )}
-
-                            {(values.projectAreas || []).map(
-                              (area: any, index: number) => (
-                                <Grid
-                                  container
-                                  spacing={1}
-                                  key={area.id || index}
-                                  sx={{ position: "relative", mb: 4 }}
-                                >
-                                  <Box
-                                    sx={{
-                                      width: "100%",
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      mb: 2,
-                                      px: 2,
-                                    }}
-                                  >
-                                    <Typography
-                                      style={{
-                                        color: "#798DB3",
-                                        fontSize: "14px",
-                                        fontFamily: "Inter",
-                                      }}
-                                    >
-                                      Project Area {index + 1}
-                                    </Typography>
-                                    {(values.projectAreas || []).length > 1 && (
-                                      <IconButton
-                                        onClick={() => {
-                                          const newAreas =
-                                            values.projectAreas.filter(
-                                              (_: any, i: number) =>
-                                                i !== index,
-                                            );
-                                          // Note: Removed address manipulation - addresses should remain independent
-                                          setFieldValue(
-                                            "projectAreas",
-                                            newAreas,
-                                          );
-                                        }}
-                                        sx={{ color: "#d32f2f" }}
-                                        title="Remove this project area"
-                                      >
-                                        <Close />
-                                      </IconButton>
-                                    )}
-                                    {(values.projectAreas || []).length ===
-                                      1 && (
-                                        <IconButton
-                                          onClick={() => {
-                                            // Allow removing the last project area - but keep addresses intact
-                                            setFieldValue("projectAreas", []);
-                                            // Note: Addresses remain untouched as they are independent of project areas
-                                          }}
-                                          sx={{ color: "#d32f2f" }}
-                                          title="Remove all project areas"
-                                        >
-                                          <Close />
-                                        </IconButton>
-                                      )}
-                                  </Box>
-
-                                  <Grid item xs={12} md={3}>
-                                    <TextInput
-                                      formikField={`projectAreas.${index}.label`}
-                                      label="Label"
-                                      isRequired={false}
-                                    />
-                                  </Grid>
-
-                                  <Grid
-                                    item
-                                    xs={12}
-                                    md={
-                                      values.projectAreas[index].costType ===
-                                        "2"
-                                        ? 3
-                                        : 2
-                                    }
-                                  >
-                                    <EnhancedDecimalInput
-                                      formikField={`projectAreas.${index}.projectArea`}
-                                      label="Area (sqft)"
-                                      onCalculatedCost={(area) => {
-                                        // If cost type is Rate, calculate total cost and validate it
-                                        if (
-                                          values.projectAreas[index]
-                                            .costType === "1"
-                                        ) {
-                                          const rate =
-                                            parseFloat(
-                                              values.projectAreas[index].rate,
-                                            ) || 0;
-                                          const totalCost = area * rate;
-                                          const roundedCost = parseFloat(
-                                            totalCost.toFixed(4),
-                                          );
-                                          setFieldValue(
-                                            `projectAreas.${index}.cost`,
-                                            roundedCost.toString(),
-                                          );
-
-                                          // Validate calculated cost using Formik's setFieldError
-                                          if (roundedCost > 10000000000) {
-                                            formikProps.setFieldError(
-                                              `projectAreas.${index}.cost`,
-                                              "Calculated cost exceeds 100 Crores limit",
-                                            );
-                                          } else {
-                                            formikProps.setFieldError(
-                                              `projectAreas.${index}.cost`,
-                                              "",
-                                            );
-                                          }
-                                        }
-                                      }}
-                                    />
-                                  </Grid>
-                                  <Grid
-                                    item
-                                    xs={12}
-                                    md={
-                                      values.projectAreas[index].costType ===
-                                        "2"
-                                        ? 3
-                                        : 2
-                                    }
-                                  >
-                                    <DropDownInput
-                                      formikField={`projectAreas.${index}.costType`}
-                                      inputLabel="Cost Type"
-                                      isRequired={false}
-                                      options={[
-                                        { value: "1", label: "Rate" },
-                                        { value: "2", label: "Lumpsum" },
-                                      ]}
-                                      onChange={(val: any) => {
-                                        setFieldValue(
-                                          `projectAreas.${index}.costType`,
-                                          val?.value,
-                                        );
-
-                                        if (val?.value === "1") {
-                                          // If switching to Rate, calculate cost based on current area and rate
-                                          const area =
-                                            parseFloat(
-                                              values.projectAreas[index]
-                                                .projectArea,
-                                            ) || 0;
-                                          const rate =
-                                            parseFloat(
-                                              values.projectAreas[index].rate,
-                                            ) || 0;
-                                          const totalCost = area * rate;
-                                          const roundedCost = parseFloat(
-                                            totalCost.toFixed(4),
-                                          );
-                                          setFieldValue(
-                                            `projectAreas.${index}.cost`,
-                                            roundedCost.toString(),
-                                          );
-                                        } else if (val?.value === "2") {
-                                          // If switching to Lumpsum, set rate to 0 (hidden field) and clear cost
-                                          setFieldValue(
-                                            `projectAreas.${index}.rate`,
-                                            0,
-                                          );
-                                          setFieldValue(
-                                            `projectAreas.${index}.cost`,
-                                            "",
-                                          );
-                                        }
-                                      }}
-                                    />
-                                  </Grid>
-
-                                  {values.projectAreas[index].costType !==
-                                    "2" && (
-                                      <Grid item xs={12} md={2}>
-                                        <EnhancedDecimalInput
-                                          formikField={`projectAreas.${index}.rate`}
-                                          label="Rate"
-                                          onCalculatedCost={(rate) => {
-                                            // If cost type is Rate, calculate total cost and validate it
-                                            if (
-                                              values.projectAreas[index]
-                                                .costType === "1"
-                                            ) {
-                                              const area =
-                                                parseFloat(
-                                                  values.projectAreas[index]
-                                                    .projectArea,
-                                                ) || 0;
-                                              const totalCost = area * rate;
-                                              const roundedCost = parseFloat(
-                                                totalCost.toFixed(4),
-                                              );
-                                              setFieldValue(
-                                                `projectAreas.${index}.cost`,
-                                                roundedCost.toString(),
-                                              );
-
-                                              // Validate calculated cost using Formik's setFieldError
-                                              if (roundedCost > 10000000000) {
-                                                formikProps.setFieldError(
-                                                  `projectAreas.${index}.cost`,
-                                                  "Calculated cost exceeds 100 Crores limit",
-                                                );
-                                              } else {
-                                                formikProps.setFieldError(
-                                                  `projectAreas.${index}.cost`,
-                                                  "",
-                                                );
-                                              }
-                                            }
-                                          }}
-                                        />
-                                      </Grid>
-                                    )}
-
-                                  <Grid
-                                    item
-                                    xs={12}
-                                    md={
-                                      values.projectAreas[index].costType ===
-                                        "2"
-                                        ? 3
-                                        : 2
-                                    }
-                                  >
-                                    <EnhancedDecimalInput
-                                      formikField={`projectAreas.${index}.cost`}
-                                      label="Cost"
-                                      isReadonly={
-                                        values.projectAreas[index].costType ===
-                                        "1"
-                                      }
-                                    />
-                                  </Grid>
-                                </Grid>
-                              ),
-                            )}
-
-                            {/* Total Cost Display */}
-                            {values.projectAreas &&
-                              values.projectAreas.length > 0 && (
-                                <Grid item xs={12}>
-                                  <div className="d-flex justify-content-end align-items-center mt-4 mb-3">
-                                    <span
-                                      style={{
-                                        fontFamily: "Inter",
-                                        fontSize: "14px",
-                                        fontWeight: "400",
-                                        color: "#666666",
-                                        marginRight: "8px",
-                                      }}
-                                    >
-                                      Total Area:
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontFamily: "Inter",
-                                        fontSize: "16px",
-                                        fontWeight: "600",
-                                        color: "black",
-                                        marginRight: "24px",
-                                      }}
-                                    >
-                                      {(values.projectAreas || [])
-                                        .reduce((total: any, area: any) => {
-                                          return (
-                                            total +
-                                            (parseFloat(area.projectArea) || 0)
-                                          );
-                                        }, 0)
-                                        .toLocaleString("en-IN")}{" "}
-                                      sqft
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontFamily: "Inter",
-                                        fontSize: "14px",
-                                        fontWeight: "400",
-                                        color: "#666666",
-                                        marginRight: "8px",
-                                      }}
-                                    >
-                                      Total Cost:
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontFamily: "Inter",
-                                        fontSize: "16px",
-                                        fontWeight: "600",
-                                        color: "black",
-                                      }}
-                                    >
-                                      ₹{" "}
-                                      {(values.projectAreas || [])
-                                        .reduce((total: any, area: any) => {
-                                          const cost =
-                                            parseFloat(area.cost) || 0;
-                                          return total + cost;
-                                        }, 0)
-                                        .toLocaleString("en-IN", {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 4,
-                                        })}
-                                    </span>
-                                  </div>
-                                </Grid>
-                              )}
-
-                            {/* Add New Project Area Button */}
-                            <Grid item xs={12}>
-                              <div
-                                onClick={() => {
-                                  const projectAreas =
-                                    values.projectAreas || [];
-                                  const addresses = values.addresses || [];
-
-                                  // Add new project area with unique ID for tracking
-                                  const newProjectArea = {
-                                    id:
-                                      Date.now().toString() +
-                                      Math.random().toString(36).substr(2, 9), // Unique ID for new items
-                                    label: "",
-                                    projectArea: "",
-                                    costType: "1", // Default to Rate type
-                                    rate: "",
-                                    cost: "",
-                                  };
-
-                                  const newAddress = {
-                                    projectAddress: "",
-                                    zipCode: "",
-                                    mapLocation: "",
-                                    latitude: "",
-                                    longitude: "",
-                                    country: "",
-                                    state: "",
-                                    city: "",
-                                    locality: "",
-                                    googleMapLink: "",
-                                    googleMyBusinessLink: "",
-                                    isDefault: false,
-                                  };
-
-                                  setFieldValue("projectAreas", [
-                                    ...projectAreas,
-                                    newProjectArea,
-                                  ]);
-                                  setFieldValue("addresses", [
-                                    ...addresses,
-                                    newAddress,
-                                  ]);
-                                }}
-                                style={{
-                                  marginTop: "10px",
-                                  width: "100%",
-                                  padding: "10px 0px",
-                                  borderStyle: "dotted",
-                                  borderColor: "#DBB3B3",
-                                  borderWidth: "1px",
-                                  borderRadius: "12px",
-                                  color: "#9D4141",
-                                  cursor: "pointer",
-                                }}
-                                className="justify-content-center align-items-center d-flex text-center"
-                              >
-                                Add New Project Area
-                              </div>
-                            </Grid>
-                          </Grid>
-                        </fieldset>
-                      )}
-
-                      {/* Address Details Section */}
-                      {true && (
-                        <>
-                          <fieldset
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              padding: "16px",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#9D4141",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #9D4141",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              ADDRESS DETAILS
-                            </legend>
-                            <Grid
-                              container
-                              spacing={1}
-                              className="card-body p-md-10"
-                              sx={{
-                                backgroundColor: {
-                                  xs: "transparent",
-                                  md: "white",
-                                  borderRadius: "8px",
-                                },
-                              }}
-                            >
-                              {/* Direct rendering of single address - no mapping/filtering needed */}
-                              <Grid
-                                container
-                                spacing={1}
-                                className="card-body p-md-10 mb-4"
-                                sx={{
-                                  backgroundColor: {
-                                    xs: "transparent",
-                                    md: "white",
-                                  },
-                                  borderRadius: "8px",
-                                  position: "relative",
-                                }}
-                              >
-                                {/* <Box sx={{ 
-                              width: '100%', 
-                              display: 'flex', 
-                              justifyContent: 'space-between', 
-                              alignItems: 'center',
-                              mb: 2,
-                              px: 2
-                            }}>
-                              <Typography variant="h6">Project Address</Typography>
-                            </Box> */}
-
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="addresses.0.projectAddress"
-                                    label="Address"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <DropDownInput
-                                    formikField="addresses.0.country"
-                                    inputLabel="Country"
-                                    options={countries.map((c) => ({
-                                      label: c.name,
-                                      value: c.id,
-                                    }))}
-                                    isRequired={false}
-                                    enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                    smartFilterFunction={
-                                      getFilteredAndSortedOptions
-                                    } // Added: Smart filter and sort function
-                                    onChange={(option: any) => {
-                                      if (option?.value) {
-                                        // Set the country value in addresses array
-                                        setFieldValue(
-                                          "addresses.0.country",
-                                          option.value,
-                                        );
-
-                                        // Update the state options
-                                        handleAddressCountryChange(
-                                          0,
-                                          option.value,
-                                          setFieldValue,
-                                        );
-
-                                        // Clear dependent fields
-                                        setFieldValue("addresses.0.state", "");
-                                        setFieldValue("addresses.0.city", "");
-                                      } else {
-                                        // Handle clearing the country selection
-                                        setFieldValue(
-                                          "addresses.0.country",
-                                          "",
-                                        );
-                                        setFieldValue("addresses.0.state", "");
-                                        setFieldValue("addresses.0.city", "");
-
-                                        // Clear dependent options
-                                        setFieldValue(
-                                          "addressStatesOptions.0",
-                                          [],
-                                        );
-                                        setFieldValue(
-                                          "addressCitiesOptions.0",
-                                          [],
-                                        );
-                                        setFieldValue(
-                                          "addressStateSelections.0",
-                                          null,
-                                        );
-                                        setFieldValue(
-                                          "addressCitySelections.0",
-                                          null,
-                                        );
-                                      }
-                                    }}
-                                    value={
-                                      values.addresses?.[0]?.country
-                                        ? {
-                                          label:
-                                            countries.find(
-                                              (c) =>
-                                                c.id ===
-                                                values.addresses[0].country,
-                                            )?.name ||
-                                            values.addresses[0].country,
-                                          value: values.addresses[0].country,
-                                        }
-                                        : null
-                                    }
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <DropDownInput
-                                    formikField="addresses.0.state"
-                                    inputLabel="State"
-                                    options={(
-                                      values.addressStatesOptions?.[0] || []
-                                    ).map((s: any) => ({
-                                      label: s.name,
-                                      value: s.id,
-                                    }))}
-                                    isRequired={false}
-                                    disabled={!values.addresses?.[0]?.country}
-                                    enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                    smartFilterFunction={
-                                      getFilteredAndSortedOptions
-                                    } // Added: Smart filter and sort function
-                                    onChange={(option: any) => {
-                                      if (option?.value) {
-                                        // Set the state value in addresses array
-                                        setFieldValue(
-                                          "addresses.0.state",
-                                          option.value,
-                                        );
-
-                                        // Update city options
-                                        handleAddressStateChange(
-                                          0,
-                                          option.value,
-                                          values.addresses[0].country,
-                                          setFieldValue,
-                                        );
-
-                                        // Clear city
-                                        setFieldValue("addresses.0.city", "");
-                                      } else {
-                                        // Clear state and city values
-                                        setFieldValue("addresses.0.state", "");
-                                        setFieldValue("addresses.0.city", "");
-                                        setFieldValue(
-                                          "addressStateSelections.0",
-                                          null,
-                                        );
-                                        setFieldValue(
-                                          "addressCitySelections.0",
-                                          null,
-                                        );
-                                        setFieldValue(
-                                          "addressCitiesOptions.0",
-                                          [],
-                                        );
-                                      }
-                                    }}
-                                    value={
-                                      values.addressStateSelections?.[0]
-                                        ? {
-                                          label:
-                                            values.addressStateSelections[0]
-                                              .name,
-                                          value:
-                                            values.addressStateSelections[0]
-                                              .id,
-                                        }
-                                        : null
-                                    }
-                                    placeholder={
-                                      values.addresses?.[0]?.country
-                                        ? "Select state"
-                                        : "Select country first"
-                                    }
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <DropDownInput
-                                    formikField="addresses.0.city"
-                                    inputLabel="City"
-                                    options={(
-                                      values.addressCitiesOptions?.[0] || []
-                                    ).map((c: any) => ({
-                                      label: c.name,
-                                      value: c.id,
-                                    }))}
-                                    isRequired={false}
-                                    disabled={!values.addresses?.[0]?.state}
-                                    enableSmartSort={true} // Added: Enable smart priority-based sorting
-                                    smartFilterFunction={
-                                      getFilteredAndSortedOptions
-                                    } // Added: Smart filter and sort function
-                                    onChange={(option: any) => {
-                                      setFieldValue(
-                                        "addresses.0.city",
-                                        option?.value || "",
-                                      );
-                                      if (option?.value) {
-                                        const selectedCity =
-                                          values.addressCitiesOptions[0].find(
-                                            (c: any) => c.id === option.value,
-                                          );
-                                        setFieldValue(
-                                          "addressCitySelections.0",
-                                          selectedCity,
-                                        );
-                                      } else {
-                                        setFieldValue(
-                                          "addressCitySelections.0",
-                                          null,
-                                        );
-                                      }
-                                    }}
-                                    value={
-                                      values.addressCitySelections?.[0]
-                                        ? {
-                                          label:
-                                            values.addressCitySelections[0]
-                                              .name,
-                                          value:
-                                            values.addressCitySelections[0]
-                                              .id,
-                                        }
-                                        : null
-                                    }
-                                    placeholder={
-                                      values.addresses?.[0]?.state
-                                        ? "Select city"
-                                        : "Select state first"
-                                    }
-                                  />
-                                </Grid>
-
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="addresses.0.locality"
-                                    label="Locality"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="addresses.0.zipCode"
-                                    label="Zip Code"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                {/* Location on Map Card */}
-                                <div
-                                  className="mt-5 p-3"
-                                  style={{
-                                    borderRadius: "8px",
-                                    backgroundColor: "#9fd491",
-                                  }}
-                                >
-                                  <div
-                                    className="mb-4"
-                                    style={{
-                                      fontFamily: "Inter",
-                                      fontSize: "14px",
-                                      fontWeight: "500",
-                                      color: "#0D47A1",
-                                    }}
-                                  >
-                                    LOCATION ON MAP
-                                  </div>
-                                  <Row className="mb-3">
-                                    <Col md={3}>
-                                      <TextInput
-                                        formikField="addresses.0.googleMapLink"
-                                        label="Google Map Link"
-                                        isRequired={false}
-                                      />
-                                    </Col>
-                                    <Col md={3}>
-                                      <TextInput
-                                        formikField="addresses.0.googleMyBusinessLink"
-                                        label="Google Business Link"
-                                        isRequired={false}
-                                      />
-                                    </Col>
-                                    <Col md={3}>
-                                      <TextInput
-                                        formikField="addresses.0.latitude"
-                                        label="Latitude"
-                                        isRequired={false}
-                                        inputValidation="signed-decimal"
-                                      />
-                                    </Col>
-                                    <Col md={3}>
-                                      <TextInput
-                                        formikField="addresses.0.longitude"
-                                        label="Longitude"
-                                        isRequired={false}
-                                        inputValidation="signed-decimal"
-                                      />
-                                    </Col>
-                                    <div
-                                      className="d-flex justify-content-end mt-4"
-                                      onClick={() =>
-                                        viewLocation(
-                                          values.addresses[0]?.latitude || "",
-                                          values.addresses[0]?.longitude || "",
-                                        )
-                                      }
-                                      style={{
-                                        cursor: "pointer",
-                                        color: "#0D47A1",
-                                        // textDecoration: 'underline'
-                                      }}
-                                    >
-                                      View Location On Map
-                                    </div>
-                                  </Row>
-                                </div>
-
-                                {/* <div
-                              onClick={() => {
-                                const newReferral = {
-                                  id: Date.now().toString(),
-                                  referralType: '',
-                                  referringCompany: '',
-                                  referringContact: ''
-                                };
-                                setFieldValue('referrals', [...values.referrals, newReferral]);
-                              }}
-                              style={{
-                                marginTop: "10px", width: "100%", padding: "10px 0px", borderStyle: 'dotted',
-                                borderColor: '#DBB3B3',
-                                borderWidth: '1px',
-                                borderRadius: '12px',
-                                color: "#9D4141",
-                                cursor: "pointer"
-                              }}
-                              className='justify-content-center align-items-center d-flex text-center'
-                            >
-                              
-                            
-                            ADDRESS DETAILS
-                            <IconButton
-                              onClick={() => {
-                                const addresses = values.addresses || [];
-                                setFieldValue('addresses', [
-                                ...addresses,
-                                {
-                                  projectAddress: '',
-                                  zipCode: '',
-                                  mapLocation: '',
-                                  latitude: '',
-                                  longitude: '',
-                                  country: '',
-                                  state: '',
-                                  city: '',
-                                  locality: '',
-                                  googleMapLink: '',
-                                  googleMyBusinessLink: '',
-                                  isDefault: false
-                                }
-                              ]);
-                            }}
-                            style={{ marginLeft: '8px' }}
-                          >
-                            <Add />
-                          </IconButton>
-                          </div>
-                           */}
-                              </Grid>
-                            </Grid>
-                          </fieldset>
-                        </>
-                      )}
-
-                      {/* {(leadTemplateId === leadAndProjectTemplateTypeId.mep || leadTemplateId === leadAndProjectTemplateTypeId.webDev) && ( */}
-                      <>
-                        {/* Floating Title with Line */}
-                        <fieldset
-                          style={{
-                            borderTop: "1px solid #9D4141",
-                            padding: "16px",
-                          }}
-                          className="mt-7"
-                        >
-                          <legend
-                            style={{
-                              fontSize: "17px",
-                              fontWeight: 600,
-                              fontFamily: "Inter",
-                              marginTop: "-25px",
-                              marginLeft: "-17px",
-                              backgroundColor: "#F3F4F7",
-                              width: "auto",
-                              lineHeight: "1",
-                              letterSpacing: 0,
-                              color: "#9D4141",
-                              padding: "2px 2px 8px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                            }}
-                          >
-                            <div
-                              className="ms-5"
-                              style={{
-                                borderTop: "1px solid #9D4141",
-                                width: "30px",
-                                height: "0px",
-                              }}
-                            ></div>
-                            ADDITIONAL DETAILS
-                          </legend>
-                        </fieldset>
-
-                        {/* Card content below the title */}
-                        {/* <div className="card">
-                            <div className="card-body"> */}
-                        <Grid
-                          container
-                          spacing={1}
-                          className="card-body p-8  p-md-16"
-                          sx={{
-                            backgroundColor: {
-                              xs: "transparent",
-                              md: "white",
-                              borderRadius: "8px",
-                            },
-                          }}
-                        >
-                          <Row>
-                            <Col>
-                              <div className="col-lg-12">
-                                <label className="mb-3 fw-bold">
-                                  Upload Document File
-                                </label>
-
-                                {/* Show existing document if available */}
-                                {values.documents && (
-                                  <div className="mb-3 p-3 bg-light rounded">
-                                    <div className="d-flex align-items-center justify-content-between">
-                                      <div>
-                                        <small className="text-muted">
-                                          Current document:
-                                        </small>
-                                        <div className="fw-bold text-primary">
-                                          📎{" "}
-                                          {getFileNameFromUrl(values.documents)}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <a
-                                          href={values.documents}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="btn btn-sm btn-outline-primary me-2"
-                                        >
-                                          View
-                                        </a>
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-outline-danger"
-                                          onClick={() =>
-                                            setFieldValue("documents", "")
-                                          }
-                                        >
-                                          Remove
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                <input
-                                  type="file"
-                                  accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
-                                  className="form-control form-control-lg form-control-solid"
-                                  required={false}
-                                  onChange={(event) =>
-                                    uploadFile(
-                                      event,
-                                      formikProps,
-                                      5 * 1024 * 1024,
-                                    )
-                                  }
-                                />
-                                <small className="text-muted">
-                                  {values.documents
-                                    ? "Upload a new file to replace the current document"
-                                    : "Select a document to upload"}
-                                </small>
-                              </div>
-                            </Col>
-                          </Row>
-                          {leadTemplateId ===
-                            leadAndProjectTemplateTypeId.webDev && (
-                              <Grid container spacing={1}>
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="type"
-                                    label="Type"
-                                    isRequired={false}
-                                  />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                  <TextInput
-                                    formikField="numberOfPages"
-                                    label="Number of Page"
-                                    isRequired={false}
-                                    inputTypeNumber={true}
-                                    inputValidation="numbers"
-                                  />
-                                </Grid>
-                              </Grid>
-                            )}
-
-                          {/* {leadTemplateId === leadAndProjectTemplateTypeId.mep && ( */}
-                          <>
-                            {/* <Grid container spacing={1}>                                                               */}
-
-                            {/* <Grid item xs={12} md={6}>
-                                    <DropDownInput
-                                      formikField="locality"
-                                      inputLabel="Locality"
-                                      isRequired={false}
-                                      options={[
-                                        { value: 'india', label: 'India' },
-                                        { value: 'usa', label: 'USA' },
-                                        { value: 'uk', label: 'UK' },
-                                      ]}
-                                    />
-                                  </Grid> */}
-                            {/* </Grid> */}
-
-                            {/* <Grid container spacing={1} className="mt-2">
-                                  <Grid item xs={12} md={6}>
-                                    <TextInput formikField="poNumber" label="PO Number" isRequired={false} inputValidation="numbers-space" />
-                                  </Grid>
-                                  <Grid item xs={12} md={6}>
-                                    <DateInput
-                                      formikField="poDate"
-                                      inputLabel="PO Date"
-                                      formikProps={formikProps}
-                                      placeHolder="1/3/2025"
-                                      isRequired={false}
-                                    />
-                                  </Grid>
-                                </Grid> */}
-
-                            <div className="form-section mb-4 mt-2 w-100">
-                              <Row>
-                                <Col md={12}>
-                                  <Form.Group>
-                                    <Form.Label>Description</Form.Label>
-                                    <Form.Control
-                                      as="textarea"
-                                      rows={4}
-                                      name="description"
-                                      value={values.description}
-                                      onChange={(e) =>
-                                        setFieldValue(
-                                          "description",
-                                          e.target.value,
-                                        )
-                                      }
-                                    // style={{
-                                    //   backgroundColor: "#F3F4F7",
-                                    // }}
-                                    />
-                                    <Form.Text className="text-muted">
-                                      {(values.description || "").length}/200
-                                      characters
-                                    </Form.Text>
-                                  </Form.Group>
-                                </Col>
-                              </Row>
-                            </div>
-                          </>
-                          {/* )} */}
-                        </Grid>
-                      </>
-                      {/* )} */}
-
-                      {/* Status Section */}
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #9D4141",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#9D4141",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          STATUS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3">
-                          <Row>
-                            <Col md={6}>
-                              <DropdownInput
-                                formikField="statusId"
-                                inputLabel="Status"
-                                isRequired={false}
-                                options={leadStatuses.map((s) => ({
-                                  value: s.id,
-                                  label: s.name,
-                                  color: s.color,
-                                }))}
-                                placeholder="Select status"
-                                showColor={true}
-                              />
-                              <div
-                                onClick={() => {
-                                  setShowStatusModal(true);
-                                }}
-                                style={{
-                                  whiteSpace: "nowrap",
-                                  color: "#9D4141",
-                                  cursor: "pointer",
-                                  marginTop: "8px",
-                                }}
-                              >
-                                + New Status
-                              </div>
-
-                              {/* Render handled by for "Received" status */}
-                              {values.statusId &&
-                                (() => {
-                                  const selectedStatus = leadStatuses.find(
-                                    (s) => s.id === values.statusId,
-                                  );
-                                  const statusName = selectedStatus?.name
-                                    ?.toLowerCase()
-                                    .trim();
-
-                                  return statusName === "received"
-                                    ? null
-                                    : null;
-                                })()}
-                            </Col>
-                            {(() => {
-                              const selectedStatus = leadStatuses.find(
-                                (s: any) => s.id === values.statusId,
-                              );
-                              const isStatusReceived =
-                                selectedStatus?.name?.toLowerCase().trim() ===
-                                "received";
-                              if (!isStatusReceived) return null;
-                              // Auto-set today's date if not already set
-                              if (!values.receivedDate) {
-                                setTimeout(() => {
-                                  formikProps.setFieldValue(
-                                    "receivedDate",
-                                    new Date().toISOString().split("T")[0],
-                                  );
-                                }, 0);
-                              }
-                              return (
-                                <Col md={4}>
-                                  <label className="d-flex align-items-center fs-6 form-label mb-1">
-                                    Received Date
-                                  </label>
-                                  <DateInput
-                                    formikField="receivedDate"
-                                    inputLabel=""
-                                    formikProps={formikProps}
-                                    placeHolder="DD-MM-YYYY"
-                                    isRequired={false}
-                                  />
-                                </Col>
-                              );
-                            })()}
-                          </Row>
-                        </div>
-                      </fieldset>
-
-                      {/* CANCELLATION REASON Card - only visible when lead Status is "Not Received" */}
-                      {(() => {
-                        const selectedStatus = leadStatuses.find(
-                          (s: any) => s.id === values.statusId,
-                        );
-                        const isStatusNotReceived =
-                          selectedStatus?.name?.toLowerCase().trim() ===
-                          "not received";
-                        if (!isStatusNotReceived) return null;
-                        return (
-                          <fieldset
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              padding: "clamp(14px, 2vw, 15px)",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#9D4141",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #9D4141",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              CANCELLATION REASON
-                            </legend>
-                            <div className="card-body card responsive-card p-md-10 p-3">
-                              <Row>
-                                <Col md={6}>
-                                  <DropdownInput
-                                    formikField="cancellationReasonId"
-                                    inputLabel="Cancellation Reason"
-                                    isRequired={true}
-                                    options={(
-                                      leadCancellationReasons || []
-                                    ).map((reason) => ({
-                                      value: reason.id,
-                                      label: reason.reason,
-                                      color: reason.color,
-                                    }))}
-                                    placeholder="Select cancellation reason"
-                                    showColor={true}
-                                  />
-                                </Col>
-                              </Row>
-                            </div>
-                          </fieldset>
-                        );
-                      })()}
-
-                      {/* HANDLE BY Card - only visible when lead Status is "Received" */}
-                      {(() => {
-                        const selectedStatus = leadStatuses.find(
-                          (s: any) => s.id === values.statusId,
-                        );
-                        const isStatusReceived =
-                          selectedStatus?.name?.toLowerCase().trim() ===
-                          "received";
-                        if (!isStatusReceived) return null;
-                        return (
-                          <fieldset
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              padding: "clamp(14px, 2vw, 15px)",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#9D4141",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #9D4141",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              HANDLE BY
-                            </legend>
-                            <div className="card-body card responsive-card p-md-10 p-3">
-                              {/* Column headers */}
-                              {(values.handledByEntries || []).length > 0 && (
-                                <Row className="mb-1">
-                                  <Col md={4}>
-                                    <label className="d-flex align-items-center fs-6 form-label mb-1">
-                                      Handle By
-                                    </label>
-                                  </Col>
-                                  <Col md={4}>
-                                    <label className="d-flex align-items-center fs-6 form-label mb-1">
-                                      Date In
-                                    </label>
-                                  </Col>
-                                  <Col md={4}>
-                                    <label className="d-flex align-items-center fs-6 form-label mb-1">
-                                      Date Out
-                                    </label>
-                                  </Col>
-                                </Row>
-                              )}
-
-                              {/* Empty state */}
-                              {(!values.handledByEntries ||
-                                values.handledByEntries.length === 0) && (
-                                  <Box
-                                    sx={{
-                                      textAlign: "center",
-                                      py: 3,
-                                      color: "#666",
-                                      // fontStyle: 'italic',
-                                      fontSize: "14px",
-                                      fontFamily: "Inter",
-                                    }}
-                                  >
-                                    No handled by added yet. Click "+ Add Handle
-                                    By" to get started.
-                                  </Box>
-                                )}
-
-                              {/* Dynamic Handled By entries */}
-                              {(values.handledByEntries || []).map(
-                                (entry: any, idx: number) => (
-                                  <Row
-                                    key={entry.id || idx}
-                                    className="mb-2 align-items-center"
-                                  >
-                                    <Col md={4}>
-                                      <DropdownInput
-                                        formikField={`handledByEntries[${idx}].employeeId`}
-                                        inputLabel=""
-                                        isRequired={false}
-                                        options={buildEmployeeOptions(
-                                          allEmployees?.list || [],
-                                          entry.employeeId || undefined,
-                                        )}
-                                        placeholder="Select employee"
-                                        showColor={true}
-                                      />
-                                    </Col>
-                                    <Col md={4}>
-                                      <DateInput
-                                        formikField={`handledByEntries[${idx}].handledDate`}
-                                        inputLabel=""
-                                        formikProps={formikProps}
-                                        placeHolder="DD-MM-YYYY"
-                                        isRequired={false}
-                                      />
-                                    </Col>
-                                    <Col md={3}>
-                                      <DateInput
-                                        formikField={`handledByEntries[${idx}].handledOutDate`}
-                                        inputLabel=""
-                                        formikProps={formikProps}
-                                        placeHolder="DD-MM-YYYY"
-                                        isRequired={false}
-                                      />
-                                    </Col>
-                                    <Col
-                                      md={1}
-                                      className="d-flex justify-content-center"
-                                    >
-                                      <IconButton
-                                        onClick={() => {
-                                          const updated = (
-                                            values.handledByEntries || []
-                                          ).filter(
-                                            (_: any, i: number) => i !== idx,
-                                          );
-                                          setFieldValue(
-                                            "handledByEntries",
-                                            updated,
-                                          );
-                                        }}
-                                        sx={{
-                                          color: "#d32f2f",
-                                          padding: "6px",
-                                        }}
-                                        title="Remove"
-                                      >
-                                        <Delete fontSize="small" />
-                                      </IconButton>
-                                    </Col>
-                                  </Row>
-                                ),
-                              )}
-
-                              {/* + Add Handle By button */}
-                              <div
-                                onClick={() => {
-                                  const today =
-                                    values.leadInquiryDate ||
-                                    new Date().toISOString().split("T")[0];
-                                  const newEntry = {
-                                    id: Date.now().toString(),
-                                    employeeId: "",
-                                    handledDate: today,
-                                    handledOutDate: "",
-                                  };
-                                  setFieldValue("handledByEntries", [
-                                    ...(values.handledByEntries || []),
-                                    newEntry,
-                                  ]);
-                                }}
-                                style={{
-                                  marginTop: "8px",
-                                  padding: "8px 12px",
-                                  borderStyle: "dotted",
-                                  borderColor: "#DBB3B3",
-                                  borderWidth: "1px",
-                                  borderRadius: "8px",
-                                  color: "#9D4141",
-                                  cursor: "pointer",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "6px",
-                                  fontSize: "13px",
-                                  fontFamily: "Inter",
-                                  width: "100%",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <Add fontSize="small" />
-                                Add Handle By
-                              </div>
-                            </div>
-                          </fieldset>
-                        );
-                      })()}
-
-                      {/* PO STATUS Card - only visible when lead Status is "Received" */}
-                      {(() => {
-                        const selectedStatus = leadStatuses.find(
-                          (s: any) => s.id === values.statusId,
-                        );
-                        const isStatusReceived =
-                          selectedStatus?.name?.toLowerCase().trim() ===
-                          "received";
-                        if (!isStatusReceived) return null;
-                        return (
-                          <fieldset
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              padding: "clamp(14px, 2vw, 15px)",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#9D4141",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #9D4141",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              PO STATUS
-                            </legend>
-                            <div className="card-body card responsive-card p-md-10 p-3">
-                              <Row>
-                                <Col md={6}>
-                                  <DropdownInput
-                                    formikField="poStatus"
-                                    inputLabel="PO Status"
-                                    isRequired={false}
-                                    options={[
-                                      {
-                                        value: "Pending",
-                                        label: "Pending",
-                                        color: "#FFC107",
-                                      },
-                                      {
-                                        value: "Received",
-                                        label: "Received",
-                                        color: "#28A745",
-                                      },
-                                    ]}
-                                    placeholder="Select PO status"
-                                    showColor={true}
-                                  />
-                                </Col>
-                              </Row>
-                            </div>
-                          </fieldset>
-                        );
-                      })()}
-
-                      {/* PO DETAILS Card - only visible when lead Status is "Received" AND PO Status is "Received" */}
-                      {(() => {
-                        const selectedStatus = leadStatuses.find(
-                          (s: any) => s.id === values.statusId,
-                        );
-                        const isStatusReceived =
-                          selectedStatus?.name?.toLowerCase().trim() ===
-                          "received";
-                        if (!isStatusReceived || values.poStatus !== "Received")
-                          return null;
-                        return (
-                          <fieldset
-                            style={{
-                              borderTop: "1px solid #9D4141",
-                              padding: "clamp(14px, 2vw, 15px)",
-                            }}
-                            className="mt-7"
-                          >
-                            <legend
-                              style={{
-                                fontSize: "17px",
-                                fontWeight: 600,
-                                fontFamily: "Inter",
-                                marginTop: "-25px",
-                                marginLeft: "-17px",
-                                backgroundColor: "#F3F4F7",
-                                width: "auto",
-                                lineHeight: "1",
-                                letterSpacing: 0,
-                                color: "#9D4141",
-                                padding: "2px 2px 8px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                              }}
-                            >
-                              <div
-                                className="ms-5"
-                                style={{
-                                  borderTop: "1px solid #9D4141",
-                                  width: "30px",
-                                  height: "0px",
-                                }}
-                              ></div>
-                              PO DETAILS
-                            </legend>
-                            <div className="card-body card responsive-card p-md-10 p-3">
-                              <Row>
-                                <Col md={6}>
-                                  <TextInput
-                                    formikField="poNumber"
-                                    label="PO Number"
-                                    isRequired={false}
-                                    inputValidation="numbers-space"
-                                  />
-                                </Col>
-                                <Col md={6}>
-                                  <DateInput
-                                    formikField="poDate"
-                                    inputLabel="PO Date"
-                                    formikProps={formikProps}
-                                    placeHolder="1/3/2025"
-                                    isRequired={false}
-                                  />
-                                </Col>
-                              </Row>
-                              <Row className="mt-3">
-                                <Col md={12}>
-                                  <label
-                                    className="mb-2 fw-bold"
-                                    style={{
-                                      fontSize: "14px",
-                                      fontFamily: "Inter",
-                                    }}
-                                  >
-                                    Attach PO File
-                                  </label>
-                                  {values.poFile && (
-                                    <div className="mb-3 p-3 bg-light rounded">
-                                      <div className="d-flex align-items-center justify-content-between">
-                                        <div>
-                                          <small className="text-muted">
-                                            Current PO file:
-                                          </small>
-                                          <div className="fw-bold text-primary">
-                                            📎{" "}
-                                            {getFileNameFromUrl(values.poFile)}
-                                          </div>
-                                        </div>
-                                        <div>
-                                          <a
-                                            href={values.poFile}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="btn btn-sm btn-outline-primary me-2"
-                                          >
-                                            View
-                                          </a>
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-danger"
-                                            onClick={() =>
-                                              setFieldValue("poFile", "")
-                                            }
-                                          >
-                                            Remove
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  <input
-                                    type="file"
-                                    accept=".doc,.docx,.pdf,.jpg,.jpeg,.png,.xls,.xlsx"
-                                    className="form-control form-control-lg form-control-solid"
-                                    onChange={async (event) => {
-                                      const files = event.target.files;
-                                      if (files && files[0]) {
-                                        if (files[0].size > 5 * 1024 * 1024) {
-                                          alert(
-                                            "File size should not exceed 5 MB",
-                                          );
-                                          event.target.value = "";
-                                          return;
-                                        }
-                                        const form = new FormData();
-                                        form.append("file", files[0]);
-                                        try {
-                                          const {
-                                            data: { path },
-                                          } = await uploadUserAsset(
-                                            form,
-                                            userId,
-                                            "leads/po",
-                                          );
-                                          setFieldValue("poFile", path, true);
-                                        } catch (error) {
-                                          console.error(
-                                            "Failed to upload PO file. Please try again.",
-                                          );
-                                        }
-                                      }
-                                    }}
-                                  />
-                                  <small className="text-muted">
-                                    {values.poFile
-                                      ? "Upload a new file to replace the current PO document"
-                                      : "Select a PO document to upload"}
-                                  </small>
-                                </Col>
-                              </Row>
-                            </div>
-                          </fieldset>
-                        );
-                      })()}
-
-                      {/* Upload Document File Section */}
-                      {/* <fieldset style={{ borderTop: '1px solid #9D4141', padding: 'clamp(14px, 2vw, 15px)' }} className='mt-7'>
-                        <legend style={{
-                          fontSize: '17px',
-                          fontWeight: 600,
-                          fontFamily: 'Inter',
-                          marginTop: "-25px",
-                          marginLeft: "-17px",
-                          backgroundColor: "#F3F4F7",
-                          width: "auto",
-                          lineHeight: "1",
-                          letterSpacing: 0,
-                          color: "#9D4141",
-                          padding: "2px 2px 8px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px"
-                        }}>
-                          <div className="ms-5" style={{borderTop: "1px solid #9D4141", width: "30px", height: "0px"}}></div>
-                          ADDITIONAL DETAILS
-                        </legend>
-
-                        
-                      </fieldset> */}
-
-                      <div>
-                        {!hasDefaultStatus() && (
-                          <Box
-                            sx={{
-                              mt: 2,
-                              p: 2,
-                              backgroundColor: "#fff3cd",
-                              border: "1px solid #ffeaa7",
-                              borderRadius: "8px",
-                              color: "#856404",
-                            }}
-                          >
-                            <Typography
-                              sx={{
-                                fontSize: "14px",
-                                fontFamily: "Inter",
-                                fontWeight: "500",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
-                              ⚠️ Warning: There should be a Status present that
-                              is marked as default. Please configure a default
-                              status in Lead Configuration before creating
-                              leads.
-                            </Typography>
-                          </Box>
-                        )}
-                      </div>
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "flex-start",
-                          gap: 2,
-                          mt: 5,
-                          mb: 2,
-                        }}
-                      >
-                        <Button
-                          type="submit"
-                          variant="primary"
-                          disabled={isSubmitting || !hasDefaultStatus()}
-                          style={{
-                            opacity: !hasDefaultStatus() ? 0.6 : 1,
-                            cursor: !hasDefaultStatus()
-                              ? "not-allowed"
-                              : "pointer",
-                            minWidth: "120px",
-                          }}
-                        >
-                          {isSubmitting
-                            ? isEditMode
-                              ? "Updating..."
-                              : "Submitting..."
-                            : isEditMode
-                              ? "Save Lead"
-                              : "Create Lead"}
-                        </Button>
-                      </Box>
-                    </Box>
+                    <LeadWorkspace
+                      categories={categories}
+                      subcategories={subcategories}
+                      services={services}
+                      leadStatuses={leadStatuses}
+                      leadProjectStatuses={leadProjectStatuses}
+                      employees={allEmployees?.list || []}
+                      teams={teams}
+                      countries={countries}
+                      leadDirectSources={leadDirectSources}
+                      referralTypes={referralTypes}
+                      companies={companies}
+                      contacts={contacts}
+                      companyTypes={allCompanyTypes}
+                      setShowCategoryModal={setShowCategoryModal}
+                      setShowSubcategoryModal={setShowSubcategoryModal}
+                      setShowServiceModal={setShowServiceModal}
+                      setShowCompanyModal={setShowCompanyModal}
+                      setShowSubCompanyModal={setShowSubCompanyModal}
+                      setShowBranchModal={setShowBranchModal}
+                      setShowContactModal={setShowContactModal}
+                      setShowDirectSourceModal={setShowDirectSourceModal}
+                      setShowReferralTypeModal={setShowReferralTypeModal}
+                      setShowCompanyTypeModal={setShowCompanyTypeModal}
+                      fetchProjectCategories={fetchProjectCategories}
+                      fetchProjectSubcategories={fetchProjectSubcategories}
+                      fetchProjectServices={fetchProjectServices}
+                      addressStatesOptions={values.addressStatesOptions || {}}
+                      addressCitiesOptions={values.addressCitiesOptions || {}}
+                      handleAddressCountryChange={handleAddressCountryChange}
+                      handleAddressStateChange={handleAddressStateChange}
+                      teamFilteredCompanies={teamFilteredCompanies}
+                      teamFilteredSubCompanies={teamFilteredSubCompanies}
+                      teamFilteredContacts={teamFilteredContacts}
+                      handleCompanyTypeChange={handleCompanyTypeChange}
+                      handleCompanyChange={handleCompanyChange}
+                      handleSubCompanyChange={handleSubCompanyChange}
+                      prefix={prefix}
+                      setPrefix={setPrefix}
+                      isEditMode={isEditMode}
+                      currLeadData={currLeadData}
+                      hasDefaultStatus={hasDefaultStatus}
+                      onHide={handleLeadCancelWithDirtyCheck}
+                      onFinalSave={
+                        isEditMode
+                          ? async () => {
+                              const choice = await customConfirmation();
+                              if (choice === null) return;
+                              leadSaveModeRef.current = choice
+                                ? "revision"
+                                : "update";
+                              await formikRef.current?.submitForm();
+                            }
+                          : undefined
+                      }
+                      onSaveDraft={() => saveLeadDraft(values, draftCurrentStep, { savedManually: true })}
+                      isSavingDraft={isLeadDraftSaving}
+                      onStepChange={setDraftCurrentStep}
+                      initialStep={resumeStep}
+                      formikProps={formikProps}
+                    />
                   </FormikForm>
                 );
               }}
             </Formik>
           </Modal.Body>
-        </Box>
       </Modal>
+
+      {/* Draft modals */}
+      <DraftRecoveryModal
+        show={showLeadRecoveryModal}
+        draft={leadDraft}
+        entityName={leadDraft?.formData?.projectName}
+        onResume={handleResumeDraft}
+        onDiscard={handleDiscardLeadDraft}
+        onStartFresh={() => setShowLeadRecoveryModal(false)}
+      />
+      <UnsavedChangesModal
+        show={showLeadUnsavedModal}
+        isSaving={isLeadDraftSaving}
+        onSaveDraft={handleSaveLeadDraftManual}
+        onContinueEditing={() => setShowLeadUnsavedModal(false)}
+        onDiscard={async () => { await discardLeadDraft(); if (onClose) onClose(); }}
+      />
 
       {/* Configuration Forms */}
       <div>
@@ -6548,6 +3215,7 @@ const LeadFormModal = ({
           title="Company Type"
           type="company-type"
         />
+
       </div>
     </div>
   );

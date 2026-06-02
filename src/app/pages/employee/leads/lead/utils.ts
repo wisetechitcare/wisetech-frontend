@@ -50,14 +50,14 @@ export function mapLeadToFormInitialValues(
                       : [{
                           label: '',
                           projectArea: '',
-                          costType: '',
+                          costType: '1',
                           rate: '',
                           cost: ''
                         }])
                 : [{
                     label: '',
                     projectArea: '',
-                    costType: '',
+                    costType: '1',
                     rate: '',
                     cost: ''
                   }];
@@ -159,14 +159,51 @@ export function mapLeadToFormInitialValues(
                     }];
                 }
             }
+            // Map handledByEntries
+            const handledByEntries = Array.isArray(lead?.handledByEntries) && lead.handledByEntries.length > 0
+                ? lead.handledByEntries.map((e: any) => ({
+                    id: e.id || '',
+                    employeeId: e.employeeId || '',
+                    handledDate: e.handledDate
+                        ? dayjs(e.handledDate).format("YYYY-MM-DD")
+                        : dayjs().format("YYYY-MM-DD"),
+                    handledOutDate: e.handledOutDate
+                        ? dayjs(e.handledOutDate).format("YYYY-MM-DD")
+                        : '',
+                  }))
+                : [];
+
+            // Map projectMeta (execution details — only when lead is in project stage)
+            const projectMeta = lead?.projectMeta
+                ? {
+                    projectStatusId: lead.projectMeta.projectStatusId || '',
+                    projectManagerId: lead.projectMeta.projectManagerId || '',
+                    teamId: lead.projectMeta.teamId || '',
+                    projectAccess: lead.projectMeta.projectAccess || 'PRIVATE',
+                    isProjectOpen: lead.projectMeta.isProjectOpen !== false,
+                    isLive: !!lead.projectMeta.isLive,
+                    executionContactId: lead.projectMeta.executionContactId || '',
+                    clientTypeId: lead.projectMeta.clientTypeId || '',
+                    stakeholderServiceId: lead.projectMeta.stakeholderServiceId || '',
+                    contractRate: lead.projectMeta.contractRate || '',
+                    finalCost: lead.projectMeta.finalCost || '',
+                    locationCountry: lead.projectMeta.locationCountry || '',
+                    locationState: lead.projectMeta.locationState || '',
+                    locationCity: lead.projectMeta.locationCity || '',
+                    isLocationIncorrect: !!lead.projectMeta.isLocationIncorrect,
+                    locationRemark: lead.projectMeta.locationRemark || '',
+                  }
+                : undefined;
+
             // Compose the result object
             const formValues: any = {
               id: lead.id,
               leadTemplateId: leadTemplateId,
+              title: lead.title || "",
               projectName: lead.title || "",
-              service: lead.projectServiceId || "",
-              category: lead.projectCategoryId || "",
-              subCategory: lead.projectSubCategoryId || "",
+              service: lead.projectService?.id || lead.projectServiceId || "",
+              category: lead.projectCategory?.id || lead.projectCategoryId || "",
+              subCategory: lead.projectSubCategory?.id || lead.projectSubCategoryId || "",
               
               // // Multi-select arrays for new functionality
               // serviceIds: (() => {
@@ -211,15 +248,38 @@ export function mapLeadToFormInitialValues(
               leadSource: lead.leadSource || "",
               leadSourceType: lead.leadSourceType || 'DIRECT',
               leadDirectSource: lead.leadDirectSource?.id || lead.leadDirectSourceId || '',
-              statusId: lead.statusId || "",
+              // ── Status (lifecycle + project stage) ────────────────────────
+              statusId: lead.status?.id || lead.statusId || "",
+              // projectStatusId: the ACTUAL project-stage value (On Going, Completed, etc.)
+              // This must come from DB, NOT be defaulted to Received.
+              projectStatusId: lead.projectStatus?.id || lead.projectStatusId || "",
+
+              // ── Cancellation ───────────────────────────────────────────────
+              cancellationReasonId: lead.cancellationReasonId || "",
+              cancellationNote: lead.cancellationNote || "",
+              cancellationRemarks: lead.cancellationNote || lead.cancellationRemarks || "",
+
+              // ── Work handled-by entries ────────────────────────────────────
+              handledByEntries: handledByEntries,
+              handledBy: lead.handledBy || "",
+
+              // ── Project execution metadata (only when received) ────────────
+              ...(projectMeta ? { projectMeta } : {}),
+
               referrals: referrals,
               source: lead.source || "",
               cost: lead.budget || "",
+              notes: lead.notes || "",
+              priority: lead.priority || "",
+
+              // ── Received / PO dates ────────────────────────────────────────
+              receivedDate: lead.receivedDate
+                ? dayjs(lead.receivedDate).format("YYYY-MM-DD") : "",
+
               // Client teams (multiple teams support)
               leadTeams: leadTeams,
-              
+
               // Legacy single team fields for backward compatibility
-              // If leadTeams exist, use first team data for legacy compatibility
               ...(leadTeams.length > 0 && leadTeams[0].companyTypeId ? {
                 companyTypeId: leadTeams[0].companyTypeId,
                 companyId: leadTeams[0].companyId,

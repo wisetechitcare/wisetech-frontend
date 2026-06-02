@@ -1,5 +1,4 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
@@ -12,6 +11,7 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -23,6 +23,7 @@ import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
 import LeadFormModal from "../../lead/LeadFormModal";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 
 export type ToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs, endDate: Dayjs) => void;
@@ -216,17 +217,7 @@ const LeadsOverviewToggle = ({
     onPrev: () => void;
     onNext: () => void;
     displayText: string;
-  }) => (
-    <div className="d-flex align-items-center">
-      <button className="btn btn-sm p-0 " onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  );
+  }) => <PeriodNavigator label={displayText} onPrevious={onPrev} onNext={onNext} />;
 
   return (
     <>
@@ -272,30 +263,57 @@ const LeadsOverviewToggle = ({
       <div className="d-flex flex-row justify-content-between align-items-center mb-6 ">
         <div className="d-flex flex-column align-items-center d-md-block">
 
-          <Select
+          <ToggleButtonGroup
             value={alignment}
-            onChange={(e) => handleChange(e as any, e.target.value)}
-            displayEmpty
-            variant="outlined"
-            size="small"
+            exclusive
+            onChange={(e, newAlignment) => handleChange(e as any, newAlignment)}
+            aria-label="view selection"
             sx={{
-              width: { xs: "100%", md: "200px" },
-              borderRadius: "8px",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#A0B4D2",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 0,
+              height: 30,
+              p: "2px",
+              borderRadius: "5px",
+              backgroundColor: "#f1f5f9",
+              border: "1px solid #eef2f7",
+              width: "fit-content",
+              maxWidth: "100%",
+              overflowX: "auto",
+              "& .MuiToggleButtonGroup-grouped": {
+                border: 0,
+                borderRadius: "4px !important",
+                minWidth: 0,
+                minHeight: 24,
+                px: 1.6,
+                py: 0,
+                color: "#475569",
+                fontSize: 12,
+                fontWeight: 500,
+                lineHeight: "24px",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+                letterSpacing: 0,
               },
-              "&:hover .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#9D4141",
+              "& .MuiToggleButtonGroup-grouped:not(:first-of-type)": {
+                marginLeft: 0,
+                borderLeft: 0,
               },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#9D4141",
+              "& .MuiToggleButton-root:hover": {
+                backgroundColor: "#e8eef6",
+              },
+              "& .Mui-selected": {
+                backgroundColor: "#ffffff !important",
+                color: "#aa393d !important",
+                fontWeight: 700,
+                boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
               },
             }}
           >
-            <MenuItem value="monthly">Monthly</MenuItem>
-            <MenuItem value="yearly">Yearly</MenuItem>
-            <MenuItem value="custom">Custom</MenuItem>
-          </Select>
+            <ToggleButton value="monthly">Monthly</ToggleButton>
+            <ToggleButton value="yearly">Yearly</ToggleButton>
+            <ToggleButton value="custom">Custom</ToggleButton>
+          </ToggleButtonGroup>
         </div>
         <div>
 
