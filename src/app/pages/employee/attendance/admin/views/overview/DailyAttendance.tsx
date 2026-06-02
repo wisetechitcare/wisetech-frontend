@@ -625,7 +625,6 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
     useEffect(() => {
         const initThresholds = async () => {
             if (!employeesAttendance || employeesAttendance.length === 0) {
-                console.error('No attendance data available yet');
                 return;
             }
 

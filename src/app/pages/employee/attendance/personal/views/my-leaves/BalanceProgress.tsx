@@ -165,6 +165,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
     useEventBus(EVENT_KEYS.leaveRequestCreated, refreshLeaveData);
     useEventBus(EVENT_KEYS.leaveRequestUpdated, refreshLeaveData);
+    useEventBus(EVENT_KEYS.leaveOptionsUpdated, refreshLeaveData);
+    useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, refreshLeaveData);
 
     useEffect(() => {
         if (startDateNew && endDateNew && branchWorkingDays) {
@@ -328,10 +330,14 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 const startDate = joiningDate.isAfter(fiscalStart) ? joiningDate : fiscalStart;
                 const tenureMonths = calculationDate.diff(startDate, 'month') + 1;
 
+                // Pass 0 for addon: the backend leave-balance API now returns Annual
+                // numberOfDays ALREADY INCLUDING the experience-based addon (single source
+                // of truth in recalculateBalance). Adding addonLeaveAllowanceCount here too
+                // would double-count it (e.g. base 0 + addon 10 from backend, +10 again = 20).
                 const { balances, proRated } = calculateLeaveBalances(
                     branchLeaveBalances,
                     transferredLeaves,
-                    addonLeaveAllowanceCount,
+                    0,
                     proRatedMonths,
                     hasPendingOrApprovedTransfer,
                     employee?.allowedPerMonth || allowedPerMonthFromState || 1,

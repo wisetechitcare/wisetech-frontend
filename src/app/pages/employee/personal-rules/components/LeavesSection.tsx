@@ -7,6 +7,8 @@ import Loader from '@app/modules/common/utils/Loader';
 import LeavesAllowanceSection from './LeavesAllowanceSection';
 import { KTIcon } from '@metronic/helpers';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 interface LeavesSectionProps {
   sectionRef?: (el: HTMLDivElement | null) => void;
@@ -18,35 +20,32 @@ const LeavesSection: React.FC<LeavesSectionProps> = ({ sectionRef }) => {
   const [addonAllowances, setAddonAllowances] = useState<IAddonLeavesAllowance[]>([]);
   const [showSandwichLeaveModal, setShowSandwichLeaveModal] = useState(false);
 
+  const loadAddonAllowances = async () => {
+    try {
+      const allowancesResponse = await fetchAllAddonLeavesAllowances();
+      if (!allowancesResponse?.hasError && allowancesResponse.data?.addonLeavesAllowances) {
+        setAddonAllowances(allowancesResponse.data.addonLeavesAllowances);
+      }
+    } catch (error) {
+      console.error('[LeavesSection] Error loading addon allowances:', error);
+    }
+  };
+
+  useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, () => {
+    loadAddonAllowances();
+  });
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        console.log('[LeavesSection] Starting to load leaves data...');
 
-        // Load LEAVE_MANAGEMENT configuration for monthly annual leave limit
         const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT);
-        console.log('[LeavesSection] Raw LEAVE_MANAGEMENT response:', leaveConfigResponse);
-
         const leaveConfig = JSON.parse(leaveConfigResponse?.data?.configuration?.configuration || '{}');
-        console.log('[LeavesSection] Parsed LEAVE_MANAGEMENT config:', leaveConfig);
-
-        // Get monthly annual leaves limit
         const monthlyLimit = leaveConfig?.['Number of Annual Leaves allowed per month'] || '2';
-        console.log('[LeavesSection] Monthly Annual Leave Limit:', monthlyLimit);
         setMonthlyAnnualLeaveLimit(monthlyLimit);
 
-        // Load addon leaves allowances
-        const allowancesResponse = await fetchAllAddonLeavesAllowances();
-        console.log('[LeavesSection] Addon leaves response:', allowancesResponse);
-
-        if (!allowancesResponse?.hasError && allowancesResponse.data?.addonLeavesAllowances) {
-          console.log('[LeavesSection] Addon allowances data:', allowancesResponse.data.addonLeavesAllowances);
-          setAddonAllowances(allowancesResponse.data.addonLeavesAllowances);
-        } else {
-          console.log('[LeavesSection] No addon allowances found or error occurred');
-        }
-
+        await loadAddonAllowances();
       } catch (error) {
         console.error('[LeavesSection] Error loading data:', error);
       } finally {

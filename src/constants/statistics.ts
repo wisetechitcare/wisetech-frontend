@@ -158,7 +158,6 @@ export const resourceNameMapWithCamelCase = {
     dashboardOngoingLoans: "dashboardongoingloans",
     dashboardKpiSection: "dashboardkpisection",
     leaveCashTransfer: "leaveCashTransfer",
-    attendanceRequestLimit: "attendanceRequestLimit",
     organisationProfile: "organisationprofile",
     approvals: "approvals",
 }

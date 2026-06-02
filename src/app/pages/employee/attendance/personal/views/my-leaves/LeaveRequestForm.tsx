@@ -374,26 +374,23 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
 
         const response = await fetchAllAddonLeavesAllowances();
-        // if (!response?.hasError && response.data?.addonLeavesAllowances) {
-        //     setAllowances(response.data.addonLeavesAllowances);
-        // }
         let addonLeaveAllowanceCount = 0;
-        // Calculate experience as of the fiscal year START date
-        // Experience-based leaves are distributed at the start of fiscal year
-        // e.g., Employee joins Nov 2025, completes 1 year in Nov 2026,
-        // fiscal year starts March 2027 - they get addon leaves for 1+ year experience
-        const experienceAtFiscalStart = dayjs(startDateNew).diff(dateOfJoiningInString, 'year');
 
-        if(!response?.hasError && response.data?.addonLeavesAllowances) {
-          const addonAllowance = response.data.addonLeavesAllowances.find((addon: any) => addon.experienceInCompany === experienceAtFiscalStart);
-          if(addonAllowance){
-            addonLeaveAllowanceCount = addonAllowance?.addonLeavesCount || 0;
-          }
+        // Mirror backend getFiscalYearExperience: fiscal-year slab, NOT calendar diff.
+        // DOJ Apr-Dec → joined FY starting that year; Jan-Mar → joined FY starting prev year.
+        // experience = (fyStartYear - joinFyStartYear) + 1, minimum 0.
+        const fyStartYear = parseInt((startDateNew ?? '').split('-')[0], 10);
+        const doj = dayjs(dateOfJoiningInString);
+        const dojMonth = doj.month() + 1; // 1-based
+        const joinFyStartYear = dojMonth >= 4 ? doj.year() : doj.year() - 1;
+        const experienceYears = Math.max(0, fyStartYear - joinFyStartYear + 1);
 
-          if(experienceAtFiscalStart>10){
-            let newAddon = response.data.addonLeavesAllowances.find((addon: any) => addon.experienceInCompany === 11);
-            addonLeaveAllowanceCount = newAddon?.addonLeavesCount || 0;
-          }
+        if (!response?.hasError && response.data?.addonLeavesAllowances) {
+          // Mirror backend getApplicableTier: highest tier whose threshold <= experienceYears.
+          const applicableTier = (response.data.addonLeavesAllowances as any[])
+            .filter((addon: any) => addon.experienceInCompany <= experienceYears)
+            .sort((a: any, b: any) => b.experienceInCompany - a.experienceInCompany)[0];
+          addonLeaveAllowanceCount = applicableTier ? (Number(applicableTier.addonLeavesCount) || 0) : 0;
         }
         
         // Calculate leaves being transferred in current fiscal year (to subtract from available balance)

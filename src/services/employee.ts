@@ -180,17 +180,6 @@ export const fetchCurrentEmployeeByUserId = async (userId: string) => {
     }
 }
 
-export const sendAttendanceRequestResetLimit = async (payload: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, payload);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
 export const fetchCurrentEmployeeByEmpId = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_BY_ID}?employeeId=${employeeId}`;
@@ -1711,36 +1700,6 @@ export const getAllEmployeeWithMonthDailyHourlySalary = async (id?: string, date
         const url = params.toString() ? `${endpoint}?${params.toString()}` : endpoint;
 
         const { data } = await axios.get(url);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const getAttendanceRequestLimitResetRequests = async (companyId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS}?companyId=${companyId}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const approveAttendanceRequestLimitReset = async (requestId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, { requestId });
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.REJECT_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, { requestId });
         return data;
     } catch (err) {
         throw err;
