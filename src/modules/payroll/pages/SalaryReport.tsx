@@ -189,7 +189,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                         fromAdmin={fromAdmin}
                         onAddPayment={() => ui.handlePaymentEdit()}
                         onEditPayment={ui.handlePaymentEdit}
-                        onDeletePayment={(item) => ui.handleDeletePayment(item.id)}
+                        onDeletePayment={(item) => ui.handleDeletePayment(item)}
                     />
                 </Container>
             )}
@@ -224,7 +224,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 employeeId={employee.id}
                 month={month}
                 year={year}
-                onSuccess={ui.handleRefresh}
+                onSuccess={() => ui.handleRefresh(onRefreshSalaryData)}
                 monthlyApiData={monthlyApiData}
             />
 

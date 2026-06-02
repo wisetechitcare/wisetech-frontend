@@ -17,6 +17,10 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     const grandTotalDeductions = totalVariable + totalFixed;
 
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+    const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
+        const sign = extraAmount < 0 ? '-' : '+';
+        return `(${formatINR2(calculatedAmount)} ${sign} ${formatINR2(Math.abs(extraAmount))})`;
+    };
 
     const renderTooltip = (props: any) => (
         <Tooltip id="deduction-explanation" {...props} className="fs-7">
@@ -148,6 +152,9 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     const isPct = String(item.type).toLowerCase() === 'percentage';
                                     const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
                                     const typeLabel = isPct ? 'Percentage' : 'Fixed';
+                                    const extraAmount = Number(item.extraAmount || 0);
+                                    const calculatedAmount = Number(item.calculatedAmount || 0);
+                                    const earnedAmount = Math.max(0, Number(item.earned || 0));
                                     return (
                                         <tr key={key}>
                                             <td>
@@ -165,11 +172,11 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                             <td className="text-end">
                                                 <div className="d-flex flex-column align-items-end">
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                        -{formatINR2(Number(item.earned || 0))}
+                                                        -{formatINR2(earnedAmount)}
                                                     </span>
-                                                    {Number(item.extraAmount || 0) > 0 && (
+                                                    {extraAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
-                                                            ({formatINR2(item.calculatedAmount || 0)} + {formatINR2(item.extraAmount || 0)})
+                                                            {formatAdjustmentFormula(calculatedAmount, extraAmount)}
                                                         </span>
                                                     )}
                                                 </div>

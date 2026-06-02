@@ -8,8 +8,7 @@ import dayjs from 'dayjs';
 
 const getProfessionalFeesAmount = (fixedBreakdown: Record<string, any> | undefined) => {
     const entry = Object.entries(fixedBreakdown || {}).find(([key, item]: [string, any]) => {
-        const amount = Number(item?.earned ?? item?.value ?? item ?? 0);
-        return key.toLowerCase().includes('professional fees') && item?.isActive !== false && amount > 0;
+        return key.toLowerCase().includes('professional') && !key.toLowerCase().includes('fund') && !key.toLowerCase().includes('tax') && item?.isActive !== false;
     });
 
     if (!entry) return 0;
@@ -18,9 +17,10 @@ const getProfessionalFeesAmount = (fixedBreakdown: Record<string, any> | undefin
 };
 
 const isProfessionalFeesPayment = (payment: any) => {
-    const type = String(payment?.type || payment?.paymentType || '').toUpperCase();
+    const typeStr = String(payment?.type || payment?.paymentType || '').toUpperCase();
+    const isGovType = payment?.deductionType || typeStr === 'GOVERNMENT';
     const deductionType = String(payment?.deductionType || payment?.remarks || '').toLowerCase();
-    return type === 'GOVERNMENT' && deductionType.includes('professional fees');
+    return !!isGovType && deductionType.includes('professional fees');
 };
 
 const getPaymentAmount = (payment: any) => {
@@ -30,6 +30,9 @@ const getPaymentAmount = (payment: any) => {
 };
 
 const getPaymentType = (payment: any) => {
+    if (payment?.deductionType) {
+        return 'GOVERNMENT';
+    }
     return String(payment?.type || payment?.paymentType || 'SALARY').toUpperCase();
 };
 
@@ -100,7 +103,7 @@ export const useSalaryCalculations = (
             netSalary += net;
             salaryPaid += amountPaid;
             totalProfessionalFees += professionalFees;
-            governmentPaid += professionalFees > 0 ? govPaid : 0;
+            governmentPaid += govPaid; // Always include government payment
         });
 
         const professionalFeesSum = getProfessionalFeesAmount(apiSalaryData?.deductionBreakdown?.fixed);
@@ -165,7 +168,7 @@ export const useSalaryCalculations = (
                         item: item
                     });
                 }
-                if (hasProfessionalFees && govPaid > 0) {
+                if (govPaid > 0) {
                     rows.push({
                         ...item,
                         id: `${item.id}-legacy-gov`,
@@ -185,30 +188,36 @@ export const useSalaryCalculations = (
                     });
                 }
             } else {
-                uniqueHistory.forEach((p: any) => {
-                    const paymentType = getPaymentType(p);
-                    const isGov = paymentType === 'GOVERNMENT';
-                    if (isGov && !isProfessionalFeesPayment(p)) {
-                        return;
-                    }
-                    rows.push({
-                        ...item,
-                        id: p.id || `${item.id}-${paymentType}-${p.paymentDate}`,
-                        calculatedGrossPay: gross,
-                        calculatedVariableDeduction: variable,
-                        calculatedFixedDeduction: isGov ? professionalFees : fixed,
-                        calculatedNetSalary: isGov ? professionalFees : net,
-                        calculatedRemainingAmount: Math.max(0, (isGov ? professionalFees : net) - (isGov ? govPaid : amountPaid)),
-                        calculatedStatus: (isGov ? govPaid >= professionalFees : amountPaid >= net) ? 'Full Paid' : 'Partially Paid',
-                        calculatedPaidAmount: getPaymentAmount(p),
-                        paymentType,
-                        paymentMethod: p.paymentMethod,
-                        transactionId: p.transactionId,
-                        remarks: p.remarks,
-                        displayDate: p.paymentDate,
-                        item: item
-                    });
+            // Process each payment history entry, including government payments
+            uniqueHistory.forEach((p: any) => {
+                const paymentType = getPaymentType(p);
+                const isGov = paymentType === 'GOVERNMENT';
+                const paymentAmount = getPaymentAmount(p);
+                // Determine values for row fields based on payment type
+                const calculatedGrossPay = isGov ? paymentAmount : gross;
+                const calculatedVariableDeduction = isGov ? 0 : variable;
+                const calculatedFixedDeduction = isGov ? paymentAmount : fixed;
+                const calculatedNetSalary = isGov ? paymentAmount : net;
+                const calculatedRemainingAmount = Math.max(0, calculatedNetSalary - paymentAmount);
+                const calculatedStatus = paymentAmount >= calculatedNetSalary ? 'Full Paid' : 'Partially Paid';
+                rows.push({
+                    ...item,
+                    id: p.id || `${item.id}-${paymentType}-${p.paymentDate}`,
+                    calculatedGrossPay,
+                    calculatedVariableDeduction,
+                    calculatedFixedDeduction,
+                    calculatedNetSalary,
+                    calculatedRemainingAmount,
+                    calculatedStatus,
+                    calculatedPaidAmount: paymentAmount,
+                    paymentType,
+                    paymentMethod: p.paymentMethod,
+                    transactionId: p.transactionId,
+                    remarks: p.remarks,
+                    displayDate: p.paymentDate,
+                    item: item
                 });
+            });
             }
         });
 

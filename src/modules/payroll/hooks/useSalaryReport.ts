@@ -35,9 +35,16 @@ export const useSalaryReport = () => {
         setShowPaymentModal(true);
     };
 
-    const handleDeletePayment = async (paymentId: string) => {
+    const handleDeletePayment = async (payment: any) => {
         try {
-            await PayrollService.deletePayment(paymentId);
+            if (!payment?.id) {
+                throw new Error('Missing payment id');
+            }
+            if (payment?.paymentType === 'GOVERNMENT') {
+                await PayrollService.deleteGovernmentPayment(payment.id);
+            } else {
+                await PayrollService.deletePayment(payment.id);
+            }
             successConfirmation('Payment deleted successfully');
             handleRefresh();
         } catch (error) {
