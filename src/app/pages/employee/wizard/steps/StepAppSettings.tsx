@@ -211,12 +211,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         reporting: <ReportingConfig />,
         financial: <FinancialConfig formikProps={formikProps} editMode={editMode} />,
         leaves: (
-            <>
-                <LeaveAllocationStep />
-                <div style={{ marginTop: "24px" }}>
-                    <MonthlyLeaveLimit />
-                </div>
-            </>
+            <LeaveAllocationStep />
         ),
         access: <AppSettings />,
         privacy: <PrivacyControls />,
