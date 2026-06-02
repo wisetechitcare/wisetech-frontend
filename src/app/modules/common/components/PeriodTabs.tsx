@@ -1,0 +1,83 @@
+import { ToggleButton, ToggleButtonGroup, SxProps, Theme } from '@mui/material';
+
+export interface PeriodTabOption {
+    label: string;
+    value: string;
+}
+
+interface PeriodTabsProps {
+    value: string;
+    options: PeriodTabOption[];
+    onChange: (value: string) => void;
+    ariaLabel?: string;
+    sx?: SxProps<Theme>;
+}
+
+const PeriodTabs = ({
+    value,
+    options,
+    onChange,
+    ariaLabel = 'period selection',
+    sx,
+}: PeriodTabsProps) => (
+    <ToggleButtonGroup
+        value={value}
+        exclusive
+        onChange={(_, selectedValue) => {
+            if (selectedValue !== null) {
+                onChange(selectedValue);
+            }
+        }}
+        aria-label={ariaLabel}
+        sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0,
+            height: 30,
+            p: '2px',
+            borderRadius: '5px',
+            backgroundColor: '#f1f5f9',
+            border: '1px solid #eef2f7',
+            width: 'fit-content',
+            maxWidth: '100%',
+            overflowX: 'auto',
+            '& .MuiToggleButtonGroup-grouped': {
+                border: 0,
+                borderRadius: '4px !important',
+                minWidth: 0,
+                minHeight: 24,
+                px: 1.4,
+                py: 0,
+                color: '#475569',
+                fontSize: 12,
+                fontWeight: 500,
+                lineHeight: '24px',
+                textTransform: 'none',
+                whiteSpace: 'nowrap',
+                letterSpacing: 0,
+            },
+            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                marginLeft: 0,
+                borderLeft: 0,
+            },
+            '& .MuiToggleButton-root:hover': {
+                backgroundColor: '#e8eef6',
+            },
+            '& .Mui-selected': {
+                backgroundColor: '#ffffff !important',
+                color: '#aa393d !important',
+                fontWeight: 700,
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
+            },
+            ...sx,
+        }}
+    >
+        {options.map((option) => (
+            <ToggleButton key={option.value} value={option.value}>
+                {option.label}
+            </ToggleButton>
+        ))}
+    </ToggleButtonGroup>
+);
+
+export default PeriodTabs;

@@ -590,3 +590,8 @@ export const EMPLOYEE_CONFIGURATION = {
     UPDATE: '/api/employee-configurations/:id',
     DELETE: '/api/employee-configurations/:id',
 };
+export const DRAFT = {
+    SAVE: 'api/draft/save',
+    GET: 'api/draft/:entityType/:entityId',
+    DELETE: 'api/draft/:entityType/:entityId',
+};

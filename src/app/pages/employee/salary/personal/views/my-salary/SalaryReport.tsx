@@ -88,99 +88,6 @@ const sumEarnings = (entries: Record<string, IBreakdownItem> | undefined) =>
         0
     );
 
-const getNumericAmount = (value: any): number => {
-    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-    if (typeof value === 'string') {
-        const parsed = Number(value.replace(/[₹,\s]/g, ''));
-        return Number.isFinite(parsed) ? parsed : 0;
-    }
-    return 0;
-};
-
-type DeductionSummaryRow = {
-    key: string;
-    label: string;
-    amount: number;
-};
-
-const buildDeductionSummaryRows = (deductionBreakdown: IBreakdownData): DeductionSummaryRow[] => {
-    const rows: DeductionSummaryRow[] = [];
-
-    Object.entries(deductionBreakdown?.variable || {}).forEach(([key, item]: [string, any]) => {
-        rows.push({
-            key: `variable-${key}`,
-            label: item?.name || key,
-            amount: getNumericAmount(item?.earned),
-        });
-    });
-
-    Object.entries(deductionBreakdown?.fixed || {}).forEach(([key, item]: [string, any]) => {
-        rows.push({
-            key: `fixed-${key}`,
-            label: item?.name || key,
-            amount: getNumericAmount(item?.earned),
-        });
-    });
-
-    return rows;
-};
-
-const DeductionBreakdownSummary = ({
-    rows,
-    totalDeductions,
-    showSensitiveData,
-}: {
-    rows: DeductionSummaryRow[];
-    totalDeductions: number;
-    showSensitiveData: boolean;
-}) => {
-    if (!rows.length) return null;
-
-    const calculatedTotal = rows.reduce((acc, row) => acc + row.amount, 0);
-    const isValid = Math.abs(calculatedTotal - totalDeductions) < 0.01;
-
-    if (!isValid) {
-        console.error('[SalaryReport] Deduction breakdown validation failed', {
-            displayedBreakdownTotal: calculatedTotal,
-            payrollTotalDeductions: totalDeductions,
-            rows,
-        });
-        return null;
-    }
-
-    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
-
-    return (
-        <Card className="mb-4 shadow-sm w-100">
-            <Card.Body className="p-4">
-                <div className="d-flex align-items-center justify-content-between mb-3">
-                    <h5 className="fw-bold mb-0">Deduction Breakdown</h5>
-                </div>
-                <div className="table-responsive">
-                    <table className="table table-sm table-borderless mb-0">
-                        <tbody>
-                            {rows.map((row) => (
-                                <tr key={row.key} style={{ fontSize: 12 }}>
-                                    <td className="ps-0 py-1 text-muted">{row.label}</td>
-                                    <td className={`pe-0 py-1 text-end ${row.amount > 0 ? 'text-danger' : ''} ${sensitiveCls}`}>
-                                        {row.amount > 0 ? '-' : ''}{formatINR2(row.amount)}
-                                    </td>
-                                </tr>
-                            ))}
-                            <tr style={{ borderTop: '1px solid #E5E8ED', fontSize: 13 }}>
-                                <td className="ps-0 pt-3 fw-bold">Total Deductions</td>
-                                <td className={`pe-0 pt-3 text-end fw-bold text-danger ${sensitiveCls}`}>
-                                    -{formatINR2(totalDeductions)}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </Card.Body>
-        </Card>
-    );
-};
-
 const DeductionPanel = ({
     deductionBreakdown,
     grossPay,
@@ -555,10 +462,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const apiDueAmount = parseFloat(
         apiSalaryData?.dueAmount?.replace(/[₹,]/g, '') || '0'
     );
-    const deductionSummaryRows = useMemo(
-        () => buildDeductionSummaryRows(deductionBreakdown),
-        [deductionBreakdown]
-    );
 
     // NEW: Dynamic Breakdown Table Component
     const BreakdownTable = ({
@@ -905,7 +808,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // const holidays = leavesHolidaysMap.get(HOLIDAYS) || 0;
 
-    const dailySalary = monthlySalary / totalWorkingDay;
+    const dailySalary = monthlySalary / 30;
     let hourlySalary = totalWorkingHour ? dailySalary / totalWorkingHour : 1;
 
     hourlySalary = Number(hourlySalary.toFixed(2))
@@ -1067,41 +970,22 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const amountToDeductForLateCheckinBasedOnPercentage = Math.floor(dailySalary * (multiLateCheckinDeductionPercent / 100));
     const multipleLateCheckinEarned = parseInt(((Math.floor((lateAttendance || 0) / multipleLateCheckinCountLimit)) * amountToDeductForLateCheckinBasedOnPercentage).toString());
     
-    // ------------------ Fixed Deductions ------------------------
+    // ------------------ Fixed Deductions (Calculated on Intermediate Salary) ------------------------
     const countOfMonthsEmployeePresentInAYear = getCountOfMonthsEmployeePresentOrOnLeaveInAYear(stats);
     
-    // Intermediate Salary Base for non-PT calculations.
+    // Intermediate Salary Base for calculations
     const intermediateSalaryBase = Math.max(0, (isApiDataLoaded ? (apiTotalGrossPayAmount || 0) : totalGrossPayEarnedFinal) - multipleLateCheckinEarned);
-    const monthlyFixedSalaryBase = parseFloat(employee?.ctcInLpa || '0') / 12;
-    const professionalTaxRuleEntries = Object.entries(deductionsRule || {}).filter(([name]) =>
-        name.toLowerCase().includes('professional tax')
-    );
-    const otherFixedDeductionRuleEntries = Object.entries(deductionsRule || {}).filter(([name]) =>
-        !name.toLowerCase().includes('professional tax')
-    );
 
-    const otherFixedDeductions = salaryCalculationsForDays(
+    let taxes = salaryCalculationsForDays(
         totalDaysOfMonthOrYear, 
         allDaysForMonthOrYear, 
-        Object.fromEntries(otherFixedDeductionRuleEntries), 
+        deductionsRule, 
         intermediateSalaryBase, 
         isYearly, 
         countOfMonthsEmployeePresentInAYear, 
         true, 
         totalListOfMonthsPresent.size
     );
-    const professionalTaxDeductions = salaryCalculationsForDays(
-        totalDaysOfMonthOrYear,
-        allDaysForMonthOrYear,
-        Object.fromEntries(professionalTaxRuleEntries),
-        monthlyFixedSalaryBase,
-        isYearly,
-        countOfMonthsEmployeePresentInAYear,
-        true,
-        totalListOfMonthsPresent.size
-    );
-
-    let taxes = [...otherFixedDeductions, ...professionalTaxDeductions];
 
     const totalTaxes = taxes.reduce((acc, tax) => acc + parseFloat((tax.earned).replace(/[₹,]/g, "")), 0);
 
@@ -2596,13 +2480,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             }
                         </div>
                     </div>
-                    {isApiDataLoaded && !isRefreshing && (
-                        <DeductionBreakdownSummary
-                            rows={deductionSummaryRows}
-                            totalDeductions={apiTotalDeductionsAmount}
-                            showSensitiveData={showSensitiveData}
-                        />
-                    )}
                     <Row className="g-4">
                         <Col md={6} className='mb-4 mb-lg-0' >
                             <Card className="h-100 w-100 p-2 wt-card-gross">
