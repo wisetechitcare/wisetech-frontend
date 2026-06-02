@@ -87,47 +87,44 @@ export const deleteAddonLeavesAllowance = async (id: string) => {
 };
 
 /**
- * Trigger a full leave balance recalculation for all active employees.
- * Calls the recompute-addon-leaves endpoint which now delegates to recalculateBalance
- * for every employee and every leave type, applying all rules (addon, probation, override).
- */
-export const recomputeAllLeaveBalances = async (fiscalYear?: string) => {
-    const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
-    const { data } = await axios.post(`${API_BASE_URL}/api/employee/recompute-addon-leaves`, fiscalYear ? { fiscalYear } : {});
-    return data;
-};
-
-/**
- * Upsert addon leaves allowances (bulk operation).
- * Fetches all existing records once, then creates or updates each tier in sequence.
+ * Upsert addon leaves allowances (bulk operation)
  */
 export const upsertAddonLeavesAllowances = async (allowances: IAddonLeavesAllowanceCreate[]) => {
-    // One fetch for all existing records — avoids N+1 API calls inside the loop.
-    const existingResponse = await fetchAllAddonLeavesAllowances();
-    const existingAllowances: IAddonLeavesAllowance[] =
-        existingResponse.data?.addonLeavesAllowances ?? [];
-
-    const results = [];
-
-    for (const allowance of allowances) {
-        const existing = existingAllowances.find(
-            (item) => item.experienceInCompany === allowance.experienceInCompany
-        );
-
-        try {
-            if (existing) {
-                const result = await updateAddonLeavesAllowance(existing.id, {
-                    addonLeavesCount: allowance.addonLeavesCount,
-                });
-                results.push({ action: 'updated', data: result.data });
-            } else {
-                const result = await createAddonLeavesAllowance(allowance);
-                results.push({ action: 'created', data: result.data });
+    try {
+        const results = [];
+        
+        for (const allowance of allowances) {
+            // First try to get existing allowance for this experience level
+            try {
+                const existingAllowances = await fetchAllAddonLeavesAllowances();
+                const existingAllowance = existingAllowances.data?.addonLeavesAllowances?.find(
+                    (item: IAddonLeavesAllowance) => item.experienceInCompany === allowance.experienceInCompany
+                );
+                
+                if (existingAllowance) {
+                    // Update existing
+                    const result = await updateAddonLeavesAllowance(existingAllowance.id, {
+                        addonLeavesCount: allowance.addonLeavesCount
+                    });
+                    results.push({ action: 'updated', data: result.data });
+                } else {
+                    // Create new
+                    const result = await createAddonLeavesAllowance(allowance);
+                    results.push({ action: 'created', data: result.data });
+                }
+            } catch (error) {
+                // If error getting existing, try to create new
+                try {
+                    const result = await createAddonLeavesAllowance(allowance);
+                    results.push({ action: 'created', data: result.data });
+                } catch (createError) {
+                    results.push({ action: 'error', error: createError, data: allowance });
+                }
             }
-        } catch (error) {
-            results.push({ action: 'error', error, data: allowance });
         }
+        
+        return { success: true, data: results };
+    } catch (error) {
+        throw error;
     }
-
-    return { success: true, data: results };
 };

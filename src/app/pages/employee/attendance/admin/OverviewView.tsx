@@ -273,38 +273,24 @@ function OverviewView() {
   return (
     <>
       <div className="sticky-overview-header d-flex flex-row justify-content-between align-items-center mb-4">
-        <div>
-          <h3 className="fw-bold fs-1 mb-0 font-barlow">Overview</h3>
-          <span className="text-muted fs-7">Team snapshot</span>
-        </div>
+        <h3 className="fw-bold fs-1 mb-0 font-barlow">Overview</h3>
         {/* Date navigation */}
-        <div className="d-flex align-items-center gap-2">
-          <button
-            className="btn btn-sm btn-light fw-semibold"
-            onClick={() => setDate(dayjs())}
-            disabled={date.isSame(dayjs(), 'day')}
-          >
-            Today
+        <div>
+          <button className="btn btn-sm px-0" onClick={decrementDate}>
+            <img
+              src={toAbsoluteUrl("media/svg/misc/back.svg")}
+              alt="Previous day"
+            />
           </button>
-          <div className="d-flex align-items-center">
-            <button
-              className="btn btn-sm p-1 d-flex align-items-center justify-content-center"
-              style={{ width: 40, height: 40 }}
-              onClick={decrementDate}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous day" />
-            </button>
-            <span className="mx-2 fw-semibold" style={{ whiteSpace: 'nowrap' }}>
-              {date.format("DD MMM, YYYY")}
-            </span>
-            <button
-              className="btn btn-sm p-1 d-flex align-items-center justify-content-center"
-              style={{ width: 40, height: 40 }}
-              onClick={incrementDate}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next day" />
-            </button>
-          </div>
+          <span className="mx-1 my-1 fw-semibold">
+            {date.format("DD MMM, YYYY")}
+          </span>
+          <button className="btn btn-sm px-0" onClick={incrementDate}>
+            <img
+              src={toAbsoluteUrl("media/svg/misc/next.svg")}
+              alt="Next day"
+            />
+          </button>
         </div>
       </div>
 

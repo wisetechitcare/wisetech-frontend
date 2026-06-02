@@ -2,16 +2,13 @@ import { useEffect, useState } from "react";
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { KTCard, KTCardBody } from '@metronic/helpers';
-import {
-    fetchAllAddonLeavesAllowances,
+import { 
+    fetchAllAddonLeavesAllowances, 
     upsertAddonLeavesAllowances,
-    recomputeAllLeaveBalances,
     IAddonLeavesAllowance,
-    IAddonLeavesAllowanceCreate
+    IAddonLeavesAllowanceCreate 
 } from "@services/addonLeavesAllowance";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import eventBus from "@utils/EventBus";
-import { EVENT_KEYS } from "@constants/eventKeys";
  
 interface FormValues {
     experience1: number;
@@ -113,23 +110,22 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                 ];
 
                 const result = await upsertAddonLeavesAllowances(allowancesToUpsert);
-
+                
                 if (result.success) {
-                    // Recalculate all employee balances synchronously so the DB is fully updated
-                    // before we emit the event and subscribers refresh their views.
-                    // (Per-handler propagations are fire-and-forget, so without this the UI
-                    // would refresh before the DB reflects the new tiers.)
-                    try { await recomputeAllLeaveBalances(); } catch { /* non-fatal */ }
-
-                    const message = 'Addon leaves allowances processed successfully!';
+                    const createdCount = result.data.filter(item => item.action === 'created').length;
+                    const updatedCount = result.data.filter(item => item.action === 'updated').length;
+                    const errorCount = result.data.filter(item => item.action === 'error').length;
+                    
+                    let message = 'Addon leaves allowances processed successfully!';
+                    // if (createdCount > 0) message += ` Created: ${createdCount}.`;
+                    // if (updatedCount > 0) message += ` Updated: ${updatedCount}.`;
+                    // if (errorCount > 0) message += ` Errors: ${errorCount}.`;
+                    
                     await successConfirmation(message);
-
-                    // Notify every subscriber (card, rules page, etc.) to reload
-                    eventBus.emit(EVENT_KEYS.addonLeavesAllowanceUpdated, {});
-
-                    // Refresh local form state
+                    
+                    // Refresh data
                     await loadExistingAllowances();
-
+                    
                     if (onClose) onClose();
                 } else {
                     throw new Error('Failed to process addon leaves allowances');
@@ -150,6 +146,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
     const loadExistingAllowances = async () => {
         try {
             const response = await fetchAllAddonLeavesAllowances();
+            console.log("responseresponsone:: ", response);
+            
             if (!response.hasError && response.data?.addonLeavesAllowances) {
                 const allowances = response.data.addonLeavesAllowances;
                 setExistingAllowances(allowances);

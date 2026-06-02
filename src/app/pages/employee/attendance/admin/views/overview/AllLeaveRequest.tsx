@@ -4,8 +4,6 @@ import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import { useEffect, useMemo, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useEventBus } from "@hooks/useEventBus";
-import { EVENT_KEYS } from "@constants/eventKeys";
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import { deleteLeaveRequestById, fetchApprovalInstanceByRequest } from "@services/employee";
@@ -136,9 +134,6 @@ function AllLeaveRequest({ fromAdmin = false }: { fromAdmin?: boolean }) {
     useEffect(() => {
         refetch();
     }, [selectedEmployeeId]);
-
-    useEventBus(EVENT_KEYS.leaveRequestCreated, refetch);
-    useEventBus(EVENT_KEYS.leaveRequestUpdated, refetch);
 
     useEffect(() => {
         dispatch(fetchRolesAndPermissions() as any);

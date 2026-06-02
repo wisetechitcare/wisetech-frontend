@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { TeamFilterProvider } from '@/contexts/TeamFilterContext';
 import { fetchMyApprovees } from '@services/employee';
@@ -10,20 +10,8 @@ import { KTIcon } from '@metronic/helpers';
 import { PageTitle } from '@metronic/layout/core';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import OverviewView from '@pages/employee/attendance/admin/OverviewView';
-
-const AllLeaveRequest = lazy(() => import('@pages/employee/attendance/admin/views/overview/AllLeaveRequest'));
-
-function ComingSoon({ domain }: { domain: string }) {
-  return (
-    <div className='card mt-6'>
-      <div className='card-body d-flex flex-column align-items-center justify-content-center py-20'>
-        <KTIcon iconName='chart-line' className='fs-3x text-muted mb-4' />
-        <div className='fw-bold fs-5 mb-2'>{domain} Overview</div>
-        <div className='text-muted fs-7'>Team-wide {domain.toLowerCase()} snapshot is coming soon.</div>
-      </div>
-    </div>
-  );
-}
+import IndividualView from '@pages/employee/attendance/admin/IndividualView';
+import { navbarIcon } from '@metronic/assets/sidepanelicons';
 
 function MyTeam() {
   const canView = usePermission('approvals.view.team');
@@ -83,22 +71,15 @@ function MyTeam() {
 
   const tabItems: TabItem[] = [
     {
-      title: 'Attendance',
+      title: 'Overview',
       component: <OverviewView />,
-      icon: null,
+      icon: activeTab === 0 ? navbarIcon.overview.active : navbarIcon.overview.default,
     },
     {
-      title: 'Leaves',
-      component: (
-        <Suspense fallback={<div className='d-flex justify-content-center py-10'><span className='spinner-border text-primary' /></div>}>
-          <AllLeaveRequest />
-        </Suspense>
-      ),
-      icon: null,
+      title: 'Individual',
+      component: <IndividualView />,
+      icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default,
     },
-    { title: 'Conveyance', component: <ComingSoon domain='Conveyance' />, icon: null },
-    { title: 'Salary', component: <ComingSoon domain='Salary' />, icon: null },
-    { title: 'Tasks', component: <ComingSoon domain='Tasks' />, icon: null },
   ];
 
   return (

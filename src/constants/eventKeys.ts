@@ -93,8 +93,6 @@ export type AppEventMap = {
     faqUpdated: { id: string };
     faqDeleted: { id: string };
     dashboardSettingsUpdated: { sections: any[] };
-    addonLeavesAllowanceUpdated: Record<string, never>;
-    leaveOptionsUpdated: Record<string, never>;
   };
 
   export type AppEventKey = keyof AppEventMap;
@@ -193,6 +191,5 @@ export type AppEventMap = {
     faqUpdated: 'faqUpdated',
     faqDeleted: 'faqDeleted',
     dashboardSettingsUpdated: 'dashboardSettingsUpdated',
-    addonLeavesAllowanceUpdated: 'addonLeavesAllowanceUpdated',
-    leaveOptionsUpdated: 'leaveOptionsUpdated',
+
   };

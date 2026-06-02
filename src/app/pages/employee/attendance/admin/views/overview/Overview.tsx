@@ -198,7 +198,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
     );
 };
 
-type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | 'remote' | null;
+type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | 'checkoutMissing' | null;
 
 type StatCardAccent =
     | 'working'
@@ -207,8 +207,7 @@ type StatCardAccent =
     | 'checkout-missing'
     | 'early'
     | 'extra'
-    | 'absent'
-    | 'remote';
+    | 'absent';
 
 type StatCardConfig = {
     type: Exclude<ModalType, null>;
@@ -438,11 +437,6 @@ function Overview({ date }: OverviewProps) {
 
     const checkoutMissingCount = attendance.filter(hasCheckInNoCheckOut).length;
 
-    const remoteCount = attendance.filter(att => {
-        const type = att.workingMethod?.type?.replace(/[\s_-]/g, '').toLowerCase() ?? '';
-        return type.includes('remote') || type.includes('hybrid');
-    }).length;
-
     const handleCardClick = (type: ModalType) => {
         // console.log('Opening modal: ======================>', type, {
         //     totalEmployees: totalEmployee,
@@ -467,7 +461,6 @@ function Overview({ date }: OverviewProps) {
             case 'early': return 'Early Check-outs';
             case 'absent': return 'Absent Employees';
             case 'checkoutMissing': return 'Employees with Missing Check-out';
-            case 'remote': return 'Remote / Hybrid Employees';
             default: return '';
         }
     };
@@ -974,18 +967,6 @@ function Overview({ date }: OverviewProps) {
                     );
                 }
 
-                case 'remote':
-                    employees = allEmployees.filter(emp => {
-                        const empAttendance = attendance.find(a => a.employeeId === emp._id);
-                        if (!empAttendance) return false;
-                        const type = empAttendance.workingMethod?.type?.replace(/[\s_-]/g, '').toLowerCase() ?? '';
-                        return type.includes('remote') || type.includes('hybrid');
-                    }).map(emp => ({
-                        ...emp,
-                        attendance: attendance.find(a => a.employeeId === emp._id),
-                    }));
-                    break;
-
                 default:
                     return <div className="p-3 text-muted">No data available</div>;
             }
@@ -1311,22 +1292,9 @@ function Overview({ date }: OverviewProps) {
         fetchTimeConfiguration();
     }, []);
 
-    const presenceCards: StatCardConfig[] = [
+    const cardsData: StatCardConfig[] = [
         { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },
         { type: 'leave', accent: 'leave', img: toAbsoluteUrl('media/svg/misc/on-leave.svg'), stat: `${employesLeaveDatas?.length || 0}`, label: 'On Leave' },
-        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
-        {
-            type: 'remote',
-            accent: 'remote',
-            iconClass: 'bi bi-wifi',
-            iconBg: '#E0F2FE',
-            iconColor: '#0EA5E9',
-            stat: `${remoteCount}`,
-            label: 'Remote / Hybrid',
-        },
-    ];
-
-    const exceptionCards: StatCardConfig[] = [
         { type: 'late', accent: 'late', img: toAbsoluteUrl('media/svg/misc/late.svg'), stat: `${lateCheckInsCount}`, label: 'Late Check-ins' },
         {
             type: 'checkoutMissing',
@@ -1339,6 +1307,7 @@ function Overview({ date }: OverviewProps) {
         },
         { type: 'early', accent: 'early', img: toAbsoluteUrl('media/svg/misc/checkout.svg'), stat: `${earlyCheckOutsCount}`, label: 'Early Check-out' },
         { type: 'extra', accent: 'extra', img: toAbsoluteUrl('media/svg/misc/extra-days.svg'), stat: `${extraDays || 0}`, label: 'Extra Day' },
+        { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
     ];
 
     // if (isLoading) {
@@ -1389,19 +1358,8 @@ function Overview({ date }: OverviewProps) {
 
     return (
         <>
-            <div className="overview-stats-groups mt-3">
-                <div className="overview-stats-group">
-                    <div className="overview-stats-group-label">Presence</div>
-                    <div className="overview-stats-container">
-                        {presenceCards.map(renderStatCard)}
-                    </div>
-                </div>
-                <div className="overview-stats-group mt-4">
-                    <div className="overview-stats-group-label">Exceptions</div>
-                    <div className="overview-stats-container">
-                        {exceptionCards.map(renderStatCard)}
-                    </div>
-                </div>
+            <div className="overview-stats-container mt-3">
+                {cardsData.map(renderStatCard)}
             </div>
 
             <CustomModal

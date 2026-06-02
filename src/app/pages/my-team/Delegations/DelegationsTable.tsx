@@ -46,12 +46,10 @@ interface CreateModalProps {
   employees: EmployeeOption[];
   onClose: () => void;
   onCreated: () => void;
-  lockedOriginalId?: string;
-  lockedOriginalName?: string;
 }
 
-function CreateDelegationModal({ show, employees, onClose, onCreated, lockedOriginalId, lockedOriginalName }: CreateModalProps) {
-  const [originalId, setOriginalId] = useState(lockedOriginalId ?? '');
+function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateModalProps) {
+  const [originalId, setOriginalId] = useState('');
   const [delegateId, setDelegateId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -62,11 +60,11 @@ function CreateDelegationModal({ show, employees, onClose, onCreated, lockedOrig
 
   useEffect(() => {
     if (!show) {
-      setOriginalId(lockedOriginalId ?? ''); setDelegateId('');
+      setOriginalId(''); setDelegateId('');
       setStartDate(''); setEndDate('');
       setReason(''); setOriginalSearch(''); setDelegateSearch('');
     }
-  }, [show, lockedOriginalId]);
+  }, [show]);
 
   const filteredForOriginal = employees.filter((e) =>
     !originalSearch || e.name.toLowerCase().includes(originalSearch.toLowerCase())
@@ -109,37 +107,24 @@ function CreateDelegationModal({ show, employees, onClose, onCreated, lockedOrig
             <label className='fw-semibold fs-7 mb-1 d-block'>
               Original Approver <span className='text-danger'>*</span>
             </label>
-            {lockedOriginalId ? (
-              <input
-                type='text'
-                className='form-control form-control-sm'
-                value={lockedOriginalName || lockedOriginalId}
-                readOnly
-                disabled
-                style={{ backgroundColor: '#f5f5f5' }}
-              />
-            ) : (
-              <>
-                <input
-                  type='text'
-                  className='form-control form-control-sm mb-1'
-                  placeholder='Search employee…'
-                  value={originalSearch}
-                  onChange={(e) => { setOriginalSearch(e.target.value); setOriginalId(''); }}
-                />
-                <select
-                  className='form-select form-select-sm'
-                  value={originalId}
-                  onChange={(e) => setOriginalId(e.target.value)}
-                  size={4}
-                >
-                  <option value=''>— select —</option>
-                  {filteredForOriginal.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
-                  ))}
-                </select>
-              </>
-            )}
+            <input
+              type='text'
+              className='form-control form-control-sm mb-1'
+              placeholder='Search employee…'
+              value={originalSearch}
+              onChange={(e) => { setOriginalSearch(e.target.value); setOriginalId(''); }}
+            />
+            <select
+              className='form-select form-select-sm'
+              value={originalId}
+              onChange={(e) => setOriginalId(e.target.value)}
+              size={4}
+            >
+              <option value=''>— select —</option>
+              {filteredForOriginal.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}{e.employeeCode ? ` (${e.employeeCode})` : ''}</option>
+              ))}
+            </select>
           </div>
 
           {/* Delegate To */}
@@ -237,10 +222,7 @@ type DelegationsTableProps = {
 
 function DelegationsTable({ mode }: DelegationsTableProps) {
   const canManage = usePermission('approvals.manage.all');
-  const canView = usePermission('approvals.view.team') || canManage;
-  const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
-  const currentEmployeeId = currentEmployee?.id;
-  const currentEmployeeName = `${currentEmployee?.users?.firstName ?? ''} ${currentEmployee?.users?.lastName ?? ''}`.trim() || undefined;
+  const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,8 +233,6 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
     setLoading(true);
     try {
       const res = await fetchDelegations();
-      // Backend already scopes results: admins get all, approvers get their own.
-      // Apply mode filter on top for the two tab views.
       const rows = (res?.data ?? res ?? []) as Delegation[];
       setDelegations(rows.filter((row) => mode === 'my' ? row.originalApproverId === currentEmployeeId : row.delegateToId === currentEmployeeId));
     } catch {
@@ -263,25 +243,21 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
   };
 
   useEffect(() => {
-    if (!canView) return;
+    if (!canManage) return;
     load();
-    // Only admins need the full employee list (to pick any original approver in create modal).
-    // Non-admins can only create for themselves so we skip the heavy fetch.
-    if (canManage) {
-      fetchAllEmployeesSelectedData()
-        .then((res: any) => {
-          const raw: any[] = res?.data ?? res ?? [];
-          setEmployees(
-            raw.map((e: any) => ({
-              id: e.id,
-              name: `${e.users?.firstName ?? ''} ${e.users?.lastName ?? ''}`.trim(),
-              employeeCode: e.employeeCode,
-            }))
-          );
-        })
-        .catch(() => setEmployees([]));
-    }
-  }, [canView, canManage, mode, currentEmployeeId]);
+    fetchAllEmployeesSelectedData()
+      .then((res: any) => {
+        const raw: any[] = res?.data ?? res ?? [];
+        setEmployees(
+          raw.map((e: any) => ({
+            id: e.id,
+            name: `${e.users?.firstName ?? ''} ${e.users?.lastName ?? ''}`.trim(),
+            employeeCode: e.employeeCode,
+          }))
+        );
+      })
+      .catch(() => setEmployees([]));
+  }, [canManage, mode, currentEmployeeId]);
 
   const handleCancel = async (id: string) => {
     if (!window.confirm('Cancel this delegation?')) return;
@@ -379,12 +355,12 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
     },
   ], [cancellingId]);
 
-  if (!canView) {
+  if (!canManage) {
     return (
       <div className='card'>
         <div className='card-body d-flex flex-column align-items-center justify-content-center py-20'>
           <KTIcon iconName='lock' className='fs-3x text-muted mb-4' />
-          <span className='text-muted fs-6'>You do not have permission to view delegations.</span>
+          <span className='text-muted fs-6'>You do not have permission to manage delegations.</span>
         </div>
       </div>
     );
@@ -422,8 +398,6 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
         employees={employees}
         onClose={() => setShowCreate(false)}
         onCreated={load}
-        lockedOriginalId={canManage ? undefined : currentEmployeeId}
-        lockedOriginalName={canManage ? undefined : currentEmployeeName}
       />
     </>
   );

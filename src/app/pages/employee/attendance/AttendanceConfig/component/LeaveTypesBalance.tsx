@@ -5,8 +5,6 @@ import TextInput from '@app/modules/common/inputs/TextInput';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import Loader from '@app/modules/common/utils/Loader';
-import eventBus from '@utils/EventBus';
-import { EVENT_KEYS } from '@constants/eventKeys';
 
 const LeaveTypesBalance: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -116,10 +114,8 @@ const LeaveTypesBalance: React.FC = () => {
 
       successConfirmation('Leave settings updated successfully!');
 
-      // Notify all subscribers (BalanceProgress, CurrentYearOverview, etc.) to re-fetch balances.
-      eventBus.emit(EVENT_KEYS.leaveOptionsUpdated, {});
-
-      // Refresh local displayed values so the admin sees saved totals without a page reload.
+      // Refresh displayed values so the admin immediately sees the saved totals without a page reload.
+      // This also ensures the Formik initial values are in sync with the DB after save.
       try {
         const refreshRes = await fetchLeaveOptions();
         const refreshedData = refreshRes.data?.leaveOptions || [];
@@ -129,6 +125,7 @@ const LeaveTypesBalance: React.FC = () => {
         setLeaveOptions(refreshedData);
         setLeaveOptionInitialValues(refreshedFinalLeaveOptions);
       } catch (refreshErr) {
+        // Non-fatal: save succeeded, the stale display doesn't block anything
         console.error('Could not refresh leave options after save (non-fatal):', refreshErr);
       }
     } catch (err) {
@@ -153,7 +150,16 @@ const LeaveTypesBalance: React.FC = () => {
       }
       onSubmit={handleSubmit}
     >
-      {({ values }) => {
+      {({ setFieldValue, values }) => {
+        useEffect(() => {
+          if (leaveOptionInitialValues?.length > 0) {
+            leaveOptionInitialValues.forEach((leaveOption: any) => {
+              const key = Object.keys(leaveOption)[0];
+              setFieldValue(key, Number(leaveOption[key]));
+            });
+          }
+        }, [leaveOptionInitialValues]);
+
         return (
           <FormikForm>
             <div style={{ padding: '24px 20px', backgroundColor: '#f7f9fc' }}>
