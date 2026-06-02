@@ -155,14 +155,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                         <Button 
                                                             variant="light-primary" 
                                                             className="btn-icon btn-sm"
-                                                            onClick={() => onEditPayment(row.item)}
+                                                            onClick={() => onEditPayment(row)}
                                                         >
                                                             <KTIcon iconName="pencil" className="fs-3" />
                                                         </Button>
                                                         <Button 
                                                             variant="light-danger" 
                                                             className="btn-icon btn-sm"
-                                                            onClick={() => onDeletePayment(row.item)}
+                                                            onClick={() => onDeletePayment(row)}
                                                         >
                                                             <KTIcon iconName="trash" className="fs-3" />
                                                         </Button>

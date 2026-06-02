@@ -89,7 +89,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
         overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
         salary: rawTotals.netAmount || '-',
-        paidAmount: rawTotals.paidAmount || '-',
+        paidAmount: rawTotals.amountPaid || '-',
         basicSalary: rawTotals.basicSalary || '-',
         overTimeAmount: rawTotals?.overTimeAmount || '-',
         dueAmount: rawTotals.dueAmount || '-',
@@ -130,11 +130,16 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
             },
             {
+              accessorKey: "branch",
+              header: "Branch",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+            },
+            {
               accessorKey: "basicSalary",
               header: "Basic Salary",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -142,7 +147,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Over Time Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -155,7 +160,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Net Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -163,7 +168,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Paid Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -171,7 +176,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Due Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {

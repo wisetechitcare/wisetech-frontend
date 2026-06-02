@@ -52,7 +52,6 @@ export type PayrollTableRow = IMonthlyApiResponse['salaryData'][0] & {
     calculatedNetSalary: number;
     calculatedStatus: string;
     calculatedPaidAmount: number;
-    calculatedRemainingAmount: number;
     salaryPaid: number;
     salaryPending: number;
     governmentPaid: number;
@@ -72,6 +71,7 @@ export interface NetAmountPayableProps {
     fallbackNetAmount: number;
     showSensitiveData: boolean;
     isApiDataLoaded: boolean;
+    payrollTotalDeductions?: number;
 }
 
 export interface BreakdownTableProps {

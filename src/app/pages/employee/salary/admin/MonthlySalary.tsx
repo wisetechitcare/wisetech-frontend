@@ -108,12 +108,14 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         id: summary.employeeCode || 'N/A',
         name: summary.fullName || 'N/A',
         department: summary.department || 'N/A',
+        branch: summary.branch || 'N/A',
         basicSalary: rawTotals.basicSalary ?? '-',
         overTimeAmount: rawTotals?.overTimeAmount ?? '-',
         netAmount: rawTotals.netAmount ?? '-',
         amountPaid: rawTotals.amountPaid ?? '-',
         dueAmount: rawTotals.dueAmount ?? '-',
-        professionalFees: rawTotals.professionalFeesDeducted ?? '-',
+        professionalFees: rawTotals.professionalFeesDeducted ?? 0,
+        professionalTax: rawTotals.professionalTaxDeducted ?? 0,
         totalWorkingTime: rawTotals?.workingDays ? `${((rawTotals?.workingDays ?? 0) * 8).toFixed(2)} hrs` : '-',
         workedTime: rawTotals?.payableHours ? `${rawTotals?.payableHours?.toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
@@ -168,11 +170,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
             },
             {
+              accessorKey: "branch",
+              header: "Branch",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+            },
+            {
               accessorKey: "basicSalary",
               header: "Basic Salary",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -180,7 +187,25 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Over Time Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              }
+            },
+                        {
+              accessorKey: "professionalFees",
+              header: "Prof. Fees",
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Math.round(Number(renderedCellValue));
+                if (!val || val === 0) return "-";
+                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              }
+            },
+            {
+              accessorKey: "professionalTax",
+              header: "Prof. Tax",
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Math.round(Number(renderedCellValue));
+                if (!val || val === 0) return "-";
+                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -188,7 +213,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Net Payable",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -196,7 +221,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Paid",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -204,15 +229,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               header: "Due Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-              }
-            },
-            {
-              accessorKey: "professionalFees",
-              header: "Professional Fees",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -226,15 +243,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
             },
             {
-              accessorKey: "remainingMinutes",
-              header: "Remaining Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
-            },
-            {
               accessorKey: "overTime",
               header: "Over Time",
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
             },
+            {
+              accessorKey: "remainingMinutes",
+              header: "Remaining Time",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+            },
+
             {
               accessorKey: "totalDays",
               header: "Total Days",
