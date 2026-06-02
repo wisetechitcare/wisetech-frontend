@@ -16,17 +16,13 @@ import PersonalContactInfo from '../forms/PersonalContactInfo';
 import ProfilePicture from '../forms/ProfilePicture';
 import MealPreferences from '../forms/MealPreference';
 import { fetchQualificationMasters } from '@services/employee';
+import { createEducationRow, getEducationCompletionValues } from '../../../../../utils/educationUtils';
 import './Step2.css';
 
 const ADD_NEW_QUALIFICATION = '__ADD_NEW__';
 const DEFAULT_QUALIFICATIONS = ['SSC', 'Diploma', 'HSC', 'Degree'];
 
-const createNewEducation = () => ({
-  instituteName: '', qualificationMasterId: '', qualificationName: '',
-  degree: '', specialization: '', stream: '', customStream: '',
-  fromDate: '', toDate: '', passingYear: '', percentage: '',
-  cgpa: '', filePath: '', fileName: '',
-});
+const createNewEducation = () => createEducationRow();
 
 const createNewFamilyMember = () => ({
   name: '', relationship: '', mobileNumber: '', dateOfBirth: '',
@@ -39,7 +35,7 @@ const countFilled = (vals: Array<any>) =>
 export const COMPLETION_FNS: Record<string, (v: any) => { filled: number; total: number }> = {
   'personal-info': (v) => ({ filled: countFilled([v.firstName, v.lastName, v.dateOfBirth, v.gender]), total: 4 }),
   'contact-info':  (v) => ({ filled: countFilled([v.personalEmailId, v.personalPhoneNumber]), total: 2 }),
-  'education':     (v) => { const e = v.educationalInfo?.[0]; return e ? { filled: countFilled([e.instituteName, e.qualificationName || e.degree, e.fromDate || e.passingYear, e.percentage || e.cgpa]), total: 4 } : { filled: 0, total: 4 }; },
+  'education':     (v) => { const e = v.educationalInfo?.[0]; return e ? { filled: countFilled(getEducationCompletionValues(e)), total: 4 } : { filled: 0, total: 4 }; },
   'family':        (v) => { const f = v.familyInfo?.[0]; return f ? { filled: countFilled([f.name, f.relationship, f.mobileNumber, f.dateOfBirth]), total: 4 } : { filled: 0, total: 4 }; },
   'emergency':     (v) => ({ filled: countFilled([v.emergencyDetails?.emergencyContactName, v.emergencyDetails?.emergencyContactNumber]), total: 2 }),
   'bank':          (v) => ({ filled: countFilled([v.bankInfo?.accountNumber, v.bankInfo?.accountName, v.bankInfo?.ifscCode]), total: 3 }),
@@ -277,7 +273,7 @@ function Step2({ formikProps, setFile, setEducationFile, activeSection, onSectio
               userId={values?.userId}
               index={index}
               setFile={setFile}
-              canRemove={index > 0 && !educationRows[index]?.id}
+              canRemove={index > 0}
               onRemove={() => removeEducation(index)}
               qualificationOptions={qualificationOptions}
               onQualificationCreated={loadQualificationOptions}
@@ -295,7 +291,7 @@ function Step2({ formikProps, setFile, setEducationFile, activeSection, onSectio
             <FamilyInfo
               formikProps={formikProps}
               index={index}
-              canRemove={index > 0 && !familyRows[index]?.id}
+              canRemove={index > 0}
               onRemove={() => removeFamily(index)}
             />
           </div>

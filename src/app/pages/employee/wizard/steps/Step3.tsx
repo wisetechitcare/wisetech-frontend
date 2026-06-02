@@ -93,7 +93,7 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
 
     const sectionContent: Record<string, any> = {
         employee_info: <EmployeeInfo />,
-        contact_info: <WorkContactInfo />,
+        contact_info: <WorkContactInfo formikProps={formikProps} />,
         hiring_info: <HiringInfo formikProps={formikProps} editMode={editMode} />,
         rejoin_history: (
             <div className="ob-repeating-section">
@@ -112,7 +112,7 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
                         <WorkExperience
                             formikProps={formikProps}
                             index={index}
-                            canRemove={index > 0 && !workExpRows[index]?.id}
+                            canRemove={index > 0}
                             onRemove={() => removeWorkExperience(index)}
                         />
                     </div>

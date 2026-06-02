@@ -72,9 +72,6 @@ const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
 const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
 const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
-const PayrollLedger = lazy(() => import('../../modules/payroll/pages/PayrollLedger'))
-const PayrollDetails = lazy(() => import('../../modules/payroll/pages/PayrollDetails'))
-
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -183,20 +180,6 @@ const PrivateRoutes = () => {
               <Salary />
             </SuspensedView>}
         />}
-        <Route
-          path='/payroll/ledger'
-          element={
-            <SuspensedView>
-              <PayrollLedger />
-            </SuspensedView>}
-        />
-        <Route
-          path='/payroll/ledger/:id'
-          element={
-            <SuspensedView>
-              <PayrollDetails />
-            </SuspensedView>}
-        />
         <Route
           path='/finance/loans'
           element={

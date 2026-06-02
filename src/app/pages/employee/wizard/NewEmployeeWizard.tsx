@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
-import { Form, Formik, FormikValues } from "formik";
+import { Form, Formik, FormikValues, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
@@ -12,6 +12,7 @@ import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
 import StepAppSettings from "./steps/StepAppSettings";
+import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, getQualificationConfig, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "./steps/Step2.css";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
@@ -127,13 +128,13 @@ const calculateProfileCompletion = (values: any) => {
   const emergency = values.emergencyDetails || {};
   const bank = values.bankInfo || {};
   const address = values.addressInfo || {};
+  const educationCompletion = getEducationCompletionValues(education);
 
   const trackedFields = [
     values.firstName, values.lastName, values.nickName,
     values.dateOfBirth, values.gender, values.maritalStatus,
     values.personalEmailId, values.personalPhoneNumber, values.alternatePhoneNumber,
-    education.instituteName, education.qualificationName || education.degree,
-    education.passingYear || education.fromDate, education.percentage || education.cgpa,
+    ...educationCompletion,
     family.name, family.relationship, family.mobileNumber, family.dateOfBirth,
     emergency.emergencyContactName, emergency.emergencyContactNumber,
     bank.accountNumber, bank.accountName, bank.ifscCode,
@@ -147,21 +148,6 @@ const calculateProfileCompletion = (values: any) => {
   const completed = trackedFields.filter(hasDraftValue).length;
   return Math.round((completed / trackedFields.length) * 100);
 };
-
-const hasStartedEducationInfo = (education: any) =>
-  Boolean(
-    education?.instituteName || education?.qualificationMasterId ||
-    education?.qualificationName || education?.degree ||
-    education?.specialization || education?.stream || education?.customStream ||
-    education?.fromDate || education?.toDate || education?.passingYear ||
-    education?.percentage || education?.cgpa || education?.filePath || education?.fileName,
-  );
-
-const isSchoolQualification = (education: any) =>
-  ["SSC", "HSC"].includes(String(education?.qualificationName || education?.degree || "").trim());
-
-const isHscQualification = (education: any) =>
-  String(education?.qualificationName || education?.degree || "").trim() === "HSC";
 
 const createDefaultWorkExpInfo = () => ({ companyName: "", jobTitle: "", fromDate: "", toDate: "" });
 
@@ -232,7 +218,8 @@ const newEmployeeWizardSchema = [
           return this.createError({ path: `${this.path}.qualificationMasterId`, message: "Qualification is required" });
         })
         .test("education-school-passing-year", "Passing Year is required", function (value) {
-          if (!hasStartedEducationInfo(value) || !isSchoolQualification(value) || value?.passingYear) return true;
+          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
+          if (!hasStartedEducationInfo(value) || !config.usesPassingYear || value?.passingYear) return true;
           return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year is required" });
         })
         .test("education-passing-year-format", "Passing Year must be a valid year", function (value) {
@@ -243,19 +230,23 @@ const newEmployeeWizardSchema = [
           return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year must be between 1900 and the current year" });
         })
         .test("education-hsc-stream", "Stream is required", function (value) {
-          if (!hasStartedEducationInfo(value) || !isHscQualification(value) || value?.stream) return true;
+          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
+          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream) return true;
           return this.createError({ path: `${this.path}.stream`, message: "Stream is required" });
         })
         .test("education-custom-stream", "Custom Stream Name is required", function (value) {
-          if (!hasStartedEducationInfo(value) || !isHscQualification(value) || value?.stream !== "Others" || value?.customStream) return true;
+          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
+          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream !== "Others" || value?.customStream) return true;
           return this.createError({ path: `${this.path}.customStream`, message: "Custom Stream Name is required" });
         })
         .test("education-from-date", "Date Started is required", function (value) {
-          if (!hasStartedEducationInfo(value) || isSchoolQualification(value) || value?.fromDate) return true;
+          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
+          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.fromDate) return true;
           return this.createError({ path: `${this.path}.fromDate`, message: "Date Started is required" });
         })
         .test("education-to-date", "Date Completed is required", function (value) {
-          if (!hasStartedEducationInfo(value) || isSchoolQualification(value) || value?.toDate) return true;
+          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
+          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.toDate) return true;
           return this.createError({ path: `${this.path}.toDate`, message: "Date Completed is required" });
         })
         .test("education-date-order", "Date Completed cannot be before Date Started", function (value) {
@@ -328,14 +319,14 @@ const newEmployeeWizardSchema = [
       filePath: optionalString().label("Upload Bank Proof"),
     }).required(),
     addressInfo: Yup.object({
-      permanentAddressLine1: optionalString().label("Address Line 1").min(8, "Address Line must be at least 8 characters"),
-      permanentAddressLine2: optionalString().label("Address Line 2").min(8, "Address Line must be at least 8 characters"),
+      permanentAddressLine1: optionalString().label("Address").min(8, "Address must be at least 8 characters"),
+      permanentAddressLine2: optionalString().label("Locality"),
       permanentCountry: optionalString().label("Country"),
       permanentState: optionalString().label("State"),
       permanentCity: optionalString().label("City"),
-      permanentPostalCode: optionalString().label("Postal Code")
-        .min(4, "Postal Code must be at least 4 characters").max(16, "Postal Code must be at most 16 characters")
-        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Postal Code can only contain numeric characters"),
+      permanentPostalCode: optionalString().label("Zip Code")
+        .min(4, "Zip Code must be at least 4 characters").max(16, "Zip Code must be at most 16 characters")
+        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Zip Code can only contain numeric characters"),
       presentAddressLine1: optionalString(),
       presentAddressLine2: optionalString(),
       presentCountry: optionalString(),
@@ -407,39 +398,19 @@ const newEmployeeWizardSchema = [
   }),
 ];
 
-const createDefaultEducationInfo = () => ({
-  instituteName: "", qualificationMasterId: "", qualificationName: "", degree: "",
-  specialization: "", stream: "", customStream: "", fromDate: "", toDate: "",
-  passingYear: "", percentage: "", cgpa: "", filePath: "", fileName: "",
-});
+const createDefaultEducationInfo = () => createEducationRow();
 
 const createDefaultFamilyInfo = () => ({ name: "", relationship: "", mobileNumber: "", dateOfBirth: "" });
 
 const hasEducationInfo = hasStartedEducationInfo;
 
-const buildEducationPayload = (education: any, employeeId?: string) => ({
-  ...(education.instituteName && { instituteName: education.instituteName }),
-  ...(education.qualificationMasterId && { qualificationMasterId: education.qualificationMasterId }),
-  ...((education.qualificationName || education.degree) && { qualificationName: education.qualificationName || education.degree }),
-  ...(education.degree && { degree: education.degree }),
-  ...(education.specialization && { specialization: education.specialization }),
-  ...(education.stream && { stream: education.stream }),
-  ...(education.customStream && { customStream: education.customStream }),
-  ...(education.filePath && { filePath: education.filePath }),
-  ...(education.fileName && { fileName: education.fileName }),
-  ...(education.fromDate && { fromDate: education.fromDate }),
-  ...(education.toDate && { toDate: education.toDate }),
-  ...(education.passingYear && { passingYear: education.passingYear }),
-  ...(education.percentage && { percentage: education.percentage }),
-  ...(education.cgpa && { cgpa: education.cgpa }),
-  ...(employeeId && { employeeId }),
-});
-
 const hasFamilyInfo = (familyMember: any) =>
   Boolean(familyMember?.name || familyMember?.relationship || familyMember?.mobileNumber || familyMember?.dateOfBirth);
 
 const withDefaultEducationInfo = (educationalInfo: any) =>
-  Array.isArray(educationalInfo) && educationalInfo.length > 0 ? educationalInfo : [createDefaultEducationInfo()];
+  Array.isArray(educationalInfo) && educationalInfo.length > 0
+    ? normalizeEducationRows(educationalInfo)
+    : [createDefaultEducationInfo()];
 
 const withDefaultFamilyInfo = (familyInfo: any) =>
   Array.isArray(familyInfo) && familyInfo.length > 0 ? familyInfo : [createDefaultFamilyInfo()];
@@ -490,12 +461,13 @@ const saveNewUser = async (values: any) => {
     firstName, lastName, dateOfBirth, personalPhoneNumber, personalEmailId,
     alternatePhoneNumber, personalPhoneNumberExtension, isEmployeeActive,
     bloodGroup, hobbies, notes, linkedInProfileUrl, instagramProfileUrl, facebookProfileUrl,
+    isAdmin,
   } = values;
 
   const user = {
     firstName, lastName,
     isActive: isEmployeeActive === "1",
-    isAdmin: false,
+    isAdmin: isAdmin === "1",
     dateOfBirth,
     ...(personalPhoneNumber && { personalPhoneNumber }),
     ...(personalEmailId && { personalEmailId }),
@@ -630,7 +602,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
         ...(el.relationship && { relation: el.relationship }),
         employeeId,
       }))),
-      () => createEducationalDetails(filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId))),
+      () => createEducationalDetails(filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId)).filter(Boolean)),
       () => createAddressDetails({ ...addressInfo, employeeId, ...(isSameAddress && { presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }) }),
       () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
       () => createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }),
@@ -643,6 +615,53 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
     return true;
   } catch (err) { console.log(err); }
 };
+
+function FormikValidationErrorFocus() {
+  const { errors, submitCount } = useFormikContext<any>();
+
+  useEffect(() => {
+    if (submitCount > 0 && Object.keys(errors).length > 0) {
+      const getFirstErrorField = (errs: any, prefix = ""): string => {
+        if (typeof errs === "string") {
+          return prefix;
+        }
+        if (Array.isArray(errs)) {
+          for (let i = 0; i < errs.length; i++) {
+            if (errs[i]) {
+              return getFirstErrorField(errs[i], `${prefix}.${i}`);
+            }
+          }
+        }
+        if (typeof errs === "object" && errs !== null) {
+          const keys = Object.keys(errs);
+          if (keys.length > 0) {
+            return getFirstErrorField(errs[keys[0]], prefix ? `${prefix}.${keys[0]}` : keys[0]);
+          }
+        }
+        return prefix;
+      };
+
+      const fieldName = getFirstErrorField(errors);
+      if (fieldName) {
+        setTimeout(() => {
+          let inputEl = document.querySelector(`[name="${fieldName}"]`) as HTMLElement;
+          if (!inputEl) {
+            inputEl = document.getElementById(fieldName) as HTMLElement;
+          }
+          if (!inputEl) {
+            inputEl = document.querySelector(`[name^="${fieldName}"]`) as HTMLElement;
+          }
+          if (inputEl) {
+            inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            inputEl.focus({ preventScroll: true });
+          }
+        }, 150);
+      }
+    }
+  }, [submitCount]);
+
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
@@ -828,6 +847,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     const userPayload = {
       firstName, lastName, isActive: isEmployeeActive === "1",
+      isAdmin: values.isAdmin === "1",
       ...(dateOfBirth && { dateOfBirth }),
       ...(personalPhoneNumber && { personalPhoneNumber }),
       ...(personalEmailId && { personalEmailId }),
@@ -935,8 +955,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     workExpInfo.filter((w: any) => w?.id || hasWorkExpInfo(w)).forEach((w: any) =>
       reqPromise.push(() => w?.id ? updatePreviousExpDetails(w.id, w) : createPreviousExperienceDetails([{ ...(w.companyName && { companyName: w.companyName }), ...(w.jobTitle && { jobTitle: w.jobTitle }), ...(w.fromDate && { fromDate: w.fromDate }), ...(w.toDate && { toDate: w.toDate }), employeeId }])));
 
-    educationalInfo.filter((e: any) => e?.id || hasEducationInfo(e)).forEach((e: any) =>
-      reqPromise.push(() => e?.id ? updateEducationalDetails(e.id, buildEducationPayload(e)) : createEducationalDetails([buildEducationPayload(e, employeeId)])));
+    getActiveEducationRows(educationalInfo).forEach((e: any) =>
+      reqPromise.push(() => e?.id ? updateEducationalDetails(e.id, buildEducationPayload(e)) : createEducationalDetails([buildEducationPayload(e, employeeId)].filter(Boolean))));
 
     familyInfo.filter((f: any) => f?.id || hasFamilyInfo(f)).forEach((f: any) =>
       reqPromise.push(() => f?.id ? updateEmergencyContact(f.id, f) : createEmergencyContacts([{ ...(f.name && { name: f.name }), ...(f.mobileNumber && { mobileNumber: f.mobileNumber }), ...(f.dateOfBirth && { dateOfBirth: f.dateOfBirth }), ...(f.relationship && { relation: f.relationship }), employeeId }])));
@@ -1251,6 +1271,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               return (
                 <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
+                  <FormikValidationErrorFocus />
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}

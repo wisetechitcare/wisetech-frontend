@@ -71,6 +71,7 @@ export interface NetAmountPayableProps {
     fallbackNetAmount: number;
     showSensitiveData: boolean;
     isApiDataLoaded: boolean;
+    payrollTotalDeductions?: number;
 }
 
 export interface BreakdownTableProps {

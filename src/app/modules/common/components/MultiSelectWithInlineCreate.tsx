@@ -1,7 +1,8 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, forwardRef, useImperativeHandle, useMemo } from 'react';
 import Select, { components, MultiValue, ActionMeta } from 'react-select';
 import { Modal } from 'react-bootstrap';
 import { useFormikContext } from 'formik';
+import { sortOptionsAlphabetically } from '@utils/sortUtils';
 
 // TypeScript interfaces
 export interface Option {
@@ -85,6 +86,10 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
   const [createValue, setCreateValue] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
+  const sortedOptions = useMemo(() => {
+    return sortOptionsAlphabetically(options || []);
+  }, [options]);
+
   // Get current field value - ensure it's always an array
   const fieldValue = values[formikField] || [];
   const selectedOptions: Option[] = Array.isArray(fieldValue) 
@@ -166,7 +171,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
         <Select
           isMulti
           name={formikField}
-          options={options}
+          options={sortedOptions}
           value={selectedOptions}
           onChange={handleChange}
           placeholder={placeholder}
