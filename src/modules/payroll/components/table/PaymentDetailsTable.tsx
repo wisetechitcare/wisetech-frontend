@@ -74,6 +74,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                 <th className="text-center min-w-100px">Method</th>
                                 <th className="text-end min-w-125px">Net Payable</th>
                                 <th className="text-end min-w-100px">Paid</th>
+                                <th className="text-end min-w-100px">Remaining</th>
                                 <th className="text-center min-w-100px">Status</th>
                                 <th className="text-center min-w-150px">Ref / Notes</th>
                                 <th className="text-center min-w-100px rounded-end">Actions</th>
@@ -127,6 +128,11 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                         <td className="text-end">
                                             <span className={`text-success fw-bold fs-6 ${sensitiveCls}`}>
                                                 {formatINR2(row.calculatedPaidAmount)}
+                                            </span>
+                                        </td>
+                                        <td className="text-end">
+                                            <span className={`text-danger fw-bold fs-6 ${sensitiveCls}`}>
+                                                {formatINR2(row.calculatedRemainingAmount)}
                                             </span>
                                         </td>
                                         <td className="text-center">

@@ -63,7 +63,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     }
 
     const { message } = employeesData;
-    const totalEmployees = message.totalEmployees || 0;
     const employeeSummaries = message.employeeSummaries || [];
 
     // Use reduce for better performance
@@ -72,6 +71,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         if (summary?.rawTotals) {
           const { netAmount = 0, amountPaid = 0, totalGrossPayAmount = 0, totalDeductedAmount = 0 } = summary.rawTotals;
 
+          if (amountPaid > 0) {
+            acc.totalEmployeesPaid += 1;
+          }
           acc.totalPayableAmount += (netAmount - amountPaid);
           acc.totalGrossAmount += totalGrossPayAmount;
           acc.totalDeductAmount += totalDeductedAmount;
@@ -80,6 +82,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         return acc;
       },
       {
+        totalEmployeesPaid: 0,
         totalPayableAmount: 0,
         totalGrossAmount: 0,
         totalDeductAmount: 0,
@@ -88,7 +91,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     );
 
     return {
-      totalEmployeesPaid: totalEmployees,
       ...totals,
     };
   }, [employeesData]);
@@ -106,22 +108,29 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         id: summary.employeeCode || 'N/A',
         name: summary.fullName || 'N/A',
         department: summary.department || 'N/A',
+        basicSalary: rawTotals.basicSalary ?? '-',
+        overTimeAmount: rawTotals?.overTimeAmount ?? '-',
+        netAmount: rawTotals.netAmount ?? '-',
+        amountPaid: rawTotals.amountPaid ?? '-',
+        dueAmount: rawTotals.dueAmount ?? '-',
+        professionalFees: rawTotals.professionalFeesDeducted ?? '-',
+        totalWorkingTime: rawTotals?.workingDays ? `${((rawTotals?.workingDays ?? 0) * 8).toFixed(2)} hrs` : '-',
+        workedTime: rawTotals?.payableHours ? `${rawTotals?.payableHours?.toFixed(2)} hrs` : '-',
+        remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
+        overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
         totalDays: rawTotals.workingDays ?? 0,
         present: rawTotals.presentDays ?? 0,
         absent: (rawTotals?.absentDays < 0 ? 0 : rawTotals?.absentDays) ?? 0,
         late: rawTotals.lateCheckinDays ?? 0,
         leaves: rawTotals.leavesDays ?? 0,
         extraDay: rawTotals.extraDaysWorked ?? 0,
-        workingTime: rawTotals?.payableHours ? `${rawTotals?.payableHours?.toFixed(2)} hrs` : '-',
-        overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
-        remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
-        netAmount: rawTotals.netAmount || '-',
-        amountPaid: rawTotals.amountPaid || '-',
-        basicSalary: rawTotals.basicSalary || '-',
-        overTimeAmount: rawTotals?.overTimeAmount || '-',
-        dueAmount: rawTotals.dueAmount || '-',
       };
     });
+  }, [employeesData]);
+
+  // Check if professional fees are applicable
+  const hasProfFees = useMemo(() => {
+    return employeesData?.message?.employeeSummaries?.some((summary: any) => (summary.rawTotals?.professionalFeesDeducted || 0) > 0) || false;
   }, [employeesData]);
 
   return (
@@ -175,13 +184,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               }
             },
             {
-              accessorKey: "remainingMinutes",
-              header: "Remaining Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
-            },
-            {
               accessorKey: "netAmount",
-              header: "Net Amount",
+              header: "Net Payable",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -189,7 +193,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             },
             {
               accessorKey: "amountPaid",
-              header: "Paid Amount",
+              header: "Paid",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -202,6 +206,34 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
               }
+            },
+            {
+              accessorKey: "professionalFees",
+              header: "Professional Fees",
+              Cell: ({ renderedCellValue }: any) => {
+                if (renderedCellValue === "-" || !renderedCellValue) return "-";
+                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              }
+            },
+            {
+              accessorKey: "totalWorkingTime",
+              header: "Total Working Time",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+            },
+            {
+              accessorKey: "workedTime",
+              header: "Worked Time",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+            },
+            {
+              accessorKey: "remainingMinutes",
+              header: "Remaining Time",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+            },
+            {
+              accessorKey: "overTime",
+              header: "Over Time",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
             },
             {
               accessorKey: "totalDays",
@@ -232,16 +264,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               accessorKey: "extraDay",
               header: "Extra day",
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-            },
-            {
-              accessorKey: "workingTime",
-              header: "Working Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
-            },
-            {
-              accessorKey: "overTime",
-              header: "Over Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
             },
           ]}
           data={tableData}
