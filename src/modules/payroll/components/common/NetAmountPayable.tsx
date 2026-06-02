@@ -10,8 +10,14 @@ const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
     isApiDataLoaded,
     payrollTotalDeductions,
 }) => {
-    const totalVariable = sumBreakdownEarnings(deductionBreakdown?.variable);
-    const totalFixed = sumBreakdownEarnings(deductionBreakdown?.fixed);
+    const variableEntriesAll = Object.entries(deductionBreakdown?.variable || {});
+    const fixedEntriesAll = Object.entries(deductionBreakdown?.fixed || {});
+
+    const variableEntries = variableEntriesAll.filter(([, item]) => item?.isActive !== false);
+    const fixedEntries = fixedEntriesAll.filter(([, item]) => item?.isActive !== false);
+
+    const totalVariable = variableEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
+    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
     const totalDeductions = totalVariable + totalFixed;
     const intermediateSalary = Math.max(0, grossPay - totalVariable);
     const net = isApiDataLoaded ? intermediateSalary - totalFixed : fallbackNetAmount;

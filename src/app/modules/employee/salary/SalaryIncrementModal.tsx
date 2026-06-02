@@ -36,7 +36,6 @@ const parseCtcInput = (value: string): number => {
 
 const salaryIncrementSchema = Yup.object({
     effectiveFrom: Yup.date()
-        .min(dayjs().startOf('month').toDate(), 'Please choose current month or a future month')
         .required('Starting month is required'),
     ctcInLpa: Yup.number()
         .positive('CTC must be a positive number')
@@ -179,7 +178,7 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
                                             color: 'black',
                                             margin: 0
                                         }}>
-                                            Choose starting month for new increment
+                                            Choose effective month for increment
                                         </label>
                                         
                                         <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -188,7 +187,6 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
                                                 onChange={(newValue) => handleDateChange(newValue, formikProps)}
                                                 views={['year', 'month']}
                                                 format="MMMM, YYYY"
-                                                minDate={dayjs().startOf('month')}
                                                 slotProps={{
                                                     textField: {
                                                         fullWidth: true,
@@ -234,6 +232,14 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
                                                 {errors.effectiveFrom}
                                             </p>
                                         )}
+                                        <p style={{
+                                            fontFamily: 'Inter, sans-serif',
+                                            fontSize: '12px',
+                                            color: '#666',
+                                            margin: 0
+                                        }}>
+                                            You can select any past, current, or future month to backfill an unrecorded increment.
+                                        </p>
                                     </div>
 
                                     {/* CTC Input */}

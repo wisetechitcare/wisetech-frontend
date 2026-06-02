@@ -8,11 +8,16 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     grossPay,
     showSensitiveData,
 }) => {
-    const variableEntries = Object.entries(deductionBreakdown?.variable || {});
-    const fixedEntries = Object.entries(deductionBreakdown?.fixed || {});
+    // IMPORTANT: many deductions keep entries even when `isActive=false`.
+    // If we include them in sums/rendering, enable/disable logic appears broken.
+    const variableEntriesAll = Object.entries(deductionBreakdown?.variable || {});
+    const fixedEntriesAll = Object.entries(deductionBreakdown?.fixed || {});
 
-    const totalVariable = sumBreakdownEarnings(deductionBreakdown?.variable);
-    const totalFixed = sumBreakdownEarnings(deductionBreakdown?.fixed);
+    const variableEntries = variableEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
+    const fixedEntries = fixedEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
+
+    const totalVariable = variableEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
+    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
     const intermediateSalary = Math.max(0, grossPay - totalVariable);
     const grandTotalDeductions = totalVariable + totalFixed;
 

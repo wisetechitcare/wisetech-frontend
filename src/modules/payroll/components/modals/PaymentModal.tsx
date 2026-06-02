@@ -298,8 +298,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                     onChange={(option: any) => {
                                                                         const selected = govtDeductions.find(d => d.value === option.value);
+                                                                        setFieldValue('govType', option.value);
                                                                         if (selected) {
                                                                             setFieldValue('govAmount', selected.amount);
+                                                                        } else {
+                                                                            setFieldValue('govAmount', 0);
                                                                         }
                                                                     }}
                                                                 />
@@ -312,7 +315,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                 />
                                                                 <div className="text-muted fs-8 mt-1">
-                                                                    {values.govType && `Pending for ${values.govType}: ${formatINR2(govtDeductions.find(d => d.value === values.govType)?.amount || 0)}`}
+                                                                    {values.govType && `Pending for ${values.govType}: ${formatINR2(govtPending)}`}
                                                                 </div>
                                                             </Col>
                                                             <Col md={4}>

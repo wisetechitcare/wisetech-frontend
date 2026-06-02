@@ -130,9 +130,17 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
             type: 'line' as 'line',
             height: compact ? 300 : 430,
             toolbar: {
-                show: false
+                show: false,
+                autoSelected: 'pan'
             },
             fontFamily: 'Inter, sans-serif',
+            selection: {
+                enabled: false
+            },
+            zoom: {
+                enabled: true,
+                type: 'x'
+            }
         },
         stroke: {
             width: [0, 0, 3], // Columns have no border stroke; line series has 3px width
