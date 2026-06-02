@@ -463,12 +463,13 @@ const saveNewUser = async (values: any) => {
     firstName, lastName, dateOfBirth, personalPhoneNumber, personalEmailId,
     alternatePhoneNumber, personalPhoneNumberExtension, isEmployeeActive,
     bloodGroup, hobbies, notes, linkedInProfileUrl, instagramProfileUrl, facebookProfileUrl,
+    isAdmin,
   } = values;
 
   const user = {
     firstName, lastName,
     isActive: isEmployeeActive === "1",
-    isAdmin: false,
+    isAdmin: isAdmin === "1",
     dateOfBirth,
     ...(personalPhoneNumber && { personalPhoneNumber }),
     ...(personalEmailId && { personalEmailId }),
@@ -852,6 +853,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     const userPayload = {
       firstName, lastName, isActive: isEmployeeActive === "1",
+      isAdmin: values.isAdmin === "1",
       ...(dateOfBirth && { dateOfBirth }),
       ...(personalPhoneNumber && { personalPhoneNumber }),
       ...(personalEmailId && { personalEmailId }),

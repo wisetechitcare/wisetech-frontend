@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "react-bootstrap";
 import { Formik, Form as FormikForm, useFormikContext } from "formik";
 import * as Yup from "yup";
-import { fetchWizardData, updateEmployee, fetchAllEmployees } from "@services/employee";
+import { fetchWizardData, updateEmployee, fetchAllEmployees, saveEmployeeAccessSettings } from "@services/employee";
 import { fetchRoles } from "@services/roles";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
@@ -361,6 +361,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         appRole: "",
         // privacy
         isHiddenFromStaff: false,
+        userId: "",
     });
 
     useEffect(() => {
@@ -399,6 +400,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     appRole: w?.roles?.[0]?.id ?? "",
                     // privacy
                     isHiddenFromStaff: w?.isHiddenFromStaff === true,
+                    userId: w?.userId ?? "",
                 });
 
                 // manager options
@@ -436,7 +438,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 reportsToId: values.reportsToId || null,
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",
-                appRole: values.appRole || null,
                 isHiddenFromStaff: values.isHiddenFromStaff === true,
                 ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
                     ? { leaveAllocations: values.leaveAllocations }
@@ -444,7 +445,21 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 ...buildProfessionalFeesPayload(values),
             };
 
-            await updateEmployee(employeeId, payload);
+            const roleId = values.appRole || null;
+            const isAdmin = values.isAdmin === "1";
+
+            const oldRoleId = initialValues.appRole || null;
+            const oldIsAdmin = initialValues.isAdmin === "1";
+
+            await saveEmployeeAccessSettings(
+                employeeId,
+                initialValues.userId,
+                payload,
+                roleId,
+                isAdmin,
+                oldRoleId,
+                oldIsAdmin
+            );
             successConfirmation("Settings saved successfully");
             if (onSuccess) onSuccess();
             onClose();
