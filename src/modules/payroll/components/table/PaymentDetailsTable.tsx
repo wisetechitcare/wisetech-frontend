@@ -74,6 +74,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                 <th className="text-center min-w-100px">Method</th>
                                 <th className="text-end min-w-125px">Net Payable</th>
                                 <th className="text-end min-w-100px">Paid</th>
+                                <th className="text-end min-w-100px">Remaining</th>
                                 <th className="text-center min-w-100px">Status</th>
                                 <th className="text-center min-w-150px">Ref / Notes</th>
                                 <th className="text-center min-w-100px rounded-end">Actions</th>
@@ -129,6 +130,11 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                 {formatINR2(row.calculatedPaidAmount)}
                                             </span>
                                         </td>
+                                        <td className="text-end">
+                                            <span className={`text-danger fw-bold fs-6 ${sensitiveCls}`}>
+                                                {formatINR2(row.calculatedRemainingAmount)}
+                                            </span>
+                                        </td>
                                         <td className="text-center">
                                             {getStatusBadge(row.calculatedStatus)}
                                         </td>
@@ -149,14 +155,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                         <Button 
                                                             variant="light-primary" 
                                                             className="btn-icon btn-sm"
-                                                            onClick={() => onEditPayment(row.item)}
+                                                            onClick={() => onEditPayment(row)}
                                                         >
                                                             <KTIcon iconName="pencil" className="fs-3" />
                                                         </Button>
                                                         <Button 
                                                             variant="light-danger" 
                                                             className="btn-icon btn-sm"
-                                                            onClick={() => onDeletePayment(row.item)}
+                                                            onClick={() => onDeletePayment(row)}
                                                         >
                                                             <KTIcon iconName="trash" className="fs-3" />
                                                         </Button>

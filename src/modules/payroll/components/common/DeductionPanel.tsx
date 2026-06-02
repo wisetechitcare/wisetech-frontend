@@ -26,7 +26,8 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     );
 
     return (
-        <div className="deduction-panel">
+        <div className="deduction-panel d-flex flex-column flex-grow-1">
+            <div className="flex-grow-1">
             {/* 1. Attendance Adjustments */}
             <div className="mb-8">
                 <div className="d-flex align-items-center mb-4">
@@ -66,6 +67,29 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     </tr>
                                 ))
                             )}
+                             {/* Added attendance status rows */}
+                             <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Early Checkout</td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
+                             <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Unpaid Leave</td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
+                             <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Half Day</td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
+                                                          <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Missed Punch
+                                    
+                                 </td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
                             <tr className="bg-light-danger border-0">
                                 <td colSpan={2} className="py-4 ps-6">
                                     <span className="fw-bolder text-gray-700 fs-7">Total Attendance Adjustments Deductions</span>
@@ -82,7 +106,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
             </div>
 
             {/* 2. Intermediate Salary (B) highlight */}
-            <div className="mb-8 p-6 rounded-4 border border-dashed border-danger bg-white shadow-sm">
+            <div className="mb-8 p-6 rounded-4 bg-light shadow-sm">
                 <div className="d-flex flex-stack flex-wrap gap-4">
                     <div className="d-flex flex-column">
                         <div className="d-flex align-items-center mb-1">
@@ -169,8 +193,10 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                 </div>
             </div>
 
+            </div>
+
             {/* Final Grand Total for Deductions */}
-            <div className="p-5 rounded-3 bg-light-danger border border-danger border-opacity-10 d-flex justify-content-between align-items-center shadow-sm">
+            <div className="p-5 rounded-3 bg-light-danger border border-danger border-opacity-10 d-flex justify-content-between align-items-center shadow-sm mt-auto">
                 <div className="d-flex align-items-center">
                     <span className="fw-bolder text-danger fs-4 me-3">TOTAL DEDUCTIONS</span>
                     <OverlayTrigger placement="top" overlay={renderTooltip}>
