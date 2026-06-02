@@ -43,14 +43,14 @@ const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: b
                 const response = await fetchAllEmployeeSalaryAllTimeDateRage(employeeId);
                 const history = response?.message?.employeeIncrementHistory || [];
                 const formatted = history.map((item: any) => {
-                    const monthlyCTC = Number(item.ctcInLpa) / 12;
+                    const annualCTC = Number(item.ctcInLpa);
                     const date = new Date(item.effectiveFrom);
                     const monthName = date.toLocaleString("en-US", { month: "long" });
                     const yearNum = date.getFullYear();
                     return {
                         month: monthName,
                         year: yearNum,
-                        monthlyCTC
+                        annualCTC
                     };
                 });
 

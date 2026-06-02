@@ -242,6 +242,9 @@ const EmployeeProfileCard = ({
                     backgroundColor: '#f8fafc',
                     border: '1px solid #e2e8f0',
                     flex: '0 0 auto',
+                    '& .MuiAvatar-img': {
+                        objectFit: 'fill',
+                    }
                 }}
             />
 
@@ -451,7 +454,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     ];
 
     return (
-        <Box className="employee-details-card" sx={{ width: '100%', px: { xs: 0.75, md: 1.5 } }}>
+        <Box className="employee-details-card" sx={{ width: '100%' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}>
                 <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2 }}>
                     Employee Details

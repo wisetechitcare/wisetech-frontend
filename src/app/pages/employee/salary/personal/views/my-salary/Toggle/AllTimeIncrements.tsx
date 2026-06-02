@@ -11,7 +11,7 @@ const AllTimeIncrements = ({ salaryData, SalaryDataCtc, loading = false }: AllTi
     const [curveType, setCurveType] = useState<'smooth' | 'stepline'>('stepline');
 
     const months = SalaryDataCtc.map((d) => `${d.month} ${d.year}`);
-    const values = SalaryDataCtc.map((d) => d.monthlyCTC);
+    const values = SalaryDataCtc.map((d) => d.annualCTC);
 
     const firstSalary = values.length > 0 ? values[0] : 0;
     const currentSalary = values.length > 0 ? values[values.length - 1] : 0;
@@ -55,7 +55,7 @@ const AllTimeIncrements = ({ salaryData, SalaryDataCtc, loading = false }: AllTi
 
     const seriesData = [
         {
-            name: "Monthly CTC",
+            name: "CTC",
             data: values
         }
     ];
@@ -110,7 +110,7 @@ const AllTimeIncrements = ({ salaryData, SalaryDataCtc, loading = false }: AllTi
                 style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 }
             },
             title: {
-                text: 'Salary (₹)',
+                text: 'CTC (₹)',
                 style: { color: '#64748b', fontSize: '13px', fontWeight: 600 }
             }
         },
