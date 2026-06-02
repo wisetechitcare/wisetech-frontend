@@ -1,7 +1,8 @@
 import { Field, useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import Select, { components } from "react-select";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 
 interface FormikDropdownInputProps {
@@ -114,6 +115,10 @@ function FormikDropdownInput({
         selectedValue = defaultValue[0];
     }
 
+    const sortedOptions = useMemo(() => {
+        return sortOptionsAlphabetically(options || []);
+    }, [options]);
+
     selectedValue = propValue !== undefined 
         ? propValue 
         : (options ? options.find((option: any) => option.value === field.value) : null);
@@ -128,7 +133,7 @@ function FormikDropdownInput({
             </div>
             <Select
                 name={formikField}
-                options={options}
+                options={sortedOptions}
                 onChange={handleChange}
                 placeholder={placeholder}
                 isClearable

@@ -13,9 +13,8 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
     // Calculate Gov Pending
-    const govPending = Math.max(0, (summaryData.totalFixedDeduction || 0) - (summaryData.governmentPaid || 0));
-
-    const isProfFees = summaryData.activeGovType?.toLowerCase().includes('professional fees');
+    const govPending = Math.max(0, summaryData.governmentPending || 0);
+    const hasProfessionalFees = !!summaryData.activeGovType;
 
     const cards = [
         { 
@@ -26,7 +25,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             color: 'primary', // Blue
             statusLabel: 'Pending'
         },
-        ...(isProfFees ? [{ 
+        ...(hasProfessionalFees ? [{ 
             label: `${summaryData.activeGovType || 'Gov Fee'} Payable`, 
             value: summaryData.totalFixedDeduction, 
             pendingValue: govPending,
@@ -41,7 +40,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             color: 'success', // Green
             statusLabel: 'Paid to Employee'
         },
-        ...(isProfFees ? [{ 
+        ...(hasProfessionalFees ? [{ 
             label: `${summaryData.activeGovType || 'Gov Fee'} Paid`, 
             value: summaryData.governmentPaid, 
             icon: 'shield-tick', 
@@ -53,7 +52,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
     return (
         <Row className="g-7 mb-10">
             {cards.map((card, idx) => (
-                <Col xl={3} lg={6} key={idx}>
+                <Col xl={hasProfessionalFees ? 3 : 6} lg={6} key={idx}>
                     <div 
                         className={`card h-100 border-1 border-${card.color} border-opacity-10 shadow-sm rounded-4 overflow-hidden position-relative`}
                         style={{ backgroundColor: `var(--bs-light-${card.color})` }}

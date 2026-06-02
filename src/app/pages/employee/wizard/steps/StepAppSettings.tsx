@@ -3,7 +3,6 @@ import { useFormikContext } from "formik";
 import { fetchAllEmployees } from "@services/employee";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import NumberInput from "@app/modules/common/inputs/NumberInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import AppSettings from "../forms/AppSettings";
@@ -91,10 +90,10 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                     <RadioInput
                         formikField="professionalFeesEnabled"
-                        inputLabel="Professional Fees Enabled"
+                        inputLabel="Employee Type"
                         radioBtns={[
-                            { label: "Yes", value: "true" },
-                            { label: "No", value: "false" },
+                            { label: "Contract Based", value: "true" },
+                            { label: "Salary Based", value: "false" },
                         ]}
                         isRequired={false}
                     />
@@ -214,6 +213,9 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         leaves: (
             <>
                 <LeaveAllocationStep />
+                <div style={{ marginTop: "24px" }}>
+                    <MonthlyLeaveLimit />
+                </div>
             </>
         ),
         access: <AppSettings />,

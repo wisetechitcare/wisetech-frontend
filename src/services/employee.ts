@@ -1037,7 +1037,18 @@ export const getPaymentHistory = async (salaryId: string) => {
 
 export const deletePaymentById = async (paymentId: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.SALARY}/${paymentId}`;
+        const endpoint = `${API_BASE_URL}/api/company/salary/payment/${paymentId}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const deleteGovernmentPaymentById = async (paymentId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/company/salary/government-payment/${paymentId}`;
         const { data } = await axios.delete(endpoint);
         return data;
     }
@@ -2166,8 +2177,8 @@ export const validateDeductionConfigurationJson = (configJson: Record<string, Dy
             return { isValid: false, error: `Field "${key}" must have a valid name` };
         }
 
-        if (typeof value.value !== 'number' || value.value < 0) {
-            return { isValid: false, error: `Field "${key}" must have a valid value >= 0` };
+        if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
+            return { isValid: false, error: `Field "${key}" must have a valid numeric value` };
         }
 
         if (!value.type || !['percentage', 'number'].includes(value.type)) {
@@ -2217,5 +2228,31 @@ export const fetchKpiLeaderboardOverall = async (startDate: string, endDate: str
         console.error("Leaderboard API error:", error);
         throw error;
     }
+};
+
+export const saveEmployeeAccessSettings = async (
+    employeeId: string,
+    userId: string,
+    employeePayload: any,
+    roleId: string | null,
+    isAdmin: boolean,
+    oldRoleId?: string | null,
+    oldIsAdmin?: boolean
+) => {
+    // Step 1: Update employee fields (PUT /api/employee)
+    const employeeRes = await updateEmployee(employeeId, employeePayload);
+
+    // Step 2: If role changed: PUT /api/employee/:id/roles
+    if (roleId && roleId !== oldRoleId) {
+        await updateEmployeeRolesById(employeeId, { roleIds: [roleId] });
+    }
+
+    // Step 3: If admin status changed: update users.isAdmin
+    if (isAdmin !== oldIsAdmin) {
+        const { updateUser } = await import("./users");
+        await updateUser(userId, { isAdmin });
+    }
+
+    return employeeRes;
 };
 

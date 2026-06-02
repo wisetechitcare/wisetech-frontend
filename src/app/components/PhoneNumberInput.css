@@ -1,0 +1,124 @@
+.phone-number-input {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Outer container – also gets .react-tel-input from the library */
+.phone-input-container {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.15s ease;
+  min-height: 44px;
+  position: relative;
+}
+
+.phone-number-input.focused .phone-input-container,
+.phone-input-container:hover {
+  border-color: #b5b5c3;
+}
+
+.phone-number-input.error .phone-input-container {
+  border-color: #f1416c !important;
+}
+
+/* Input field – leave room for the 56px flag button */
+.phone-input-container .form-control,
+.phone-input-field {
+  width: 100% !important;
+  height: 44px !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+  font-size: 0.875rem !important;
+  font-family: inherit !important;
+  color: inherit !important;
+  border-radius: 0 8px 8px 0 !important;
+  padding-left: 60px !important;
+}
+
+.phone-input-container .form-control::placeholder,
+.phone-input-field::placeholder {
+  color: #99a1b7 !important;
+  opacity: 1 !important;
+}
+
+/* Prevent outer focus-glow rules from leaking onto the inner input */
+.phone-number-input .phone-input-container .form-control:focus {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+/* Flag dropdown button */
+.phone-input-container .flag-dropdown,
+.phone-input-button {
+  border: none !important;
+  border-right: 1px solid #dee2e6 !important;
+  background: transparent !important;
+  border-radius: 8px 0 0 8px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 56px !important;
+  position: absolute !important;
+}
+
+/* Selected flag area inside the button */
+.phone-input-container .selected-flag {
+  background: transparent !important;
+  border-radius: 8px 0 0 8px !important;
+  padding: 0 8px 0 10px !important;
+  height: 44px !important;
+  width: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.phone-input-container .selected-flag:hover,
+.phone-input-container .flag-dropdown.open .selected-flag {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-radius: 8px 0 0 8px !important;
+}
+
+/* Country list dropdown */
+.phone-input-container .country-list {
+  border-radius: 10px !important;
+  border: 1px solid #e4e6ef !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  width: 290px !important;
+  max-height: 220px !important;
+  font-family: inherit !important;
+  margin-top: 2px !important;
+  z-index: 9999 !important;
+}
+
+.phone-input-container .country-list .country {
+  padding: 8px 14px !important;
+  font-size: 0.875rem !important;
+  color: #3f4254 !important;
+}
+
+.phone-input-container .country-list .country:hover,
+.phone-input-container .country-list .country.highlight {
+  background: #f5f8ff !important;
+}
+
+.phone-input-container .country-list .dial-code {
+  color: #a1a5b7 !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+}
+
+.phone-input-container .country-list .country-name {
+  font-size: 0.875rem !important;
+  color: #3f4254 !important;
+}
+
+.phone-number-error {
+  color: #d9534f;
+  font-size: 12px;
+  margin-top: 2px;
+}

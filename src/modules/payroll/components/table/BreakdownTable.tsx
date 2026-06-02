@@ -39,7 +39,8 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
     );
 
     return (
-        <div className="breakdown-tables">
+        <div className="breakdown-tables d-flex flex-column flex-grow-1">
+            <div className="flex-grow-1">
             {hasVariableData && (
                 <div className="mb-8">
                     <div className="d-flex align-items-center mb-4">
@@ -131,10 +132,11 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                     </div>
                 </div>
             )}
+            </div>
 
             {/* Final Grand Total for Gross */}
             {!isDeduction && (
-                <div className="p-5 rounded-3 bg-light-primary border border-primary border-opacity-10 d-flex justify-content-between align-items-center shadow-sm">
+                <div className="p-5 rounded-3 bg-light-primary border border-primary border-opacity-10 d-flex justify-content-between align-items-center shadow-sm mt-auto">
                     <div className="d-flex align-items-center">
                         <span className="fw-bolder text-primary fs-4 me-3">TOTAL GROSS PAY</span>
                         <OverlayTrigger placement="top" overlay={renderTooltip}>
