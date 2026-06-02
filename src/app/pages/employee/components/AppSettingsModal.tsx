@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "react-bootstrap";
 import { Formik, Form as FormikForm, useFormikContext } from "formik";
 import * as Yup from "yup";
-import { fetchWizardData, updateEmployee, fetchAllEmployees } from "@services/employee";
+import { fetchWizardData, updateEmployee, fetchAllEmployees, saveEmployeeAccessSettings } from "@services/employee";
 import { fetchRoles } from "@services/roles";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
-import NumberInput from "@app/modules/common/inputs/NumberInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import Loader from "@app/modules/common/utils/Loader";
@@ -56,45 +55,13 @@ function GeneralSettings() {
                     isRequired={false}
                 />
             </div>
-            <div className="col-sm-6">
-                <NumberInput
-                    isRequired={false}
-                    formikField="attendanceRequestRaiseLimit"
-                    label="Attendance Request Limit"
-                    margin="mb-0"
-                    min={0}
-                />
-                <div className="form-text text-muted mt-1" style={{ fontSize: 12 }}>
-                    <i className="bi bi-info-circle me-1" />
-                    Max attendance correction requests allowed per month.
-                </div>
-            </div>
         </div>
     );
 }
 
 function LeaveSection() {
     return (
-        <>
-            <LeaveAllocationStep />
-            <div className="mt-4">
-                <div className="row">
-                    <div className="col-sm-6">
-                        <NumberInput
-                            isRequired={false}
-                            formikField="allowedPerMonth"
-                            label="Allowed Per Month"
-                            margin="mb-0"
-                            min={1}
-                        />
-                        <div className="form-text text-muted mt-1" style={{ fontSize: 12 }}>
-                            <i className="bi bi-info-circle me-1" />
-                            <strong>Combined monthly limit</strong> across all leave types.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
+        <LeaveAllocationStep />
     );
 }
 
@@ -342,9 +309,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // general
         isAdmin: "0",
         allowOverTime: "0",
-        attendanceRequestRaiseLimit: 0,
         // leave
-        allowedPerMonth: 1,
         leaveAllocations: [],
         branchId: "",
         employeeId: "",
@@ -361,6 +326,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         appRole: "",
         // privacy
         isHiddenFromStaff: false,
+        userId: "",
     });
 
     useEffect(() => {
@@ -380,9 +346,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // general
                     isAdmin: w?.isAdmin ? "1" : "0",
                     allowOverTime: w?.allowOverTime ?? "0",
-                    attendanceRequestRaiseLimit: w?.attendanceRequestRaiseLimit ?? 0,
                     // leave
-                    allowedPerMonth: w?.allowedPerMonth ?? 1,
                     leaveAllocations: [],
                     branchId: w?.branchId ?? "",
                     employeeId,
@@ -399,6 +363,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     appRole: w?.roles?.[0]?.id ?? "",
                     // privacy
                     isHiddenFromStaff: w?.isHiddenFromStaff === true,
+                    userId: w?.userId ?? "",
                 });
 
                 // manager options
@@ -431,12 +396,9 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 id: employeeId,
                 isAdmin: values.isAdmin === "1",
                 allowOverTime: values.allowOverTime,
-                allowedPerMonth: Number(values.allowedPerMonth),
-                attendanceRequestRaiseLimit: Number(values.attendanceRequestRaiseLimit),
                 reportsToId: values.reportsToId || null,
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",
-                appRole: values.appRole || null,
                 isHiddenFromStaff: values.isHiddenFromStaff === true,
                 ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
                     ? { leaveAllocations: values.leaveAllocations }
@@ -444,7 +406,21 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 ...buildProfessionalFeesPayload(values),
             };
 
-            await updateEmployee(employeeId, payload);
+            const roleId = values.appRole || null;
+            const isAdmin = values.isAdmin === "1";
+
+            const oldRoleId = initialValues.appRole || null;
+            const oldIsAdmin = initialValues.isAdmin === "1";
+
+            await saveEmployeeAccessSettings(
+                employeeId,
+                initialValues.userId,
+                payload,
+                roleId,
+                isAdmin,
+                oldRoleId,
+                oldIsAdmin
+            );
             successConfirmation("Settings saved successfully");
             if (onSuccess) onSuccess();
             onClose();

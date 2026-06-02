@@ -4,7 +4,7 @@
 // import { saveLeaves } from "@redux/slices/attendanceStats";
 // import { RootState, store } from "@redux/store";
 // import { fetchPublicHolidays, fetchLeaveOptions } from "@services/company";
-// import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements, fetchEmployeeDiscretionaryBalanceById } from "@services/employee";
+// import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements } from "@services/employee";
 // import { hasPermission } from "@utils/authAbac";
 // import { generateFiscalYearFromGivenYear } from "@utils/file";
 // import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
@@ -27,7 +27,7 @@ import { CustomLeaves, Leaves } from "@models/employee";
 import { saveLeaves } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
 import { fetchPublicHolidays, fetchLeaveOptions } from "@services/company";
-import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements, fetchEmployeeDiscretionaryBalanceById } from "@services/employee";
+import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements } from "@services/employee";
 import { fetchAllAddonLeavesAllowances } from "@services/addonLeavesAllowance";
 import { hasPermission } from "@utils/authAbac";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
@@ -76,16 +76,12 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showEncashTransferModal, setShowEncashTransferModal] = useState(false);
     const [shouldShowConvertButton, setShouldShowConvertButton] = useState(true);
-    const [discretionaryLeaveBalance, setDiscretionaryLeaveBalance] = useState(0);
-    const [discretionaryLeaveBoolean, setDiscretionaryLeaveBoolean] = useState(false);
     const [approvedRequestInfo, setApprovedRequestInfo] = useState<{ transfer?: any; encash?: any } | null>(null);
     const [addonLeaveAllowanceCount, setAddonLeaveAllowanceCount] = useState(0);
-    const [allowedPerMonth, setAllowedPerMonth] = useState(1);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
     const employeeBranchId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.branchId : state.employee.currentEmployee?.branchId);
-    const allowedPerMonthFromState = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.allowedPerMonth : state.employee.currentEmployee?.allowedPerMonth);
 
     const isInFiscalEndMonth = useMemo(() => {
         if (!endDateNew) return false;
@@ -180,12 +176,11 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
         async function fetchData() {
             try {
-                const [leavesResponse, holidaysResponse, balanceResponse, leaveOptionsResponse, response, addonResponse, transferResponse] = await Promise.all([
+                const [leavesResponse, holidaysResponse, balanceResponse, leaveOptionsResponse, addonResponse, transferResponse] = await Promise.all([
                     fetchEmployeeLeaves(selectedEmployeeId),
                     fetchPublicHolidays(currentYear, country),
                     fetchEmployeeLeaveBalance(selectedEmployeeId),
                     fetchLeaveOptions(),
-                    fetchEmployeeDiscretionaryBalanceById(selectedEmployeeId),
                     fetchAllAddonLeavesAllowances(),
                     getAllLeaveManagements(selectedEmployeeId),
                 ]);
@@ -194,10 +189,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 const { data: { publicHolidays } } = holidaysResponse;
                 const { data: { leavesSummary } } = balanceResponse;
                 const { data: { leaveOptions } } = leaveOptionsResponse;
-                const { data: { employee } } = response;
-                setDiscretionaryLeaveBalance(employee?.discretionaryLeaveBalance);
-                setDiscretionaryLeaveBoolean(employee?.discretionaryLeaveBoolean);
-                setAllowedPerMonth(employee?.allowedPerMonth || allowedPerMonthFromState || 1);
 
                 // Compute addon leave allowance (experience-based extra annual leaves)
                 let addonLeaveAllowanceCount = 0;
@@ -246,9 +237,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     });
                 setTransferredLeavesInCurrentFiscal(currentFiscalTransferred);
                 setShouldShowConvertButton(!hasPendingOrApprovedRequest);
-
-                const discretionaryLeaveBalances = employee?.discretionaryLeaveBalance;
-                const discretionaryLeaveBooleans = employee?.discretionaryLeaveBoolean;
 
                 const processedLeaves = await customLeaves(leaves);
 
@@ -309,10 +297,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
                 const branchLeaveBalances: Record<string, number> = {};
                 leavesSummary.forEach((summary: any) => {
-                    let days = Number(summary.numberOfDays) || 0;
-                    if (discretionaryLeaveBooleans && summary.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase())) {
-                        days += Number(discretionaryLeaveBalances ?? 0);
-                    }
+                    const days = Number(summary.numberOfDays) || 0;
                     branchLeaveBalances[summary.leaveType] = days;
                 });
 
@@ -334,7 +319,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     addonLeaveAllowanceCount,
                     proRatedMonths,
                     hasPendingOrApprovedTransfer,
-                    employee?.allowedPerMonth || allowedPerMonthFromState || 1,
                     tenureMonths
                 );
                 setLeaveBalances(balances);
@@ -363,8 +347,8 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         totalUnpaidAssigned,
         grandTotalUsed,
         grandTotalAssigned
-    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances, allowedPerMonth),
-        [leavesTakenCount, proRatedBalances, leaveBalances, allowedPerMonth]);
+    } = useMemo(() => buildLeaveData(leavesTakenCount, proRatedBalances, leaveBalances),
+        [leavesTakenCount, proRatedBalances, leaveBalances]);
 
     // Fiscal year start month derived from the prop (e.g. "2026-04-01" → 4)
     const fiscalStartMonth = useMemo(
@@ -601,9 +585,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                 used={leave.used}
                                 total={leave.total}
                                 color={leave.color}
-                                discretionaryLeaveBalance={discretionaryLeaveBoolean === true ? Number(discretionaryLeaveBalance ?? 0) : 0}
-                                allowedPerMonth={leave.allowedPerMonth}
-                                showAllowedPerMonth={leave.showAllowedPerMonth}
                             />
                         ))}
                     </div>
@@ -697,9 +678,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                                 used={leave.used}
                                 total={leave.total}
                                 color={leave.color}
-                                discretionaryLeaveBalance={0}
-                                allowedPerMonth={undefined}
-                                showAllowedPerMonth={leave.showAllowedPerMonth}
                             />
                         ))}
                     </div>

@@ -56,17 +56,6 @@ export const fetchAllEmployeesSelectedData = async () => {
     }
 }
 
-export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (error) {
-        throw error;
-    }
-};
-
-
 export const createTodo = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_TODOS}`;
@@ -173,17 +162,6 @@ export const fetchCurrentEmployeeByUserId = async (userId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_BY_ID}?userId=${userId}`;
         const { data } = await axios.get(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
-export const sendAttendanceRequestResetLimit = async (payload: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, payload);
         return data;
     }
     catch (err) {
@@ -1728,36 +1706,6 @@ export const getAllEmployeeWithMonthDailyHourlySalary = async (id?: string, date
     }
 };
 
-export const getAttendanceRequestLimitResetRequests = async (companyId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS}?companyId=${companyId}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const approveAttendanceRequestLimitReset = async (requestId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, { requestId });
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.REJECT_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, { requestId });
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
 // Enhanced team management functions for Add Team Member functionality
 export const getAllTeamsMember = async (page: number = 1, search: string = '') => {
     try {
@@ -2280,5 +2228,31 @@ export const fetchKpiLeaderboardOverall = async (startDate: string, endDate: str
         console.error("Leaderboard API error:", error);
         throw error;
     }
+};
+
+export const saveEmployeeAccessSettings = async (
+    employeeId: string,
+    userId: string,
+    employeePayload: any,
+    roleId: string | null,
+    isAdmin: boolean,
+    oldRoleId?: string | null,
+    oldIsAdmin?: boolean
+) => {
+    // Step 1: Update employee fields (PUT /api/employee)
+    const employeeRes = await updateEmployee(employeeId, employeePayload);
+
+    // Step 2: If role changed: PUT /api/employee/:id/roles
+    if (roleId && roleId !== oldRoleId) {
+        await updateEmployeeRolesById(employeeId, { roleIds: [roleId] });
+    }
+
+    // Step 3: If admin status changed: update users.isAdmin
+    if (isAdmin !== oldIsAdmin) {
+        const { updateUser } = await import("./users");
+        await updateUser(userId, { isAdmin });
+    }
+
+    return employeeRes;
 };
 

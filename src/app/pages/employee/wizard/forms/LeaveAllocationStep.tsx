@@ -112,13 +112,17 @@ const LeaveAllocationStep = () => {
 
                 // Only write Formik if it had nothing yet (first load or branch change).
                 // Avoids overwriting the user's in-session edits with DB/default values.
-                // Write the complete set of rows so the backend can replace-all.
+                // Only send rows that DIFFER from the branch default — rows at default
+                // are not overrides and must not be stored, otherwise they block addon
+                // leave calculation in recalculateBalance.
                 if (formikAllocations.length === 0) {
-                    setFieldValue("leaveAllocations", initialRows.map(r => ({
-                        leaveTypeId:   r.leaveTypeId,
-                        allocatedDays: Number(r.allocatedDays),
-                        ...(r.note && { note: r.note }),
-                    })));
+                    setFieldValue("leaveAllocations", initialRows
+                        .filter(r => Number(r.allocatedDays) !== r.defaultDays)
+                        .map(r => ({
+                            leaveTypeId:   r.leaveTypeId,
+                            allocatedDays: Number(r.allocatedDays),
+                            ...(r.note && { note: r.note }),
+                        })));
                 }
             } catch (err) {
                 console.error("Failed to load leave options:", err);
@@ -135,14 +139,20 @@ const LeaveAllocationStep = () => {
         );
         setRows(updated);
 
-        // Always send the complete set of rows so the backend can replace-all.
-        // This allows resetting a value back to the branch default (which would
-        // be silently dropped if we only sent overrides).
-        setFieldValue("leaveAllocations", updated.map(r => ({
-            leaveTypeId:   r.leaveTypeId,
-            allocatedDays: Number(r.allocatedDays),
-            ...(r.note && { note: r.note }),
-        })));
+        // Only submit rows that differ from the branch default.
+        // Rows at the branch default are not overrides — submitting them would create
+        // EmployeeLeaveAllocation records that block addon/probation calculation.
+        setFieldValue("leaveAllocations", updated
+            .filter(r => Number(r.allocatedDays) !== r.defaultDays)
+            .map(r => ({
+                leaveTypeId:   r.leaveTypeId,
+                allocatedDays: Number(r.allocatedDays),
+                ...(r.note && { note: r.note }),
+            })));
+    };
+
+    const handleReset = (index: number) => {
+        handleChange(index, "allocatedDays", rows[index].defaultDays);
     };
 
     // Derived: unpaidDays = 365 − sum of all paid allocations
@@ -187,10 +197,11 @@ const LeaveAllocationStep = () => {
                 <table className="table table-bordered align-middle" style={{ fontSize: 13, minWidth: 480 }}>
                     <thead style={{ backgroundColor: "#f8f9fa" }}>
                         <tr>
-                            <th style={{ width: "35%" }}>Leave Type</th>
-                            <th style={{ width: "20%", textAlign: "center" }}>Branch Default</th>
-                            <th style={{ width: "20%", textAlign: "center" }}>Custom Days</th>
-                            <th style={{ width: "25%" }}>Note</th>
+                            <th style={{ width: "32%" }}>Leave Type</th>
+                            <th style={{ width: "18%", textAlign: "center" }}>Branch Default</th>
+                            <th style={{ width: "18%", textAlign: "center" }}>Custom Days</th>
+                            <th style={{ width: "22%" }}>Note</th>
+                            <th style={{ width: "10%", textAlign: "center" }}></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -245,6 +256,19 @@ const LeaveAllocationStep = () => {
                                             onChange={e => handleChange(idx, "note", e.target.value)}
                                             disabled={!isOverridden}
                                         />
+                                    </td>
+                                    <td style={{ textAlign: "center" }}>
+                                        {isOverridden && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-light-danger"
+                                                title="Reset to branch default"
+                                                onClick={() => handleReset(idx)}
+                                                style={{ fontSize: 11, padding: "2px 8px" }}
+                                            >
+                                                Reset
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             );

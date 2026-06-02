@@ -58,8 +58,6 @@ export interface Employee {
     departments: Department,
     roles: any[],
     hourlySalary?: number,
-    attendanceRequestRaiseLimit: number,
-    allowedPerMonth?: number,
     allowOverTime: boolean,
 }
 
@@ -118,7 +116,6 @@ const initialState: EmployeeState = {
         },
         roles: [],
         hourlySalary: 0,
-        attendanceRequestRaiseLimit: 0
     },
     selectedEmployee:
     {
@@ -168,7 +165,6 @@ const initialState: EmployeeState = {
         },
         roles: [],
         hourlySalary: 0,
-        attendanceRequestRaiseLimit: 0
     }
 }
 

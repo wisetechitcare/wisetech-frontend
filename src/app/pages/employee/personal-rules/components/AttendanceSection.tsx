@@ -40,7 +40,6 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
   const [enableLunchDeduction, setEnableLunchDeduction] = useState<boolean>(false);
   const [onSiteHolidayWeekendSettings, setOnSiteHolidayWeekendSettings] = useState<boolean>(false);
   const [allowedDistance, setAllowedDistance] = useState<number>(100);
-  const [attendanceRequestLimit, setAttendanceRequestLimit] = useState<number>(2);
   const [restrictAttendanceRequestDays, setRestrictAttendanceRequestDays] = useState<number>(10);
   const [showDataUpToToday, setShowDataUpToToday] = useState<boolean>(false);
   
@@ -136,11 +135,6 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
         const allowedDistance = appSettings?.distanceAllowedInMeters || 100;
         setAllowedDistance(allowedDistance);
 
-        // Get attendance request limit from company overview
-        const companyOverview = companyOverviewRes?.data?.companyOverview?.[0];
-        const attendanceLimit = companyOverview?.attendanceRequestRaiseLimit || 2;
-        setAttendanceRequestLimit(attendanceLimit);
-
       } catch (error) {
         console.error('[AttendanceSection] Error loading data:', error);
       } finally {
@@ -229,7 +223,6 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
           enableLunchDeduction={enableLunchDeduction}
           onSiteHolidayWeekendSettings={onSiteHolidayWeekendSettings}
           allowedDistance={allowedDistance}
-          attendanceRequestLimit={attendanceRequestLimit}
           restrictAttendanceRequestDays={restrictAttendanceRequestDays}
           showDataUpToToday={showDataUpToToday}
           dayWiseShifts={dayWiseShifts}
