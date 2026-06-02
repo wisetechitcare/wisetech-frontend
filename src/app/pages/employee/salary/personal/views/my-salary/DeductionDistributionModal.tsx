@@ -135,16 +135,14 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             .forEach(key => {
                 schemaFields[key] = Yup.number()
                     .typeError(`${deductionDistributionData[key].name} must be a valid number`)
-                    .required(`${deductionDistributionData[key].name} is required`)
-                    .min(0, `${deductionDistributionData[key].name} must be greater than or equal to 0`);
+                    .required(`${deductionDistributionData[key].name} is required`);
             });
 
         // Add validation for new fields
         dynamicFields.forEach(field => {
             schemaFields[field.id] = Yup.number()
                 .typeError(`${field.name} must be a valid number`)
-                .required(`${field.name} is required`)
-                .min(0, `${field.name} must be greater than or equal to 0`);
+                .required(`${field.name} is required`);
         });
 
         return Yup.object().shape(schemaFields);
@@ -275,7 +273,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             };
 
             await createUpdateDeductionConfiguration(apiPayload as any);
-            successConfirmation(`Additional deductions updated successfully!`);
+            successConfirmation(`Deduction adjustments updated successfully!`);
             onSuccess();
             onClose();
 
@@ -297,7 +295,12 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
     const renderPreview = (fieldName: string, extraValue: number) => {
         const auto = autoCalculatedDeductions[fieldName] || 0;
-        const total = auto + extraValue;
+        const total = Math.max(0, auto + extraValue);
+        const formatSignedAdjustment = (value: number) => {
+            if (value > 0) return `+${formatINR2(value)}`;
+            if (value < 0) return `-${formatINR2(Math.abs(value))}`;
+            return formatINR2(0);
+        };
         
         return (
             <div className="mt-2 p-3 bg-light rounded border border-dashed border-gray-300">
@@ -306,8 +309,8 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                     <span>{formatINR2(auto)}</span>
                 </div>
                 <div className="d-flex justify-content-between fs-8 text-primary mb-1">
-                    <span>Additional:</span>
-                    <span>+{formatINR2(extraValue)}</span>
+                    <span>Adjustment:</span>
+                    <span>{formatSignedAdjustment(extraValue)}</span>
                 </div>
                 <div className="separator separator-dashed my-1"></div>
                 <div className="d-flex justify-content-between fs-7 fw-bolder text-gray-800">
@@ -355,7 +358,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                         <div className="d-flex flex-column pe-0 pe-sm-10">
                                             <h5 className="mb-1 text-primary fw-bolder">Important Note</h5>
                                             <span className="fs-7 text-gray-700">
-                                                Amounts entered here will be <strong>added</strong> to the payroll calculated deductions. 
+                                                Positive amounts increase payroll calculated deductions. Negative amounts reduce them.
                                                 They will <strong>not</strong> overwrite the original calculations.
                                             </span>
                                         </div>
@@ -436,7 +439,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
                                                         <div className="mb-2">
                                                             <label className={`form-label fw-bold fs-8 text-uppercase ${disabledReason ? 'text-warning' : 'text-gray-700'}`}>
-                                                                Additional Deduction Amount
+                                                                Deduction Adjustment Amount
                                                             </label>
                                                             <TextInput
                                                                 isRequired={true}

@@ -106,6 +106,10 @@ const DeductionPanel = ({
     const totalDeductions = totalVariable + totalFixed;
 
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+    const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
+        const sign = extraAmount < 0 ? '-' : '+';
+        return `(${formatINR2(calculatedAmount)} ${sign} ${formatINR2(Math.abs(extraAmount))})`;
+    };
 
     return (
         <div className="deduction-panel ">
@@ -209,6 +213,9 @@ const DeductionPanel = ({
                                 const isPct = String(item.type).toLowerCase() === 'percentage';
                                 const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
                                 const typeLabel = isPct ? 'Percentage' : 'Fixed';
+                                const extraAmount = Number(item.extraAmount || 0);
+                                const calculatedAmount = Number(item.calculatedAmount || 0);
+                                const earnedAmount = Math.max(0, Number(item.earned || 0));
                                 return (
                                     <tr key={key} style={{ fontSize: 11 }}>
                                         <td>{item.name || key}</td>
@@ -220,8 +227,14 @@ const DeductionPanel = ({
                                             {isPct ? formatINR2(intermediateSalary) : '—'}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {formatINR2(Number(item.earned || 0))}
-                                            
+                                            <div className="d-flex flex-column align-items-end">
+                                                <span>{formatINR2(earnedAmount)}</span>
+                                                {extraAmount !== 0 && (
+                                                    <span className="text-muted" style={{ fontSize: 10 }}>
+                                                        {formatAdjustmentFormula(calculatedAmount, extraAmount)}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         
                                     </tr>
