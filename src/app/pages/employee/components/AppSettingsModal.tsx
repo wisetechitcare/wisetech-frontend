@@ -331,7 +331,27 @@ interface AppSettingsModalProps {
     employeeId: string;
 }
 
-const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSuccess, employeeId }) => {
+const showAppSettingsRadioBtn: RadioButton[] = [
+    { label: 'Yes', value: "1" },
+    { label: 'No', value: "0" }
+];
+
+const allowOverTimeRadioBtn: RadioButton[] = [
+    { label: 'Yes', value: "1" },
+    { label: 'No', value: "0" }
+];
+
+const validationSchema = Yup.object().shape({
+    isAdmin: Yup.string().required("This field is required"),
+    allowOverTime: Yup.string().required("This field is required"),
+});
+
+const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
+    show,
+    onClose,
+    onSuccess,
+    employeeId,
+}) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -342,26 +362,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // general
         isAdmin: "0",
         allowOverTime: "0",
-        attendanceRequestRaiseLimit: 0,
-        // leave
-        allowedPerMonth: 1,
-        leaveAllocations: [],
-        branchId: "",
-        employeeId: "",
-        // reporting
-        reportsToId: "",
-        // financial
-        ctcInLpa: "",
-        professionalFeesEnabled: "false",
-        professionalFeesType: "FIXED",
-        professionalFeesAmount: "",
-        professionalFeesPercentage: "",
-        // access
-        isEmployeeActive: "1",
-        appRole: "",
-        // privacy
-        isHiddenFromStaff: false,
-        userId: "",
     });
 
     useEffect(() => {
@@ -378,29 +378,8 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 const w = wizardRes?.data?.wizardData ?? {};
 
                 setInitialValues({
-                    // general
-                    isAdmin: w?.isAdmin ? "1" : "0",
-                    allowOverTime: w?.allowOverTime ?? "0",
-                    attendanceRequestRaiseLimit: w?.attendanceRequestRaiseLimit ?? 0,
-                    // leave
-                    allowedPerMonth: w?.allowedPerMonth ?? 1,
-                    leaveAllocations: [],
-                    branchId: w?.branchId ?? "",
-                    employeeId,
-                    // reporting
-                    reportsToId: w?.reportsToId ?? "",
-                    // financial
-                    ctcInLpa: w?.ctcInLpa ?? "",
-                    professionalFeesEnabled: readProfessionalFeesEnabled(w?.professionalFeesEnabled ?? (w as any)?.professional_fees_enabled),
-                    professionalFeesType: w?.professionalFeesType ?? (w as any)?.professional_fees_type ?? "FIXED",
-                    professionalFeesAmount: (() => { const v = w?.professionalFeesAmount ?? (w as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
-                    professionalFeesPercentage: (() => { const v = (w as any)?.professionalFeesPercentage ?? (w as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
-                    // access
-                    isEmployeeActive: w?.isActive ? "1" : "0",
-                    appRole: w?.roles?.[0]?.id ?? "",
-                    // privacy
-                    isHiddenFromStaff: w?.isHiddenFromStaff === true,
-                    userId: w?.userId ?? "",
+                    isAdmin: wizardData?.isAdmin ? "1" : "0",
+                    allowOverTime: wizardData?.allowOverTime =="1" ? "1" : "0",
                 });
 
                 // manager options
@@ -433,16 +412,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 id: employeeId,
                 isAdmin: values.isAdmin === "1",
                 allowOverTime: values.allowOverTime,
-                allowedPerMonth: Number(values.allowedPerMonth),
-                attendanceRequestRaiseLimit: Number(values.attendanceRequestRaiseLimit),
-                reportsToId: values.reportsToId || null,
-                ctcInLpa: values.ctcInLpa || null,
-                isActive: values.isEmployeeActive === "1",
-                isHiddenFromStaff: values.isHiddenFromStaff === true,
-                ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
-                    ? { leaveAllocations: values.leaveAllocations }
-                    : {}),
-                ...buildProfessionalFeesPayload(values),
             };
 
             const roleId = values.appRole || null;
@@ -487,17 +456,72 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     <Loader />
                 </Modal.Body>
             ) : (
-                <Formik initialValues={initialValues} onSubmit={handleSubmit} enableReinitialize>
-                    <FormikForm>
-                        <ModalContent
-                            employeeId={employeeId}
-                            managerOptions={managerOptions}
-                            roleOptions={roleOptions}
-                            isSubmitting={isSubmitting}
-                            error={error}
-                            onClose={onClose}
-                        />
-                    </FormikForm>
+                <Formik
+                    initialValues={initialValues}
+                    validationSchema={validationSchema}
+                    onSubmit={handleSubmit}
+                    enableReinitialize
+                >
+                    {() => (
+                        <FormikForm>
+                            <Modal.Body style={{ paddingTop: "16px" }}>
+                                {error && <div className="alert alert-danger mb-3">{error}</div>}
+
+                                {/* Show App Settings */}
+                                <div className="mb-4">
+                                    <RadioInput
+                                        inputLabel="Show App Settings"
+                                        isRequired={true}
+                                        radioBtns={showAppSettingsRadioBtn}
+                                        formikField="isAdmin"
+                                    />
+                                </div>
+
+                                {/* Allow Overtime */}
+                                <div className="mb-4">
+                                    <RadioInput
+                                        inputLabel="Allow Overtime"
+                                        isRequired={true}
+                                        radioBtns={allowOverTimeRadioBtn}
+                                        formikField="allowOverTime"
+                                    />
+                                </div>
+
+                            </Modal.Body>
+
+                            <Modal.Footer style={{ borderTop: "none", paddingTop: "0" }}>
+                                <Button
+                                    variant="secondary"
+                                    onClick={onClose}
+                                    disabled={isSubmitting}
+                                    style={{
+                                        color: "white",
+                                        borderRadius: "8px",
+                                        padding: "10px 24px",
+                                        fontWeight: "500",
+                                        fontSize: "14px",
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    style={{
+                                        backgroundColor: "#8B4444",
+                                        border: "none",
+                                        borderRadius: "8px",
+                                        padding: "10px 24px",
+                                        fontWeight: "500",
+                                        fontSize: "14px",
+                                    }}
+                                >
+                                    {isSubmitting ? "Saving..." : "Save Changes"}
+                                </Button>
+                            </Modal.Footer>
+                        </FormikForm>
+                    )}
                 </Formik>
             )}
 

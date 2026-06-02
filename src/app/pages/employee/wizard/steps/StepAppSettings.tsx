@@ -179,27 +179,6 @@ function PrivacyControls() {
     );
 }
 
-function MonthlyLeaveLimit() {
-    return (
-        <div className="row">
-            <div className="col-lg-6 col-md-6 col-sm-12">
-                <NumberInput
-                    isRequired={false}
-                    formikField="allowedPerMonth"
-                    label="Allowed Per Month"
-                    margin="mb-0"
-                />
-                <div className="form-text text-muted mt-2">
-                    <i className="bi bi-info-circle me-1"></i>
-                    <strong>Combined monthly limit</strong> across Annual, Sick, Floater,
-                    Casual, and Maternal leaves. Example: If set to 5, employee can take
-                    maximum 5 total leaves per month.
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ── Root component ────────────────────────────────────────────────────────────
 function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProps: any; editMode: boolean; sidebarProfile?: any }) {
     const [activeSection, setActiveSection] = useState("reporting");
@@ -213,10 +192,6 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         }
         if (errors.ctcInLpa || errors.professionalFeesPercentage || errors.professionalFeesAmount) {
             setActiveSection("financial");
-            return;
-        }
-        if (errors.allowedPerMonth) {
-            setActiveSection("leaves");
             return;
         }
         if (errors.appRole) {
@@ -239,9 +214,6 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         leaves: (
             <>
                 <LeaveAllocationStep />
-                <div style={{ marginTop: "24px" }}>
-                    <MonthlyLeaveLimit />
-                </div>
             </>
         ),
         access: <AppSettings />,

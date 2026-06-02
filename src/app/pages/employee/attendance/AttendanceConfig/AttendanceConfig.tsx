@@ -28,7 +28,6 @@ interface OtherSettingsData {
   enableLunchDeduction: boolean;
   onSiteHolidayWeekendSettings: boolean;
   allowedDistance: number;
-  attendanceRequestLimit: number;
   restrictAttendanceRequestDays: number;
   showDataUpToToday: boolean;
   monthlyAnnualLeaveLimit: number;
@@ -48,7 +47,6 @@ const AttendanceConfig: React.FC = () => {
     enableLunchDeduction: false,
     onSiteHolidayWeekendSettings: false,
     allowedDistance: 12,
-    attendanceRequestLimit: 2,
     restrictAttendanceRequestDays: 7,
     showDataUpToToday: false,
     monthlyAnnualLeaveLimit: 2,
@@ -248,16 +246,11 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
       const appSettings = companySettingsRes?.data?.appSettings;
       const allowedDistance = appSettings?.distanceAllowedInMeters || 12;
 
-      // Get company overview (attendance request limit)
-      const companyOverview = companyOverviewRes?.data?.companyOverview?.[0];
-      const attendanceLimit = companyOverview?.attendanceRequestRaiseLimit || 2;
-
       // Update state
       setOtherSettingsData({
         enableLunchDeduction: lunchEnabled,
         onSiteHolidayWeekendSettings: onSiteEnabled,
         allowedDistance: allowedDistance,
-        attendanceRequestLimit: attendanceLimit,
         restrictAttendanceRequestDays: restrictDays,
         showDataUpToToday: dateSettingsEnabled,
         monthlyAnnualLeaveLimit: Number(monthlyAnnualLeaveLimit),
@@ -556,14 +549,6 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
                     </span>
                     <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
                       {otherSettingsData.restrictAttendanceRequestDays} days
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Attendance Request Raise Limit
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.attendanceRequestLimit}
                     </span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center">

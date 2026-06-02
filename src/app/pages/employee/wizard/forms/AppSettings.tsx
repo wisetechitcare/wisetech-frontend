@@ -64,8 +64,8 @@ function AppSettings() {
             </div>
 
             {/* Row 2: App Role */}
-            <div className="row mb-4">
-                <div className="col-lg-6 col-md-6 col-sm-12">
+            <div className="row">
+                <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
                     <DropDownInput
                         isRequired={true}
                         formikField={fieldName}

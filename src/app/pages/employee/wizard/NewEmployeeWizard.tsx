@@ -386,7 +386,6 @@ const newEmployeeWizardSchema = [
     reportsToId: optionalString().label("Reporting Manager"),
     ctcInLpa: optionalString().label("CTC In LPA"),
     appRole: optionalString().label("App Role"),
-    allowedPerMonth: optionalString().label("Allowed Per Month"),
   }),
   Yup.object({
     obj: optionalString(),
@@ -438,8 +437,7 @@ const initialState = {
   companyPhoneExtension: "", sourceOfHire: "", referredBy: "", dateOfJoining: "",
   dateOfExit: "", rejoinHistory: [{ dateOfReJoining: "", dateOfReExit: "", reason: "" }],
   employeeStatusId: "", employeeStatusConfigId: "", ctcInLpa: "", appRole: "",
-  allowedPerMonth: 1, allowOverTime: "0",
-  discretionaryLeaveBoolean: "false", discretionaryLeaveBalance: 0,
+  allowOverTime: "0",
   leaveAllocations: [] as any[],
   workExpInfo: [createDefaultWorkExpInfo()],
   documentInfo: [{ identityNumber: "", employeeId: "", documentId: "", path: "", fileName: "" }],
@@ -500,8 +498,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     employeeStatusId, employeeStatusConfigId, avatar, meal, reportsToId,
     anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
     teamId, roomOrBlock, shift, experienceLevel, employeeLevelId,
-    discretionaryLeaveBoolean, discretionaryLeaveBalance,
-    allowedPerMonth, allowOverTime,
+    allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
   } = values;
@@ -559,17 +556,14 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
-    ...(allowedPerMonth && { allowedPerMonth }),
     ...(allowOverTime && { allowOverTime }),
-    discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
-    ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && { discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0 }),
     ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
     isHiddenFromStaff: isHiddenFromStaff === true,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "discretionaryLeaveBoolean" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -873,10 +867,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       departmentId, companyEmailId, referredById, method, nickName, employeeCode,
       companyPhoneNumber, companyPhoneExtension, employeeStatusId, employeeStatusConfigId,
       avatar, meal, anniversary, reportsToId,
-      allowedPerMonth, allowOverTime, professionalFeesEnabled, professionalFeesAmount,
+      allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
-      roomOrBlock, shift, experienceLevel, employeeLevelId, discretionaryLeaveBoolean,
-      discretionaryLeaveBalance, isHiddenFromStaff: isHiddenFromStaffEdit,
+      roomOrBlock, shift, experienceLevel, employeeLevelId,
+      isHiddenFromStaff: isHiddenFromStaffEdit,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -923,7 +917,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(employeeStatusConfigId && { employeeStatusConfigId }),
       companyId, method: parseInt(method), companyPhoneNumber, companyPhoneExtension, employeeCode,
       ...(isAdmin && { isAdmin: isAdmin === "1" }),
-      ...(allowedPerMonth && { allowedPerMonth }),
       ...(allowOverTime && { allowOverTime }),
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
@@ -935,15 +928,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
       ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
-      discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
-      ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && { discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0 }),
       ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "discretionaryLeaveBoolean" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1186,7 +1177,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const { data: { wizardData } } = await fetchWizardData(employeeId, false);
 
       let presentAddress = {};
-      const { allowedPerMonth, allowOverTime } = wizardData;
+      const { allowOverTime } = wizardData;
       const isSameAddress = wizardData.addressInfo?.presentAddressLine1 === null;
       if (isSameAddress) {
         const { permanentAddressLine1, permanentAddressLine2, permanentCountry, permanentState, permanentCity, permanentPostalCode } = wizardData.addressInfo;
@@ -1203,7 +1194,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         appRole: wizardData?.roles[0]?.id,
         isEmployeeActive: wizardData?.isActive ? "1" : "0",
         isAdmin: wizardData?.isAdmin ? "1" : "0",
-        allowedPerMonth: allowedPerMonth || 1,
         allowOverTime,
         bloodGroup: wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
         ...(wizardData?.employeeTypeConfigId && { employeeTypeConfigId: wizardData.employeeTypeConfigId }),
@@ -1215,8 +1205,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         instagramProfileUrl: wizardData?.users?.instagramProfileUrl || "",
         facebookProfileUrl: wizardData?.users?.facebookProfileUrl || "",
         hobbies: wizardData?.users?.hobbies || "", notes: wizardData?.users?.notes || "",
-        discretionaryLeaveBoolean: wizardData?.discretionaryLeaveBoolean ? "true" : "false",
-        discretionaryLeaveBalance: wizardData?.discretionaryLeaveBalance || 0,
         isHiddenFromStaff: wizardData?.isHiddenFromStaff === true,
         professionalFeesEnabled: readProfessionalFeesEnabled(wizardData?.professionalFeesEnabled ?? (wizardData as any)?.professional_fees_enabled),
         professionalFeesAmount: (() => { const v = wizardData?.professionalFeesAmount ?? (wizardData as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),

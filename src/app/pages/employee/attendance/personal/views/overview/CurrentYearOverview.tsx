@@ -5,12 +5,14 @@ import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves } from '@services/employ
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, getWorkingDaysInRange, getWorkingDaysInYear, multipleRadialBarData, totalWorkingTime } from '@utils/statistics';
 import dayjs from 'dayjs';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Row, Col, Image } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
 import { saveLeaves } from '@redux/slices/attendanceStats';
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 interface CurrentYearOverviewProps {
     yearlyStats: Attendance[];
@@ -35,14 +37,6 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     
     
     const totalWorkingDay = getWorkingDaysInRange(dayjs(startDate), dayjs(endDate), true, allWeekends, holidays );
-
-    console.log("=== ATTENDANCE MODULE ===");
-    console.log("WorkingDays:", totalWorkingDay);
-    console.log("StartDate:", dayjs(startDate).format('YYYY-MM-DD'));
-    console.log("EndDate:", dayjs(endDate).format('YYYY-MM-DD'));
-    console.log("Holidays:", holidays);
-    console.log("WorkingConfig:", allWeekends);
-    console.log("=========================");
 
     const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee?.id);
     const currentEmployeeId = useSelector((state:RootState) => state?.employee?.currentEmployee?.id);
@@ -110,6 +104,9 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     useEffect(() => {
         fetchEmployeeLeaveBlance();
     }, [selectedEmployeeId, checkInCheckOut, startDate, endDate]);
+
+    useEventBus(EVENT_KEYS.leaveOptionsUpdated, fetchEmployeeLeaveBlance);
+    useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, fetchEmployeeLeaveBlance);
 
 
     // const totalWorkingDayInYear = useMemo(() => {

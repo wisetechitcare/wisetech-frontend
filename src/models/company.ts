@@ -25,7 +25,6 @@ export interface ICompanyOverview {
     fiscalYear: string,
     logo: string,
     salaryStamp?:string,
-    attendanceRequestRaiseLimit?:string,
     monthlyAnnualLeaveLimit?:string,
     showDateIn12HourFormat?:string,
     // workingHrs: string,

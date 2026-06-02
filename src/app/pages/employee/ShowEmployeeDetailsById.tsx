@@ -80,7 +80,6 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
     allowOverTime,
     isActive,
     anniversary,
-    attendanceRequestRaiseLimit,
     method,
     aadharNumber,
     panNumber,

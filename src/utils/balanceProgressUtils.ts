@@ -273,7 +273,6 @@ export const calculateLeaveBalances = (
     addonLeaveAllowanceCount: number,
     proRatedMonths: number,
     hasPendingOrApprovedTransfer: boolean,
-    allowedPerMonth: number = 1,
     tenureMonths: number = 1
 ): { balances: Record<string, number>; proRated: Record<string, number> } => {
     const monthsInYear = 12;
@@ -290,19 +289,14 @@ export const calculateLeaveBalances = (
         if (leaveType === CASUAL_LEAVES) {
             const monthlyLeave = totalYearlyDays / monthsInYear;
             // B7: Use direct floor — multiply/divide by 10 introduces floating-point errors
-            let proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
-            // Apply allowedPerMonth cap
-            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
+            const proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
 
             proRated[leaveType] = proRatedLeaves + transferred;
             balances[leaveType] = totalYearlyDays + transferred;
         } else if (leaveType === ANNUAL_LEAVES) {
             // FIX: Use backend-provided `totalYearlyDays` with pro-rating rather than hardcoding with tenureMonths
             const monthlyLeave = totalYearlyDays / monthsInYear;
-            let proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
-
-            // Apply allowedPerMonth cap
-            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
+            const proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
 
             // Add addon leave allowance (experience-based leaves) and transferred leaves
             const totalWithAddon = proRatedLeaves + addonLeaveAllowanceCount;
@@ -395,8 +389,7 @@ export const calculateLeaveBalances = (
 export const buildLeaveData = (
     leavesTakenCount: Record<string, number>,
     proRatedBalances: Record<string, number>,
-    leaveBalances: Record<string, number>,
-    allowedPerMonth: number = 1
+    leaveBalances: Record<string, number>
 ) => {
     const allPaidLeaves = [
         {
@@ -404,8 +397,7 @@ export const buildLeaveData = (
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
             total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth,
-            showAllowedPerMonth: true
+            showAllowedPerMonth: false
         },
         {
             label: SICK_LEAVES,
@@ -427,16 +419,14 @@ export const buildLeaveData = (
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth,
-            showAllowedPerMonth: true
+            showAllowedPerMonth: false
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth,
-            showAllowedPerMonth: true
+            showAllowedPerMonth: false
         },
     ];
 

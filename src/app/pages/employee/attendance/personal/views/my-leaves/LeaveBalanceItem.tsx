@@ -7,9 +7,6 @@ interface LeaveBalanceItemProps {
     used?: number;
     total: number;
     color: string;
-    discretionaryLeaveBalance?: number;
-    allowedPerMonth?: number;
-    showAllowedPerMonth?: boolean;
 }
 
 const LeaveBalanceItem = ({
@@ -17,9 +14,6 @@ const LeaveBalanceItem = ({
     used = 0,
     total = 0,
     color,
-    discretionaryLeaveBalance,
-    allowedPerMonth = 1,
-    showAllowedPerMonth = false,
 }: LeaveBalanceItemProps) => {
     const percentage = total > 0 ? (used / total) * 100 : 0;
     const remaining = total - used;
@@ -28,14 +22,12 @@ const LeaveBalanceItem = ({
     const getTooltipContent = () => {
         const baseInfo = `Allocated: ${total} ${total === 1 ? 'leave' : 'leaves'} per year`;
         const usageInfo = `Used: ${used} | Remaining: ${remaining}`;
-        const monthlyInfo = showAllowedPerMonth ? `\nMonthly Limit: ${allowedPerMonth} ${allowedPerMonth === 1 ? 'leave' : 'leaves'}` : '';
 
         return (
             <div style={{ textAlign: 'left', lineHeight: '1.6' }}>
                 <div style={{ fontWeight: '600', marginBottom: '6px' }}>{label}</div>
                 <div style={{ fontSize: '12px' }}>📊 {baseInfo}</div>
                 <div style={{ fontSize: '12px' }}>✓ {usageInfo}</div>
-                {monthlyInfo && <div style={{ fontSize: '12px', marginTop: '4px' }}>📅 {monthlyInfo}</div>}
             </div>
         );
     };
@@ -87,19 +79,6 @@ const LeaveBalanceItem = ({
                     transition: 'width 0.3s ease'
                 }} />
             </div>
-
-            {discretionaryLeaveBalance !== undefined && label?.toLowerCase().includes(CASUAL_LEAVES.toLowerCase()) && discretionaryLeaveBalance > 0 && (
-                <OverlayTrigger
-                    placement="top"
-                    overlay={
-                        <Tooltip id="discretionary-balance-tooltip">
-                            {`Extra ${discretionaryLeaveBalance} discretionary leaves added to Casual Leaves`}
-                        </Tooltip>
-                    }
-                >
-                    <span style={{ cursor: "pointer", fontSize: '14px' }}></span>
-                </OverlayTrigger>
-            )}
 
             <p style={{
                 fontFamily: 'Inter, sans-serif',

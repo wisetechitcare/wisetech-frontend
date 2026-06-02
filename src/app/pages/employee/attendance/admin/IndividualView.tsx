@@ -156,28 +156,27 @@ const IndividualView = () => {
             <AllEmployeesSearchDropdown />
             <div className='mt-8'></div>
             <div className="sticky-responsive">
-                <style jsx>{`
+                <style>{`
                     .sticky-responsive {
                         background-color: white;
                         padding: 10px;
-                        }
-
-                        @media (min-width: 992px) {
+                    }
+                    @media (min-width: 992px) {
                         .sticky-responsive {
                             position: sticky;
                             top: 125px;
                             z-index: 10;
                             overflow: visible;
                         }
-                        }
-                         @media (max-width: 992px) {
+                    }
+                    @media (max-width: 992px) {
                         .sticky-responsive {
                             position: sticky;
                             top: 50px;
                             z-index: 10;
                             overflow: visible;
                         }
-                        }
+                    }
                 `}</style>
                 <ProfileCard employee={selectedEmployee} />
             </div>

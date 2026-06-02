@@ -19,6 +19,8 @@ import dayjs, { Dayjs } from "dayjs";
 import { formatDateFromISTString } from "@utils/statistics";
 import { fetchColorAndStoreInSlice } from "@utils/file";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 
 function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, startDateNew, endDateNew }: { fromAdmin?: boolean, resource?: string, viewOwn?: boolean, viewOthers?: boolean, startDateNew?: string|Dayjs, endDateNew?: string|Dayjs }) {
 
@@ -264,6 +266,9 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     useEffect(() => {
         fetchLeaves();
     }, [selectedEmployeeId]);
+
+    useEventBus(EVENT_KEYS.leaveRequestCreated, fetchLeaves);
+    useEventBus(EVENT_KEYS.leaveRequestUpdated, fetchLeaves);
 
     return (
         <>
