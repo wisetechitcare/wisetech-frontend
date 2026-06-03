@@ -669,7 +669,10 @@ const FactorLeaderboardCard = React.memo(
   }) => {
     if (!loading && (!rankings || rankings.length === 0)) return null;
 
-    const isNegative = factor.type === "NEGATIVE";
+    const factorType = (factor.type as string)?.toUpperCase();
+    // Paid leaves are a company benefit — always show green regardless of DB type.
+    const isPaidLeave = factor.name === "Total Paid Leaves Taken";
+    const isNegative  = factorType === "NEGATIVE" && !isPaidLeave;
     const theme = isNegative ? COLORS.negative : COLORS.positive;
     const valueLabel = getMetricLabel(factor);
 
@@ -1358,7 +1361,8 @@ function LeaderBoardCore({
                       height: "10px",
                       borderRadius: "50%",
                       backgroundColor:
-                        (selectedFactor.type as string)?.toUpperCase() === "NEGATIVE"
+                        (selectedFactor.type as string)?.toUpperCase() === "NEGATIVE" &&
+                        selectedFactor.name !== "Total Paid Leaves Taken"
                           ? COLORS.negative.accent
                           : COLORS.positive.accent,
                       flexShrink: 0,
