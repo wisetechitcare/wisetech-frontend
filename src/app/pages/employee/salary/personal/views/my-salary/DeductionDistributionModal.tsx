@@ -199,7 +199,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             const defaultFields: any = {
                 'Provident Fund': { name: 'Provident Fund', type: 'number', value: 0, isActive: true },
                 'Professional Tax': { name: 'Professional Tax', type: 'number', value: 0, isActive: true },
-                'Professional Fees': { name: 'Professional Fees', type: 'number', value: 0, isActive: true }
+                'Professional Fees': { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true }
             };
 
             // Merge existing data if found

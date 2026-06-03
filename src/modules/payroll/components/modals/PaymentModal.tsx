@@ -164,8 +164,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     initialValues={{
                         ...initialValues,
                         paymentType: activeTab,
-                        salaryAmount: initialValues.salaryAmount || payableAmount,
-                        govAmount: initialValues.govAmount || 0,
+                        salaryAmount: Math.round(initialValues.salaryAmount || payableAmount),
+                        govAmount: Math.round(initialValues.govAmount || 0),
                         govType: initialValues.govType || (hasProfessionalFees ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
                         paymentMethod: 'BANK_TRANSFER',
@@ -301,7 +301,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const selected = govtDeductions.find(d => d.value === option.value);
                                                                         setFieldValue('govType', option.value);
                                                                         if (selected) {
-                                                                            setFieldValue('govAmount', selected.amount);
+                                                                            setFieldValue('govAmount', Math.round(selected.amount));
                                                                         } else {
                                                                             setFieldValue('govAmount', 0);
                                                                         }

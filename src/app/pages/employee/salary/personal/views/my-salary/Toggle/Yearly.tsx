@@ -372,7 +372,7 @@ const Yearly = ({
         ...(hasProfessionalFees ? [{
             label: 'PF / GOVT DEDUCTION',
             value: formatCurrencyDecimal(yearOverview.totalGovtDeduction),
-            footer: 'Professional Fees',
+            footer: 'Tax Deducted at Source (TDS)',
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
         }] : []),
