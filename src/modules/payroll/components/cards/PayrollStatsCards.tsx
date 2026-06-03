@@ -15,6 +15,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
     // Calculate Gov Pending
     const govPending = Math.max(0, summaryData.governmentPending || 0);
     const hasProfessionalFees = !!summaryData.activeGovType;
+    const displayGovType = summaryData.activeGovType === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : summaryData.activeGovType || 'Gov Fee';
 
     const cards = [
         { 
@@ -26,7 +27,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             statusLabel: 'Pending'
         },
         ...(hasProfessionalFees ? [{ 
-            label: `${summaryData.activeGovType || 'Gov Fee'} Payable`, 
+            label: `${displayGovType} Payable`, 
             value: summaryData.totalFixedDeduction, 
             pendingValue: govPending,
             icon: 'percentage', 
@@ -41,7 +42,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             statusLabel: 'Paid to Employee'
         },
         ...(hasProfessionalFees ? [{ 
-            label: `${summaryData.activeGovType || 'Gov Fee'} Paid`, 
+            label: `${displayGovType} Paid`, 
             value: summaryData.governmentPaid, 
             icon: 'shield-tick', 
             color: 'success', // Green
@@ -76,10 +77,12 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
                                     <div className="d-flex justify-content-between align-items-center bg-danger bg-opacity-10 rounded-3 px-4 py-3 border border-danger border-opacity-25 w-100" style={{ minHeight: '48px' }}>
                                         <div className="d-flex align-items-center">
                                             <span className="rounded-circle bg-danger me-2" style={{ width: '8px', height: '8px' }}></span>
-                                            <span className="text-danger fw-bold fs-7">{card.statusLabel}</span>
+                                            <span className="text-danger fw-bold fs-7">
+                                                {card.statusLabel === 'Pending' && (card.pendingValue || 0) < 0 ? 'Paid Extra' : card.statusLabel}
+                                            </span>
                                         </div>
                                         <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                            {formatINRRounded(card.pendingValue || 0)}
+                                            {formatINRRounded(card.statusLabel === 'Pending' && (card.pendingValue || 0) < 0 ? Math.abs(card.pendingValue || 0) : (card.pendingValue || 0))}
                                         </span>
                                     </div>
                                 ) : (

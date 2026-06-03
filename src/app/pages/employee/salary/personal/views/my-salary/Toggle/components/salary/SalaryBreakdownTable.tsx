@@ -96,7 +96,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                 <Table stickyHeader sx={{ minWidth: 860 }}>
                     <TableHead>
                         <TableRow>
-                            {['Month', 'Basic Salary', 'Overtime', 'Payable', 'Net Payable', 'Paid', 'Pending', 'PF Deduction', ...(showGovtDeduction ? ['Professional Fees'] : []), 'Status'].map((head) => (
+                            {['Month', 'Basic Salary', 'Overtime', 'Payable', 'Net Payable', 'Paid', 'Pending', 'PF Deduction', ...(showGovtDeduction ? ['Tax Deducted at Source (TDS)'] : []), 'Status'].map((head) => (
                                 <TableCell
                                     key={head}
                                     sx={{

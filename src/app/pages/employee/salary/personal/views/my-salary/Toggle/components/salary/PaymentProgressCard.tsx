@@ -9,8 +9,8 @@ interface PaymentProgressCardProps {
 }
 
 const legend = [
-    { label: 'Paid', color: '#3b82f6' }, // Modern Blue
-    { label: 'Remaining', color: '#f59e0b' }, // Modern Amber/Orange
+    { label: 'Paid', color: '#3b82f6' }, // Modern Blue as in screenshot
+    { label: 'Remaining', color: '#f59e0b' }, // Modern Amber/Orange as in screenshot
 ];
 
 const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remainingAmount }: PaymentProgressCardProps) => {
@@ -62,10 +62,10 @@ const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remaini
                 sx={{
                     height: 12,
                     borderRadius: 6,
-                    backgroundColor: '#ffe4e6', // Soft pink/red for remaining
+                    backgroundColor: '#ffe4e6', // Soft pink/red for remaining (matching screenshot track)
                     '& .MuiLinearProgress-bar': {
                         borderRadius: 6,
-                        backgroundColor: '#3b82f6', // Solid blue for paid (matching the image)
+                        backgroundColor: '#AA393D', // Dark red for paid (matching screenshot bar)
                     },
                 }}
             />

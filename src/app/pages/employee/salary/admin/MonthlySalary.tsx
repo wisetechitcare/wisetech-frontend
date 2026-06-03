@@ -225,7 +225,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             },
                         {
               accessorKey: "professionalFees",
-              header: "Prof. Fees",
+              header: "TDS",
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";

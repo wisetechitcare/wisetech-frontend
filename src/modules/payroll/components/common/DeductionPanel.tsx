@@ -163,7 +163,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     return (
                                         <tr key={key}>
                                             <td>
-                                                <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
+                                                <span className="text-gray-800 fw-bold d-block fs-7">{(item.name || key) === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : (item.name || key)}</span>
                                             </td>
                                             <td>
                                                 <span className="badge badge-light-secondary fw-bold fs-8">{typeLabel}</span>
