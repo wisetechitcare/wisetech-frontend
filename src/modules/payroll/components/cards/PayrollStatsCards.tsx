@@ -13,9 +13,8 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
     // Calculate Gov Pending
-    const govPending = Math.max(0, (summaryData.totalFixedDeduction || 0) - (summaryData.governmentPaid || 0));
-
-    const isProfFees = summaryData.activeGovType?.toLowerCase().includes('professional fees');
+    const govPending = Math.max(0, summaryData.governmentPending || 0);
+    const hasProfessionalFees = !!summaryData.activeGovType;
 
     const cards = [
         { 
@@ -26,7 +25,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             color: 'primary', // Blue
             statusLabel: 'Pending'
         },
-        ...(isProfFees ? [{ 
+        ...(hasProfessionalFees ? [{ 
             label: `${summaryData.activeGovType || 'Gov Fee'} Payable`, 
             value: summaryData.totalFixedDeduction, 
             pendingValue: govPending,
@@ -41,24 +40,25 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             color: 'success', // Green
             statusLabel: 'Paid to Employee'
         },
-        ...(isProfFees ? [{ 
+        ...(hasProfessionalFees ? [{ 
             label: `${summaryData.activeGovType || 'Gov Fee'} Paid`, 
             value: summaryData.governmentPaid, 
             icon: 'shield-tick', 
-            color: 'info', // Purpleish
+            color: 'success', // Green
             statusLabel: 'Paid to Govt'
         }] : []),
     ];
 
     return (
-        <Row className="g-7 mb-10">
-            {cards.map((card, idx) => (
-                <Col xl={3} lg={6} key={idx}>
+        <div className="mb-10 px-0">
+            <div className="row g-4 gx-xl-5 align-items-stretch">
+                {cards.map((card, idx) => (
+                    <div key={idx} className="col-12 col-sm-6 col-lg-3">
                     <div 
                         className={`card h-100 border-1 border-${card.color} border-opacity-10 shadow-sm rounded-4 overflow-hidden position-relative`}
                         style={{ backgroundColor: `var(--bs-light-${card.color})` }}
                     >
-                        <div className="card-body p-7">
+                        <div className="card-body p-7 d-flex flex-column">
                             <div className="d-flex align-items-center mb-5">
                                 <span className="text-gray-600 fw-bold fs-8 text-uppercase ls-2 tracking-wider">
                                     {card.label}
@@ -71,22 +71,30 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
                                 </span>
                             </div>
 
-                            <div className="d-flex align-items-center">
+                            <div className="mt-auto w-100">
                                 {card.statusLabel.includes('Pending') ? (
-                                    <div className={`badge badge-light-danger fw-bolder fs-8 px-4 py-2 rounded-2 border border-danger border-opacity-10`}>
-                                        {card.statusLabel}: {formatINR2(card.pendingValue || 0)}
+                                    <div className="d-flex justify-content-between align-items-center bg-danger bg-opacity-10 rounded-3 px-4 py-3 border border-danger border-opacity-25 w-100" style={{ minHeight: '48px' }}>
+                                        <div className="d-flex align-items-center">
+                                            <span className="rounded-circle bg-danger me-2" style={{ width: '8px', height: '8px' }}></span>
+                                            <span className="text-danger fw-bold fs-7">{card.statusLabel}</span>
+                                        </div>
+                                        <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
+                                            {formatINR2(card.pendingValue || 0)}
+                                        </span>
                                     </div>
                                 ) : (
-                                    <div className={`badge badge-light-${card.color} fw-bolder fs-8 px-4 py-2 rounded-2 border border-${card.color} border-opacity-10`}>
-                                        {card.statusLabel}
+                                    <div className={`d-flex align-items-center bg-${card.color} bg-opacity-10 rounded-3 px-4 py-3 border border-${card.color} border-opacity-25 w-100`} style={{ minHeight: '48px' }}>
+                                        <span className={`rounded-circle bg-${card.color} me-2`} style={{ width: '8px', height: '8px' }}></span>
+                                        <span className={`text-${card.color} fw-bold fs-7`}>{card.statusLabel}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
-                </Col>
-            ))}
-        </Row>
+                </div>
+                ))}
+            </div>
+        </div>
     );
 };
 

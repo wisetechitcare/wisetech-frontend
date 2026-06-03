@@ -1,3 +1,4 @@
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
@@ -59,11 +60,12 @@ function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
         {/* Row 2: Phone, Date of Birth */}
         <div className="row g-3">
           <div className="col-lg-6 col-md-6 col-sm-12">
-            <TextInput
-              isRequired={false}
+            <PhoneNumberInput
               label="Phone"
-              margin="mb-0"
+              isRequired={false}
               formikField={`${element}.mobileNumber`}
+              formikProps={formikProps}
+              placeholder="Phone number"
             />
           </div>
 

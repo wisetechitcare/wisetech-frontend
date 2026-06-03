@@ -250,9 +250,39 @@ const GrossPayDistribution = () => {
   ];
 
   return (
-    <div className="mb-10 bg-white p-8" style={{ borderRadius: "15px" }}>
-      <div>
-        <h2>Gross Pay Distribution</h2>
+    <div className="mb-10 p-8" style={{ backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div className="d-flex justify-content-between align-items-center mb-6">
+        <h2 style={{
+          fontFamily: 'Barlow, sans-serif',
+          fontWeight: 700,
+          fontSize: '24px',
+          color: '#181C32',
+          letterSpacing: '-0.5px',
+          margin: 0
+        }}>Gross Pay Distribution</h2>
+        
+        {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && (
+          <button
+            className="btn btn-sm d-flex align-items-center gap-2"
+            onClick={() => handleNew()}
+            style={{
+              backgroundColor: '#9d4141',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: '14px',
+              boxShadow: '0 4px 12px rgba(157, 65, 65, 0.15)',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(157, 65, 65, 0.2)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(157, 65, 65, 0.15)'; }}
+          >
+            <i className="bi bi-plus-lg"></i> Add New Category
+          </button>
+        )}
       </div>
       <MaterialTable
         columns={columnsGrossPay}
@@ -282,31 +312,52 @@ const GrossPayDistribution = () => {
         tableName="Gross Pay Distribution"
       />
       {grossPayDataError && (
-        <p className="text-danger my-4">
-          Total value is more than 100% please verify and rebalance
-        </p>
+        <div style={{
+          backgroundColor: '#fff5f8',
+          border: '1px dashed #f1416c',
+          borderRadius: '8px',
+          padding: '16px',
+          marginTop: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <i className="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
+          <p className="text-danger mb-0 fw-bold" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Total value is more than 100% please verify and rebalance
+          </p>
+        </div>
       )}
-      {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && <div
-        className="py-1 rounded-3 my-4 d-flex justify-content-end align-items-start"
-        style={{ paddingRight: "1.25rem" }}
-      > 
-        <button
-          className="d-flex justify-content-between align-items-start bg-primary  btn btn-lg btn-primary fs-5 w-auto"
-          onClick={() => handleNew()}
-        >
-          Add New
-        </button>
-      </div>}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            {editMode
-              ? "Edit Gross Pay Distribution Category"
-              : "New Gross Pay Distribution Category"}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '32px 40px',
+        }}>
+          <div className="d-flex justify-content-between align-items-center mb-5">
+            <div style={{
+              fontFamily: 'Barlow, sans-serif',
+              fontWeight: 700,
+              fontSize: '22px',
+              color: '#181C32',
+              letterSpacing: '-0.5px',
+            }}>
+              {editMode ? "Edit Distribution Category" : "New Distribution Category"}
+            </div>
+            <button 
+              onClick={handleClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                color: '#A1A5B7',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
           <Formik
             initialValues={initialState}
             onSubmit={handleSubmit}
@@ -348,21 +399,55 @@ const GrossPayDistribution = () => {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-4">
+                <div className="d-flex justify-content-end mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E1E3EA',
+                      borderRadius: '8px',
+                      color: '#3F4254',
+                      height: '44px',
+                      padding: '0 24px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: 'pointer',
+                      marginRight: '12px',
+                    }}
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
-                    className="btn btn-primary"
                     disabled={loading || !formikProps.isValid}
+                    style={{
+                      backgroundColor: '#9d4141',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      height: '44px',
+                      padding: '0 28px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
+                      opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
+                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseOver={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseOut={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
-                    {!loading && "Submit"}
+                    {!loading && "Save Category"}
                     {loading && (
-                      <span
-                        className="indicator-progress"
-                        style={{ display: "block" }}
-                      >
-                        Please wait...{" "}
-                        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                      </span>
+                      <>
+                        Saving... <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+                      </>
                     )}
                   </button>
                 </div>

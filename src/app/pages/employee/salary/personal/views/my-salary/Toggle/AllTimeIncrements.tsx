@@ -1,170 +1,4 @@
-// import { useState, useEffect } from 'react';
-// import ApexCharts from 'react-apexcharts';
-
-// interface AllTimeIncrementsProps {
-//     salaryData: any[];
-// }
-
-// const AllTimeIncrements = ({ salaryData }: AllTimeIncrementsProps) => {
-//     console.log("All Time Increments salaryData ===>", salaryData);
-//     const [incrementsChartData, setIncrementsChartData] = useState<any[]>(salaryData);
-//     const [incrementsChartOptions] = useState<any>({
-//         chart: {
-//             id: 'alltime-increments-chart',
-//             type: 'area',
-//             height: 350,
-//             toolbar: {
-//                 show: true,
-//                 tools: {
-//                     zoom: false,
-//                     zoomin: false,
-//                     zoomout: false,
-//                     pan: false,
-//                     reset: false,
-//                     download: true,
-//                 },
-//             }
-//         },
-//         dataLabels: {
-//             enabled: true,
-//             formatter: function (val: number) {
-//                 return '₹' + val.toLocaleString()
-//             },
-//             offsetY: -10,
-//             style: {
-//                 fontSize: '12px',
-//                 colors: ['#fff'],
-//                 fontWeight: 600
-//             },
-//             background: {
-//                 enabled: true,
-//                 foreColor: '#2E93FA',
-//                 borderRadius: 2,
-//                 padding: 4,
-//                 opacity: 1,
-//                 borderWidth: 1,
-//                 borderColor: '#fff',
-//                 dropShadow: {
-//                     enabled: false,
-//                     top: 0,
-//                     left: 0,
-//                     blur: 0,
-//                     opacity: 0
-//                 }
-//             }
-//         },
-//         stroke: {
-//             curve: 'smooth',
-//             width: 2,
-//             colors: ['#2E93FA']
-//         },
-//         fill: {
-//             type: 'gradient',
-//             gradient: {
-//                 shadeIntensity: 1,
-//                 opacityFrom: 0.4,
-//                 opacityTo: 0.1,
-//                 stops: [0, 90, 100]
-//             },
-//             colors: ['#EFF7FF']
-//         },
-//         grid: {
-//             borderColor: '#DDE2E4',
-//             strokeDashArray: 0,
-//             position: 'back',
-//             xaxis: {
-//                 lines: {
-//                     show: false
-//                 }
-//             },
-//             yaxis: {
-//                 lines: {
-//                     show: true
-//                 }
-//             }
-//         },
-//         xaxis: {
-//             categories: [],
-//             labels: {
-//                 style: {
-//                     fontSize: '12px',
-//                     fontFamily: 'Inter, sans-serif',
-//                     colors: '#66717b'
-//                 }
-//             },
-//             axisBorder: {
-//                 show: false
-//             },
-//             axisTicks: {
-//                 show: false
-//             }
-//         },
-//         yaxis: {
-//             labels: {
-//                 style: {
-//                     fontSize: '11px',
-//                     fontFamily: 'Lato, sans-serif',
-//                     colors: '#111618'
-//                 },
-//                 formatter: function (val: number) {
-//                     return val.toFixed(0)
-//                 }
-//             }
-//         },
-//         colors: ['#2E93FA'],
-//         markers: {
-//             size: 0,
-//             colors: ['#2E93FA'],
-//             strokeColors: '#fff',
-//             strokeWidth: 2,
-//             hover: {
-//                 size: 7
-//             }
-//         },
-//         tooltip: {
-//             y: {
-//                 formatter: function (val: number) {
-//                     return "₹ " + val.toLocaleString()
-//                 }
-//             }
-//         }
-//     });
-
-
-//     return (
-//         <div className="card p-4 mb-5" style={{
-//             boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-//             borderRadius: '12px'
-//         }}>
-//             <h4 className="mb-4" style={{
-//                 fontSize: '22px',
-//                 fontWeight: 600,
-//                 fontFamily: 'Lato, sans-serif',
-//                 color: '#111618'
-//             }}>
-//                 Increments
-//             </h4>
-//             {incrementsChartData.length > 0 ? (
-//                 <div className="card p-2">
-//                     <ApexCharts
-//                         options={incrementsChartOptions}
-//                         series={salaryData}
-//                         type="area"
-//                         height={350}
-//                     />
-//                 </div>
-//             ) : (
-//                 <div className="card p-4 text-center" style={{ minHeight: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-//                     <p className="text-muted">No salary data available</p>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// };
-
-// export default AllTimeIncrements;
-
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import ApexCharts from 'react-apexcharts';
 
 interface AllTimeIncrementsProps {
@@ -174,83 +8,133 @@ interface AllTimeIncrementsProps {
 }
 
 const AllTimeIncrements = ({ salaryData, SalaryDataCtc, loading = false }: AllTimeIncrementsProps) => {
-    console.log("All Time Increments salaryData ===>", salaryData);
+    const [curveType, setCurveType] = useState<'smooth' | 'stepline'>('stepline');
 
     const months = SalaryDataCtc.map((d) => `${d.month} ${d.year}`);
-    const values = SalaryDataCtc.map((d) => d.monthlyCTC);
+    const values = SalaryDataCtc.map((d) => d.annualCTC);
+
+    const firstSalary = values.length > 0 ? values[0] : 0;
+    const currentSalary = values.length > 0 ? values[values.length - 1] : 0;
+    const totalIncrement = Math.max(0, currentSalary - firstSalary);
+    const totalGrowthPercent = firstSalary > 0 ? (totalIncrement / firstSalary) * 100 : 0;
+
+    // Detect individual salary increment jumps and build point annotations
+    const pointAnnotations = useMemo(() => {
+        const ann: any[] = [];
+        for (let i = 1; i < values.length; i++) {
+            const prev = values[i - 1];
+            const curr = values[i];
+            if (curr > prev && prev > 0) {
+                const diff = curr - prev;
+                ann.push({
+                    x: months[i],
+                    y: curr,
+                    marker: {
+                        size: 4,
+                        fillColor: '#10B981',
+                        strokeColor: '#ffffff',
+                        strokeWidth: 2,
+                    },
+                    label: {
+                        borderColor: '#10B981',
+                        offsetY: -28,
+                        style: {
+                            color: '#fff',
+                            background: '#10B981',
+                            fontSize: '8.5px',
+                            fontWeight: 700,
+                            padding: { left: 4, right: 4, top: 2, bottom: 2 }
+                        },
+                        text: `+₹${diff.toLocaleString('en-IN')}`
+                    }
+                });
+            }
+        }
+        return ann;
+    }, [values, months]);
 
     const seriesData = [
         {
-            name: "Monthly CTC",
+            name: "CTC",
             data: values
         }
     ];
 
-    const options: any = {
+    const chartOptions: any = {
         chart: {
             id: 'alltime-increments-chart',
-                type: 'area' as 'area',
+            type: 'area' as 'area',
             height: 350,
-            toolbar: {
-                show: true,
-                tools: {
-                    zoom: false,
-                    zoomin: false,
-                    zoomout: false,
-                    pan: false,
-                    reset: false,
-                    download: false,
-                },
-            }
-        },
-        xaxis: {
-            categories: months,
-            labels: {
-                style: {
-                    fontSize: '12px',
-                    colors: '#66717b'
-                }
-            }
-        },
-        yaxis: {
-            labels: {
-                style: {
-                    fontSize: '11px',
-                    fontFamily: 'Lato, sans-serif',
-                    colors: '#111618'
-                },
-                formatter: function (val: number) {
-                    return Math.round(val);
-                }
-            }
-        },
-
-        dataLabels: {
-            enabled: true,
-            formatter: (val: number) => '₹' + Math.round(val).toLocaleString(),
-            
-        },
-        tooltip: {
-            y: {
-                formatter: (val: number) => '₹ ' + Math.round(val).toLocaleString()
-            }
-
+            toolbar: { show: false },
+            fontFamily: 'Inter, sans-serif',
         },
         stroke: {
-            curve: 'smooth',
-            width: 2,
+            curve: curveType === 'stepline' ? ('stepline' as 'stepline') : ('smooth' as 'smooth'),
+            width: 3,
             colors: ['#2E93FA']
         },
         fill: {
             type: 'gradient',
             gradient: {
                 shadeIntensity: 1,
-                opacityFrom: 0.4,
-                opacityTo: 0.1,
-                stops: [0, 90, 100]
-            },
-            colors: ['#EFF7FF']
+                opacityFrom: 0.35,
+                opacityTo: 0.05,
+                stops: [0, 95, 100],
+                colorStops: [
+                    { offset: 0, color: '#2E93FA', opacity: 0.35 },
+                    { offset: 100, color: '#EFF7FF', opacity: 0.05 }
+                ]
+            }
         },
+        grid: {
+            borderColor: '#f1f5f9',
+            strokeDashArray: 4,
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } }
+        },
+        xaxis: {
+            categories: months,
+            axisBorder: { show: true, color: '#e2e8f0' },
+            axisTicks: { show: false },
+            labels: {
+                style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 }
+            }
+        },
+        yaxis: {
+            labels: {
+                minWidth: 54,
+                maxWidth: 54,
+                formatter: function (val: number) {
+                    return '₹' + Math.round(val).toLocaleString('en-IN');
+                },
+                style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 }
+            },
+            title: {
+                text: 'CTC (₹)',
+                style: { color: '#64748b', fontSize: '13px', fontWeight: 600 }
+            }
+        },
+        colors: ['#2E93FA'],
+        markers: {
+            size: 5,
+            colors: ['#ffffff'],
+            strokeColors: '#2E93FA',
+            strokeWidth: 3,
+            hover: { size: 7 }
+        },
+        annotations: {
+            points: pointAnnotations
+        },
+        dataLabels: {
+            enabled: false
+        },
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: {
+                formatter: (val: number) => '₹ ' + Math.round(val).toLocaleString('en-IN')
+            }
+        }
     };
 
     // Skeleton loader component
@@ -258,64 +142,146 @@ const AllTimeIncrements = ({ salaryData, SalaryDataCtc, loading = false }: AllTi
         <div style={{
             width,
             height,
-            backgroundColor: "#e0e0e0",
-            borderRadius: "4px",
-            animation: "pulse 1.5s ease-in-out infinite"
+            backgroundColor: "#f1f5f9",
+            borderRadius: "6px",
+            animation: "pulse-shim 1.6s ease-in-out infinite"
         }} />
     );
 
-    // Add keyframe animation
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-    `;
-    if (!document.querySelector('style[data-skeleton-animation]')) {
-        styleElement.setAttribute('data-skeleton-animation', 'true');
-        document.head.appendChild(styleElement);
+    if (loading) {
+        return (
+            <div className="card mb-5" style={{ padding: '24px', borderRadius: '16px', backgroundColor: '#ffffff', border: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+                    <SkeletonLoader width="300px" height="32px" />
+                </div>
+                <div style={{ minHeight: '350px' }}>
+                    <SkeletonLoader width="100%" height="300px" />
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="card p-4 mb-5" style={{
-            boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-            borderRadius: '12px'
+        <div className="card mb-5" style={{
+            padding: '24px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            borderRadius: '16px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #f1f5f9',
+            fontFamily: 'Inter, sans-serif'
         }}>
-            <h4 className="mb-4" style={{
-                fontSize: '22px',
-                fontWeight: 600,
-                fontFamily: 'Lato, sans-serif',
-                color: '#111618'
-            }}>
-                Increments
-            </h4>
-
-            {loading ? (
-                <div className="card p-4" style={{ minHeight: '350px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <SkeletonLoader width="100%" height="300px" />
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                            <SkeletonLoader width="80px" height="12px" />
-                            <SkeletonLoader width="80px" height="12px" />
-                            <SkeletonLoader width="80px" height="12px" />
-                            <SkeletonLoader width="80px" height="12px" />
-                        </div>
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        backgroundColor: '#2e93fa10',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#2E93FA'
+                    }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <line x1="12" y1="19" x2="12" y2="5"/>
+                            <polyline points="5 12 12 5 19 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Increments</h3>
+                        <span style={{ fontSize: '12.5px', color: '#64748b' }}>Salary increment growth over time</span>
                     </div>
                 </div>
-            ) : salaryData.length > 0 ? (
-                <div className="card p-2">
-                    <ApexCharts
-                        options={options}
-                        series={seriesData}
 
+                {/* Growth Badge & Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+                    {/* Curve Type Selector Toggle */}
+                    <div style={{
+                        display: 'inline-flex',
+                        backgroundColor: '#f1f5f9',
+                        padding: '4px',
+                        borderRadius: '8px'
+                    }}>
+                        <button
+                            onClick={() => setCurveType('smooth')}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                backgroundColor: curveType === 'smooth' ? '#ffffff' : 'transparent',
+                                color: curveType === 'smooth' ? '#1e293b' : '#64748b',
+                                boxShadow: curveType === 'smooth' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                            }}
+                        >
+                            Smooth
+                        </button>
+                        <button
+                            onClick={() => setCurveType('stepline')}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                backgroundColor: curveType === 'stepline' ? '#ffffff' : 'transparent',
+                                color: curveType === 'stepline' ? '#1e293b' : '#64748b',
+                                boxShadow: curveType === 'stepline' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
+                            }}
+                        >
+                            Step-Line
+                        </button>
+                    </div>
+
+                    {/* Premium Growth Badge */}
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: '#d1fae5',
+                        color: '#065f46',
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 700
+                    }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                        {totalGrowthPercent > 0 ? `+${totalGrowthPercent.toFixed(0)}%` : '0%'} Growth
+                    </div>
+                </div>
+            </div>
+
+            {/* The Main Area + Line Chart */}
+            <div className="area-chart-container" style={{ minHeight: '350px', marginBottom: 0 }}>
+                {values.length > 0 ? (
+                    <ApexCharts
+                        options={chartOptions}
+                        series={seriesData}
                         type="area"
                         height={350}
                     />
-                </div>
-            ) : (
-                <div className="text-center p-4">No salary data available</div>
-            )}
+                ) : (
+                    <div style={{
+                        height: '350px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#64748b',
+                        fontSize: '14px'
+                    }}>
+                        No increment data available
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

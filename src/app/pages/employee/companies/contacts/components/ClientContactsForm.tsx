@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Row, Col, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import {
@@ -1107,21 +1108,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <Row className="">
                             <Col md={4}>
-                              <TextInput
+                              <PhoneNumberInput
                                 label="Phone"
                                 placeholder="Enter phone"
                                 isRequired={false}
                                 formikField="phone"
-                                inputValidation="numbers"
                               />
                             </Col>
                             <Col md={4}>
-                              <TextInput
+                              <PhoneNumberInput
                                 label="Phone 2"
                                 placeholder="Enter phone 2"
                                 formikField="phone2"
                                 isRequired={false}
-                                inputValidation="numbers"
                               />
                             </Col>
                             <Col md={4}>

@@ -81,6 +81,8 @@ export type AppEventMap = {
     leaveManagementRequestUpdated: { requestId: string };
     leaveRequestCreated: { leaveId: string };
     leaveRequestUpdated: { leaveId: string };
+    addonLeavesAllowanceUpdated: Record<string, never>;
+    leaveOptionsUpdated: Record<string, never>;
     organizationConfigCreated: { type: string };
     organizationConfigUpdated: { id: string };
     employeeConfigCreated: { type: string };
@@ -179,6 +181,8 @@ export type AppEventMap = {
     leaveManagementRequestUpdated: 'leaveManagementRequestUpdated',
     leaveRequestCreated: 'leaveRequestCreated',
     leaveRequestUpdated: 'leaveRequestUpdated',
+    addonLeavesAllowanceUpdated: 'addonLeavesAllowanceUpdated',
+    leaveOptionsUpdated: 'leaveOptionsUpdated',
     organizationConfigCreated: 'organizationConfigCreated',
     organizationConfigUpdated: 'organizationConfigUpdated',
     employeeConfigCreated: 'employeeConfigCreated',

@@ -5,9 +5,8 @@ import Select from 'react-select';
 import { KTCardBody } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeDiscretionaryBalanceById, fetchEmployeeLeaveBalance, getAllLeaveManagements } from '@services/employee';
+import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeLeaveBalance, getAllLeaveManagements } from '@services/employee';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
 import { ILeaveRequest } from '@models/employee';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -93,8 +92,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   const [limit, setLimit] = useState<number>(0);
   const [usedLeaves, setUsedLeaves] = useState<number>(0);
   const [countTotalLeaves, setCountTotalLeaves]= useState<number>(0);
-  const [discretionaryLeaveBalance, setDiscretionaryLeaveBalance] = useState<number>(0);
-  const [discretionaryLeaveBoolean, setDiscretionaryLeaveBoolean] = useState<boolean>(false);
   const employeeBranchIdFromRedux = useSelector((state: RootState) => state.employee.currentEmployee.branchId);
   const employeeBranchId = employeeBranchIdProp || employeeBranchIdFromRedux; // Use prop if provided (admin mode), else Redux
 
@@ -109,20 +106,9 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   const dateOfJoining = dateOfJoiningProp || dateOfJoiningFromRedux; // Use prop if provided (admin mode), else Redux
   const dateOfJoiningInString = dayjs(dateOfJoining).format('YYYY-MM-DD');
 
-  const allowedPerMonthFromRedux = useSelector((state: RootState) => state.employee.currentEmployee?.allowedPerMonth);
-  const [allowedPerMonth, setAllowedPerMonth] = useState(allowedPerMonthFromRedux || 1);
-  const [currentMonthUsage, setCurrentMonthUsage] = useState<number>(0);
-  const [showMonthlyLimitInfo, setShowMonthlyLimitInfo] = useState(false);
   const [cumulativeSummary, setCumulativeSummary] = useState<{
     total: number; used: number; allowedTillNow: number; remaining: number;
   } | null>(null);
-
-  // Update allowedPerMonth when Redux value changes
-  useEffect(() => {
-    if (allowedPerMonthFromRedux && allowedPerMonthFromRedux !== allowedPerMonth) {
-      setAllowedPerMonth(allowedPerMonthFromRedux);
-    }
-  }, [allowedPerMonthFromRedux]);
 
   const dispatch = useDispatch();
   // F4: Track the last fetch context to avoid redundant API calls when only the
@@ -136,7 +122,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         // Fetch leaves and options
         const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
         const { data: { leaveOptions } } = await fetchLeaveOptions();
-        const result = await fetchEmployeeDiscretionaryBalanceById(employeeId);
 
         // Fetch per-employee LeaveBalance (same source as BalanceProgress dashboard).
         // leaveOptions.numberOfDays is a branch-wide default and can differ from the
@@ -156,20 +141,13 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
           dispatch(savePersonalLeaves(transformedLeaves));
         }
 
-        const discretionaryLeaveBalance = result?.data?.employee?.discretionaryLeaveBalance;
-        const discretionaryLeaveBoolean = result?.data?.employee?.discretionaryLeaveBoolean;
-
         // Build a map of leaveType → actual allocated days (from LeaveBalance.totalAllocated).
         // This is the per-employee value, identical to what BalanceProgress displays.
         // leaveOptions.numberOfDays is a branch-wide default and diverges when an employee
         // has a custom allocation or addon leaves merged by the backend.
         const leaveBalanceMap: Record<string, number> = {};
         leavesSummary.forEach((summary: any) => {
-          let days = Number(summary.numberOfDays) || 0;
-          if (discretionaryLeaveBoolean && summary.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase())) {
-            days += Number(discretionaryLeaveBalance ?? 0);
-          }
-          leaveBalanceMap[summary.leaveType] = days;
+          leaveBalanceMap[summary.leaveType] = Number(summary.numberOfDays) || 0;
         });
 
         // Filter options by branch
@@ -178,14 +156,9 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         );
 
         const allLeaveOption = leaveOptionsData.map((option: any) => {
-
-        const isCasual = discretionaryLeaveBoolean && option.leaveType.toLowerCase().includes(CASUAL_LEAVES.toLowerCase());
-        const discretionaryExtra = isCasual ? Number(discretionaryLeaveBalance ?? 0) : 0;
-        const finalNumberOfDays = (Number(option.numberOfDays) || 0) + discretionaryExtra;
           return {
             ...option,
-            numberOfDays: finalNumberOfDays,
-            isDiscretionaryApplied: isCasual,
+            numberOfDays: Number(option.numberOfDays) || 0,
           };
         });
   
@@ -374,26 +347,23 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
             .reduce((total: any, leave: any) => total + calculateLeaveDays(leave), 0);
 
         const response = await fetchAllAddonLeavesAllowances();
-        // if (!response?.hasError && response.data?.addonLeavesAllowances) {
-        //     setAllowances(response.data.addonLeavesAllowances);
-        // }
         let addonLeaveAllowanceCount = 0;
-        // Calculate experience as of the fiscal year START date
-        // Experience-based leaves are distributed at the start of fiscal year
-        // e.g., Employee joins Nov 2025, completes 1 year in Nov 2026,
-        // fiscal year starts March 2027 - they get addon leaves for 1+ year experience
-        const experienceAtFiscalStart = dayjs(startDateNew).diff(dateOfJoiningInString, 'year');
 
-        if(!response?.hasError && response.data?.addonLeavesAllowances) {
-          const addonAllowance = response.data.addonLeavesAllowances.find((addon: any) => addon.experienceInCompany === experienceAtFiscalStart);
-          if(addonAllowance){
-            addonLeaveAllowanceCount = addonAllowance?.addonLeavesCount || 0;
-          }
+        // Mirror backend getFiscalYearExperience: fiscal-year slab, NOT calendar diff.
+        // DOJ Apr-Dec → joined FY starting that year; Jan-Mar → joined FY starting prev year.
+        // experience = (fyStartYear - joinFyStartYear) + 1, minimum 0.
+        const fyStartYear = parseInt((startDateNew ?? '').split('-')[0], 10);
+        const doj = dayjs(dateOfJoiningInString);
+        const dojMonth = doj.month() + 1; // 1-based
+        const joinFyStartYear = dojMonth >= 4 ? doj.year() : doj.year() - 1;
+        const experienceYears = Math.max(0, fyStartYear - joinFyStartYear + 1);
 
-          if(experienceAtFiscalStart>10){
-            let newAddon = response.data.addonLeavesAllowances.find((addon: any) => addon.experienceInCompany === 11);
-            addonLeaveAllowanceCount = newAddon?.addonLeavesCount || 0;
-          }
+        if (!response?.hasError && response.data?.addonLeavesAllowances) {
+          // Mirror backend getApplicableTier: highest tier whose threshold <= experienceYears.
+          const applicableTier = (response.data.addonLeavesAllowances as any[])
+            .filter((addon: any) => addon.experienceInCompany <= experienceYears)
+            .sort((a: any, b: any) => b.experienceInCompany - a.experienceInCompany)[0];
+          addonLeaveAllowanceCount = applicableTier ? (Number(applicableTier.addonLeavesCount) || 0) : 0;
         }
         
         // Calculate leaves being transferred in current fiscal year (to subtract from available balance)
@@ -682,57 +652,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
       fetchConfigurations();
     },[])
 
-  // Calculate current month's combined usage for info banner
-  useEffect(() => {
-    if (!employeeLeavesData || employeeLeavesData.length === 0) {
-      setCurrentMonthUsage(0);
-      setShowMonthlyLimitInfo(false);
-      return;
-    }
-
-    const currentMonth = dayjs().format('YYYY-MM');
-    const countedLeaveTypes = [ANNUAL_LEAVES, SICK_LEAVES, FLOATER_LEAVES, CASUAL_LEAVES, MATERNAL_LEAVES];
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const hasWorkingDaysConfig = workingAndOffDays && Object.keys(workingAndOffDays).length > 0;
-
-    let monthUsage = 0;
-    const holidaySet = new Set(
-      (publicHolidays || [])
-        .map((holiday: any) => dayjs(holiday?.date).format('YYYY-MM-DD'))
-        .filter(Boolean)
-    );
-
-    employeeLeavesData
-      .filter((existingLeave: any) => {
-        const isCountedType = countedLeaveTypes.includes(existingLeave.leaveOptions?.leaveType);
-        const isApprovedOrPending = existingLeave.status === Status.Approved || isPendingLeaveStatus(existingLeave.status);
-        const isCurrentEditingLeave = !!(leave?.id && existingLeave?.id === leave.id);
-        return isCountedType && isApprovedOrPending && !isCurrentEditingLeave;
-      })
-      .forEach((existingLeave: any) => {
-        const leaveFromDate = dayjs(existingLeave.dateFrom);
-        const leaveToDate = dayjs(existingLeave.dateTo);
-        let leaveDate = leaveFromDate;
-
-        while (leaveDate.isBefore(leaveToDate) || leaveDate.isSame(leaveToDate, 'day')) {
-          if (leaveDate.format('YYYY-MM') === currentMonth) {
-            const dayOfWeek = leaveDate.day();
-            const dayName = dayNames[dayOfWeek];
-            const isOffDay = hasWorkingDaysConfig
-              ? workingAndOffDays[dayName] === '0'
-              : (dayOfWeek === 0 || dayOfWeek === 6);
-            const isHoliday = holidaySet.has(leaveDate.format('YYYY-MM-DD'));
-            if (!isOffDay && !isHoliday) {
-              monthUsage++;
-            }
-          }
-          leaveDate = leaveDate.add(1, 'day');
-        }
-      });
-
-    setCurrentMonthUsage(monthUsage);
-    setShowMonthlyLimitInfo(true);
-  }, [employeeLeavesData, workingAndOffDays, publicHolidays, leave?.id]);
 
   const setFieldValueRef = useRef<((field: string, value: any, shouldValidate?: boolean) => void) | null>(null);
 
@@ -790,37 +709,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
         setLoading(true);
         try {
           const statusNumber = Number(values.status);
-
-          // Check allowedPerMonth limit - COMBINED across ALL leave types (only for new requests, not updates)
-          // This validation applies to both admin and employee users
-          // Skip validation for Unpaid Leaves - they are not subject to monthly limit
-          const isUnpaidLeave = leaveTypeSelected?.label?.toLowerCase().includes('unpaid') || false;
-
-          if (!leave && !isUnpaidLeave) {
-            // BUG 2 FIX: Call the real validator from @utils/monthlyLeaveValidator.
-            // The previous local stub at the bottom of this file always returned { isValid: true },
-            // completely bypassing the monthly limit check on form submission.
-            // We also pass publicHolidays and branchWorkingDays for accurate off-day detection.
-            const publicHolidayDates = (publicHolidays || []).map((h: any) =>
-              typeof h === 'string' ? h : h?.date ? h.date.split('T')[0] : ''
-            ).filter(Boolean);
-
-            const validationResult = await validateMonthlyLeaveLimit(
-              employeeId,
-              values.dateFrom,
-              values.dateTo,
-              allowedPerMonth,
-              publicHolidayDates,
-              workingAndOffDays
-            );
-
-            if (!validationResult.isValid) {
-              errorConfirmation(validationResult.errorMessage || 'Monthly leave limit exceeded');
-              setLoading(false);
-              setSubmitting(false);
-              return; // Stop submission
-            }
-          }
 
           // Use current logged-in user's ID (admin) for approvedById/rejectedById, not target employee
           const approvedById = statusNumber === 1 ? employeeIdFromRedux : undefined;
@@ -997,28 +885,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
               });
             }
 
-            // Check if any month exceeds the monthly limit (existing + requested)
-            let monthlyLimitExceeded = false;
-            let exceededMonth = '';
-            let existingCount = 0;
-            let requestingCount = 0;
-            let totalCount = 0;
-
-            for (const monthKey in requestedLeavesPerMonth) {
-              const requestedInMonth = requestedLeavesPerMonth[monthKey];
-              const existingInMonth = existingLeavesPerMonth[monthKey] || 0;
-              const total = requestedInMonth + existingInMonth;
-
-              if (total > allowedPerMonth) {
-                monthlyLimitExceeded = true;
-                exceededMonth = dayjs(monthKey + '-01').format('MMMM YYYY');
-                existingCount = existingInMonth;
-                requestingCount = requestedInMonth;
-                totalCount = total;
-                break;
-              }
-            }
-
             // Clear previous warnings first
             setWarningMessage('');
 
@@ -1037,15 +903,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
                   : `⚠️ Cumulative Limit Alert: You can only apply for ${cumulativeSummary.remaining} more leave(s). You have used ${cumulativeSummary.used} of ${cumulativeSummary.allowedTillNow} allowed till now.`
               );
             }
-            // Priority 3: Per-month cap (HR-configured max leaves per calendar month)
-            else if (monthlyLimitExceeded && !isUnpaidLeaveSelected) {
-              if (existingCount > 0) {
-                setWarningMessage(`⚠️ Monthly Limit Alert: You have already used ${existingCount} leaves in ${exceededMonth}. Adding ${requestingCount} more would exceed your monthly limit of ${allowedPerMonth}. Please adjust your dates.`);
-              } else {
-                setWarningMessage(`⚠️ Monthly Limit Alert: You are requesting ${requestingCount} ${requestingCount === 1 ? 'leave' : 'leaves'} in ${exceededMonth}, but your monthly limit is ${allowedPerMonth} day(s). Please adjust your dates.`);
-              }
-            }
-            // Priority 4: Individual leave type balance
+            // Priority 3: Individual leave type balance
             else if(leaveDays > countTotalLeaves && leaveTypeSelected) {
               setWarningMessage(`⚠️ Insufficient Balance: You are requesting ${leaveDays} days, but you only have ${countTotalLeaves} ${countTotalLeaves === 1 ? 'leave' : 'leaves'} remaining.`);
             }

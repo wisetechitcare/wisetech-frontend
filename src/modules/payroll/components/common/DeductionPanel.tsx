@@ -8,15 +8,24 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     grossPay,
     showSensitiveData,
 }) => {
-    const variableEntries = Object.entries(deductionBreakdown?.variable || {});
-    const fixedEntries = Object.entries(deductionBreakdown?.fixed || {});
+    // IMPORTANT: many deductions keep entries even when `isActive=false`.
+    // If we include them in sums/rendering, enable/disable logic appears broken.
+    const variableEntriesAll = Object.entries(deductionBreakdown?.variable || {});
+    const fixedEntriesAll = Object.entries(deductionBreakdown?.fixed || {});
 
-    const totalVariable = sumBreakdownEarnings(deductionBreakdown?.variable);
-    const totalFixed = sumBreakdownEarnings(deductionBreakdown?.fixed);
+    const variableEntries = variableEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
+    const fixedEntries = fixedEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
+
+    const totalVariable = variableEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
+    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
     const intermediateSalary = Math.max(0, grossPay - totalVariable);
     const grandTotalDeductions = totalVariable + totalFixed;
 
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+    const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
+        const sign = extraAmount < 0 ? '-' : '+';
+        return `(${formatINR2(calculatedAmount)} ${sign} ${formatINR2(Math.abs(extraAmount))})`;
+    };
 
     const renderTooltip = (props: any) => (
         <Tooltip id="deduction-explanation" {...props} className="fs-7">
@@ -26,7 +35,8 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     );
 
     return (
-        <div className="deduction-panel">
+        <div className="deduction-panel d-flex flex-column flex-grow-1">
+            <div className="flex-grow-1">
             {/* 1. Attendance Adjustments */}
             <div className="mb-8">
                 <div className="d-flex align-items-center mb-4">
@@ -66,6 +76,29 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     </tr>
                                 ))
                             )}
+                             {/* Added attendance status rows */}
+                             <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Early Checkout</td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
+                             <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Unpaid Leave</td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
+                             <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Half Day</td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
+                                                          <tr>
+                                 <td className="text-gray-800 fw-bold d-block fs-7">Missed Punch
+                                    
+                                 </td>
+                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                             </tr>
                             <tr className="bg-light-danger border-0">
                                 <td colSpan={2} className="py-4 ps-6">
                                     <span className="fw-bolder text-gray-700 fs-7">Total Attendance Adjustments Deductions</span>
@@ -82,7 +115,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
             </div>
 
             {/* 2. Intermediate Salary (B) highlight */}
-            <div className="mb-8 p-6 rounded-4 border border-dashed border-danger bg-white shadow-sm">
+            <div className="mb-8 p-6 rounded-4 bg-light shadow-sm">
                 <div className="d-flex flex-stack flex-wrap gap-4">
                     <div className="d-flex flex-column">
                         <div className="d-flex align-items-center mb-1">
@@ -124,6 +157,9 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     const isPct = String(item.type).toLowerCase() === 'percentage';
                                     const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
                                     const typeLabel = isPct ? 'Percentage' : 'Fixed';
+                                    const extraAmount = Number(item.extraAmount || 0);
+                                    const calculatedAmount = Number(item.calculatedAmount || 0);
+                                    const earnedAmount = Math.max(0, Number(item.earned || 0));
                                     return (
                                         <tr key={key}>
                                             <td>
@@ -141,11 +177,11 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                             <td className="text-end">
                                                 <div className="d-flex flex-column align-items-end">
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                        -{formatINR2(Number(item.earned || 0))}
+                                                        -{formatINR2(earnedAmount)}
                                                     </span>
-                                                    {Number(item.extraAmount || 0) > 0 && (
+                                                    {extraAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
-                                                            ({formatINR2(item.calculatedAmount || 0)} + {formatINR2(item.extraAmount || 0)})
+                                                            {formatAdjustmentFormula(calculatedAmount, extraAmount)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -169,8 +205,10 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                 </div>
             </div>
 
+            </div>
+
             {/* Final Grand Total for Deductions */}
-            <div className="p-5 rounded-3 bg-light-danger border border-danger border-opacity-10 d-flex justify-content-between align-items-center shadow-sm">
+            <div className="p-5 rounded-3 bg-light-danger border border-danger border-opacity-10 d-flex justify-content-between align-items-center shadow-sm mt-auto">
                 <div className="d-flex align-items-center">
                     <span className="fw-bolder text-danger fs-4 me-3">TOTAL DEDUCTIONS</span>
                     <OverlayTrigger placement="top" overlay={renderTooltip}>

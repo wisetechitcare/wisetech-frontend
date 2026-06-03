@@ -1,7 +1,7 @@
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
-import { attendanceStatsSlice, saveAttendanceRequestRaiseLimit, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
+import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
+import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById } from "@services/employee";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -3263,7 +3263,6 @@ export function salaryCalculationsForDays(totalDaysOfMonthOrYearForEmployee: num
 
 export async function fetchAllCompanySettings() {
     const { data } = await fetchCompanySettings();
-    store.dispatch(saveAttendanceRequestRaiseLimit(data?.appSettings?.attendanceRequestRaiseLimit));
     return data?.appSettings;
 }
 
@@ -3827,20 +3826,6 @@ export const formatDateFromISTString = (dateString: string | undefined | null): 
         return '-';
     }
 };
-
-export const handleSendEmailForResetAttendanceRequestLimit = async (employeeId: string, setRequestLimitResetLoading: React.Dispatch<React.SetStateAction<boolean>>, reportsToId?: string) => {
-    setRequestLimitResetLoading(true);
-    const res = await sendAttendanceRequestResetLimit({ employeeId: employeeId, reportsToId: reportsToId });
-
-    if (!res.hasError) {
-        successConfirmation('Request sent successfully');
-    }
-    else {
-        errorConfirmation('Request failed. Try again later.');
-    }
-    setRequestLimitResetLoading(false);
-};
-
 
 
 // export const markWeekendOrHoliday = ( attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {

@@ -35,9 +35,16 @@ export const useSalaryReport = () => {
         setShowPaymentModal(true);
     };
 
-    const handleDeletePayment = async (paymentId: string) => {
+    const handleDeletePayment = async (payment: any) => {
         try {
-            await PayrollService.deletePayment(paymentId);
+            if (!payment?.id) {
+                throw new Error('Missing payment id');
+            }
+            if (payment?.paymentType === 'GOVERNMENT') {
+                await PayrollService.deleteGovernmentPayment(payment.id);
+            } else {
+                await PayrollService.deletePayment(payment.id);
+            }
             successConfirmation('Payment deleted successfully');
             handleRefresh();
         } catch (error) {
@@ -59,6 +66,7 @@ export const useSalaryReport = () => {
             const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks } = values;
 
             const basePayload = {
+                id: values.id || undefined,
                 salaryId,
                 employeeId,
                 month: Number(month),
@@ -110,11 +118,16 @@ export const useSalaryReport = () => {
 
     const paymentInitialValues = useMemo(() => {
         if (editMode && selectedPayment) {
+            const isGov = selectedPayment.paymentType === 'GOVERNMENT';
             return {
-                paymentType: 'SALARY',
-                salaryAmount: selectedPayment.amountPaid || 0,
+                id: selectedPayment.id,
+                paymentType: selectedPayment.paymentType || 'SALARY',
+                salaryAmount: isGov ? 0 : (selectedPayment.calculatedPaidAmount || 0),
+                govAmount: isGov ? (selectedPayment.calculatedPaidAmount || 0) : 0,
+                govType: selectedPayment.remarks?.startsWith('Gov Payment:') ? selectedPayment.remarks.split(':')[1]?.trim() : 'Professional Fees',
+                govChallan: selectedPayment.transactionId || '',
                 govtDeductions: {},
-                paidAt: selectedPayment.paidAt ? dayjs(selectedPayment.paidAt).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
+                paidAt: selectedPayment.displayDate ? dayjs(selectedPayment.displayDate).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
                 paymentMethod: selectedPayment.paymentMethod || 'BANK_TRANSFER',
                 transactionId: selectedPayment.transactionId || '',
                 remarks: selectedPayment.remarks || ''

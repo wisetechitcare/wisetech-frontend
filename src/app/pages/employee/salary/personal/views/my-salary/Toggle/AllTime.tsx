@@ -8,7 +8,6 @@ import { fetchAllPublicHolidays, fetchCompanyOverview } from '@services/company'
 import { fetchAllEmployeeSalaryAllTimeDateRage, fetchAllSalaryDataForDateRangeYearly, fetchEmployeeLeaves } from '@services/employee';
 import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import AllTimeIncrements from './AllTimeIncrements';
-import YearlyOverViewCard from './YearlyOverViewCard';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 
 const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: boolean, showSensitiveData: boolean, year: any }) => {
@@ -44,14 +43,14 @@ const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: b
                 const response = await fetchAllEmployeeSalaryAllTimeDateRage(employeeId);
                 const history = response?.message?.employeeIncrementHistory || [];
                 const formatted = history.map((item: any) => {
-                    const monthlyCTC = Number(item.ctcInLpa) / 12;
+                    const annualCTC = Number(item.ctcInLpa);
                     const date = new Date(item.effectiveFrom);
                     const monthName = date.toLocaleString("en-US", { month: "long" });
                     const yearNum = date.getFullYear();
                     return {
                         month: monthName,
                         year: yearNum,
-                        monthlyCTC
+                        annualCTC
                     };
                 });
 
@@ -135,7 +134,6 @@ const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: b
 
     return (
         <>
-            {/* <YearlyOverViewCard overview={yearOverview} loading={isLoadingOverview} /> */}
             <AllTimeIncrements salaryData={allTimeSalaryData} SalaryDataCtc={ctcGraphData} loading={isLoadingSalaryData} />
             {/* <h1>welcome to pages</h1> */}
         </>

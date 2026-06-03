@@ -79,7 +79,7 @@ const MonthlySalaryEmployData: React.FC<MonthlySalaryEmployDataProps> = ({
             accessorKey: "salary",
             header: "Salary",
             Cell: ({ renderedCellValue }: any) => (
-              `₹${(renderedCellValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              `₹${Math.round(Number(renderedCellValue || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
             )
           },
         ]}

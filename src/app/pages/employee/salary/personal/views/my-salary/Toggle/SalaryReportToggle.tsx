@@ -63,23 +63,44 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                     onChange={(event: React.MouseEvent<HTMLElement>, value: any) => handleChange(event, value)}
                     aria-label="view selection"
                     sx={{
-                        '& .MuiToggleButton-root': {
-                            borderRadius: '20px',
-                            borderColor: '#B0BEC5 !important',
-                            color: '#000000 !important',
-                            margin: '0 8px',
-                            padding: '6px 16px',
-                            borderWidth: '2px',
-                            fontWeight: '600'
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0,
+                        height: 30,
+                        p: '2px',
+                        borderRadius: '5px',
+                        backgroundColor: '#f1f5f9',
+                        border: '1px solid #eef2f7',
+                        width: 'fit-content',
+                        maxWidth: '100%',
+                        overflowX: 'auto',
+                        '& .MuiToggleButtonGroup-grouped': {
+                            border: 0,
+                            borderRadius: '4px !important',
+                            minWidth: 0,
+                            minHeight: 24,
+                            px: 1.6,
+                            py: 0,
+                            color: '#475569',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            lineHeight: '24px',
+                            textTransform: 'none',
+                            whiteSpace: 'nowrap',
+                            letterSpacing: 0,
                         },
-                        '& .Mui-selected': {
-                            borderColor: '#9D4141 !important',
-                            fontStyle: '#9D4141 !important',
-                            color: '#9D4141 !important',
+                        '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                            marginLeft: 0,
+                            borderLeft: 0,
                         },
                         '& .MuiToggleButton-root:hover': {
-                            borderColor: '#9D4141 !important',
-                            color: '#9D4141 !important',
+                            backgroundColor: '#e8eef6',
+                        },
+                        '& .Mui-selected': {
+                            backgroundColor: '#ffffff !important',
+                            color: '#aa393d !important',
+                            fontWeight: 700,
+                            boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
                         },
                     }}
                 >
@@ -145,6 +166,5 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
         </>
     )
 }
-
 
 export default SalaryReportToggle;

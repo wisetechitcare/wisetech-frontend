@@ -6,6 +6,8 @@ import {
 } from "@services/addonLeavesAllowance";
 import { Modal } from "react-bootstrap";
 import AddonLeavesAllowanceForm from "./AddonLeavesAllowanceForm";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 
 interface AddonLeavesAllowanceCardProps {
     onCardClick?: () => void;
@@ -33,6 +35,11 @@ function AddonLeavesAllowanceCard({ onCardClick }: AddonLeavesAllowanceCardProps
     useEffect(() => {
         loadAllowances();
     }, []);
+
+    // Real-time: reload tiers when addon allowances change anywhere in the app.
+    useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, () => {
+        loadAllowances();
+    });
 
     const handleConfigClose = () => {
         setShowConfigModal(false);
