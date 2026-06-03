@@ -275,7 +275,9 @@ const AllProjectMainToggle = () => {
                   // Navigate to the linked Lead form (Lead is the single source of truth).
                   const linkedLeadId = projectData?.leads?.[0]?.id;
                   if (linkedLeadId) {
-                    navigate(`/leads/${linkedLeadId}`, { state: { openEditModal: true } });
+                    navigate(`/leads/${linkedLeadId}`, {
+                      state: { openEditModal: true, returnToProject: projectId },
+                    });
                   } else {
                     // Fallback: open legacy project form for orphan projects with no lead
                     setShowBlankBasicProjectForm(true);

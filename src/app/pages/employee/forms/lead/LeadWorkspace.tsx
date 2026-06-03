@@ -12,6 +12,8 @@ import {
   FactCheckOutlined,
   SettingsOutlined,
   Engineering,
+  PaymentOutlined,
+  EventOutlined,
 } from "@mui/icons-material";
 import { ProjectExecutionSection } from "./ProjectExecutionSection";
 
@@ -274,6 +276,47 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       fields: ["statusId", "poStatus", "poNumber", "poDate", "handledByEntries", "cancellationRemarks"],
       icon: <FactCheckOutlined />,
       component: L.LeadReviewStep,
+      isSubmitStep: true,
+    },
+
+    // ── STEP 7: Payment Stage ───────────────────────────────────────────────
+    {
+      id: "payment-stage",
+      label: "Payment Stage",
+      title: "Payment Stage (Future Scope)",
+      subtitle: "This section is currently in development and not yet active.",
+      fields: [],
+      icon: <PaymentOutlined />,
+      render: () => (
+        <div className="card shadow-sm mb-4">
+          <div className="card-body p-10 text-center">
+            <h3 className="text-muted mb-4">Payment Stage</h3>
+            <p className="text-gray-500 fs-5">
+              This module is planned for future scope and is currently not in use.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+
+    // ── STEP 8: Meeting Schedule ────────────────────────────────────────────
+    {
+      id: "meeting-schedule",
+      label: "Meeting Schedule",
+      title: "Meeting Schedule (Future Scope)",
+      subtitle: "This section is currently in development and not yet active.",
+      fields: [],
+      icon: <EventOutlined />,
+      render: () => (
+        <div className="card shadow-sm mb-4">
+          <div className="card-body p-10 text-center">
+            <h3 className="text-muted mb-4">Meeting Schedule</h3>
+            <p className="text-gray-500 fs-5">
+              This module is planned for future scope and is currently not in use.
+            </p>
+          </div>
+        </div>
+      ),
     },
   ];
 
@@ -303,6 +346,9 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
   // ── Right panel: Live summary rows ────────────────────────────────────────
   const getSummaryRows = (): SummaryRow[] => {
     const statusObj = props.leadStatuses.find((x) => x.id === values.statusId);
+    const projectStatusObj = isReceivedStatus
+      ? (props.leadProjectStatuses || []).find((x: any) => x.id === values.projectStatusId)
+      : null;
     const assignedEmp = props.employees.find((x) => x.employeeId === values.leadAssignedTo);
 
     const templateObj = props.proposalTemplates?.find((t) => t.id === values.proposalTemplateId);
@@ -380,6 +426,17 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
           </span>
         ),
       },
+      ...(isReceivedStatus ? [{
+        label: "Project Status",
+        value: (
+          <span
+            className="badge px-2 py-1 fs-8 fw-bold bg-light-primary text-primary"
+            style={{ textTransform: "capitalize" }}
+          >
+            {projectStatusObj?.name || "—"}
+          </span>
+        ),
+      }] : []),
       {
         label: "Lead Name",
         value: values.projectName || "—",

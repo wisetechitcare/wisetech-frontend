@@ -96,8 +96,8 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
             <DropDownInput
-              formikField="projectMeta.projectStatusId"
-              inputLabel="Execution Status"
+              formikField="projectStatusId"
+              inputLabel="Project Status"
               options={statusOptions}
               isRequired={false}
             />

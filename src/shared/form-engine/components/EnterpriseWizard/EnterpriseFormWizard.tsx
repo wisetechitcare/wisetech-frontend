@@ -44,6 +44,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   const isLastStep = currentStep === visibleSteps.length - 1;
   const isFirstStep = currentStep === 0;
   const currentStepDef = visibleSteps[currentStep];
+  const isSaveStep = isLastStep || !!currentStepDef?.isSubmitStep;
   const StepComponent = currentStepDef?.component;
 
   const scrollCanvasTop = useCallback(() => {
@@ -74,7 +75,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
       return;
     }
 
-    if (isLastStep) {
+    if (isSaveStep) {
       if (Object.keys(errors).length > 0) {
         toast.error("Please fill in all required fields before submitting.");
         Object.keys(errors).forEach(key => setFieldTouched(key, true));
@@ -183,7 +184,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           </div>
           
           {/* Export Buttons at Bottom of Summary (Last Step Only) */}
-          {isLastStep && (actions.exportPdf || actions.exportDocx) && (
+          {isSaveStep && (actions.exportPdf || actions.exportDocx) && (
             <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
               {actions.exportPdf && (
                 <button
@@ -257,7 +258,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           </button>
 
           {/* Forward actions */}
-          {isLastStep ? (
+          {isSaveStep ? (
             actions.onFinalSave ? (
               <button
                 type="button"

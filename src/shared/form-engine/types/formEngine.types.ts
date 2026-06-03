@@ -96,6 +96,7 @@ export interface EnterpriseWizardStep<TProps = any> extends NavigationSection {
   subtitle?: string;
   defaultOpen?: boolean;
   hidden?: boolean;
+  isSubmitStep?: boolean;
   component?: React.ComponentType<TProps>;
   render?: (props: TProps) => React.ReactNode;
 }

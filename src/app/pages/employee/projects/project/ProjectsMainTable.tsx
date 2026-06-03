@@ -301,7 +301,7 @@ const ProjectsMainTable = ({
       Cell: ({ row }: any) => {
         const companies = row.original.projectCompanyMappings || [];
         const companyNames = companies
-          .map((mapping: any) => findClientCompanyName(mapping.companyId))
+          .map((mapping: any) => mapping.company?.companyName || findClientCompanyName(mapping.companyId))
           .filter(Boolean);
         return (
           <span style={{ whiteSpace: "nowrap" }}>
@@ -316,7 +316,7 @@ const ProjectsMainTable = ({
       Cell: ({ row }: any) => {
         const branches = row.original.projectCompanyMappings || [];
         const branchNames = branches
-          .map((mapping: any) => findClientBranchName(mapping.branchId))
+          .map((mapping: any) => mapping.branch?.name || findClientBranchName(mapping.branchId))
           .filter(Boolean);
         return branchNames.length ? branchNames.join(", ") : "-NA-";
       },
@@ -324,7 +324,8 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectCategoryId",
       header: "Category",
-      Cell: ({ renderedCellValue }: any) => {
+      Cell: ({ row, renderedCellValue }: any) => {
+        if (row.original.category?.name) return row.original.category.name;
         const projectCategory = allProjectCategories.find(
           (category: any) => category.id === renderedCellValue,
         );
@@ -334,7 +335,8 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectSubCategoryId",
       header: "Sub Category",
-      Cell: ({ renderedCellValue }: any) => {
+      Cell: ({ row, renderedCellValue }: any) => {
+        if (row.original.subCategory?.name) return row.original.subCategory.name;
         const projectSubCategory = allProjectSubcategories.find(
           (category: any) => category.id === renderedCellValue,
         );
@@ -379,32 +381,48 @@ const ProjectsMainTable = ({
     {
       accessorKey: "rate",
       header: "Rate",
-      Cell: ({ renderedCellValue }: any) =>
-        formatNumber(renderedCellValue) || "-NA-",
+      Cell: ({ row, renderedCellValue }: any) => {
+        const commercials = row.original.projectCommercialMappings || [];
+        if (commercials.length > 0) {
+          const totalRateCost = commercials.reduce((sum: number, c: any) => sum + (Number(c.rate) || 0), 0);
+          return formatNumber(totalRateCost) || "-NA-";
+        }
+        return formatNumber(renderedCellValue) || "-NA-";
+      }
     },
     {
       accessorKey: "cost",
       header: "Cost",
-      Cell: ({ renderedCellValue }: any) =>
-        formatNumber(renderedCellValue) || "-NA-",
+      Cell: ({ row, renderedCellValue }: any) => {
+        const commercials = row.original.projectCommercialMappings || [];
+        if (commercials.length > 0) {
+          const totalCost = commercials.reduce((sum: number, c: any) => sum + (Number(c.totalCost) || 0), 0);
+          return formatNumber(totalCost) || "-NA-";
+        }
+        return formatNumber(renderedCellValue) || "-NA-";
+      }
     },
     {
       accessorKey: "teamId",
       header: "Team Name",
-      Cell: ({ renderedCellValue }: any) =>
-        renderedCellValue
+      Cell: ({ row, renderedCellValue }: any) =>
+        row.original.team?.name || (renderedCellValue
           ? allTeams.find((team: any) => team.id === renderedCellValue)?.name
-          : "-NA-",
+          : "-NA-") || "-NA-",
     },
     {
       accessorKey: "projectManagerId",
       header: "Project Manager",
-      Cell: ({ renderedCellValue }: any) =>
-        renderedCellValue
+      Cell: ({ row, renderedCellValue }: any) => {
+        if (row.original.projectManager?.users) {
+           return `${row.original.projectManager.users.firstName} ${row.original.projectManager.users.lastName}`;
+        }
+        return renderedCellValue
           ? allEmployees?.list?.find(
               (employee: any) => employee.employeeId === renderedCellValue,
             )?.employeeName
-          : "-NA-",
+          : "-NA-";
+      }
     },
     {
       accessorKey: "contactPersonNames",
@@ -413,7 +431,7 @@ const ProjectsMainTable = ({
         const contacts = row.original.projectCompanyMappings || [];
         const contactNames = contacts
           .map((mapping: any) =>
-            findClientContactPersonName(mapping.contactPersonId),
+            mapping.contactPerson?.fullName || findClientContactPersonName(mapping.contactPersonId),
           )
           .filter(Boolean);
         return contactNames.length ? contactNames.join(", ") : "-";
@@ -422,12 +440,16 @@ const ProjectsMainTable = ({
     {
       accessorKey: "leadAssignedTo",
       header: "Lead Assigned",
-      Cell: ({ renderedCellValue }: any) =>
-        renderedCellValue
+      Cell: ({ row, renderedCellValue }: any) => {
+        if (row.original.assignedTo?.users) {
+           return `${row.original.assignedTo.users.firstName} ${row.original.assignedTo.users.lastName}`;
+        }
+        return renderedCellValue
           ? allEmployees?.list?.find(
               (employee: any) => employee.employeeId === renderedCellValue,
             )?.employeeName
-          : "-NA-",
+          : "-NA-";
+      }
     },
     {
       accessorKey: "projectAccess",

@@ -33,21 +33,27 @@ const LeadDetails: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Auto-open edit modal when navigated from Project table (openEditModal in location state)
+    // Auto-open edit modal when navigated from Project detail (openEditModal in location state).
+    // Also captures returnToProject so closing the modal navigates back to the project page.
     const [autoOpenEditTriggered, setAutoOpenEditTriggered] = useState(false);
+    const [returnToProjectId, setReturnToProjectId] = useState<string | null>(null);
     useEffect(() => {
         if (!autoOpenEditTriggered && !isLoading && lead && (location.state as any)?.openEditModal) {
             setAutoOpenEditTriggered(true);
             const formLeadDataFinal = mapLeadToFormInitialValues(lead);
             setFormValues(formLeadDataFinal);
+            // Capture the return destination before clearing state
+            const returnProject = (location.state as any)?.returnToProject || null;
+            setReturnToProjectId(returnProject);
             // Clear the state so a manual refresh doesn't re-trigger
             navigate(location.pathname, { replace: true, state: {} });
         }
     }, [isLoading, lead, location.state, autoOpenEditTriggered, navigate, location.pathname]);
 
-    // Derived directly from lead.status — no separate allStatuses fetch needed.
-    // Requires Lead GET response to include status { isReceivedTrigger }.
-    const isReceivedStatus = !!(lead?.status?.isReceivedTrigger);
+    // Derived from lead.status. Falls back to name-based detection for legacy DB rows
+    // where isReceivedTrigger was never explicitly seeded (defaults to false).
+    const isReceivedStatus = !!(lead?.status?.isReceivedTrigger) ||
+        lead?.status?.name?.trim().toLowerCase() === 'received';
 
     const tabs = React.useMemo(() => [
         { key: 'overview', label: 'Overview' },
@@ -230,7 +236,12 @@ const LeadDetails: React.FC = () => {
                     open={true}
                     onClose={() => {
                         setFormValues(null);
-                        fetchLeadDetails();
+                        if (returnToProjectId) {
+                            // Opened from project detail — navigate back there
+                            navigate(`/projects/${returnToProjectId}`);
+                        } else {
+                            fetchLeadDetails();
+                        }
                     }}
                     title={`Edit ${formValues.title || formValues?.projectName} Lead`}
                     initialData={{ id: formValues?.leadTemplateId }}

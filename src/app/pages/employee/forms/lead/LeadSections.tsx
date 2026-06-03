@@ -494,113 +494,78 @@ export const AdditionalDetailsSection: React.FC = () => {
 
 // 9. Status Section
 //
-// Unified single dropdown covering the full lifecycle:
-//   Pre-received  → shows only LeadStatus options
-//   Post-received → shows LeadStatus + LeadProjectStatus combined
+// Two separate dropdowns:
+//   Lead Status    — always visible (PENDING / NOT_RECEIVED / RECEIVED / …)
+//   Project Status — only visible when Lead status has isReceivedTrigger=true
+//                    (RECEIVED / NOT_RECEIVED / ONGOING / COMPLETED / …)
 //
-// The DISPLAYED value is always the actual saved status (On Going, Completed, …).
-// onChange correctly writes to statusId OR projectStatusId depending on what was picked.
+// Writes: Lead Status → statusId, Project Status → projectStatusId
 export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const isReceived = props.isReceivedStatus ?? false;
 
-  // Lead statuses: mark which one is the received trigger
   const leadStatuses = props.leadStatuses || [];
   const leadProjectStatuses = props.leadProjectStatuses || [];
-  const receivedStatusObj = leadStatuses.find((x: any) => x.isReceivedTrigger);
 
-  // Build unified option list
-  const preOptions = leadStatuses.map((x: any) => ({
-    value: `lead::${x.id}`,
-    label: x.name,
-    _type: 'lead' as const,
-    _id: x.id,
-    _isReceivedTrigger: !!x.isReceivedTrigger,
-  }));
-
-  const projectOptions = leadProjectStatuses.map((x: any) => ({
-    value: `project::${x.id}`,
-    label: x.name,
-    _type: 'project' as const,
-    _id: x.id,
-    _isReceivedTrigger: false,
-  }));
-
-  // When in project stage show all options so user can revert
-  const allOptions = isReceived ? [...preOptions, ...projectOptions] : preOptions;
-
-  // Determine which option is currently selected
-  // Priority: if received + projectStatusId → show project status; else show lead status
-  const currentValue = React.useMemo(() => {
-    if (isReceived && values.projectStatusId) {
-      const match = projectOptions.find(o => o._id === values.projectStatusId);
-      if (match) return match.value;
+  const handleLeadStatusChange = (selectedId: string) => {
+    setFieldValue('statusId', selectedId);
+    const selected = leadStatuses.find((x: any) => x.id === selectedId);
+    if (!selected?.isReceivedTrigger) {
+      // Leaving Received — project no longer active, clear project status
+      setFieldValue('projectStatusId', '');
     }
-    if (values.statusId) {
-      const match = preOptions.find(o => o._id === values.statusId);
-      if (match) return match.value;
-    }
-    return '';
-  }, [values.statusId, values.projectStatusId, isReceived]);
+  };
 
-  const handleChange = (selected: string) => {
-    if (!selected) return;
-    const [type, id] = selected.split('::');
-
-    if (type === 'lead') {
-      const opt = preOptions.find(o => o._id === id);
-      setFieldValue('statusId', id);
-      if (opt?._isReceivedTrigger) {
-        // Transitioning INTO received: keep projectStatusId if already set
-        // (backend will auto-assign default if still empty on save)
-      } else {
-        // Reverting OUT of received: clear project status
-        setFieldValue('projectStatusId', '');
-      }
-    } else {
-      // Project-stage status selected: keep statusId=Received, update projectStatusId
-      if (receivedStatusObj) setFieldValue('statusId', receivedStatusObj.id);
-      setFieldValue('projectStatusId', id);
-    }
+  const handleProjectStatusChange = (selectedId: string) => {
+    setFieldValue('projectStatusId', selectedId);
   };
 
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
-        <Grid item xs={12}>
+        {/* Lead Status — always visible */}
+        <Grid item xs={12} md={isReceived ? 6 : 12}>
           <div className="d-flex flex-column gap-1">
             <label className="form-label fs-6 fw-semibold required">
-              Status
-              {isReceived && (
-                <span className="badge badge-light-primary ms-3 fs-8 fw-normal">Project Stage</span>
-              )}
+              Lead Status
             </label>
             <select
               className="form-select form-select-solid"
-              value={currentValue}
-              onChange={e => handleChange(e.target.value)}
+              value={values.statusId || ''}
+              onChange={e => handleLeadStatusChange(e.target.value)}
             >
-              <option value="">Select status…</option>
-              {isReceived && preOptions.length > 0 && (
-                <optgroup label="── Lead Stage">
-                  {preOptions.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </optgroup>
-              )}
-              {isReceived && projectOptions.length > 0 && (
-                <optgroup label="── Project Stage">
-                  {projectOptions.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </optgroup>
-              )}
-              {!isReceived && preOptions.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+              <option value="">Select lead status…</option>
+              {leadStatuses.map((x: any) => (
+                <option key={x.id} value={x.id}>{x.name}</option>
               ))}
             </select>
           </div>
         </Grid>
+
+        {/* Project Status — only when Lead is Received (isReceivedTrigger=true) */}
+        {isReceived && (
+          <Grid item xs={12} md={6}>
+            <div className="d-flex flex-column gap-1">
+              <label className="form-label fs-6 fw-semibold">
+                Project Status
+                <span className="badge badge-light-success ms-3 fs-8 fw-normal">Project Active</span>
+              </label>
+              <select
+                className="form-select form-select-solid"
+                value={values.projectStatusId || ''}
+                onChange={e => handleProjectStatusChange(e.target.value)}
+              >
+                <option value="">Select project status…</option>
+                {leadProjectStatuses.map((x: any) => (
+                  <option key={x.id} value={x.id}>{x.name}</option>
+                ))}
+              </select>
+              {leadProjectStatuses.length === 0 && (
+                <span className="text-muted fs-8">Loading project statuses…</span>
+              )}
+            </div>
+          </Grid>
+        )}
       </Grid>
     </div>
   );
@@ -937,11 +902,13 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
  */
 export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
   const { values } = useFormikContext<any>();
-  const currentStatusName = (props.leadStatuses || []).find(
-    (x) => x.id === values.statusId
-  )?.name;
-  const isReceived = currentStatusName === "Received";
+  const currentStatusObj = (props.leadStatuses || []).find((x) => x.id === values.statusId);
+  const currentStatusName = currentStatusObj?.name;
+  const isReceived = !!(currentStatusObj?.isReceivedTrigger);
   const isCanceled = currentStatusName === "Canceled";
+  const projectStatusName = isReceived
+    ? (props.leadProjectStatuses || []).find((x: any) => x.id === values.projectStatusId)?.name
+    : null;
 
   // Commercials total
   const commercialsTotal = (values.projectAreas || []).reduce(
@@ -969,13 +936,21 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
             <span className="wt-review-value">{values.leadSourceType || "—"}</span>
           </div>
           <div className="wt-review-row">
-            <span className="wt-review-label">Status</span>
+            <span className="wt-review-label">Lead Status</span>
             <span className="wt-review-value"
               style={{ color: isReceived ? "#15803d" : isCanceled ? "#dc2626" : undefined }}
             >
               {currentStatusName || "—"}
             </span>
           </div>
+          {isReceived && (
+            <div className="wt-review-row">
+              <span className="wt-review-label">Project Status</span>
+              <span className="wt-review-value" style={{ color: "#1976d2" }}>
+                {projectStatusName || "—"}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="wt-review-card">
