@@ -51,7 +51,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     fixedDeductions = 0,
     statutoryBreakdown = {}
 }) => {
-    const salaryPending = Math.max(0, netPayable - salaryPaid);
+    const salaryInHand = Math.max(0, netPayable);
+    const salaryPending = Math.max(0, salaryInHand - salaryPaid);
 
     const [activeTab, setActiveTab] = useState('SALARY');
 
@@ -75,7 +76,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             amount: Number(data?.earned ?? data?.value ?? (data || 0)),
             isActive: data?.isActive !== false,
         }))
-        .filter(d => d.label.toLowerCase().includes('professional fees') && d.isActive && d.amount > 0);
+        .filter(d => d.isActive && d.label.toLowerCase().includes('professional') && !d.label.toLowerCase().includes('fund') && !d.label.toLowerCase().includes('tax'));
 
     const hasProfessionalFees = govtDeductions.length > 0;
     const availablePaymentModes = hasProfessionalFees
@@ -88,9 +89,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         }
     }, [activeTab, hasProfessionalFees]);
 
-    const correctedFixedDeductions = govtDeductions.reduce((sum, item) => sum + item.amount, 0);
+    const correctedFixedDeductions = Math.max(0, govtDeductions.reduce((sum, item) => sum + item.amount, 0));
 
     const govtPending = Math.max(0, correctedFixedDeductions - governmentPaid);
+    const payableAmount = Math.max(0, salaryInHand - salaryPaid);
 
     const activeGovType = hasProfessionalFees ? govtDeductions[0].label : 'Professional Fees';
 
@@ -118,7 +120,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <Card className="bg-light-primary border-0 shadow-none h-100">
                                 <Card.Body className="p-4">
                                     <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">Salary In Hand</span>
-                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(netPayable)}</span>
+                                    <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(salaryInHand)}</span>
                                     <Badge bg="primary" className="bg-opacity-10 text-primary mt-1">Pending: {formatINR2(salaryPending)}</Badge>
                                 </Card.Body>
                             </Card>
@@ -161,7 +163,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     initialValues={{
                         ...initialValues,
                         paymentType: activeTab,
-                        salaryAmount: initialValues.salaryAmount || salaryPending,
+                        salaryAmount: initialValues.salaryAmount || payableAmount,
                         govAmount: initialValues.govAmount || 0,
                         govType: initialValues.govType || (hasProfessionalFees ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
@@ -296,8 +298,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                     onChange={(option: any) => {
                                                                         const selected = govtDeductions.find(d => d.value === option.value);
+                                                                        setFieldValue('govType', option.value);
                                                                         if (selected) {
                                                                             setFieldValue('govAmount', selected.amount);
+                                                                        } else {
+                                                                            setFieldValue('govAmount', 0);
                                                                         }
                                                                     }}
                                                                 />
@@ -310,7 +315,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                 />
                                                                 <div className="text-muted fs-8 mt-1">
-                                                                    {values.govType && `Pending for ${values.govType}: ${formatINR2(govtDeductions.find(d => d.value === values.govType)?.amount || 0)}`}
+                                                                    {values.govType && `Pending for ${values.govType}: ${formatINR2(govtPending)}`}
                                                                 </div>
                                                             </Col>
                                                             <Col md={4}>

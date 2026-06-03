@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { fetchRoles } from "@services/roles";
-import NumberInput from "@app/modules/common/inputs/NumberInput";
 import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
 import { useParams } from "react-router-dom";
 import ApprovalSettings from "@app/components/ApprovalSettings";

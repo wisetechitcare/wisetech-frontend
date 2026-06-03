@@ -45,7 +45,6 @@ const resourceToRbacModule: Record<string, string> = {
   onboardingdocument: 'settings',
   announcement: 'settings',
   attendanceconfig: 'settings',
-  attendancerequestlimit: 'settings',
   organisationprofile: 'settings',
 };
 

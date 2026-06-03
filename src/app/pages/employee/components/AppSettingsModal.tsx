@@ -6,7 +6,6 @@ import { fetchWizardData, updateEmployee, fetchAllEmployees, saveEmployeeAccessS
 import { fetchRoles } from "@services/roles";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
-import NumberInput from "@app/modules/common/inputs/NumberInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import Loader from "@app/modules/common/utils/Loader";
@@ -56,45 +55,13 @@ function GeneralSettings() {
                     isRequired={false}
                 />
             </div>
-            <div className="col-sm-6">
-                <NumberInput
-                    isRequired={false}
-                    formikField="attendanceRequestRaiseLimit"
-                    label="Attendance Request Limit"
-                    margin="mb-0"
-                    min={0}
-                />
-                <div className="form-text text-muted mt-1" style={{ fontSize: 12 }}>
-                    <i className="bi bi-info-circle me-1" />
-                    Max attendance correction requests allowed per month.
-                </div>
-            </div>
         </div>
     );
 }
 
 function LeaveSection() {
     return (
-        <>
-            <LeaveAllocationStep />
-            <div className="mt-4">
-                <div className="row">
-                    <div className="col-sm-6">
-                        <NumberInput
-                            isRequired={false}
-                            formikField="allowedPerMonth"
-                            label="Allowed Per Month"
-                            margin="mb-0"
-                            min={1}
-                        />
-                        <div className="form-text text-muted mt-1" style={{ fontSize: 12 }}>
-                            <i className="bi bi-info-circle me-1" />
-                            <strong>Combined monthly limit</strong> across all leave types.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
+        <LeaveAllocationStep />
     );
 }
 
@@ -342,9 +309,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // general
         isAdmin: "0",
         allowOverTime: "0",
-        attendanceRequestRaiseLimit: 0,
         // leave
-        allowedPerMonth: 1,
         leaveAllocations: [],
         branchId: "",
         employeeId: "",
@@ -381,9 +346,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // general
                     isAdmin: w?.isAdmin ? "1" : "0",
                     allowOverTime: w?.allowOverTime ?? "0",
-                    attendanceRequestRaiseLimit: w?.attendanceRequestRaiseLimit ?? 0,
                     // leave
-                    allowedPerMonth: w?.allowedPerMonth ?? 1,
                     leaveAllocations: [],
                     branchId: w?.branchId ?? "",
                     employeeId,
@@ -433,8 +396,6 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 id: employeeId,
                 isAdmin: values.isAdmin === "1",
                 allowOverTime: values.allowOverTime,
-                allowedPerMonth: Number(values.allowedPerMonth),
-                attendanceRequestRaiseLimit: Number(values.attendanceRequestRaiseLimit),
                 reportsToId: values.reportsToId || null,
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",

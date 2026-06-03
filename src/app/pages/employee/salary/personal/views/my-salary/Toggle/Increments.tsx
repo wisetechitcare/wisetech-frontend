@@ -242,9 +242,17 @@ const Increments = memo(({ salaryData, loading = false, compact = false }: Incre
             parentHeightOffset: 0,
             offsetY: compact ? 18 : 0,
             toolbar: {
-                show: false
+                show: false,
+                autoSelected: 'pan'
             },
             fontFamily: 'Inter, sans-serif',
+            selection: {
+                enabled: false
+            },
+            zoom: {
+                enabled: true,
+                type: 'x'
+            }
         },
         stroke: {
             curve: curveType === 'stepline' ? ('stepline' as 'stepline') : ('smooth' as 'smooth'),

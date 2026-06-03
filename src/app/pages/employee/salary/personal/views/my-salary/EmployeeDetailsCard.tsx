@@ -64,6 +64,8 @@ const metricToneMap: Record<MetricTone, { color: string; background: string; bor
 
 const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensitiveData = true }: EmployeeMetricCardProps) => {
     const palette = metricToneMap[tone];
+    const blur = isSensitive && !showSensitiveData;
+    const valueStyle = blur ? { filter: 'blur(6px)', userSelect: 'none' } : {};
 
     return (
         <Paper
@@ -120,31 +122,32 @@ const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensiti
                         {label}
                     </Typography>
                     
-                        <Typography
-                            sx={{
-                                color: '#0f172a',
-                                fontSize: { xs: '0.9rem', md: '0.96rem' },
-                                fontWeight: 800,
-                                lineHeight: 1.25,
-                                whiteSpace: 'normal',
-                                wordBreak: 'break-word',
-                                overflowWrap: 'break-word',
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                minHeight: '38px',
-                            }}
-                        >
-                            {typeof value === 'string'
-                                ? value.split('\n').map((line, index) => (
-                                    <span key={index}>
-                                        {line}
-                                        <br />
-                                    </span>
-                                ))
-                                : value}
-                        </Typography>
+                    <Typography
+                        sx={{
+                            color: '#0f172a',
+                            fontSize: { xs: '0.9rem', md: '0.96rem' },
+                            fontWeight: 800,
+                            lineHeight: 1.25,
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            minHeight: '38px',
+                            ...valueStyle,
+                        }}
+                    >
+                        {typeof value === 'string'
+                            ? value.split('\n').map((line, index) => (
+                                <span key={index}>
+                                    {line}
+                                    <br />
+                                </span>
+                            ))
+                            : value}
+                    </Typography>
                 </Box>
             </Stack>
         </Paper>
@@ -239,6 +242,9 @@ const EmployeeProfileCard = ({
                     backgroundColor: '#f8fafc',
                     border: '1px solid #e2e8f0',
                     flex: '0 0 auto',
+                    '& .MuiAvatar-img': {
+                        objectFit: 'fill',
+                    }
                 }}
             />
 
@@ -392,27 +398,31 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         {
             label: 'Date of Joining',
             value: employee?.dateOfJoining ? dayjs(employee?.dateOfJoining?.toString()).format('DD MMM YYYY') : '-',
-            icon: <CalendarMonthOutlinedIcon fontSize="small" />,
+            icon: <CalendarMonthOutlinedIcon fontSize="small" />, 
             tone: 'blue',
         },
         {
             label: 'Total Experience',
             value: totalExperience,
-            icon: <AccessTimeOutlinedIcon fontSize="small" />,
+            icon: <AccessTimeOutlinedIcon fontSize="small" />, 
             tone: 'cyan',
         },
         {
-            label: 'Role & Department',
-            value: employee?.designations?.role
-                ? `${employee?.designations?.role}\n${employee?.departments?.name || ''}`
-                : '-',
-            icon: <WorkOutlineOutlinedIcon fontSize="small" />,
+            label: 'Role',
+            value: employee?.designations?.role || '-',
+            icon: <WorkOutlineOutlinedIcon fontSize="small" />, 
+            tone: 'purple',
+        },
+        {
+            label: 'Department',
+            value: employee?.departments?.name || '-',
+            icon: <ApartmentOutlinedIcon fontSize="small" />, 
             tone: 'purple',
         },
         {
             label: 'Annual Salary (CTC)',
             value: formatSalaryValue(annualCTC),
-            icon: <SavingsOutlinedIcon fontSize="small" />,
+            icon: <SavingsOutlinedIcon fontSize="small" />, 
             tone: 'orange',
             isSensitive: true,
             showSensitiveData,
@@ -420,15 +430,15 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         {
             label: 'Monthly Salary',
             value: formatSalaryValue(monthlySalary),
-            icon: <CurrencyRupeeOutlinedIcon fontSize="small" />,
+            icon: <CurrencyRupeeOutlinedIcon fontSize="small" />, 
             tone: 'green',
             isSensitive: true,
             showSensitiveData,
         },
-                {
+        {
             label: 'Daily Salary',
             value: formatSalaryValue(dailySalary),
-            icon: <WbSunnyOutlinedIcon fontSize="small" />,
+            icon: <WbSunnyOutlinedIcon fontSize="small" />, 
             tone: 'amber',
             isSensitive: true,
             showSensitiveData,
@@ -436,23 +446,15 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         {
             label: 'Hourly Salary',
             value: formatSalaryValue(hourlySalary),
-            icon: <AccessTimeOutlinedIcon fontSize="small" />,
+            icon: <AccessTimeOutlinedIcon fontSize="small" />, 
             tone: 'rose',
-            isSensitive: true,
-            showSensitiveData,
-        },
-        {
-            label: apiSalaryData ? 'Monthly Paid Amount' : 'Total Paid Amount',
-            value: paidAmountValue,
-            icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
-            tone: 'violet',
             isSensitive: true,
             showSensitiveData,
         },
     ];
 
     return (
-        <Box className="employee-details-card" sx={{ width: '100%', px: { xs: 0.75, md: 1.5 } }}>
+        <Box className="employee-details-card" sx={{ width: '100%' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.25 }}>
                 <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2 }}>
                     Employee Details

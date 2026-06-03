@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CustomLeaves, IAttendance, IAttendanceRequests } from '@models/employee';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from './MaterialTable';
-import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, handleSendEmailForResetAttendanceRequestLimit, isValidTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
+import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, isValidTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
 import { useDispatch, useSelector } from 'react-redux';
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
 import * as Yup from 'yup';
@@ -30,7 +30,7 @@ import { fetchWorkingMethods } from '@services/options';
 import DropDownInput from '../inputs/DropdownInput';
 import dayjs, { Dayjs } from 'dayjs';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
-import { createUpdateAttendanceRequest, deleteAttendanceRequestById, sendAttendanceRequestResetLimit, fetchApprovalInstanceByRequest } from '@services/employee';
+import { createUpdateAttendanceRequest, deleteAttendanceRequestById, fetchApprovalInstanceByRequest } from '@services/employee';
 import ApprovalStatusTracker from '@app/pages/approvals/ApprovalStatusTracker';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { fetchCompanyOverview, fetchConfiguration } from '@services/company';
@@ -972,9 +972,7 @@ export const StatisticsTable = ({
 }) => {
 
     const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
-    const maxAttendanceRequestLimit = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee.attendanceRequestRaiseLimit) : useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
 
-    const [requestLimitResetLoading, setRequestLimitResetLoading] = useState(false)
     const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
     const reportsToId = employeeDeatils.reportsToId;
 
@@ -1091,16 +1089,6 @@ export const StatisticsTable = ({
             return workingAndOffDays ? JSON.parse(workingAndOffDays) : {};
         });
 
-    useEffect(() => {
-        if (!date || !employeeId || !maxAttendanceRequestLimit) return;
-        const fetchEmployeeRequestRaise = async () => {
-            const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
-            const endDate = dayjs(date).endOf('month').format('YYYY-MM-DD');
-            const { data: { attendanceRequests } } = await getAttendanceRequest(employeeId, startDate, endDate);
-            setDisableRaiseRequest(attendanceRequests?.length >= maxAttendanceRequestLimit);
-        }
-        fetchEmployeeRequestRaise();
-    }, [date, employeeId, maxAttendanceRequestLimit])
 
     const handleClose = () => {
         setShow(false);
@@ -1944,7 +1932,6 @@ export const StatisticsTable = ({
                                                 <i className='bi bi-arrow-left me-2 text-white'></i>
                                                 Back
                                             </button>
-                                            {disableRaiseRequest && <button type='button' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request Limit Reset"}</button>}
                                             <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid || disableRaiseRequest || !canSubmitRequest || isValidating}>
                                                 {isValidating ? 'Validating...' : (!loading ? 'Save Changes' : '')}
                                                 {loading && (
@@ -2002,7 +1989,6 @@ export const ReportsTable = ({
     const [trackingRequestId, setTrackingRequestId] = useState<string | null>(null);
     const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
     const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
-    const maxAttendanceRequestLimit = useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
     const [latitudeNew, setLatitudeNew] = useState<any>()
     const [longitudeNew, setLongitudeNew] = useState<any>()
     const toggleChange = store.getState().attendanceStats.toggleChange;
@@ -2014,7 +2000,6 @@ export const ReportsTable = ({
 
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
     const [currentRowData, setCurrentRowData] = useState<any>(null);
-    const [requestLimitResetLoading, setRequestLimitResetLoading] = useState(false)
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const attendanceRequestWithIsHolidayorWeekend = markWeekendOrHoliday(attendanceRequests, allWeekends, allHolidays);
@@ -2087,16 +2072,6 @@ export const ReportsTable = ({
             );
         }
     }, [])
-    useEffect(() => {
-        if (!date || !employeeId || !maxAttendanceRequestLimit) return;
-        const fetchEmployeeRequestRaise = async () => {
-            const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
-            const endDate = dayjs(date).endOf('month').format('YYYY-MM-DD');
-            const { data: { attendanceRequests } } = await getAttendanceRequest(employeeId, startDate, endDate);
-            setDisableRaiseRequest(attendanceRequests?.length >= maxAttendanceRequestLimit);
-        }
-        fetchEmployeeRequestRaise();
-    }, [date, employeeId, maxAttendanceRequestLimit])
 
     useEffect(() => {
         dispatch(fetchRolesAndPermissions() as any);
@@ -2538,7 +2513,6 @@ export const ReportsTable = ({
                                         {REQUEST_RAISE_DISABLE_MESSAGE}
                                     </div>}
                                     <div className='d-flex justify-content-center mt-8'>
-                                        {disableRaiseRequest && <button type='button' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request To Reset Attendance Raise Limit"}</button>}
                                         <button type='submit' className='btn btn-primary' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || !formikProps.isValid}>
                                             {!loading && 'Save Changes'}
                                             {loading && (

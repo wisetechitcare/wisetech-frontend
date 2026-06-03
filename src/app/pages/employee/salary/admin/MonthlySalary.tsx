@@ -5,6 +5,7 @@ import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { fetchSalaryRecordsForAllActiveEmployees } from "@services/employee";
+import { Box, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 
 interface MonthlySalaryProps {
   month: Dayjs;
@@ -27,6 +28,18 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
   // State for all active employees total payable amount
   const [allActiveEmployeesData, setAllActiveEmployeesData] = useState<any>(null);
   const [isLoadingTillDate, setIsLoadingTillDate] = useState<boolean>(true);
+  const [statusFilter, setStatusFilter] = useState<'Active' | 'Deactive' | 'All'>('Active');
+
+  const filteredEmployeeSummaries = useMemo(() => {
+    if (!employeesData?.message?.employeeSummaries) return [];
+    
+    return employeesData.message.employeeSummaries.filter((summary: any) => {
+      const isActive = summary.isActive !== false;
+      if (statusFilter === 'Active') return isActive;
+      if (statusFilter === 'Deactive') return !isActive;
+      return true; // 'All'
+    });
+  }, [employeesData, statusFilter]);
 
   // Fetch all active employees salary data when month changes
   useEffect(() => {
@@ -47,9 +60,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     fetchAllActiveData();
   }, [month]);
 
-  // Extract total payable amount till date from API response
-  const totalPayableAmountTillDate = allActiveEmployeesData?.message?.totals?.totalPayableAmountTillDate;
-
   // Memoized calculation for optimal performance
   const salarySummary = useMemo<SalarySummary>(() => {
     if (!employeesData?.message) {
@@ -62,8 +72,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
       };
     }
 
-    const { message } = employeesData;
-    const employeeSummaries = message.employeeSummaries || [];
+    const employeeSummaries = filteredEmployeeSummaries;
 
     // Use reduce for better performance
     const totals = employeeSummaries.reduce(
@@ -93,15 +102,20 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     return {
       ...totals,
     };
-  }, [employeesData]);
+  }, [filteredEmployeeSummaries]);
+
+  const totalPayableAmountTillDate = useMemo(() => {
+    return filteredEmployeeSummaries.reduce((sum: number, summary: any) => {
+      const rawTotals = summary.rawTotals || {};
+      const netAmount = Number(rawTotals.netAmount ?? 0);
+      const amountPaid = Number(rawTotals.amountPaid ?? 0);
+      return sum + Math.max(0, netAmount - amountPaid);
+    }, 0);
+  }, [filteredEmployeeSummaries]);
 
   // Transform employee data for table
   const tableData = useMemo(() => {
-    if (!employeesData?.message?.employeeSummaries) {
-      return [];
-    }
-
-    return employeesData.message.employeeSummaries.map((summary: any) => {
+    return filteredEmployeeSummaries.map((summary: any) => {
       const rawTotals = summary.rawTotals || {};
 
       return {
@@ -128,13 +142,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         extraDay: rawTotals.extraDaysWorked ?? 0,
       };
     });
-  }, [employeesData]);
+  }, [filteredEmployeeSummaries]);
 
   // Check if professional fees are applicable
-  const hasProfFees = useMemo(() => {
-    return employeesData?.message?.employeeSummaries?.some((summary: any) => (summary.rawTotals?.professionalFeesDeducted || 0) > 0) || false;
-  }, [employeesData]);
-
   return (
     <>
       {/* Salary Summary Card */}
@@ -153,6 +163,29 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
       <div className="mt-5">
         <h1>Monthly Salary</h1>
         <MaterialTable
+          renderTopToolbarRightActions={() => (
+            <Box sx={{ display: 'flex', gap: '0.75rem', alignItems: 'center', px: 1 }}>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="status-filter-label">Employee Status</InputLabel>
+                <Select
+                  labelId="status-filter-label"
+                  id="status-filter"
+                  value={statusFilter}
+                  label="Employee Status"
+                  onChange={(e) => setStatusFilter(e.target.value as 'Active' | 'Deactive' | 'All')}
+                  sx={{
+                    bgcolor: '#fff',
+                    borderRadius: '10px',
+                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d9e1ec' },
+                  }}
+                >
+                  <MenuItem value="Active">Active</MenuItem>
+                  <MenuItem value="Deactive">Deactive</MenuItem>
+                  <MenuItem value="All">All</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          )}
           columns={[
             {
               accessorKey: "id",

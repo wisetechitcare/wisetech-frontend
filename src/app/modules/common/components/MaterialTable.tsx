@@ -80,6 +80,7 @@ interface MaterialTableProps {
   muiTableContainerProps?: any;
   renderDetailPanel?: (props: { row: any; table: any }) => React.ReactNode;
   enableStatusColorCoding?: boolean;
+  renderTopToolbarRightActions?: () => React.ReactNode;
 }
 
 const defaultColumnSizes = {
@@ -126,6 +127,7 @@ function MaterialTable({
   muiTableContainerProps: customMuiTableContainerProps,
   renderDetailPanel,
   enableStatusColorCoding = true,
+  renderTopToolbarRightActions,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -1340,6 +1342,8 @@ function MaterialTable({
                     </button>
                   )}
                 </Box>
+
+                {renderTopToolbarRightActions?.()}
 
                 {/* Result count pill */}
                 {globalFilterValue && (
