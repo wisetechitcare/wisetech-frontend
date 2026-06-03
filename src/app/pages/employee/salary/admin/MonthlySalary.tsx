@@ -261,8 +261,15 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               accessorKey: "dueAmount",
               header: "Due Amount",
               Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                if (renderedCellValue === "-" || renderedCellValue === null || renderedCellValue === undefined) return "-";
+                const amount = Math.round(Number(renderedCellValue));
+                if (amount < 0) {
+                    return <span className="text-info fw-bold">Paid Extra (₹{Math.abs(amount).toLocaleString('en-IN')})</span>;
+                } else if (amount > 0) {
+                    return <span className="text-danger fw-bold">₹{amount.toLocaleString('en-IN')}</span>;
+                } else {
+                    return <span className="text-success fw-bold">₹0</span>;
+                }
               }
             },
             {
