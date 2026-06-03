@@ -7,6 +7,8 @@ import Loader from '@app/modules/common/utils/Loader';
 import LeavesAllowanceSection from './LeavesAllowanceSection';
 import { KTIcon } from '@metronic/helpers';
 import SandwichLeave from '@pages/company/settings/SandwhichLeave';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 interface LeavesSectionProps {
   sectionRef?: (el: HTMLDivElement | null) => void;
@@ -56,6 +58,22 @@ const LeavesSection: React.FC<LeavesSectionProps> = ({ sectionRef }) => {
 
     loadData();
   }, []);
+
+  // Real-time: reload addon allowances when they change anywhere in the app.
+  const loadAddonAllowances = async () => {
+    try {
+      const allowancesResponse = await fetchAllAddonLeavesAllowances();
+      if (!allowancesResponse?.hasError && allowancesResponse.data?.addonLeavesAllowances) {
+        setAddonAllowances(allowancesResponse.data.addonLeavesAllowances);
+      }
+    } catch (error) {
+      console.error('[LeavesSection] Error loading addon allowances:', error);
+    }
+  };
+
+  useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, () => {
+    loadAddonAllowances();
+  });
 
     const handleOpenSandwichLeaveModal = () => {
       setShowSandwichLeaveModal(true);
