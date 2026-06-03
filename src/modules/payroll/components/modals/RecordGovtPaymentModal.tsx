@@ -3,6 +3,7 @@ import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { payrollService } from '../../services/payrollService';
 import { toast } from 'react-toastify';
 import dayjs from 'dayjs';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface RecordGovtPaymentModalProps {
   show: boolean;
@@ -63,7 +64,7 @@ export const RecordGovtPaymentModal: React.FC<RecordGovtPaymentModalProps> = ({
           <div className="alert alert-dismissible bg-light-warning d-flex flex-column flex-sm-row p-5 mb-10">
             <div className="d-flex flex-column pe-0 pe-sm-10">
               <h4 className="fw-bold">Statutory Payment: {paymentType}</h4>
-              <span>Total Accrued from Payroll: <strong>₹{totalDue?.toLocaleString('en-IN')}</strong></span>
+              <span>Total Accrued from Payroll: <strong>{formatINRRounded(totalDue || 0)}</strong></span>
             </div>
           </div>
 

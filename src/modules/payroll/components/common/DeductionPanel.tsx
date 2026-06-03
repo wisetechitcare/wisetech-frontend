@@ -1,7 +1,7 @@
 import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { DeductionBreakdownProps } from '../../types/payroll.types';
-import { formatINR2, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatINRDecimal, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 
 const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     deductionBreakdown,
@@ -24,7 +24,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
         const sign = extraAmount < 0 ? '-' : '+';
-        return `(${formatINR2(calculatedAmount)} ${sign} ${formatINR2(Math.abs(extraAmount))})`;
+        return `(${formatINRDecimal(calculatedAmount)} ${sign} ${formatINRDecimal(Math.abs(extraAmount))})`;
     };
 
     const renderTooltip = (props: any) => (
@@ -70,7 +70,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                -{formatINR2(Number(item.earned || 0))}
+                                                -{formatINRDecimal(Number(item.earned || 0))}
                                             </span>
                                         </td>
                                     </tr>
@@ -105,7 +105,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                 </td>
                                 <td className="text-end py-4 pe-6">
                                     <span className={`fw-bolder fs-6 text-danger ${sensitiveCls}`}>
-                                        -{formatINR2(totalVariable)}
+                                        -{formatINRDecimal(totalVariable)}
                                     </span>
                                 </td>
                             </tr>
@@ -125,7 +125,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                         <span className="text-muted fw-bold fs-7">(Gross Pay − Attendance Adjustments Deductions)</span>
                     </div>
                     <div className="d-flex align-items-center bg-light-danger rounded-3 px-4 py-2 border border-danger border-opacity-10">
-                        <span className={`text-danger fw-bolder fs-2 ${sensitiveCls}`}>{formatINR2(intermediateSalary)}</span>
+                        <span className={`text-danger fw-bolder fs-2 ${sensitiveCls}`}>{formatINRDecimal(intermediateSalary)}</span>
                     </div>
                 </div>
             </div>
@@ -155,7 +155,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                             ) : (
                                 fixedEntries.map(([key, item]: [string, any]) => {
                                     const isPct = String(item.type).toLowerCase() === 'percentage';
-                                    const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
+                                    const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
                                     const typeLabel = isPct ? 'Percentage' : 'Fixed';
                                     const extraAmount = Number(item.extraAmount || 0);
                                     const calculatedAmount = Number(item.calculatedAmount || 0);
@@ -172,12 +172,12 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                 <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>{rate}</span>
                                             </td>
                                             <td className="text-end">
-                                                <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>{isPct ? formatINR2(intermediateSalary) : '—'}</span>
+                                                <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>{isPct ? formatINRDecimal(intermediateSalary) : '—'}</span>
                                             </td>
                                             <td className="text-end">
                                                 <div className="d-flex flex-column align-items-end">
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                        -{formatINR2(earnedAmount)}
+                                                        -{formatINRDecimal(earnedAmount)}
                                                     </span>
                                                     {extraAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
@@ -196,7 +196,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                 </td>
                                 <td className="text-end py-4 pe-6">
                                     <span className={`fw-bolder fs-6 text-danger ${sensitiveCls}`}>
-                                        -{formatINR2(totalFixed)}
+                                        -{formatINRDecimal(totalFixed)}
                                     </span>
                                 </td>
                             </tr>
@@ -218,7 +218,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     </OverlayTrigger>
                 </div>
                 <span className={`text-danger fw-bolder fs-2 ${sensitiveCls}`}>
-                    -{formatINR2(grandTotalDeductions)}
+                    -{formatINRDecimal(grandTotalDeductions)}
                 </span>
             </div>
         </div>

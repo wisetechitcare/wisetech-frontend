@@ -137,6 +137,8 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             type={BREAKDOWN_TYPES.GROSS}
                                             title="Earnings"
                                             showSensitiveData={showSensitiveData}
+                                            hourlySalary={apiSalaryData?.hourlySalary}
+                                            dailySalary={apiSalaryData?.hourlySalary ? apiSalaryData.hourlySalary * 8 : undefined}
                                         />
                                     </div>
                                 </Col>

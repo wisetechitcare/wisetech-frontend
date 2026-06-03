@@ -131,9 +131,9 @@ function FinancialSection() {
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {pfType === "PERCENTAGE" ? (
-                                <TextInput isRequired={false} label="Professional Fees %" formikField="professionalFeesPercentage" />
+                                <TextInput isRequired={false} label="Tax Deducted at Source (TDS) %" formikField="professionalFeesPercentage" />
                             ) : (
-                                <TextInput isRequired={false} label="Professional Fees Amount" formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
+                                <TextInput isRequired={false} label="Tax Deducted at Source (TDS) Amount" formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
                             )}
                         </div>
                     </>

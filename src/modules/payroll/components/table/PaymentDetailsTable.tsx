@@ -3,7 +3,7 @@ import { Button, Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { PayrollTableRow } from '../../types/payroll.types';
-import { formatINR2 } from '../../utils/payrollFormatters';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -122,17 +122,17 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-primary fw-bolder fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedNetSalary)}
+                                                {formatINRRounded(row.calculatedNetSalary)}
                                             </span>
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-success fw-bold fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedPaidAmount)}
+                                                {formatINRRounded(row.calculatedPaidAmount)}
                                             </span>
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-danger fw-bold fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedRemainingAmount)}
+                                                {formatINRRounded(row.calculatedRemainingAmount)}
                                             </span>
                                         </td>
                                         <td className="text-center">

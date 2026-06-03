@@ -581,7 +581,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 <div className="card-body p-5">
                   <div className="d-flex align-items-center justify-content-between">
                     <div>
-                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Professional Fees Payable</h5>
+                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Tax Deducted at Source (TDS) Payable</h5>
                       <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPayable)}</span>
                     </div>
                     <div className="symbol symbol-50px">
@@ -599,7 +599,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 <div className="card-body p-5">
                   <div className="d-flex align-items-center justify-content-between">
                     <div>
-                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Professional Fees Paid</h5>
+                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Tax Deducted at Source (TDS) Paid</h5>
                       <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPaid)}</span>
                     </div>
                     <div className="symbol symbol-50px">

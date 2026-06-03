@@ -3600,14 +3600,14 @@ export const formatNumber = (number: number | string) => {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 0
     }).format(Number(number));
 }
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
-    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 // get total weekends in a month

@@ -1,13 +1,15 @@
 import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { BreakdownTableProps } from '../../types/payroll.types';
-import { formatINR2, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatINRDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 
 const BreakdownTable: React.FC<BreakdownTableProps> = ({
     data,
     type,
     title,
-    showSensitiveData
+    showSensitiveData,
+    hourlySalary,
+    dailySalary
 }) => {
     const hasFixedData = Object.keys(data.fixed || {}).length > 0;
     const hasVariableData = Object.keys(data.variable || {}).length > 0;
@@ -53,34 +55,49 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                 <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">
                                     <th className="min-w-150px">Description</th>
                                     <th className="text-center min-w-100px">Details</th>
+                                    <th className="text-center min-w-100px">Rate</th>
                                     <th className="text-end min-w-120px">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {Object.entries(data.variable).map(([key, item]: [string, any]) => (
-                                    <tr key={key}>
-                                        <td>
-                                            <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
-                                        </td>
-                                        <td className="text-center">
-                                            <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
-                                                {formatValue(item.value, item.type)}
-                                            </span>
-                                        </td>
-                                        <td className="text-end">
-                                            <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
-                                                {formatINR2(item.earned)}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {Object.entries(data.variable).map(([key, item]: [string, any], index: number) => {
+                                    // 1st two are Hourly, rest are Daily
+                                    const isHourly = index < 2;
+                                    const rateValue = isHourly ? hourlySalary : dailySalary;
+                                    const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0 
+                                        ? `${formatINRDecimal(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
+                                        : '-';
+
+                                    return (
+                                        <tr key={key}>
+                                            <td>
+                                                <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
+                                            </td>
+                                            <td className="text-center">
+                                                <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
+                                                    {formatValue(item.value, item.type)}
+                                                </span>
+                                            </td>
+                                            <td className="text-center">
+                                                <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>
+                                                    {rateLabel}
+                                                </span>
+                                            </td>
+                                            <td className="text-end">
+                                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
+                                                    {formatINRDecimal(item.earned)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 <tr className={`${subtotalBgClass} border-0`}>
-                                    <td colSpan={2} className="py-4 ps-6">
+                                    <td colSpan={3} className="py-4 ps-6">
                                         <span className="fw-bolder text-gray-700 fs-7">Subtotal Variable Earnings</span>
                                     </td>
                                     <td className="text-end py-4 pe-6">
                                         <span className={`fw-bolder fs-6 ${subtotalColorClass} ${sensitiveCls}`}>
-                                            {subtotalPrefix}{formatINR2(variableSubtotal)}
+                                            {subtotalPrefix}{formatINRDecimal(variableSubtotal)}
                                         </span>
                                     </td>
                                 </tr>
@@ -112,7 +129,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
-                                                {formatINR2(item.earned)}
+                                                {formatINRDecimal(item.earned)}
                                             </span>
                                         </td>
                                     </tr>
@@ -123,7 +140,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                     </td>
                                     <td className="text-end py-4 pe-6">
                                         <span className={`fw-bolder fs-6 text-success ${sensitiveCls}`}>
-                                            {subtotalPrefix}{formatINR2(fixedSubtotal)}
+                                            {subtotalPrefix}{formatINRDecimal(fixedSubtotal)}
                                         </span>
                                     </td>
                                 </tr>
@@ -146,7 +163,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                         </OverlayTrigger>
                     </div>
                     <span className={`text-primary fw-bolder fs-2 ${sensitiveCls}`}>
-                        {formatINR2(grandTotal)}
+                        {formatINRDecimal(grandTotal)}
                     </span>
                 </div>
             )}

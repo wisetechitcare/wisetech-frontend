@@ -27,6 +27,7 @@ interface SalaryIncrementModalProps {
 interface FormValues {
     effectiveFrom: string;
     ctcInLpa: string;
+    monthlySalary: string;
 }
 
 const parseCtcInput = (value: string): number => {
@@ -40,7 +41,11 @@ const salaryIncrementSchema = Yup.object({
     ctcInLpa: Yup.number()
         .positive('CTC must be a positive number')
         .required('New CTC is required')
-        .typeError('CTC must be a valid number')
+        .typeError('CTC must be a valid number'),
+    monthlySalary: Yup.number()
+        .positive('Monthly Salary must be a positive number')
+        .required('Monthly Salary is required')
+        .typeError('Monthly Salary must be a valid number')
 });
 
 const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
@@ -59,7 +64,8 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
     // const ctcInLPA = salaryHistory?.[0]?.ctcInLpa;
     let initialValues: FormValues = {
         effectiveFrom: dayjs().startOf('month').format('YYYY-MM-DD'),
-        ctcInLpa: ctcInLPA
+        ctcInLpa: ctcInLPA,
+        monthlySalary: ctcInLPA ? String(Number(ctcInLPA) / 12) : ''
     };
 
     console.log("salaryHistory:: ",salaryHistory);
@@ -165,6 +171,7 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
                         const { values, errors, touched, setFieldValue, setFieldTouched } = formikProps;
                         useEffect(()=>{
                             setFieldValue('ctcInLpa', ctcInLPA)
+                            setFieldValue('monthlySalary', ctcInLPA ? String(Number(ctcInLPA) / 12) : '')
                         },[ctcInLPA])
                         return (
                             <form onSubmit={formikProps.handleSubmit}>
@@ -241,76 +248,13 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
                                             You can select any past, current, or future month to backfill an unrecorded increment.
                                         </p>
                                     </div>
-
-                                    {/* CTC Input */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        <label style={{
-                                            fontFamily: 'Inter, sans-serif',
-                                            fontWeight: 500,
-                                            fontSize: '14px',
-                                            color: 'black',
-                                            margin: 0
-                                        }}>
-                                            New CTC
-                                        </label>
-                                        
-                                        <input
-                                            type="text"
-                                            value={values.ctcInLpa}
-                                            onChange={(e) => {
-                                                const value = e.target.value.replace(/[^0-9.]/g, '');
-                                                setFieldValue('ctcInLpa', value);
-                                            }}
-                                            onBlur={() => setFieldTouched('ctcInLpa', true)}
-                                            placeholder="Enter CTC amount"
-                                            style={{
-                                                width: '100%',
-                                                backgroundColor: '#eef1f7',
-                                                border: 'none',
-                                                borderRadius: '7px',
-                                                padding: '14px 16px',
-                                                fontFamily: 'Inter, sans-serif',
-                                                fontSize: '14px',
-                                                color: 'black',
-                                                outline: 'none'
-                                            }}
-                                        />
-                                        
-                                        {values.ctcInLpa && !errors.ctcInLpa && (
-                                            <p style={{
-                                                fontFamily: 'Inter, sans-serif',
-                                                fontSize: '12px',
-                                                color: '#666',
-                                                margin: 0
-                                            }}>
-                                                Formatted: {formatCTCDisplay(values.ctcInLpa)}
-                                            </p>
-                                        )}
-                                        
-                                        {errors.ctcInLpa && touched.ctcInLpa && (
-                                            <p style={{
-                                                fontFamily: 'Inter, sans-serif',
-                                                fontWeight: 500,
-                                                fontSize: '14px',
-                                                color: '#b72b2b',
-                                                margin: 0
-                                            }}>
-                                                {errors.ctcInLpa}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Submit Button */}
-                                <div style={{ marginTop: '28px' }}>
                                     <Button
                                         type="submit"
                                         disabled={loading || !formikProps.isValid}
                                         style={{
-                                            backgroundColor: '#9d4141',
-                                            borderColor: '#9d4141',
-                                            borderRadius: '6px',
-                                            height: '40px',
+                                            backgroundColor: '#3855B3',
+                                            borderRadius: '7px',
+                                            height: '48px',
                                             padding: '0 20px',
                                             fontFamily: 'Inter, sans-serif',
                                             fontWeight: 500,
