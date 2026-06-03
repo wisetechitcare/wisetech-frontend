@@ -11,6 +11,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
 import { saveLeaves } from '@redux/slices/attendanceStats';
 import { calculateTotalDuration } from '@utils/calculateTotalDuration';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 interface CurrentYearOverviewProps {
     yearlyStats: Attendance[];
@@ -110,6 +112,10 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     useEffect(() => {
         fetchEmployeeLeaveBlance();
     }, [selectedEmployeeId, checkInCheckOut, startDate, endDate]);
+
+    // Real-time: refresh leave balances when leave config / addon tiers change.
+    useEventBus(EVENT_KEYS.leaveOptionsUpdated, fetchEmployeeLeaveBlance);
+    useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, fetchEmployeeLeaveBlance);
 
 
     // const totalWorkingDayInYear = useMemo(() => {
