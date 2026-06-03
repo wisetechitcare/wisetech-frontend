@@ -117,13 +117,13 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 {pfType === "PERCENTAGE" ? (
                                     <TextInput
                                         isRequired={false}
-                                        label="Professional Fees %"
+                                        label="Tax Deducted at Source (TDS) %"
                                         formikField="professionalFeesPercentage"
                                     />
                                 ) : (
                                     <TextInput
                                         isRequired={false}
-                                        label="Professional Fees Amount"
+                                        label="Tax Deducted at Source (TDS) Amount"
                                         formikField="professionalFeesAmount"
                                         formatter={formatINNumber}
                                         parser={parseINNumber}

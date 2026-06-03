@@ -3,6 +3,7 @@ import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { payrollService } from '../../services/payrollService';
 import { toast } from 'react-toastify';
 import dayjs from 'dayjs';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface RecordPaymentModalProps {
   show: boolean;
@@ -74,9 +75,9 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           <div className="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-5 mb-10">
             <div className="d-flex flex-column pe-0 pe-sm-10">
               <h4 className="fw-bold">Payment for {employeeData.employee?.fullName}</h4>
-              <span>Net Salary: <strong>₹{employeeData.netSalary?.toLocaleString('en-IN')}</strong> | 
-              Already Paid: <strong>₹{employeeData.paidAmount?.toLocaleString('en-IN')}</strong> | 
-              Pending: <strong className="text-danger">₹{pendingAmount?.toLocaleString('en-IN')}</strong></span>
+              <span>Net Salary: <strong>{formatINRRounded(employeeData.netSalary || 0)}</strong> | 
+              Already Paid: <strong>{formatINRRounded(employeeData.paidAmount || 0)}</strong> | 
+              Pending: <strong className="text-danger">{formatINRRounded(pendingAmount || 0)}</strong></span>
             </div>
           </div>
 

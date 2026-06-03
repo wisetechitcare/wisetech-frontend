@@ -2,7 +2,7 @@ import React from 'react';
 import { Row, Col } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { PayrollSummary } from '../../types/payroll.types';
-import { formatINR2 } from '../../utils/payrollFormatters';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface PayrollStatsCardsProps {
     summaryData: PayrollSummary;
@@ -67,7 +67,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
                             
                             <div className="d-flex flex-column mb-5">
                                 <span className={`fs-1 fw-bolder text-gray-900 ${sensitiveCls} mb-1`}>
-                                    {formatINR2(card.value)}
+                                    {formatINRRounded(card.value)}
                                 </span>
                             </div>
 
@@ -79,7 +79,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
                                             <span className="text-danger fw-bold fs-7">{card.statusLabel}</span>
                                         </div>
                                         <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                            {formatINR2(card.pendingValue || 0)}
+                                            {formatINRRounded(card.pendingValue || 0)}
                                         </span>
                                     </div>
                                 ) : (

@@ -79,6 +79,8 @@ export interface BreakdownTableProps {
     type: 'gross' | 'deduction';
     title: string;
     showSensitiveData: boolean;
+    hourlySalary?: number;
+    dailySalary?: number;
 }
 
 export interface GrossDistributionData {

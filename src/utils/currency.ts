@@ -114,7 +114,7 @@ export const formatCurrency = (
     style: 'currency',
     currency: currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
     ...options,
   };
 
@@ -127,9 +127,41 @@ export const formatCurrency = (
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,
     }).format(Number(amount));
   }
+};
+
+/**
+ * Format a number as currency with EXACTLY 2 decimal places.
+ * To be used for all intermediate calculations: daily salary, hourly salary, etc.
+ */
+export const formatCurrencyDecimal = (
+  amount: number | string,
+  branchCurrency?: string,
+  options?: Partial<Intl.NumberFormatOptions>
+): string => {
+  return formatCurrency(amount, branchCurrency, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    ...options
+  });
+};
+
+/**
+ * Format a number as currency with exactly 0 decimal places.
+ * To be used ONLY for the final net payable and TDS.
+ */
+export const formatCurrencyRounded = (
+  amount: number | string,
+  branchCurrency?: string,
+  options?: Partial<Intl.NumberFormatOptions>
+): string => {
+  return formatCurrency(amount, branchCurrency, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+    ...options
+  });
 };
 
 /**

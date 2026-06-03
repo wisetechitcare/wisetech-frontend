@@ -1,6 +1,8 @@
 import { Box, LinearProgress, Paper, Stack, Typography } from '@mui/material';
 
 interface PaymentProgressCardProps {
+    title?: string;
+    subtitle?: string;
     percentPaid: number;
     paidAmount: string;
     remainingAmount: string;
@@ -11,7 +13,7 @@ const legend = [
     { label: 'Remaining', color: '#f59e0b' }, // Modern Amber/Orange
 ];
 
-const PaymentProgressCard = ({ percentPaid, paidAmount, remainingAmount }: PaymentProgressCardProps) => {
+const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remainingAmount }: PaymentProgressCardProps) => {
     const normalized = Math.max(0, Math.min(100, Number.isFinite(percentPaid) ? percentPaid : 0));
 
     return (
@@ -34,10 +36,10 @@ const PaymentProgressCard = ({ percentPaid, paidAmount, remainingAmount }: Payme
             }}
         >
             <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                Payment Progress
+                {title || 'Payment Progress'}
             </Typography>
             <Typography sx={{ mt: 0.5, fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
-                Your salary payments for this financial year.
+                {subtitle || 'Your salary payments for this financial year.'}
             </Typography>
 
             <Box sx={{ mt: 4, mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>

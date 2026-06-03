@@ -12,9 +12,10 @@ import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalance
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import YearlyKpiCard from './components/salary/YearlyKpiCard';
 import PaymentProgressCard from './components/salary/PaymentProgressCard';
-import YearlyOverviewCard from './components/salary/YearlyOverviewCard';
+import YearlyOverViewCard from './YearlyOverViewCard';
 import SalaryBreakdownTable, { YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
 import MonthlySalaryComparison from './MonthlySalaryComparison';
 import Increments from './Increments';
@@ -47,20 +48,6 @@ const parseCurrencyOrNumber = (value: unknown): number => {
         return Number.isFinite(parsed) ? parsed : 0;
     }
     return 0;
-};
-
-const formatCurrency = (value: number): string => (
-    new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(Number.isFinite(value) ? value : 0)
-);
-
-const formatNumber = (value: number): string => {
-    if (!Number.isFinite(value)) return '0';
-    return value % 1 === 0 ? value.toString() : value.toFixed(2);
 };
 
 const normalizeStatus = (status: string, paidAmount: number, pendingAmount: number): 'Paid' | 'Pending' | 'Partial' => {
@@ -125,14 +112,14 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
 
         return {
             month,
-            basicSalary: formatCurrency(basicSalary),
-            overtime: formatCurrency(overtime),
-            payable: formatCurrency(payable),
-            netPayable: formatCurrency(netPayable),
-            paid: formatCurrency(paidAmount),
-            pending: formatCurrency(pendingAmount),
-            pfDeduction: formatCurrency(pfDeduction),
-            govtDeduction: professionalFees > 0 ? formatCurrency(professionalFees) : '',
+            basicSalary: formatCurrencyDecimal(basicSalary),
+            overtime: formatCurrencyDecimal(overtime),
+            payable: formatCurrencyDecimal(payable),
+            netPayable: formatCurrencyRounded(netPayable),
+            paid: formatCurrencyRounded(paidAmount),
+            pending: formatCurrencyRounded(pendingAmount),
+            pfDeduction: formatCurrencyDecimal(pfDeduction),
+            govtDeduction: professionalFees > 0 ? formatCurrencyDecimal(professionalFees) : '',
             status: normalizeStatus(row.status, paidAmount, pendingAmount),
             isPlaceholder: false,
         };
@@ -363,28 +350,28 @@ const Yearly = ({
     const kpis = [
         {
             label: 'NET PAYABLE (THIS YEAR)',
-            value: formatCurrency(yearOverview.totalNetAmount),
+            value: formatCurrencyDecimal(yearOverview.totalNetAmount),
             footer: financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
             tone: 'green' as const,
             icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
         },
         {
             label: 'PAID AMOUNT',
-            value: formatCurrency(yearOverview.totalPaidAmount),
+            value: formatCurrencyDecimal(yearOverview.totalPaidAmount),
             footer: `${paidPercent}% Paid`,
             tone: 'blue' as const,
             icon: <CheckCircleOutlineOutlinedIcon fontSize="small" />,
         },
         {
             label: 'REMAINING AMOUNT',
-            value: formatCurrency(yearOverview.totalDueAmount),
+            value: formatCurrencyDecimal(yearOverview.totalDueAmount),
             footer: yearOverview.totalDueAmount > 0 ? 'Pending' : 'Cleared',
             tone: 'amber' as const,
             icon: <HourglassBottomOutlinedIcon fontSize="small" />,
         },
         ...(hasProfessionalFees ? [{
             label: 'PF / GOVT DEDUCTION',
-            value: formatCurrency(yearOverview.totalGovtDeduction),
+            value: formatCurrencyDecimal(yearOverview.totalGovtDeduction),
             footer: 'Professional Fees',
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
@@ -430,21 +417,20 @@ const Yearly = ({
                     </>
                 ) : (
                     <>
-                        <YearlyOverviewCard
+                        <YearlyOverViewCard
                             title="Yearly Overview"
                             fiscalYear={financialYear}
                             fiscalMonth={yearOverview.totalMonths ? `${yearOverview.totalMonths} Months` : '-'}
-                            payableDays={formatNumber(yearOverview.totalPayableDays)}
-                            workingDays={formatNumber(yearOverview.totalWorkingDays)}
+                            payableDays={yearOverview.totalPayableDays.toFixed(2)}
+                            workingDays={yearOverview.totalWorkingDays.toString()}
                             attendance={`${yearOverview.attendancePercent}%`}
                             leavePercentage={`${100 - yearOverview.attendancePercent}%`}
-                            netPayable={formatCurrency(yearOverview.totalNetAmount)}
-                            netPayableLabel="Net Payable This Year"
+                            netPayable={formatCurrencyDecimal(yearOverview.totalNetAmount)}
                         />
                         <PaymentProgressCard
                             percentPaid={paidPercent}
-                            paidAmount={formatCurrency(yearOverview.totalPaidAmount)}
-                            remainingAmount={formatCurrency(yearOverview.totalDueAmount)}
+                            paidAmount={formatCurrencyDecimal(yearOverview.totalPaidAmount)}
+                            remainingAmount={formatCurrencyDecimal(yearOverview.totalDueAmount)}
                         />
                     </>
                 )}

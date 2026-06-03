@@ -2,7 +2,7 @@ import { Attendance, IPayment } from '@models/employee';
 import { RootState } from '@redux/store';
 import { fetchAllPayments } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
-import { formatNumber } from '@utils/statistics';
+import { formatCurrencyDecimal } from '@utils/currency';
 import dayjs from 'dayjs';
 import {
     Avatar,
@@ -368,7 +368,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     }, [employee, toggleChange]);
 
     const formatSalaryValue = (value: number | undefined, fallback = '-') => (
-        typeof value === 'number' && value >= 0 ? formatNumber(value) : fallback
+        typeof value === 'number' && value >= 0 ? formatCurrencyDecimal(value) : fallback
     );
     const totalExperience = employee?.dateOfJoining
         ? (() => {
@@ -391,8 +391,8 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         : '-';
     const employeeName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
     const paidAmountValue = apiSalaryData
-        ? formatSalaryValue(monthlyPaidAmount, formatNumber(0))
-        : formatNumber(totalPaidAmount || 0);
+        ? formatSalaryValue(monthlyPaidAmount, formatCurrencyDecimal(0))
+        : formatCurrencyDecimal(totalPaidAmount || 0);
 
     const metricItems: EmployeeMetricCardProps[] = [
         {

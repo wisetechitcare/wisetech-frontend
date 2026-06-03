@@ -1,4 +1,4 @@
-﻿import TextInput from '@app/modules/common/inputs/TextInput';
+import TextInput from '@app/modules/common/inputs/TextInput';
 import { CUSTOM_SALARY, DEDUCTIONS, GROSS_PAY, LEAVE_MANAGEMENT, SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import { HOLIDAYS, LATE_CHECKIN, MONTH, ON_LEAVE, Status, YEAR, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -76,10 +76,16 @@ interface SalaryReportProps {
     isRefreshing?: boolean;
 }
 
-const formatINR2 = (n: number) =>
+const formatINRDecimal = (n: number) =>
     `₹${(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
+    })}`;
+
+const formatINRRounded = (n: number) =>
+    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     })}`;
 
 const sumEarnings = (entries: Record<string, IBreakdownItem> | undefined) =>
@@ -108,7 +114,7 @@ const DeductionPanel = ({
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
         const sign = extraAmount < 0 ? '-' : '+';
-        return `(${formatINR2(calculatedAmount)} ${sign} ${formatINR2(Math.abs(extraAmount))})`;
+        return `(${formatINRDecimal(calculatedAmount)} ${sign} ${formatINRDecimal(Math.abs(extraAmount))})`;
     };
 
     return (
@@ -138,7 +144,7 @@ const DeductionPanel = ({
                                         {item.value ?? '-'}
                                     </td>
                                     <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                        {formatINR2(Number(item.earned || 0))}
+                                        {formatINRDecimal(Number(item.earned || 0))}
                                     </td>
                                 </tr>
                             ))}
@@ -156,7 +162,7 @@ const DeductionPanel = ({
                                     className={`fw-bold py-2 ${sensitiveCls}`}
                                     style={{ textAlign: 'right', color: '#AA393D' }}
                                 >
-                                    -{formatINR2(totalVariable)}
+                                    -{formatINRDecimal(totalVariable)}
                                 </td>
                             </tr>
                         </tbody>
@@ -186,7 +192,7 @@ const DeductionPanel = ({
                             border: '1px solid #E5C8CA',
                         }}
                     >
-                        {formatINR2(intermediateSalary)}
+                        {formatINRDecimal(intermediateSalary)}
                     </div>
                 </div>
             </div>
@@ -211,7 +217,7 @@ const DeductionPanel = ({
                             )}
                             {fixedEntries.map(([key, item]: [string, any]) => {
                                 const isPct = String(item.type).toLowerCase() === 'percentage';
-                                const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
+                                    const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
                                 const typeLabel = isPct ? 'Percentage' : 'Fixed';
                                 const extraAmount = Number(item.extraAmount || 0);
                                 const calculatedAmount = Number(item.calculatedAmount || 0);
@@ -224,11 +230,11 @@ const DeductionPanel = ({
                                             {rate}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {isPct ? formatINR2(intermediateSalary) : '—'}
+                                            {isPct ? formatINRDecimal(intermediateSalary) : '—'}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
                                             <div className="d-flex flex-column align-items-end">
-                                                <span>{formatINR2(earnedAmount)}</span>
+                                                        <span>{formatINRDecimal(earnedAmount)}</span>
                                                 {extraAmount !== 0 && (
                                                     <span className="text-muted" style={{ fontSize: 10 }}>
                                                         {formatAdjustmentFormula(calculatedAmount, extraAmount)}
@@ -254,7 +260,7 @@ const DeductionPanel = ({
                                     className={`fw-bold py-2 ${sensitiveCls}`}
                                     style={{ textAlign: 'right', color: '#AA393D' }}
                                 >
-                                    -{formatINR2(totalFixed)}
+                                    -{formatINRDecimal(totalFixed)}
                                 </td>
                             </tr>
                         </tbody>
@@ -280,7 +286,7 @@ const DeductionPanel = ({
                             border: '1px solid #E5C8CA',
                         }}
                     >
-                        {formatINR2(intermediateSalary)}
+                        {formatINRDecimal(intermediateSalary)}
                     </div>
                 </div>
             </div>
@@ -337,7 +343,7 @@ const NetAmountPayable = ({
                     className={`fs-2 fw-bolder ${net < 0 ? 'text-danger' : ''} ${sensitiveCls}`}
                     style={{ color: net < 0 ? undefined : '#008C7C' }}
                 >
-                    {formatINR2(Math.abs(net))}
+                    {formatINRRounded(Math.abs(net))}
                 </div>
             </div>
             {isApiDataLoaded && (
@@ -345,12 +351,12 @@ const NetAmountPayable = ({
                     className={`mt-3 d-flex justify-content-center align-items-center gap-2 px-3 py-2 rounded-2 ${sensitiveCls}`}
                     style={{ backgroundColor: '#D6F4EE', fontSize: 13 }}
                 >
-                    <span className="fw-semibold">{formatINR2(intermediateSalary)}</span>
+                    <span className="fw-semibold">{formatINRDecimal(intermediateSalary)}</span>
                     <span className="text-muted">−</span>
-                    <span className="fw-semibold">{formatINR2(totalFixed)}</span>
+                    <span className="fw-semibold">{formatINRDecimal(totalFixed)}</span>
                     <span className="text-muted">=</span>
                     <span className="fw-bolder" style={{ color: '#008C7C' }}>
-                        {formatINR2(net)}
+                        {formatINRRounded(net)}
                     </span>
                 </div>
             )}
@@ -538,19 +544,31 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     <tr>
                                         <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
                                         <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'center' }}>Value</th>
+                                        <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'center' }}>Rate</th>
                                         <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'right' }}>Earned</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Object.entries(data.variable).map(([key, item]) => (
-                                        <tr key={key} style={{ fontSize: '11px' }}>
-                                            <td>{item.name || key}</td>
-                                            <td style={{ textAlign: 'center' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatValue(item.value, item.type)}</td>
-                                            <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
-                                        </tr>
-                                    ))}
+                                    {Object.entries(data.variable).map(([key, item], index) => {
+                                        const isHourly = index < 2;
+                                        const hourlySalaryVal = apiSalaryData?.hourlySalary;
+                                        const dailySalaryVal = hourlySalaryVal ? hourlySalaryVal * 8 : undefined;
+                                        const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
+                                        const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0 
+                                            ? `${formatCurrency(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
+                                            : '-';
+                                        
+                                        return (
+                                            <tr key={key} style={{ fontSize: '11px' }}>
+                                                <td>{item.name || key}</td>
+                                                <td style={{ textAlign: 'center' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatValue(item.value, item.type)}</td>
+                                                <td style={{ textAlign: 'center' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{rateLabel}</td>
+                                                <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
+                                            </tr>
+                                        );
+                                    })}
                                     <tr style={{ fontSize: '11px', borderTop: '1px solid #E5E8ED' }}>
-                                        <td colSpan={2} className="fw-bold pt-2">{variableSubtotalLabel}</td>
+                                        <td colSpan={3} className="fw-bold pt-2">{variableSubtotalLabel}</td>
                                         <td
                                             style={{ textAlign: 'right', color: subtotalColor }}
                                             className={`fw-bold pt-2 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}
@@ -2310,27 +2328,27 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 </td>
                                                 <td className="text-end">
                                                     <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedGrossPay)}
+                                                        {formatINRDecimal(row.calculatedGrossPay)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end text-danger">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        -{formatINR2(row.calculatedVariableDeduction)}
+                                                        -{formatINRDecimal(row.calculatedVariableDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end text-danger">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        -{formatINR2(row.calculatedFixedDeduction)}
+                                                        -{formatINRDecimal(row.calculatedFixedDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end fw-bold">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedTotalDeduction)}
+                                                        {formatINRDecimal(row.calculatedTotalDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end fw-bolder text-primary">
                                                     <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedNetSalary)}
+                                                        {formatINRRounded(row.calculatedNetSalary)}
                                                     </span>
                                                 </td>
                                                 <td className="text-center">
@@ -2347,7 +2365,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 </td>
                                                 <td className="text-end fw-bold text-success">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedPaidAmount)}
+                                                        {formatINRRounded(row.calculatedPaidAmount)}
                                                     </span>
                                                 </td>
                                                 <td className="text-center">

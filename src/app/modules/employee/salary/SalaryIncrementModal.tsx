@@ -18,26 +18,6 @@ interface SalaryIncrementModalProps {
     onHide: () => void;
     employee: {
         id: string;
-import React, { useEffect, useState } from 'react';
-import { Modal, Button } from 'react-bootstrap';
-import { Formik, FormikProps } from 'formik';
-import * as Yup from 'yup';
-import dayjs from 'dayjs';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { TextField } from '@mui/material';
-import { createSalaryHistory, fetchSalaryHistory } from '@services/company';
-import { successConfirmation, errorConfirmation } from '@utils/modal';
-import { formatNumber } from '@utils/statistics';
-import { useSelector } from 'react-redux';
-import { RootState } from '@redux/store';
-
-interface SalaryIncrementModalProps {
-    show: boolean;
-    onHide: () => void;
-    employee: {
-        id: string;
         ctcInLpa?: string;
     };
     onSuccess?: () => void;
@@ -268,6 +248,13 @@ const SalaryIncrementModal: React.FC<SalaryIncrementModalProps> = ({
                                             You can select any past, current, or future month to backfill an unrecorded increment.
                                         </p>
                                     </div>
+                                    <Button
+                                        type="submit"
+                                        disabled={loading || !formikProps.isValid}
+                                        style={{
+                                            backgroundColor: '#3855B3',
+                                            borderRadius: '7px',
+                                            height: '48px',
                                             padding: '0 20px',
                                             fontFamily: 'Inter, sans-serif',
                                             fontWeight: 500,

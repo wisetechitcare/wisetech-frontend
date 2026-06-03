@@ -1,348 +1,173 @@
-import React from 'react'
+import React from 'react';
+import { Paper, Typography, Box, Grid } from '@mui/material';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
+import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
+import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
+import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 
 interface YearlyOverViewCardProps {
-    overview?: {
-        startDate: string;
-        endDate: string;
-        totalPayableDays: number;
-        totalNetAmount: number;
-        totalPaidAmount: number;
-        totalDueAmount: number;
-        totalMonths: number;
-    };
-    loading?: boolean;
+  overview?: {
+    startDate: string;
+    endDate: string;
+    totalPayableDays: number;
+    totalNetAmount: number;
+    totalPaidAmount: number;
+    totalDueAmount: number;
+    totalMonths: number;
+  };
+  title?: string;
+  fiscalYear?: string;
+  fiscalMonth?: string;
+  payableDays?: string | number;
+  workingDays?: string | number;
+  attendance?: string;
+  leavePercentage?: string;
+  netPayable?: string | number;
+  netPayableLabel?: string;
+  netPayableLabelSubtitle?: React.ReactNode;
+  paidAmount?: string | number;
+  remainingAmount?: string | number;
+  startDate?: string;
+  endDate?: string;
+  loading?: boolean;
 }
 
-const YearlyOverViewCard = ({ overview, loading = false  }: YearlyOverViewCardProps) => {
-    const payableDays = overview?.totalPayableDays ?? 0;
-    const netPayable = overview?.totalNetAmount ?? 0;
-    const paidAmount = overview?.totalPaidAmount ?? 0;
-    const remainingAmount = overview?.totalDueAmount ?? 0;
-    const startDate = overview?.startDate ?? '';
-    const endDate = overview?.endDate ?? '';
+const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
+    const {
+      overview,
+      title = 'Yearly Overview',
+      fiscalYear = '-',
+      fiscalMonth = '-',
+      payableDays = '-',
+      workingDays = '-',
+      attendance = '-',
+      leavePercentage = '-',
+      netPayable = '-',
+      netPayableLabel = 'Net Payable This Year',
+      netPayableLabelSubtitle,
+      startDate = '-',
+      endDate = '-',
+    } = props;
+    
+    // If an overview object is supplied, it overrides the individual props
+    const computedPayableDays = overview?.totalPayableDays ?? payableDays;
+    const computedNetPayable = overview?.totalNetAmount ?? netPayable;
+    const computedStartDate = overview?.startDate ?? startDate;
+    const computedEndDate = overview?.endDate ?? endDate;
+    const computedFiscalMonth = overview?.totalMonths ? `${overview?.totalMonths} Months` : fiscalMonth;
 
     // Format fiscal year as "2023-2024"
-    const startYear = startDate ? new Date(startDate).getFullYear() : '';
-    const endYear = endDate ? new Date(endDate).getFullYear() : '';
-    const paymentYear = startYear && endYear ? `${startYear}-${endYear}` : '';
+    const startYear = computedStartDate ? new Date(computedStartDate).getFullYear() : '';
+    const endYear = computedEndDate ? new Date(computedEndDate).getFullYear() : '';
+    const paymentYear = startYear && endYear ? `${startYear}-${endYear}` : fiscalYear;
 
-    console.log("Yearly Overview Card Rendered with overview: ===================>", overview);
-
-    // Skeleton loader component
-    const SkeletonLoader = ({ width = "100%", height = "20px", marginBottom = "0px" }: { width?: string; height?: string; marginBottom?: string }) => (
-        <div style={{
-            width,
-            height,
-            backgroundColor: "#e0e0e0",
-            borderRadius: "4px",
-            marginBottom,
-            animation: "pulse 1.5s ease-in-out infinite"
-        }} />
-    );
-
-    // Add keyframe animation
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-    `;
-    if (!document.querySelector('style[data-skeleton-animation]')) {
-        styleElement.setAttribute('data-skeleton-animation', 'true');
-        document.head.appendChild(styleElement);
-    }
-
-    if (loading) {
-        return (
-            <div style={{ width: "100%", paddingBottom: "16px" }}>
-                <div style={{ display: "flex", gap: "16px", alignItems: "stretch" }}>
-                    {/* Loading Skeleton for Yearly Overview Card */}
-                    <div style={{ flex: 1 }}>
-                        <div style={{
-                            background: "#fff",
-                            padding: "20px 24px",
-                            borderRadius: "12px",
-                            boxShadow: "8px 8px 16px rgba(0,0,0,0.04)",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "24px"
-                        }}>
-                            <SkeletonLoader width="150px" height="24px" />
-                            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                                <SkeletonLoader width="100%" height="16px" />
-                                <SkeletonLoader width="100%" height="16px" />
-                            </div>
-                            <SkeletonLoader width="100%" height="1.5px" />
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <SkeletonLoader width="40%" height="40px" />
-                                <SkeletonLoader width="30%" height="24px" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Loading Skeleton for Payment Details Card */}
-                    <div style={{ flex: 1 }}>
-                        <div style={{
-                            background: "#fff",
-                            padding: "20px 24px",
-                            borderRadius: "12px",
-                            boxShadow: "8px 8px 16px rgba(0,0,0,0.04)",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "24px",
-                            height: "100%"
-                        }}>
-                            <SkeletonLoader width="150px" height="24px" />
-                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                <SkeletonLoader width="100%" height="20px" />
-                                <SkeletonLoader width="100%" height="20px" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const infoRows = [
+        { label: 'Fiscal Year', value: paymentYear, icon: <CalendarMonthOutlinedIcon fontSize="small" />, color: '#2563eb' },
+        { label: 'Fiscal Month', value: computedFiscalMonth, icon: <DateRangeOutlinedIcon fontSize="small" />, color: '#8b5cf6' },
+        { label: 'Working Days', value: workingDays, icon: <BusinessCenterOutlinedIcon fontSize="small" />, color: '#0891b2' },
+        { label: 'Payable Days', value: computedPayableDays, icon: <EventAvailableOutlinedIcon fontSize="small" />, color: '#16a34a' },
+        { label: 'Attendance', value: attendance, icon: <PersonOutlineOutlinedIcon fontSize="small" />, color: '#d97706' },
+        { label: 'Leave Percentage', value: leavePercentage, icon: <EventBusyOutlinedIcon fontSize="small" />, color: '#ef4444' },
+    ];
 
     return (
-        <div style={{ width: "100%", paddingBottom: "16px" }}>
-            <div style={{ display: "flex", gap: "16px", alignItems: "stretch" }}>
+        <Paper
+            elevation={0}
+            sx={{
+                p: { xs: 2.5, md: 3 },
+                borderRadius: '20px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05)',
+                },
+            }}
+        >
+            <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, mb: 3 }}>
+                {title}
+            </Typography>
 
-                {/* Yearly Overview Card */}
-                <div style={{ flex: 1 }}>
-                    <div
-                        style={{
-                            background: "#fff",
-                            padding: "20px 24px",
-                            borderRadius: "12px",
-                            boxShadow: "8px 8px 16px rgba(0,0,0,0.04)",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "24px"
-                        }}
-                    >
-                        {/* Title */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <h6 style={{
-                                fontFamily: "'Barlow', sans-serif",
-                                fontWeight: 600,
-                                fontSize: "20px",
-                                letterSpacing: "0.2px",
-                                margin: 0,
-                                color: "#000"
-                            }}>
-                                Yearly Overview
-                            </h6>
-                        </div>
+            <Grid container spacing={2} sx={{ mb: 'auto' }}>
+                {infoRows.map((row, index) => (
+                    <Grid item xs={12} sm={6} key={index}>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                p: 1.5,
+                                border: '1px solid #f1f5f9',
+                                borderRadius: '12px',
+                                backgroundColor: '#f8fafc',
+                                transition: 'all 200ms',
+                                '&:hover': {
+                                    backgroundColor: '#ffffff',
+                                    borderColor: '#e2e8f0',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: '8px',
+                                    backgroundColor: `${row.color}15`,
+                                    color: row.color,
+                                    mr: 2,
+                                }}
+                            >
+                                {row.icon}
+                            </Box>
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                <Typography sx={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, mb: 0.25 }}>
+                                    {row.label}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.95rem', color: '#0f172a', fontWeight: 700 }}>
+                                    {row.value}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Grid>
+                ))}
+            </Grid>
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            {/* Year and Days Section */}
-                            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                                {/* Payment Year */}
-                                <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    fontFamily: "'Inter', sans-serif",
-                                    fontWeight: 500,
-                                    fontSize: "14px",
-                                    color: "#000"
-                                }}>
-                                    <span>Payment Year</span>
-                                    <span>{paymentYear}</span>
-                                </div>
-
-                                {/* Payable Days */}
-                                <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    fontFamily: "'Inter', sans-serif",
-                                    fontWeight: 500,
-                                    fontSize: "14px",
-                                    color: "#000"
-                                }}>
-                                    <span>Payable Days</span>
-                                    <span>{payableDays}</span>
-                                </div>
-                            </div>
-
-                            {/* Divider */}
-                            <div style={{
-                                width: "100%",
-                                height: "1.5px",
-                                backgroundColor: "#d9d9d9"
-                            }}></div>
-
-                            {/* Net Payable */}
-                            <div style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center"
-                            }}>
-                                <div style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: "7px",
-                                    fontFamily: "'Inter', sans-serif",
-                                    fontWeight: 500,
-                                    fontSize: "14px"
-                                }}>
-                                    <span style={{ color: "#000" }}>Net Payable this year</span>
-                                    <span style={{ color: "#8998ab" }}>Total after Attendance Adjustments (A) - Govt Deductions (B)</span>
-                                </div>
-
-                                <span style={{
-                                    fontFamily: "'Inter', sans-serif",
-                                    fontWeight: 600,
-                                    color: "#2aa11f",
-                                    fontSize: "18px"
-                                }}>
-                                    ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payment Details Card */}
-                <div style={{ flex: 1 }}>
-                    <div
-                        style={{
-                            background: "#fff",
-                            padding: "20px 24px",
-                            borderRadius: "12px",
-                            boxShadow: "8px 8px 16px rgba(0,0,0,0.04)",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "24px",
-                            height: "100%"
-                        }}
-                    >
-                        {/* Title */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <h6 style={{
-                                fontFamily: "'Barlow', sans-serif",
-                                fontWeight: 600,
-                                fontSize: "20px",
-                                letterSpacing: "0.2px",
-                                margin: 0,
-                                color: "#000"
-                            }}>
-                                Payment Details
-                            </h6>
-                        </div>
-
-                        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                {/* Paid Amount */}
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center"
-                                    }}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                        {/* Green checkmark icon */}
-                                        <div
-                                            style={{
-                                                width: "24px",
-                                                height: "24px",
-                                                borderRadius: "50%",
-                                                backgroundColor: "#2aa11f",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center"
-                                            }}
-                                        >
-                                            <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
-                                                <path d="M1 5.5L5 9.5L13 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            </svg>
-                                        </div>
-                                        <span style={{
-                                            fontFamily: "'Inter', sans-serif",
-                                            fontWeight: 500,
-                                            fontSize: "14px",
-                                            color: "#000"
-                                        }}>
-                                            Paid Amount
-                                        </span>
-                                    </div>
-                                    <span style={{
-                                        fontFamily: "'Inter', sans-serif",
-                                        fontWeight: 500,
-                                        fontSize: "14px",
-                                        color: "#000"
-                                    }}>
-                                        ₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-
-                                {/* Remaining Amount */}
-                                <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center"
-                                }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                        {/* Blue clock icon */}
-                                        {/* <div
-                                            style={{
-                                                width: "19.5px",
-                                                height: "19.5px",
-                                                borderRadius: "50%",
-                                                backgroundColor: "#007bff",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center"
-                                            }}
-                                        >
-                                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                                <circle cx="6" cy="6" r="5" stroke="white" strokeWidth="1.5" fill="none"/>
-                                                <path d="M6 3V6L8 8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-                                            </svg> */}
-                                             <div
-                                            style={{
-                                                width: "24px",
-                                                height: "24px",
-                                                borderRadius: "50%",
-                                                backgroundColor: "#007bff",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center"
-                                            }}
-                                        >
-                                            <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
-                                                <path d="M1 5.5L5 9.5L13 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                            </svg>
-                                        </div>
-                                        <span style={{
-                                            fontFamily: "'Inter', sans-serif",
-                                            fontWeight: 500,
-                                            fontSize: "14px",
-                                            color: "#000"
-                                        }}>
-                                            Remaining
-                                        </span>
-                                    </div>
-                                    <span style={{
-                                        fontFamily: "'Inter', sans-serif",
-                                        fontWeight: 500,
-                                        fontSize: "14px",
-                                        color: "#000"
-                                    }}>
-                                        ₹{remainingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
+            <Box
+                sx={{
+                    mt: 3,
+                    p: 2,
+                    borderRadius: '12px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
+            >
+                <Typography sx={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 600 }}>
+                    {netPayableLabel}
+                </Typography>
+                {netPayableLabelSubtitle && (
+                    <Typography sx={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 500, mt: 0.25, mb: 0.5 }}>
+                        {netPayableLabelSubtitle}
+                    </Typography>
+                )}
+                <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }}>
+                    {typeof computedNetPayable === 'number'
+                        ? `₹${computedNetPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : (String(computedNetPayable).includes('₹') ? computedNetPayable : `₹${computedNetPayable}`)}
+                </Typography>
+            </Box>
+        </Paper>
     );
 };
 
