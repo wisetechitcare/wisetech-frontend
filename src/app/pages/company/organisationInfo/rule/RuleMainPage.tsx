@@ -389,7 +389,7 @@ const RuleMainPage = () => {
                 {/* Professional Fees */}
                 <div className="d-flex flex-column gap-4">
                   <RuleSectionTitle
-                    title="Professional Fees"
+                    title="Tax Deducted at Source (TDS)"
                     description="lorem ispum shs aj dks dk"
                   />
                   <div className="d-flex flex-column gap-1" style={{ width: '100%' }}>

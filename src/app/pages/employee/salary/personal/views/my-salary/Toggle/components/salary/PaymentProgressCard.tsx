@@ -1,17 +1,19 @@
 import { Box, LinearProgress, Paper, Stack, Typography } from '@mui/material';
 
 interface PaymentProgressCardProps {
+    title?: string;
+    subtitle?: string;
     percentPaid: number;
     paidAmount: string;
     remainingAmount: string;
 }
 
 const legend = [
-    { label: 'Paid', color: '#3b82f6' }, // Modern Blue
-    { label: 'Remaining', color: '#f59e0b' }, // Modern Amber/Orange
+    { label: 'Paid', color: '#3b82f6' }, // Modern Blue as in screenshot
+    { label: 'Remaining', color: '#f59e0b' }, // Modern Amber/Orange as in screenshot
 ];
 
-const PaymentProgressCard = ({ percentPaid, paidAmount, remainingAmount }: PaymentProgressCardProps) => {
+const PaymentProgressCard = ({ title, subtitle, percentPaid, paidAmount, remainingAmount }: PaymentProgressCardProps) => {
     const normalized = Math.max(0, Math.min(100, Number.isFinite(percentPaid) ? percentPaid : 0));
 
     return (
@@ -34,10 +36,10 @@ const PaymentProgressCard = ({ percentPaid, paidAmount, remainingAmount }: Payme
             }}
         >
             <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                Payment Progress
+                {title || 'Payment Progress'}
             </Typography>
             <Typography sx={{ mt: 0.5, fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
-                Your salary payments for this financial year.
+                {subtitle || 'Your salary payments for this financial year.'}
             </Typography>
 
             <Box sx={{ mt: 4, mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -60,10 +62,10 @@ const PaymentProgressCard = ({ percentPaid, paidAmount, remainingAmount }: Payme
                 sx={{
                     height: 12,
                     borderRadius: 6,
-                    backgroundColor: '#ffe4e6', // Soft pink/red for remaining
+                    backgroundColor: '#ffe4e6', // Soft pink/red for remaining (matching screenshot track)
                     '& .MuiLinearProgress-bar': {
                         borderRadius: 6,
-                        backgroundColor: '#3b82f6', // Solid blue for paid (matching the image)
+                        backgroundColor: '#AA393D', // Dark red for paid (matching screenshot bar)
                     },
                 }}
             />

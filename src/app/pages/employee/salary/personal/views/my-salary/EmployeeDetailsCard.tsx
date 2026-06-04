@@ -2,7 +2,7 @@ import { Attendance, IPayment } from '@models/employee';
 import { RootState } from '@redux/store';
 import { fetchAllPayments } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
-import { formatNumber } from '@utils/statistics';
+import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import dayjs from 'dayjs';
 import {
     Avatar,
@@ -325,32 +325,35 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const [totalPaidAmount, setTotalAmountPaid] = useState(0);
     const apiSalaryData = monthlyApiData?.salaryData?.[0];
 
+    // Truncate helper: floor to 2 decimal places (avoids rounding 666.666 → 666.67)
+    const trunc2 = (n: number) => Math.floor(n * 100) / 100;
+
     let annualCTC: number | undefined;
     if (apiSalaryData?.employeeCardDeatils?.annualCTC) {
-        annualCTC = parseFloat(apiSalaryData?.employeeCardDeatils?.annualCTC?.toFixed(2));
+        annualCTC = trunc2(apiSalaryData.employeeCardDeatils.annualCTC);
     }
     if (apiSalaryData?.employeeCardDeatils?.monthlySalary) {
-        monthlySalary = parseFloat(apiSalaryData?.employeeCardDeatils?.monthlySalary?.toFixed(2));
+        monthlySalary = trunc2(apiSalaryData.employeeCardDeatils.monthlySalary);
     }
     if (apiSalaryData?.employeeCardDeatils?.hourlySalary) {
-        hourlySalary = parseFloat(apiSalaryData?.employeeCardDeatils?.hourlySalary?.toFixed(2));
+        hourlySalary = trunc2(apiSalaryData.employeeCardDeatils.hourlySalary);
     }
 
     let monthlyPaidAmount: number;
     if (apiSalaryData?.employeeCardDeatils?.monthlyPaid) {
-        monthlyPaidAmount = parseFloat(apiSalaryData?.employeeCardDeatils?.monthlyPaid?.toFixed(2));
+        monthlyPaidAmount = trunc2(apiSalaryData.employeeCardDeatils.monthlyPaid);
     } else {
         monthlyPaidAmount = 0;
     }
 
     const apiDailySalary = apiSalaryData?.employeeCardDeatils?.dailySalary;
 
-    const dailySalary = typeof hourlySalary === 'number' && hourlySalary >= 0
-        ? parseFloat((hourlySalary * 8).toFixed(2))
+    const dailySalary = typeof apiDailySalary === 'number' && apiDailySalary >= 0
+        ? trunc2(apiDailySalary)
         : typeof monthlySalary === 'number' && monthlySalary >= 0
-            ? parseFloat((monthlySalary / 30).toFixed(2))
-            : typeof apiDailySalary === 'number'
-                ? parseFloat(apiDailySalary.toFixed(2))
+            ? trunc2(monthlySalary / 30)
+            : typeof hourlySalary === 'number' && hourlySalary >= 0
+                ? trunc2(hourlySalary * 8)
                 : undefined;
 
     async function fetchPayments() {
@@ -368,7 +371,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     }, [employee, toggleChange]);
 
     const formatSalaryValue = (value: number | undefined, fallback = '-') => (
-        typeof value === 'number' && value >= 0 ? formatNumber(value) : fallback
+        typeof value === 'number' && value >= 0 ? formatCurrencyDecimal(value) : fallback
     );
     const totalExperience = employee?.dateOfJoining
         ? (() => {
@@ -391,8 +394,8 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         : '-';
     const employeeName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
     const paidAmountValue = apiSalaryData
-        ? formatSalaryValue(monthlyPaidAmount, formatNumber(0))
-        : formatNumber(totalPaidAmount || 0);
+        ? formatSalaryValue(monthlyPaidAmount, formatCurrencyDecimal(0))
+        : formatCurrencyDecimal(totalPaidAmount || 0);
 
     const metricItems: EmployeeMetricCardProps[] = [
         {
@@ -421,7 +424,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         },
         {
             label: 'Annual Salary (CTC)',
-            value: formatSalaryValue(annualCTC),
+            value: typeof annualCTC === 'number' && annualCTC >= 0 ? formatCurrencyRounded(annualCTC) : '-',
             icon: <SavingsOutlinedIcon fontSize="small" />, 
             tone: 'orange',
             isSensitive: true,
@@ -429,7 +432,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         },
         {
             label: 'Monthly Salary',
-            value: formatSalaryValue(monthlySalary),
+            value: typeof monthlySalary === 'number' && monthlySalary >= 0 ? formatCurrencyRounded(monthlySalary) : '-',
             icon: <CurrencyRupeeOutlinedIcon fontSize="small" />, 
             tone: 'green',
             isSensitive: true,

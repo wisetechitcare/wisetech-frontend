@@ -94,7 +94,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     const govtPending = Math.max(0, correctedFixedDeductions - governmentPaid);
     const payableAmount = Math.max(0, salaryInHand - salaryPaid);
 
-    const activeGovType = hasProfessionalFees ? govtDeductions[0].label : 'Professional Fees';
+    const activeGovType = hasProfessionalFees ? govtDeductions[0].label : 'Tax Deducted at Source (TDS)';
+    const displayGovType = activeGovType === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : activeGovType;
 
     return (
         <Modal show={show} onHide={onHide} size="xl" centered className="wt-payment-modal shadow-lg overflow-hidden">
@@ -129,7 +130,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <Col md={3}>
                                 <Card className="bg-light-danger border-0 shadow-none h-100">
                                     <Card.Body className="p-4">
-                                        <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Payable</span>
+                                        <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{displayGovType} Payable</span>
                                         <span className="text-gray-900 fs-3 fw-bolder d-block">{formatINR2(correctedFixedDeductions)}</span>
                                         <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatINR2(govtPending)}</Badge>
                                     </Card.Body>
@@ -149,7 +150,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             <Col md={3}>
                                 <Card className="bg-light-info border-0 shadow-none h-100">
                                     <Card.Body className="p-4">
-                                        <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{activeGovType} Paid</span>
+                                        <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">{displayGovType} Paid</span>
                                         <span className="text-info fs-3 fw-bolder d-block">{formatINR2(governmentPaid)}</span>
                                         <Badge bg="info" className="bg-opacity-10 text-info mt-1">Paid</Badge>
                                     </Card.Body>
@@ -163,8 +164,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     initialValues={{
                         ...initialValues,
                         paymentType: activeTab,
-                        salaryAmount: initialValues.salaryAmount || payableAmount,
-                        govAmount: initialValues.govAmount || 0,
+                        salaryAmount: Math.round(initialValues.salaryAmount || payableAmount),
+                        govAmount: Math.round(initialValues.govAmount || 0),
                         govType: initialValues.govType || (hasProfessionalFees ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
                         paymentMethod: 'BANK_TRANSFER',
@@ -245,7 +246,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             <div className="px-6 py-4 bg-light border-bottom d-flex justify-content-between align-items-center">
                                                 <h4 className="fw-bolder text-gray-800 mb-0">
                                                     {activeTab === 'SALARY' ? 'Salary Installment' : 
-                                                     activeTab === 'GOVERNMENT' ? 'Professional Fees Settlement' : 
+                                                     activeTab === 'GOVERNMENT' ? 'Tax Deducted at Source (TDS) Settlement' : 
                                                      'Combined Disbursement'}
                                                 </h4>
                                                 <Badge bg="primary" className="fw-bold">Step 2 of 2</Badge>
@@ -286,7 +287,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                     <div>
                                                         <div className="d-flex align-items-center mb-6">
                                                             <div className="bullet bullet-vertical bg-danger h-20px me-3"></div>
-                                                            <h5 className="fw-bold text-gray-800 m-0">Professional Fees Settlement</h5>
+                                                            <h5 className="fw-bold text-gray-800 m-0">Tax Deducted at Source (TDS) Settlement</h5>
                                                         </div>
                                                         
                                                         <Row className="g-5">
@@ -300,7 +301,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const selected = govtDeductions.find(d => d.value === option.value);
                                                                         setFieldValue('govType', option.value);
                                                                         if (selected) {
-                                                                            setFieldValue('govAmount', selected.amount);
+                                                                            setFieldValue('govAmount', Math.round(selected.amount));
                                                                         } else {
                                                                             setFieldValue('govAmount', 0);
                                                                         }
@@ -333,7 +334,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                 <div className="d-flex align-items-center">
                                                                     <KTIcon iconName="information-5" className="fs-1 text-danger me-4" />
                                                                     <div className="text-gray-700 fw-bold fs-7">
-                                                                        Professional Fees payments will update the statutory ledger and master status. 
+                                                                        Tax Deducted at Source (TDS) payments will update the statutory ledger and master status. 
                                                                         Ensure the Challan # is recorded for audit purposes.
                                                                     </div>
                                                                 </div>

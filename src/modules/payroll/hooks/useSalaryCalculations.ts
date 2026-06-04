@@ -128,9 +128,9 @@ export const useSalaryCalculations = (
             totalDeduction: Number(totalDeduction.toFixed(2)),
             netSalary: Number(netSalary.toFixed(2)),
             salaryPaid: Number(salaryPaid.toFixed(2)),
-            salaryPending: Math.max(0, netSalary - salaryPaid),
+            salaryPending: netSalary - salaryPaid,
             governmentPaid: Number(governmentPaid.toFixed(2)),
-            governmentPending: hasProfessionalFees ? Math.max(0, totalProfessionalFees - governmentPaid) : 0,
+            governmentPending: hasProfessionalFees ? (totalProfessionalFees - governmentPaid) : 0,
             totalCompanyPayout: Number((salaryPaid + governmentPaid).toFixed(2)),
             activeGovType: hasProfessionalFees ? 'Professional Fees' : ''
         };
@@ -175,7 +175,7 @@ export const useSalaryCalculations = (
                         calculatedVariableDeduction: variable,
                         calculatedFixedDeduction: fixed,
                         calculatedNetSalary: net,
-                        calculatedRemainingAmount: Math.max(0, net - amountPaid),
+                        calculatedRemainingAmount: net - amountPaid,
                         calculatedStatus: amountPaid >= net ? 'Full Paid' : 'Partially Paid',
                         calculatedPaidAmount: amountPaid,
                         paymentType: 'SALARY',
@@ -194,7 +194,7 @@ export const useSalaryCalculations = (
                         calculatedVariableDeduction: variable,
                         calculatedFixedDeduction: professionalFees,
                         calculatedNetSalary: professionalFees,
-                        calculatedRemainingAmount: Math.max(0, professionalFees - govPaid),
+                        calculatedRemainingAmount: professionalFees - govPaid,
                         calculatedStatus: govPaid >= professionalFees ? 'Full Paid' : 'Partially Paid',
                         calculatedPaidAmount: govPaid,
                         paymentType: 'GOVERNMENT',
@@ -227,7 +227,7 @@ export const useSalaryCalculations = (
                 const calculatedVariableDeduction = isGov ? 0 : variable;
                 const calculatedFixedDeduction = isGov ? professionalFees : fixed;
                 const calculatedNetSalary = currentNetPayable;
-                const calculatedRemainingAmount = Math.max(0, currentNetPayable - paymentAmount);
+                const calculatedRemainingAmount = currentNetPayable - paymentAmount;
                 const calculatedStatus = paymentAmount >= currentNetPayable ? 'Full Paid' : 'Partially Paid';
                 rows.push({
                     ...item,
@@ -247,9 +247,9 @@ export const useSalaryCalculations = (
                     item: item
                 });
                 if (isGov) {
-                    runningGovernmentRemaining = Math.max(0, runningGovernmentRemaining - paymentAmount);
+                    runningGovernmentRemaining = runningGovernmentRemaining - paymentAmount;
                 } else {
-                    runningSalaryRemaining = Math.max(0, runningSalaryRemaining - paymentAmount);
+                    runningSalaryRemaining = runningSalaryRemaining - paymentAmount;
                 }
             });
             }

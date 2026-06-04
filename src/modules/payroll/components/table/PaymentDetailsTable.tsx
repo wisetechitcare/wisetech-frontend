@@ -3,7 +3,7 @@ import { Button, Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { PayrollTableRow } from '../../types/payroll.types';
-import { formatINR2 } from '../../utils/payrollFormatters';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -24,7 +24,11 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 }) => {
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
-    const getStatusBadge = (status: string) => {
+    const getStatusBadge = (status: string, remainingAmount?: number) => {
+        if (remainingAmount !== undefined && remainingAmount < 0) {
+            return <Badge bg="light-info" className="text-info fw-bold px-4 py-2">Paid Extra</Badge>;
+        }
+
         const s = status.toLowerCase().trim();
         
         if (s === 'full paid' || s === 'paid') {
@@ -121,22 +125,22 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             </Badge>
                                         </td>
                                         <td className="text-end">
-                                            <span className={`text-primary fw-bolder fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedNetSalary)}
+                                            <span className={`fw-bolder fs-6 ${sensitiveCls} ${row.calculatedNetSalary < 0 ? 'text-info' : 'text-primary'}`}>
+                                                {formatINRRounded(row.calculatedNetSalary)}
                                             </span>
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-success fw-bold fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedPaidAmount)}
+                                                {formatINRRounded(row.calculatedPaidAmount)}
                                             </span>
                                         </td>
                                         <td className="text-end">
-                                            <span className={`text-danger fw-bold fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedRemainingAmount)}
+                                            <span className={`fw-bold fs-6 ${sensitiveCls} ${row.calculatedRemainingAmount < 0 ? 'text-info' : 'text-danger'}`}>
+                                                {formatINRRounded(row.calculatedRemainingAmount)}
                                             </span>
                                         </td>
                                         <td className="text-center">
-                                            {getStatusBadge(row.calculatedStatus)}
+                                            {getStatusBadge(row.calculatedStatus, row.calculatedRemainingAmount)}
                                         </td>
                                         <td className="text-center">
                                             <div className="d-flex flex-column align-items-center">

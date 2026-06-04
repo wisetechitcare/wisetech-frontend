@@ -90,7 +90,7 @@ const defaultProvidentFund: IProvidentFund = {
 };
 
 const defaultProfessionalFees: IProfessionalFees = {
-  name: "Professional Fees",
+  name: "Tax Deducted at Source (TDS)",
   type: "number",
   deduction: 0
 };

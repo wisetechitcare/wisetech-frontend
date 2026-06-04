@@ -1,6 +1,6 @@
 import React from 'react';
 import { NetAmountPayableProps } from '../../types/payroll.types';
-import { formatINR2, roundPayrollAmount, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatINRDecimal, formatINRRounded, roundPayrollAmount, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 
 const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
     grossPay,
@@ -55,27 +55,27 @@ const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
                         <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
                             <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light rounded-2 border border-gray-100 flex-fill">
                                 <span className="text-gray-500 fs-9 fw-bold text-uppercase">Total Gross Pay</span>
-                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>{formatINR2(grossPay)}</span>
+                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>{formatINRDecimal(grossPay)}</span>
                             </div>
                             <span className="d-none d-lg-inline text-gray-400 fw-bolder">-</span>
                             <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light rounded-2 border border-gray-100 flex-fill">
                                 <span className="text-gray-500 fs-9 fw-bold text-uppercase">Attendance Adjustments</span>
-                                <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-{formatINR2(totalVariable)}</span>
+                                <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-{formatINRDecimal(totalVariable)}</span>
                             </div>
                             <span className="d-none d-lg-inline text-gray-400 fw-bolder">=</span>
                             <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light rounded-2 border border-gray-100 flex-fill">
                                 <span className="text-gray-500 fs-9 fw-bold text-uppercase">Salary After Adjustment</span>
-                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>{formatINR2(intermediateSalary)}</span>
+                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>{formatINRDecimal(intermediateSalary)}</span>
                             </div>
                             <span className="d-none d-lg-inline text-gray-400 fw-bolder">-</span>
                             <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light-danger rounded-2 border border-danger border-opacity-10 flex-fill">
                                 <span className="text-gray-500 fs-9 fw-bold text-uppercase">Tax Deductions</span>
-                                <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-{formatINR2(totalFixed)}</span>
+                                <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-{formatINRDecimal(totalFixed)}</span>
                             </div>
                             <span className="d-none d-lg-inline text-gray-400 fw-bolder">=</span>
                             <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light-success rounded-2 border border-success border-opacity-10 flex-fill">
                                 <span className="text-gray-500 fs-9 fw-bold text-uppercase">Total Payable</span>
-                                <span className={`text-success fw-bolder fs-7 ${sensitiveCls}`}>{formatINR2(net)}</span>
+                                <span className={`text-success fw-bolder fs-7 ${sensitiveCls}`}>{formatINRRounded(net)}</span>
                             </div>
                         </div>
                     </div>
@@ -100,7 +100,7 @@ const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
                             <div className="position-absolute top-0 start-0 w-100 h-100 opacity-10" style={{ background: 'linear-gradient(135deg, #ffffff 0%, transparent 100%)' }}></div>
                             <span className="text-white text-opacity-75 fw-bold fs-10 text-uppercase d-block mb-1 ls-1">Payable Amount</span>
                             <div className={`fs-3 fw-bolder text-white ${sensitiveCls} lh-1`}>
-                                {formatINR2(net)}
+                                {formatINRRounded(net)}
                             </div>
                         </div>
                     </div>
