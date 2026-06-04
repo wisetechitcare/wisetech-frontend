@@ -16,6 +16,7 @@ interface MonthlyOverviewCardProps {
   netPayable?: string | number;
   netPayableLabel?: string;
   netPayableLabelSubtitle?: React.ReactNode;
+  showSensitiveData?: boolean;
 }
 
 const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
@@ -29,7 +30,10 @@ const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
       netPayable = '-',
       netPayableLabel = 'Net Payable This Month',
       netPayableLabelSubtitle,
+      showSensitiveData = true,
     } = props;
+
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
     const infoRows = [
         { label: 'Present Days', value: presentDays, icon: <PersonOutlineOutlinedIcon fontSize="small" />, color: '#16a34a' },
@@ -130,7 +134,7 @@ const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
                         {netPayableLabelSubtitle}
                     </Typography>
                 )}
-                <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }}>
+                <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }} className={sensitiveCls}>
                     {typeof netPayable === 'number'
                         ? `₹${netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         : (String(netPayable).includes('₹') ? netPayable : `₹${netPayable}`)}

@@ -27,6 +27,10 @@ export interface SalarySlipProps {
     variableDeductions: { name: string; earned: string }[];
     fixedDeductions: { name: string; earned: string }[];
   };
+  hourlySalary?: number;
+  presentDays?: number;
+  monthStartDate?: string;
+  monthEndDate?: string;
 }
 
 /**
@@ -226,6 +230,10 @@ export function transformApiDataToSalarySlipProps(
       variableDeductions: formatLineItems(validApiData.deductionBreakdown?.variable),
       fixedDeductions: formatLineItems(validApiData.deductionBreakdown?.fixed),
     },
+    hourlySalary: (validApiData as any).hourlySalary ?? undefined,
+    presentDays: (validApiData as any).presentDays ?? (validApiData as any).extraData?.presentDays ?? undefined,
+    monthStartDate: validApiData.monthStartDate ?? undefined,
+    monthEndDate: validApiData.monthEndDate ?? undefined,
   };
 }
 

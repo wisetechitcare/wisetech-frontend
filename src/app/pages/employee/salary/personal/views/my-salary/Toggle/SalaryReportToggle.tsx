@@ -29,6 +29,30 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
 
     const [fiscalYear, setFiscalYear] = useState('');
 
+    // Inject global CSS for sensitive data blur toggle (needed by all toggle views)
+    useEffect(() => {
+        const STYLE_ID = 'sensitive-data-global-styles';
+        if (!document.getElementById(STYLE_ID)) {
+            const styleEl = document.createElement('style');
+            styleEl.id = STYLE_ID;
+            styleEl.innerHTML = `
+                .sensitive-data-hidden {
+                    filter: blur(5px);
+                    user-select: none;
+                    pointer-events: none;
+                    transition: filter 0.3s ease;
+                }
+                .sensitive-data-visible {
+                    filter: none;
+                    user-select: auto;
+                    pointer-events: auto;
+                    transition: filter 0.3s ease;
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+    }, []);
+
     useEffect(()=>{
        if(!year) return;
        async function getFiscalYear() {
@@ -56,7 +80,7 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
     return (
         <>
             <h3 className="fw-bold fs-1 mb-6 mt-6 font-barlow">Salary Report</h3>
-            <div className="d-flex flex-md-row justify-content-lg-between flex-column align-items-lg-center mb-8 gap-5 gap-lg-0">
+            <div className="d-flex flex-wrap justify-content-between align-items-center mb-8 gap-3">
                 <ToggleButtonGroup
                     value={alignment}
                     exclusive

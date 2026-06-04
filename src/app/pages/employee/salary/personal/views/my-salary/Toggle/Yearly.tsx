@@ -136,6 +136,7 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
             month,
             basicSalary: formatCurrencyDecimal(basicSalary),
             overtime: formatCurrencyDecimal(overtime),
+            overtimeDisplay: row.overTimeRuleDisplay || formatCurrencyDecimal(overtime),
             payable: formatCurrencyDecimal(payable),
             netPayable: formatCurrencyRounded(netPayable),
             paid: formatCurrencyRounded(paidAmount),
@@ -161,6 +162,10 @@ const initialOverview: YearOverview = {
     totalGovtDeduction: 0,
     hasProfessionalFees: false,
     attendancePercent: 0,
+    totalFixedDeduction: 0,
+    totalGrossPay: 0,
+    totalVariableDeduction: 0,
+    totalGovernmentPaid: 0,
 };
 
 const Yearly = ({
@@ -172,7 +177,6 @@ const Yearly = ({
     fromAdmin?: boolean;
     showSensitiveData?: boolean;
 }) => {
-    void showSensitiveData;
 
     const dispatch = useDispatch();
     const employeeId = useSelector((state: RootState) =>
@@ -387,11 +391,11 @@ const Yearly = ({
 
     const getPendingFooter = (pendingAmount: number) => {
         if (pendingAmount > 0) {
-            return `Pending: ${formatCurrencyDecimal(pendingAmount)}`;
+            return { label: 'Pending', value: formatCurrencyDecimal(pendingAmount) };
         } else if (pendingAmount < 0) {
-            return `Extra: ${formatCurrencyDecimal(Math.abs(pendingAmount))}`;
+            return { label: 'Extra', value: formatCurrencyDecimal(Math.abs(pendingAmount)) };
         }
-        return 'Cleared';
+        return { label: 'Cleared', value: '' };
     };
 
     const intermediateSalary = yearOverview.totalGrossPay - yearOverview.totalVariableDeduction;
@@ -401,20 +405,23 @@ const Yearly = ({
             label: 'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
             value: formatCurrencyDecimal(intermediateSalary),
             footer: financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
+            footerValue: '',
             tone: 'blue' as const,
             icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
         },
         {
             label: 'DEDUCTIONS',
             value: formatCurrencyDecimal(yearOverview.totalFixedDeduction),
-            footer: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid),
+            footer: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
+            footerValue: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).value,
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
         },
         {
             label: 'PAYABLE SALARY',
             value: formatCurrencyDecimal(yearOverview.totalNetAmount),
-            footer: getPendingFooter(yearOverview.totalDueAmount),
+            footer: getPendingFooter(yearOverview.totalDueAmount).label,
+            footerValue: getPendingFooter(yearOverview.totalDueAmount).value,
             tone: 'green' as const,
             icon: <CheckCircleOutlineOutlinedIcon fontSize="small" />,
         },
@@ -437,7 +444,7 @@ const Yearly = ({
                     ? Array.from({ length: 3 }).map((_, index) => (
                         <Skeleton key={index} variant="rounded" height={106} sx={{ borderRadius: '16px' }} />
                     ))
-                    : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} />)}
+                    : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} showSensitiveData={showSensitiveData} />)}
             </Box>
 
             <Box
@@ -468,15 +475,16 @@ const Yearly = ({
                             attendance={`${yearOverview.attendancePercent}%`}
                             leavePercentage={`${100 - yearOverview.attendancePercent}%`}
                             netPayable={formatCurrencyDecimal(yearOverview.totalNetAmount)}
+                            showSensitiveData={showSensitiveData}
                         />
                         <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
-                            <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact />
+                            <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact showSensitiveData={showSensitiveData} />
                         </Box>
                     </>
                 )}
             </Box>
 
-            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showGovtDeduction={hasProfessionalFees} />
+            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showGovtDeduction={hasProfessionalFees} showSensitiveData={showSensitiveData} />
         </Box>
     );
 };

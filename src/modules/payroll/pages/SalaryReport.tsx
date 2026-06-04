@@ -11,7 +11,6 @@ import DeductionPanel from '../components/common/DeductionPanel';
 import SalarySlipSection from '../components/SalarySlipSection';
 import GrossDistributionModal from '../components/modals/GrossDistributionModal';
 import PaymentModal from '../components/modals/PaymentModal';
-import SalaryIncrementModal from '@app/modules/employee/salary/SalaryIncrementModal';
 import { DeductionDistributionModal } from '@pages/employee/salary/personal/views/my-salary/DeductionDistributionModal';
 
 import { usePayrollData } from '../hooks/usePayrollData';
@@ -84,7 +83,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 }
             `}</style>
 
-            <div className="px-4 px-lg-5">
+            <div className="px-3 px-lg-5">
                 {!hideSummarySection && (
                     <div className="my-5 w-100">
                         <div className="mb-6">
@@ -92,7 +91,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                         </div>
                         <Box
                             sx={{
-                                display: 'grid',
+                                display: { xs: 'none', md: 'grid' },
                                 gridTemplateColumns: {
                                     xs: '1fr',
                                     md: 'repeat(2, minmax(0, 1fr))',
@@ -110,9 +109,10 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 unpaidLeaves={salarySlipProps?.unpaidLeaves || 0}
                                 lateCheckins={(apiSalaryData as any)?.extraData?.lateCheckins || tableData?.filter((s: any) => s.status?.toLowerCase().includes('late')).length || 0}
                                 netPayable={summaryData.netSalary}
+                                showSensitiveData={showSensitiveData}
                             />
                             <Box sx={{ minWidth: 0, '& > .card, & > .MuiPaper-root': { height: '100%', mb: '0 !important' } }}>
-                                <MonthlySalaryPieChart salarySlipProps={salarySlipProps} />
+                                <MonthlySalaryPieChart salarySlipProps={salarySlipProps} showSensitiveData={showSensitiveData} />
                             </Box>
                         </Box>
                     </div>
@@ -120,29 +120,26 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
 
                 <div className="my-4 w-100">
                     <Card className="shadow-sm w-100 border-0 overflow-hidden" style={{ borderRadius: '16px' }}>
-                        <div className="p-6 border-bottom bg-light bg-opacity-50 d-flex justify-content-between align-items-center">
+                        {/* Header */}
+                        <div className="p-4 p-lg-6 border-bottom bg-light bg-opacity-50 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
                             <div>
                                 <h4 className="fw-bolder text-gray-800 mb-1">Financial Breakdown</h4>
                                 <p className="text-muted fs-7 mb-0">Detailed analysis of earnings and deductions for the selected period</p>
                             </div>
-                            <div className="d-flex gap-3">
-                                {fromAdmin && !isYearly && (
-                                    <>
-                                        <Button variant="outline-danger" size="sm" className="fw-bold px-4 border-2" onClick={() => ui.setShowIncrementModal(true)}>
-                                            Increment Salary
-                                        </Button>
-                                        <Button variant="outline-primary" size="sm" className="fw-bold px-4 border-2" onClick={() => grossDist.fetchGrossDistributionData().then(() => ui.setShowGrossModal(true))}>
-                                            Modify Gross
-                                        </Button>
-                                        <Button variant="outline-secondary" size="sm" className="fw-bold px-4 border-2" onClick={() => ui.setShowDeductionModal(true)}>
-                                            Modify Deductions
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
+                            {fromAdmin && !isYearly && (
+                                <div className="d-flex flex-row gap-2 w-100 w-sm-auto mt-3 mt-sm-0">
+                                    <Button variant="light-primary" size="sm" className="fw-bold px-2 px-sm-4 w-50 w-sm-auto text-truncate" onClick={() => grossDist.fetchGrossDistributionData().then(() => ui.setShowGrossModal(true))}>
+                                        Modify Gross
+                                    </Button>
+                                    <Button variant="light-danger" size="sm" className="fw-bold px-2 px-sm-4 w-50 w-sm-auto text-truncate" onClick={() => ui.setShowDeductionModal(true)}>
+                                        Modify Deductions
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="p-6">
+                        <div className="p-4 p-lg-6">
+                            {/* Download / Email buttons */}
                             <SalarySlipSection
                                 salarySlipProps={salarySlipProps}
                                 userId={employee.userId}
@@ -151,10 +148,11 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 setLoading={ui.setLoading}
                             />
 
-                            <Row className="g-6 mb-6">
-                                <Col lg={6}>
-                                    <div className="p-6 rounded-4 h-100 bg-white border border-gray-200 d-flex flex-column">
-                                        <div className="d-flex align-items-center mb-6">
+                            {/* Breakdown tables */}
+                            <Row className="g-4 g-lg-6 mb-4 mb-lg-6">
+                                <Col xs={12} lg={6}>
+                                    <div className="p-4 p-lg-6 rounded-4 h-100 bg-white border border-gray-200 d-flex flex-column">
+                                        <div className="d-flex align-items-center mb-5 mb-lg-6">
                                             <div className="symbol symbol-40px me-4">
                                                 <div className="symbol-label bg-light-success">
                                                     <KTIcon iconName="wallet" className="fs-2 text-success" />
@@ -172,9 +170,9 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                         />
                                     </div>
                                 </Col>
-                                <Col lg={6}>
-                                    <div className="p-6 rounded-4 h-100 bg-white border border-gray-200 d-flex flex-column">
-                                        <div className="d-flex align-items-center mb-6">
+                                <Col xs={12} lg={6}>
+                                    <div className="p-4 p-lg-6 rounded-4 h-100 bg-white border border-gray-200 d-flex flex-column">
+                                        <div className="d-flex align-items-center mb-5 mb-lg-6">
                                             <div className="symbol symbol-40px me-4">
                                                 <div className="symbol-label bg-light-danger">
                                                     <KTIcon iconName="minus-circle" className="fs-2 text-danger" />
@@ -192,6 +190,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 </Col>
                             </Row>
 
+                            {/* Net Salary summary */}
                             <NetAmountPayable
                                 grossPay={finalTotalGrossPayAmount}
                                 deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
@@ -231,14 +230,6 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 onRemoveField={grossDist.removeField}
                 onUpdateFieldName={grossDist.updateFieldName}
                 onSubmit={grossDist.handleSubmit}
-            />
-
-            <SalaryIncrementModal
-                show={ui.showIncrementModal}
-                onHide={() => ui.setShowIncrementModal(false)}
-                employee={employee}
-                onSuccess={ui.handleRefresh}
-                fromAdmin={fromAdmin}
             />
 
             <DeductionDistributionModal

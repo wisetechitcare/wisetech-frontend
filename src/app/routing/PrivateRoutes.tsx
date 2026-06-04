@@ -30,6 +30,7 @@ const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttend
 const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
 const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
 const Salary = lazy(() => import('@pages/employee/salary/Salary'))
+const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
 const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
 const Settings = lazy(() => import('@pages/company/Settings'))
@@ -178,6 +179,13 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <Salary />
+            </SuspensedView>}
+        />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/finance/increment'
+          element={
+            <SuspensedView>
+              <Increment />
             </SuspensedView>}
         />}
         <Route

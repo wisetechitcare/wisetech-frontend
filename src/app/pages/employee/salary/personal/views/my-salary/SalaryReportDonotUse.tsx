@@ -1,4 +1,4 @@
-﻿import TextInput from '@app/modules/common/inputs/TextInput';
+import TextInput from '@app/modules/common/inputs/TextInput';
 import { CUSTOM_SALARY, DEDUCTIONS, GROSS_PAY, LEAVE_MANAGEMENT, SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import { HOLIDAYS, LATE_CHECKIN, MONTH, ON_LEAVE, Status, YEAR, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -1307,7 +1307,13 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             try {
                                 const data = {
                                     path: fileUploadedUrl,
-                                    employeeId : employee?.id
+                                    employeeId : employee?.id,
+                                    salaryData: {
+                                        grossPayVariable, totalGrossPayEarned: `${formatNumber(totalGrossPayEarned)}`,
+                                        grossPayFixed, deductions, totalDeductionsEarned: `${formatNumber(totalDeductionsEarned)}`,
+                                        taxes, employee, finalAmount: formatNumber(Math.abs(totalGrossPayEarned - totalDeductionsEarned)),
+                                        totalPayableDays, date, paidLeaves, unpaidLeaves: 0
+                                    }
                                 };
                                 const res = await sendSalarySlipToEmployee(data);
                                 if(res?.statusCode==200 && !res.hasError){
@@ -1543,7 +1549,13 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             try {
                                 const data = {
                                     path: fileUploadedUrl,
-                                    employeeId : employee?.id
+                                    employeeId : employee?.id,
+                                    salaryData: {
+                                        grossPayVariable, totalGrossPayEarned: `${formatNumber(totalGrossPayEarned)}`,
+                                        grossPayFixed, deductions, totalDeductionsEarned: `${formatNumber(totalDeductionsEarned)}`,
+                                        taxes, employee, finalAmount: formatNumber(Math.abs(totalGrossPayEarned - totalDeductionsEarned)),
+                                        totalPayableDays, date, paidLeaves, unpaidLeaves: totalUnpaidLeaves
+                                    }
                                 };
                                 const res = await sendSalarySlipToEmployee(data);
                                 if(res?.statusCode==200 && !res.hasError){

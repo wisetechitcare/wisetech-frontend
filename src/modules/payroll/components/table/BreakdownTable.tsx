@@ -53,10 +53,10 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                         <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                             <thead>
                                 <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">
-                                    <th className="min-w-150px">Description</th>
-                                    <th className="text-center min-w-100px">Details</th>
-                                    <th className="text-center min-w-100px">Rate</th>
-                                    <th className="text-end min-w-120px">Amount</th>
+                                    <th>Description</th>
+                                    <th className="text-center">Details</th>
+                                    <th className="text-center">Rate</th>
+                                    <th className="text-end">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -117,8 +117,8 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                         <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                             <thead>
                                 <tr className="text-start text-muted fw-bold fs-8 text-uppercase gs-0">
-                                    <th className="min-w-150px">Description</th>
-                                    <th className="text-end min-w-120px">Amount</th>
+                                    <th>Description</th>
+                                    <th className="text-end">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -153,18 +153,29 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
 
             {/* Final Grand Total for Gross */}
             {!isDeduction && (
-                <div className="p-5 rounded-3 bg-white border border-gray-200 d-flex justify-content-between align-items-center shadow-sm mt-auto">
-                    <div className="d-flex align-items-center">
-                        <span className="fw-bolder text-success fs-4 me-3">TOTAL GROSS PAY</span>
-                        <OverlayTrigger placement="top" overlay={renderTooltip}>
-                            <span className="btn btn-icon btn-circle btn-sm bg-light">
-                                <i className="bi bi-info-circle text-gray-600 fs-6"></i>
-                            </span>
-                        </OverlayTrigger>
+                <div className="p-5 rounded-3 bg-white border border-gray-200 d-flex flex-column flex-md-row justify-content-center justify-content-md-between align-items-center text-center gap-3 shadow-sm mt-auto">
+                    <div className="d-flex align-items-center justify-content-center">
+                        <span className="fw-bolder text-success fs-4 me-0 me-md-3">TOTAL GROSS PAY</span>
+                        <div className="d-none d-md-block">
+                            <OverlayTrigger placement="top" overlay={renderTooltip}>
+                                <span className="btn btn-icon btn-circle btn-sm bg-light">
+                                    <i className="bi bi-info-circle text-gray-600 fs-6"></i>
+                                </span>
+                            </OverlayTrigger>
+                        </div>
                     </div>
-                    <span className={`text-success fw-bolder fs-2 ${sensitiveCls}`}>
-                        {formatINRDecimal(grandTotal)}
-                    </span>
+                    {/* Desktop amount */}
+                    <div className="d-none d-md-flex justify-content-end">
+                        <span className={`text-success fw-bolder fs-2 ${sensitiveCls}`}>
+                            {formatINRDecimal(grandTotal)}
+                        </span>
+                    </div>
+                    {/* Mobile amount container */}
+                    <div className="d-flex d-md-none justify-content-center align-items-center rounded-3 px-4 py-2 w-100" style={{ backgroundColor: '#DCFCE7', border: '1px solid #BBF7D0' }}>
+                        <span className={`text-success fw-bolder fs-2 ${sensitiveCls}`}>
+                            {formatINRDecimal(grandTotal)}
+                        </span>
+                    </div>
                 </div>
             )}
         </div>

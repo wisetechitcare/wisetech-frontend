@@ -6,6 +6,7 @@ import { formatCurrencyRounded } from '@utils/currency';
 
 interface MonthlySalaryPieChartProps {
     salarySlipProps: SalarySlipProps | null;
+    showSensitiveData?: boolean;
 }
 
 const EARNING_COLORS = [
@@ -35,8 +36,9 @@ const renderActiveShape = (props: any) => {
     );
 };
 
-const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySlipProps }) => {
+const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySlipProps, showSensitiveData = true }) => {
     const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
     const { grossPay, netPay, totalDeductions, retainPercentage } = useMemo(() => {
         if (!salarySlipProps) return { grossPay: 0, netPay: 0, totalDeductions: 0, retainPercentage: 0 };
@@ -223,7 +225,7 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                                 width: 100,
                             }}
                         >
-                            <Typography sx={{ fontSize: '1rem', color: '#0f172a', fontWeight: 800, lineHeight: 1.2, mb: 0.2 }}>
+                            <Typography sx={{ fontSize: '1rem', color: '#0f172a', fontWeight: 800, lineHeight: 1.2, mb: 0.2 }} className={sensitiveCls}>
                                 {centerValue}
                             </Typography>
                             <Typography sx={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -240,7 +242,7 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: entry.color }} />
                                     <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{entry.name}</Typography>
                                 </Box>
-                                <Typography sx={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 700 }}>{formatCurrencyRounded(entry.value)}</Typography>
+                                <Typography sx={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>{formatCurrencyRounded(entry.value)}</Typography>
                             </Box>
                         ))}
                     </Box>

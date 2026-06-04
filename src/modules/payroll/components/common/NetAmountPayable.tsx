@@ -64,64 +64,50 @@ const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
                         <h5 className="payroll-summary-title">Salary In Hand</h5>
                         <p className="payroll-summary-desc mb-0">Final payroll summary after attendance and tax adjustments</p>
                     </div>
-                    {canShowPayableTrail && (
-                        <div className="badge-verified">
-                            <i className="bi bi-check2"></i> Verified
-                        </div>
-                    )}
                 </div>
 
                 {/* Horizontal / Stacked Flow */}
                 {canShowPayableTrail && (
                     <div className="salary-flow-container">
-                        <div className="salary-flow-item">
+                        <div className="salary-flow-item item-blue">
                             <span className="flow-label">Gross Pay</span>
                             <span className={`flow-amount ${sensitiveCls}`}>{formatINRDecimal(grossPay)}</span>
                         </div>
                         
                         <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
                         
-                        <div className="salary-flow-item item-deduction">
+                        <div className="salary-flow-item item-red">
                             <span className="flow-label">Attendance Adj.</span>
                             <span className={`flow-amount ${sensitiveCls}`}>-{formatINRDecimal(totalVariable)}</span>
                         </div>
                         
                         <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
                         
-                        <div className="salary-flow-item">
+                        <div className="salary-flow-item item-blue">
                             <span className="flow-label">After Adj.</span>
                             <span className={`flow-amount ${sensitiveCls}`}>{formatINRDecimal(intermediateSalary)}</span>
                         </div>
                         
                         <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
                         
-                        <div className="salary-flow-item item-deduction">
+                        <div className="salary-flow-item item-red">
                             <span className="flow-label">Tax Deductions</span>
                             <span className={`flow-amount ${sensitiveCls}`}>-{formatINRDecimal(totalFixed)}</span>
-                        </div>
-                        
-                        <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
-                        
-                        <div className={`salary-flow-item ${isNegative ? 'item-net-negative' : 'item-net'}`}>
-                            <span className="flow-label">Net Pay</span>
-                            <span className={`flow-amount ${sensitiveCls}`}>
-                                {isNegative ? `-${formatINRRounded(Math.abs(net))}` : formatINRRounded(net)}
-                            </span>
                         </div>
                     </div>
                 )}
 
                 {/* Salary Summary Breakdown */}
                 <div className="summary-section d-flex gap-4 flex-column flex-md-row">
-                    <div className="flex-grow-1">
+                    <div className="flex-grow-1 d-none d-md-block">
                         <div className="summary-insight-card h-100">
                             <div className="d-flex flex-column h-100 justify-content-between">
                                 <div>
                                     <h6 className="fw-bolder text-gray-800 mb-4">Payroll Summary</h6>
                                     
                                     <div className="summary-breakdown-row">
-                                        <span className="breakdown-label">Gross Pay</span>
-                                        <span className={`breakdown-value ${sensitiveCls}`}>{formatINRDecimal(grossPay)}</span>
+                                        <span className="breakdown-label">Total Salary After Attendance Adjustments</span>
+                                        <span className={`breakdown-value ${sensitiveCls}`}>{formatINRDecimal(intermediateSalary)}</span>
                                     </div>
                                     <div className="summary-breakdown-row">
                                         <span className="breakdown-label">Total Deductions</span>
@@ -144,15 +130,15 @@ const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
                         </div>
                     </div>
                     
-                    <div className="d-flex flex-column align-items-md-end justify-content-center min-w-md-250px mt-4 mt-md-0">
+                    <div className="d-flex flex-column align-items-center align-items-md-end justify-content-center min-w-md-250px mt-3 mt-md-0 summary-net-section">
                         <span className="summary-net-label">Net Salary</span>
                         <div className={`summary-net-amount ${isNegative ? 'negative' : 'positive'} ${sensitiveCls}`}>
                             {isNegative ? `-${formatINRRounded(Math.abs(net))}` : formatINRRounded(net)}
                         </div>
                         
-                        <div className={`summary-status ${isNegative ? 'status-adjustment' : 'status-clear'}`}>
+                        <div className={`summary-status ${isNegative ? 'status-extra' : 'status-clear'}`}>
                             {isNegative ? (
-                                <><i className="bi bi-exclamation-triangle-fill"></i> Needs Adjustment</>
+                                <><i className="bi bi-exclamation-circle-fill"></i> Recovery Amount</>
                             ) : (
                                 <><i className="bi bi-check-circle-fill"></i> Ready to Pay</>
                             )}

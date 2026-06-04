@@ -2407,28 +2407,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 <Card className="p-4 shadow-sm w-100">
                     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }} className='my-3 mx-1'>
                         <h4 className="fw-bold mb-4">Report</h4>
-                        {/* <PDFDownloadLink document={
-                            <SalarySlipTemplate
-                                grossPayVariable={grossPayVariable}
-                                totalGrossPayEarned={`${formatNumber(totalGrossPayEarned)}`}
-                                grossPayFixed={grossPayFixed}
-                                deductions={deductions}
-                                totalDeductionsEarned={`${formatNumber(totalDeductionsEarned)}`}
-                                taxes={taxes}
-                                employee={employee}
-                                finalAmount={formatNumber(Math.abs(totalGrossPayEarned - totalDeductionsEarned))}
-                                totalPayableDays={totalPayableDays}
-                                date={date}
-                                paidLeaves={paidLeaves}
-                                unpaidLeaves={totalUnpaidLeaves}
-                            />
-                        } fileName="salaryslip.pdf" className="me-2" >
-                            <Button>
-                                Download Report (Pdf)
-                            </Button>
-                        </PDFDownloadLink> */}
                         <div className="d-flex justify-content-end mb-4 md:justify-content-center">
-                                                    
                             {salarySlipProps ? (
                                 <PDFDownloadLink document={
                                     <SalarySlipTemplate {...salarySlipProps} />
@@ -2466,7 +2445,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 try {
                                     const data = {
                                         path: fileUploadedUrl,
-                                        employeeId : employee?.id
+                                        employeeId : employee?.id,
+                                        salaryData: salarySlipProps
                                     };
                                     const res = await sendSalarySlipToEmployee(data);
                                     if(res?.statusCode==200 && !res.hasError){
@@ -2485,15 +2465,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                             >
                                 {loading ? "Please wait..." : "Email Salary Slip"}
                             </Button>}
-                            
 
-                            {/* {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} className='ms-2' onClick={() => handleEdit()}>
-                                Modify
-                            </Button>
-                        } */}
-
-                            {/* un comment it later after fixing the issue */}
                             {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
                                 <Button className='wt-btn-primary ms-2' onClick={() => handleSalaryIncrementOpen()}>
                                     Increment Salary

@@ -50,9 +50,7 @@
 
 .salary-flow-item {
   flex: 1;
-  background-color: #f9fafb;
   border-radius: 12px;
-  border: 1px solid #f3f4f6;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
   flex-direction: column;
@@ -78,11 +76,23 @@
   color: #111827;
 }
 
-/* Specific item colors */
-.item-deduction {
+.item-blue {
+  background-color: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-left: 3px solid #3b82f6;
+}
+.item-blue .flow-label,
+.item-blue .flow-amount {
+  color: #1d4ed8;
+}
+
+.item-red {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
   border-left: 3px solid #ef4444;
 }
-.item-deduction .flow-amount {
+.item-red .flow-label,
+.item-red .flow-amount {
   color: #dc2626;
 }
 
@@ -156,9 +166,9 @@
   background-color: #f0fdf4;
   color: #166534;
 }
-.summary-status.status-adjustment {
-  background-color: #fef2f2;
-  color: #991b1b;
+.summary-status.status-extra {
+  background-color: #f5f3ff;
+  color: #6d28d9;
 }
 
 .summary-breakdown-row {
@@ -227,7 +237,8 @@
 
 /* Mobile */
 @media (max-width: 767px) {
-  .payroll-summary-header { padding: 8px 12px; }
+  .payroll-summary-header { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+  
   .salary-flow-container { 
     padding: 8px 12px; 
     flex-direction: column; 
@@ -238,8 +249,10 @@
     padding: 8px 12px; 
     flex-direction: row;
     align-items: center;
+    justify-content: space-between;
   }
   .flow-label { margin-bottom: 0; }
+  .flow-amount { font-size: 15px; }
   
   .flow-arrow {
     transform: rotate(90deg);
@@ -248,4 +261,22 @@
 
   .summary-section { padding: 8px 12px; flex-direction: column; }
   .summary-insight-card { padding: 8px 12px; }
+
+  /* Net salary amount - full width centered on mobile */
+  .summary-net-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center !important;
+    width: 100%;
+    text-align: center;
+    margin-top: 12px;
+  }
+  .summary-net-amount {
+    font-size: 40px;
+    text-align: center;
+    width: 100%;
+  }
+  .summary-status {
+    align-self: center;
+  }
 }

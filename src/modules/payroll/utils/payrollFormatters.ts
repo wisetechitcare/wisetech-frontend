@@ -1,5 +1,11 @@
 export const roundPayrollAmount = (n: number) => Math.round(Number.isFinite(n) ? n : 0);
 
+export const truncatePayrollAmount = (n: number, fractionDigits = 2) => {
+    const value = Number.isFinite(n) ? n : 0;
+    const factor = 10 ** fractionDigits;
+    return Math.trunc(value * factor) / factor;
+};
+
 const formatINR = (n: number, fractionDigits: number) =>
     `₹${(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: fractionDigits,
@@ -7,6 +13,8 @@ const formatINR = (n: number, fractionDigits: number) =>
     })}`;
 
 export const formatINRDecimal = (n: number) => formatINR(n, 2);
+
+export const formatINRDecimalTruncated = (n: number) => formatINR(truncatePayrollAmount(n, 2), 2);
 
 export const formatINRRounded = (n: number) => formatINR(roundPayrollAmount(n), 0);
 
