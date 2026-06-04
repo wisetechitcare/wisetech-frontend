@@ -234,3 +234,49 @@
   }
 }
 
+/* Map specific overrides for embedded search */
+.map-search-wrapper .global-search-container {
+  min-width: 210px;
+  max-width: 210px;
+}
+.map-search-wrapper .global-search-input-wrapper {
+  background: transparent;
+  border-radius: 999px;
+  border: none;
+}
+.map-search-wrapper .global-search-input-wrapper.active {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.map-search-wrapper .global-search-input {
+  height: 38px !important;
+  font-size: 13px;
+  color: #1e293b;
+  padding: 5px 12px 5px 36px !important;
+}
+.map-search-wrapper .global-search-input::placeholder {
+  color: #94a3b8;
+}
+.map-search-wrapper .global-search-dropdown {
+  min-width: 320px;
+  width: 320px;
+  left: auto;
+  right: 0;
+  top: 44px;
+}
+.map-search-wrapper .search-results-list {
+  max-height: 250px;
+}
+@media (max-width: 768px) {
+  .map-search-wrapper .global-search-container {
+    min-width: 140px;
+    max-width: 140px;
+  }
+  .map-search-wrapper .global-search-dropdown {
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
+
