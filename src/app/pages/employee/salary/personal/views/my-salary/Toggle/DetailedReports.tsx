@@ -333,7 +333,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
                         }}
                     >
                         {alignedData.map((row, index) => {
-                            const overtimeVal = row.overTime ?? row.overtime ?? '-';
+                            const overtimeVal = row.overTimeRuleDisplay ?? row.overTime ?? row.overtime ?? '-';
                             const paidAmtVal = row.amountPaid ?? row.paidAmount ?? '-';
 
                             return (

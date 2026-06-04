@@ -272,10 +272,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                             </Col>
                                                             <Col md={6}>
                                                                 <TextInput
-                                                                    label="Installment Label"
+                                                                    label="Internal Notes"
                                                                     formikField="installmentLabel"
                                                                     isRequired={false}
-                                                                    placeholder="e.g. Installment #1"
+                                                                    placeholder="Add notes here..."
                                                                 />
                                                             </Col>
                                                         </Row>

@@ -63,6 +63,7 @@ export interface DeductionBreakdownProps {
     deductionBreakdown: IBreakdownData;
     grossPay: number;
     showSensitiveData: boolean;
+    dailySalary?: number;
 }
 
 export interface NetAmountPayableProps {

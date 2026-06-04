@@ -14,11 +14,9 @@ import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutl
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import YearlyKpiCard from './components/salary/YearlyKpiCard';
-import PaymentProgressCard from './components/salary/PaymentProgressCard';
 import YearlyOverViewCard from './YearlyOverViewCard';
 import SalaryBreakdownTable, { YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
 import MonthlySalaryComparison from './MonthlySalaryComparison';
-import Increments from './Increments';
 
 type YearOverview = {
     startDate: string;
@@ -33,6 +31,10 @@ type YearOverview = {
     totalGovtDeduction: number;
     hasProfessionalFees: boolean;
     attendancePercent: number;
+    totalFixedDeduction: number;
+    totalGrossPay: number;
+    totalVariableDeduction: number;
+    totalGovernmentPaid: number;
 };
 
 const fiscalMonths = [
@@ -72,6 +74,26 @@ const getFixedDeductionAmount = (row: any, matcher: (key: string) => boolean): n
 
 const isPfKey = (key: string) => key.includes('provident fund') || key.includes('pf');
 const isProfessionalFeesKey = (key: string) => key.includes('professional fees');
+
+const getAllFixedDeductions = (item: any): number => {
+    const fixed = item?.deductionBreakdown?.fixed;
+    if (!fixed || typeof fixed !== 'object') return 0;
+    return Object.entries(fixed).reduce((sum, [key, itm]: [string, any]) => {
+        const earned = Number(itm?.earned || 0);
+        if (itm?.isActive === false || earned <= 0) return sum;
+        return sum + earned;
+    }, 0);
+};
+
+const getAllVariableDeductions = (item: any): number => {
+    const variable = item?.deductionBreakdown?.variable;
+    if (!variable || typeof variable !== 'object') return 0;
+    return Object.entries(variable).reduce((sum, [key, itm]: [string, any]) => {
+        const earned = Number(itm?.earned || 0);
+        if (itm?.isActive === false || earned <= 0) return sum;
+        return sum + earned;
+    }, 0);
+};
 
 const convertHoursToDays = (time: string) => {
     if (!time || time === '-' || time === '') return 0;
@@ -114,6 +136,7 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
             month,
             basicSalary: formatCurrencyDecimal(basicSalary),
             overtime: formatCurrencyDecimal(overtime),
+            overtimeDisplay: row.overTimeRuleDisplay || formatCurrencyDecimal(overtime),
             payable: formatCurrencyDecimal(payable),
             netPayable: formatCurrencyRounded(netPayable),
             paid: formatCurrencyRounded(paidAmount),
@@ -139,6 +162,10 @@ const initialOverview: YearOverview = {
     totalGovtDeduction: 0,
     hasProfessionalFees: false,
     attendancePercent: 0,
+    totalFixedDeduction: 0,
+    totalGrossPay: 0,
+    totalVariableDeduction: 0,
+    totalGovernmentPaid: 0,
 };
 
 const Yearly = ({
@@ -150,7 +177,6 @@ const Yearly = ({
     fromAdmin?: boolean;
     showSensitiveData?: boolean;
 }) => {
-    void showSensitiveData;
 
     const dispatch = useDispatch();
     const employeeId = useSelector((state: RootState) =>
@@ -297,6 +323,10 @@ const Yearly = ({
             const netAmount = parseCurrencyOrNumber(item.netAmount);
             const pf = getFixedDeductionAmount(item, isPfKey);
             const professionalFees = getFixedDeductionAmount(item, isProfessionalFeesKey);
+            const fixedDeduction = getAllFixedDeductions(item);
+            const variableDeduction = getAllVariableDeductions(item);
+            const grossPay = parseCurrencyOrNumber(item.totalGrossPayAmount);
+            const govPaid = parseCurrencyOrNumber(item.governmentPaid);
 
             return {
                 payableDays: acc.payableDays + payableDays,
@@ -306,6 +336,10 @@ const Yearly = ({
                 netAmount: acc.netAmount + netAmount,
                 pfAmount: acc.pfAmount + pf,
                 govtAmount: acc.govtAmount + professionalFees,
+                totalFixedDeduction: acc.totalFixedDeduction + fixedDeduction,
+                totalVariableDeduction: acc.totalVariableDeduction + variableDeduction,
+                totalGrossPay: acc.totalGrossPay + grossPay,
+                governmentPaid: acc.governmentPaid + govPaid,
             };
         }, {
             payableDays: 0,
@@ -315,6 +349,10 @@ const Yearly = ({
             netAmount: 0,
             pfAmount: 0,
             govtAmount: 0,
+            totalFixedDeduction: 0,
+            totalVariableDeduction: 0,
+            totalGrossPay: 0,
+            governmentPaid: 0,
         });
 
         const attendancePercent = totals.workingDays > 0
@@ -334,6 +372,10 @@ const Yearly = ({
             totalGovtDeduction: totals.govtAmount,
             hasProfessionalFees: totals.govtAmount > 0,
             attendancePercent,
+            totalFixedDeduction: totals.totalFixedDeduction,
+            totalVariableDeduction: totals.totalVariableDeduction,
+            totalGrossPay: totals.totalGrossPay,
+            totalGovernmentPaid: totals.governmentPaid,
         });
     }, [startDaySalaryData, startDate, endDate, isLoadingSalaryData]);
 
@@ -347,35 +389,42 @@ const Yearly = ({
     const yearlySalaryRows = startDaySalaryData.length > 0 ? startDaySalaryData : salaryData;
     const breakdownRows = buildBreakdownRows(yearlySalaryRows);
 
+    const getPendingFooter = (pendingAmount: number) => {
+        if (pendingAmount > 0) {
+            return { label: 'Pending', value: formatCurrencyDecimal(pendingAmount) };
+        } else if (pendingAmount < 0) {
+            return { label: 'Extra', value: formatCurrencyDecimal(Math.abs(pendingAmount)) };
+        }
+        return { label: 'Cleared', value: '' };
+    };
+
+    const intermediateSalary = yearOverview.totalGrossPay - yearOverview.totalVariableDeduction;
+
     const kpis = [
         {
-            label: 'NET PAYABLE (THIS YEAR)',
-            value: formatCurrencyDecimal(yearOverview.totalNetAmount),
+            label: 'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
+            value: formatCurrencyDecimal(intermediateSalary),
             footer: financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
-            tone: 'green' as const,
+            footerValue: '',
+            tone: 'blue' as const,
             icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
         },
         {
-            label: 'PAID AMOUNT',
-            value: formatCurrencyDecimal(yearOverview.totalPaidAmount),
-            footer: `${paidPercent}% Paid`,
-            tone: 'blue' as const,
-            icon: <CheckCircleOutlineOutlinedIcon fontSize="small" />,
-        },
-        {
-            label: 'REMAINING AMOUNT',
-            value: formatCurrencyDecimal(yearOverview.totalDueAmount),
-            footer: yearOverview.totalDueAmount > 0 ? 'Pending' : 'Cleared',
-            tone: 'amber' as const,
-            icon: <HourglassBottomOutlinedIcon fontSize="small" />,
-        },
-        ...(hasProfessionalFees ? [{
-            label: 'PF / GOVT DEDUCTION',
-            value: formatCurrencyDecimal(yearOverview.totalGovtDeduction),
-            footer: 'Tax Deducted at Source (TDS)',
+            label: 'DEDUCTIONS',
+            value: formatCurrencyDecimal(yearOverview.totalFixedDeduction),
+            footer: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
+            footerValue: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).value,
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
-        }] : []),
+        },
+        {
+            label: 'PAYABLE SALARY',
+            value: formatCurrencyDecimal(yearOverview.totalNetAmount),
+            footer: getPendingFooter(yearOverview.totalDueAmount).label,
+            footerValue: getPendingFooter(yearOverview.totalDueAmount).value,
+            tone: 'green' as const,
+            icon: <CheckCircleOutlineOutlinedIcon fontSize="small" />,
+        },
     ];
 
     return (
@@ -386,16 +435,16 @@ const Yearly = ({
                     gridTemplateColumns: {
                         xs: '1fr',
                         sm: 'repeat(2, minmax(0, 1fr))',
-                        lg: `repeat(${hasProfessionalFees ? 4 : 3}, minmax(0, 1fr))`,
+                        lg: `repeat(3, minmax(0, 1fr))`,
                     },
                     gap: 1.25,
                 }}
             >
                 {isLoadingOverview
-                    ? Array.from({ length: hasProfessionalFees ? 4 : 3 }).map((_, index) => (
+                    ? Array.from({ length: 3 }).map((_, index) => (
                         <Skeleton key={index} variant="rounded" height={106} sx={{ borderRadius: '16px' }} />
                     ))
-                    : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} />)}
+                    : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} showSensitiveData={showSensitiveData} />)}
             </Box>
 
             <Box
@@ -404,7 +453,7 @@ const Yearly = ({
                     gridTemplateColumns: {
                         xs: '1fr',
                         md: 'repeat(2, minmax(0, 1fr))',
-                        lg: 'minmax(0, 1.6fr) minmax(320px, 1fr)',
+                        lg: 'minmax(0, 1fr) minmax(0, 1.4fr)',
                     },
                     gap: 1.25,
                     alignItems: 'start',
@@ -426,36 +475,16 @@ const Yearly = ({
                             attendance={`${yearOverview.attendancePercent}%`}
                             leavePercentage={`${100 - yearOverview.attendancePercent}%`}
                             netPayable={formatCurrencyDecimal(yearOverview.totalNetAmount)}
+                            showSensitiveData={showSensitiveData}
                         />
-                        <PaymentProgressCard
-                            percentPaid={paidPercent}
-                            paidAmount={formatCurrencyDecimal(yearOverview.totalPaidAmount)}
-                            remainingAmount={formatCurrencyDecimal(yearOverview.totalDueAmount)}
-                        />
+                        <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
+                            <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact showSensitiveData={showSensitiveData} />
+                        </Box>
                     </>
                 )}
             </Box>
 
-            <Box
-                sx={{
-                    display: 'grid',
-                    gridTemplateColumns: {
-                        xs: '1fr',
-                        lg: 'repeat(2, minmax(0, 1fr))',
-                    },
-                    gap: 1.25,
-                    alignItems: 'stretch',
-                }}
-            >
-                <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
-                    <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact />
-                </Box>
-                <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
-                    <Increments salaryData={yearlySalaryRows} loading={isLoadingSalaryData} compact />
-                </Box>
-            </Box>
-
-            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showGovtDeduction={hasProfessionalFees} />
+            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showGovtDeduction={hasProfessionalFees} showSensitiveData={showSensitiveData} />
         </Box>
     );
 };
