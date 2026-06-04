@@ -1,0 +1,236 @@
+/* Global Typography & Layout */
+.salary-slip-container {
+  font-family: inherit;
+  color: #374151;
+  background-color: transparent;
+}
+
+/* Premium Header */
+.salary-slip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.salary-slip-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+.salary-slip-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-badge {
+  background-color: #f3f4f6;
+  color: #374151;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+.header-btn {
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.header-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Premium KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04);
+}
+.kpi-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.kpi-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+/* Modern Breakdown Sections */
+.breakdown-card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.breakdown-header {
+  padding: 16px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.breakdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+.breakdown-icon i {
+  font-size: 16px;
+}
+.breakdown-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+.breakdown-list {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f9fafb;
+  gap: 12px;
+}
+.breakdown-row:last-child {
+  border-bottom: none;
+}
+.breakdown-info {
+  flex: 1;
+}
+.breakdown-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 2px;
+  display: block;
+}
+.breakdown-meta {
+  font-size: 12px;
+  color: #9ca3af;
+  display: flex;
+  gap: 8px;
+}
+.breakdown-amount {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  text-align: right;
+}
+
+/* Specific Colors */
+.text-muted-red {
+  color: #ef4444;
+}
+.border-accent-red {
+  border-left: 3px solid #ef4444;
+  padding-left: 12px;
+}
+.bg-subtle-green {
+  background-color: #f0fdf4;
+}
+.text-subtle-green {
+  color: #166534;
+}
+.zero-state {
+  padding: 16px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 500;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin: 8px 16px 16px;
+}
+.zero-state i {
+  margin-right: 6px;
+}
+
+/* Two Column Layout */
+.salary-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1023px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  .salary-layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .breakdown-header {
+    padding: 12px;
+  }
+  .breakdown-list {
+    padding: 4px 12px;
+  }
+}

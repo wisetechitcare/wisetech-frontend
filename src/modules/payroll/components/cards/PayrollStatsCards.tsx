@@ -23,7 +23,7 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
             value: summaryData.netSalary, 
             pendingValue: summaryData.salaryPending,
             icon: 'wallet', 
-            color: 'primary', // Blue
+            color: 'success', // Green
             statusLabel: 'Pending'
         },
         ...(hasProfessionalFees ? [{ 

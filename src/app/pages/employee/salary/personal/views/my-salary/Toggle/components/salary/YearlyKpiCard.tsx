@@ -53,7 +53,21 @@ const YearlyKpiCard: React.FC<YearlyKpiCardProps> = ({
         ]}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Box sx={{ color: toneColors[tone] }}>{icon}</Box>
+        <Box
+          sx={{
+            width: 38,
+            height: 38,
+            flex: '0 0 38px',
+            borderRadius: '11px',
+            display: 'grid',
+            placeItems: 'center',
+            color: toneColors[tone],
+            backgroundColor: `${toneColors[tone]}18`,
+            border: `1px solid ${toneColors[tone]}30`,
+          }}
+        >
+          {icon}
+        </Box>
         <Typography
           variant="subtitle2"
           sx={{

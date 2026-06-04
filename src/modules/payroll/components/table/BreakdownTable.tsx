@@ -27,8 +27,8 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
     const grandTotal = fixedSubtotal + variableSubtotal;
 
     const isDeduction = type === 'deduction';
-    const subtotalColorClass = isDeduction ? 'text-danger' : 'text-primary';
-    const subtotalBgClass = isDeduction ? 'bg-light-danger' : 'bg-light-primary';
+    const subtotalColorClass = isDeduction ? 'text-gray-800' : 'text-success';
+    const subtotalBgClass = 'bg-light';
     const subtotalPrefix = isDeduction ? '−' : '+';
     
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
@@ -44,9 +44,9 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
         <div className="breakdown-tables d-flex flex-column flex-grow-1">
             <div className="flex-grow-1">
             {hasVariableData && (
-                <div className="mb-8">
+                <div className="mb-6">
                     <div className="d-flex align-items-center mb-4">
-                        <div className="bullet bullet-vertical h-25px bg-danger me-3" style={{ width: '4px' }}></div>
+                        <div className="bullet bullet-vertical h-25px bg-success me-3" style={{ width: '4px' }}></div>
                         <h6 className="fw-bolder text-gray-800 mb-0 fs-5">Work Earnings</h6>
                     </div>
                     <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200">
@@ -108,7 +108,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
             )}
 
             {hasFixedData && (
-                <div className="mb-8">
+                <div className="mb-6">
                     <div className="d-flex align-items-center mb-4">
                         <div className="bullet bullet-vertical h-25px bg-success me-3" style={{ width: '4px' }}></div>
                         <h6 className="fw-bolder text-gray-800 mb-0 fs-5">Allowances & Benefits</h6>
@@ -134,7 +134,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                         </td>
                                     </tr>
                                 ))}
-                                <tr className="bg-light-success border-0">
+                                <tr className={`${subtotalBgClass} border-0`}>
                                     <td className="py-4 ps-6">
                                         <span className="fw-bolder text-gray-700 fs-7">Subtotal Fixed Earnings</span>
                                     </td>
@@ -153,16 +153,16 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
 
             {/* Final Grand Total for Gross */}
             {!isDeduction && (
-                <div className="p-5 rounded-3 bg-light-primary border border-primary border-opacity-10 d-flex justify-content-between align-items-center shadow-sm mt-auto">
+                <div className="p-5 rounded-3 bg-white border border-gray-200 d-flex justify-content-between align-items-center shadow-sm mt-auto">
                     <div className="d-flex align-items-center">
-                        <span className="fw-bolder text-primary fs-4 me-3">TOTAL GROSS PAY</span>
+                        <span className="fw-bolder text-success fs-4 me-3">TOTAL GROSS PAY</span>
                         <OverlayTrigger placement="top" overlay={renderTooltip}>
-                            <span className="btn btn-icon btn-circle btn-sm btn-light-primary">
-                                <i className="bi bi-info-circle fs-6"></i>
+                            <span className="btn btn-icon btn-circle btn-sm bg-light">
+                                <i className="bi bi-info-circle text-gray-600 fs-6"></i>
                             </span>
                         </OverlayTrigger>
                     </div>
-                    <span className={`text-primary fw-bolder fs-2 ${sensitiveCls}`}>
+                    <span className={`text-success fw-bolder fs-2 ${sensitiveCls}`}>
                         {formatINRDecimal(grandTotal)}
                     </span>
                 </div>

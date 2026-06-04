@@ -1,6 +1,7 @@
 import React from 'react';
 import { NetAmountPayableProps } from '../../types/payroll.types';
-import { formatINRDecimal, formatINRRounded, roundPayrollAmount, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatINRDecimal, formatINRRounded, roundPayrollAmount } from '../../utils/payrollFormatters';
+import './NetAmountPayable.css';
 
 const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
     grossPay,
@@ -40,72 +41,127 @@ const NetAmountPayable: React.FC<NetAmountPayableProps> = ({
         });
     }
 
+    const isNegative = net < 0;
+    
+    // Calculate percentage retained
+    const retentionPercentage = grossPay > 0 ? Math.max(0, Math.round((net / grossPay) * 100)) : 0;
+    
+    let insightText = '';
+    if (isNegative) {
+        insightText = 'You had higher deductions than earnings this month.';
+    } else if (grossPay === 0) {
+        insightText = 'No earnings calculated for this month.';
+    } else {
+        insightText = `${retentionPercentage}% of gross salary retained after deductions.`;
+    }
+
     return (
-        <div className="card border-0 shadow-sm mt-6 bg-white rounded-3 overflow-hidden">
-            <div className="card-body py-4 px-6">
-                {canShowPayableTrail && (
-                    <div className="mb-5 pb-5 border-bottom border-gray-200">
-                        <div className="d-flex align-items-center justify-content-between mb-3">
-                            <div>
-                                <h5 className="fw-bolder text-gray-800 mb-1">Salary In Hand Calculation</h5>
-                                <span className="text-muted fs-8 fw-semibold">Gross pay after attendance adjustments and tax deductions</span>
-                            </div>
-                            <span className="badge badge-light-danger fw-bolder fs-9">Verified</span>
+        <div className="payroll-summary-container mt-3">
+            <div className="payroll-summary-card">
+                {/* Header */}
+                <div className="payroll-summary-header">
+                    <div>
+                        <h5 className="payroll-summary-title">Salary In Hand</h5>
+                        <p className="payroll-summary-desc mb-0">Final payroll summary after attendance and tax adjustments</p>
+                    </div>
+                    {canShowPayableTrail && (
+                        <div className="badge-verified">
+                            <i className="bi bi-check2"></i> Verified
                         </div>
-                        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
-                            <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light rounded-2 border border-gray-100 flex-fill">
-                                <span className="text-gray-500 fs-9 fw-bold text-uppercase">Total Gross Pay</span>
-                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>{formatINRDecimal(grossPay)}</span>
-                            </div>
-                            <span className="d-none d-lg-inline text-gray-400 fw-bolder">-</span>
-                            <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light rounded-2 border border-gray-100 flex-fill">
-                                <span className="text-gray-500 fs-9 fw-bold text-uppercase">Attendance Adjustments</span>
-                                <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-{formatINRDecimal(totalVariable)}</span>
-                            </div>
-                            <span className="d-none d-lg-inline text-gray-400 fw-bolder">=</span>
-                            <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light rounded-2 border border-gray-100 flex-fill">
-                                <span className="text-gray-500 fs-9 fw-bold text-uppercase">Salary After Adjustment</span>
-                                <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>{formatINRDecimal(intermediateSalary)}</span>
-                            </div>
-                            <span className="d-none d-lg-inline text-gray-400 fw-bolder">-</span>
-                            <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light-danger rounded-2 border border-danger border-opacity-10 flex-fill">
-                                <span className="text-gray-500 fs-9 fw-bold text-uppercase">Tax Deductions</span>
-                                <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-{formatINRDecimal(totalFixed)}</span>
-                            </div>
-                            <span className="d-none d-lg-inline text-gray-400 fw-bolder">=</span>
-                            <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-light-success rounded-2 border border-success border-opacity-10 flex-fill">
-                                <span className="text-gray-500 fs-9 fw-bold text-uppercase">Total Payable</span>
-                                <span className={`text-success fw-bolder fs-7 ${sensitiveCls}`}>{formatINRRounded(net)}</span>
-                            </div>
+                    )}
+                </div>
+
+                {/* Horizontal / Stacked Flow */}
+                {canShowPayableTrail && (
+                    <div className="salary-flow-container">
+                        <div className="salary-flow-item">
+                            <span className="flow-label">Gross Pay</span>
+                            <span className={`flow-amount ${sensitiveCls}`}>{formatINRDecimal(grossPay)}</span>
+                        </div>
+                        
+                        <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
+                        
+                        <div className="salary-flow-item item-deduction">
+                            <span className="flow-label">Attendance Adj.</span>
+                            <span className={`flow-amount ${sensitiveCls}`}>-{formatINRDecimal(totalVariable)}</span>
+                        </div>
+                        
+                        <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
+                        
+                        <div className="salary-flow-item">
+                            <span className="flow-label">After Adj.</span>
+                            <span className={`flow-amount ${sensitiveCls}`}>{formatINRDecimal(intermediateSalary)}</span>
+                        </div>
+                        
+                        <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
+                        
+                        <div className="salary-flow-item item-deduction">
+                            <span className="flow-label">Tax Deductions</span>
+                            <span className={`flow-amount ${sensitiveCls}`}>-{formatINRDecimal(totalFixed)}</span>
+                        </div>
+                        
+                        <div className="flow-arrow d-none d-md-flex"><i className="bi bi-arrow-right"></i></div>
+                        
+                        <div className={`salary-flow-item ${isNegative ? 'item-net-negative' : 'item-net'}`}>
+                            <span className="flow-label">Net Pay</span>
+                            <span className={`flow-amount ${sensitiveCls}`}>
+                                {isNegative ? `-${formatINRRounded(Math.abs(net))}` : formatINRRounded(net)}
+                            </span>
                         </div>
                     </div>
                 )}
 
-                <div className="d-flex flex-column flex-md-row align-items-center justify-content-between gap-4">
-                    <div className="d-flex align-items-center">
-                        <div className="symbol symbol-40px me-4">
-                            <div className="symbol-label bg-light-success text-success shadow-xs" style={{ border: '1px solid rgba(80, 205, 137, 0.2)' }}>
-                                <i className="bi bi-wallet2 fs-3"></i>
+                {/* Salary Summary Breakdown */}
+                <div className="summary-section d-flex gap-4 flex-column flex-md-row">
+                    <div className="flex-grow-1">
+                        <div className="summary-insight-card h-100">
+                            <div className="d-flex flex-column h-100 justify-content-between">
+                                <div>
+                                    <h6 className="fw-bolder text-gray-800 mb-4">Payroll Summary</h6>
+                                    
+                                    <div className="summary-breakdown-row">
+                                        <span className="breakdown-label">Gross Pay</span>
+                                        <span className={`breakdown-value ${sensitiveCls}`}>{formatINRDecimal(grossPay)}</span>
+                                    </div>
+                                    <div className="summary-breakdown-row">
+                                        <span className="breakdown-label">Total Deductions</span>
+                                        <span className={`breakdown-value text-danger ${sensitiveCls}`}>-{formatINRDecimal(totalDeductions)}</span>
+                                    </div>
+                                    
+                                    <div className="progress-bar-container">
+                                        <div 
+                                            className={`progress-bar-fill ${isNegative ? 'negative' : 'positive'}`}
+                                            style={{ width: `${isNegative ? 100 : retentionPercentage}%` }}
+                                        ></div>
+                                    </div>
+                                    
+                                    <p className="insight-text mb-0">
+                                        <i className="bi bi-lightbulb text-warning me-1"></i>
+                                        {insightText}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <div className="d-flex align-items-center mb-0">
-                                <h4 className="fw-bolder text-gray-800 mb-0 me-3">Salary In Hand</h4>
-                                <span className="badge badge-light-success fw-bolder fs-10 px-2 py-1 text-uppercase ls-1">Verified</span>
-                            </div>
-                            <span className="text-muted fs-8 fw-semibold">Final calculated salary after deductions</span>
                         </div>
                     </div>
-                        <div className="bg-success px-6 py-3 rounded-3 shadow-sm min-w-150px text-end position-relative overflow-hidden">
-                            <div className="position-absolute top-0 start-0 w-100 h-100 opacity-10" style={{ background: 'linear-gradient(135deg, #ffffff 0%, transparent 100%)' }}></div>
-                            <span className="text-white text-opacity-75 fw-bold fs-10 text-uppercase d-block mb-1 ls-1">Payable Amount</span>
-                            <div className={`fs-3 fw-bolder text-white ${sensitiveCls} lh-1`}>
-                                {formatINRRounded(net)}
-                            </div>
+                    
+                    <div className="d-flex flex-column align-items-md-end justify-content-center min-w-md-250px mt-4 mt-md-0">
+                        <span className="summary-net-label">Net Salary</span>
+                        <div className={`summary-net-amount ${isNegative ? 'negative' : 'positive'} ${sensitiveCls}`}>
+                            {isNegative ? `-${formatINRRounded(Math.abs(net))}` : formatINRRounded(net)}
+                        </div>
+                        
+                        <div className={`summary-status ${isNegative ? 'status-adjustment' : 'status-clear'}`}>
+                            {isNegative ? (
+                                <><i className="bi bi-exclamation-triangle-fill"></i> Needs Adjustment</>
+                            ) : (
+                                <><i className="bi bi-check-circle-fill"></i> Ready to Pay</>
+                            )}
                         </div>
                     </div>
                 </div>
+                
             </div>
+        </div>
     );
 };
 
