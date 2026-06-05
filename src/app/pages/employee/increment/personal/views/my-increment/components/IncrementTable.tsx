@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Paper, Typography, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton } from '@mui/material';
+import { Box, Paper, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Typography } from '@mui/material';
 import { IncrementRecord } from '../../../../../../../../services/incrementService';
 import dayjs from 'dayjs';
 import { formatCurrencyDecimal } from '@utils/currency';
@@ -34,21 +34,15 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
                 border: '1px solid #e9eef5',
                 boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
                 overflow: 'hidden',
-                mb: 4
+                mb: 2
             }}
         >
-            <Box sx={{ p: 2.5, borderBottom: '1px solid #e9eef5', bgcolor: '#fbfdff' }}>
-                <Typography sx={{ color: '#0f172a', fontSize: '1.1rem', fontWeight: 800 }}>
-                    Increment History
-                </Typography>
-            </Box>
-            
             <TableContainer>
                 <Table sx={{ minWidth: 650 }}>
                     <TableHead sx={{ bgcolor: '#f8fafc' }}>
                         <TableRow>
                             <TableCell sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Effective Date</TableCell>
-                            <TableCell sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Previous Salary</TableCell>
+                            <TableCell sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Effective Salary</TableCell>
                             <TableCell sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>New Salary</TableCell>
                             <TableCell sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Increment</TableCell>
                             <TableCell align="right" sx={{ color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>

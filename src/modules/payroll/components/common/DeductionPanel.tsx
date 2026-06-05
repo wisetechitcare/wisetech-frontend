@@ -253,6 +253,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                         ? 'Tax Deducted at Source (TDS)'
                                         : (item.name || key);
                                     const isTdsRow = displayName === 'Tax Deducted at Source (TDS)';
+                                    const isPTaxRow = displayName.toLowerCase().includes('professional tax');
                                     return (
                                         <tr key={key}>
                                             <td>
@@ -274,7 +275,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
                                                         -{formatINRDecimal(earnedAmount)}
                                                     </span>
-                                                    {extraAmount !== 0 && (
+                                                    {extraAmount !== 0 && calculatedAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
                                                             {formatAdjustmentFormula(calculatedAmount, extraAmount)}
                                                         </span>

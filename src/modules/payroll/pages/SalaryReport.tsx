@@ -6,7 +6,6 @@ import { KTIcon } from '@metronic/helpers';
 import PayrollStatsCards from '../components/cards/PayrollStatsCards';
 import PaymentDetailsTable from '../components/table/PaymentDetailsTable';
 import BreakdownTable from '../components/table/BreakdownTable';
-import NetAmountPayable from '../components/common/NetAmountPayable';
 import DeductionPanel from '../components/common/DeductionPanel';
 import SalarySlipSection from '../components/SalarySlipSection';
 import GrossDistributionModal from '../components/modals/GrossDistributionModal';
@@ -71,8 +70,20 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
         );
     }
 
+    const isTds = summaryData.hasTDS;
+    const pageBgColor = isTds ? '#ebe8e8ff' : 'transparent';
+
     return (
-        <div className="payroll-module">
+        <div className="payroll-module" style={{ 
+            backgroundColor: pageBgColor, 
+            minHeight: '100%', 
+            paddingBottom: '2rem', 
+            transition: 'background-color 0.3s ease',
+            borderRadius: isTds ? '12px' : '0px',
+            border: isTds ? '1px solid #eef2f7' : 'none',
+            paddingTop: '1px', // Prevent margin collapse
+            margin: isTds ? '0' : '0' // maintain original layout
+        }}>
             <style jsx>{`
                 .sensitive-data-hidden { filter: blur(5px); user-select: none; }
                 .sensitive-data-visible { filter: none; }
@@ -87,7 +98,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 {!hideSummarySection && (
                     <div className="my-5 w-100">
                         <div className="mb-6">
-                            <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} />
+                            <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} month={month} year={year} />
                         </div>
                         <Box
                             sx={{
@@ -144,6 +155,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 salarySlipProps={salarySlipProps}
                                 userId={employee.userId}
                                 employeeId={employee.id}
+                                salaryId={apiSalaryData?.id as string}
                                 loading={ui.loading}
                                 setLoading={ui.setLoading}
                             />
@@ -189,15 +201,6 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                     </div>
                                 </Col>
                             </Row>
-
-                            {/* Net Salary summary */}
-                            <NetAmountPayable
-                                grossPay={finalTotalGrossPayAmount}
-                                deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
-                                fallbackNetAmount={0}
-                                showSensitiveData={showSensitiveData}
-                                isApiDataLoaded={!!apiSalaryData}
-                            />
                         </div>
                     </Card>
                 </div>

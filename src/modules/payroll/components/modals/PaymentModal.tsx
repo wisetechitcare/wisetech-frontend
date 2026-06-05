@@ -71,31 +71,35 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
     const govtDeductions = Object.entries(statutoryBreakdown || {})
         .map(([key, data]: [string, any]) => ({
-            label: key,
+            label: key === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : key,
             value: key,
             amount: Number(data?.earned ?? data?.value ?? (data || 0)),
             isActive: data?.isActive !== false,
         }))
-        .filter(d => d.isActive && d.label.toLowerCase().includes('professional') && !d.label.toLowerCase().includes('fund') && !d.label.toLowerCase().includes('tax'));
+        .filter(d => d.isActive && d.amount > 0);
 
-    const hasProfessionalFees = govtDeductions.length > 0;
-    const availablePaymentModes = hasProfessionalFees
+    const hasGovtDeductions = govtDeductions.length > 0;
+    const availablePaymentModes = hasGovtDeductions
         ? paymentModes
         : paymentModes.filter(mode => mode.value === 'SALARY');
 
     useEffect(() => {
-        if (!hasProfessionalFees && activeTab !== 'SALARY') {
+        if (!hasGovtDeductions && activeTab !== 'SALARY') {
             setActiveTab('SALARY');
         }
-    }, [activeTab, hasProfessionalFees]);
+    }, [activeTab, hasGovtDeductions]);
 
-    const correctedFixedDeductions = Math.max(0, govtDeductions.reduce((sum, item) => sum + item.amount, 0));
+    // Use fixedDeductions prop as the authoritative total; fall back to summing breakdown entries
+    const correctedFixedDeductions = fixedDeductions > 0
+        ? fixedDeductions
+        : Math.max(0, govtDeductions.reduce((sum, item) => sum + item.amount, 0));
 
     const govtPending = Math.max(0, correctedFixedDeductions - governmentPaid);
     const payableAmount = Math.max(0, salaryInHand - salaryPaid);
 
-    const activeGovType = hasProfessionalFees ? govtDeductions[0].label : 'Tax Deducted at Source (TDS)';
-    const displayGovType = activeGovType === 'Professional Fees' ? 'Tax Deducted at Source (TDS)' : activeGovType;
+    const displayGovType = govtDeductions.length === 1
+        ? govtDeductions[0].label
+        : 'Government Deductions';
 
     return (
         <Modal show={show} onHide={onHide} size="xl" centered className="wt-payment-modal shadow-lg overflow-hidden">
@@ -126,7 +130,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                 </Card.Body>
                             </Card>
                         </Col>
-                        {hasProfessionalFees && (
+                        {hasGovtDeductions && (
                             <Col md={3}>
                                 <Card className="bg-light-danger border-0 shadow-none h-100">
                                     <Card.Body className="p-4">
@@ -146,7 +150,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                 </Card.Body>
                             </Card>
                         </Col>
-                        {hasProfessionalFees && (
+                        {hasGovtDeductions && (
                             <Col md={3}>
                                 <Card className="bg-light-info border-0 shadow-none h-100">
                                     <Card.Body className="p-4">
@@ -166,10 +170,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         paymentType: activeTab,
                         salaryAmount: Math.round(initialValues.salaryAmount || payableAmount),
                         govAmount: Math.round(initialValues.govAmount || 0),
-                        govType: initialValues.govType || (hasProfessionalFees ? govtDeductions[0].value : ''),
+                        govType: initialValues.govType || (hasGovtDeductions ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
-                        paymentMethod: 'BANK_TRANSFER',
-                        paidAt: new Date().toISOString().split('T')[0]
+                        paymentMethod: initialValues.paymentMethod || 'BANK_TRANSFER',
+                        paidAt: initialValues.paidAt || new Date().toISOString().split('T')[0],
+                        _netSalary: netPayable,
+                        _salaryPaid: salaryPaid,
+                        sendEmail: true,
                     }}
                     validationSchema={paymentSchema}
                     onSubmit={onSubmit}
@@ -246,20 +253,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             <div className="px-6 py-4 bg-light border-bottom d-flex justify-content-between align-items-center">
                                                 <h4 className="fw-bolder text-gray-800 mb-0">
                                                     {activeTab === 'SALARY' ? 'Salary Installment' : 
-                                                     activeTab === 'GOVERNMENT' ? 'Tax Deducted at Source (TDS) Settlement' : 
+                                                     activeTab === 'GOVERNMENT' ? `${displayGovType} Settlement` : 
                                                      'Combined Disbursement'}
                                                 </h4>
-                                                <Badge bg="primary" className="fw-bold">Step 2 of 2</Badge>
                                             </div>
 
                                             <div className="p-6">
                                                 {/* SECTION: Salary Payment */}
                                                 {(activeTab === 'SALARY' || activeTab === 'COMBINED') && (
                                                     <div className="mb-8">
-                                                        <div className="d-flex align-items-center mb-4">
-                                                            <div className="bullet bullet-vertical bg-primary h-20px me-3"></div>
-                                                            <h5 className="fw-bold text-gray-800 m-0">Employee Salary Portion</h5>
-                                                        </div>
+                                                        {activeTab === 'COMBINED' && (
+                                                            <div className="d-flex align-items-center mb-4">
+                                                                <div className="bullet bullet-vertical bg-primary h-20px me-3"></div>
+                                                                <h5 className="fw-bold text-gray-800 m-0">Employee Salary Portion</h5>
+                                                            </div>
+                                                        )}
                                                         <Row className="g-5">
                                                             <Col md={6}>
                                                                  <TextInput
@@ -283,19 +291,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                 )}
 
                                                 {/* SECTION: Government Payment */}
-                                                {hasProfessionalFees && (activeTab === 'GOVERNMENT' || activeTab === 'COMBINED') && (
+                                                {hasGovtDeductions && (activeTab === 'GOVERNMENT' || activeTab === 'COMBINED') && (
                                                     <div>
-                                                        <div className="d-flex align-items-center mb-6">
-                                                            <div className="bullet bullet-vertical bg-danger h-20px me-3"></div>
-                                                            <h5 className="fw-bold text-gray-800 m-0">Tax Deducted at Source (TDS) Settlement</h5>
-                                                        </div>
-                                                        
+                                                        {activeTab === 'COMBINED' && (
+                                                            <div className="d-flex align-items-center mb-6">
+                                                                <div className="bullet bullet-vertical bg-danger h-20px me-3"></div>
+                                                                <h5 className="fw-bold text-gray-800 m-0">{displayGovType} Settlement</h5>
+                                                            </div>
+                                                        )}
                                                         <Row className="g-5">
                                                             <Col md={4}>
                                                                 <FormikDropdownInput
                                                                     inputLabel="Deduction Type"
                                                                     formikField="govType"
-                                                                    options={govtDeductions}
+                                                                    options={govtDeductions.map(d => ({
+                                                                        label: `${d.label} (₹${Math.round(d.amount).toLocaleString('en-IN')})`,
+                                                                        value: d.value,
+                                                                    }))}
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                     onChange={(option: any) => {
                                                                         const selected = govtDeductions.find(d => d.value === option.value);
@@ -316,7 +328,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                 />
                                                                 <div className="text-muted fs-8 mt-1">
-                                                                    {values.govType && `Pending for ${values.govType}: ${formatINR2(govtPending)}`}
+                                                                    {values.govType && `Total pending govt: ${formatINR2(govtPending)}`}
                                                                 </div>
                                                             </Col>
                                                             <Col md={4}>
@@ -334,8 +346,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                 <div className="d-flex align-items-center">
                                                                     <KTIcon iconName="information-5" className="fs-1 text-danger me-4" />
                                                                     <div className="text-gray-700 fw-bold fs-7">
-                                                                        Tax Deducted at Source (TDS) payments will update the statutory ledger and master status. 
-                                                                        Ensure the Challan # is recorded for audit purposes.
+                                                                        Government & statutory deduction payments update the ledger and master status.
+                                                                        Ensure the Challan / Reference # is recorded for audit purposes.
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -347,7 +359,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                     </Col>
                                 </Row>
 
-                                <div className="d-flex justify-content-end mt-10 gap-3 border-top pt-8">
+                                <div className="d-flex justify-content-between align-items-center mt-10 gap-3 border-top pt-8">
+                                    <div className="form-check form-switch d-flex align-items-center gap-2 m-0">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            role="switch"
+                                            id="sendEmailToggle"
+                                            checked={values.sendEmail !== false}
+                                            onChange={(e) => setFieldValue('sendEmail', e.target.checked)}
+                                            style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
+                                        />
+                                        <label className="form-check-label fw-semibold text-gray-700 fs-7" htmlFor="sendEmailToggle">
+                                            <KTIcon iconName="sms" className="fs-5 me-1 text-primary" />
+                                            Send Email Notification
+                                        </label>
+                                    </div>
+                                    <div className="d-flex gap-3">
                                     <Button variant="light" onClick={onHide} className="fw-bold px-8 py-3">
                                         Cancel
                                     </Button>
@@ -368,6 +396,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                             </>
                                         )}
                                     </Button>
+                                    </div>
                                 </div>
                             </FormikForm>
                         );

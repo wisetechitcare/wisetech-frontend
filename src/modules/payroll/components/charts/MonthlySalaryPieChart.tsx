@@ -102,8 +102,12 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
         salarySlipProps.taxes.forEach((tax) => {
             const val = parseFloat(tax.earned.replace(/,/g, '')) || 0;
             if (val > 0) {
+                let displayName = tax.name || 'Govt/Payroll Deduction';
+                if (displayName === 'Professional Fees') {
+                    displayName = 'Tax Deducted at Source (TDS)';
+                }
                 chartData.push({
-                    name: tax.name || 'Govt/Payroll Deduction',
+                    name: displayName,
                     value: val,
                     color: DEDUCTION_COLORS[deductionIndex % DEDUCTION_COLORS.length]
                 });
@@ -131,8 +135,8 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
     };
 
     // Determine Center Text
-    let centerLabel = 'Gross Salary';
-    let centerValue = formatCurrencyRounded(grossPay);
+    let centerLabel = 'Monthly Salary';
+    let centerValue = formatCurrencyRounded(salarySlipProps.baseMonthlySalary ?? netPay);
     
     if (activeIndex !== undefined && data[activeIndex]) {
         centerLabel = data[activeIndex].name;
@@ -183,8 +187,8 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
 
             <Box sx={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', width: '100%', gap: 2 }}>
-                    <Box sx={{ width: { xs: '100%', md: '45%' }, height: 180, position: 'relative' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                    <Box sx={{ width: { xs: '100%', md: '45%' }, height: 180, position: 'relative', minWidth: 0, minHeight: 0 }}>
+                        <ResponsiveContainer width="100%" height={180}>
                             <PieChart>
                                 {/* @ts-ignore */}
                                 <Pie

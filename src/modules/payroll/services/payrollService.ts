@@ -57,4 +57,14 @@ export const payrollService = {
     const response = await axios.post(`${API_URL}/payroll/govt-payment`, paymentData);
     return response.data;
   },
+
+  /**
+   * Download Salary Slip PDF
+   */
+  downloadSalarySlip: async (salaryId: string) => {
+    const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}/download-slip`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
 };

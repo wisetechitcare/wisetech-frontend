@@ -29,7 +29,7 @@ const SalarySummaryCard: React.FC<SalarySummaryCardProps> = ({
 
   // Format number to Indian currency format
   const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString('en-IN')}`;
+    return `₹${Math.round(amount).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   // Shimmer animation styles

@@ -14,8 +14,10 @@ import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetch
 // import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
+import { payrollService } from '@modules/payroll/services/payrollService';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { toast } from 'react-toastify';
 import { salaryCalculations, donutaDataLabel, getWorkingDaysInMonth, multipleRadialBarData, totalCheckInCheckOutMinutes, getWorkingDaysInYear, getCountOfMonthsEmployeePresentOrOnLeaveInAYear, getTotalWeekendDaysInMonth, getTotalWeekendsInYear, formatNumber, formatStringINR, filterLeavesPublicHolidays, customLeaves, getTotalDaysInMonth, getTotalDaysInYear, getTotalWeekendsInYearFilteredByDOJOrCurrentYearDate, getTotalWeekendDaysInMonthFilteredByDOJOrCurrentMonthDate, SalaryCalculations, geAllDaysInAMonth, getAllDaysInAYear, salaryCalculationsForDays } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { Form, Formik, FormikValues } from 'formik';
@@ -77,9 +79,9 @@ interface SalaryReportProps {
 }
 
 const formatINRDecimal = (n: number) =>
-    `₹${(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     })}`;
 
 const formatINRRounded = (n: number) =>
@@ -495,19 +497,17 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         // console.log("grossBreakdownTable:: ",data);
 
         const formatCurrency = (amount: number) => {
-            return `₹${amount.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+            return `₹${Math.round(amount).toLocaleString('en-IN', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
             })}`;
         };
 
         const formatValue = (value: any, type?: string) => {
             if (value === null || value === undefined) return '-';
             if (typeof value === 'number') {
-                // Format to 2 decimal places, but show integers without decimals
-                const formatted = Number.isInteger(value) ?
-                    value.toString() :
-                    value.toFixed(2);
+                // Format to 0 decimal places
+                const formatted = Math.round(value).toString();
                 return type === 'percentage' ? `${formatted}%` : formatted;
             }
             return value.toString();
@@ -2409,19 +2409,36 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                         <h4 className="fw-bold mb-4">Report</h4>
                         <div className="d-flex justify-content-end mb-4 md:justify-content-center">
                             {salarySlipProps ? (
-                                <PDFDownloadLink document={
-                                    <SalarySlipTemplate {...salarySlipProps} />
-                                } fileName="salaryslip.pdf" className="me-2" >
-                                    <Button>
-                                        Download Report (Pdf)
-                                    </Button>
-                                </PDFDownloadLink>
+                                <Button
+                                    className="me-2"
+                                    onClick={async () => {
+                                        try {
+                                            setLoading(true);
+                                            const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
+                                            const url = window.URL.createObjectURL(new Blob([blob]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `${salarySlipProps.employee?.users?.firstName || ''} ${salarySlipProps.employee?.users?.lastName || ''} Salary Slip ${salarySlipProps.date || ''}.pdf`.trim());
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.parentNode?.removeChild(link);
+                                        } catch (e) {
+                                            console.error(e);
+                                            errorConfirmation("Failed to download PDF");
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                >
+                                    Download Report (Pdf)
+                                </Button>
                             ) : (
                                 <Button disabled>
                                     No Data Available for PDF
                                 </Button>
                             )}
-                            {salarySlipProps && <Button className="wt-btn-primary" onClick={
+                            {salarySlipProps && <Button className="wt-btn-primary" disabled={loading} onClick={
                                 async ()=> {
                                 setLoading(true);
                                 if (!salarySlipProps) {
@@ -2429,7 +2446,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     setLoading(false);
                                     return;
                                 }
-                                const blob = await pdf(<SalarySlipTemplate {...salarySlipProps} />).toBlob();
+                                const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
                                 const form = new FormData();
                                 const fileFinal = new File([blob], `${userId}-SalarySlip-${Date.now()}.pdf`, { type: 'application/pdf' });
                                 form.append("file", fileFinal);
@@ -2450,7 +2467,29 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     };
                                     const res = await sendSalarySlipToEmployee(data);
                                     if(res?.statusCode==200 && !res.hasError){
-                                        successConfirmation("Salary slip sent successfully");
+                                        const email = salarySlipProps.employee?.companyEmailId || 'Employee';
+                                        toast.success(
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                                        <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
+                                                        {email}
+                                                    </div>
+                                                </div>
+                                            </div>,
+                                            {
+                                                position: 'bottom-right',
+                                                autoClose: 6000,
+                                                style: {
+                                                    borderRadius: '12px',
+                                                    padding: '16px',
+                                                    border: '1px solid #e2e8f0',
+                                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                                }
+                                            }
+                                        );
                                     }
                                     else{
                                         errorConfirmation("Failed to send salary slip. Please try again.");
@@ -2461,7 +2500,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 }
                                 setLoading(false);
                             }}
-                            disabled={loading}
                             >
                                 {loading ? "Please wait..." : "Email Salary Slip"}
                             </Button>}
@@ -2685,7 +2723,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 paidLeaves={paidLeaves}
                                 unpaidLeaves={totalUnpaidLeaves}
                             />
-                        } fileName="salaryslip.pdf" className="me-2" >
+                        } fileName={`${employee?.firstName || ''} ${employee?.lastName || ''} Salary Slip ${date || ''}.pdf`.trim()} className="me-2" >
                             <Button>
                                 Download Report (Pdf)
                             </Button>
@@ -2719,7 +2757,29 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 };
                                 const res = await sendSalarySlipToEmployee(data);
                                 if(res?.statusCode==200 && !res.hasError){
-                                    successConfirmation("Salary slip sent successfully");
+                                    const email = salarySlipProps.employee?.companyEmailId || 'Employee';
+                                    toast.success(
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                                    <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
+                                                    {email}
+                                                </div>
+                                            </div>
+                                        </div>,
+                                        {
+                                            position: 'bottom-right',
+                                            autoClose: 6000,
+                                            style: {
+                                                borderRadius: '12px',
+                                                padding: '16px',
+                                                border: '1px solid #e2e8f0',
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                            }
+                                        }
+                                    );
                                 }
                                 else{
                                     errorConfirmation("Failed to send salary slip. Please try again.");

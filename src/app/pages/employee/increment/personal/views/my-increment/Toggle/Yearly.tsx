@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Dayjs } from 'dayjs';
-import { Box, Button, Paper, Typography } from '@mui/material';
+import { Box, Paper, Typography } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
@@ -16,13 +16,10 @@ import IncrementDetailDialog from '../components/IncrementDetailDialog';
 import AddEditIncrementDialog from '../components/AddEditIncrementDialog';
 import YearlySmartInsights from '../components/YearlySmartInsights';
 import YearSummaryPanel from '../components/YearSummaryPanel';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
-import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
-import AddIcon from '@mui/icons-material/Add';
 import { formatCurrencyRounded } from '@utils/currency';
 import dayjs from 'dayjs';
 
@@ -56,7 +53,13 @@ const Yearly = ({
         setLoading(true);
         try {
             const hist = await incrementService.fetchIncrementHistory(employee.id);
-            const yearRecords = hist.filter(r => dayjs(r.effectiveDate).format('YYYY') === yr);
+            const fiscalStart = dayjs(`${yr}-04-01`).startOf('day');
+            const fiscalEnd = dayjs(`${Number(yr) + 1}-03-31`).endOf('day');
+            const yearRecords = hist.filter(r => {
+                const d = dayjs(r.effectiveDate);
+                return (d.isSame(fiscalStart) || d.isAfter(fiscalStart)) &&
+                       (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
+            });
             setRecords(yearRecords);
             const an = await incrementService.fetchYearlyAnalytics(employee.id, yr);
             setAnalytics(an);
@@ -72,37 +75,13 @@ const Yearly = ({
         if (!analytics) return [];
         return [
             {
-                label: 'Starting Salary',
-                value: analytics.startingSalaryForYear > 0
-                    ? formatCurrencyRounded(analytics.startingSalaryForYear)
-                    : '—',
-                icon: <AccountBalanceWalletIcon />,
-                tone: 'blue',
-                footer: 'Jan 1 carry-in',
-                footerTone: 'neutral',
-                isSensitive: true,
-                showSensitiveData,
-            },
-            {
-                label: 'Year-End Salary',
-                value: analytics.currentSalaryForYear > 0
-                    ? formatCurrencyRounded(analytics.currentSalaryForYear)
-                    : '—',
-                icon: <AccountBalanceWalletIcon />,
-                tone: 'rose',
-                footer: `Dec 31, ${yr}`,
-                footerTone: 'neutral',
-                isSensitive: true,
-                showSensitiveData,
-            },
-            {
                 label: 'Year Increment',
                 value: analytics.yearIncrementAmount > 0
                     ? `+${formatCurrencyRounded(analytics.yearIncrementAmount)}`
                     : '—',
                 icon: <TrendingUpIcon />,
                 tone: 'green',
-                footer: analytics.yearIncrementAmount > 0 ? 'Salary raised' : 'No raise',
+                footer: analytics.yearIncrementAmount > 0 ? 'Salary raised' : 'No raise this year',
                 footerTone: analytics.yearIncrementAmount > 0 ? 'success' : 'neutral',
                 isSensitive: true,
                 showSensitiveData,
@@ -153,45 +132,16 @@ const Yearly = ({
     const hasActivity = !loading && ((analytics?.startingSalaryForYear ?? 0) > 0 || records.length > 0);
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', mt: 1.5, gap: 0 }}>
-            {/* Section label */}
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Box>
-                    <Typography sx={{ color: '#0f172a', fontSize: '1.05rem', fontWeight: 800 }}>
-                        {yr} Salary Analysis
-                    </Typography>
-                    <Typography sx={{ color: '#94a3b8', fontSize: '0.8rem', mt: 0.2 }}>
-                        Year-specific revision activity and salary progression
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => { setSelectedRecord(null); setShowEditDialog(true); }}
-                    sx={{
-                        bgcolor: '#AA393D',
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        fontSize: '0.85rem',
-                        borderRadius: '8px',
-                        boxShadow: 'none',
-                        flexShrink: 0,
-                        '&:hover': { bgcolor: '#8b2b2e', boxShadow: 'none' },
-                    }}
-                >
-                    Add Increment
-                </Button>
-            </Box>
-
-            {/* ── SECTION 1: KPI Cards ── */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {/* ── KPI Cards ── */}
             <IncrementKPISection
                 cards={buildCards()}
                 loading={loading}
-                skeletonCount={6}
-                columns={6}
+                skeletonCount={4}
+                columns={4}
             />
 
-            {/* ── SECTION 2: Chart + Year Summary panel ── */}
+            {/* ── Chart + Year Summary ── */}
             {(loading || hasActivity) && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 1.5, mb: 1.5 }}>
                     <IncrementGrowthChart
@@ -218,7 +168,7 @@ const Yearly = ({
                 </Box>
             )}
 
-            {/* ── SECTION 3: Smart Insights ── */}
+            {/* ── Smart Insights ── */}
             <YearlySmartInsights analytics={analytics} year={yr} loading={loading} />
 
             {/* ── No data state ── */}
@@ -236,7 +186,7 @@ const Yearly = ({
                 </Paper>
             )}
 
-            {/* ── SECTION 4: Revision Table + Timeline ── */}
+            {/* ── Revision Table + Timeline ── */}
             {hasActivity && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '7fr 3fr' }, gap: 1.5 }}>
                     <IncrementTable
@@ -276,12 +226,11 @@ const Yearly = ({
                 onHide={() => setShowEditDialog(false)}
                 record={selectedRecord}
                 employeeName={employeeName}
+                employeeId={employee?.id}
                 currentSalary={analytics?.currentSalaryForYear || 0}
                 onSubmit={async payload => {
                     if (selectedRecord) {
                         await incrementService.updateIncrement(employee.id, selectedRecord.id, payload);
-                    } else {
-                        await incrementService.createIncrement(employee.id, payload);
                     }
                     setShowEditDialog(false);
                     loadData();

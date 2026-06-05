@@ -31,6 +31,7 @@ export interface SalarySlipProps {
   presentDays?: number;
   monthStartDate?: string;
   monthEndDate?: string;
+  baseMonthlySalary?: number;
 }
 
 /**
@@ -137,14 +138,39 @@ export function transformApiDataToSalarySlipProps(
       earned: formatCurrency(data.earned)
     }));
 
-  // Transform deductions (from API's deductionBreakdown.variable)
-  // These will show as "Variables" in the deductions column
-  const deductions = Object.entries(validApiData.deductionBreakdown?.variable || {})
-    .map(([name, data]) => ({
-      name,
-      value: formatValue(data.value, data.type),
-      earned: formatCurrency(data.earned)
-    }));
+  // Transform deductions (attendance adjustments — always show 5 fixed rows)
+  // Map API key "Late Attendance" → display "Late Checkins"
+  const ATTENDANCE_DISPLAY_MAP: Record<string, string> = {
+    'Late Attendance': 'Late Checkins',
+    'Late Checkin':    'Late Checkins',
+    'Late Checkins':   'Late Checkins',
+    'Early Checkout':  'Early Checkout',
+    'Unpaid Leave':    'Unpaid Leave',
+    'Half Day':        'Half Day',
+    'Missed Punch':    'Missed Punch',
+  };
+  const STANDARD_ATTENDANCE_ROWS = [
+    'Late Checkins',
+    'Early Checkout',
+    'Unpaid Leave',
+    'Half Day',
+    'Missed Punch',
+  ];
+  // Build a lookup from display name → API data
+  const attendanceByDisplay: Record<string, any> = {};
+  Object.entries(validApiData.deductionBreakdown?.variable || {}).forEach(([key, data]) => {
+    const displayName = ATTENDANCE_DISPLAY_MAP[key] || key;
+    attendanceByDisplay[displayName] = data;
+  });
+  // Always emit all 5 rows — fill with zeros if not present
+  const deductions = STANDARD_ATTENDANCE_ROWS.map(rowName => {
+    const data = attendanceByDisplay[rowName];
+    return {
+      name: rowName,
+      value: data ? formatValue(data.value, data.type) : '-',
+      earned: data ? formatCurrency(data.earned) : '0.00',
+    };
+  });
 
   // Transform taxes (from API's deductionBreakdown.fixed)
   // These will show as "Fixed" in the deductions column (not as "TAX")
@@ -234,6 +260,7 @@ export function transformApiDataToSalarySlipProps(
     presentDays: (validApiData as any).presentDays ?? (validApiData as any).extraData?.presentDays ?? undefined,
     monthStartDate: validApiData.monthStartDate ?? undefined,
     monthEndDate: validApiData.monthEndDate ?? undefined,
+    baseMonthlySalary: (validApiData as any).employeeCardDeatils?.monthlySalary ?? undefined,
   };
 }
 

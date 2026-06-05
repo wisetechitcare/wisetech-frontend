@@ -160,7 +160,7 @@ interface EmployeeProfileCardProps {
     name: string;
     employeeCode?: string;
     isActive?: boolean;
-    bloodGroup?: string;
+    hasProfessionalFees?: boolean;
     email?: string;
     phone?: string;
     location?: string;
@@ -211,7 +211,7 @@ const EmployeeProfileCard = ({
     name,
     employeeCode,
     isActive,
-    bloodGroup,
+    hasProfessionalFees,
     email,
     phone,
     location
@@ -229,14 +229,13 @@ const EmployeeProfileCard = ({
             flexDirection: 'column',
         }}
     >
-        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+        <Stack direction="row" spacing={{ xs: 1.5, md: 2 }} sx={{ mb: 1 }}>
             <Avatar
                 src={avatar}
                 alt={name}
-                variant="rounded"
                 sx={{
-                    width: { xs: 68, md: 76 },
-                    height: { xs: 68, md: 76 },
+                    width: { xs: 68, md: 74 },
+                    height: { xs: 68, md: 74 },
                     borderRadius: '16px',
                     boxShadow: '0 6px 12px rgba(15, 23, 42, 0.08)',
                     backgroundColor: '#f8fafc',
@@ -268,9 +267,7 @@ const EmployeeProfileCard = ({
                         </Tooltip>
                         <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: 0.35 }}>
                             {employeeCode || '-'}
-
                         </Typography>
-
                     </Box>
                 </Stack>
 
@@ -278,9 +275,22 @@ const EmployeeProfileCard = ({
                     {phone || '-'}
                 </Typography>
 
-                <Typography sx={{ color: '#64748b', fontSize: '0.76rem', mt: 0.55 }}>
-                    Blood Group: {bloodGroup || '-'}
-                </Typography>
+                <Box sx={{ mt: 0.75 }}>
+                    <Chip 
+                        label={hasProfessionalFees ? "CONTRACT BASED" : "SALARY BASED"} 
+                        size="small"
+                        sx={{ 
+                            height: '22px', 
+                            fontSize: '0.65rem', 
+                            fontWeight: 800, 
+                            letterSpacing: '0.5px',
+                            backgroundColor: hasProfessionalFees ? '#f5f3ff' : '#f0fdf4',
+                            color: hasProfessionalFees ? '#7c3aed' : '#16a34a',
+                            border: `1px solid ${hasProfessionalFees ? '#ede9fe' : '#dcfce7'}`,
+                            '& .MuiChip-label': { px: 1 }
+                        }} 
+                    />
+                </Box>
             </Box>
         </Stack>
 
@@ -324,6 +334,15 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
 
     const [totalPaidAmount, setTotalAmountPaid] = useState(0);
     const apiSalaryData = monthlyApiData?.salaryData?.[0];
+
+    const isProfessionalFeesKey = (key: string) => key.includes('professional fees');
+    let hasProfessionalFees = false;
+    if (apiSalaryData?.deductionBreakdown?.fixed) {
+        hasProfessionalFees = Object.keys(apiSalaryData.deductionBreakdown.fixed).some(key => 
+            isProfessionalFeesKey(key.toLowerCase()) && 
+            apiSalaryData.deductionBreakdown.fixed[key]?.isActive !== false
+        );
+    }
 
     // Truncate helper: floor to 2 decimal places (avoids rounding 666.666 → 666.67)
     const trunc2 = (n: number) => Math.floor(n * 100) / 100;
@@ -524,7 +543,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                             name={employeeName}
                             employeeCode={employee?.employeeCode}
                             isActive={employee?.isActive}
-                            bloodGroup={(employee as any)?.bloodGroup || undefined}
+                            hasProfessionalFees={hasProfessionalFees}
                             email={employee?.companyEmailId || undefined}
                             phone={employee?.companyPhoneNumber || undefined}
                             location={employee?.workLocation || undefined}

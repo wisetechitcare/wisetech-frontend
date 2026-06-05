@@ -40,6 +40,21 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
         </Tooltip>
     );
 
+    const totalHighlightCellStyle = {
+        backgroundColor: '#f0fdf4',
+        border: 'none',
+    } as const;
+    const totalHighlightLeftCellStyle = {
+        ...totalHighlightCellStyle,
+        borderTopLeftRadius: '12px',
+        borderBottomLeftRadius: '12px',
+    } as const;
+    const totalHighlightRightCellStyle = {
+        ...totalHighlightCellStyle,
+        borderTopRightRadius: '12px',
+        borderBottomRightRadius: '12px',
+    } as const;
+
     return (
         <div className="breakdown-tables d-flex flex-column flex-grow-1">
             <div className="flex-grow-1">
@@ -91,12 +106,12 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                         </tr>
                                     );
                                 })}
-                                <tr className={`${subtotalBgClass} border-0`}>
-                                    <td colSpan={3} className="py-4 ps-6">
+                                <tr className="border-0">
+                                    <td colSpan={3} className="py-4 ps-6" style={totalHighlightLeftCellStyle}>
                                         <span className="fw-bolder text-gray-700 fs-7">Subtotal Variable Earnings</span>
                                     </td>
-                                    <td className="text-end py-4 pe-6">
-                                        <span className={`fw-bolder fs-6 ${subtotalColorClass} ${sensitiveCls}`}>
+                                    <td className="text-end py-4 pe-6" style={totalHighlightRightCellStyle}>
+                                        <span className={`fw-bolder fs-6 text-nowrap ${subtotalColorClass} ${sensitiveCls}`}>
                                             {subtotalPrefix}{formatINRDecimal(variableSubtotal)}
                                         </span>
                                     </td>
@@ -134,12 +149,12 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                         </td>
                                     </tr>
                                 ))}
-                                <tr className={`${subtotalBgClass} border-0`}>
-                                    <td className="py-4 ps-6">
-                                        <span className="fw-bolder text-gray-700 fs-7">Subtotal Fixed Earnings</span>
+                                <tr className="border-0">
+                                    <td className="py-4 ps-6" style={totalHighlightLeftCellStyle}>
+                                        <span className="fw-bolder text-success fs-7">Subtotal Fixed Earnings</span>
                                     </td>
-                                    <td className="text-end py-4 pe-6">
-                                        <span className={`fw-bolder fs-6 text-success ${sensitiveCls}`}>
+                                    <td className="text-end py-4 pe-6" style={totalHighlightRightCellStyle}>
+                                        <span className={`fw-bolder fs-6 text-success text-nowrap ${sensitiveCls}`}>
                                             {subtotalPrefix}{formatINRDecimal(fixedSubtotal)}
                                         </span>
                                     </td>
@@ -153,12 +168,15 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
 
             {/* Final Grand Total for Gross */}
             {!isDeduction && (
-                <div className="p-5 rounded-3 bg-white border border-gray-200 d-flex flex-column flex-md-row justify-content-center justify-content-md-between align-items-center text-center gap-3 shadow-sm mt-auto">
+                <div 
+                    className="p-5 rounded-3 d-flex flex-column flex-md-row justify-content-center justify-content-md-between align-items-center text-center gap-3 mt-auto"
+                    style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}
+                >
                     <div className="d-flex align-items-center justify-content-center">
-                        <span className="fw-bolder text-success fs-4 me-0 me-md-3">TOTAL GROSS PAY</span>
+                        <span className="fw-bolder fs-4 me-0 me-md-3" style={{ color: '#2563eb' }}>TOTAL GROSS PAY</span>
                         <div className="d-none d-md-block">
                             <OverlayTrigger placement="top" overlay={renderTooltip}>
-                                <span className="btn btn-icon btn-circle btn-sm bg-light">
+                                <span className="btn btn-icon btn-circle btn-sm" style={{ backgroundColor: '#dbeafe' }}>
                                     <i className="bi bi-info-circle text-gray-600 fs-6"></i>
                                 </span>
                             </OverlayTrigger>
@@ -166,13 +184,13 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                     </div>
                     {/* Desktop amount */}
                     <div className="d-none d-md-flex justify-content-end">
-                        <span className={`text-success fw-bolder fs-2 ${sensitiveCls}`}>
+                        <span className={`fw-bolder fs-2 ${sensitiveCls}`} style={{ color: '#2563eb' }}>
                             {formatINRDecimal(grandTotal)}
                         </span>
                     </div>
                     {/* Mobile amount container */}
-                    <div className="d-flex d-md-none justify-content-center align-items-center rounded-3 px-4 py-2 w-100" style={{ backgroundColor: '#DCFCE7', border: '1px solid #BBF7D0' }}>
-                        <span className={`text-success fw-bolder fs-2 ${sensitiveCls}`}>
+                    <div className="d-flex d-md-none justify-content-center align-items-center rounded-3 px-4 py-2 w-100" style={{ backgroundColor: '#dbeafe', border: '1px solid #bfdbfe' }}>
+                        <span className={`fw-bolder fs-2 ${sensitiveCls}`} style={{ color: '#2563eb' }}>
                             {formatINRDecimal(grandTotal)}
                         </span>
                     </div>
