@@ -1,6 +1,11 @@
 import React from 'react';
 import dayjs from 'dayjs';
-import { KTIcon } from '@metronic/helpers';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
+import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
+import { Box, Skeleton } from '@mui/material';
+import YearlyKpiCard, { YearlyKpiCardProps } from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
 import { PayrollSummary } from '../../types/payroll.types';
 import { formatINRDecimal } from '../../utils/payrollFormatters';
 
@@ -9,40 +14,42 @@ interface PayrollStatsCardsProps {
     showSensitiveData: boolean;
     month?: string | number;
     year?: string | number;
+    isLoading?: boolean;
 }
 
-type Tone = 'blue' | 'purple' | 'green' | 'danger' | 'info' | 'warning';
+const fmtAbs = (n: number) =>
+    `₹${Math.round(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-const toneMap: Record<Tone, { color: string; bg: string; border: string }> = {
-    blue:    { color: '#2563eb', bg: '#eff6ff', border: '#dbeafe' },
-    purple:  { color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5fe' },
-    green:   { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-    danger:  { color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-    info:    { color: '#7c3aed', bg: '#f5f3ff', border: '#d8b4fe' },
-    warning: { color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-};
-
-const formatFooterAmount = (amount: number) =>
-    `₹${Math.round(Math.abs(amount)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
-const formatPendingFooter = (pendingAmount: number) => {
-    if (pendingAmount > 0) return { label: 'Pending', value: formatFooterAmount(pendingAmount) };
-    if (pendingAmount < 0) return { label: 'Extra',   value: formatFooterAmount(pendingAmount) };
+const pendingFooter = (amount: number): { label: string; value: string } => {
+    const rounded = Math.round(amount);
+    if (rounded > 0) return { label: 'Pending', value: fmtAbs(amount) };
+    if (rounded < 0) return { label: 'Extra',   value: fmtAbs(amount) };
     return { label: 'Cleared', value: '' };
 };
 
-interface Card {
-    label: string;
-    value: number;
-    tone: Tone;
-    icon: string;
-    footer: string;
-    footerValue: string;
-    footerTone: Tone;
-}
-
-const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, showSensitiveData, month, year }) => {
-    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
+    summaryData,
+    showSensitiveData,
+    month,
+    year,
+    isLoading = false,
+}) => {
+    if (isLoading) {
+        return (
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(3,1fr)' },
+                    gap: '14px',
+                    mb: 3,
+                }}
+            >
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} variant="rounded" height={130} sx={{ borderRadius: '16px' }} />
+                ))}
+            </Box>
+        );
+    }
 
     const now = dayjs();
     const isCurrentMonth =
@@ -54,8 +61,8 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
         : dayjs(`${year}-${String(month).padStart(2, '0')}-01`).format('MMMM YYYY');
 
     const totalAfterAttendance = Math.max(0, summaryData.totalGrossPay - summaryData.totalVariableDeduction);
-    const deductionsPending    = summaryData.governmentPending;
-    const payablePending       = summaryData.salaryPending;
+    const deductionsPending    = Math.round(summaryData.governmentPending);
+    const payablePending       = Math.round(summaryData.salaryPending);
     const hasPendingArrears    = (summaryData.totalPendingArrears ?? 0) > 0;
 
     let deductionLabel = 'DEDUCTIONS';
@@ -63,139 +70,74 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, show
     else if (summaryData.hasTDS)                   deductionLabel = 'DEDUCTIONS (TDS)';
     else if (summaryData.hasPTax)                  deductionLabel = 'DEDUCTIONS (PTAX)';
 
-    const cards: Card[] = [
+    const deductionFt  = pendingFooter(deductionsPending);
+    const payableFt    = pendingFooter(payablePending);
+
+    const cards: YearlyKpiCardProps[] = [
         {
-            label: 'TOTAL SALARY AFTER LATE CHECKINS DEDUCTIONS',
-            value: totalAfterAttendance,
-            tone: 'blue',
-            icon: 'wallet',
-            footer: monthLabel,
+            label:      'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
+            sublabel:   'After variable deductions',
+            value:      formatINRDecimal(totalAfterAttendance),
+            footer:     monthLabel,
             footerValue: '',
-            footerTone: 'blue',
+            tone:       'blue',
+            icon:       <AccountBalanceWalletOutlinedIcon fontSize="small" />,
+            showSensitiveData,
         },
         {
-            label: deductionLabel,
-            value: summaryData.totalFixedDeduction,
-            tone: 'purple',
-            icon: 'percentage',
-            footer: formatPendingFooter(deductionsPending).label,
-            footerValue: formatPendingFooter(deductionsPending).value,
-            footerTone: deductionsPending > 0 ? 'danger' : deductionsPending < 0 ? 'info' : 'purple',
+            label:       deductionLabel,
+            sublabel:    'Govt. & fixed charges',
+            value:       formatINRDecimal(summaryData.totalFixedDeduction),
+            footer:      deductionFt.label,
+            footerValue: deductionFt.value,
+            tone:        'purple',
+            icon:        <AccountBalanceOutlinedIcon fontSize="small" />,
+            showSensitiveData,
         },
         {
-            label: 'PAYABLE SALARY',
-            value: summaryData.netSalary,
-            tone: 'green',
-            icon: 'check-circle',
-            footer: formatPendingFooter(payablePending).label,
-            footerValue: formatPendingFooter(payablePending).value,
-            footerTone: payablePending > 0 ? 'danger' : payablePending < 0 ? 'info' : 'green',
+            label:       'PAYABLE SALARY',
+            sublabel:    'Net take-home amount',
+            value:       formatINRDecimal(Math.abs(summaryData.netSalary)),
+            footer:      payableFt.label,
+            footerValue: payableFt.value,
+            tone:        summaryData.netSalary < 0 ? 'danger' : 'green',
+            icon:        <CheckCircleOutlineOutlinedIcon fontSize="small" />,
+            showSensitiveData,
         },
+        ...(hasPendingArrears
+            ? [{
+                label:       'PENDING ARREARS',
+                sublabel:    'Backdated increments',
+                value:       formatINRDecimal(summaryData.totalPendingArrears!),
+                footer:      `${summaryData.arrearCount ?? 0} record(s)`,
+                footerValue: fmtAbs(summaryData.totalPendingArrears!),
+                tone:        'amber' as const,
+                icon:        <HourglassBottomOutlinedIcon fontSize="small" />,
+                badge:       'Action Required',
+                showSensitiveData,
+            }]
+            : []),
     ];
 
-    // Arrear card — only shown when pending arrears exist
-    if (hasPendingArrears) {
-        cards.push({
-            label: 'PENDING ARREARS',
-            value: summaryData.totalPendingArrears!,
-            tone: 'warning',
-            icon: 'time',
-            footer: `${summaryData.arrearCount ?? 0} record(s)`,
-            footerValue: formatFooterAmount(summaryData.totalPendingArrears!),
-            footerTone: 'warning',
-        });
-    }
+    const cols = hasPendingArrears ? 4 : 3;
 
     return (
-        <div className="mb-10 px-0">
-            <div className="row g-4 gx-xl-5 align-items-stretch">
-                {cards.map((card) => {
-                    const palette       = toneMap[card.tone];
-                    const footerPalette = toneMap[card.footerTone];
-                    const displayValue  =
-                        card.label === 'PAYABLE SALARY' && card.footer === 'Extra'
-                            ? Math.abs(card.value)
-                            : card.value;
-
-                    return (
-                        <div key={card.label} className="col-12 col-sm-6 col-lg-4">
-                            <div
-                                className="card h-100 border-1 shadow-sm rounded-4 overflow-hidden position-relative"
-                                style={{ backgroundColor: '#ffffff', borderColor: palette.border }}
-                            >
-                                {/* Arrear badge */}
-                                {card.label === 'PENDING ARREARS' && (
-                                    <div
-                                        className="position-absolute top-0 end-0 m-3 px-2 py-1 rounded-2 fs-9 fw-bold"
-                                        style={{ backgroundColor: palette.bg, color: palette.color, border: `1px solid ${palette.border}` }}
-                                    >
-                                        ACTION REQUIRED
-                                    </div>
-                                )}
-
-                                <div className="card-body p-7 d-flex flex-column">
-                                    <div className="d-flex align-items-center gap-3 mb-5">
-                                        <div
-                                            className="d-grid rounded-3"
-                                            style={{
-                                                display: 'grid',
-                                                width: 38,
-                                                height: 38,
-                                                placeItems: 'center',
-                                                color: palette.color,
-                                                backgroundColor: palette.bg,
-                                                border: `1px solid ${palette.border}`,
-                                            }}
-                                        >
-                                            <KTIcon iconName={card.icon} className="fs-2" />
-                                        </div>
-                                        <span className="text-gray-600 fw-bold fs-8 text-uppercase ls-2 tracking-wider">
-                                            {card.label}
-                                        </span>
-                                    </div>
-
-                                    <div className="d-flex flex-column mb-5">
-                                        <span className={`fs-1 fw-bolder text-gray-900 ${sensitiveCls} mb-1`}>
-                                            {formatINRDecimal(displayValue)}
-                                        </span>
-                                        {card.label === 'PENDING ARREARS' && (
-                                            <span className="fs-8 text-muted mt-1">
-                                                Backdated increments not yet processed
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div
-                                        className="mt-auto w-100 d-flex align-items-center justify-content-between rounded-3 px-4 py-3"
-                                        style={{
-                                            minHeight: '48px',
-                                            backgroundColor: footerPalette.bg,
-                                            border: `1px solid ${footerPalette.border}`,
-                                        }}
-                                    >
-                                        <div className="d-flex align-items-center">
-                                            <span
-                                                className="rounded-circle me-2"
-                                                style={{ width: '8px', height: '8px', backgroundColor: footerPalette.color }}
-                                            />
-                                            <span className="fw-bold fs-7" style={{ color: footerPalette.color }}>
-                                                {card.footer}
-                                            </span>
-                                        </div>
-                                        <span
-                                            className={`fw-bolder fs-7 ${sensitiveCls}`}
-                                            style={{ color: footerPalette.color }}
-                                        >
-                                            {card.footerValue}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
+        <Box
+            sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, minmax(0,1fr))',
+                    lg: `repeat(${cols}, minmax(0,1fr))`,
+                },
+                gap: '14px',
+                mb: 3,
+            }}
+        >
+            {cards.map((card) => (
+                <YearlyKpiCard key={card.label} {...card} />
+            ))}
+        </Box>
     );
 };
 

@@ -1,4 +1,4 @@
-import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+﻿import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 import {HeaderNotificationsMenu, HeaderUserMenu, QuickLinks} from '../../../partials'
 
 const AsideFooter = () => {
@@ -77,7 +77,7 @@ const AsideFooter = () => {
           data-kt-menu-placement='top-start'
           title='User profile'
         >
-          <img src={toAbsoluteUrl('media/avatars/300-1.jpg')} alt='avatar' />
+          <img src={toAbsoluteUrl('media/svg/avatars/001-boy.svg')} alt='avatar' />
         </div>
         {/* end::Menu wrapper */}
         <HeaderUserMenu />

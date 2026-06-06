@@ -108,9 +108,7 @@ const ProjectOverViewToggle = ({ toggleItemsActions, fromAdmin = false, dateSett
       setYearStart(fiscalStart);
       setYearEnd(fiscalEnd);
       setFiscalYearDisplay(
-        `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format(
-          "DD MMM, YYYY"
-        )}`
+        `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
       );
 
       if (alignment === "yearly" && toggleItemsActions?.yearly) {
@@ -177,9 +175,7 @@ const ProjectOverViewToggle = ({ toggleItemsActions, fromAdmin = false, dateSett
     setYearStart(fiscalStart);
     setYearEnd(fiscalEnd);
     setFiscalYearDisplay(
-      `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format(
-        "DD MMM, YYYY"
-      )}`
+      `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
     );
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   };

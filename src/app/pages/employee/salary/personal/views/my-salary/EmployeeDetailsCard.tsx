@@ -335,14 +335,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const [totalPaidAmount, setTotalAmountPaid] = useState(0);
     const apiSalaryData = monthlyApiData?.salaryData?.[0];
 
-    const isProfessionalFeesKey = (key: string) => key.includes('professional fees');
-    let hasProfessionalFees = false;
-    if (apiSalaryData?.deductionBreakdown?.fixed) {
-        hasProfessionalFees = Object.keys(apiSalaryData.deductionBreakdown.fixed).some(key => 
-            isProfessionalFeesKey(key.toLowerCase()) && 
-            apiSalaryData.deductionBreakdown.fixed[key]?.isActive !== false
-        );
-    }
+    const hasProfessionalFees = !!employee?.professionalFeesEnabled;
 
     // Truncate helper: floor to 2 decimal places (avoids rounding 666.666 → 666.67)
     const trunc2 = (n: number) => Math.floor(n * 100) / 100;

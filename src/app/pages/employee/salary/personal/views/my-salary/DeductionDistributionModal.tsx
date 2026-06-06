@@ -202,18 +202,23 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 'Professional Fees': { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true }
             };
 
-            // Merge existing data if found
+            // Always start with all default fields, then overlay any saved values
             const finalData: any = {};
-            const baseData = existingAdditionalData || defaultFields;
-            
-            Object.entries(baseData).forEach(([key, value]: [string, any]) => {
-                if (key === '_fieldOrder') return;
-                finalData[key] = {
-                    ...value,
-                    value: value.value || 0,
-                    type: 'number'
-                };
+
+            Object.entries(defaultFields).forEach(([key, value]: [string, any]) => {
+                finalData[key] = { ...value, value: 0, type: 'number' };
             });
+
+            if (existingAdditionalData) {
+                Object.entries(existingAdditionalData).forEach(([key, value]: [string, any]) => {
+                    if (key === '_fieldOrder') return;
+                    if (finalData[key]) {
+                        finalData[key] = { ...finalData[key], ...value, value: value.value || 0, type: 'number' };
+                    } else {
+                        finalData[key] = { ...value, value: value.value || 0, type: 'number' };
+                    }
+                });
+            }
 
             setDeductionDistributionData(finalData);
             

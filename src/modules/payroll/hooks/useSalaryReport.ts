@@ -175,7 +175,7 @@ export const useSalaryReport = () => {
                 paidAt: selectedPayment.displayDate ? dayjs(selectedPayment.displayDate).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
                 paymentMethod: selectedPayment.paymentMethod || 'BANK_TRANSFER',
                 transactionId: selectedPayment.transactionId || '',
-                remarks: selectedPayment.remarks || ''
+                remarks: ''
             };
         }
         return {

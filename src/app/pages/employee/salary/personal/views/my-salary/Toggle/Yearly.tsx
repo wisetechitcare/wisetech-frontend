@@ -402,27 +402,30 @@ const Yearly = ({
 
     const kpis = [
         {
-            label: 'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
-            value: formatCurrencyDecimal(intermediateSalary),
-            footer: financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
+            label:    'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
+            sublabel: 'After variable deductions',
+            value:    formatCurrencyDecimal(intermediateSalary),
+            footer:     financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
             footerValue: '',
             tone: 'blue' as const,
             icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
         },
         {
-            label: 'DEDUCTIONS',
-            value: formatCurrencyDecimal(yearOverview.totalFixedDeduction),
-            footer: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
+            label:    'DEDUCTIONS',
+            sublabel: 'Govt. & fixed charges',
+            value:    formatCurrencyDecimal(yearOverview.totalFixedDeduction),
+            footer:     getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
             footerValue: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).value,
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
         },
         {
-            label: 'PAYABLE SALARY',
-            value: formatCurrencyDecimal(yearOverview.totalNetAmount),
-            footer: getPendingFooter(yearOverview.totalDueAmount).label,
+            label:    'PAYABLE SALARY',
+            sublabel: 'Net take-home amount',
+            value:    formatCurrencyDecimal(Math.abs(yearOverview.totalNetAmount)),
+            footer:     getPendingFooter(yearOverview.totalDueAmount).label,
             footerValue: getPendingFooter(yearOverview.totalDueAmount).value,
-            tone: 'green' as const,
+            tone: (yearOverview.totalNetAmount < 0 ? 'danger' : 'green') as 'danger' | 'green',
             icon: <CheckCircleOutlineOutlinedIcon fontSize="small" />,
         },
     ];
@@ -442,7 +445,7 @@ const Yearly = ({
             >
                 {isLoadingOverview
                     ? Array.from({ length: 3 }).map((_, index) => (
-                        <Skeleton key={index} variant="rounded" height={106} sx={{ borderRadius: '16px' }} />
+                        <Skeleton key={index} variant="rounded" height={140} sx={{ borderRadius: '16px' }} />
                     ))
                     : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} showSensitiveData={showSensitiveData} />)}
             </Box>

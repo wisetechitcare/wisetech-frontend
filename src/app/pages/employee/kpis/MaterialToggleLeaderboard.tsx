@@ -102,7 +102,7 @@ const [weekEnd, setWeekEnd] = useState(() => {
 
             setYearStart(fiscalStart);
             setYearEnd(fiscalEnd);
-            setFiscalYearDisplay(`${fiscalStart.format('DD MMM, YYYY')} - ${fiscalEnd.format('DD MMM, YYYY')}`);
+            setFiscalYearDisplay(`${fiscalStart.format('YYYY')} - ${fiscalEnd.format('YYYY')}`);
 
             if (alignment === 'yearly' && toggleItemsActions?.yearly) {
                 toggleItemsActions.yearly(fiscalStart, fiscalEnd);
@@ -197,7 +197,7 @@ const [weekEnd, setWeekEnd] = useState(() => {
 
         setYearStart(fiscalStart);
         setYearEnd(fiscalEnd);
-        setFiscalYearDisplay(`${fiscalStart.format('DD MMM, YYYY')} - ${fiscalEnd.format('DD MMM, YYYY')}`);
+        setFiscalYearDisplay(`${fiscalStart.format('YYYY')} - ${fiscalEnd.format('YYYY')}`);
         toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
     };
 

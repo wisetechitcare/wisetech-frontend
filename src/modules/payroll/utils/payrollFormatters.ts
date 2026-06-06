@@ -7,7 +7,7 @@ export const truncatePayrollAmount = (n: number, fractionDigits = 2) => {
 };
 
 const formatINR = (n: number, fractionDigits: number) =>
-    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `₹${Math.round(Number.isFinite(n) ? (n || 0) : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;

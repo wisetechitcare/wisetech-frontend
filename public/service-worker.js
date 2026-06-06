@@ -20,8 +20,8 @@ self.addEventListener('push', (event) => {
   const title   = payload.title  ?? APP_NAME;
   const options = {
     body:               payload.body              ?? '',
-    icon:               payload.icon              ?? '/favicon.ico',
-    badge:              payload.badge             ?? '/favicon.ico',
+    icon:               payload.icon              ?? '/WT-logo.ico',
+    badge:              payload.badge             ?? '/WT-logo.ico',
     tag:                payload.tag               ?? 'wisetech-attendance',
     data:               payload.data              ?? { path: '/' },
     vibrate:            payload.vibrate           ?? [200, 100, 200],

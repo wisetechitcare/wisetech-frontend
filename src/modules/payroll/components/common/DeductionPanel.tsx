@@ -15,10 +15,22 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     const fixedEntriesAll = Object.entries(deductionBreakdown?.fixed || {});
 
     const variableEntries = variableEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
-    const fixedEntries = fixedEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
+    // Include inactive fixed entries only when they have a non-zero extra amount added via Modify
+    const fixedEntries = fixedEntriesAll.filter(([, item]: [string, any]) => {
+        if (item?.isActive !== false) return true;
+        return Number(item?.earned || 0) > 0 || Number(item?.extraAmount || 0) > 0;
+    });
+
+    const getEffectiveEarned = (item: any): number => {
+        const earned = Math.max(0, Number(item?.earned || 0));
+        if (earned > 0) return earned;
+        // Inactive entry: auto-calc disabled but extra amount still applies
+        if (item?.isActive === false) return Math.max(0, Number(item?.extraAmount || 0));
+        return 0;
+    };
 
     const totalVariable = variableEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
-    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
+    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + getEffectiveEarned(item), 0);
     const intermediateSalary = Math.max(0, grossPay - totalVariable);
     const grandTotalDeductions = totalVariable + totalFixed;
 
@@ -248,22 +260,25 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     const typeLabel = isPct ? 'Percentage' : 'Fixed';
                                     const extraAmount = Number(item.extraAmount || 0);
                                     const calculatedAmount = Number(item.calculatedAmount || 0);
-                                    const earnedAmount = Math.max(0, Number(item.earned || 0));
+                                    const isInactiveWithExtra = item?.isActive === false;
+                                    const earnedAmount = getEffectiveEarned(item);
                                     const displayName = (item.name || key) === 'Professional Fees'
                                         ? 'Tax Deducted at Source (TDS)'
                                         : (item.name || key);
                                     const isTdsRow = displayName === 'Tax Deducted at Source (TDS)';
-                                    const isPTaxRow = displayName.toLowerCase().includes('professional tax');
                                     return (
                                         <tr key={key}>
                                             <td>
                                                 <span className="text-gray-800 fw-bold d-block fs-7">{displayName}</span>
+                                                {isInactiveWithExtra && (
+                                                    <span className="text-warning fs-9 fw-semibold">Manual Extra</span>
+                                                )}
                                             </td>
                                             <td>
                                                 <span className="badge badge-light-secondary fw-bold fs-8">{typeLabel}</span>
                                             </td>
                                             <td className="text-end">
-                                                <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>{rate}</span>
+                                                <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>{isInactiveWithExtra ? '—' : rate}</span>
                                             </td>
                                             <td className="text-end">
                                                 <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>
@@ -275,7 +290,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
                                                         -{formatINRDecimal(earnedAmount)}
                                                     </span>
-                                                    {extraAmount !== 0 && calculatedAmount !== 0 && (
+                                                    {!isInactiveWithExtra && extraAmount !== 0 && calculatedAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
                                                             {formatAdjustmentFormula(calculatedAmount, extraAmount)}
                                                         </span>

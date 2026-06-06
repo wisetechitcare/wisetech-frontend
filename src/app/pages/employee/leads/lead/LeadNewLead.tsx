@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import ExportButton from "@app/modules/common/components/ExportButton";
 import {
   Box,
   Button,
@@ -298,7 +299,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         setYearStart(fs);
         setYearEnd(fe);
         setFiscalYearDisplay(
-          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
         );
       } catch {
         const year = today.month() >= 3 ? today.year() : today.year() - 1;
@@ -307,7 +308,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         setYearStart(fs);
         setYearEnd(fe);
         setFiscalYearDisplay(
-          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
         );
       }
     }
@@ -350,7 +351,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         setYearStart(fs);
         setYearEnd(fe);
         setFiscalYearDisplay(
-          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
         );
       } catch {
         const year = base.month() >= 3 ? base.year() : base.year() - 1;
@@ -359,7 +360,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         setYearStart(fs);
         setYearEnd(fe);
         setFiscalYearDisplay(
-          `${fs.format("DD MMM, YYYY")} - ${fe.format("DD MMM, YYYY")}`,
+          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
         );
       }
     },
@@ -1090,6 +1091,33 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     setSearchText("");
   };
 
+  const leadsExportColumns = useMemo(() => [
+    { key: 'inquiryDate',  header: 'Inquiry Date',   type: 'text'     as const },
+    { key: 'prefix',       header: 'Inquiry ID',     type: 'text'     as const },
+    { key: 'projectName',  header: 'Project Name',   type: 'text'     as const },
+    { key: 'totalCost',    header: 'Total Cost',     type: 'currency' as const, showTotal: true },
+    { key: 'client',       header: 'Client',         type: 'text'     as const },
+    { key: 'service',      header: 'Service',        type: 'text'     as const },
+    { key: 'category',     header: 'Category',       type: 'text'     as const },
+    { key: 'subCategory',  header: 'Sub Category',   type: 'text'     as const },
+    { key: 'status',       header: 'Lead Status',    type: 'text'     as const,
+      format: (val: any) => val?.name || String(val || '') },
+    { key: 'receivedDate', header: 'Received Date',  type: 'text'     as const },
+    { key: 'poStatus',     header: 'PO Status',      type: 'text'     as const },
+    { key: 'assignedTo',   header: 'Assigned To',    type: 'text'     as const },
+    { key: 'startDate',    header: 'Start Date',     type: 'text'     as const },
+    { key: 'duration',     header: 'Duration',       type: 'text'     as const },
+    { key: 'contact',      header: 'Contact',        type: 'text'     as const },
+    { key: 'cost',         header: 'Cost',           type: 'currency' as const, showTotal: true },
+    { key: 'country',      header: 'Country',        type: 'text'     as const },
+    { key: 'city',         header: 'City',           type: 'text'     as const },
+    { key: 'state',        header: 'State',          type: 'text'     as const },
+    { key: 'area',         header: 'Area',           type: 'text'     as const },
+    { key: 'createdAt',    header: 'Created Date',   type: 'text'     as const },
+    { key: 'createdBy',    header: 'Created By',     type: 'text'     as const },
+    { key: 'updatedBy',    header: 'Edited By',      type: 'text'     as const },
+  ], []);
+
   // ── Total cost for filtered data ─────────────────────────────────────────────
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
     (acc: number, item: any) =>
@@ -1654,6 +1682,19 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         columns={columns}
         data={quickFilteredData}
         tableName="LeadsTablesMain"
+        renderExportActions={() => (
+          <ExportButton
+            data={quickFilteredData}
+            columns={leadsExportColumns}
+            filename="leads-management"
+            title="Leads Management"
+            subtitle="Inquiry-wise leads, costs, and status"
+            sheetName="Leads"
+            showTotals
+            totalLabel="TOTAL"
+            disabled={!quickFilteredData?.length}
+          />
+        )}
         employeeId={currentEmployeeId}
         resource="LEADS"
         viewOwn={true}

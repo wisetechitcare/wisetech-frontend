@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, memo } from "react";
+﻿import { useCallback, useEffect, useState, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employee";
@@ -683,7 +683,7 @@ const DashboardDailyAttendanceOverview = () => {
                     const employeeData = emp.employee || {};
                     const user = employeeData.users || emp.users || {};
                     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                    const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/avatars/blank.png');
+                    const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                     const leaveType = emp.leaveType || 'Leave';
                     const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
                     const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
@@ -703,7 +703,7 @@ const DashboardDailyAttendanceOverview = () => {
                               alt={fullName}
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                               }}
                             />
                             <div>
@@ -829,7 +829,7 @@ const DashboardDailyAttendanceOverview = () => {
             <Col md={4} key={emp._id}>
               <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #9D4141' }}>
                 <Image
-                  src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                  src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                   roundedCircle
                   width={45}
                   height={45}
@@ -837,7 +837,7 @@ const DashboardDailyAttendanceOverview = () => {
                   alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = toAbsoluteUrl('media/avatars/blank.png');
+                    target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                   }}
                 />
                 <div className="flex-grow-1">
@@ -1274,7 +1274,7 @@ const DashboardDailyAttendanceOverview = () => {
                       const employeeData = emp.employee || {};
                       const user = employeeData.users || emp.users || {};
                       const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                      const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/avatars/blank.png');
+                      const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
 
                       return (
                         <div key={emp.id || index} className="d-flex align-items-center gap-2">
@@ -1286,7 +1286,7 @@ const DashboardDailyAttendanceOverview = () => {
                             alt={fullName}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl('media/avatars/blank.png');
+                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                             }}
                           />
                           <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{fullName || 'Unnamed Employee'}</span>
@@ -1326,14 +1326,14 @@ const DashboardDailyAttendanceOverview = () => {
                     absentEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
                         <Image
-                          src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                           roundedCircle
                           width="24"
                           height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/avatars/blank.png');
+                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
@@ -1372,14 +1372,14 @@ const DashboardDailyAttendanceOverview = () => {
                     extraDayEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
                         <Image
-                          src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                           roundedCircle
                           width="24"
                           height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/avatars/blank.png');
+                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
@@ -1418,14 +1418,14 @@ const DashboardDailyAttendanceOverview = () => {
                     lateCheckInEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
                         <Image
-                          src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                           roundedCircle
                           width="24"
                           height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/avatars/blank.png');
+                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
@@ -1464,14 +1464,14 @@ const DashboardDailyAttendanceOverview = () => {
                     earlyCheckOutEmployees.map((emp, index) => (
                       <div key={emp._id || index} className="d-flex align-items-center gap-2">
                         <Image
-                          src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                           roundedCircle
                           width="24"
                           height="24"
                           alt={`${emp.firstName} ${emp.lastName}`}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = toAbsoluteUrl('media/avatars/blank.png');
+                            target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                           }}
                         />
                         <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>

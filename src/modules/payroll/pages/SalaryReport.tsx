@@ -94,7 +94,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 }
             `}</style>
 
-            <div className="px-3 px-lg-5">
+            <div>
                 {!hideSummarySection && (
                     <div className="my-5 w-100">
                         <div className="mb-6">
@@ -264,6 +264,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 variableDeductions={summaryData.totalVariableDeduction}
                 fixedDeductions={summaryData.totalFixedDeduction}
                 statutoryBreakdown={apiSalaryData?.deductionBreakdown?.fixed || {}}
+                govtPayments={(apiSalaryData as any)?.govtPayments || []}
             />
         </div>
     );

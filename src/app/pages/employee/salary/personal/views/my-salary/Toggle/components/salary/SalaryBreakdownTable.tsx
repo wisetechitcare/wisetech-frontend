@@ -1,4 +1,6 @@
-import { Box, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Button, Chip, Paper, Skeleton, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
+import { saveAs } from 'file-saver';
 
 export interface YearlyBreakdownRow {
     month: string;
@@ -75,6 +77,119 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true,
             govtDeduction: 0,
         }
     );
+    const handleExportExcel = () => {
+        const colCount = 9 + (showGovtDeduction ? 1 : 0);
+        const headers = [
+            'Month', 'Basic Salary', 'Overtime', 'Payable', 'Net Payable',
+            'Paid', 'Pending', 'PF Deduction',
+            ...(showGovtDeduction ? ['Tax Deducted at Source (TDS)'] : []),
+            'Status',
+        ];
+
+        const fmt = (n: number) =>
+            n === 0 ? '₹0.00' :
+            (n < 0 ? '-' : '') + '₹' + Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const statusBg: Record<string, string> = {
+            Paid:    '#d1fae5',
+            Pending: '#fee2e2',
+            Partial: '#fef3c7',
+        };
+        const statusColor: Record<string, string> = {
+            Paid:    '#065f46',
+            Pending: '#991b1b',
+            Partial: '#92400e',
+        };
+
+        const cell = (val: string, style = '') =>
+            `<td style="padding:8px 12px;border:1px solid #d1d9e6;white-space:nowrap;font-size:12px;${style}">${val}</td>`;
+
+        const numCell = (n: number, color = '#0f172a') =>
+            cell(fmt(n), `text-align:right;color:${color};font-weight:600;`);
+
+        const realRows = rows.filter(r => !r.isPlaceholder);
+
+        const dataHtml = realRows.map((r, i) => {
+            const bg = i % 2 === 0 ? '#ffffff' : '#f8fafd';
+            const sColor = statusColor[r.status] || '#0f172a';
+            const sBg    = statusBg[r.status]    || '#f1f5f9';
+            return `
+            <tr style="background:${bg};">
+                ${cell(r.month, 'font-weight:700;color:#0f172a;')}
+                ${numCell(parseAmount(r.basicSalary))}
+                ${numCell(parseAmount(r.overtimeDisplay || r.overtime))}
+                ${numCell(parseAmount(r.payable))}
+                ${numCell(parseAmount(r.netPayable))}
+                ${numCell(parseAmount(r.paid), '#1d4ed8')}
+                ${numCell(parseAmount(r.pending), parseAmount(r.pending) < 0 ? '#dc2626' : '#d97706')}
+                ${numCell(parseAmount(r.pfDeduction))}
+                ${showGovtDeduction ? numCell(parseAmount(r.govtDeduction)) : ''}
+                ${cell(r.status, `text-align:center;font-weight:700;font-size:11px;color:${sColor};background:${sBg};border-radius:4px;`)}
+            </tr>`;
+        }).join('');
+
+        const totalHtml = `
+            <tr style="background:#dbeafe;border-top:2px solid #3b82f6;">
+                ${cell('TOTAL', 'font-weight:900;color:#1e3a5f;font-size:13px;')}
+                ${numCell(totals.basicSalary)}
+                ${numCell(totals.overtime)}
+                ${numCell(totals.payable)}
+                ${numCell(totals.netPayable)}
+                ${numCell(totals.paid, '#1d4ed8')}
+                ${numCell(totals.pending, totals.pending < 0 ? '#dc2626' : '#d97706')}
+                ${numCell(totals.pfDeduction)}
+                ${showGovtDeduction ? numCell(totals.govtDeduction) : ''}
+                ${cell('Year Total', 'text-align:center;font-weight:800;color:#1e40af;background:#bfdbfe;font-size:11px;')}
+            </tr>`;
+
+        const headerCells = headers.map(h =>
+            `<th style="padding:10px 14px;background:#1e3a5f;color:#ffffff;font-weight:700;font-size:12px;text-align:center;border:1px solid #2d4f7c;white-space:nowrap;">${h}</th>`
+        ).join('');
+
+        const html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="UTF-8">
+  <!--[if gte mso 9]><xml>
+    <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>Yearly Salary</x:Name>
+      <x:WorksheetOptions>
+        <x:FreezePanes/><x:FrozenNoSplit/>
+        <x:SplitHorizontal>4</x:SplitHorizontal>
+        <x:TopRowBottomPane>4</x:TopRowBottomPane>
+      </x:WorksheetOptions>
+    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>
+  </xml><![endif]-->
+  <style>
+    body { font-family: Calibri, Arial, sans-serif; }
+    table { border-collapse: collapse; width: 100%; }
+  </style>
+</head>
+<body>
+<table>
+  <tr>
+    <td colspan="${colCount}" style="font-size:18px;font-weight:900;color:#0f172a;padding:14px 12px 4px;border:none;text-align:center;">
+      Yearly Salary Breakdown
+    </td>
+  </tr>
+  <tr>
+    <td colspan="${colCount}" style="font-size:12px;color:#64748b;padding:2px 12px 14px;border:none;text-align:center;">
+      Month-wise view of salary, payment status, and statutory deductions.
+    </td>
+  </tr>
+  <tr><td colspan="${colCount}" style="border:none;padding:4px;"></td></tr>
+  <tr>${headerCells}</tr>
+  ${dataHtml}
+  <tr><td colspan="${colCount}" style="border:none;padding:3px;"></td></tr>
+  ${totalHtml}
+</table>
+</body>
+</html>`;
+
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        saveAs(blob, 'yearly-salary-breakdown.xls');
+    };
+
     return (
         <Paper elevation={0} sx={{ borderRadius: '16px', border: '1px solid #e5edf6', p: 1.75, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 20px rgba(15, 23, 42, 0.045)' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
@@ -86,6 +201,31 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true,
                         Month-wise view of salary, payment status, and statutory deductions.
                     </Typography>
                 </Box>
+                {hasRealRows && (
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
+                        onClick={handleExportExcel}
+                        sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            borderRadius: '10px',
+                            borderColor: '#3b82f6',
+                            color: '#3b82f6',
+                            px: 2,
+                            py: 0.75,
+                            '&:hover': {
+                                borderColor: '#2563eb',
+                                backgroundColor: '#eff6ff',
+                                color: '#2563eb',
+                            },
+                        }}
+                    >
+                        Export Excel
+                    </Button>
+                )}
             </Stack>
 
             <TableContainer
