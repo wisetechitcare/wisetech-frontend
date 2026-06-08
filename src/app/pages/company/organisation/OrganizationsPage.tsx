@@ -130,6 +130,7 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
           <OrgTree
             organizations={visible}
             defaultExpandedDepth={1}
+            forceExpand={!!search.trim()}
             emptyLabel={search ? 'No organizations match your search.' : 'No organizations yet.'}
             onSelectOrg={onOpenOrg}
             onEditOrg={onOpenOrg}
