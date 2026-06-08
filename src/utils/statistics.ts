@@ -335,9 +335,9 @@ export function convertMinutesIntoHrMinFormats(minutes: number): string {
         if (workingTimeMinutes !== null && startMin !== null && endMin !== null) {
             const calculatedLunchMinutes = endMin - startMin;
 
-            // Threshold = (half of working time) + lunch duration
-            // const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
-            const threshold = (workingTimeMinutes / 2);
+            // Threshold = (half of working time) + lunch duration — matches backend salary and KPI.
+            // e.g. 8h day + 1h lunch: threshold = 4h + 1h = 5h (300 min).
+            const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
 
             if (minutes >= threshold) {
                 lunchMinutes = calculatedLunchMinutes;

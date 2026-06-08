@@ -157,7 +157,7 @@ export const deleteClientCompany = async (id: string) => {
 export const getAllClientCompanies = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CLIENT_COMPANIES}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, { params: { pageSize: 9999 } });
         return data;
     } catch (err) {
         throw err;
@@ -179,7 +179,7 @@ export const getClientCompanyById = async (id: string) => {
 export const getAllSubCompanies = async () => {
     try {
         const finalEndpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_SUB_COMPANIES}`;
-        const { data } = await axios.get(finalEndpoint);
+        const { data } = await axios.get(finalEndpoint, { params: { pageSize: 9999 } });
         return data;
     } catch (err) {
         throw err;

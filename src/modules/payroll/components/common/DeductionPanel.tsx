@@ -274,7 +274,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     const displayName = resolvedFixed === 'Professional Fees'
                                         ? 'Tax Deducted at Source (TDS)'
                                         : resolvedFixed;
-                                    const isTdsRow = displayName === 'Tax Deducted at Source (TDS)';
+                                    const isTdsRow = displayName.includes('Tax Deducted at Source');
                                     return (
                                         <tr key={key}>
                                             <td>

@@ -2,9 +2,11 @@
 import {FC} from 'react'
 import {Link, useNavigate} from 'react-router-dom'
 import {removeAuth} from '../../../../app/modules/auth'
-import {useDispatch} from 'react-redux'
+import {useDispatch, useSelector} from 'react-redux'
 import {logoutUser} from '@redux/slices/auth'
 import {logout} from '@services/auth'
+import {RootState} from '@redux/store'
+import {KTIcon} from '../../../helpers'
 
 const styles = {
   hoverStyle: {
@@ -19,6 +21,7 @@ const HeaderUserMenu: FC = () => {
   const navigate = useNavigate()
   const ls = localStorage.getItem("wise_tech_login")
   const parsedLs = ls ? JSON.parse(ls) : null
+  const showAppSettings = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.showAppSettings)
 
   async function signout() {
     const response = await logout(parsedLs.token, parsedLs.id)
@@ -38,12 +41,22 @@ const HeaderUserMenu: FC = () => {
       data-kt-menu='true'
     >
       <div className='menu-item px-5 mt-3'>
-        <Link to={'/employee/profile/overview'} className='menu-link px-5'>
+        <Link to={'/employee/profile/overview'} className='menu-link px-5 d-flex align-items-center gap-2'>
+          <KTIcon iconName='profile-circle' className='fs-5 text-muted' />
           My Profile
         </Link>
       </div>
-      <div className='aside-footer flex-column-auto py-5' id='kt_aside_footer'>
-        <a onClick={signout} className='menu-item px-10 mt-3' style={{ ...styles.hoverStyle, cursor: 'pointer' }} >
+      {showAppSettings && (
+        <div className='menu-item px-5 mt-1'>
+          <Link to={'/company/settings'} className='menu-link px-5 d-flex align-items-center gap-2'>
+            <KTIcon iconName='setting-2' className='fs-5 text-muted' />
+            Settings
+          </Link>
+        </div>
+      )}
+      <div className='separator my-2'></div>
+      <div className='aside-footer flex-column-auto py-3' id='kt_aside_footer'>
+        <a onClick={signout} className='menu-item px-10 mt-1' style={{ ...styles.hoverStyle, cursor: 'pointer' }} >
           <span className='btn-label'>SIGN OUT</span>
         </a>
       </div>

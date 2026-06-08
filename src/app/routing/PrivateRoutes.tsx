@@ -48,6 +48,7 @@ const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companie
 const AllProjectMainToggle = lazy(() => import('@pages/employee/projects/project/components/AllProjectMainToggle'))
 const LeadDetails = lazy(() => import('@pages/employee/leads/lead/LeadDetails'))
 const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
+const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
@@ -330,6 +331,13 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <OrganisationProfileMain />
+            </SuspensedView>}
+        />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/company/organisation-profile/:orgId'
+          element={
+            <SuspensedView>
+              <OrganizationProfilePage />
             </SuspensedView>}
         />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route

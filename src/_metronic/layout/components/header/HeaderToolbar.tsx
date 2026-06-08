@@ -114,14 +114,6 @@ const HeaderToolbar = () => {
             <div className="d-flex align-items-center me-5"><BirthdayConfetti /></div>
             <div className="d-flex gap-3">
               <div className="d-flex gap-lg-3 gap-5" >
-                {showAppSettings && <div className="d-flex align-items-center">
-                  <Link to={"/company/settings"} className="menu-link p-1">
-                    <KTIcon
-                      iconName="setting-2"
-                      className="text-muted fs-2qx"
-                    />
-                  </Link>
-                </div>}
                 <div className="d-flex align-items-center">
                   <GlobalSearch />
                 </div>
