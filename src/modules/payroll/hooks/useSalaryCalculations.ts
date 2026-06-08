@@ -124,13 +124,13 @@ export const useSalaryCalculations = (
         return {
             totalGrossPay: Number(totalGrossPay.toFixed(2)),
             totalVariableDeduction: Number(totalVariableDeduction.toFixed(2)),
-            totalFixedDeduction: hasProfessionalFees ? Number(totalProfessionalFees.toFixed(2)) : 0,
+            totalFixedDeduction: Number(totalFixedDeduction.toFixed(2)),
             totalDeduction: Number(totalDeduction.toFixed(2)),
             netSalary: Number(netSalary.toFixed(2)),
             salaryPaid: Number(salaryPaid.toFixed(2)),
             salaryPending: netSalary - salaryPaid,
             governmentPaid: Number(governmentPaid.toFixed(2)),
-            governmentPending: hasProfessionalFees ? (totalProfessionalFees - governmentPaid) : 0,
+            governmentPending: totalFixedDeduction - governmentPaid,
             totalCompanyPayout: Number((salaryPaid + governmentPaid).toFixed(2)),
             activeGovType: hasProfessionalFees ? 'Professional Fees' : ''
         };

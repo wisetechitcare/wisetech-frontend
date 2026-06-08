@@ -39,7 +39,8 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
             
             const res = await sendSalarySlipToEmployee({
                 path,
-                employeeId
+                employeeId,
+                salaryData: salarySlipProps
             });
 
             if (res?.statusCode === 200 && !res.hasError) {
@@ -56,21 +57,22 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
     };
 
     return (
-        <div className="d-flex justify-content-end mb-4 gap-2">
+        <div className="d-flex flex-column align-items-stretch flex-sm-row justify-content-sm-end align-items-sm-center mb-4 gap-3">
             {salarySlipProps ? (
                 <PDFDownloadLink 
                     document={<SalarySlipTemplate {...salarySlipProps} />} 
                     fileName={`SalarySlip_${userId}.pdf`}
+                    style={{ textDecoration: 'none' }}
                 >
                     {/* @ts-ignore */}
                     {({ loading: pdfLoading }: any) => (
-                        <Button disabled={pdfLoading} >
+                        <Button disabled={pdfLoading} className="w-100">
                             {pdfLoading ? 'Preparing PDF...' : 'Download Report (Pdf)'}
                         </Button>
                     )}
                 </PDFDownloadLink>
             ) : (
-                <Button disabled >No Data Available for PDF</Button>
+                <Button disabled>No Data Available for PDF</Button>
             )}
 
             {salarySlipProps && (
@@ -78,7 +80,6 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                     className="wt-btn-primary" 
                     onClick={handleEmailSalarySlip}
                     disabled={loading}
-                    
                 >
                     {loading ? "Please wait..." : "Email Salary Slip"}
                 </Button>

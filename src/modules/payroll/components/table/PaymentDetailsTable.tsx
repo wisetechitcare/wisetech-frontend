@@ -51,7 +51,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 
     return (
         <div className="card shadow-sm mb-8 overflow-hidden border-0">
-            <div className="card-header border-0 pt-6 pb-2 d-flex justify-content-between align-items-center bg-white">
+            <div className="card-header border-0 pt-5 pb-2 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 bg-white">
                 <div className="card-title align-items-start flex-column">
                     <h3 className="card-label fw-bold text-gray-800 fs-3 mb-1">Monthly Payment History</h3>
                     <span className="text-muted fw-semibold fs-7">Detailed log of salary payouts and deductions</span>
@@ -74,14 +74,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                     <table className="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4">
                         <thead>
                             <tr className="fw-bold text-muted bg-light">
-                                <th className="ps-4 min-w-125px rounded-start">Payout Date</th>
-                                <th className="text-center min-w-100px">Method</th>
-                                <th className="text-end min-w-125px">Net Payable</th>
-                                <th className="text-end min-w-100px">Paid</th>
-                                <th className="text-end min-w-100px">Remaining</th>
-                                <th className="text-center min-w-100px">Status</th>
-                                <th className="text-center min-w-150px">Ref / Notes</th>
-                                <th className="text-center min-w-100px rounded-end">Actions</th>
+                                <th className="ps-4 rounded-start">Payout Date</th>
+                                <th className="text-center">Method</th>
+                                <th className="text-end">Net Payable</th>
+                                <th className="text-end">Paid</th>
+                                <th className="text-end">Remaining</th>
+                                <th className="text-center">Status</th>
+                                <th className="text-center">Ref / Notes</th>
+                                <th className="text-center rounded-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>

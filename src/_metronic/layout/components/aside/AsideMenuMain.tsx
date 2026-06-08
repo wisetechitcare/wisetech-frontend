@@ -169,6 +169,7 @@ export function AsideMenuMain() {
         {hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/loans' title='Loans' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='price-tag' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/bills' title='Reimbursements' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='price-tag' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/salary' title='Salary' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='dollar' />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/increment' title='Increment' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='dollar' />}
        
       </AsideMenuItemWithSub>
     </>

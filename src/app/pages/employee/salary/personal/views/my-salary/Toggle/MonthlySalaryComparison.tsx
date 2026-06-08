@@ -5,9 +5,11 @@ interface MonthlySalaryComparisonProps {
     ComparisonData: any[];
     loading?: boolean;
     compact?: boolean;
+    showSensitiveData?: boolean;
 }
 
-const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = false }: MonthlySalaryComparisonProps) => {
+const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = false, showSensitiveData = true }: MonthlySalaryComparisonProps) => {
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
     
     // Standard Indian Fiscal Year: April to March order
@@ -394,7 +396,7 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
             </div>
 
             {/* Grouped Connected Bar Chart */}
-            <div className="bar-chart-container" style={{ minHeight: compact ? '300px' : '430px' }}>
+            <div className={`bar-chart-container ${sensitiveCls}`} style={{ minHeight: compact ? '300px' : '430px' }}>
                 <ApexCharts
                     options={chartOptions}
                     series={series}

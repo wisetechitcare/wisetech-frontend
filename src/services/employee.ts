@@ -1394,7 +1394,7 @@ export const deleteEmployeePermissionById = async (employeeId: string, permissio
     }
 }
 
-export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string }) => {
+export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string, salaryData?: any }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_SALARY_SLIP}`;
         const { data } = await axios.post(endpoint, details);

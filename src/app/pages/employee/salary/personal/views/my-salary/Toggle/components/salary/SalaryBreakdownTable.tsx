@@ -4,6 +4,7 @@ export interface YearlyBreakdownRow {
     month: string;
     basicSalary: string;
     overtime: string;
+    overtimeDisplay?: string; // optional formatted overtime value
     payable: string;
     netPayable: string;
     paid: string;
@@ -18,6 +19,7 @@ interface SalaryBreakdownTableProps {
     rows: YearlyBreakdownRow[];
     loading?: boolean;
     showGovtDeduction?: boolean;
+    showSensitiveData?: boolean;
 }
 
 const statusStyles = {
@@ -26,7 +28,8 @@ const statusStyles = {
     Partial: { color: '#d97706', bg: '#fff7e8' },
 } as const;
 
-const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true }: SalaryBreakdownTableProps) => {
+const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true, showSensitiveData = true }: SalaryBreakdownTableProps) => {
+    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     if (loading) {
         return (
             <Paper elevation={0} sx={{ borderRadius: '16px', border: '1px solid #e5edf6', p: 1.75, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 20px rgba(15, 23, 42, 0.045)' }}>
@@ -140,19 +143,19 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                                     </TableCell>
 
                                     <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        {row.basicSalary}
+                                        <span className={sensitiveCls}>{row.basicSalary}</span>
                                     </TableCell>
 
                                     <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        {row.overtime}
+                                        <span className={sensitiveCls}>{row.overtimeDisplay || row.overtime}</span>
                                     </TableCell>
 
                                     <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        {row.payable}
+                                        <span className={sensitiveCls}>{row.payable}</span>
                                     </TableCell>
 
                                     <TableCell sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        {row.netPayable}
+                                        <span className={sensitiveCls}>{row.netPayable}</span>
                                     </TableCell>
 
                                     <TableCell
@@ -164,7 +167,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                                             py: 1.15,
                                         }}
                                     >
-                                        {row.paid}
+                                        <span className={sensitiveCls}>{row.paid}</span>
                                     </TableCell>
 
                                     <TableCell
@@ -176,7 +179,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                                             py: 1.15,
                                         }}
                                     >
-                                        {row.pending}
+                                        <span className={sensitiveCls}>{row.pending}</span>
                                     </TableCell>
 
                                     <TableCell
@@ -187,7 +190,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                                             py: 1.15,
                                         }}
                                     >
-                                        {row.pfDeduction}
+                                        <span className={sensitiveCls}>{row.pfDeduction}</span>
                                     </TableCell>
 
                                     {showGovtDeduction && (
@@ -199,7 +202,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                                                 py: 1.15,
                                             }}
                                         >
-                                            {row.govtDeduction}
+                                            <span className={sensitiveCls}>{row.govtDeduction}</span>
                                         </TableCell>
                                     )}
 
@@ -248,26 +251,26 @@ const SalaryBreakdownTable = ({ rows, loading = false, showGovtDeduction = true 
                                     TOTAL
                                 </TableCell>
 
-                                <TableCell>{formatCurrency(totals.basicSalary)}</TableCell>
-                                <TableCell>{formatCurrency(totals.overtime)}</TableCell>
-                                <TableCell>{formatCurrency(totals.payable)}</TableCell>
-                                <TableCell>{formatCurrency(totals.netPayable)}</TableCell>
+                                <TableCell><span className={sensitiveCls}>{formatCurrency(totals.basicSalary)}</span></TableCell>
+                                <TableCell><span className={sensitiveCls}>{formatCurrency(totals.overtime)}</span></TableCell>
+                                <TableCell><span className={sensitiveCls}>{formatCurrency(totals.payable)}</span></TableCell>
+                                <TableCell><span className={sensitiveCls}>{formatCurrency(totals.netPayable)}</span></TableCell>
 
                                 <TableCell sx={{ color: '#2563eb' }}>
-                                    {formatCurrency(totals.paid)}
+                                    <span className={sensitiveCls}>{formatCurrency(totals.paid)}</span>
                                 </TableCell>
 
                                 <TableCell sx={{ color: '#d97706' }}>
-                                    {formatCurrency(totals.pending)}
+                                    <span className={sensitiveCls}>{formatCurrency(totals.pending)}</span>
                                 </TableCell>
 
                                 <TableCell>
-                                    {formatCurrency(totals.pfDeduction)}
+                                    <span className={sensitiveCls}>{formatCurrency(totals.pfDeduction)}</span>
                                 </TableCell>
 
                                 {showGovtDeduction && (
                                     <TableCell>
-                                        {formatCurrency(totals.govtDeduction)}
+                                        <span className={sensitiveCls}>{formatCurrency(totals.govtDeduction)}</span>
                                     </TableCell>
                                 )}
 

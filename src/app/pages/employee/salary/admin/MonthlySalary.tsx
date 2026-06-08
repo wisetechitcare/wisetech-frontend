@@ -131,7 +131,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         professionalFees: rawTotals.professionalFeesDeducted ?? 0,
         professionalTax: rawTotals.professionalTaxDeducted ?? 0,
         totalWorkingTime: rawTotals?.workingDays ? `${((rawTotals?.workingDays ?? 0) * 8).toFixed(2)} hrs` : '-',
-        workedTime: rawTotals?.payableHours ? `${rawTotals?.payableHours?.toFixed(2)} hrs` : '-',
+        workedTime: rawTotals?.payableHours != null ? `${Number(rawTotals.payableHours).toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
         overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
         totalDays: rawTotals.workingDays ?? 0,
