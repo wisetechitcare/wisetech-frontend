@@ -7,7 +7,7 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS } from "./steps/Step2";
+import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD } from "./steps/Step2";
 import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
@@ -296,7 +296,24 @@ const newEmployeeWizardSchema = [
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
         dateOfBirth: optionalString().label("Date of Birth"),
-      }),
+      })
+        // If a family row is started, its core fields become required so a
+        // half-filled member surfaces a clear error instead of silently submitting.
+        .test("family-name-required", "Family Member Name is required", function (value) {
+          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
+          if (!started || value?.name) return true;
+          return this.createError({ path: `${this.path}.name`, message: "Family Member Name is required" });
+        })
+        .test("family-relationship-required", "Member Relationship is required", function (value) {
+          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
+          if (!started || value?.relationship) return true;
+          return this.createError({ path: `${this.path}.relationship`, message: "Member Relationship is required" });
+        })
+        .test("family-mobile-required", "Member Phone Number is required", function (value) {
+          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
+          if (!started || value?.mobileNumber) return true;
+          return this.createError({ path: `${this.path}.mobileNumber`, message: "Member Phone Number is required" });
+        }),
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -621,7 +638,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
   } catch (err) { console.log(err); }
 };
 
-function FormikValidationErrorFocus() {
+function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { activeStepIndex: number; setActiveSection: (id: string) => void }) {
   const { errors, submitCount } = useFormikContext<any>();
 
   useEffect(() => {
@@ -648,7 +665,13 @@ function FormikValidationErrorFocus() {
 
       const fieldName = getFirstErrorField(errors);
       if (fieldName) {
-        setTimeout(() => {
+        // Step 1 renders one section at a time, so the offending field may not be in
+        // the DOM. Switch to the section that owns it first, then scroll/focus it.
+        const topKey = fieldName.split('.')[0];
+        const targetSection = activeStepIndex === 1 ? SECTION_OF_FIELD[topKey] : undefined;
+        if (targetSection) setActiveSection(targetSection);
+
+        const scrollToField = () => {
           let inputEl = document.querySelector(`[name="${fieldName}"]`) as HTMLElement;
           if (!inputEl) {
             inputEl = document.getElementById(fieldName) as HTMLElement;
@@ -660,7 +683,9 @@ function FormikValidationErrorFocus() {
             inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             inputEl.focus({ preventScroll: true });
           }
-        }, 150);
+        };
+        // Longer delay when we changed section so the new section finishes animating in.
+        setTimeout(scrollToField, targetSection ? 380 : 150);
       }
     }
   }, [submitCount]);
@@ -741,6 +766,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const previewUrl = URL.createObjectURL(file);
       profilePhotoPreviewRef.current = previewUrl;
       setMobileProfilePhotoPreview(previewUrl);
+    }
+  };
+
+  // Drop a pending upload so a removed file is not re-uploaded on save.
+  const removeFileFromState = (documentId: string) => {
+    setFiles((prev: any) => {
+      const next = { ...prev };
+      delete next[documentId];
+      return next;
+    });
+
+    if (documentId === "userProfilePicture") {
+      if (profilePhotoPreviewRef.current) {
+        URL.revokeObjectURL(profilePhotoPreviewRef.current);
+        profilePhotoPreviewRef.current = "";
+      }
+      setMobileProfilePhotoPreview("");
     }
   };
 
@@ -910,7 +952,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (meal === "2") veganMealPreference = true;
 
     const employeePayload: any = {
-      ...(avatar && { avatar }), id: employeeId, userId, dateOfJoining, ctcInLpa,
+      // Always send avatar (even when empty) so removing the photo persists —
+      // a guarded `...(avatar && {avatar})` would silently keep the old image.
+      avatar: avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
       gender: parseInt(gender), designationId, branchId,
       isActive: isEmployeeActive === "1",
       ...(employeeTypeId && { employeeTypeId }),
@@ -938,7 +982,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+      // `avatar` is exempt: an empty string is the intended "photo removed" value and
+      // must reach the backend (which clears it) — otherwise the strip below drops it
+      // and the old picture survives the save.
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "avatar" || PROF_FEES_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1017,7 +1064,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     if (currentStepIndex === totalStepsNumber && editMode) {
       try { setIsSubmitting(true); await updateWizardData(values); }
-      catch (error) { console.error("Update wizard error:", error); }
+      catch (error) {
+        // Never fail silently — surface the reason so the user knows what went wrong
+        // (e.g. a half-filled row the backend rejected) instead of a dead-end submit.
+        console.error("Update wizard error:", error);
+        await handleSubmissionError(error);
+      }
       finally { setIsSubmitting(false); }
       return;
     }
@@ -1275,7 +1327,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               return (
                 <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
-                  <FormikValidationErrorFocus />
+                  <FormikValidationErrorFocus activeStepIndex={activeStepIndex} setActiveSection={setActiveSection} />
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}
@@ -1415,6 +1467,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                               <Step2
                                 formikProps={formikProps}
                                 setFile={addFileToState}
+                                removeFile={removeFileFromState}
                                 setEducationFile={addEducationFileToState}
                                 activeSection={activeSection}
                                 onSectionChange={setActiveSection}

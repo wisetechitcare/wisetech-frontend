@@ -32,6 +32,9 @@ interface OrgTreeProps extends OrgTreeHandlers {
   organizations: IOrgNode[];
   /** Auto-expand nodes up to this depth (0 = roots collapsed, 1 = roots open). Default 1. */
   defaultExpandedDepth?: number;
+  /** Force every node open regardless of its toggle state — used while a search is active
+   *  so deeply-nested matches (sub-orgs / branches) are always revealed. */
+  forceExpand?: boolean;
   emptyLabel?: string;
 }
 
@@ -116,9 +119,11 @@ function BranchRow({ branch, org, depth, onSelect, onViewEmployees }: { branch: 
 
 // ─── Org node (recursive) ────────────────────────────────────────────────────────
 
-function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth }: { org: IOrgNode; depth: number; handlers: OrgTreeHandlers; defaultExpandedDepth: number }) {
+function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth, forceExpand }: { org: IOrgNode; depth: number; handlers: OrgTreeHandlers; defaultExpandedDepth: number; forceExpand?: boolean }) {
   const [open, setOpen] = useState(depth < defaultExpandedDepth);
   const hasChildren = org.children.length > 0 || org.branches.length > 0;
+  // While a search is active every node is forced open so nested matches show.
+  const isOpen = forceExpand || open;
 
   return (
     <div style={{ marginLeft: depth === 0 ? 0 : 26 }}>
@@ -136,7 +141,7 @@ function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth }: { org: IOrgN
             style={{ width: 22, height: 22, flexShrink: 0, borderRadius: 6, border: 'none', background: hasChildren ? C.brandSoft : 'transparent', color: C.brand, cursor: hasChildren ? 'pointer' : 'default', display: 'grid', placeItems: 'center' }}
           >
             {hasChildren && (
-              <span style={{ display: 'inline-flex', transition: 'transform .25s cubic-bezier(.4,0,.2,1)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}><IconChevron size={14} /></span>
+              <span style={{ display: 'inline-flex', transition: 'transform .25s cubic-bezier(.4,0,.2,1)', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}><IconChevron size={14} /></span>
             )}
           </button>
 
@@ -173,11 +178,11 @@ function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth }: { org: IOrgN
 
       {/* collapsible body — smooth grid-rows 0fr→1fr animation (no JS height measuring) */}
       {hasChildren && (
-        <div className="org-tree__collapsible" style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows .3s cubic-bezier(.4,0,.2,1)' }}>
+        <div className="org-tree__collapsible" style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows .3s cubic-bezier(.4,0,.2,1)' }}>
           <div style={{ overflow: 'hidden' }}>
-            <div className="org-tree__branch-strip" style={{ paddingTop: 8, opacity: open ? 1 : 0, transition: 'opacity .25s ease .05s' }}>
+            <div className="org-tree__branch-strip" style={{ paddingTop: 8, opacity: isOpen ? 1 : 0, transition: 'opacity .25s ease .05s' }}>
               {org.children.map(child => (
-                <OrgNodeRow key={child.id} org={child} depth={depth + 1} handlers={handlers} defaultExpandedDepth={defaultExpandedDepth} />
+                <OrgNodeRow key={child.id} org={child} depth={depth + 1} handlers={handlers} defaultExpandedDepth={defaultExpandedDepth} forceExpand={forceExpand} />
               ))}
               {org.branches.map(branch => (
                 <BranchRow key={branch.id} branch={branch} org={org} depth={depth + 1} onSelect={handlers.onSelectBranch} onViewEmployees={handlers.onViewBranchEmployees} />
@@ -192,7 +197,7 @@ function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth }: { org: IOrgN
 
 // ─── Public component ────────────────────────────────────────────────────────────
 
-export default function OrgTree({ organizations, defaultExpandedDepth = 1, emptyLabel = 'No organizations yet.', ...handlers }: OrgTreeProps) {
+export default function OrgTree({ organizations, defaultExpandedDepth = 1, forceExpand, emptyLabel = 'No organizations yet.', ...handlers }: OrgTreeProps) {
   const styleTag = useMemo(() => (
     `
     .org-tree__row { position: relative; display: flex; align-items: center; margin-bottom: 8px; }
@@ -224,7 +229,7 @@ export default function OrgTree({ organizations, defaultExpandedDepth = 1, empty
     <div>
       <style>{styleTag}</style>
       {organizations.map(org => (
-        <OrgNodeRow key={org.id} org={org} depth={0} handlers={handlers} defaultExpandedDepth={defaultExpandedDepth} />
+        <OrgNodeRow key={org.id} org={org} depth={0} handlers={handlers} defaultExpandedDepth={defaultExpandedDepth} forceExpand={forceExpand} />
       ))}
     </div>
   );

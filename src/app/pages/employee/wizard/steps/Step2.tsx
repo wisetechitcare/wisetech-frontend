@@ -53,6 +53,18 @@ export const NAV_SECTIONS = [
   { id: 'address',       label: 'Address Details',      icon: <MapPin size={15} /> },
 ];
 
+/* Maps a Formik field (by its top-level key) to the step-1 section that renders it.
+   Used to auto-navigate to the first unfilled required field on validation. */
+export const SECTION_OF_FIELD: Record<string, string> = {
+  firstName: 'personal-info', lastName: 'personal-info', dateOfBirth: 'personal-info',
+  gender: 'personal-info', nickName: 'personal-info', maritalStatus: 'personal-info',
+  bloodGroup: 'personal-info', avatar: 'personal-info',
+  personalEmailId: 'contact-info', personalPhoneNumber: 'contact-info',
+  alternatePhoneNumber: 'contact-info', personalPhoneNumberExtension: 'contact-info',
+  educationalInfo: 'education', familyInfo: 'family', emergencyDetails: 'emergency',
+  bankInfo: 'bank', addressInfo: 'address', meal: 'meal',
+};
+
 /* All sections including meal for navigation */
 const ALL_SECTION_IDS = [
   'personal-info',
@@ -186,7 +198,7 @@ function WelcomeBanner({ firstName, profilePct, onDismiss }: WelcomeBannerProps)
 /* ────────────────────────────────────────
    Main Step2
    ──────────────────────────────────────── */
-function Step2({ formikProps, setFile, setEducationFile, activeSection, onSectionChange, completion }: any) {
+function Step2({ formikProps, setFile, removeFile, setEducationFile, activeSection, onSectionChange, completion }: any) {
   const { values, setFieldValue } = formikProps;
   const educationRows: any[] = Array.isArray(values.educationalInfo) ? values.educationalInfo : [];
   const familyRows: any[] = Array.isArray(values.familyInfo) ? values.familyInfo : [];
@@ -255,6 +267,12 @@ function Step2({ formikProps, setFile, setEducationFile, activeSection, onSectio
         <ProfilePicture
           setFile={setFile}
           avatar={values?.avatar}
+          onRemove={() => {
+            // Clear the saved avatar URL and drop any pending upload so the
+            // removal actually persists on save (not just visually).
+            setFieldValue('avatar', '');
+            removeFile?.('userProfilePicture');
+          }}
         />
         <div className="ob-personal-info-fields">
           <BasicInfo formikProps={formikProps} />
