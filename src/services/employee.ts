@@ -45,6 +45,16 @@ export const fetchAllEmployees = async (isActive?: boolean) => {
     }
 }
 
+export const fetchEmployeesByBranch = async (branchId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEES_BY_BRANCH}?branchId=${branchId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
 export const fetchAllEmployeesSelectedData = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_SELECTED_DATA}`;
