@@ -933,6 +933,33 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     },
   ];
 
+  const leadsExportColumns = useMemo(() => [
+    { key: 'inquiryDate',  header: 'Inquiry Date',   type: 'text'     as const },
+    { key: 'prefix',       header: 'Inquiry ID',     type: 'text'     as const },
+    { key: 'projectName',  header: 'Project Name',   type: 'text'     as const },
+    { key: 'totalCost',    header: 'Total Cost',     type: 'currency' as const, showTotal: true },
+    { key: 'client',       header: 'Client',         type: 'text'     as const },
+    { key: 'service',      header: 'Service',        type: 'text'     as const },
+    { key: 'category',     header: 'Category',       type: 'text'     as const },
+    { key: 'subCategory',  header: 'Sub Category',   type: 'text'     as const },
+    { key: 'status',       header: 'Lead Status',    type: 'text'     as const,
+      format: (val: any) => val?.name || String(val || '') },
+    { key: 'receivedDate', header: 'Received Date',  type: 'text'     as const },
+    { key: 'poStatus',     header: 'PO Status',      type: 'text'     as const },
+    { key: 'assignedTo',   header: 'Assigned To',    type: 'text'     as const },
+    { key: 'startDate',    header: 'Start Date',     type: 'text'     as const },
+    { key: 'duration',     header: 'Duration',       type: 'text'     as const },
+    { key: 'contact',      header: 'Contact',        type: 'text'     as const },
+    { key: 'cost',         header: 'Cost',           type: 'currency' as const, showTotal: true },
+    { key: 'country',      header: 'Country',        type: 'text'     as const },
+    { key: 'city',         header: 'City',           type: 'text'     as const },
+    { key: 'state',        header: 'State',          type: 'text'     as const },
+    { key: 'area',         header: 'Area',           type: 'text'     as const },
+    { key: 'createdAt',    header: 'Created Date',   type: 'text'     as const },
+    { key: 'createdBy',    header: 'Created By',     type: 'text'     as const },
+    { key: 'updatedBy',    header: 'Edited By',      type: 'text'     as const },
+  ], []);
+
   if (loading) return <Loader />;
 
   // ── Prop-driven filters ───────────────────────────────────────────────────────
@@ -1090,33 +1117,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     setAssignedToFilter("");
     setSearchText("");
   };
-
-  const leadsExportColumns = useMemo(() => [
-    { key: 'inquiryDate',  header: 'Inquiry Date',   type: 'text'     as const },
-    { key: 'prefix',       header: 'Inquiry ID',     type: 'text'     as const },
-    { key: 'projectName',  header: 'Project Name',   type: 'text'     as const },
-    { key: 'totalCost',    header: 'Total Cost',     type: 'currency' as const, showTotal: true },
-    { key: 'client',       header: 'Client',         type: 'text'     as const },
-    { key: 'service',      header: 'Service',        type: 'text'     as const },
-    { key: 'category',     header: 'Category',       type: 'text'     as const },
-    { key: 'subCategory',  header: 'Sub Category',   type: 'text'     as const },
-    { key: 'status',       header: 'Lead Status',    type: 'text'     as const,
-      format: (val: any) => val?.name || String(val || '') },
-    { key: 'receivedDate', header: 'Received Date',  type: 'text'     as const },
-    { key: 'poStatus',     header: 'PO Status',      type: 'text'     as const },
-    { key: 'assignedTo',   header: 'Assigned To',    type: 'text'     as const },
-    { key: 'startDate',    header: 'Start Date',     type: 'text'     as const },
-    { key: 'duration',     header: 'Duration',       type: 'text'     as const },
-    { key: 'contact',      header: 'Contact',        type: 'text'     as const },
-    { key: 'cost',         header: 'Cost',           type: 'currency' as const, showTotal: true },
-    { key: 'country',      header: 'Country',        type: 'text'     as const },
-    { key: 'city',         header: 'City',           type: 'text'     as const },
-    { key: 'state',        header: 'State',          type: 'text'     as const },
-    { key: 'area',         header: 'Area',           type: 'text'     as const },
-    { key: 'createdAt',    header: 'Created Date',   type: 'text'     as const },
-    { key: 'createdBy',    header: 'Created By',     type: 'text'     as const },
-    { key: 'updatedBy',    header: 'Edited By',      type: 'text'     as const },
-  ], []);
 
   // ── Total cost for filtered data ─────────────────────────────────────────────
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
