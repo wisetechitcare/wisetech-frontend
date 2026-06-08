@@ -1,0 +1,25 @@
+/* Step2 Responsive Styles - Only for Mobile and Tablet */
+
+/* Tablet breakpoint (768px - 991px) */
+@media (max-width: 991px) {
+  .step2-section {
+    padding: 20px 16px !important;
+  }
+
+  .step2-bordered-content {
+    padding-left: 16px !important;
+  }
+}
+
+/* Mobile breakpoint (below 768px) */
+@media (max-width: 767px) {
+  .step2-section {
+    padding: 16px 12px !important;
+  }
+
+  .step2-bordered-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-left: none !important;
+  }
+}

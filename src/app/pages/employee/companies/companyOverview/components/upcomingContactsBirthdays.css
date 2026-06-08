@@ -1,0 +1,63 @@
+.upcoming-birthdays-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.upcoming-birthdays-table thead th {
+  color: #6B7280;
+  font-weight: 500;
+  padding: 10px 15px;
+  text-align: left;
+  border: none;
+}
+
+.upcoming-birthdays-table tbody tr td {
+  background-color: white;
+  padding: 15px;
+  border: none;
+}
+
+.upcoming-birthdays-table tbody tr td:first-child {
+  border-top-left-radius: 20px;
+  border-bottom-left-radius: 20px;
+}
+
+.upcoming-birthdays-table tbody tr td:last-child {
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+.company-cell {
+  display: flex;
+  align-items: center;
+}
+
+.company-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+  margin-right: 8px;
+}
+
+/* Responsive styles */
+@media (max-width: 576px) {
+  .upcoming-birthdays-table {
+    font-size: 14px;
+  }
+  
+  .upcoming-birthdays-table thead th,
+  .upcoming-birthdays-table tbody tr td {
+    padding: 10px 8px;
+  }
+  
+  .company-cell {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .company-logo {
+    margin-bottom: 5px;
+  }
+}

@@ -1,0 +1,198 @@
+.fc-col-header-cell {
+  border-top: none !important;
+  border-right: none !important;
+}
+.fc-day {
+  background-color: white !important;
+  font-size: 16px;
+  .fc-col-header-cell-cushion {
+    font-size: 16px !important;
+  }
+}
+.fc-viewSelectButton-button {
+  background-color: transparent !important;
+  padding: 0px !important;
+  &:hover{
+    background-color: transparent !important;
+  }
+}
+// .fc-daygrid-day-number {
+//   font-size: 20px;
+// }
+.today-highlight {
+  .fc-daygrid-day-number {
+    background-color: #AA393D;
+    border-radius: 50%;
+
+    width: 2rem;
+    height: 2rem;
+    color: white;
+    padding: 4px;
+    margin: 5px 5px 0px 0px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+#fullcalendar__wrapper {
+  .fullcalendar__event__wrapper {
+    padding: 2px 4px;
+    overflow-x: auto !important;
+    .fc-daygrid-event {
+      border-radius: 8px;
+    }
+  }
+  .fc-prev-button, .fc-next-button {
+    border: 1px solid $form-border-color !important;
+  }
+  .fc-col-header-cell:first-child{
+    border-top-left-radius: 5px;
+  }
+  .fc-col-header-cell:last-child{
+    border-top-right-radius: 5px;
+  }
+  .fc-todayButton-button {
+    border: 1px solid $form-border-color !important;
+    // background-color: red !important;
+  }
+  .fc .fc-scrollgrid tbody > tr:last-child td:first-child {
+    border-bottom-left-radius: 0rem !important;
+    border-left: 0px !important;
+  }
+  .fc .fc-scrollgrid tbody > tr:last-child td:last-child {
+    border-bottom-right-radius: 0rem !important;
+    border-right: 0px !important;
+  }
+  .fc-addButton-button {
+    border: 1px solid $primary-red !important;
+    background-color: transparent !important;
+    color: $primary-red !important;
+    transition: 0.5s;
+    &:hover {
+      background-color: $primary-red !important;
+      color: white !important;
+    }
+  }
+}
+
+
+// #fullcalendar__wrapper {
+//   .fullcalendar__event__wrapper {
+//     padding: 2px 4px;
+//     color:"red";
+//     .fc-daygrid-event {
+//       border-radius: 8px;
+//       // Prevent text overflow
+//       overflow: hidden;
+//       text-overflow: ellipsis;
+//       white-space: nowrap;
+      
+//       .fc-event-title {
+//         overflow: hidden;
+//         text-overflow: ellipsis;
+//         white-space: nowrap;
+//         display: block;
+//       }
+//     }
+//   }
+  
+//   .fc-prev-button, .fc-next-button {
+//     border: 1px solid $form-border-color !important;
+//   }
+  
+//   .fc-col-header-cell:first-child{
+//     border-top-left-radius: 5px;
+//   }
+  
+//   .fc-col-header-cell:last-child{
+//     border-top-right-radius: 5px;
+//   }
+  
+//   .fc-todayButton-button {
+//     border: 1px solid $form-border-color !important;
+//     // background-color: red !important;
+//   }
+  
+//   .fc .fc-scrollgrid tbody > tr:last-child td:first-child {
+//     border-bottom-left-radius: 0rem !important;
+//     border-left: 0px !important;
+//   }
+  
+//   .fc .fc-scrollgrid tbody > tr:last-child td:last-child {
+//     border-bottom-right-radius: 0rem !important;
+//     border-right: 0px !important;
+//   }
+  
+//   .fc-addButton-button {
+//     border: 1px solid $primary-red !important;
+//     background-color: transparent !important;
+//     color: $primary-red !important;
+//     transition: 0.5s;
+//     &:hover {
+//       background-color: $primary-red !important;
+//       color: white !important;
+//     }
+//   }
+  
+//   // Mobile optimizations
+//   @media (max-width: 768px) {
+//     // Smaller font sizes for mobile
+//     .fc-daygrid-event {
+//       font-size: 11px !important;
+//       line-height: 1.2;
+//       padding: 1px 2px !important;
+      
+//       .fc-event-title {
+//         font-size: 11px !important;
+//       }
+//     }
+    
+//     // Header text smaller on mobile
+//     .fc-col-header-cell {
+//       font-size: 12px !important;
+//       padding: 4px 2px !important;
+//     }
+    
+//     // Day numbers smaller
+//     .fc-daygrid-day-number {
+//       font-size: 12px !important;
+//     }
+    
+//     // Button text smaller
+//     .fc-button {
+//       font-size: 12px !important;
+//       padding: 4px 8px !important;
+//     }
+    
+//     // Event wrapper tighter padding on mobile
+//     .fullcalendar__event__wrapper {
+//       padding: 1px 2px;
+//     }
+//   }
+  
+//   // Extra small mobile devices
+//   @media (max-width: 480px) {
+//     .fc-daygrid-event {
+//       font-size: 10px !important;
+      
+//       .fc-event-title {
+//         font-size: 10px !important;
+//       }
+//     }
+    
+//     .fc-col-header-cell {
+//       font-size: 11px !important;
+//       padding: 3px 1px !important;
+//     }
+    
+//     .fc-daygrid-day-number {
+//       font-size: 11px !important;
+//     }
+    
+//     .fc-button {
+//       font-size: 11px !important;
+//       padding: 3px 6px !important;
+//     }
+//   }
+// }

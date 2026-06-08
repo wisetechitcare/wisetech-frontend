@@ -1,0 +1,63 @@
+//
+// Menu
+//
+
+// Aside menu
+.aside-menu {
+    .menu {
+        // Link padding x
+        @include menu-link-padding-x(get($aside-config, menu-padding-x));
+
+        // Menu indention
+        @include menu-link-indention(get($aside-config, menu-indention), get($aside-config, menu-padding-x));
+
+        // Item
+        .menu-item {
+			@include menu-link-default-state( $title-color: $black, $icon-color: #4A4B68, $bullet-color: #4A4B68, $arrow-color: #4A4B68, $bg-color: null, $all-links: true);
+			@include menu-link-hover-state( $title-color: #4A4B68, $icon-color: #4A4B68, $bullet-color: $white, $arrow-color: #4A4B68, $bg-color: transparent, $all-links: true);
+            @include menu-link-here-state( $title-color: $white, $icon-color: $white, $bullet-color: $white, $arrow-color: $white, $bg-color: transparent, $all-links: true);
+			@include menu-link-show-state( $title-color: $white, $icon-color: $white, $bullet-color: $white, $arrow-color: $white, $bg-color: transparent, $all-links: true);
+			@include menu-link-active-state( $title-color: $primary-red, $icon-color: $primary-red, $bullet-color: $white, $arrow-color: $primary-red, $bg-color: $primary-blue-opacity-1, $all-links: true);
+		}
+
+        // Separator
+		.separator {
+			border-bottom: 1px dashed #2D2D43;
+		}
+
+        // Item
+        > .menu-item {
+            padding: 0 0.6rem;               
+        }   
+    }
+
+    // Item
+    .menu-item {
+        padding: 0;
+        .menu-title {
+            font-size: 1.25rem;
+        }
+        .menu-content {
+            .menu-section {
+                font-family: 'Inter';
+            }
+        }
+
+        // Menu Link
+        .menu-link {
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-radius: $border-radius;
+        }
+
+        // Icon
+        .menu-icon {
+            justify-content: flex-start;
+            font-size: 1.5rem;
+        }
+    }      
+
+    .menu-sub-lg-dropdown {
+        background-color: get($aside-config, bg-color);
+    }    
+}
