@@ -94,6 +94,8 @@ export interface DeductionBreakdownProps {
     grossPay: number;
     showSensitiveData: boolean;
     dailySalary?: number;
+    resolveName?: (name: string) => string;
+    resolveComponent?: (name: string) => import('../hooks/useSalaryComponentNames').ResolvedComponent | null;
 }
 
 export interface NetAmountPayableProps {
@@ -112,6 +114,8 @@ export interface BreakdownTableProps {
     showSensitiveData: boolean;
     hourlySalary?: number;
     dailySalary?: number;
+    resolveName?: (name: string) => string;
+    resolveComponent?: (name: string) => import('../hooks/useSalaryComponentNames').ResolvedComponent | null;
 }
 
 export interface GrossDistributionData {

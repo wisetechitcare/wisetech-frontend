@@ -9,8 +9,17 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
     title,
     showSensitiveData,
     hourlySalary,
-    dailySalary
+    dailySalary,
+    resolveName,
+    resolveComponent,
 }) => {
+    const rn = resolveName ?? ((n: string) => n);
+    const rc = resolveComponent ?? ((_n: string) => null);
+
+    // Sort breakdown entries by master sortOrder (lower = first; unknown = last)
+    const sortedEntries = (entries: [string, any][]) =>
+        [...entries].sort(([a], [b]) => (rc(a)?.sortOrder ?? 999) - (rc(b)?.sortOrder ?? 999));
+
     const hasFixedData = Object.keys(data.fixed || {}).length > 0;
     const hasVariableData = Object.keys(data.variable || {}).length > 0;
 
@@ -75,22 +84,49 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {Object.entries(data.variable).map(([key, item]: [string, any], index: number) => {
-                                    // 1st two are Hourly, rest are Daily
-                                    const isHourly = index < 2;
+                                {sortedEntries(Object.entries(data.variable)).filter(([key, item]: [string, any]) => {
+                                    const meta = rc(item.name || key);
+                                    return meta === null || meta.isActive !== false;
+                                }).map(([key, item]: [string, any], index: number) => {
+                                    const meta = rc(item.name || key);
+                                    const displayLabel = rn(item.name || key);
+                                    // Use master calculationType if set; fall back to position (0,1 = hourly)
+                                    const masterCalc = meta?.calculationType?.toUpperCase();
+                                    const isHourly = masterCalc === 'DAILY' ? false
+                                        : masterCalc === 'HOURLY' ? true
+                                        : index < 2;
                                     const rateValue = isHourly ? hourlySalary : dailySalary;
-                                    const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0 
+                                    const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0
                                         ? `${formatINRDecimal(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
                                         : '-';
+                                    // If master says DAILY but backend sent HH:MM:SS, convert to days display
+                                    let displayValue = item.value;
+                                    if (!isHourly && typeof item.value === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(item.value)) {
+                                        const [h, m] = item.value.split(':').map(Number);
+                                        const totalHours = h + m / 60;
+                                        const days = totalHours / 8;
+                                        displayValue = days > 1 ? `${days.toFixed(2)} days` : `${days.toFixed(2)} day`;
+                                    }
 
                                     return (
                                         <tr key={key}>
                                             <td>
-                                                <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
+                                                <div className="d-flex align-items-center gap-2">
+                                                    {meta?.description ? (
+                                                        <OverlayTrigger placement="right" overlay={<Tooltip>{meta.description}</Tooltip>}>
+                                                            <span className="text-gray-800 fw-bold fs-7" style={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}>{displayLabel}</span>
+                                                        </OverlayTrigger>
+                                                    ) : (
+                                                        <span className="text-gray-800 fw-bold fs-7">{displayLabel}</span>
+                                                    )}
+                                                    {meta?.shortCode && (
+                                                        <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="text-center">
                                                 <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
-                                                    {formatValue(item.value, item.type)}
+                                                    {displayValue !== item.value ? displayValue : formatValue(item.value, item.type)}
                                                 </span>
                                             </td>
                                             <td className="text-center">
@@ -137,10 +173,27 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {Object.entries(data.fixed).map(([key, item]: [string, any]) => (
+                                {sortedEntries(Object.entries(data.fixed)).filter(([key, item]: [string, any]) => {
+                                    const meta = rc(item.name || key);
+                                    return meta === null || meta.isActive !== false;
+                                }).map(([key, item]: [string, any]) => {
+                                    const meta = rc(item.name || key);
+                                    const displayLabel = rn(item.name || key);
+                                    return (
                                     <tr key={key}>
                                         <td>
-                                            <span className="text-gray-800 fw-bold d-block fs-7">{item.name || key}</span>
+                                            <div className="d-flex align-items-center gap-2">
+                                                {meta?.description ? (
+                                                    <OverlayTrigger placement="right" overlay={<Tooltip>{meta.description}</Tooltip>}>
+                                                        <span className="text-gray-800 fw-bold fs-7" style={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}>{displayLabel}</span>
+                                                    </OverlayTrigger>
+                                                ) : (
+                                                    <span className="text-gray-800 fw-bold fs-7">{displayLabel}</span>
+                                                )}
+                                                {meta?.shortCode && (
+                                                    <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-gray-800 fw-bolder fs-7 ${sensitiveCls}`}>
@@ -148,7 +201,8 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                             </span>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                                 <tr className="border-0">
                                     <td className="py-4 ps-6" style={totalHighlightLeftCellStyle}>
                                         <span className="fw-bolder text-success fs-7">Subtotal Fixed Earnings</span>

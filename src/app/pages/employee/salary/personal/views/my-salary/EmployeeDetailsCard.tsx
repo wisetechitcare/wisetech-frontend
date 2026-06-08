@@ -385,25 +385,47 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const formatSalaryValue = (value: number | undefined, fallback = '-') => (
         typeof value === 'number' && value >= 0 ? formatCurrencyDecimal(value) : fallback
     );
-    const totalExperience = employee?.dateOfJoining
-        ? (() => {
-            const joiningDate = dayjs(employee.dateOfJoining);
-            const now = dayjs();
+    const totalExperience = (() => {
+        if (!employee?.dateOfJoining) return '-';
 
-            const years = now.diff(joiningDate, 'year');
-            const months = now.diff(joiningDate.add(years, 'year'), 'month');
+        const today = dayjs();
 
-            if (years === 0) {
-                return `${months} Month${months !== 1 ? 's' : ''}`;
+        // Build all active employment periods
+        type Period = { start: ReturnType<typeof dayjs>; end: ReturnType<typeof dayjs> };
+        const periods: Period[] = [];
+
+        const joinDate = dayjs(employee.dateOfJoining);
+        const exitDate = employee.dateOfExit ? dayjs(employee.dateOfExit) : today;
+        const firstEnd = exitDate.isAfter(today) ? today : exitDate;
+        if (!joinDate.isAfter(firstEnd)) {
+            periods.push({ start: joinDate, end: firstEnd });
+        }
+
+        for (const r of employee.EmployeeRejoinHistory ?? []) {
+            if (!r.dateOfReJoining) continue;
+            const reJoin = dayjs(r.dateOfReJoining);
+            if (reJoin.isAfter(today)) continue; // Not yet rejoined
+            const reExit = r.dateOfReExit ? dayjs(r.dateOfReExit) : today;
+            const periodEnd = reExit.isAfter(today) ? today : reExit;
+            if (!reJoin.isAfter(periodEnd)) {
+                periods.push({ start: reJoin, end: periodEnd });
             }
+        }
 
-            if (months === 0) {
-                return `${years} Year${years !== 1 ? 's' : ''}`;
-            }
+        // Sum all periods in total months
+        let totalMonths = 0;
+        for (const p of periods) {
+            totalMonths += p.end.diff(p.start, 'month');
+        }
 
-            return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
-        })()
-        : '-';
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+
+        if (years === 0 && months === 0) return 'Less than 1 Month';
+        if (years === 0) return `${months} Month${months !== 1 ? 's' : ''}`;
+        if (months === 0) return `${years} Year${years !== 1 ? 's' : ''}`;
+        return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
+    })();
     const employeeName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
     const paidAmountValue = apiSalaryData
         ? formatSalaryValue(monthlyPaidAmount, formatCurrencyDecimal(0))

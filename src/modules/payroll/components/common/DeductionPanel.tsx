@@ -8,15 +8,29 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     grossPay,
     showSensitiveData,
     dailySalary,
+    resolveName,
+    resolveComponent,
 }) => {
+    const rn = resolveName ?? ((n: string) => n);
+    const rc = resolveComponent ?? ((_n: string) => null);
+
+    const sortedEntries = (entries: [string, any][]) =>
+        [...entries].sort(([a], [b]) => (rc(a)?.sortOrder ?? 999) - (rc(b)?.sortOrder ?? 999));
+
     // IMPORTANT: many deductions keep entries even when `isActive=false`.
     // If we include them in sums/rendering, enable/disable logic appears broken.
     const variableEntriesAll = Object.entries(deductionBreakdown?.variable || {});
     const fixedEntriesAll = Object.entries(deductionBreakdown?.fixed || {});
 
-    const variableEntries = variableEntriesAll.filter(([, item]: [string, any]) => item?.isActive !== false);
+    const variableEntries = variableEntriesAll.filter(([key, item]: [string, any]) => {
+        if (item?.isActive === false) return false;
+        const meta = rc(item?.name || key);
+        return meta === null || meta.isActive !== false;
+    });
     // Include inactive fixed entries only when they have a non-zero extra amount added via Modify
-    const fixedEntries = fixedEntriesAll.filter(([, item]: [string, any]) => {
+    const fixedEntries = fixedEntriesAll.filter(([key, item]: [string, any]) => {
+        const meta = rc(item?.name || key);
+        if (meta !== null && meta.isActive === false) return false;
         if (item?.isActive !== false) return true;
         return Number(item?.earned || 0) > 0 || Number(item?.extraAmount || 0) > 0;
     });
@@ -102,27 +116,32 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     <td colSpan={4} className="text-center py-10 text-muted fs-7">No variable deductions</td>
                                 </tr>
                             ) : (
-                                variableEntries.map(([key, item]: [string, any]) => {
-                                    const itemName = item.name || key;
+                                sortedEntries(variableEntries).map(([key, item]: [string, any]) => {
+                                    const itemName = rn(item.name || key);
+                                    const meta = rc(item.name || key);
                                     const isLateCheckin = /late\s*check/i.test(itemName) || /late\s*attendance/i.test(itemName);
-                                    
+                                    const tooltipContent = isLateCheckin && item.ruleDisplay
+                                        ? <><strong>Custom Rule:</strong> {item.ruleDisplay}</>
+                                        : meta?.description ? <>{meta.description}</> : null;
+
                                     return (
                                     <tr key={key}>
                                         <td>
-                                            {isLateCheckin && item.ruleDisplay ? (
-                                                <OverlayTrigger 
-                                                    placement="right" 
-                                                    overlay={
-                                                        <Tooltip id={`tooltip-${key}`} className="fs-8">
-                                                            <strong>Custom Rule:</strong> {item.ruleDisplay}
-                                                        </Tooltip>
-                                                    }
+                                            <div className="d-flex align-items-center gap-2">
+                                            {tooltipContent ? (
+                                                <OverlayTrigger
+                                                    placement="right"
+                                                    overlay={<Tooltip id={`tooltip-${key}`} className="fs-8">{tooltipContent}</Tooltip>}
                                                 >
-                                                    <span className="text-gray-800 fw-bold d-block fs-7" style={{ cursor: 'help', textDecoration: 'underline dotted' }}>{itemName}</span>
+                                                    <span className="text-gray-800 fw-bold fs-7" style={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}>{itemName}</span>
                                                 </OverlayTrigger>
                                             ) : (
-                                                <span className="text-gray-800 fw-bold d-block fs-7">{itemName}</span>
+                                                <span className="text-gray-800 fw-bold fs-7">{itemName}</span>
                                             )}
+                                            {meta?.shortCode && (
+                                                <span className="badge badge-light-danger fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                            )}
+                                            </div>
                                         </td>
                                         <td className="text-center">
                                             <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
@@ -143,31 +162,19 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     );
                                 })
                             )}
-                             {/* Added attendance status rows */}
-                             <tr>
-                                 <td className="text-gray-800 fw-bold d-block fs-7">Early Checkout</td>
-                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-center"><span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
-                             </tr>
-                             <tr>
-                                 <td className="text-gray-800 fw-bold d-block fs-7">Unpaid Leave</td>
-                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-center"><span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
-                             </tr>
-                             <tr>
-                                 <td className="text-gray-800 fw-bold d-block fs-7">Half Day</td>
-                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-center"><span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
-                             </tr>
-                             <tr>
-                                 <td className="text-gray-800 fw-bold d-block fs-7">Missed Punch</td>
-                                 <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-center"><span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>-</span></td>
-                                 <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
-                             </tr>
+                             {/* Static attendance rows — hidden when master component is deactivated */}
+                             {(['Early Checkout', 'Unpaid Leave', 'Half Day', 'Missed Punch'] as const).map(name => {
+                                 const meta = rc(name);
+                                 if (meta !== null && meta.isActive === false) return null;
+                                 return (
+                                     <tr key={name}>
+                                         <td className="text-gray-800 fw-bold d-block fs-7">{rn(name)}</td>
+                                         <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
+                                         <td className="text-center"><span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>-</span></td>
+                                         <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
+                                     </tr>
+                                 );
+                             })}
                             <tr className="border-0">
                                 <td
                                     colSpan={3}
@@ -254,7 +261,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     <td colSpan={5} className="text-center py-10 text-muted fs-7">No fixed deductions</td>
                                 </tr>
                             ) : (
-                                fixedEntries.map(([key, item]: [string, any]) => {
+                                sortedEntries(fixedEntries).map(([key, item]: [string, any]) => {
                                     const isPct = String(item.type).toLowerCase() === 'percentage';
                                     const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
                                     const typeLabel = isPct ? 'Percentage' : 'Fixed';
@@ -262,14 +269,27 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     const calculatedAmount = Number(item.calculatedAmount || 0);
                                     const isInactiveWithExtra = item?.isActive === false;
                                     const earnedAmount = getEffectiveEarned(item);
-                                    const displayName = (item.name || key) === 'Professional Fees'
+                                    const meta = rc(item.name || key);
+                                    const resolvedFixed = rn(item.name || key);
+                                    const displayName = resolvedFixed === 'Professional Fees'
                                         ? 'Tax Deducted at Source (TDS)'
-                                        : (item.name || key);
+                                        : resolvedFixed;
                                     const isTdsRow = displayName === 'Tax Deducted at Source (TDS)';
                                     return (
                                         <tr key={key}>
                                             <td>
-                                                <span className="text-gray-800 fw-bold d-block fs-7">{displayName}</span>
+                                                <div className="d-flex align-items-center gap-2">
+                                                {meta?.description ? (
+                                                    <OverlayTrigger placement="right" overlay={<Tooltip id={`tooltip-fixed-${key}`} className="fs-8">{meta.description}</Tooltip>}>
+                                                        <span className="text-gray-800 fw-bold fs-7" style={{ cursor: 'help', textDecorationLine: 'underline', textDecorationStyle: 'dotted' }}>{displayName}</span>
+                                                    </OverlayTrigger>
+                                                ) : (
+                                                    <span className="text-gray-800 fw-bold fs-7">{displayName}</span>
+                                                )}
+                                                {meta?.shortCode && (
+                                                    <span className="badge badge-light-warning fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                )}
+                                                </div>
                                                 {isInactiveWithExtra && (
                                                     <span className="text-warning fs-9 fw-semibold">Manual Extra</span>
                                                 )}

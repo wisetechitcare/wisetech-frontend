@@ -16,6 +16,7 @@ import { usePayrollData } from '../hooks/usePayrollData';
 import { useSalaryCalculations } from '../hooks/useSalaryCalculations';
 import { useSalaryReport } from '../hooks/useSalaryReport';
 import { useGrossDistribution } from '../hooks/useGrossDistribution';
+import { useSalaryMaster } from '../hooks/useSalaryComponentNames';
 
 import { SalaryReportProps } from '../types/payroll.types';
 import { BREAKDOWN_TYPES } from '../constants/payroll.constants';
@@ -43,6 +44,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     const payrollData = usePayrollData(employee, year, month, isYearly, fromAdmin);
     const ui = useSalaryReport();
     const grossDist = useGrossDistribution(employee, month, year, ui.handleRefresh);
+    const { resolveName, resolveComponent } = useSalaryMaster();
 
     const tableData = useSelector((state: RootState) => isYearly ? state.attendanceStats.yearlyTable : state.attendanceStats.monthlyTable);
 
@@ -70,19 +72,10 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
         );
     }
 
-    const isTds = summaryData.hasTDS;
-    const pageBgColor = isTds ? '#ebe8e8ff' : 'transparent';
-
     return (
-        <div className="payroll-module" style={{ 
-            backgroundColor: pageBgColor, 
-            minHeight: '100%', 
-            paddingBottom: '2rem', 
-            transition: 'background-color 0.3s ease',
-            borderRadius: isTds ? '12px' : '0px',
-            border: isTds ? '1px solid #eef2f7' : 'none',
-            paddingTop: '1px', // Prevent margin collapse
-            margin: isTds ? '0' : '0' // maintain original layout
+        <div className="payroll-module" style={{
+            minHeight: '100%',
+            paddingBottom: '2rem',
         }}>
             <style jsx>{`
                 .sensitive-data-hidden { filter: blur(5px); user-select: none; }
@@ -179,6 +172,8 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             showSensitiveData={showSensitiveData}
                                             hourlySalary={apiSalaryData?.hourlySalary}
                                             dailySalary={apiSalaryData?.hourlySalary ? apiSalaryData.hourlySalary * 8 : undefined}
+                                            resolveName={resolveName}
+                                            resolveComponent={resolveComponent}
                                         />
                                     </div>
                                 </Col>
@@ -197,6 +192,8 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             grossPay={finalTotalGrossPayAmount}
                                             showSensitiveData={showSensitiveData}
                                             dailySalary={apiSalaryData?.hourlySalary ? apiSalaryData.hourlySalary * 8 : undefined}
+                                            resolveName={resolveName}
+                                            resolveComponent={resolveComponent}
                                         />
                                     </div>
                                 </Col>

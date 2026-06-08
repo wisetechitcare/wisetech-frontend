@@ -3,7 +3,6 @@ import EmployeeInfo from "../forms/EmployeeInfo";
 import HiringInfo from "../forms/HiringInfo";
 import WorkContactInfo from "../forms/WorkContactInfo";
 import WorkExperience from "../forms/WorkExperience";
-import RejoinHistory from "../forms/RejoinHistory";
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
 import WizardSectionLayout from "./WizardSectionLayout";
 import "./Step2.css";
@@ -43,7 +42,7 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
             return;
         }
         if (errors.rejoinHistory) {
-            setActiveSection("rejoin_history");
+            setActiveSection("hiring_info");
             return;
         }
         if (errors.workExpInfo) {
@@ -87,23 +86,20 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
         { id: "employee_info", title: "Employee Information", icon: "profile-user" },
         { id: "contact_info", title: "Work Contact Details", icon: "phone" },
         { id: "hiring_info", title: "Hiring Information", icon: "briefcase" },
-        { id: "rejoin_history", title: "Rejoining History (optional)", icon: "calendar" },
         { id: "work_experience", title: "Work Experience Information", icon: "teacher" },
     ];
 
     const sectionContent: Record<string, any> = {
         employee_info: <EmployeeInfo />,
         contact_info: <WorkContactInfo formikProps={formikProps} />,
-        hiring_info: <HiringInfo formikProps={formikProps} editMode={editMode} />,
-        rejoin_history: (
-            <div className="ob-repeating-section">
-                {rejoinRows.map((_: any, index: number) => (
-                    <div key={`rejoinHistory-${index}`}>
-                        <RejoinHistory formikProps={formikProps} index={index} onRemove={removeRejoinHistory} />
-                    </div>
-                ))}
-                <AddAnotherBtn onClick={addNewRejoinHistory} />
-            </div>
+        hiring_info: (
+            <HiringInfo
+                formikProps={formikProps}
+                editMode={editMode}
+                rejoinRows={rejoinRows}
+                onAddRejoin={addNewRejoinHistory}
+                onRemoveRejoin={removeRejoinHistory}
+            />
         ),
         work_experience: (
             <div className="ob-repeating-section">

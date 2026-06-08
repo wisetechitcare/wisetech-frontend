@@ -108,6 +108,26 @@ const PROF_FEES_KEYS = new Set([
   "professionalFeesPercentage",
 ]);
 
+function buildTds2Payload(values: {
+  tds2Enabled: unknown;
+  tds2Type: unknown;
+  tds2Amount: unknown;
+  tds2Percentage: unknown;
+}) {
+  const enabled = String(values.tds2Enabled) === "true";
+  const type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+  if (!enabled) {
+    return { tds2Enabled: false, tds2Type: "FIXED" as const, tds2Amount: null, tds2Percentage: null };
+  }
+  if (type === "PERCENTAGE") {
+    return { tds2Enabled: true, tds2Type: "PERCENTAGE" as const, tds2Amount: null, tds2Percentage: toNumberOrNull(values.tds2Percentage) };
+  }
+  return { tds2Enabled: true, tds2Type: "FIXED" as const, tds2Amount: toNumberOrNull(values.tds2Amount), tds2Percentage: null };
+}
+
+const TDS2_KEYS = new Set(["tds2Enabled", "tds2Type", "tds2Amount", "tds2Percentage"]);
+
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
 const hasDraftValue = (value: any) => {
@@ -444,6 +464,7 @@ const initialState = {
   roles: [] as any[],
   professionalFeesEnabled: "false", professionalFeesAmount: "",
   professionalFeesPercentage: "", professionalFeesType: "FIXED",
+  tds2Enabled: "false", tds2Type: "FIXED", tds2Amount: "", tds2Percentage: "",
   isHiddenFromStaff: false,
 };
 
@@ -501,6 +522,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
+    tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -559,11 +581,12 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(allowOverTime && { allowOverTime }),
     ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+    ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
     isHiddenFromStaff: isHiddenFromStaff === true,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -870,6 +893,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
       roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
+      tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -929,11 +953,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(employeeLevelId && { employeeLevelId }),
       ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+      ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1209,6 +1234,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         professionalFeesAmount: (() => { const v = wizardData?.professionalFeesAmount ?? (wizardData as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
         professionalFeesPercentage: (() => { const v = (wizardData as any)?.professionalFeesPercentage ?? (wizardData as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
         professionalFeesType: wizardData?.professionalFeesType || (wizardData as any)?.professional_fees_type || "FIXED",
+        tds2Enabled: (() => { const v = (wizardData as any)?.tds2Enabled ?? (wizardData as any)?.tds2_enabled; return (v === true || v === 1 || v === '1' || v === 'true') ? "true" : "false"; })(),
+        tds2Type: (wizardData as any)?.tds2Type || (wizardData as any)?.tds2_type || "FIXED",
+        tds2Amount: (() => { const v = (wizardData as any)?.tds2Amount ?? (wizardData as any)?.tds2_amount; return v != null && v !== "" ? String(v) : ""; })(),
+        tds2Percentage: (() => { const v = (wizardData as any)?.tds2Percentage ?? (wizardData as any)?.tds2_percentage; return v != null && v !== "" ? String(v) : ""; })(),
       };
       setDefaultState(newState);
     }

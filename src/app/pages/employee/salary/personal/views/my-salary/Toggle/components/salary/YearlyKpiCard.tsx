@@ -22,7 +22,7 @@ const toneMap: Record<YearlyKpiCardTone, { color: string; bg: string; border: st
   green:  { color: '#16a34a', bg: '#f0fdf4',  border: '#bbf7d0' },
   blue:   { color: '#2563eb', bg: '#eff6ff',  border: '#dbeafe' },
   amber:  { color: '#d97706', bg: '#fffbeb',  border: '#fde68a' },
-  purple: { color: '#7c3aed', bg: '#f5f3ff',  border: '#e9d5ff' },
+  purple: { color: '#7c3aed', bg: '#ffffff',  border: '#e9d5ff' },
   danger: { color: '#dc2626', bg: '#fef2f2',  border: '#fecaca' },
   info:   { color: '#0891b2', bg: '#ecfeff',  border: '#a5f3fc' },
 };
@@ -72,18 +72,6 @@ const YearlyKpiCard: React.FC<YearlyKpiCardProps> = ({
         ...sx,
       }}
     >
-      {/* Left accent bar */}
-      <Box
-        sx={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: '4px',
-          background: palette.color,
-          borderRadius: '16px 0 0 16px',
-        }}
-      />
 
       {/* Action-required badge */}
       {badge && (

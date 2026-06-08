@@ -63,6 +63,15 @@ export interface Employee {
     professionalFeesType?: string | null,
     professionalFeesAmount?: number | null,
     professionalFeesPercentage?: number | null,
+    EmployeeRejoinHistory?: Array<{
+        id: string;
+        employeeId: string;
+        dateOfReJoining: string | null;
+        dateOfReExit: string | null;
+        reason: string | null;
+        createdAt: string;
+        updatedAt: string;
+    }>;
 }
 
 interface EmployeeState {
