@@ -336,6 +336,8 @@ const newEmployeeWizardSchema = [
     }).required(),
   }),
   Yup.object({
+    organizationId: Yup.string().required().label("Organization"),
+    subOrganizationId: optionalString().label("Sub-Organization"),
     designationId: Yup.string().required().label("Job Profile"),
     departmentId: Yup.string().required().label("Department"),
     branchId: Yup.string().required().label("Branch"),
@@ -431,6 +433,7 @@ const initialState = {
     presentAddressLine1: "", presentAddressLine2: "", presentCountry: "",
     presentState: "", presentCity: "", presentPostalCode: "",
   },
+  organizationId: "", subOrganizationId: "",
   designationId: "", departmentId: "", branchId: "", teamId: "", roomOrBlock: "",
   employeeTypeId: "", employeeTypeConfigId: "", workingMethodId: "", shift: "",
   experienceLevel: "", employeeLevelId: "", companyEmailId: "", companyPhoneNumber: "",
@@ -487,7 +490,9 @@ const saveNewUser = async (values: any) => {
 
 const saveNewEmployee = async (values: any, userId: string) => {
   const { data: { companyOverview } } = await fetchCompanyOverview();
-  const companyId = companyOverview[0].id;
+  // Employee belongs to the chosen organization (sub-org if one was selected),
+  // falling back to the default org for backward compatibility.
+  const companyId = values.subOrganizationId || values.organizationId || companyOverview[0].id;
   let vegMealPreference, nonVegMealPreference, veganMealPreference;
 
   const {
@@ -810,7 +815,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   const updateWizardData = async (values: any) => {
     const { data: { companyOverview } } = await fetchCompanyOverview();
-    const companyId = companyOverview[0].id;
+    const companyId = values.subOrganizationId || values.organizationId || companyOverview[0].id;
     const {
       userId, firstName, lastName, dateOfBirth, appRole,
       personalPhoneNumber, personalEmailId, alternatePhoneNumber,
