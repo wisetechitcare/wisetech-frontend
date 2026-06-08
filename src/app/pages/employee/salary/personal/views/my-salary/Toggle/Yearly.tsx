@@ -73,7 +73,9 @@ const getFixedDeductionAmount = (row: any, matcher: (key: string) => boolean): n
 };
 
 const isPfKey = (key: string) => key.includes('provident fund') || key.includes('pf');
-const isProfessionalFeesKey = (key: string) => key.includes('professional fees');
+const isPtaxKey = (key: string) => key.includes('professional tax') || key.includes('ptax') || key.includes('professional fees');
+const isTdsKey = (key: string) => key.includes('tds') || key.includes('tax deducted');
+const isTds2Key = (key: string) => key.includes('tds 2') || key.includes('tds2') || key.includes('tds ii');
 
 const getAllFixedDeductions = (item: any): number => {
     const fixed = item?.deductionBreakdown?.fixed;
@@ -95,6 +97,18 @@ const getAllVariableDeductions = (item: any): number => {
     }, 0);
 };
 
+const getDeductionAmountAny = (row: any, matcher: (key: string) => boolean): number => {
+    const sumBreakdown = (breakdown: any): number => {
+        if (!breakdown || typeof breakdown !== 'object') return 0;
+        return Object.entries(breakdown).reduce((sum, [key, itm]: [string, any]) => {
+            const earned = Number(itm?.earned || 0);
+            if (itm?.isActive === false || earned <= 0) return sum;
+            return matcher(key.toLowerCase()) ? sum + earned : sum;
+        }, 0);
+    };
+    return sumBreakdown(row?.deductionBreakdown?.fixed) + sumBreakdown(row?.deductionBreakdown?.variable);
+};
+
 const convertHoursToDays = (time: string) => {
     if (!time || time === '-' || time === '') return 0;
     const [hh, mm, ss] = time.split(':').map(Number);
@@ -109,12 +123,13 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
                 month,
                 basicSalary: '-',
                 overtime: '-',
-                payable: '-',
                 netPayable: '-',
                 paid: '-',
                 pending: '-',
                 pfDeduction: '-',
-                govtDeduction: '-',
+                ptaxDeduction: '-',
+                tdsDeduction: '-',
+                tds2Deduction: '-',
                 status: 'Pending',
                 isPlaceholder: true,
             };
@@ -124,25 +139,27 @@ const buildBreakdownRows = (rows: any[]): YearlyBreakdownRow[] => (
         const paidAmount = parseCurrencyOrNumber(row.amountPaid ?? row.paidAmount);
         const pendingAmount = parseCurrencyOrNumber(row.due);
         const pfDeduction = getFixedDeductionAmount(row, isPfKey);
-        const professionalFees = getFixedDeductionAmount(row, isProfessionalFeesKey);
-        
+        const ptax = getFixedDeductionAmount(row, isPtaxKey);
+        const tds = getDeductionAmountAny(row, isTdsKey);
+        const tds2 = getDeductionAmountAny(row, isTds2Key);
+
         const basicSalary = parseCurrencyOrNumber(row.basicSalary);
         const hourlySalary = parseCurrencyOrNumber(row.hourlySalary);
         const overTimeHours = convertHoursToDays(row.overTime) * 8;
         const overtime = row.overTimeAmount !== undefined ? parseCurrencyOrNumber(row.overTimeAmount) : (overTimeHours * hourlySalary);
-        const payable = parseCurrencyOrNumber(row.totalGrossPayAmount);
 
         return {
             month,
             basicSalary: formatCurrencyDecimal(basicSalary),
             overtime: formatCurrencyDecimal(overtime),
             overtimeDisplay: row.overTimeRuleDisplay || formatCurrencyDecimal(overtime),
-            payable: formatCurrencyDecimal(payable),
             netPayable: formatCurrencyRounded(netPayable),
             paid: formatCurrencyRounded(paidAmount),
             pending: formatCurrencyRounded(pendingAmount),
             pfDeduction: formatCurrencyDecimal(pfDeduction),
-            govtDeduction: professionalFees > 0 ? formatCurrencyDecimal(professionalFees) : '',
+            ptaxDeduction: ptax > 0 ? formatCurrencyDecimal(ptax) : '',
+            tdsDeduction: formatCurrencyDecimal(tds),
+            tds2Deduction: tds2 > 0 ? formatCurrencyDecimal(tds2) : '',
             status: normalizeStatus(row.status, paidAmount, pendingAmount),
             isPlaceholder: false,
         };
@@ -322,7 +339,7 @@ const Yearly = ({
             const dueAmount = parseCurrencyOrNumber(item.due);
             const netAmount = parseCurrencyOrNumber(item.netAmount);
             const pf = getFixedDeductionAmount(item, isPfKey);
-            const professionalFees = getFixedDeductionAmount(item, isProfessionalFeesKey);
+            const professionalFees = getFixedDeductionAmount(item, isPtaxKey);
             const fixedDeduction = getAllFixedDeductions(item);
             const variableDeduction = getAllVariableDeductions(item);
             const grossPay = parseCurrencyOrNumber(item.totalGrossPayAmount);
@@ -385,9 +402,10 @@ const Yearly = ({
     const paidPercent = yearOverview.totalNetAmount > 0
         ? Math.round((yearOverview.totalPaidAmount / yearOverview.totalNetAmount) * 100)
         : 0;
-    const hasProfessionalFees = yearOverview.hasProfessionalFees;
     const yearlySalaryRows = startDaySalaryData.length > 0 ? startDaySalaryData : salaryData;
     const breakdownRows = buildBreakdownRows(yearlySalaryRows);
+    const hasPtax = breakdownRows.some(r => !r.isPlaceholder && r.ptaxDeduction !== '' && r.ptaxDeduction !== '-');
+    const hasTds2 = breakdownRows.some(r => !r.isPlaceholder && r.tds2Deduction !== '' && r.tds2Deduction !== '-');
 
     const getPendingFooter = (pendingAmount: number) => {
         if (pendingAmount > 0) {
@@ -402,27 +420,30 @@ const Yearly = ({
 
     const kpis = [
         {
-            label: 'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
-            value: formatCurrencyDecimal(intermediateSalary),
-            footer: financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
+            label:    'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
+            sublabel: 'After variable deductions',
+            value:    formatCurrencyDecimal(intermediateSalary),
+            footer:     financialYear !== '-' ? `FY ${financialYear}` : 'Financial Year',
             footerValue: '',
             tone: 'blue' as const,
             icon: <AccountBalanceWalletOutlinedIcon fontSize="small" />,
         },
         {
-            label: 'DEDUCTIONS',
-            value: formatCurrencyDecimal(yearOverview.totalFixedDeduction),
-            footer: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
+            label:    'DEDUCTIONS',
+            sublabel: 'Govt. & fixed charges',
+            value:    formatCurrencyDecimal(yearOverview.totalFixedDeduction),
+            footer:     getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).label,
             footerValue: getPendingFooter(yearOverview.totalFixedDeduction - yearOverview.totalGovernmentPaid).value,
             tone: 'purple' as const,
             icon: <AccountBalanceOutlinedIcon fontSize="small" />,
         },
         {
-            label: 'PAYABLE SALARY',
-            value: formatCurrencyDecimal(yearOverview.totalNetAmount),
-            footer: getPendingFooter(yearOverview.totalDueAmount).label,
+            label:    'PAYABLE SALARY',
+            sublabel: 'Net take-home amount',
+            value:    formatCurrencyDecimal(Math.abs(yearOverview.totalNetAmount)),
+            footer:     getPendingFooter(yearOverview.totalDueAmount).label,
             footerValue: getPendingFooter(yearOverview.totalDueAmount).value,
-            tone: 'green' as const,
+            tone: (yearOverview.totalNetAmount < 0 ? 'danger' : 'green') as 'danger' | 'green',
             icon: <CheckCircleOutlineOutlinedIcon fontSize="small" />,
         },
     ];
@@ -442,7 +463,7 @@ const Yearly = ({
             >
                 {isLoadingOverview
                     ? Array.from({ length: 3 }).map((_, index) => (
-                        <Skeleton key={index} variant="rounded" height={106} sx={{ borderRadius: '16px' }} />
+                        <Skeleton key={index} variant="rounded" height={140} sx={{ borderRadius: '16px' }} />
                     ))
                     : kpis.map((item) => <YearlyKpiCard key={item.label} {...item} showSensitiveData={showSensitiveData} />)}
             </Box>
@@ -484,7 +505,7 @@ const Yearly = ({
                 )}
             </Box>
 
-            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showGovtDeduction={hasProfessionalFees} showSensitiveData={showSensitiveData} />
+            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showPtax={hasPtax} showTds2={hasTds2} showSensitiveData={showSensitiveData} />
         </Box>
     );
 };

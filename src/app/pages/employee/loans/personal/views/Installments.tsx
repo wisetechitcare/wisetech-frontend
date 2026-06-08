@@ -5,6 +5,7 @@ import { fetchEmployeeMonthlyInstallments } from '@services/employee';
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux';
+import DateSelector from '@components/DateSelector';
 import Monthly from './monthly/Monthly';
 import { resourceNameMapWithCamelCase } from '@constants/statistics';
 
@@ -49,29 +50,18 @@ function Installments() {
                     </h2>
 
                     {/* Toggler: centered on mobile, right on md+ */}
-                    <div className="mb-2">
-                        <button   
-                            className="btn btn-sm me-2 p-0"
-                            onClick={() => {
-                                handleDatesChange("decrement", "month", setMonth);
-                                toggleItemsActions?.monthly(month.subtract(1, "month"));
-                            }}
-                        >
-                            <img src={toAbsoluteUrl("media/svg/misc/back.svg")} />
-                        </button>
-
-                        <span className="mx-2 mt-3">{month.format("MMM, YYYY")}</span>
-
-                        <button
-                            className="btn btn-sm ms-2 p-0"
-                            onClick={() => {
-                                handleDatesChange("increment", "month", setMonth);
-                                toggleItemsActions?.monthly(month.add(1, "month"));
-                            }}
-                        >
-                            <img src={toAbsoluteUrl("media/svg/misc/next.svg")} />
-                        </button>
-                    </div>
+                    <DateSelector
+                        onPrevious={() => {
+                            handleDatesChange("decrement", "month", setMonth);
+                            toggleItemsActions?.monthly(month.subtract(1, "month"));
+                        }}
+                        onNext={() => {
+                            handleDatesChange("increment", "month", setMonth);
+                            toggleItemsActions?.monthly(month.add(1, "month"));
+                        }}
+                        displayValue={month.format("MMM YYYY")}
+                        className="mb-2"
+                    />
                 </div>
                    <Monthly resource={resourceNameMapWithCamelCase.loanInstallment} month={month} viewOthers={false} viewOwn={true} />
             </div>

@@ -6,7 +6,6 @@ import { KTIcon } from '@metronic/helpers';
 import PayrollStatsCards from '../components/cards/PayrollStatsCards';
 import PaymentDetailsTable from '../components/table/PaymentDetailsTable';
 import BreakdownTable from '../components/table/BreakdownTable';
-import NetAmountPayable from '../components/common/NetAmountPayable';
 import DeductionPanel from '../components/common/DeductionPanel';
 import SalarySlipSection from '../components/SalarySlipSection';
 import GrossDistributionModal from '../components/modals/GrossDistributionModal';
@@ -17,6 +16,7 @@ import { usePayrollData } from '../hooks/usePayrollData';
 import { useSalaryCalculations } from '../hooks/useSalaryCalculations';
 import { useSalaryReport } from '../hooks/useSalaryReport';
 import { useGrossDistribution } from '../hooks/useGrossDistribution';
+import { useSalaryMaster } from '../hooks/useSalaryComponentNames';
 
 import { SalaryReportProps } from '../types/payroll.types';
 import { BREAKDOWN_TYPES } from '../constants/payroll.constants';
@@ -44,6 +44,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     const payrollData = usePayrollData(employee, year, month, isYearly, fromAdmin);
     const ui = useSalaryReport();
     const grossDist = useGrossDistribution(employee, month, year, ui.handleRefresh);
+    const { resolveName, resolveComponent } = useSalaryMaster();
 
     const tableData = useSelector((state: RootState) => isYearly ? state.attendanceStats.yearlyTable : state.attendanceStats.monthlyTable);
 
@@ -72,7 +73,10 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     }
 
     return (
-        <div className="payroll-module">
+        <div className="payroll-module" style={{
+            minHeight: '100%',
+            paddingBottom: '2rem',
+        }}>
             <style jsx>{`
                 .sensitive-data-hidden { filter: blur(5px); user-select: none; }
                 .sensitive-data-visible { filter: none; }
@@ -83,11 +87,11 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 }
             `}</style>
 
-            <div className="px-3 px-lg-5">
+            <div>
                 {!hideSummarySection && (
                     <div className="my-5 w-100">
                         <div className="mb-6">
-                            <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} />
+                            <PayrollStatsCards summaryData={summaryData} showSensitiveData={showSensitiveData} month={month} year={year} />
                         </div>
                         <Box
                             sx={{
@@ -144,6 +148,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 salarySlipProps={salarySlipProps}
                                 userId={employee.userId}
                                 employeeId={employee.id}
+                                salaryId={apiSalaryData?.id as string}
                                 loading={ui.loading}
                                 setLoading={ui.setLoading}
                             />
@@ -167,6 +172,8 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             showSensitiveData={showSensitiveData}
                                             hourlySalary={apiSalaryData?.hourlySalary}
                                             dailySalary={apiSalaryData?.hourlySalary ? apiSalaryData.hourlySalary * 8 : undefined}
+                                            resolveName={resolveName}
+                                            resolveComponent={resolveComponent}
                                         />
                                     </div>
                                 </Col>
@@ -185,19 +192,12 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                             grossPay={finalTotalGrossPayAmount}
                                             showSensitiveData={showSensitiveData}
                                             dailySalary={apiSalaryData?.hourlySalary ? apiSalaryData.hourlySalary * 8 : undefined}
+                                            resolveName={resolveName}
+                                            resolveComponent={resolveComponent}
                                         />
                                     </div>
                                 </Col>
                             </Row>
-
-                            {/* Net Salary summary */}
-                            <NetAmountPayable
-                                grossPay={finalTotalGrossPayAmount}
-                                deductionBreakdown={apiSalaryData?.deductionBreakdown || { fixed: {}, variable: {} }}
-                                fallbackNetAmount={0}
-                                showSensitiveData={showSensitiveData}
-                                isApiDataLoaded={!!apiSalaryData}
-                            />
                         </div>
                     </Card>
                 </div>
@@ -261,6 +261,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 variableDeductions={summaryData.totalVariableDeduction}
                 fixedDeductions={summaryData.totalFixedDeduction}
                 statutoryBreakdown={apiSalaryData?.deductionBreakdown?.fixed || {}}
+                govtPayments={(apiSalaryData as any)?.govtPayments || []}
             />
         </div>
     );

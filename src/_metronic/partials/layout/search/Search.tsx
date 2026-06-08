@@ -1,4 +1,4 @@
-import React, {FC, useEffect, useRef, useState} from 'react'
+﻿import React, {FC, useEffect, useRef, useState} from 'react'
 import {SearchComponent} from '../../../assets/ts/components'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 
@@ -165,7 +165,7 @@ const Search: FC = () => {
                   className='d-flex text-gray-900 text-hover-primary align-items-center mb-5'
                 >
                   <div className='symbol symbol-40px me-4'>
-                    <img src={toAbsoluteUrl('media/avatars/300-6.jpg')} alt='' />
+                    <img src={toAbsoluteUrl('media/svg/avatars/018-girl-9.svg')} alt='' />
                   </div>
 
                   <div className='d-flex flex-column justify-content-start fw-bold'>
@@ -179,7 +179,7 @@ const Search: FC = () => {
                   className='d-flex text-gray-900 text-hover-primary align-items-center mb-5'
                 >
                   <div className='symbol symbol-40px me-4'>
-                    <img src={toAbsoluteUrl('media/avatars/300-2.jpg')} alt='' />
+                    <img src={toAbsoluteUrl('media/svg/avatars/004-boy-1.svg')} alt='' />
                   </div>
 
                   <div className='d-flex flex-column justify-content-start fw-bold'>
@@ -193,7 +193,7 @@ const Search: FC = () => {
                   className='d-flex text-gray-900 text-hover-primary align-items-center mb-5'
                 >
                   <div className='symbol symbol-40px me-4'>
-                    <img src={toAbsoluteUrl('media/avatars/300-9.jpg')} alt='' />
+                    <img src={toAbsoluteUrl('media/svg/avatars/029-boy-11.svg')} alt='' />
                   </div>
 
                   <div className='d-flex flex-column justify-content-start fw-bold'>
@@ -207,7 +207,7 @@ const Search: FC = () => {
                   className='d-flex text-gray-900 text-hover-primary align-items-center mb-5'
                 >
                   <div className='symbol symbol-40px me-4'>
-                    <img src={toAbsoluteUrl('media/avatars/300-14.jpg')} alt='' />
+                    <img src={toAbsoluteUrl('media/svg/avatars/006-girl-3.svg')} alt='' />
                   </div>
 
                   <div className='d-flex flex-column justify-content-start fw-bold'>
@@ -221,7 +221,7 @@ const Search: FC = () => {
                   className='d-flex text-gray-900 text-hover-primary align-items-center mb-5'
                 >
                   <div className='symbol symbol-40px me-4'>
-                    <img src={toAbsoluteUrl('media/avatars/300-11.jpg')} alt='' />
+                    <img src={toAbsoluteUrl('media/svg/avatars/047-girl-25.svg')} alt='' />
                   </div>
 
                   <div className='d-flex flex-column justify-content-start fw-bold'>

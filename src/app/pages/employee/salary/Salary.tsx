@@ -22,7 +22,7 @@ function Salary() {
       icon: activeTab === 0 ? financeSalaryAllIcoon.salaryIcon.active : financeSalaryAllIcoon.salaryIcon.default,
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers) ? [{
-      title: "Salary Employees",
+      title: "Employee Payrolls",
       component: <SalaryEmployeeData/>,
       icon:activeTab === 2 ? financeSalaryAllIcoon.empSalaey.active : financeSalaryAllIcoon.empSalaey.default,
     }]:[]),

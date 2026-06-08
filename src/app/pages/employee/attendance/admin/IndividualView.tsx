@@ -92,11 +92,11 @@ const IndividualView = () => {
 
             // Format the display text based on original fiscal dates (not affected by joining date)
             const displayEndDate = isCurrentFiscalYear(originalFiscalStart, dayjs(endDate)) && dateSettingsEnabled
-                ? dayjs().format("DD MMM, YYYY") // Today's date if date settings enabled
-                : originalFiscalEnd.format("DD MMM, YYYY"); // Otherwise use fiscal year end
+                ? dayjs().format("YYYY") // Today's date if date settings enabled
+                : originalFiscalEnd.format("YYYY"); // Otherwise use fiscal year end
 
             setFiscalYearDisplay(
-                `${originalFiscalStart.format("DD MMM, YYYY")} - ${displayEndDate}`
+                `${originalFiscalStart.format("YYYY")} - ${displayEndDate}`
             );
 
         }

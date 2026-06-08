@@ -1,4 +1,4 @@
-
+﻿
 import React from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
@@ -18,7 +18,7 @@ const FeedsWidget4: React.FC<Props> = ({className}) => {
           <div className='d-flex align-items-center flex-grow-1'>
             {/* begin::Avatar */}
             <div className='symbol symbol-45px me-5'>
-              <img src={toAbsoluteUrl('media/avatars/300-7.jpg')} alt='' />
+              <img src={toAbsoluteUrl('media/svg/avatars/020-girl-11.svg')} alt='' />
             </div>
             {/* end::Avatar */}
 

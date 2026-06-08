@@ -1,4 +1,4 @@
-import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+﻿import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { Attendance } from "@models/employee";
@@ -599,7 +599,7 @@ function Overview({ date }: OverviewProps) {
                                         const employeeData = emp.employee || {};
                                         const user = employeeData.users || emp.users || {};
                                         const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                                        const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/avatars/blank.png');
+                                        const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                         const leaveType = emp.leaveType || 'Leave';
                                         const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
                                         const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
@@ -619,7 +619,7 @@ function Overview({ date }: OverviewProps) {
                                                             alt={fullName}
                                                             onError={(e) => {
                                                                 const target = e.target as HTMLImageElement;
-                                                                target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                                             }}
                                                         />
                                                         <div>
@@ -895,7 +895,7 @@ function Overview({ date }: OverviewProps) {
                                                 <td>
                                                     <div className="d-flex align-items-center">
                                                         <Image
-                                                            src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                                                            src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                                                             roundedCircle
                                                             width="36"
                                                             height="36"
@@ -903,7 +903,7 @@ function Overview({ date }: OverviewProps) {
                                                             alt={`${emp.firstName} ${emp.lastName}`}
                                                             onError={(e) => {
                                                                 const target = e.target as HTMLImageElement;
-                                                                target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                                             }}
                                                         />
                                                         <span className="fw-semibold">
@@ -988,7 +988,7 @@ function Overview({ date }: OverviewProps) {
                         <Col md={4} key={emp._id}>
                             <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #9D4141' }}>
                                 <Image
-                                    src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                                    src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                                     roundedCircle
                                     width={45}
                                     height={45}
@@ -996,7 +996,7 @@ function Overview({ date }: OverviewProps) {
                                     alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
                                     onError={(e) => {
                                         const target = e.target as HTMLImageElement;
-                                        target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                        target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                     }}
                                 />
                                 <div className="flex-grow-1">

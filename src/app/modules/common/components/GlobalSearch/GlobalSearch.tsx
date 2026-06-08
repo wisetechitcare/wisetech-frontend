@@ -39,6 +39,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -137,7 +138,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
     };
   }, [history, restrictType]);
 
-  // Search logic with debounce
+  // Search logic with debounce + AbortController to cancel stale requests
   useEffect(() => {
     if (!query || query.trim().length < 2) {
       setResults([]);
@@ -146,17 +147,26 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
     }
 
     const timer = setTimeout(async () => {
+      // Cancel any in-flight request from the previous keystroke
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setIsLoading(true);
       try {
-        let searchResults = await performGlobalSearch(query);
+        let searchResults = await performGlobalSearch(query, controller.signal);
         if (restrictType) {
           searchResults = searchResults.filter(r => r.type === restrictType);
         }
         setResults(searchResults);
         setIsOpen(true);
         setActiveIndex(-1);
-      } catch (error) {
-        console.error('Global search error:', error);
+      } catch (error: any) {
+        if (error?.name !== 'CanceledError' && error?.name !== 'AbortError') {
+          console.error('Global search error:', error);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -222,7 +232,10 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
   };
 
   const filteredResults = filterType === 'All' ? results : results.filter(r => r.type === filterMap[filterType]);
-  const bestMatches = results.slice(0, 3);
+  const bestMatches = filterType === 'All' ? results.slice(0, 3) : [];
+  const bestMatchIds = new Set(bestMatches.map(r => r.id));
+  // Categorized list excludes items already shown in Best Match to avoid duplication
+  const categorizedResults = filteredResults.filter(r => !bestMatchIds.has(r.id));
   const types = ['All', 'Projects', 'Leads', 'Companies', 'Contacts', 'Employees', 'Tasks', 'Pages'];
 
 
@@ -347,11 +360,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                   <div className="search-section-header px-4 py-2 d-flex align-items-center">
                     <span className="section-title fw-bold text-primary fs-8 text-uppercase">Best Match</span>
                   </div>
-                  {bestMatches.map((result) => (
+                  {bestMatches.map((result, idx) => (
                     <div
                       key={`best-${result.id}`}
                       className={`search-result-item d-flex align-items-center px-4 py-3 cursor-pointer transition-all ${
-                        activeIndex === filteredResults.indexOf(result) ? 'bg-light-primary' : 'hover-bg-light'
+                        activeIndex === idx ? 'bg-light-primary' : 'hover-bg-light'
                       }`}
                       onClick={() => handleResultClick(result)}
                     >
@@ -365,7 +378,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
               {['Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task']
                 .filter(type => filterType === 'All' || filterMap[filterType] === type)
                 .map((type) => {
-                  const typeResults = filteredResults.filter(r => r.type === type);
+                  const typeResults = categorizedResults.filter(r => r.type === type);
                   if (typeResults.length === 0) return null;
 
                   const sectionLabels: Record<string, string> = {
@@ -385,11 +398,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                         <span className="section-title fw-bold text-gray-700 fs-8 text-uppercase">{sectionLabels[type]}</span>
                         <span className="section-count badge badge-light-primary fs-9">{typeResults.length}</span>
                       </div>
-                      {typeResults.slice(0, 10).map((result) => (
+                      {typeResults.slice(0, 10).map((result, idx) => (
                         <div
                           key={result.id}
                           className={`search-result-item d-flex align-items-center px-4 py-3 cursor-pointer transition-all ${
-                            activeIndex === filteredResults.indexOf(result) ? 'bg-light-primary' : 'hover-bg-light'
+                            activeIndex === bestMatches.length + idx ? 'bg-light-primary' : 'hover-bg-light'
                           }`}
                           onClick={() => handleResultClick(result)}
                         >

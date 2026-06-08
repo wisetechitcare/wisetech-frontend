@@ -1,10 +1,10 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { fetchSalaryRecordsForAllActiveEmployees } from "@services/employee";
+import ExportButton from "@app/modules/common/components/ExportButton";
 import { Box, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
 
 interface MonthlySalaryProps {
@@ -25,9 +25,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
-  // State for all active employees total payable amount
-  const [allActiveEmployeesData, setAllActiveEmployeesData] = useState<any>(null);
-  const [isLoadingTillDate, setIsLoadingTillDate] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<'Active' | 'Deactive' | 'All'>('Active');
 
   const filteredEmployeeSummaries = useMemo(() => {
@@ -40,25 +37,6 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
       return true; // 'All'
     });
   }, [employeesData, statusFilter]);
-
-  // Fetch all active employees salary data when month changes
-  useEffect(() => {
-    const fetchAllActiveData = async () => {
-      setIsLoadingTillDate(true);
-      try {
-        const startDate = month.startOf('month').format('YYYY-MM-DD');
-        const endDate = month.endOf('month').format('YYYY-MM-DD');
-        const response = await fetchSalaryRecordsForAllActiveEmployees(startDate, endDate);
-        setAllActiveEmployeesData(response);
-      } catch (error) {
-        console.error('Error fetching all active employees data:', error);
-        setAllActiveEmployeesData(null);
-      } finally {
-        setIsLoadingTillDate(false);
-      }
-    };
-    fetchAllActiveData();
-  }, [month]);
 
   // Memoized calculation for optimal performance
   const salarySummary = useMemo<SalarySummary>(() => {
@@ -144,7 +122,37 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     });
   }, [filteredEmployeeSummaries]);
 
-  // Check if professional fees are applicable
+  const exportColumns = useMemo(() => [
+    { key: 'id',              header: 'ID',                  type: 'text'     as const },
+    { key: 'name',            header: 'Name',                type: 'text'     as const },
+    { key: 'department',      header: 'Department',          type: 'text'     as const },
+    { key: 'branch',          header: 'Branch',              type: 'text'     as const },
+    { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
+    { key: 'overTimeAmount',  header: 'Over Time Amount',    type: 'currency' as const, showTotal: true },
+    { key: 'professionalFees',header: 'TDS',                 type: 'currency' as const, showTotal: true },
+    { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
+    { key: 'netAmount',       header: 'Net Payable',         type: 'currency' as const, showTotal: true },
+    { key: 'amountPaid',      header: 'Paid',                type: 'currency' as const, showTotal: true, color: '#1d4ed8' },
+    {
+      key: 'dueAmount', header: 'Due Amount', type: 'currency' as const, showTotal: true,
+      color: (val: any) => {
+        const n = Number(val);
+        if (n < 0) return '#0369a1';
+        if (n > 0) return '#dc2626';
+        return '#16a34a';
+      },
+    },
+    { key: 'totalWorkingTime',header: 'Total Working Time',  type: 'text'     as const },
+    { key: 'workedTime',      header: 'Worked Time',         type: 'text'     as const },
+    { key: 'overTime',        header: 'Over Time',           type: 'text'     as const },
+    { key: 'totalDays',       header: 'Total Days',          type: 'number'   as const },
+    { key: 'present',         header: 'Present',             type: 'number'   as const },
+    { key: 'absent',          header: 'Absent',              type: 'number'   as const },
+    { key: 'late',            header: 'Late',                type: 'number'   as const },
+    { key: 'leaves',          header: 'Leaves',              type: 'number'   as const },
+    { key: 'extraDay',        header: 'Extra Day',           type: 'number'   as const },
+  ], []);
+
   return (
     <>
       {/* Salary Summary Card */}
@@ -156,7 +164,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         totalPaidAmount={salarySummary.totalPaidAmount}
         isLoading={isLoading}
         totalPayableAmountTillDate={totalPayableAmountTillDate}
-        isLoadingTillDate={isLoadingTillDate}
+        isLoadingTillDate={isLoading}
       />
 
       {/* Employee Salary Table */}
@@ -180,11 +188,24 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                   }}
                 >
                   <MenuItem value="Active">Active</MenuItem>
-                  <MenuItem value="Deactive">Deactive</MenuItem>
+                  <MenuItem value="Deactive">Inactive</MenuItem>
                   <MenuItem value="All">All</MenuItem>
                 </Select>
               </FormControl>
             </Box>
+          )}
+          renderExportActions={() => (
+            <ExportButton
+              data={tableData}
+              columns={exportColumns}
+              filename={`monthly-salary-${month.format('MMM-YYYY').toLowerCase()}`}
+              title={`Monthly Salary — ${month.format('MMMM YYYY')}`}
+              subtitle="Employee-wise salary, deductions and payment status"
+              sheetName="Monthly Salary"
+              showTotals
+              totalLabel="TOTAL"
+              disabled={tableData.length === 0}
+            />
           )}
           columns={[
             {

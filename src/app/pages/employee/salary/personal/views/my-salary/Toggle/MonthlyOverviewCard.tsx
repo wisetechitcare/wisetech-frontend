@@ -136,7 +136,7 @@ const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
                 )}
                 <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }} className={sensitiveCls}>
                     {typeof netPayable === 'number'
-                        ? `₹${netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        ? `₹${Math.round(netPayable).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
                         : (String(netPayable).includes('₹') ? netPayable : `₹${netPayable}`)}
                 </Typography>
             </Box>

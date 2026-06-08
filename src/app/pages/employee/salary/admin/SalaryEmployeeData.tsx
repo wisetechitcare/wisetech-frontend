@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import dayjs, { Dayjs } from "dayjs";
+import { useSelector } from "react-redux";
+import { RootState } from "@redux/store";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { fetchSalaryRecordsBasedOnDateRange } from "@services/employee";
 import MonthlySalary from "./MonthlySalary";
@@ -7,12 +9,14 @@ import YearlySalary from "./YearlySalary";
 import SalaryPeriodToolbar from "../components/SalaryPeriodToolbar";
 
 const SalaryEmployeeData = () => {
-  const [alignment, setAlignment] = useState<"monthly" | "yearly">("monthly");
+  const [alignment, setAlignment] = useState<"monthly" | "yearly" | "allTime">("monthly");
   const [month, setMonth] = useState(dayjs());
   const [year, setYear] = useState(dayjs());
   const [fiscalYear, setFiscalYear] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [employeesData, setEmployeesData] = useState<any[]>([]);
+
+  const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
 
   // Handle previous month
   const handlePrevMonth = useCallback(() => {
@@ -56,12 +60,14 @@ const SalaryEmployeeData = () => {
         startDate: month.startOf('month').format('YYYY-MM-DD'),
         endDate: month.endOf('month').format('YYYY-MM-DD')
       };
-    } else if (fiscalYear) {
+    } else if (alignment === 'yearly' && fiscalYear) {
       const [fiscalStartDate, fiscalEndDate] = fiscalYear.split(' to ');
       return {
         startDate: fiscalStartDate,
         endDate: fiscalEndDate
       };
+    } else if (alignment === 'allTime') {
+      return { startDate: '1970-01-01', endDate: dayjs().format('YYYY-MM-DD') };
     }
     return { startDate: '', endDate: '' };
   }, [alignment, month, fiscalYear]);
@@ -89,11 +95,11 @@ const SalaryEmployeeData = () => {
     }
 
     fetchData();
-  }, [dateRanges]);
+  }, [dateRanges, toggleChange]);
 
   return (
     <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Salary Employee Data</h3>
+      <h3 className="fw-bold fs-1 mb-5 font-barlow">Employee Payrolls Data</h3>
 
       {/* Toggle and Date Selection */}
       <SalaryPeriodToolbar
@@ -101,20 +107,25 @@ const SalaryEmployeeData = () => {
         options={[
           { label: 'Monthly', value: 'monthly' },
           { label: 'Yearly', value: 'yearly' },
+          { label: 'All Time', value: 'allTime' },
         ]}
-        onAlignmentChange={(value) => setAlignment(value as "monthly" | "yearly")}
-        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : fiscalYear}
-        onPrevious={alignment === 'monthly' ? handlePrevMonth : handlePrevYear}
-        onNext={alignment === 'monthly' ? handleNextMonth : handleNextYear}
+        onAlignmentChange={(value) => setAlignment(value as "monthly" | "yearly" | "allTime")}
+        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : alignment === 'yearly' ? fiscalYear : undefined}
+        onPrevious={alignment === 'monthly' ? handlePrevMonth : alignment === 'yearly' ? handlePrevYear : undefined}
+        onNext={alignment === 'monthly' ? handleNextMonth : alignment === 'yearly' ? handleNextYear : undefined}
         disablePrevious={isLoading}
         disableNext={isLoading}
       />
 
       {/* Conditional Rendering */}
-      {alignment === 'monthly' ? (
+      {alignment === 'monthly' && (
         <MonthlySalary month={month} employeesData={employeesData} isLoading={isLoading} />
-      ) : (
+      )}
+      {alignment === 'yearly' && (
         <YearlySalary year={year} fiscalYear={fiscalYear} employeesData={employeesData} isLoading={isLoading} />
+      )}
+      {alignment === 'allTime' && (
+        <YearlySalary year={year} fiscalYear="All Time" employeesData={employeesData} isLoading={isLoading} title="All Time Salary" />
       )}
     </>
   );

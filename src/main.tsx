@@ -1,3 +1,9 @@
+// ── Node.js polyfills — must be first, before any library that needs Buffer ──
+import { Buffer } from 'buffer'
+if (typeof globalThis.Buffer === 'undefined') {
+  globalThis.Buffer = Buffer
+}
+
 import { createRoot } from 'react-dom/client'
 // Axios
 import axios from 'axios'
