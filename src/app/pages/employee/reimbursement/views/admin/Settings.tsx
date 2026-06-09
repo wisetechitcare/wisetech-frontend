@@ -292,7 +292,7 @@ function Settings() {
 
   useEffect(() => {
     fetchAllReimbursementTypesFromDb().then((res) => {
-      setReimbursementTypeData(res);
+      setReimbursementTypeData([...res].sort((a, b) => a.type.localeCompare(b.type)));
     });
   }, [show, fetchAgain, selectedReimbursement]);
 
@@ -354,7 +354,7 @@ function Settings() {
                   className="d-flex flex-column"
                   noValidate
                   id="employee_reimbursement_form"
-                  placeholder={undefined}
+                  // placeholder={undefined}
                 >
                   <div className="row">
                     {/* Name field */}
