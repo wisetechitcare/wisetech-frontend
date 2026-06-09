@@ -34,7 +34,7 @@ const Monthly = ({ month, fromAdmin = false, showSensitiveData, monthlyApiData, 
     useEffect(() => {
         async function fetchStats() {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = resolveActiveOrgId(companyOverview);
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             if (!companyId) return; // no org resolved yet — skip rather than crash
 
             const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);

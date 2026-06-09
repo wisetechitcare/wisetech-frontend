@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
@@ -110,7 +111,7 @@ const OpenAttendanceRequests = () => {
     // Fetch function for all attendance requests
     const fetchAllAttendanceRequests = useCallback(async (page: number, limit: number) => {
         const { data: { companyOverview } } = await fetchCompanyOverview();
-        const companyId = companyOverview[0].id;
+        const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
         const { data: { attendanceRequests, pagination: paginationData } } = await getAllAttendanceRequestByCompanyId(companyId, page, limit);
         console.log("attendanceRequestsAll", attendanceRequests);

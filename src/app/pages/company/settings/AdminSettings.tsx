@@ -1,3 +1,4 @@
+import { resolveActiveOrg } from '@utils/activeOrg';
 import { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -17,7 +18,7 @@ function AdminSettings() {
     async function fetchData() {
       const res = await fetchCompanyOverview();
       if (!res.hasError && res.data?.companyOverview?.length) {
-        const company = res.data.companyOverview[0];
+        const company = resolveActiveOrg(res.data.companyOverview);
         setCompanyId(company.id);
         setInitialValues({ superAdminEmail: company.superAdminEmail || '' });
       }

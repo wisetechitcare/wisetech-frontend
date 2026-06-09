@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { CUSTOM_SALARY, DEDUCTIONS, GROSS_PAY, LEAVE_MANAGEMENT, SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import { HOLIDAYS, LATE_CHECKIN, MONTH, ON_LEAVE, Status, YEAR, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
@@ -1523,7 +1524,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             values = {
                 ...values,
                 employeeId: employee.id,
@@ -1965,10 +1966,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         const fetchalldata = async () => {
             const { data: { companyOverview } } = await fetchCompanyOverview();
             const { startDate, endDate } = await generateFiscalYearFromGivenYear(dayjs(year));
-            if (!companyOverview || !companyOverview[0]?.id) {
+            if (!companyOverview || !(resolveActiveOrgId(companyOverview) ?? '')) {
                 throw new Error("Company overview data not available");
             }
-            const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyOverview[0].id);
+            const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', (resolveActiveOrgId(companyOverview) ?? ''));
 
             // Get effective end date considering employee exit date
             const effectiveEndDate = getEffectiveEndDate(isYearly, year, month, fiscalEndDate, employee?.dateOfExit || "");

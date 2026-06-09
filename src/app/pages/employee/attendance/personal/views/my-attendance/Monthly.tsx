@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StokedCircle, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
 import { EXTRA_DAYS, HOLIDAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
@@ -147,7 +148,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             
             const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
             const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);

@@ -1,3 +1,4 @@
+import { resolveActiveOrg } from '@utils/activeOrg';
 
 import React, { useState, useEffect } from 'react';
 import { KTCard } from '@metronic/helpers';
@@ -144,7 +145,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
             if (organizationId) {
                 // Specific organization (clicked from the Organizations tree)
                 const { data: { companyOverview } } = await fetchOrganizationById(organizationId);
-                const org = companyOverview?.[0];
+                const org = resolveActiveOrg(companyOverview);
                 if (org) {
                     setCompanyData(org);
                     setLogoUrl(org.logo);
@@ -153,8 +154,8 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
             } else {
                 // Default / active organization (today's behavior)
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                if (companyOverview[0]) {
-                    setCompanyData(companyOverview[0]);
+                if (resolveActiveOrg(companyOverview)) {
+                    setCompanyData(resolveActiveOrg(companyOverview));
                 }
                 const logoData = await fetchCompanyLogo();
                 setLogoUrl(logoData?.data?.logo);

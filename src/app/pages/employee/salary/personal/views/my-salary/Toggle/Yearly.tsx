@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { RootState } from '@redux/store';
 import { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -238,7 +239,7 @@ const Yearly = ({
                 if (!mounted) return;
 
                 if (companyOverview?.length > 0) {
-                    setCompanyId(companyOverview[0].id);
+                    setCompanyId((resolveActiveOrgId(companyOverview) ?? ''));
                 }
 
                 const { data: { leaves } = { leaves: [] } } = await fetchEmployeeLeaves(employeeId);
@@ -246,7 +247,7 @@ const Yearly = ({
                 let publicHolidays: any[] = [];
                 if (companyOverview?.length > 0) {
                     const { data: { publicHolidays: ph = [] } = { publicHolidays: [] } } =
-                        await fetchAllPublicHolidays('India', companyOverview[0].id);
+                        await fetchAllPublicHolidays('India', (resolveActiveOrgId(companyOverview) ?? ''));
                     publicHolidays = ph;
                 }
 

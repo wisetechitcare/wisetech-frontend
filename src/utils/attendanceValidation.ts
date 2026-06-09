@@ -39,7 +39,7 @@ export async function validatePreviousDaysAttendance(params: ValidationParams): 
 
   try {
     const { data: { companyOverview } } = await fetchCompanyOverview();
-    const companyId = resolveActiveOrgId(companyOverview);
+    const companyId = (resolveActiveOrgId(companyOverview) ?? '');
     if (!companyId) return { canRaiseRequest: true, blockingDate: '', blockingReason: '' };
 
     const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);

@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -377,12 +378,12 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
       
       // Fetch additional employee data (leaves, holidays)
       const { data: { companyOverview } } = await fetchCompanyOverview();
-      if (!companyOverview || !companyOverview[0]?.id) {
+      if (!companyOverview || !(resolveActiveOrgId(companyOverview) ?? '')) {
         throw new Error("Company overview data not available");
       }
       
       const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
-      const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyOverview[0].id);
+      const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', (resolveActiveOrgId(companyOverview) ?? ''));
       
       const totalLeaves = await customLeaves(leaves);
       // const filteredLeaves = filterLeavesPublicHolidays(dateRanges.startDate, dateRanges.endDate);

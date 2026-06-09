@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
@@ -169,7 +170,7 @@ const Weekly = ({
         
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             
             const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
             const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);

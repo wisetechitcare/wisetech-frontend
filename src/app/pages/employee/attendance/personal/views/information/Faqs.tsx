@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
@@ -72,7 +73,7 @@ const Faqs = ({ fromAdmin = false, typeKey = '' }: { fromAdmin?: boolean; typeKe
                 return;
             }
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             await createNewFaq({ ...values, companyId, type: typeKey });
             successConfirmation('FAQ created successfully');
             setShow(false);
@@ -87,7 +88,7 @@ const Faqs = ({ fromAdmin = false, typeKey = '' }: { fromAdmin?: boolean; typeKe
     const fetchFaqData = async () => {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             const { data: { faqs } } = await fetchAllFaqs(companyId, typeKey);
             setFaqs(faqs);
         } catch (err) {
