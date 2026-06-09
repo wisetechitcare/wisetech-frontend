@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import SalaryReport from '../../../../../../../../modules/payroll/pages/SalaryReport';
 import { customLeaves, fetchEmpMonthlyStatistics } from '@utils/statistics';
 import { fetchAllPublicHolidays, fetchCompanyOverview } from '@services/company';
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { fetchEmployeeLeaves } from '@services/employee';
 import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { MONTH } from '@constants/statistics';
@@ -33,12 +34,13 @@ const Monthly = ({ month, fromAdmin = false, showSensitiveData, monthlyApiData, 
     useEffect(() => {
         async function fetchStats() {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
+            if (!companyId) return; // no org resolved yet — skip rather than crash
 
             const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
             const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
 
-            const totalLeaves = await customLeaves(leaves);
+            const totalLeaves = await customLeaves(leaves ?? []);
 
             dispatch(saveLeaves(totalLeaves));
             dispatch(savePublicHolidays(publicHolidays));

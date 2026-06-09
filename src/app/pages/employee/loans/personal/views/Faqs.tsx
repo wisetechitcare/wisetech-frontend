@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
@@ -70,7 +71,7 @@ const Faqs = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 return;
             }
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             await createNewFaq({ ...values, companyId, type: LOAN_KEY });
             successConfirmation('FAQ created successfully');
             setShow(false);
@@ -85,7 +86,7 @@ const Faqs = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
     async function fetchFaqs() {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             const { data: { faqs } } = await fetchAllFaqs(companyId, LOAN_KEY);
             setFaqs((faqs || []).filter((f: IFaqs) => f.type === LOAN_KEY));
         } catch (err) {

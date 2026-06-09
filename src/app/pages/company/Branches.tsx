@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
@@ -754,7 +755,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   } = await fetchCompanyOverview()
                   formikProps.setFieldValue(
                     'companyId',
-                    companyOverview[0].id,
+                    (resolveActiveOrgId(companyOverview) ?? ''),
                     true
                   )
                 }

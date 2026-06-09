@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useState } from "react";
 import * as Yup from 'yup';
 import Select from 'react-select';
@@ -64,7 +65,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
             setLoading(true);
             try {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                values.companyId = companyOverview[0].id;
+                values.companyId = (resolveActiveOrgId(companyOverview) ?? '');
                 const res = await createPublicHoliday(values);
                 if (res && !res.hasError) {
                     successConfirmation('Successfully created public holiday');
@@ -86,7 +87,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
     useEffect(() => {
         async function getAllHolidays() {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const { data: { holidays } } = await fetchHolidays(companyOverview[0].id);
+            const { data: { holidays } } = await fetchHolidays((resolveActiveOrgId(companyOverview) ?? ''));
             const transformedRes = holidays.map((holiday: any) => ({ label: holiday.name, value: holiday.id }));
             setHolidaysOptions(transformedRes);
         }

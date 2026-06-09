@@ -1,3 +1,4 @@
+import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import { useState, useEffect, ChangeEvent } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { dateFormatter } from '@utils/date';
@@ -312,25 +313,25 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                     const { data: { companyOverview } } = organizationId
                                         ? await fetchOrganizationById(organizationId)
                                         : await fetchCompanyOverview();
-                                    if (companyOverview[0]) {
+                                    if (resolveActiveOrg(companyOverview)) {
                                         setIsCreate(false);
-                                        setCompanyId(companyOverview[0]?.id);
-                                        setCompanyData(companyOverview[0]);
+                                        setCompanyId((resolveActiveOrgId(companyOverview) ?? ''));
+                                        setCompanyData(resolveActiveOrg(companyOverview));
 
                                         // Resolve the data-driven form layout (saved config → legacy → defaults)
-                                        setFormSchema(resolveFormSchema(companyOverview[0]));
+                                        setFormSchema(resolveFormSchema(resolveActiveOrg(companyOverview)));
                                         setSchemaDirty(false);
 
                                         // Create new initial values object with fetched data
                                         const newInitialValues: ICompanyOverview = { ...initialValues };
                                         (Object.keys(newInitialValues) as Array<keyof ICompanyOverview>).forEach((key) => {
                                             if(key?.toString()=="showDateIn12HourFormat"){
-                                                newInitialValues[key] = (companyOverview[0][key] ? "1" : "0") as any;
+                                                newInitialValues[key] = (resolveActiveOrg(companyOverview)[key] ? "1" : "0") as any;
                                             }
-                                            else if (companyOverview[0].hasOwnProperty(key) && key !== 'numberOfEmployees') {
-                                                newInitialValues[key] = (companyOverview[0][key] || '') as any;
+                                            else if (resolveActiveOrg(companyOverview).hasOwnProperty(key) && key !== 'numberOfEmployees') {
+                                                newInitialValues[key] = (resolveActiveOrg(companyOverview)[key] || '') as any;
                                                 if (key === 'superAdminEmail') {
-                                                    // console.log('Setting superAdminEmail:', companyOverview[0][key]);
+                                                    // console.log('Setting superAdminEmail:', resolveActiveOrg(companyOverview)[key]);
                                                 }
                                             }
                                         });

@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import dayjs, { Dayjs } from "dayjs";
 import { resourseAndView } from "@models/company";
 import { useDispatch, useSelector } from "react-redux";
@@ -120,7 +121,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
         
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             
             const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
             const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);

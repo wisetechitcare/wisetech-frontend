@@ -358,6 +358,17 @@ export const getAllProjects = async () => {
     }
 }
 
+// Every project that has coordinates (no pagination) — used by the map only.
+export const getProjectMapPoints = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_MAP_POINTS}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 export const getAllProjectCountForPrefix = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_COUNT_FOR_PREFIX}`;

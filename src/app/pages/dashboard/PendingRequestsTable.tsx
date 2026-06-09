@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useMemo, useEffect, useCallback } from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { Button } from "@mui/material";
@@ -97,7 +98,7 @@ const PendingRequestsTable = () => {
     try {
       setIsLoading(true);
       const { data: { companyOverview } } = await fetchCompanyOverview();
-      const companyId = companyOverview[0].id;
+      const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
       const { data: { attendanceRequests } } = await getPendingAttendanceRequests(companyId);
       const transformed = transformAttendanceRequest(attendanceRequests);

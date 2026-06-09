@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import { fetchCompanyOverview, fetchAllPublicHolidays } from "@services/company";
+import { resolveActiveOrgId } from "@utils/activeOrg";
 import { fetchEmployeeLeaves, fetchEmpAttendanceStatistics, getAttendanceRequest } from "@services/employee";
 import { customLeaves, filterLeavesPublicHolidays } from "@utils/statistics";
 import { Status } from "@constants/statistics";
@@ -38,11 +39,12 @@ export async function validatePreviousDaysAttendance(params: ValidationParams): 
 
   try {
     const { data: { companyOverview } } = await fetchCompanyOverview();
-    const companyId = companyOverview[0].id;
+    const companyId = (resolveActiveOrgId(companyOverview) ?? '');
+    if (!companyId) return { canRaiseRequest: true, blockingDate: '', blockingReason: '' };
 
     const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
     const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
-    const totalLeaves = await customLeaves(leaves);
+    const totalLeaves = await customLeaves(leaves ?? []);
     const startDate = dayjs().startOf('year').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('year').format('YYYY-MM-DD');
     const filteredLeavesHolidays = filterLeavesPublicHolidays(startDate, endDate, true, false, true);

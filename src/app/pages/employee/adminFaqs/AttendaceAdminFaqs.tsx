@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
 import { useEffect, useState, useCallback } from 'react';
@@ -93,7 +94,7 @@ const AttendanceAdminFaqs = () => {
             }
 
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             const payload = {
                 ...values,
                 companyId
@@ -114,7 +115,7 @@ const AttendanceAdminFaqs = () => {
     const fetchFaqs = useCallback(async () => {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             // Fetch all FAQ types by not passing the type parameter
             const response = await fetchAllFaqs(companyId);
 

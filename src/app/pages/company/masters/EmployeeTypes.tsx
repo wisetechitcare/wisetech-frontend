@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import React from 'react'
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
@@ -65,7 +66,7 @@ function EmployeeTypes() {
 
               if (!currCompanyId) {
                   const { data: { companyOverview } } = await fetchCompanyOverview();
-                  currCompanyId = companyOverview[0]?.id;
+                  currCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
                   // console.log("currCompanyId", currCompanyId);     
               }
               setCompanyId(currCompanyId);

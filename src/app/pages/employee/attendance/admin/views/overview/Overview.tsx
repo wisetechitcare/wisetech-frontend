@@ -16,6 +16,7 @@ import { fetchEmpsAttendance } from "./DailyAttendance";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
 import { isCheckOutMissing } from "@app/modules/common/components/attendanceDurationUtils";
+import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import "./OverviewStatsGrid.css";
 
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
@@ -262,6 +263,21 @@ function Overview({ date }: OverviewProps) {
     const [graceTimeOffice, setGraceTimeOffice] = useState<string>('');
     const [lunchTime, setLunchTime] = useState<string>('');
     const [isOnSiteSettingsOn, setIsOnSiteSettingsOn] = useState<string>('0');
+
+    // User-customisable order of the overview stat cards (drag to reorder), persisted.
+    const OVERVIEW_CARD_ORDER_KEY = 'attendanceOverviewCardOrder';
+    const [cardOrder, setCardOrder] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem(OVERVIEW_CARD_ORDER_KEY);
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const persistCardOrder = (types: string[]) => {
+        setCardOrder(types);
+        try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(types)); } catch { /* ignore */ }
+    };
 
     const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({
         employeePresent: state.attendance.employeesAttendance?.length || 0,
@@ -1310,6 +1326,14 @@ function Overview({ date }: OverviewProps) {
         { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
     ];
 
+    // Apply the user's saved order; any card not in the saved order keeps its
+    // natural position at the end (handles new cards / first run gracefully).
+    const cardsByType = new Map<string, StatCardConfig>(cardsData.map((c) => [c.type, c]));
+    const orderedCards: StatCardConfig[] = [
+        ...cardOrder.map((t) => cardsByType.get(t)).filter(Boolean) as StatCardConfig[],
+        ...cardsData.filter((c) => !cardOrder.includes(c.type)),
+    ];
+
     // if (isLoading) {
     //     return (
     //         <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
@@ -1358,9 +1382,15 @@ function Overview({ date }: OverviewProps) {
 
     return (
         <>
-            <div className="overview-stats-container mt-3">
-                {cardsData.map(renderStatCard)}
-            </div>
+            <ReorderableGroup
+                items={orderedCards}
+                getItemId={(c) => c.type}
+                onReorder={(items) => persistCardOrder(items.map((c) => c.type))}
+                renderItem={(card) => renderStatCard(card)}
+                axis="x"
+                className="overview-stats-container mt-3"
+                itemStyle={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}
+            />
 
             <CustomModal
                 show={showModal !== null}
