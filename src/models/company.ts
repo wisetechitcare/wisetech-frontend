@@ -25,7 +25,7 @@ export interface ICustomField {
     label: string;
     value: string;
     required: boolean;
-    type?: 'text' | 'number' | 'file';
+    type?: 'text' | 'number' | 'date' | 'file';
 }
 
 export interface ISystemFieldOverride {
@@ -47,7 +47,7 @@ export interface ICustomSection {
 // order, section titles, field order, field labels, types and required-ness.
 // System fields map 1:1 to DB columns (values live in the column via Formik);
 // custom fields store their value inline.
-export type FormFieldType = 'text' | 'number' | 'file';
+export type FormFieldType = 'text' | 'number' | 'date' | 'file';
 
 export interface IFormField {
     id: string;          // system: the DB column / Formik name; custom: a uuid

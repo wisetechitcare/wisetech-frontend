@@ -103,7 +103,10 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
     function validateCustomFields(): boolean {
         const errs: Record<string, string> = {};
         formSchema.forEach(sec => sec.fields.forEach(f => {
-            if (!f.isSystem && !f.hidden && f.required && !(f.value ?? '').trim()) errs[f.id] = `${f.label} is required`;
+            if (f.isSystem || f.hidden) return;
+            const val = (f.value ?? '').trim();
+            if (f.required && !val) errs[f.id] = `${f.label} is required`;
+            else if (f.type === 'date' && val && isNaN(Date.parse(val))) errs[f.id] = `${f.label} must be a valid date`;
         }));
         setCustomErrors(errs);
         return Object.keys(errs).length === 0;
@@ -407,6 +410,21 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                         </>
                                     );
                                 }
+                                // Date built-in field: native calendar picker (validates the date itself).
+                                if (field.type === 'date') {
+                                    return (
+                                        <>
+                                            <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
+                                            <input
+                                                type="date"
+                                                className="form-control form-control-lg form-control-solid"
+                                                value={(values as any)[field.id] ?? ''}
+                                                onChange={e => setFieldValue(field.id, e.target.value)}
+                                            />
+                                            <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
+                                        </>
+                                    );
+                                }
                                 return (
                                     <>
                                         <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
@@ -424,6 +442,20 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                         currentFileName={field.value ? field.value.split('/').pop() : ''}
                                         uploadFn={uploadCompanyAsset}
                                         onChange={(url) => updateCustomValue(sectionId, field.id, url)} />
+                                );
+                            }
+                            if (field.type === 'date') {
+                                return (
+                                    <>
+                                        <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
+                                        <input
+                                            type="date"
+                                            className="form-control form-control-lg form-control-solid"
+                                            value={field.value ?? ''}
+                                            onChange={e => updateCustomValue(sectionId, field.id, e.target.value)}
+                                        />
+                                        {customErrors[field.id] && <div className="fv-plugins-message-container"><div className="fv-help-block">{customErrors[field.id]}</div></div>}
+                                    </>
                                 );
                             }
                             const isNumber = field.type === 'number';
@@ -471,8 +503,8 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                     {/* Organization Logo */}
                                                     <div className="d-flex gap-3 align-items-center flex-grow-1" style={{ minHeight: '72px' }}>
                                                         <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                                            {logoPreview ? (
-                                                                <img src={logoPreview} alt="Logo Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            {(logoPreview || values.logo) ? (
+                                                                <img src={logoPreview || values.logo} alt="Logo Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                             ) : (
                                                                 <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                     <i className="fa fa-image" style={{ color: '#9ca3af', fontSize: '24px' }}></i>
@@ -515,9 +547,9 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                     {/* Stamp */}
                                                     <div className="d-flex gap-3 align-items-center flex-grow-1" style={{ minHeight: '72px' }}>
                                                         <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                                            {stampPreview ? (
+                                                            {(stampPreview || values.salaryStamp) ? (
                                                                 <img
-                                                                    src={stampPreview}
+                                                                    src={stampPreview || values.salaryStamp}
                                                                     alt="Stamp Preview"
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                 />

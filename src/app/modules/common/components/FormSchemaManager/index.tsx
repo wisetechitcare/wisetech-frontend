@@ -24,6 +24,7 @@ const C = {
 const TYPE_META: Record<FormFieldType, { label: string; color: string; bg: string; icon: string }> = {
   text:   { label: 'Text',     color: '#2563EB', bg: '#EAF1FE', icon: 'Aa' },
   number: { label: 'Number',   color: '#0E9F6E', bg: '#E6F6EF', icon: '#' },
+  date:   { label: 'Date',     color: '#7C3AED', bg: '#F1ECFE', icon: '📅' },
   file:   { label: 'Document', color: '#C2710C', bg: '#FBF0E2', icon: '📎' },
 };
 
@@ -69,6 +70,7 @@ function TypeSelect({ value, onChange }: { value: FormFieldType; onChange: (v: F
       style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, cursor: 'pointer', outline: 'none', minWidth: 130 }}>
       <option value="text">Character (Text)</option>
       <option value="number">Number</option>
+      <option value="date">Date</option>
       <option value="file">Document / File</option>
     </select>
   );
