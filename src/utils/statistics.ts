@@ -1,7 +1,7 @@
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
 import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById } from "@services/employee";
+import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -3970,4 +3970,19 @@ export const calculateProjectTotalTime = (timesheets: any = []) => {
     const mins = Math.floor((totalMs / (1000 * 60)) % 60);
     const secs = Math.floor((totalMs / 1000) % 60);
     return `${hrs}h ${mins}m ${secs}s`;
+};
+
+export const handleSendEmailForResetAttendanceRequestLimit = async (
+    employeeId: string,
+    setLoading: (v: boolean) => void,
+    reportsToId?: string
+): Promise<void> => {
+    setLoading(true);
+    try {
+        await sendAttendanceRequestResetLimit({ employeeId, reportsToId });
+    } catch (err) {
+        console.error('Failed to send attendance reset limit request', err);
+    } finally {
+        setLoading(false);
+    }
 };
