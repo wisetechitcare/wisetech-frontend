@@ -40,13 +40,8 @@ const EngageWidget10 = ({className}: Props) => (
         </div>
       </div>
       <img
-        className='mx-auto h-150px h-lg-200px  theme-light-show'
+        className='mx-auto h-150px h-lg-200px'
         src={toAbsoluteUrl('media/illustrations/misc/upgrade.svg')}
-        alt=''
-      />
-      <img
-        className='mx-auto h-150px h-lg-200px  theme-dark-show'
-        src={toAbsoluteUrl('media/illustrations/misc/upgrade-dark.svg')}
         alt=''
       />
     </div>

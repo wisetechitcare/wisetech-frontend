@@ -172,7 +172,7 @@ export const deleteLeadDirectSource = async (id: string, targetId?: string) => {
 export const getAllClientBranches = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_LEAD_BRANCHES}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, { params: { pageSize: 9999 } });
         return data;
     } catch (err) {
         throw err;

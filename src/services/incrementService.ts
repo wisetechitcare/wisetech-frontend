@@ -100,13 +100,20 @@ export const incrementService = {
         // ascending order for processing
         const asc = [...fullHistory].reverse();
 
-        // Salary at the start of the selected year = latest record before Jan 1
-        const priorRecords = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') < year);
+        const fiscalStart = dayjs(`${year}-04-01`).startOf('day');
+        const fiscalEnd = dayjs(`${Number(year) + 1}-03-31`).endOf('day');
+
+        // Salary at the start of the selected year = latest record before Apr 1
+        const priorRecords = asc.filter(r => dayjs(r.effectiveDate).isBefore(fiscalStart));
         const startingSalaryForYear = priorRecords.length > 0
             ? priorRecords[priorRecords.length - 1].newSalary
             : 0;
 
-        const yearRecords = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') === year);
+        const yearRecords = asc.filter(r => {
+            const d = dayjs(r.effectiveDate);
+            return (d.isSame(fiscalStart) || d.isAfter(fiscalStart)) && 
+                   (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
+        });
 
         const currentSalaryForYear = yearRecords.length > 0
             ? yearRecords[yearRecords.length - 1].newSalary
@@ -125,14 +132,30 @@ export const incrementService = {
             ? dayjs(yearRecords[yearRecords.length - 1].effectiveDate).format('MMM YYYY')
             : null;
 
-        // Build month-by-month graph Jan–Dec
-        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        // Build month-by-month graph Apr–Mar
+        const monthConfigs = [
+            { label: 'Apr', month: '04', yr: year },
+            { label: 'May', month: '05', yr: year },
+            { label: 'Jun', month: '06', yr: year },
+            { label: 'Jul', month: '07', yr: year },
+            { label: 'Aug', month: '08', yr: year },
+            { label: 'Sep', month: '09', yr: year },
+            { label: 'Oct', month: '10', yr: year },
+            { label: 'Nov', month: '11', yr: year },
+            { label: 'Dec', month: '12', yr: year },
+            { label: 'Jan', month: '01', yr: String(Number(year) + 1) },
+            { label: 'Feb', month: '02', yr: String(Number(year) + 1) },
+            { label: 'Mar', month: '03', yr: String(Number(year) + 1) }
+        ];
+
         let activeSalary = startingSalaryForYear;
-        const graphData = monthLabels.map((label, i) => {
-            const mm = String(i + 1).padStart(2, '0');
-            const hit = yearRecords.find(r => dayjs(r.effectiveDate).format('MM') === mm);
-            if (hit) activeSalary = hit.newSalary;
-            return { label, salary: activeSalary };
+        const graphData = monthConfigs.map((cfg) => {
+            const hit = yearRecords.filter(r => {
+                const d = dayjs(r.effectiveDate);
+                return d.format('MM') === cfg.month && d.format('YYYY') === cfg.yr;
+            });
+            if (hit.length > 0) activeSalary = hit[hit.length - 1].newSalary;
+            return { label: cfg.label, salary: activeSalary };
         });
 
         const avgMonthlySalary = graphData.reduce((s, d) => s + d.salary, 0) / 12;
@@ -246,15 +269,40 @@ export const incrementService = {
                 graphData.push({ label: yr, salary: endingSalary });
             }
         } else if (mode === 'Yearly' && specificYear) {
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const prior = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') < specificYear);
+            const fiscalStart = dayjs(`${specificYear}-04-01`).startOf('day');
+            const fiscalEnd = dayjs(`${Number(specificYear) + 1}-03-31`).endOf('day');
+
+            const prior = asc.filter(r => dayjs(r.effectiveDate).isBefore(fiscalStart));
             let active = prior.length > 0 ? prior[prior.length - 1].newSalary : 0;
-            const inYear = asc.filter(r => dayjs(r.effectiveDate).format('YYYY') === specificYear);
-            for (let i = 0; i < 12; i++) {
-                const mm = String(i + 1).padStart(2, '0');
-                const hit = inYear.find(r => dayjs(r.effectiveDate).format('MM') === mm);
-                if (hit) active = hit.newSalary;
-                graphData.push({ label: months[i], salary: active });
+            
+            const inYear = asc.filter(r => {
+                const d = dayjs(r.effectiveDate);
+                return (d.isSame(fiscalStart) || d.isAfter(fiscalStart)) && 
+                       (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
+            });
+
+            const monthConfigs = [
+                { label: 'Apr', month: '04', yr: specificYear },
+                { label: 'May', month: '05', yr: specificYear },
+                { label: 'Jun', month: '06', yr: specificYear },
+                { label: 'Jul', month: '07', yr: specificYear },
+                { label: 'Aug', month: '08', yr: specificYear },
+                { label: 'Sep', month: '09', yr: specificYear },
+                { label: 'Oct', month: '10', yr: specificYear },
+                { label: 'Nov', month: '11', yr: specificYear },
+                { label: 'Dec', month: '12', yr: specificYear },
+                { label: 'Jan', month: '01', yr: String(Number(specificYear) + 1) },
+                { label: 'Feb', month: '02', yr: String(Number(specificYear) + 1) },
+                { label: 'Mar', month: '03', yr: String(Number(specificYear) + 1) }
+            ];
+
+            for (const cfg of monthConfigs) {
+                const hit = inYear.filter(r => {
+                    const d = dayjs(r.effectiveDate);
+                    return d.format('MM') === cfg.month && d.format('YYYY') === cfg.yr;
+                });
+                if (hit.length > 0) active = hit[hit.length - 1].newSalary;
+                graphData.push({ label: cfg.label, salary: active });
             }
         }
 

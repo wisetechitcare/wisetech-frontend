@@ -13,11 +13,12 @@ interface DialogProps {
     onHide: () => void;
     record: IncrementRecord | null;
     employeeName: string;
+    employeeId?: string;
     currentSalary: number;
     onSubmit: (payload: Partial<IncrementRecord>) => void;
 }
 
-const AddEditIncrementDialog = ({ show, onHide, record, employeeName, currentSalary, onSubmit }: DialogProps) => {
+const AddEditIncrementDialog = ({ show, onHide, record, employeeName, employeeId, currentSalary, onSubmit }: DialogProps) => {
     const isEdit = !!record;
 
     // For edits keep original date; for new increments default to current month
@@ -26,11 +27,33 @@ const AddEditIncrementDialog = ({ show, onHide, record, employeeName, currentSal
         isEdit ? dayjs(record.effectiveDate) : dayjs().startOf('month')
     );
     const [loading, setLoading] = useState(false);
+    const [salaryHistory, setSalaryHistory] = useState<IncrementRecord[]>([]);
 
-    const previousSalary = isEdit ? record.previousSalary : currentSalary;
+    useEffect(() => {
+        if (show && employeeId) {
+            import('../../../../../../../../services/incrementService').then(({ incrementService }) => {
+                incrementService.fetchIncrementHistory(employeeId).then(history => {
+                    setSalaryHistory(history);
+                });
+            });
+        }
+    }, [show, employeeId]);
 
-    // Earliest selectable month — current month only forward
-    const minDate = dayjs().startOf('month');
+    const getSalaryForDate = (date: Dayjs) => {
+        if (!salaryHistory || salaryHistory.length === 0) return currentSalary;
+        const targetDate = date.endOf('month');
+        // Find the active salary as of the selected month
+        const activeRecord = salaryHistory.find(r => dayjs(r.effectiveDate).startOf('day').isSameOrBefore(targetDate));
+        return activeRecord ? activeRecord.newSalary : currentSalary;
+    };
+
+    const previousSalary = selectedDate ? getSalaryForDate(selectedDate) : currentSalary;
+
+
+    // Allow up to 5 years back for backdated increments
+    const minDate = dayjs().subtract(5, 'year').startOf('month');
+    const isBackdated = selectedDate ? selectedDate.isBefore(dayjs().startOf('month'), 'month') : false;
+    const isFuture = selectedDate ? selectedDate.isAfter(dayjs().endOf('month'), 'month') : false;
 
     useEffect(() => {
         if (show) {
@@ -56,9 +79,10 @@ const AddEditIncrementDialog = ({ show, onHide, record, employeeName, currentSal
 
         setLoading(true);
 
-        const payload: Partial<IncrementRecord> = {
+        const payload: Partial<IncrementRecord> & { incrementType?: string } = {
             effectiveDate: selectedDate.startOf('month').format('YYYY-MM-DD'),
             newSalary: newSal,
+            incrementType: isBackdated ? 'CORRECTION' : isFuture ? 'ANNUAL' : 'ANNUAL',
         };
 
         await onSubmit(payload);
@@ -123,19 +147,37 @@ const AddEditIncrementDialog = ({ show, onHide, record, employeeName, currentSal
                         </LocalizationProvider>
                     </Form.Group>
 
-                    {/* Info note */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
-                        <InfoOutlinedIcon sx={{ fontSize: 14, color: '#94a3b8', flexShrink: 0 }} />
-                        <Typography sx={{ color: '#94a3b8', fontSize: '0.75rem' }}>
-                            Only current month and future months can be selected.
-                        </Typography>
-                    </Box>
+                    {/* Info / warning note */}
+                    {isBackdated ? (
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2.5, p: '10px 14px', borderRadius: '8px', bgcolor: '#fffbeb', border: '1px solid #fde68a' }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 15, color: '#d97706', flexShrink: 0, mt: '1px' }} />
+                            <Typography sx={{ color: '#92400e', fontSize: '0.75rem', lineHeight: 1.5 }}>
+                                <strong>Backdated increment applied:</strong> Salary for previous months
+                                within the selected date will also be updated automatically. Any affected
+                                salary records will reflect the new increment and revised amount.
+                            </Typography>
+                        </Box>
+                    ) : isFuture ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 14, color: '#3b82f6', flexShrink: 0 }} />
+                            <Typography sx={{ color: '#1e40af', fontSize: '0.75rem' }}>
+                                Future increment — new CTC will apply automatically when this month arrives.
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                            <InfoOutlinedIcon sx={{ fontSize: 14, color: '#94a3b8', flexShrink: 0 }} />
+                            <Typography sx={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                                Current month increment — takes effect immediately.
+                            </Typography>
+                        </Box>
+                    )}
 
                     {/* Salary inputs */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2.5 }}>
                         <Form.Group>
                             <Form.Label style={{ color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
-                                Previous Salary
+                                Effective Salary
                             </Form.Label>
                             <Form.Control
                                 type="text"
@@ -146,7 +188,7 @@ const AddEditIncrementDialog = ({ show, onHide, record, employeeName, currentSal
                         </Form.Group>
                         <Form.Group>
                             <Form.Label style={{ color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
-                                New Monthly Salary
+                                {selectedDate ? `${selectedDate.format('MMMM YYYY')} Salary` : 'New Monthly Salary'}
                             </Form.Label>
                             <Form.Control
                                 type="number"

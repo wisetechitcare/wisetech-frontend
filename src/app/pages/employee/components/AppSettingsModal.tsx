@@ -34,6 +34,22 @@ function buildProfessionalFeesPayload(values: any) {
     return { professionalFeesEnabled: true, professionalFeesType: type, professionalFeesAmount: amt, professionalFeesPercentage: pct };
 }
 
+function buildTds2Payload(values: any) {
+    const raw = values.tds2Enabled;
+    const enabled = raw === true || raw === 1 || raw === "1" || raw === "true";
+    const type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    if (!enabled) {
+        return { tds2Enabled: false, tds2Type: "FIXED" as const, tds2Amount: null, tds2Percentage: null };
+    }
+    const parse = (v: any) => { const n = parseFloat(String(v || "").replace(/,/g, "")); return isFinite(n) ? n : null; };
+    return {
+        tds2Enabled: true,
+        tds2Type: type,
+        tds2Amount: type === "FIXED" ? parse(values.tds2Amount) : null,
+        tds2Percentage: type === "PERCENTAGE" ? parse(values.tds2Percentage) : null,
+    };
+}
+
 // ─── Section components (all use useFormikContext, identical to wizard) ───────
 
 function GeneralSettings() {
@@ -90,6 +106,8 @@ function FinancialSection() {
     const parseIN = (val: string) => val.replace(/,/g, "");
     const pfEnabled = String(values.professionalFeesEnabled) === "true";
     const pfType = values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    const tds2Enabled = String(values.tds2Enabled) === "true";
+    const tds2Type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
 
     return (
         <>
@@ -134,6 +152,44 @@ function FinancialSection() {
                                 <TextInput isRequired={false} label="Tax Deducted at Source (TDS) %" formikField="professionalFeesPercentage" />
                             ) : (
                                 <TextInput isRequired={false} label="Tax Deducted at Source (TDS) Amount" formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* TDS2 — fully independent from TDS1/PTAX */}
+            <div className="separator separator-dashed my-6" />
+            <div className="row g-4">
+                <div className="col-sm-6 col-md-4">
+                    <RadioInput
+                        formikField="tds2Enabled"
+                        inputLabel="TDS 2 (Additional)"
+                        radioBtns={[
+                            { label: "Enabled", value: "true" },
+                            { label: "Disabled", value: "false" },
+                        ]}
+                        isRequired={false}
+                    />
+                </div>
+                {tds2Enabled && (
+                    <>
+                        <div className="col-sm-6 col-md-4">
+                            <RadioInput
+                                formikField="tds2Type"
+                                inputLabel="TDS 2 Type"
+                                radioBtns={[
+                                    { label: "Fixed", value: "FIXED" },
+                                    { label: "Percentage", value: "PERCENTAGE" },
+                                ]}
+                                isRequired={false}
+                            />
+                        </div>
+                        <div className="col-sm-6 col-md-4">
+                            {tds2Type === "PERCENTAGE" ? (
+                                <TextInput isRequired={false} label="TDS 2 %" formikField="tds2Percentage" />
+                            ) : (
+                                <TextInput isRequired={false} label="TDS 2 Amount" formikField="tds2Amount" formatter={formatIN} parser={parseIN} />
                             )}
                         </div>
                     </>
@@ -321,6 +377,11 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         professionalFeesType: "FIXED",
         professionalFeesAmount: "",
         professionalFeesPercentage: "",
+        // TDS2
+        tds2Enabled: "false",
+        tds2Type: "FIXED",
+        tds2Amount: "",
+        tds2Percentage: "",
         // access
         isEmployeeActive: "1",
         appRole: "",
@@ -358,6 +419,11 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     professionalFeesType: w?.professionalFeesType ?? (w as any)?.professional_fees_type ?? "FIXED",
                     professionalFeesAmount: (() => { const v = w?.professionalFeesAmount ?? (w as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
                     professionalFeesPercentage: (() => { const v = (w as any)?.professionalFeesPercentage ?? (w as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
+                    // TDS2
+                    tds2Enabled: (() => { const v = w?.tds2Enabled; return (v === true || v === 1 || v === "1" || v === "true") ? "true" : "false"; })(),
+                    tds2Type: w?.tds2Type ?? "FIXED",
+                    tds2Amount: (() => { const v = w?.tds2Amount; return v != null && v !== "" ? String(v) : ""; })(),
+                    tds2Percentage: (() => { const v = w?.tds2Percentage; return v != null && v !== "" ? String(v) : ""; })(),
                     // access
                     isEmployeeActive: w?.isActive ? "1" : "0",
                     appRole: w?.roles?.[0]?.id ?? "",
@@ -404,6 +470,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     ? { leaveAllocations: values.leaveAllocations }
                     : {}),
                 ...buildProfessionalFeesPayload(values),
+                ...buildTds2Payload(values),
             };
 
             const roleId = values.appRole || null;

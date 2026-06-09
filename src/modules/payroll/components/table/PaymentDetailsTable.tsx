@@ -24,13 +24,12 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 }) => {
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
-    const getStatusBadge = (status: string, remainingAmount?: number) => {
-        if (remainingAmount !== undefined && remainingAmount < 0) {
+    const getStatusBadge = (status: string) => {
+        const s = status.toLowerCase().trim();
+
+        if (s === 'paid extra') {
             return <Badge bg="light-info" className="text-info fw-bold px-4 py-2">Paid Extra</Badge>;
         }
-
-        const s = status.toLowerCase().trim();
-        
         if (s === 'full paid' || s === 'paid') {
             return <Badge bg="light-success" className="text-success fw-bold px-4 py-2">Full Paid</Badge>;
         }
@@ -111,11 +110,22 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                                 ? dayjs(row.displayDate).format('DD MMM YYYY') 
                                                                 : '--'}
                                                         </span>
-                                                        <Badge bg={row.paymentType === 'GOVERNMENT' ? 'light-primary' : 'light-info'} className={`${row.paymentType === 'GOVERNMENT' ? 'text-primary' : 'text-info'} fs-9 py-1 px-2`}>
-                                                            {row.paymentType}
-                                                        </Badge>
+                                                        {row.paymentType !== 'GOVERNMENT' && (
+                                                            <Badge bg="light-info" className="text-info fs-9 py-1 px-2">
+                                                                {row.paymentType}
+                                                            </Badge>
+                                                        )}
+                                                        {row.paymentType === 'GOVERNMENT' && (row as any).deductionType && (
+                                                            <Badge bg="light-warning" className="text-warning fs-9 py-1 px-2">
+                                                                {(['tds', 'professional fees', 'professional fee'].some((k: string) => String((row as any).deductionType).toLowerCase().includes(k))) ? 'TDS'
+                                                                : (['professional tax', 'ptax', 'prof. tax'].some((k: string) => String((row as any).deductionType).toLowerCase().includes(k))) ? 'PTAX'
+                                                                : (row as any).deductionType}
+                                                            </Badge>
+                                                        )}
                                                     </div>
-                                                    <span className="text-muted fw-semibold fs-7">{row.month} {row.year}</span>
+                                                    <span className="text-muted fw-semibold fs-7">
+                                                        {row.month ? dayjs(`${row.year}-${String(row.month).padStart(2, '0')}-01`).format('MMM YYYY') : '--'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
@@ -135,17 +145,23 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             </span>
                                         </td>
                                         <td className="text-end">
-                                            <span className={`fw-bold fs-6 ${sensitiveCls} ${row.calculatedRemainingAmount < 0 ? 'text-info' : 'text-danger'}`}>
-                                                {formatINRRounded(row.calculatedRemainingAmount)}
-                                            </span>
+                                            {(row.calculatedRemainingAmount || 0) < 0 ? (
+                                                <span className={`fw-bold fs-6 ${sensitiveCls} text-info`}>
+                                                    {formatINRRounded(Math.abs(row.calculatedRemainingAmount || 0))} <span className="fs-8 fw-semibold">extra</span>
+                                                </span>
+                                            ) : (
+                                                <span className={`fw-bold fs-6 ${sensitiveCls} ${(row.calculatedRemainingAmount || 0) === 0 ? 'text-success' : 'text-danger'}`}>
+                                                    {formatINRRounded(row.calculatedRemainingAmount)}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="text-center">
-                                            {getStatusBadge(row.calculatedStatus, row.calculatedRemainingAmount)}
+                                            {getStatusBadge(row.calculatedStatus)}
                                         </td>
                                         <td className="text-center">
                                             <div className="d-flex flex-column align-items-center">
                                                 <span className="text-gray-800 fw-bold fs-7">{row.transactionId || '--'}</span>
-                                                {row.remarks && (
+                                                {row.remarks && !['pt', 'tds', 'pf', 'ptax', 'esi'].includes(row.remarks.toLowerCase().trim()) && !row.remarks.toLowerCase().startsWith('gov payment:') && (
                                                     <span className="text-muted fs-8 text-truncate ms-2" style={{ maxWidth: '120px' }} title={row.remarks}>
                                                         {row.remarks}
                                                     </span>

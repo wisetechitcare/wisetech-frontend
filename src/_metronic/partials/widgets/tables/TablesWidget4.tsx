@@ -1,4 +1,4 @@
-
+﻿
 import { FC } from 'react'
 import {toAbsoluteUrl} from '../../../helpers'
 
@@ -72,7 +72,7 @@ const TablesWidget4: FC<Props> = ({className}) => {
                   <tr>
                     <td>
                       <div className='symbol symbol-50px'>
-                        <img src={toAbsoluteUrl('media/avatars/300-14.jpg')} alt='' />
+                        <img src={toAbsoluteUrl('media/svg/avatars/006-girl-3.svg')} alt='' />
                       </div>
                     </td>
                     <td>
@@ -113,7 +113,7 @@ const TablesWidget4: FC<Props> = ({className}) => {
                   <tr>
                     <td>
                       <div className='symbol symbol-50px'>
-                        <img src={toAbsoluteUrl('media/avatars/300-5.jpg')} alt='' />
+                        <img src={toAbsoluteUrl('media/svg/avatars/014-girl-7.svg')} alt='' />
                       </div>
                     </td>
                     <td>
@@ -154,7 +154,7 @@ const TablesWidget4: FC<Props> = ({className}) => {
                   <tr>
                     <td>
                       <div className='symbol symbol-50px'>
-                        <img src={toAbsoluteUrl('media/avatars/300-20.jpg')} alt='' />
+                        <img src={toAbsoluteUrl('media/svg/avatars/014-girl-7.svg')} alt='' />
                       </div>
                     </td>
                     <td>
@@ -195,7 +195,7 @@ const TablesWidget4: FC<Props> = ({className}) => {
                   <tr>
                     <td>
                       <div className='symbol symbol-50px'>
-                        <img src={toAbsoluteUrl('media/avatars/300-23.jpg')} alt='' />
+                        <img src={toAbsoluteUrl('media/svg/avatars/020-girl-11.svg')} alt='' />
                       </div>
                     </td>
                     <td>
@@ -236,7 +236,7 @@ const TablesWidget4: FC<Props> = ({className}) => {
                   <tr>
                     <td>
                       <div className='symbol symbol-50px'>
-                        <img src={toAbsoluteUrl('media/avatars/300-10.jpg')} alt='' />
+                        <img src={toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')} alt='' />
                       </div>
                     </td>
                     <td>

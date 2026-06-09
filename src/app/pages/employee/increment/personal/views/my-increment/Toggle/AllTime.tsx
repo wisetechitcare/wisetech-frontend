@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Dayjs } from 'dayjs';
-import { Box, Button, Paper, Typography } from '@mui/material';
+import { Box, Paper, Typography } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
@@ -17,15 +17,10 @@ import IncrementDetailDialog from '../components/IncrementDetailDialog';
 import AddEditIncrementDialog from '../components/AddEditIncrementDialog';
 import CareerJourneyHero from '../components/CareerJourneyHero';
 import GrowthPerYearBreakdown from '../components/GrowthPerYearBreakdown';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import WorkHistoryIcon from '@mui/icons-material/WorkHistory';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import LayersIcon from '@mui/icons-material/Layers';
-import StarIcon from '@mui/icons-material/Star';
-import AddIcon from '@mui/icons-material/Add';
 import { formatCurrencyRounded } from '@utils/currency';
 import dayjs from 'dayjs';
 
@@ -82,56 +77,6 @@ const AllTime = ({
         if (!analytics) return [];
         return [
             {
-                label: 'Current Salary',
-                value: formatCurrencyRounded(analytics.currentSalary),
-                icon: <AccountBalanceWalletIcon />,
-                tone: 'rose',
-                footer: 'Active monthly salary',
-                footerTone: 'neutral',
-                isSensitive: true,
-                showSensitiveData,
-            },
-            {
-                label: 'Joining Salary',
-                value: formatCurrencyRounded(analytics.joiningSalary),
-                icon: <StarIcon />,
-                tone: 'blue',
-                footer: 'First salary record',
-                footerTone: 'neutral',
-                isSensitive: true,
-                showSensitiveData,
-            },
-            {
-                label: 'Total Growth',
-                value: analytics.totalGrowthAmount > 0
-                    ? `+${formatCurrencyRounded(analytics.totalGrowthAmount)}`
-                    : formatCurrencyRounded(analytics.totalGrowthAmount),
-                icon: <TrendingUpIcon />,
-                tone: 'green',
-                footer: 'Since first record',
-                footerTone: analytics.totalGrowthAmount > 0 ? 'success' : 'neutral',
-                isSensitive: true,
-                showSensitiveData,
-            },
-            {
-                label: 'Growth %',
-                value: analytics.totalGrowthPercentage > 0
-                    ? `+${analytics.totalGrowthPercentage}%`
-                    : `${analytics.totalGrowthPercentage}%`,
-                icon: <AssessmentIcon />,
-                tone: 'purple',
-                footer: analytics.totalGrowthPercentage > 50
-                    ? 'Exceptional growth'
-                    : analytics.totalGrowthPercentage > 20
-                        ? 'Strong growth'
-                        : 'Moderate growth',
-                footerTone: analytics.totalGrowthPercentage > 50
-                    ? 'success'
-                    : analytics.totalGrowthPercentage > 20
-                        ? 'info'
-                        : 'neutral',
-            },
-            {
                 label: 'Total Revisions',
                 value: String(analytics.totalRevisions),
                 icon: <LayersIcon />,
@@ -178,8 +123,8 @@ const AllTime = ({
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', mt: 1.5 }}>
-            {/* ── SECTION 1: Career Hero ── */}
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            {/* ── Career Hero ── */}
             <CareerJourneyHero
                 analytics={analytics!}
                 joiningDate={employee?.dateOfJoining ? String(employee.dateOfJoining) : undefined}
@@ -187,44 +132,15 @@ const AllTime = ({
                 loading={loading || !analytics}
             />
 
-            {/* Section label */}
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Box>
-                    <Typography sx={{ color: '#0f172a', fontSize: '1.05rem', fontWeight: 800 }}>
-                        Career Compensation Overview
-                    </Typography>
-                    <Typography sx={{ color: '#94a3b8', fontSize: '0.8rem', mt: 0.2 }}>
-                        Complete salary history across all years
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => { setSelectedRecord(null); setShowEditDialog(true); }}
-                    sx={{
-                        bgcolor: '#AA393D',
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        fontSize: '0.85rem',
-                        borderRadius: '8px',
-                        boxShadow: 'none',
-                        flexShrink: 0,
-                        '&:hover': { bgcolor: '#8b2b2e', boxShadow: 'none' },
-                    }}
-                >
-                    Add Increment
-                </Button>
-            </Box>
-
-            {/* ── SECTION 2: 8 KPI Cards ── */}
+            {/* ── 4 KPI Cards (non-duplicating stats only) ── */}
             <IncrementKPISection
                 cards={buildCards()}
                 loading={loading}
-                skeletonCount={8}
+                skeletonCount={4}
                 columns={4}
             />
 
-            {/* No history state */}
+            {/* ── No history state ── */}
             {!loading && records.length === 0 && (
                 <Paper
                     elevation={0}
@@ -239,7 +155,7 @@ const AllTime = ({
                 </Paper>
             )}
 
-            {/* ── SECTION 3: Career Growth Chart + Year-by-Year Breakdown ── */}
+            {/* ── Career Growth Chart + Year-by-Year Breakdown ── */}
             {(loading || records.length > 0) && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 1.5, mb: 1.5 }}>
                     <IncrementGrowthChart
@@ -266,7 +182,7 @@ const AllTime = ({
                 </Box>
             )}
 
-            {/* ── SECTION 4: Full Audit Table + Insights + Career Timeline ── */}
+            {/* ── Full Audit Table + Insights + Career Timeline ── */}
             {!loading && records.length > 0 && (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' }, gap: 1.5 }}>
                     {/* Left: Table with year filter */}
@@ -341,12 +257,11 @@ const AllTime = ({
                 onHide={() => setShowEditDialog(false)}
                 record={selectedRecord}
                 employeeName={employeeName}
+                employeeId={employee?.id}
                 currentSalary={analytics?.currentSalary || 0}
                 onSubmit={async payload => {
                     if (selectedRecord) {
                         await incrementService.updateIncrement(employee.id, selectedRecord.id, payload);
-                    } else {
-                        await incrementService.createIncrement(employee.id, payload);
                     }
                     setShowEditDialog(false);
                     loadData();

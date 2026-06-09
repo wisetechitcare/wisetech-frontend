@@ -1,4 +1,4 @@
-
+﻿
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 
@@ -29,7 +29,7 @@ const Item1: FC = () => {
               data-bs-placement='top'
               title='Nina Nilson'
             >
-              <img src={toAbsoluteUrl('media/avatars/300-14.jpg')} alt='img' />
+              <img src={toAbsoluteUrl('media/svg/avatars/006-girl-3.svg')} alt='img' />
             </div>
           </div>
         </div>
@@ -46,11 +46,11 @@ const Item1: FC = () => {
 
             <div className='symbol-group symbol-hover flex-nowrap flex-grow-1 min-w-100px pe-2'>
               <div className='symbol symbol-circle symbol-25px'>
-                <img src={toAbsoluteUrl('media/avatars/300-2.jpg')} alt='img' />
+                <img src={toAbsoluteUrl('media/svg/avatars/004-boy-1.svg')} alt='img' />
               </div>
 
               <div className='symbol symbol-circle symbol-25px'>
-                <img src={toAbsoluteUrl('media/avatars/300-14.jpg')} alt='img' />
+                <img src={toAbsoluteUrl('media/svg/avatars/006-girl-3.svg')} alt='img' />
               </div>
 
               <div className='symbol symbol-circle symbol-25px'>
@@ -78,7 +78,7 @@ const Item1: FC = () => {
 
             <div className='symbol-group symbol-hover flex-nowrap flex-grow-1 min-w-100px'>
               <div className='symbol symbol-circle symbol-25px'>
-                <img src={toAbsoluteUrl('media/avatars/300-20.jpg')} alt='img' />
+                <img src={toAbsoluteUrl('media/svg/avatars/014-girl-7.svg')} alt='img' />
               </div>
 
               <div className='symbol symbol-circle symbol-25px'>

@@ -3,8 +3,10 @@ import { fetchAllEmployees } from "@services/employee";
 import { createSourceOfHire, fetchSrcOfHire } from "@services/options";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
+import RejoinHistory from "./RejoinHistory";
+import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
 
-function HiringInfo({ formikProps }: any) {
+function HiringInfo({ formikProps, rejoinRows = [], onAddRejoin, onRemoveRejoin }: any) {
     const [srcOfHireOptions, setSrcOfHireOptions] = useState([]);
     const [referredByOptions, setReferredByOptions] = useState([]);
     const [rerender, setRerender] = useState(false);
@@ -55,7 +57,7 @@ function HiringInfo({ formikProps }: any) {
                 </div>
             </div>
 
-            <div className="row">
+            <div className="row mb-4">
                 <div className="col-lg-4 col-md-6 col-sm-12 mb-3 mb-lg-0">
                     <DateInput
                         formikField="dateOfJoining"
@@ -76,6 +78,15 @@ function HiringInfo({ formikProps }: any) {
                         placeHolder="Date Of Exit"
                     />
                 </div>
+            </div>
+
+            <div className="ob-repeating-section">
+                {rejoinRows.map((_: any, index: number) => (
+                    <div key={`rejoinHistory-${index}`}>
+                        <RejoinHistory formikProps={formikProps} index={index} onRemove={onRemoveRejoin} />
+                    </div>
+                ))}
+                <AddAnotherBtn onClick={onAddRejoin} />
             </div>
         </>
     );

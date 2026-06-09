@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import dayjs from 'dayjs';
 import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
+import { toast } from 'react-toastify';
 import { PayrollService } from '../services/payroll.service';
 import { parseCurrencyString } from '../utils/payrollFormatters';
 
@@ -40,11 +41,13 @@ export const useSalaryReport = () => {
             if (!payment?.id) {
                 throw new Error('Missing payment id');
             }
-            if (payment?.paymentType === 'GOVERNMENT') {
-                await PayrollService.deleteGovernmentPayment(payment.id);
-            } else {
-                await PayrollService.deletePayment(payment.id);
+            // Legacy synthetic IDs cannot be deleted via API (no DB record)
+            if (String(payment.id).includes('-legacy-')) {
+                toast.warning('Legacy payment records cannot be deleted individually. Edit the salary record instead.', { position: 'bottom-right', autoClose: 5000 });
+                return;
             }
+            // The backend now checks both tables, so always call salary payment delete
+            await PayrollService.deletePayment(payment.id);
             successConfirmation('Payment deleted successfully');
             handleRefresh();
         } catch (error) {
@@ -63,7 +66,7 @@ export const useSalaryReport = () => {
     ) => {
         try {
             setLoading(true);
-            const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks } = values;
+            const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks, _netSalary, _salaryPaid, sendEmail } = values;
 
             const basePayload = {
                 id: values.id || undefined,
@@ -75,18 +78,24 @@ export const useSalaryReport = () => {
                 paymentDate: paidAt,
                 paymentMethod,
                 transactionId,
-                remarks
+                remarks,
+                skipEmail: sendEmail === false,
             };
 
             // 1. Process Salary Payment
+            let emailNotification: { sent: boolean; to: string; type: string; error?: string } | null = null;
+
             if (paymentType === 'SALARY' || paymentType === 'COMBINED') {
                 const amount = typeof salaryAmount === 'string' ? parseCurrencyString(salaryAmount) : Number(salaryAmount);
                 if (amount > 0) {
-                    await PayrollService.recordSalaryPayment({
+                    const res = await PayrollService.recordSalaryPayment({
                         ...basePayload,
                         amount: amount,
-                        paymentType: 'SALARY'
+                        paymentType: 'SALARY',
+                        netSalary:       _netSalary  ?? 0,
+                        totalPaidBefore: _salaryPaid ?? 0,
                     });
+                    emailNotification = res?.data?.emailNotification ?? null;
                 }
             }
 
@@ -108,6 +117,42 @@ export const useSalaryReport = () => {
             successConfirmation('Disbursement authorized successfully');
             setShowPaymentModal(false);
             handleRefresh(onSuccess);
+
+            // Show email notification status as a toast
+            if (emailNotification) {
+                if (emailNotification.sent) {
+                    const uniqueEmails = Array.from(new Set(emailNotification.to.split(',').map(e => e.trim())));
+                    toast.success(
+                        React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
+                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Email Sent Successfully'),
+                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Salary slip delivered to:'),
+                            React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+                                uniqueEmails.map((email, i) => 
+                                    React.createElement('div', { key: i, style: { display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' } },
+                                        React.createElement('span', { style: { marginRight: '8px', fontSize: '1.1em' } }, '✉️'),
+                                        email
+                                    )
+                                )
+                            )
+                        ),
+                        {
+                            position: 'bottom-right',
+                            autoClose: 6000,
+                            style: {
+                                borderRadius: '12px',
+                                padding: '16px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    );
+                } else {
+                    toast.warning(
+                        `📧 Email not sent${emailNotification.error ? ` — ${emailNotification.error}` : ''}`,
+                        { position: 'bottom-right', autoClose: 6000 }
+                    );
+                }
+            }
         } catch (error) {
             console.error("Disbursement authorization error:", error);
             errorConfirmation('Authorization failed. Please check transaction logs.');
@@ -130,7 +175,7 @@ export const useSalaryReport = () => {
                 paidAt: selectedPayment.displayDate ? dayjs(selectedPayment.displayDate).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
                 paymentMethod: selectedPayment.paymentMethod || 'BANK_TRANSFER',
                 transactionId: selectedPayment.transactionId || '',
-                remarks: selectedPayment.remarks || ''
+                remarks: ''
             };
         }
         return {

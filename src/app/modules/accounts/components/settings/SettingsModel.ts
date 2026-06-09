@@ -1,4 +1,4 @@
-export interface IProfileDetails {
+﻿export interface IProfileDetails {
   avatar: string;
   fName: string;
   lName: string;
@@ -71,7 +71,7 @@ export interface IDeactivateAccount {
 }
 
 export const profileDetailsInitValues: IProfileDetails = {
-  avatar: "media/avatars/300-1.jpg",
+  avatar: "media/svg/avatars/001-boy.svg",
   fName: "Max",
   lName: "Smith",
   company: "Keenthemes",

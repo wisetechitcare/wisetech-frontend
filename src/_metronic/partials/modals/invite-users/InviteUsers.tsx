@@ -1,11 +1,11 @@
-
+﻿
 import React, {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 
 const InviteUsers: FC = () => {
   const users = [
     {
-      avatar: 'media/avatars/300-6.jpg',
+      avatar: 'media/svg/avatars/018-girl-9.svg',
       name: 'Emma Smith',
       email: 'e.smith@kpmg.com.au',
       access: '1',
@@ -17,19 +17,19 @@ const InviteUsers: FC = () => {
       access: '1',
     },
     {
-      avatar: 'media/avatars/300-1.jpg',
+      avatar: 'media/svg/avatars/001-boy.svg',
       name: 'Max Smith',
       email: 'max@kt.com',
       access: '3',
     },
     {
-      avatar: 'media/avatars/300-1.jpg',
+      avatar: 'media/svg/avatars/001-boy.svg',
       name: 'Sean Bean',
       email: 'sean@dellito.com',
       access: '2',
     },
     {
-      avatar: 'media/avatars/300-25.jpg',
+      avatar: 'media/svg/avatars/029-boy-11.svg',
       name: 'Brian Cox',
       email: 'brian@exchange.com',
       access: '3',
@@ -41,7 +41,7 @@ const InviteUsers: FC = () => {
       access: '2',
     },
     {
-      avatar: 'media/avatars/300-9.jpg',
+      avatar: 'media/svg/avatars/029-boy-11.svg',
       name: 'Francis Mitcham',
       email: 'f.mitcham@kpmg.com.au',
       access: '3',
@@ -59,7 +59,7 @@ const InviteUsers: FC = () => {
       access: '1',
     },
     {
-      avatar: 'media/avatars/300-23.jpg',
+      avatar: 'media/svg/avatars/020-girl-11.svg',
       name: 'Dan Wilson',
       email: 'dam@consilting.com',
       access: '3',
@@ -71,7 +71,7 @@ const InviteUsers: FC = () => {
       access: '2',
     },
     {
-      avatar: 'media/avatars/300-12.jpg',
+      avatar: 'media/svg/avatars/001-boy.svg',
       name: 'Ana Crown',
       email: 'ana.cf@limtel.com',
       access: '1',
@@ -83,7 +83,7 @@ const InviteUsers: FC = () => {
       access: '3',
     },
     {
-      avatar: 'media/avatars/300-13.jpg',
+      avatar: 'media/svg/avatars/004-boy-1.svg',
       name: 'John Miller',
       email: 'miller@mapple.com',
       access: '3',
@@ -95,13 +95,13 @@ const InviteUsers: FC = () => {
       access: '2',
     },
     {
-      avatar: 'media/avatars/300-21.jpg',
+      avatar: 'media/svg/avatars/018-girl-9.svg',
       name: 'Ethan Wilder',
       email: 'ethan@loop.com.au',
       access: '1',
     },
     {
-      avatar: 'media/avatars/300-12.jpg',
+      avatar: 'media/svg/avatars/001-boy.svg',
       name: 'Ana Crown',
       email: 'ana.cf@limtel.com',
       access: '3',

@@ -59,6 +59,19 @@ export interface Employee {
     roles: any[],
     hourlySalary?: number,
     allowOverTime: boolean,
+    professionalFeesEnabled?: boolean | null,
+    professionalFeesType?: string | null,
+    professionalFeesAmount?: number | null,
+    professionalFeesPercentage?: number | null,
+    EmployeeRejoinHistory?: Array<{
+        id: string;
+        employeeId: string;
+        dateOfReJoining: string | null;
+        dateOfReExit: string | null;
+        reason: string | null;
+        createdAt: string;
+        updatedAt: string;
+    }>;
 }
 
 interface EmployeeState {

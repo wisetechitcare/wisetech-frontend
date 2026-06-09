@@ -166,7 +166,7 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
         )}
         <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }} className={sensitiveCls}>
           {typeof computedNetPayable === 'number'
-            ? `₹${computedNetPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            ? `₹${Math.round(computedNetPayable).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
             : (String(computedNetPayable).includes('₹') ? computedNetPayable : `₹${computedNetPayable}`)}
         </Typography>
       </Box>
