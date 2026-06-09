@@ -541,7 +541,7 @@ function Reimbursement() {
                   className="d-flex flex-column"
                   noValidate
                   id="employee_reimbursement_form"
-                  placeholder={undefined}
+                  // placeholder={undefined}
                 >
                   {/* Row 1: Date */}
                   <div className="row">
