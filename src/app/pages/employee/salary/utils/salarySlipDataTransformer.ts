@@ -91,11 +91,15 @@ export function transformApiDataToSalarySlipProps(
   // TypeScript now knows apiData is not null due to validation
   const validApiData = apiData as ApiSalaryData;
 
-  // Format currency helper - removes currency symbol and formats as string
-  const formatCurrency = (value: number | string): string => {
-    const numValue = typeof value === 'string' ? 
-      parseFloat(value.replace(/[₹,]/g, '')) : value;
-    
+  // Format currency helper - removes currency symbol and formats as string.
+  // Null/undefined/NaN values (e.g. an unset salary component) fall back to 0
+  // instead of throwing "Cannot read property 'toFixed' of null".
+  const formatCurrency = (value: number | string | null | undefined): string => {
+    const parsed = typeof value === 'string'
+      ? parseFloat(value.replace(/[₹,]/g, ''))
+      : value;
+    const numValue = (parsed === null || parsed === undefined || Number.isNaN(parsed)) ? 0 : parsed;
+
     // Return formatted number with commas but without currency symbol
     return numValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };

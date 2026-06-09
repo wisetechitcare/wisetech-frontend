@@ -89,7 +89,7 @@ function BranchRow({ branch, org, depth, onSelect, onViewEmployees }: { branch: 
     <div
       className="org-tree__row org-tree__row--branch"
       onClick={() => onSelect?.(branch, org)}
-      style={{ marginLeft: depth * 26, ['--row-pad' as any]: '8px 12px' }}
+      style={{ marginLeft: `calc(var(--ot-indent, 26px) * ${depth})`, ['--row-pad' as any]: '8px 12px' }}
     >
       <div className="org-tree__connector" />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: C.branchBg, border: `1px solid ${C.line}`, flex: 1, cursor: onSelect ? 'pointer' : 'default', transition: 'all .15s ease' }}>
@@ -126,7 +126,7 @@ function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth, forceExpand }:
   const isOpen = forceExpand || open;
 
   return (
-    <div style={{ marginLeft: depth === 0 ? 0 : 26 }}>
+    <div style={{ marginLeft: depth === 0 ? 0 : 'var(--ot-indent, 26px)' }}>
       <div className="org-tree__row" style={{ position: 'relative' }}>
         {depth > 0 && <div className="org-tree__connector" />}
         <div
@@ -200,6 +200,7 @@ function OrgNodeRow({ org, depth, handlers, defaultExpandedDepth, forceExpand }:
 export default function OrgTree({ organizations, defaultExpandedDepth = 1, forceExpand, emptyLabel = 'No organizations yet.', ...handlers }: OrgTreeProps) {
   const styleTag = useMemo(() => (
     `
+    .org-tree-root { --ot-indent: 26px; }
     .org-tree__row { position: relative; display: flex; align-items: center; margin-bottom: 8px; }
     .org-tree__card:hover { border-color: ${C.brandBorder} !important; box-shadow: 0 6px 18px rgba(157,65,65,.10); transform: translateY(-1px); }
     .org-tree__row--branch > div:hover { border-color: #C9DBF1 !important; box-shadow: 0 4px 12px rgba(59,111,176,.10); }
@@ -208,10 +209,18 @@ export default function OrgTree({ organizations, defaultExpandedDepth = 1, force
     .org-tree__action:hover { border-color: ${C.brand} !important; color: ${C.brand} !important; background: ${C.brandSoft} !important; }
     .org-tree__action:hover[title^="Delete"] { border-color: #E78A8A !important; color: #D14343 !important; background: #FFF1F1 !important; }
     .org-tree__emp-badge:hover { background: #DCE9FA !important; border-color: #B9D2F0 !important; box-shadow: 0 2px 6px rgba(59,111,176,.18); }
-    .org-tree__connector { position: absolute; left: -14px; top: 50%; width: 14px; height: 2px; background: ${C.line}; }
+    .org-tree__connector { position: absolute; left: calc(var(--ot-indent, 26px) * -0.54); top: 50%; width: calc(var(--ot-indent, 26px) * 0.54); height: 2px; background: ${C.line}; }
     .org-tree__branch-strip { position: relative; }
     .org-tree__branch-strip::before { content: ''; position: absolute; left: 11px; top: 0; bottom: 16px; width: 2px; background: ${C.line}; }
-    @media (max-width: 640px) { .org-tree__badges { display: none !important; } .org-tree__actions { opacity: 1 !important; transform: none !important; } }
+    @media (max-width: 640px) {
+      .org-tree-root { --ot-indent: 14px; }
+      .org-tree__badges { display: none !important; }
+      .org-tree__actions { opacity: 1 !important; transform: none !important; }
+      /* Tighten action buttons so deep nodes fit on small screens */
+      .org-tree__action { width: 26px !important; height: 26px !important; }
+      .org-tree__card { padding: 9px 10px !important; gap: 8px !important; }
+    }
+    @media (max-width: 400px) { .org-tree-root { --ot-indent: 10px; } }
     `
   ), []);
 
@@ -226,7 +235,7 @@ export default function OrgTree({ organizations, defaultExpandedDepth = 1, force
   }
 
   return (
-    <div>
+    <div className="org-tree-root">
       <style>{styleTag}</style>
       {organizations.map(org => (
         <OrgNodeRow key={org.id} org={org} depth={0} handlers={handlers} defaultExpandedDepth={defaultExpandedDepth} forceExpand={forceExpand} />

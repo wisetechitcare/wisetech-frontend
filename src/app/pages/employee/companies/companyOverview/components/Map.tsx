@@ -989,6 +989,8 @@ export default function Maps({
   const isProject = !companyData && !contactData;
   const currentData = contactData || companyData || projectData || [];
   const displayTitle = isContact ? "Contact by Location" : isCompany ? "Company by Location" : "Project by Location";
+  // Entity word drives the search placeholder / empty-state copy across all three maps.
+  const entityWord = isContact ? "contact" : isCompany ? "company" : "project";
 
   const worldCount = useMemo(() => {
     return locations.filter(loc => loc.country !== "India" && loc.country !== "Unknown").length;
@@ -1255,6 +1257,71 @@ export default function Maps({
     }
   }, [searchResults, searchFocusIndex, handleSearchSelect]);
 
+  // Shared search box — same behaviour for projects, companies and contacts.
+  // Rendered inside the project filter bar AND the company/contact header so the
+  // search works everywhere. Only one instance mounts at a time (isProject toggle),
+  // so the single searchRef stays valid.
+  const renderMapSearch = () => (
+    <div className="map-search-wrapper" ref={searchRef}>
+      <div className="map-search-row">
+        <i className="bi bi-search" style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0 }} />
+        <input
+          type="text"
+          className="map-search-input"
+          placeholder={`Search ${entityWord}...`}
+          value={searchQuery}
+          autoComplete="off"
+          onChange={e => { setSearchQuery(e.target.value); setIsSearchOpen(true); setSearchFocusIndex(-1); }}
+          onFocus={() => { if (searchQuery.trim()) setIsSearchOpen(true); }}
+          onKeyDown={handleSearchKeyDown}
+          aria-label={`Search ${entityWord}s`}
+          aria-autocomplete="list"
+          aria-expanded={isSearchOpen}
+        />
+        {searchQuery && (
+          <button
+            className="map-search-clear"
+            onMouseDown={e => { e.preventDefault(); setSearchQuery(''); setIsSearchOpen(false); setSearchFocusIndex(-1); }}
+            aria-label="Clear search"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {isSearchOpen && searchQuery.trim() && (
+        <div className="map-search-dropdown" role="listbox">
+          {searchResults.length === 0 ? (
+            <div className="map-search-empty">No {entityWord}s found for "{searchQuery}"</div>
+          ) : (
+            searchResults.map((loc, idx) => {
+              const sub = [
+                loc.item?.code,
+                loc.item?.companyName || loc.item?.client,
+                loc.city,
+                loc.country !== 'Unknown' ? loc.country : null
+              ].filter(Boolean).join(' · ');
+              return (
+                <div
+                  key={String(loc.id || loc.projectId || idx)}
+                  className={`map-search-item${idx === searchFocusIndex ? ' focused' : ''}`}
+                  role="option"
+                  aria-selected={idx === searchFocusIndex}
+                  onMouseDown={e => { e.preventDefault(); handleSearchSelect(loc); }}
+                >
+                  <div className="map-search-item-name">
+                    {highlightMatch(loc.name || 'Unnamed', searchQuery)}
+                  </div>
+                  {sub && <div className="map-search-item-sub">{sub}</div>}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="map-outer-wrapper" style={{ height: "calc(100vh - 160px)", minHeight: "560px", fontFamily: "Inter, sans-serif", position: "relative", overflow: "hidden" }}>
       <style>{`
@@ -1277,8 +1344,9 @@ export default function Maps({
         /* Leaflet background while tiles load — matches CartoDB Voyager ocean colour */
         .leaflet-container { background: #d4e8f2 !important; }
 
-        /* ── Mobile: full-width bar, filter button + search only ── */
-        @media (max-width: 768px) {
+        /* ── Small / medium screens: full-width bar, filter button + search only.
+           Collapse early (≤992px) so the cascading dropdowns never overlap. ── */
+        @media (max-width: 992px) {
           .floating-filter-bar {
             /* Override centered positioning — pin edge-to-edge instead */
             left: 10px !important;
@@ -1514,7 +1582,12 @@ export default function Maps({
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
           border: 1px solid #e2e8f0;
           min-height: 48px;
-          max-width: calc(100% - 32px);
+          /* The map wrapper bleeds 7rem past the visible area (negative margins), and the
+             layers control sits top-right — so reserve 15rem of horizontal room. Otherwise
+             the bar grows wider than what's on screen, the pills don't trigger their scroll,
+             and they crowd the search. On wide screens the bar is still auto-width/centered;
+             this cap only engages when space is tight, switching the pills to scroll. */
+          max-width: calc(100% - 15rem);
           /* No overflow here — let filter-pills-scroll handle it so search dropdown is never clipped */
         }
 
@@ -1524,11 +1597,16 @@ export default function Maps({
           align-items: center;
           gap: 6px;
           overflow-x: auto;
-          scrollbar-width: none;
+          /* Thin visible scrollbar so users can tell the pills scroll when space is tight */
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
           flex: 1 1 auto;
           min-width: 0;
         }
-        .filter-pills-scroll::-webkit-scrollbar { display: none; }
+        .filter-pills-scroll::-webkit-scrollbar { height: 4px; }
+        .filter-pills-scroll::-webkit-scrollbar-track { background: transparent; }
+        .filter-pills-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+        .filter-pills-scroll:hover::-webkit-scrollbar-thumb { background: #94a3b8; }
 
         /* Fixed search section — sits outside the overflow container so dropdown is never clipped */
         .filter-search-area {
@@ -1740,6 +1818,50 @@ export default function Maps({
           color: #94a3b8;
         }
 
+        /* ── Company / Contact map header (title + search) ──────────────── */
+        .entity-map-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0.75rem 1.5rem;
+          background-color: #f8f9fa;
+          border-bottom: 1px solid #e9ecef;
+          min-height: 4.5rem;
+        }
+        .entity-map-title {
+          font-weight: 600;
+          font-size: 1.5rem;
+          color: #2c3e50;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          min-width: 0;
+        }
+        .entity-map-search { flex-shrink: 0; }
+        .entity-map-search .map-search-wrapper { width: 260px; }
+
+        /* Map height: project map fills the wrapper; entity maps leave room for the header. */
+        .map-leaflet--project { height: 100%; }
+        .map-leaflet--entity { height: calc(100% - 4.5rem); }
+        @media (max-width: 640px) {
+          .map-leaflet--entity { height: calc(100% - 7rem); }
+        }
+        /* Anchor the dropdown to the search box's right edge on these maps */
+        .entity-map-search .map-search-dropdown { right: 0; left: auto; }
+
+        @media (max-width: 640px) {
+          .entity-map-header {
+            flex-wrap: wrap;
+            align-items: stretch;
+            padding: 0.6rem 1rem;
+            min-height: 7rem;
+          }
+          .entity-map-title { font-size: 1.15rem; width: 100%; }
+          .entity-map-search { width: 100%; }
+          .entity-map-search .map-search-wrapper { width: 100%; }
+        }
+
         @keyframes search-marker-bounce-pulse {
           0% { transform: translateY(0) scale(1); }
           30% { transform: translateY(-12px) scale(1.1); }
@@ -1752,7 +1874,7 @@ export default function Maps({
         }
 
         /* ── Mobile label panel shift ───────────────────────────────── */
-        @media (max-width: 768px) {
+        @media (max-width: 992px) {
           .map-control-panel { top: 80px !important; }
         }
 
@@ -2213,64 +2335,7 @@ export default function Maps({
 
           {/* Search — outside pills scroll so dropdown is never clipped */}
           <div className="filter-search-area">
-            <div className="map-search-wrapper" ref={searchRef}>
-              <div className="map-search-row">
-                <i className="bi bi-search" style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0 }} />
-                <input
-                  type="text"
-                  className="map-search-input"
-                  placeholder="Search project..."
-                  value={searchQuery}
-                  autoComplete="off"
-                  onChange={e => { setSearchQuery(e.target.value); setIsSearchOpen(true); setSearchFocusIndex(-1); }}
-                  onFocus={() => { if (searchQuery.trim()) setIsSearchOpen(true); }}
-                  onKeyDown={handleSearchKeyDown}
-                  aria-label="Search projects"
-                  aria-autocomplete="list"
-                  aria-expanded={isSearchOpen}
-                />
-                {searchQuery && (
-                  <button
-                    className="map-search-clear"
-                    onMouseDown={e => { e.preventDefault(); setSearchQuery(''); setIsSearchOpen(false); setSearchFocusIndex(-1); }}
-                    aria-label="Clear search"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              {isSearchOpen && searchQuery.trim() && (
-                <div className="map-search-dropdown" role="listbox">
-                  {searchResults.length === 0 ? (
-                    <div className="map-search-empty">No projects found for "{searchQuery}"</div>
-                  ) : (
-                    searchResults.map((loc, idx) => {
-                      const sub = [
-                        loc.item?.code,
-                        loc.item?.companyName || loc.item?.client,
-                        loc.city,
-                        loc.country !== 'Unknown' ? loc.country : null
-                      ].filter(Boolean).join(' · ');
-                      return (
-                        <div
-                          key={String(loc.id || loc.projectId || idx)}
-                          className={`map-search-item${idx === searchFocusIndex ? ' focused' : ''}`}
-                          role="option"
-                          aria-selected={idx === searchFocusIndex}
-                          onMouseDown={e => { e.preventDefault(); handleSearchSelect(loc); }}
-                        >
-                          <div className="map-search-item-name">
-                            {highlightMatch(loc.name || 'Unnamed', searchQuery)}
-                          </div>
-                          {sub && <div className="map-search-item-sub">{sub}</div>}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
+            {renderMapSearch()}
           </div>
 
         </div>
@@ -2404,10 +2469,13 @@ export default function Maps({
         </div>
       )}
 
-      {/* Legacy Header (Only for non-projects) */}
+      {/* Header for company / contact maps — title + working, responsive search */}
       {!isProject && (
-        <div style={{ padding: "1rem 1.5rem", backgroundColor: "#f8f9fa", borderBottom: "1px solid #e9ecef" }}>
-          <div style={{ fontWeight: 600, fontSize: "1.75rem", color: "#2c3e50" }}>{displayTitle}</div>
+        <div className="entity-map-header">
+          <div className="entity-map-title">{displayTitle}</div>
+          <div className="entity-map-search">
+            {renderMapSearch()}
+          </div>
         </div>
       )}
 
@@ -2418,7 +2486,8 @@ export default function Maps({
         maxBounds={WORLD_PAN_BOUNDS}
         maxBoundsViscosity={0.65}
         worldCopyJump={true}
-        style={{ height: isProject ? "100%" : "calc(100% - 4.5rem)", width: "100%", minHeight: "500px" }}
+        className={isProject ? "map-leaflet--project" : "map-leaflet--entity"}
+        style={{ width: "100%", minHeight: "500px" }}
         zoomControl={false}
       >
         <TileLayer
