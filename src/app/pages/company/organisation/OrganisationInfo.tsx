@@ -1,23 +1,101 @@
 
 import React, { useState, useEffect } from 'react';
 import { KTCard } from '@metronic/helpers';
-import { fetchCompanyOverview, fetchCompanyLogo } from '@services/company';
+import { fetchCompanyOverview, fetchCompanyLogo, fetchOrganizationById } from '@services/company';
+import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { ICompanyOverview } from "@models/company";
-import { BlobProvider } from '@react-pdf/renderer';
+import { resolveFormSchema } from './formSchema';
+import { pdf } from '@react-pdf/renderer';
 import OrganizationTemplate from './OrganisationReportTemplet';
 import { useEventBus } from '@hooks/useEventBus';
+import { errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 
 interface OrganisationInfoProps {
     onEditClick?: () => void;
+    /** When provided, show this specific organization instead of the default one. */
+    organizationId?: string;
+    /** When provided, renders a back button inline with the title. */
+    onBack?: () => void;
+    /** When provided, renders a "Branches" button beside Download PDF. */
+    onBranchesClick?: () => void;
 }
 
-const OrganisationInfo: React.FC<OrganisationInfoProps> = ({ onEditClick }) => {
+const OrganisationInfo: React.FC<OrganisationInfoProps> = ({ onEditClick, organizationId, onBack, onBranchesClick }) => {
     const [companyData, setCompanyData] = useState<ICompanyOverview | null>(null);
     const [logoUrl, setLogoUrl] = useState('');
     const [stampUrl, setStampUrl] = useState('');
     const [loading, setLoading] = useState(true);
+    const [pdfGenerating, setPdfGenerating] = useState(false);
+
+    // Build the PDF and trigger a download on demand. Generating the document is
+    // expensive (react-pdf lays out the whole template and fetches remote logo/
+    // stamp images), so we do it only when the user clicks — never on page open.
+    const handleDownloadPdf = async () => {
+        if (!companyData) return;
+        try {
+            setPdfGenerating(true);
+            const doc = (
+                <OrganizationTemplate organizationData={{
+                    companyName: companyData?.name || 'Company Name',
+                    address: {
+                        street: companyData?.address || '',
+                        city: '',
+                        state: '',
+                        pincode: '',
+                        country: 'India',
+                    },
+                    companyURL: companyData?.websiteUrl || '',
+                    numberOfEmployees: companyData?.numberOfEmployees || '',
+                    additionalplacesofbusiness: companyData?.additionalplacesofbusiness || '',
+                    contact: {
+                        phone: companyData?.contactNumber || '',
+                        email: companyData?.superAdminEmail || '',
+                        website: companyData?.websiteUrl || ''
+                    },
+                    registration: {
+                        gstNumber: companyData?.gstNumber || '',
+                        panNumber: companyData?.panNo || '',
+                        cinNumber: companyData?.certificateOfIncorporation || '',
+                        incorporationDate: companyData?.foundedIn || '',
+                        tanNumber: companyData?.tanNo || '',
+                        ptecCertificate: companyData?.ptecCertificate || '',
+                        hsnSacNo: companyData?.hsnSacNo || '',
+                    },
+                    banking: {
+                        beneficiaryName: companyData?.beneficiaryName || '',
+                        bankName: companyData?.bankNameAndAddress || '',
+                        accountNumber: companyData?.accountNo || '',
+                        ifscCode: companyData?.ifscCode || '',
+                        micrCode: companyData?.micrCode || '',
+                        bankAddress: companyData?.bankNameAndAddress || '',
+                        contactPerson: companyData?.contactPerson || '',
+                        accountant: companyData?.accountantNo || '',
+                    },
+                    authorizedSignatory: {
+                        name: companyData?.name || '',
+                    },
+                    logoUrl: companyData?.logo,
+                    stampUrl: companyData?.salaryStamp
+                }} />
+            );
+            const blob = await pdf(doc).toBlob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${companyData?.name || 'organization'}_profile.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to generate PDF', error);
+            errorConfirmation('Failed to generate PDF');
+        } finally {
+            setPdfGenerating(false);
+        }
+    };
 
     const handleWhatsAppShare = () => {
         console.log('Share button clicked!', companyData);
@@ -63,14 +141,25 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     const fetchData = async () => {
         try {
             setLoading(true);
-            const { data: { companyOverview } } = await fetchCompanyOverview();
-            if (companyOverview[0]) {
-                setCompanyData(companyOverview[0]);
+            if (organizationId) {
+                // Specific organization (clicked from the Organizations tree)
+                const { data: { companyOverview } } = await fetchOrganizationById(organizationId);
+                const org = companyOverview?.[0];
+                if (org) {
+                    setCompanyData(org);
+                    setLogoUrl(org.logo);
+                    setStampUrl(org.salaryStamp);
+                }
+            } else {
+                // Default / active organization (today's behavior)
+                const { data: { companyOverview } } = await fetchCompanyOverview();
+                if (companyOverview[0]) {
+                    setCompanyData(companyOverview[0]);
+                }
+                const logoData = await fetchCompanyLogo();
+                setLogoUrl(logoData?.data?.logo);
+                setStampUrl(logoData?.data?.salaryStamp);
             }
-
-            const logoData = await fetchCompanyLogo();
-            setLogoUrl(logoData?.data?.logo);
-            setStampUrl(logoData?.data?.salaryStamp);
         } catch (error) {
             console.error('Failed to fetch company details', error);
         } finally {
@@ -80,7 +169,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [organizationId]);
 
     // Listen for organization profile updates
     useEventBus('organisationProfileUpdated', () => {
@@ -105,102 +194,100 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
         );
     }
 
+    // ─── Schema-driven info rendering ───────────────────────────────────────────
+    // The info page renders from the SAME `sectionConfig` the edit form uses
+    // (resolveFormSchema), so any section/field added, renamed, reordered or hidden
+    // in "Manage Form Fields" reflects here automatically. `showOnInfoPage` (default
+    // true) lets admins curate what appears without affecting the edit form.
+    const infoSections = resolveFormSchema(companyData).filter(s => s.showOnInfoPage !== false);
+
+    const SECTION_ICONS: Record<string, string> = {
+        basic_info: 'bi-briefcase', govt: 'bi-file-earmark-text', admin: 'bi-patch-check',
+        tax: 'bi-receipt', bank: 'bi-bank',
+    };
+    const sectionIcon = (id: string) => SECTION_ICONS[id] || 'bi-card-text';
+    // Section titles are stored UPPERCASE in the schema; show them in Title Case here.
+    const titleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
+    const renderFieldValue = (f: any) => {
+        const raw = f.isSystem ? (companyData as any)[f.id] : f.value;
+        const val = (raw ?? '').toString().trim();
+        if (!val) return '-NA-';
+        const isUrl = /^https?:\/\//i.test(val);
+        if (f.id === 'websiteUrl' || (f.type === 'file' && isUrl)) {
+            return (
+                <a href={val} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-break" style={{ color: '#9d4141' }}>
+                    {f.type === 'file' ? 'View' : val}
+                </a>
+            );
+        }
+        return val;
+    };
+
     return (
         <div className="px-3 px-lg-4 py-3 py-lg-4" style={{ backgroundColor: '#f7f9fc' }}>
             {/* Header */}
             <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3 gap-3">
-                <h3 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>
-                    Organization Info
-                </h3>
+                <div className="d-flex align-items-center gap-2 gap-md-3">
+                    {onBack && (
+                        <button
+                            type="button"
+                            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm flex-shrink-0"
+                            onClick={onBack}
+                            title="Back to Organizations"
+                        >
+                            <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '22px', height: '22px', cursor: 'pointer' }} />
+                        </button>
+                    )}
+                    <h3 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>
+                        Organization Info
+                    </h3>
+                </div>
                 <div className="d-flex flex-wrap gap-2 w-100 w-sm-auto">
-                    {/* PDF Download Button */}
-                    <BlobProvider
-                        document={
-                            <OrganizationTemplate organizationData={{
-                                companyName: companyData?.name || 'Company Name',
-                                address: {
-                                    street: companyData?.address || '',
-                                    city: '',
-                                    state: '',
-                                    pincode: '',
-                                    country: 'India',
-                                },
-                                companyURL: companyData?.websiteUrl || '',
-                                numberOfEmployees: companyData?.numberOfEmployees || '',
-                                additionalplacesofbusiness: companyData?.additionalplacesofbusiness || '',
-                                contact: {
-                                    phone: companyData?.contactNumber || '',
-                                    email: companyData?.superAdminEmail || '',
-                                    website: companyData?.websiteUrl || ''
-                                },
-                                registration: {
-                                    gstNumber: companyData?.gstNumber || '',
-                                    panNumber: companyData?.panNo || '',
-                                    cinNumber: companyData?.certificateOfIncorporation || '',
-                                    incorporationDate: companyData?.foundedIn || '',
-                                    tanNumber: companyData?.tanNo || '',
-                                    ptecCertificate: companyData?.ptecCertificate || '',
-                                    hsnSacNo: companyData?.hsnSacNo || '',
-                                },
-                                banking: {
-                                    beneficiaryName: companyData?.beneficiaryName || '',
-                                    bankName: companyData?.bankNameAndAddress || '',
-                                    accountNumber: companyData?.accountNo || '',
-                                    ifscCode: companyData?.ifscCode || '',
-                                    micrCode: companyData?.micrCode || '',
-                                    bankAddress: companyData?.bankNameAndAddress || '',
-                                    contactPerson: companyData?.contactPerson || '',
-                                    accountant: companyData?.accountantNo || '',
-                                },
-                                authorizedSignatory: {
-                                    name: companyData?.name || '',
-                                },
-                                logoUrl: companyData?.logo,
-                                stampUrl: companyData?.salaryStamp
-                            }} />
-                        }
+                    {onBranchesClick && (
+                        <button
+                            type="button"
+                            className="btn btn-primary flex-grow-1 flex-sm-grow-0"
+                            style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}
+                            onClick={onBranchesClick}
+                        >
+                            <i className="bi bi-geo-alt me-2"></i>
+                            <span className="d-none d-sm-inline">Branches</span>
+                            <span className="d-inline d-sm-none">Branch</span>
+                        </button>
+                    )}
+                    {/* Share the organization's contact details over WhatsApp */}
+                    <button
+                        type="button"
+                        onClick={handleWhatsAppShare}
+                        className="btn flex-grow-1 flex-sm-grow-0 d-flex align-items-center justify-content-center"
+                        style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: 'white', fontSize: 'clamp(12px, 2.5vw, 14px)', gap: '8px' }}
                     >
-                        {({ blob, url, loading, error }: {
-                            blob: Blob | null;
-                            url: string | null;
-                            loading: boolean;
-                            error: Error | null
-                        }) => {
-                            if (loading) {
-                                return (
-                                    <button type="button" className="btn btn-primary" disabled>
-                                        <span className="spinner-border spinner-border-sm me-2"></span>
-                                        Generating...
-                                    </button>
-                                );
-                            }
-
-                            if (error) {
-                                return (
-                                    <button type="button" className="btn btn-danger" disabled>
-                                        Error
-                                    </button>
-                                );
-                            }
-
-                            if (blob && url) {
-                                return (
-                                    <a
-                                        href={url}
-                                        download={`${companyData?.name || 'organization'}_profile.pdf`}
-                                        className="btn btn-primary flex-grow-1 flex-sm-grow-0"
-                                        style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}
-                                    >
-                                        <i className="bi bi-download me-2"></i>
-                                        <span className="d-none d-sm-inline">Download PDF</span>
-                                        <span className="d-inline d-sm-none">PDF</span>
-                                    </a>
-                                );
-                            }
-
-                            return null;
-                        }}
-                    </BlobProvider>
+                        <i className="bi bi-whatsapp"></i>
+                        <span>Share</span>
+                    </button>
+                    {/* PDF Download Button — generates on demand (see handleDownloadPdf) */}
+                    <button
+                        type="button"
+                        className="btn btn-primary flex-grow-1 flex-sm-grow-0"
+                        style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}
+                        onClick={handleDownloadPdf}
+                        disabled={pdfGenerating}
+                    >
+                        {pdfGenerating ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm me-2"></span>
+                                <span className="d-none d-sm-inline">Generating...</span>
+                                <span className="d-inline d-sm-none">PDF</span>
+                            </>
+                        ) : (
+                            <>
+                                <i className="bi bi-download me-2"></i>
+                                <span className="d-none d-sm-inline">Download PDF</span>
+                                <span className="d-inline d-sm-none">PDF</span>
+                            </>
+                        )}
+                    </button>
 
                     {onEditClick && hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.editOthers) && (
                         <button
@@ -251,245 +338,39 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                     </KTCard>
                 </div>
 
-                {/* Overview Card */}
-                <div className="col-12 col-lg-6">
-                    <KTCard className="shadow-sm h-100">
-                        <div className="d-flex flex-column" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
-                            <div className="d-flex align-items-center gap-2">
-                                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                    <i className="bi bi-briefcase fs-2 text-primary"></i>
-                                </div>
-                                <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
-                                    Overview
-                                </h5>
-                            </div>
-
-                            <div className="d-flex flex-column" style={{ gap: '8px' }}>
-                                <div className="d-flex justify-content-between align-items-center gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Founded in</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.foundedIn || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex justify-content-between align-items-center gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Business Type</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.businessType || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex justify-content-between align-items-center gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Founder</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.founder || '-NA-'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </KTCard>
-                </div>
-            </div>
-
-            {/* Second Row - Contact, Bank & Credentials */}
-            <div className="row g-3">
-                {/* Contact Details Card - Left side full height */}
-                <div className="col-12 col-lg-6">
-                    <KTCard className="shadow-sm h-100">
-                        <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
-                            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
-                                <div className="d-flex align-items-center gap-2">
-                                    <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                        <i className="bi bi-telephone fs-2 text-info"></i>
-                                    </div>
-                                    <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
-                                        Contact Details
-                                    </h5>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        console.log('Button clicked directly!');
-                                        handleWhatsAppShare();
-                                    }}
-                                    className="btn btn-success d-flex align-items-center w-100 w-sm-auto justify-content-center"
-                                    style={{
-                                        backgroundColor: '#25D366',
-                                        borderColor: '#25D366',
-                                        color: 'white',
-                                        padding: '8px 16px',
-                                        fontSize: 'clamp(12px, 2.5vw, 14px)',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <i className="bi bi-whatsapp"></i>
-                                    <span>Share</span>
-                                </button>
-                            </div>
-
-                            <div className="d-flex flex-column gap-4">
-                                {/* Primary Contact Section */}
-                                <div className="d-flex flex-column gap-3">
-                                    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                        <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Website</span>
-                                        <a href={companyData.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-break" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: '#9d4141' }}>
-                                            {companyData.websiteUrl || '-NA-'}
-                                        </a>
+                {/* Dynamic sections — rendered from the shared form schema so the info
+                    page always mirrors the edit form (see infoSections above). */}
+                {infoSections.map(sec => {
+                    const fields = sec.fields.filter((f: any) => !f.hidden && f.showOnInfoPage !== false);
+                    if (!fields.length) return null;
+                    return (
+                        <div className="col-12 col-lg-6" key={sec.id}>
+                            <KTCard className="shadow-sm h-100">
+                                <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
+                                    <div className="d-flex align-items-center gap-2">
+                                        <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
+                                            <i className={`bi ${sectionIcon(sec.id)} fs-2 text-primary`}></i>
+                                        </div>
+                                        <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
+                                            {titleCase(sec.title)}
+                                        </h5>
                                     </div>
 
-                                    <div style={{ backgroundColor: '#d8dee8', height: '1px', width: '100%' }}></div>
-
-                                    <div className="d-flex flex-column gap-2">
-                                        <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                            <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Address</span>
-                                            <span className="text-sm-end" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>
-                                                {companyData.address || '-NA-'}
-                                            </span>
-                                        </div>
-
-                                        <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                            <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Phone</span>
-                                            <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.contactNumber || '-NA-'}</span>
-                                        </div>
-
-                                        <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                            <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Email</span>
-                                            <span className="text-break" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.superAdminEmail || '-NA-'}</span>
-                                        </div>
-
-                                        {/* <div className="d-flex justify-content-between align-items-center">
-                                            <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: '14px', color: 'black' }}>Location</span>
-                                            <span className="d-flex align-items-center" style={{ gap: '4px', fontFamily: 'Inter', fontWeight: '400', fontSize: '14px', color: '#9d4141', cursor: 'pointer' }}>
-                                                <i className="bi bi-geo-alt" style={{ width: '20px', height: '20px' }}></i>
-                                                View on map
-                                            </span>
-                                        </div> */}
-                                    </div>
-
-                                    {/* Secondary Contact - only if additional address exists */}
-                                    {companyData.additionalplacesofbusiness && (
-                                        <>
-                                            <div style={{ backgroundColor: '#d8dee8', height: '1px', width: '100%' }}></div>
-
-                                            <div className="d-flex flex-column gap-2">
-                                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Address 2</span>
-                                                    <span className="text-sm-end" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>
-                                                        {companyData.additionalplacesofbusiness}
-                                                    </span>
-                                                </div>
-                                                {/* <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Phone 2</span>
-                                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>-NA-</span>
-                                                </div>
-                                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Email 2</span>
-                                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>-NA-</span>
-                                                </div> */}
-                                                {/* <div className="d-flex justify-content-between align-items-center">
-                                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: '14px', color: 'black' }}>Location</span>
-                                                    <span className="d-flex align-items-center" style={{ gap: '4px', fontFamily: 'Inter', fontWeight: '400', fontSize: '14px', color: '#9d4141', cursor: 'pointer' }}>
-                                                        <i className="bi bi-geo-alt" style={{ width: '20px', height: '20px' }}></i>
-                                                        View on map
-                                                    </span>
-                                                </div> */}
+                                    <div className="d-flex flex-column" style={{ gap: '10px' }}>
+                                        {fields.map((f: any) => (
+                                            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2" key={f.id}>
+                                                <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{f.label}</span>
+                                                <span className="text-sm-end text-break" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black', maxWidth: '60%' }}>
+                                                    {renderFieldValue(f)}
+                                                </span>
                                             </div>
-                                        </>
-                                    )}
-                                     <div className="d-flex justify-content-between align-items-center gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>contact Person</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.contactPerson || '-NA-'}</span>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="d-flex justify-content-between align-items-center gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Accountant No</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.accountantNo || '-NA-'}</span>
-                                </div>
-                                </div>
-                            </div>
+                            </KTCard>
                         </div>
-                    </KTCard>
-                </div>
-
-                {/* Bank & Credentials Column - Stacked on right side */}
-                <div className="col-12 col-lg-6">
-                    <div className="d-flex flex-column gap-3 h-100">
-                    {/* Bank Details Card */}
-                    <KTCard className="shadow-sm">
-                        <div className="d-flex flex-column" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
-                            <div className="d-flex align-items-center gap-2">
-                                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                    <i className="bi bi-bank fs-2 text-success"></i>
-                                </div>
-                                <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
-                                    Bank Details
-                                </h5>
-                            </div>
-
-                            <div className="d-flex flex-column gap-2">
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Bank Account Number</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.accountNo || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Beneficiary Name</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.beneficiaryName || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>IFSC Code</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.ifscCode || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Bank Address</span>
-                                    <span className="text-sm-end" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>
-                                        {companyData.bankNameAndAddress || '-NA-'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </KTCard>
-
-                    {/* Credentials Card */}
-                    <KTCard className="shadow-sm">
-                        <div className="d-flex flex-column" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
-                            <div className="d-flex align-items-center gap-2">
-                                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
-                                    <i className="bi bi-file-earmark-text fs-2 text-primary"></i>
-                                </div>
-                                <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
-                                    Credentials
-                                </h5>
-                            </div>
-
-                            <div className="d-flex flex-column gap-2">
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>PAN</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.panNo || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>TAN</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.tanNo || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>GST Number</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.gstNumber || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>Certificate of Incorporation</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.certificateOfIncorporation || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>PTEC Certificate</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.ptecCertificate || '-NA-'}</span>
-                                </div>
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>HSN/SAC Number</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.hsnSacNo || '-NA-'}</span>
-                                </div>
-                                {/* <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>SAC Codes</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>-NA-</span>
-                                </div> */}
-                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2">
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '500', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>MICR</span>
-                                    <span style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', color: 'black' }}>{companyData.micrCode || '-NA-'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </KTCard>
-                    </div>
-                </div>
+                    );
+                })}
             </div>
         </div>
     );

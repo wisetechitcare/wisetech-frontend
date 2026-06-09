@@ -40,6 +40,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const PROJECT_FILTER_THEME = {
+  primary: "#b43f45",
+  primaryDark: "#9f353b",
+  primaryLight: "#f7e4e6",
+  border: "#ffffff",
+  shadow: "rgba(180, 63, 69, 0.32)",
+};
+
 // 1. Color Pool for Automatic Country Mapping
 const COLOR_POOL = [
   "#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6",
@@ -76,14 +84,19 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41]
 });
 
-const getStoredLabelMode = (): 'smart' | 'all' => {
+const getStoredLabelMode = (): 'smart' | 'all' | 'none' => {
   try {
     const stored = localStorage.getItem('mapLabelMode');
-    return stored === 'smart' || stored === 'all' ? stored : 'smart';
+    return stored === 'smart' || stored === 'all' || stored === 'none' ? stored : 'smart';
   } catch {
     return 'smart';
   }
 };
+
+const WORLD_PAN_BOUNDS: L.LatLngBoundsExpression = [
+  [-85, -360],
+  [85, 360],
+];
 
 function ZoomHandler({ setZoom }: { setZoom: (zoom: number) => void }) {
   const map = useMapEvents({
@@ -173,6 +186,19 @@ function MapClickHandler({ onClick }: { onClick: () => void }) {
   return null;
 }
 
+function MapFlyHandler({ target, onDone }: {
+  target: { lat: number; lng: number; zoom: number; duration?: number } | null;
+  onDone: () => void;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!target) return;
+    map.flyTo([target.lat, target.lng], target.zoom, { duration: target.duration ?? 1.2 });
+    onDone();
+  }, [target]);
+  return null;
+}
+
 const getInitials = (name: string) => {
   if (!name || typeof name !== "string") return "??";
   const parts = name.trim().split(/\s+/);
@@ -182,32 +208,46 @@ const getInitials = (name: string) => {
   return name.substring(0, 2).toUpperCase() || "??";
 };
 
-const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false) => {
+const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false, isAnimating: boolean = false, zoom: number = 4, alwaysShowInitials: boolean = false) => {
   try {
     // If we have no initials and no image, fallback to theme-colored circle
     const finalColor = color || "#3498db";
 
-    // Scale based on entity type
-    let size = 34;
-    let innerSize = 28;
-    let offset = 3;
-    let fontSize = 11;
+    // Dynamic sizing based on zoom level to prevent clutter when zoomed out
+    let baseSize = 28;
+    if (zoom < 5) {
+      baseSize = alwaysShowInitials ? 22 : 14;
+    } else if (zoom < 7) {
+      baseSize = alwaysShowInitials ? 24 : 18;
+    } else if (zoom < 10) {
+      baseSize = 22;
+    } else if (zoom < 13) {
+      baseSize = 28;
+    } else {
+      baseSize = 34;
+    }
 
+    // Scale based on entity type
+    let size = baseSize;
     if (entityType === 'sub-company') {
-      size = 30;
-      innerSize = 24;
-      offset = 3;
-      fontSize = 10;
+      size = Math.max(10, Math.round(baseSize * 0.85));
     } else if (entityType === 'branch') {
-      size = 24;
-      innerSize = 18;
-      offset = 3;
-      fontSize = 8;
+      size = Math.max(8, Math.round(baseSize * 0.7));
+    }
+
+    const showDetails = alwaysShowInitials || size >= 20;
+    let innerSize = Math.max(0, size - 6);
+    let offset = 3;
+    let fontSize = Math.max(alwaysShowInitials ? 8 : 6, Math.floor(size * 0.32));
+
+    if (size < 18) {
+      innerSize = Math.max(0, size - 4);
+      offset = 2;
     }
 
     // FALLBACK LEVEL 1 & 2: Custom Avatar or Initials
     const html = `
-      <div style="position: relative; width: ${size}px; height: ${size}px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: scale(${isRelated ? 1.4 : 1}); z-index: ${isRelated ? 1000 : 0}; opacity: ${isDimmed ? 0.4 : 1};">
+      <div class="${isAnimating ? 'search-marker-bounce' : ''}" style="position: relative; width: ${size}px; height: ${size}px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: scale(${isRelated ? 1.4 : 1}); z-index: ${isRelated ? 1000 : 0}; opacity: ${isDimmed ? 0.4 : 1};">
         <div style="
           width: ${size}px; 
           height: ${size}px; 
@@ -232,8 +272,8 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
           overflow: hidden;
           z-index: 1;
         ">
-          <span style="color: ${finalColor}; font-weight: bold; font-size: ${fontSize}px; z-index: 1;">${initials || "??"}</span>
-          ${imageUrl ?
+          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${initials || "??"}</span>` : ''}
+          ${showDetails && imageUrl ?
         `<div style="
               position: absolute;
               top: 0; left: 0;
@@ -275,7 +315,8 @@ const LocationMarker = React.memo(({
   activeMarkerId,
   setActiveMarkerId,
   activeCompany,
-  setActiveCompany
+  setActiveCompany,
+  isAnimating,
 }: {
   loc: any;
   uniqueId: string;
@@ -283,14 +324,26 @@ const LocationMarker = React.memo(({
   isCompany: boolean;
   isProject: boolean;
   zoom: number;
-  labelMode: 'pins' | 'smart' | 'all';
+  labelMode: 'smart' | 'all' | 'none';
   handleGoToLocation: (item: any) => void;
   activeMarkerId: string | null;
   setActiveMarkerId: React.Dispatch<React.SetStateAction<string | null>>;
   activeCompany: any | null;
   setActiveCompany: (company: any | null) => void;
+  isAnimating?: boolean;
 }) => {
   const navigate = useNavigate();
+  const markerRef = useRef<L.Marker>(null);
+
+  const id = uniqueId;
+  const entityId = loc.id || loc.projectId || loc.item?.id;
+  const isActive = activeMarkerId === id;
+
+  useEffect(() => {
+    if (isActive && markerRef.current) {
+      markerRef.current.openPopup();
+    }
+  }, [isActive]);
 
   // 1. Position Validation
   const position: [number, number] = [loc?.lat, loc?.lng];
@@ -365,16 +418,13 @@ const LocationMarker = React.memo(({
       });
     }
     try {
-      const generatedIcon = createCustomIcon(initials, markerColor, imageUrl, loc.entityType, isRelated, isDimmed as boolean);
+      const generatedIcon = createCustomIcon(initials, markerColor, imageUrl, loc.entityType, isRelated, isDimmed as boolean, isAnimating, zoom, isProject);
       return generatedIcon;
     } catch (error) {
       return L.divIcon({ html: '<div style="background: #3498db; width: 20px; height: 20px; border-radius: 50%;"></div>' });
     }
-  }, [initials, markerColor, imageUrl, isError, isRelated, isDimmed]);
+  }, [initials, markerColor, imageUrl, isError, isRelated, isDimmed, isAnimating, zoom]);
 
-  const id = uniqueId;
-  const entityId = loc.id || loc.projectId || loc.item?.id;
-  const isActive = activeMarkerId === id;
 
   const popupAddress = useMemo(() => {
     const rawAddress = item.address || item.fullAddress || item.addressLine1;
@@ -391,34 +441,16 @@ const LocationMarker = React.memo(({
     return parts.join(", ");
   }, [item]);
 
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   useEffect(() => {
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-      if (activeMarkerId === id) {
-        setActiveMarkerId(null);
-      }
+      if (activeMarkerId === id) setActiveMarkerId(null);
     };
   }, []);
 
-  // 4. Interaction Handlers
+  // 4. Interaction Handlers — popup/label only on click, never on hover
   const eventHandlers = useMemo(() => ({
-    mouseover: () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-      setActiveMarkerId(id);
-    },
-    mouseout: () => {
-      hoverTimeoutRef.current = setTimeout(() => {
-        setActiveMarkerId(null);
-      }, 100);
-    },
     click: () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
       setActiveMarkerId(id);
-      // If it's a company, set it as the active hub for relationship visualization
       if (loc.entityType === 'company') {
         setActiveCompany(item);
       }
@@ -523,6 +555,7 @@ const LocationMarker = React.memo(({
 
   return (
     <Marker
+      ref={markerRef}
       position={position}
       icon={icon}
       eventHandlers={eventHandlers}
@@ -541,8 +574,8 @@ const LocationMarker = React.memo(({
           }}
         />
       )}
-      {/* Progressive Disclosure Label Rule: Show when all mode, smart mode with zoom >= 10, or hovered/active */}
-      {((labelMode === 'all') || (labelMode === 'smart' && zoom >= 10) || isActive) && (
+      {/* Progressive Disclosure Label Rule: Show when all mode, smart mode with zoom >= 10, or hovered/active. Hidden entirely in 'none' mode. */}
+      {labelMode !== 'none' && ((labelMode === 'all') || (labelMode === 'smart' && zoom >= 10) || isActive) && (
         <Tooltip
           key={`tooltip-${id}-${position[0]}-${position[1]}`}
           permanent
@@ -843,14 +876,25 @@ export default function Maps({
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedLocality, setSelectedLocality] = useState<string | null>(null);
   const [isWorldFilter, setIsWorldFilter] = useState(false);
   const [activeCompany, setActiveCompany] = useState<any | null>(null);
-  const [labelMode, setLabelMode] = useState<'smart' | 'all'>(getStoredLabelMode);
+  const [labelMode, setLabelMode] = useState<'smart' | 'all' | 'none'>(getStoredLabelMode);
+  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; zoom: number; duration?: number } | null>(null);
 
   const [isLabelPanelExpanded, setIsLabelPanelExpanded] = useState(false);
   const labelPanelRef = useRef<HTMLDivElement>(null);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-  const handleLabelModeChange = (mode: 'smart' | 'all') => {
+  // ── Custom map search ──────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchFocusIndex, setSearchFocusIndex] = useState(-1);
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(null);
+  const [animatedProjectId, setAnimatedProjectId] = useState<string | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const handleLabelModeChange = (mode: 'smart' | 'all' | 'none') => {
     setLabelMode(mode);
   };
 
@@ -861,6 +905,38 @@ export default function Maps({
       console.error("Failed to store mapLabelMode", e);
     }
   }, [labelMode]);
+
+  // Read filter state from URL params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const country = params.get('mapCountry');
+    const state = params.get('mapState');
+    const city = params.get('mapCity');
+    const locality = params.get('mapLocality');
+    const world = params.get('mapWorld');
+    if (country) setSelectedCountry(country);
+    if (state) setSelectedState(state);
+    if (city) setSelectedCity(city);
+    if (locality) setSelectedLocality(locality);
+    if (world === '1') setIsWorldFilter(true);
+  }, []);
+
+  // Debounced URL sync — writes filter state to URL without triggering navigation
+  const urlSyncRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (urlSyncRef.current) clearTimeout(urlSyncRef.current);
+    urlSyncRef.current = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      selectedCountry ? params.set('mapCountry', selectedCountry) : params.delete('mapCountry');
+      selectedState ? params.set('mapState', selectedState) : params.delete('mapState');
+      selectedCity ? params.set('mapCity', selectedCity) : params.delete('mapCity');
+      selectedLocality ? params.set('mapLocality', selectedLocality) : params.delete('mapLocality');
+      isWorldFilter ? params.set('mapWorld', '1') : params.delete('mapWorld');
+      const search = params.toString();
+      window.history.replaceState({}, '', search ? `${window.location.pathname}?${search}` : window.location.pathname);
+    }, 300);
+    return () => { if (urlSyncRef.current) clearTimeout(urlSyncRef.current); };
+  }, [selectedCountry, selectedState, selectedCity, selectedLocality, isWorldFilter]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -901,6 +977,7 @@ export default function Maps({
       country?: string;
       state?: string;
       city?: string;
+      locality?: string;
       item?: any;
       id?: string;
       projectId?: string
@@ -917,13 +994,19 @@ export default function Maps({
     return locations.filter(loc => loc.country !== "India" && loc.country !== "Unknown").length;
   }, [locations]);
 
+  const activeFilterCount = useMemo(() =>
+    [selectedCountry, selectedState, selectedCity, selectedLocality, isWorldFilter ? 'world' : null].filter(Boolean).length,
+    [selectedCountry, selectedState, selectedCity, selectedLocality, isWorldFilter]
+  );
+
   // Hierarchical Filter Data
   const filterOptions = useMemo(() => {
-    if (!isProject) return { countries: {}, states: {}, cities: {} };
+    if (!isProject) return { countries: {}, states: {}, cities: {}, localities: {} };
 
     const countries: Record<string, number> = {};
     const states: Record<string, number> = {};
     const cities: Record<string, number> = {};
+    const localities: Record<string, number> = {};
 
     locations.forEach(loc => {
       // World Filter Logic: If active, exclude India from list
@@ -939,10 +1022,13 @@ export default function Maps({
       if (loc.state === selectedState && loc.city && loc.city !== "Unknown") {
         cities[loc.city] = (cities[loc.city] || 0) + 1;
       }
+      if (loc.city === selectedCity && loc.locality && loc.locality !== "Unknown") {
+        localities[loc.locality] = (localities[loc.locality] || 0) + 1;
+      }
     });
 
-    return { countries, states, cities };
-  }, [locations, isProject, selectedCountry, selectedState]);
+    return { countries, states, cities, localities };
+  }, [locations, isProject, selectedCountry, selectedState, selectedCity, isWorldFilter]);
 
   // TRUE FILTERING (No Highlighting)
   const filteredLocations = useMemo(() => {
@@ -956,9 +1042,10 @@ export default function Maps({
 
       if (selectedState && loc.state !== selectedState) return false;
       if (selectedCity && loc.city !== selectedCity) return false;
+      if (selectedLocality && loc.locality !== selectedLocality) return false;
       return true;
     });
-  }, [locations, isProject, selectedCountry, selectedState, selectedCity, isWorldFilter]);
+  }, [locations, isProject, selectedCountry, selectedState, selectedCity, selectedLocality, isWorldFilter]);
 
   useEffect(() => {
     if (!points || !Array.isArray(points) || points.length === 0) {
@@ -991,6 +1078,7 @@ export default function Maps({
           country: matchedItem?.country?.trim() || "Unknown",
           state: matchedItem?.state?.trim() || null,
           city: matchedItem?.city?.trim() || null,
+          locality: matchedItem?.locality?.trim() || null,
           name: matchedItem?.name || matchedItem?.companyName || matchedItem?.subCompanyName || matchedItem?.branchName || matchedItem?.title || "Unknown Location",
           entityType: point.entityType,
           item: matchedItem || point, // ✅ DO NOT MERGE: Use matchedItem or fallback to point
@@ -1016,6 +1104,157 @@ export default function Maps({
     window.open(url, "_blank");
   }, [userLocation]);
 
+  const computeCentroid = useCallback((locs: typeof locations) => {
+    if (!locs.length) return null;
+    const lat = locs.reduce((sum, l) => sum + l.lat, 0) / locs.length;
+    const lng = locs.reduce((sum, l) => sum + l.lng, 0) / locs.length;
+    return { lat, lng };
+  }, []);
+
+  // After filteredLocations updates, resolve a pending marker highlight from search
+  useEffect(() => {
+    if (!pendingHighlightId) return;
+    const idx = filteredLocations.findIndex(loc =>
+      String(loc.id) === pendingHighlightId ||
+      String(loc.projectId) === pendingHighlightId ||
+      (loc.item?.id && String(loc.item.id) === pendingHighlightId)
+    );
+    if (idx >= 0) {
+      const loc = filteredLocations[idx];
+      setActiveMarkerId(`marker-${idx}-${loc.lat}-${loc.lng}`);
+      setPendingHighlightId(null);
+    }
+  }, [filteredLocations, pendingHighlightId]);
+
+  // Instant multi-field scored search — no debounce needed for 200 local items
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [] as typeof locations;
+
+    const toStr = (v: unknown): string =>
+      v != null && typeof v === 'string' ? v.toLowerCase() : String(v ?? '').toLowerCase();
+
+    const single = q.length === 1;
+
+    const scored = locations.map(loc => {
+      const name    = toStr(loc.name);
+      const words   = name.split(/\s+/);
+      const code    = toStr(loc.item?.code);
+      const company = toStr(loc.item?.companyName ?? loc.item?.client);
+      const city    = toStr(loc.city);
+      const state   = toStr(loc.state);
+      const country = toStr(loc.country);
+
+      let score = 0;
+
+      if (single) {
+        // Single character — only prefix matches (keeps results meaningful)
+        if (name.startsWith(q))                    score += 300;
+        else if (words.some(w => w.startsWith(q))) score += 200;
+        else if (code.startsWith(q))               score += 150;
+        else if (company.startsWith(q))            score += 80;
+        else if (city.startsWith(q))               score += 60;
+        else if (state.startsWith(q))              score += 40;
+        else if (country.startsWith(q))            score += 30;
+      } else {
+        // Multi-character — full ranked scoring across all fields
+        if (name === q)                            score += 400;
+        else if (name.startsWith(q))               score += 250;
+        else if (words.some(w => w.startsWith(q))) score += 160;
+        else if (name.includes(q))                 score += 100;
+
+        if (code === q)                            score += 300;
+        else if (code.startsWith(q))               score += 180;
+        else if (code.includes(q))                 score += 90;
+
+        if (company.startsWith(q))                 score += 70;
+        else if (company.includes(q))              score += 45;
+
+        if (city.startsWith(q))                    score += 55;
+        else if (city.includes(q))                 score += 30;
+
+        if (state.includes(q))                     score += 20;
+        if (country.includes(q))                   score += 15;
+      }
+
+      return { loc, score };
+    });
+
+    return scored
+      .filter(r => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 15)
+      .map(r => r.loc);
+  }, [searchQuery, locations]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Highlight matched text in search results
+  const highlightMatch = useCallback((text: string, query: string): React.ReactNode => {
+    const q = query.trim();
+    if (!q || !text) return text;
+    const escaped = q.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === q.toLowerCase()
+            ? <mark key={i} style={{ background: '#fef08a', color: '#713f12', padding: '0 1px', borderRadius: 2, fontWeight: 700 }}>{part}</mark>
+            : part
+        )}
+      </>
+    );
+  }, []);
+
+  // Navigate to a search result: flyTo + sync filters + highlight marker
+  const handleSearchSelect = useCallback((loc: (typeof locations)[0]) => {
+    const entityId = String(loc.id || loc.projectId || loc.item?.id || '');
+    setSearchQuery(loc.name || '');
+    setIsSearchOpen(false);
+    setSearchFocusIndex(-1);
+    setIsWorldFilter(false);
+    setSelectedCountry(loc.country && loc.country !== 'Unknown' ? loc.country : null);
+    setSelectedState(loc.state || null);
+    setSelectedCity(loc.city || null);
+    setSelectedLocality(loc.locality || null);
+    setFlyTarget({ lat: loc.lat, lng: loc.lng, zoom: 16, duration: 1.5 });
+    if (entityId) {
+      setPendingHighlightId(entityId);
+      setAnimatedProjectId(entityId);
+      setTimeout(() => setAnimatedProjectId(null), 2500);
+    }
+  }, []);
+
+  // Keyboard navigation inside search dropdown
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setIsSearchOpen(true);
+      setSearchFocusIndex(i => Math.min(i + 1, searchResults.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSearchFocusIndex(i => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (searchFocusIndex >= 0 && searchResults[searchFocusIndex]) {
+        handleSearchSelect(searchResults[searchFocusIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setSearchQuery('');
+      setIsSearchOpen(false);
+      setSearchFocusIndex(-1);
+    }
+  }, [searchResults, searchFocusIndex, handleSearchSelect]);
+
   return (
     <div className="map-outer-wrapper" style={{ height: "calc(100vh - 160px)", minHeight: "560px", fontFamily: "Inter, sans-serif", position: "relative", overflow: "hidden" }}>
       <style>{`
@@ -1035,26 +1274,192 @@ export default function Maps({
           }
         }
 
-        /* ── Mobile: move label toggle below the filter bar ── */
+        /* Leaflet background while tiles load — matches CartoDB Voyager ocean colour */
+        .leaflet-container { background: #d4e8f2 !important; }
+
+        /* ── Mobile: full-width bar, filter button + search only ── */
         @media (max-width: 768px) {
-          .map-control-panel {
-            top: 68px !important;
-          }
-          /* Compact filter bar on small screens */
           .floating-filter-bar {
-            padding: 7px 12px !important;
-            gap: 6px !important;
-            font-size: 12px;
+            /* Override centered positioning — pin edge-to-edge instead */
+            left: 10px !important;
+            right: 10px !important;
+            transform: none !important;          /* CRITICAL: kills translateX(-50%) */
+            display: flex !important;            /* stretch to fill left→right */
+            padding: 6px 10px !important;
+            border-radius: 12px !important;
+            max-width: none !important;
           }
-          .pill-button, .total-badge {
-            font-size: 12px !important;
-            padding: 5px 10px !important;
+          /* Pills handled by the bottom-sheet; hide them */
+          .filter-pills-scroll { display: none !important; }
+          .filter-divider { display: none !important; }
+          /* Search stretches to fill remaining space */
+          .filter-search-area {
+            border-left: none !important;
+            padding-left: 0 !important;
+            flex: 1 1 auto !important;
           }
-          .pill-select {
-            font-size: 12px !important;
-            padding: 5px 28px 5px 10px !important;
-          }
+          .map-search-wrapper { width: 100% !important; }
+          /* Reveal the filter button */
+          .mobile-filter-btn-wrap { display: flex !important; }
+          /* Push label panel below the filter bar on mobile */
+          .map-control-panel { top: 72px !important; }
         }
+
+        /* ── Mobile filter trigger button ── */
+        .mobile-filter-btn-wrap {
+          display: none;
+          align-items: center;
+          flex-shrink: 0;
+          margin-right: 8px;
+        }
+        .mobile-filter-btn {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 13px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e293b;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.15s, border-color 0.15s;
+          position: relative;
+        }
+        .mobile-filter-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        .mobile-filter-btn.has-filters {
+          background: ${PROJECT_FILTER_THEME.primary};
+          border-color: ${PROJECT_FILTER_THEME.primaryDark};
+          color: #ffffff;
+        }
+        .mobile-filter-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 4px;
+          background: rgba(255,255,255,0.3);
+          border-radius: 9px;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .mobile-filter-btn:not(.has-filters) .mobile-filter-badge {
+          background: ${PROJECT_FILTER_THEME.primary};
+          color: white;
+        }
+
+        /* ── Mobile filter bottom-sheet ── */
+        .mobile-filter-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.45);
+          z-index: 9998;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          animation: mfOverlayIn 0.2s ease;
+        }
+        @keyframes mfOverlayIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        .mobile-filter-sheet {
+          background: #ffffff;
+          border-radius: 20px 20px 0 0;
+          max-height: 88vh;
+          overflow-y: auto;
+          animation: mfSheetUp 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @keyframes mfSheetUp {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+        .mobile-filter-drag-handle {
+          width: 36px; height: 4px;
+          background: #e2e8f0; border-radius: 2px;
+          margin: 10px auto 0;
+        }
+        .mobile-filter-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 20px 12px;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .mobile-filter-title {
+          font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;
+        }
+        .mobile-filter-close {
+          background: #f1f5f9; border: none; border-radius: 50%;
+          width: 30px; height: 30px;
+          font-size: 18px; color: #64748b;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; line-height: 1;
+          transition: background 0.15s;
+        }
+        .mobile-filter-close:hover { background: #e2e8f0; }
+        .mobile-filter-body {
+          padding: 16px 20px;
+          display: flex; flex-direction: column; gap: 18px;
+        }
+        .mf-row { display: flex; flex-direction: column; gap: 6px; }
+        .mf-label {
+          font-size: 11px; font-weight: 700; color: #64748b;
+          text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .mf-toggle-row { display: flex; gap: 8px; }
+        .mf-toggle-btn {
+          flex: 1; padding: 10px 8px; border-radius: 10px;
+          border: 1px solid #e2e8f0; background: #f8fafc;
+          font-size: 13px; font-weight: 500; color: #1e293b;
+          cursor: pointer; text-align: center;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s;
+        }
+        .mf-toggle-btn.active {
+          background: ${PROJECT_FILTER_THEME.primary}; border-color: ${PROJECT_FILTER_THEME.primaryDark}; color: #ffffff;
+        }
+        .mf-select {
+          width: 100%;
+          padding: 11px 38px 11px 14px;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+          background-color: #f8fafc;
+          background-image: url("data:image/svg+xml;utf8,<svg fill='%23475569' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          background-size: 16px;
+          font-size: 14px; color: #1e293b;
+          appearance: none; -webkit-appearance: none;
+          outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .mf-select:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .mf-select:disabled { opacity: 0.45; cursor: not-allowed; color: #94a3b8; }
+        .mobile-filter-footer {
+          display: flex; gap: 10px;
+          padding: 12px 20px 24px;
+          border-top: 1px solid #f1f5f9;
+        }
+        .mf-btn-reset {
+          flex: 1; padding: 12px; border-radius: 10px;
+          border: 1px solid #e2e8f0; background: #f8fafc;
+          font-size: 14px; font-weight: 600; color: #64748b;
+          cursor: pointer; transition: background 0.15s;
+        }
+        .mf-btn-reset:hover { background: #f1f5f9; }
+        .mf-btn-apply {
+          flex: 2; padding: 12px; border-radius: 10px;
+          border: none; background: ${PROJECT_FILTER_THEME.primary};
+          font-size: 14px; font-weight: 600; color: #ffffff;
+          cursor: pointer; transition: background 0.15s;
+        }
+        .mf-btn-apply:hover { background: ${PROJECT_FILTER_THEME.primaryDark}; }
 
         .leaflet-tooltip-top:before { display: none !important; }
         .custom-marker-icon { 
@@ -1094,107 +1499,261 @@ export default function Maps({
           100% { transform: scale(3); opacity: 0; }
         }
         
-        /* Floating Pill UI */
+        /* Filter Bar — centered auto-width, two sections: scrollable pills + fixed search */
         .floating-filter-bar {
           position: absolute;
-          top: 20px;
+          top: 16px;
           left: 50%;
           transform: translateX(-50%);
           z-index: 1000;
+          display: inline-flex;
+          align-items: center;
+          padding: 7px 14px;
+          background: #ffffff;
+          border-radius: 14px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+          border: 1px solid #e2e8f0;
+          min-height: 48px;
+          max-width: calc(100% - 32px);
+          /* No overflow here — let filter-pills-scroll handle it so search dropdown is never clipped */
+        }
+
+        /* Scrollable pills strip */
+        .filter-pills-scroll {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 10px 18px;
-          background: rgba(255, 255, 255, 0.18);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          border-radius: 999px;
-          box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.12),
-            inset 0 1px 0 rgba(255, 255, 255, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          max-width: 90vw;
+          gap: 6px;
           overflow-x: auto;
           scrollbar-width: none;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          flex: 1 1 auto;
+          min-width: 0;
         }
-        .floating-filter-bar:hover {
-          box-shadow: 
-            0 12px 48px rgba(0, 0, 0, 0.18),
-            inset 0 1px 0 rgba(255, 255, 255, 0.5);
-          transform: translateX(-50%) translateY(-2px);
-          border: 1px solid rgba(255, 255, 255, 0.5);
-          background: rgba(255, 255, 255, 0.25);
+        .filter-pills-scroll::-webkit-scrollbar { display: none; }
+
+        /* Fixed search section — sits outside the overflow container so dropdown is never clipped */
+        .filter-search-area {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          padding-left: 8px;
+          margin-left: 2px;
+          border-left: 1px solid #e2e8f0;
+          position: relative;
         }
-        .floating-filter-bar::-webkit-scrollbar { display: none; }
-        
+
+        .filter-divider {
+          width: 1px;
+          height: 18px;
+          background: #e2e8f0;
+          flex-shrink: 0;
+          margin: 0 2px;
+        }
+
         .pill-select {
-          padding: 6px 36px 6px 14px;
+          padding: 5px 32px 5px 12px;
           border-radius: 999px;
-          border: none;
-          background-color: rgba(255, 255, 255, 0.6);
-          background-image: url("data:image/svg+xml;utf8,<svg fill='%23334155' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
+          border: 1px solid #e2e8f0;
+          background-color: #f8fafc;
+          background-image: url("data:image/svg+xml;utf8,<svg fill='%23475569' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
           background-repeat: no-repeat;
-          background-position: right 12px center;
+          background-position: right 10px center;
           background-size: 14px;
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
           font-size: 13px;
           font-weight: 500;
           color: #1e293b;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
           outline: none;
           appearance: none;
           -webkit-appearance: none;
           -moz-appearance: none;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
-        .pill-select:hover { 
-          background-color: rgba(255, 255, 255, 0.95); 
-          transform: scale(1.03);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        .pill-select:hover {
+          background-color: #f1f5f9;
+          border-color: #cbd5e1;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
         }
-        .pill-select:focus { box-shadow: 0 0 0 2px rgba(44, 123, 229, 0.2); }
-        .pill-select.active { 
-          background-color: #2c7be5; 
-          color: white;
+        .pill-select:focus {
+          border-color: #93c5fd;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .pill-select.active {
+          background-color: ${PROJECT_FILTER_THEME.primary};
+          border-color: ${PROJECT_FILTER_THEME.primaryDark};
+          color: #ffffff;
           background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5.5 7.5l4.5 5 4.5-5z'/></svg>");
         }
-        
+        .pill-select.active:hover {
+          background-color: ${PROJECT_FILTER_THEME.primaryDark};
+          border-color: ${PROJECT_FILTER_THEME.primaryDark};
+        }
+        .pill-select:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          background-color: #f8fafc;
+          color: #94a3b8;
+          border-color: #e2e8f0;
+        }
+        .pill-select:disabled:hover {
+          background-color: #f8fafc;
+          border-color: #e2e8f0;
+          box-shadow: none;
+        }
+
         .pill-button {
-          padding: 6px 14px;
+          padding: 5px 13px;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.6);
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           font-size: 13px;
           font-weight: 500;
           color: #1e293b;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
           white-space: nowrap;
+          line-height: 1.4;
+          display: flex;
+          align-items: center;
         }
-        .pill-button:hover { 
-          background: rgba(255, 255, 255, 0.95); 
-          transform: scale(1.03);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        .pill-button:hover {
+          background: #f1f5f9;
+          border-color: #cbd5e1;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
         }
-        .pill-button.active { background: #2c7be5; color: white; }
-
+        .pill-button.active {
+          background: ${PROJECT_FILTER_THEME.primary};
+          border-color: ${PROJECT_FILTER_THEME.primaryDark};
+          color: #ffffff;
+        }
+        .pill-button.active:hover {
+          background: ${PROJECT_FILTER_THEME.primaryDark};
+          border-color: ${PROJECT_FILTER_THEME.primaryDark};
+        }
         .total-badge {
-          background: linear-gradient(135deg, #2c7be5, #1d4ed8);
-          color: white;
-          padding: 6px 14px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+          padding: 5px 13px;
           border-radius: 999px;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           white-space: nowrap;
-          box-shadow: 0 4px 12px rgba(44, 123, 229, 0.3);
-          transition: all 0.2s ease;
+          letter-spacing: -0.1px;
+          flex-shrink: 0;
         }
-        .total-badge:hover {
-          transform: scale(1.05);
-          box-shadow: 0 6px 16px rgba(44, 123, 229, 0.4);
+
+        /* ── Search Input ─────────────────────────────────────────── */
+        /* ── Custom map project search ────────────────────────────────── */
+        .map-search-wrapper {
+          position: relative;
+          width: 220px;
+          flex-shrink: 0;
+        }
+        .map-search-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          border-radius: 999px;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        .map-search-row:focus-within {
+          border-color: #93c5fd;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+          background: #ffffff;
+        }
+        .map-search-input {
+          border: none;
+          outline: none;
+          background: transparent;
+          font-size: 13px;
+          font-weight: 500;
+          color: #1e293b;
+          width: 100%;
+          min-width: 0;
+        }
+        .map-search-input::placeholder { color: #94a3b8; font-size: 12px; }
+        .map-search-clear {
+          background: none;
+          border: none;
+          padding: 0;
+          color: #94a3b8;
+          cursor: pointer;
+          font-size: 15px;
+          line-height: 1;
+          flex-shrink: 0;
+          transition: color 0.1s;
+        }
+        .map-search-clear:hover { color: #475569; }
+        /* Dropdown panel */
+        .map-search-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          min-width: 300px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
+          z-index: 9999;
+          overflow: hidden;
+          max-height: 360px;
+          overflow-y: auto;
+        }
+        .map-search-item {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 9px 14px;
+          cursor: pointer;
+          border-bottom: 1px solid #f1f5f9;
+          transition: background 0.1s;
+        }
+        .map-search-item:last-child { border-bottom: none; }
+        .map-search-item:hover, .map-search-item.focused {
+          background: #f0f7ff;
+        }
+        .map-search-item-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e293b;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .map-search-item-sub {
+          font-size: 11px;
+          color: #64748b;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .map-search-empty {
+          padding: 18px 14px;
+          text-align: center;
+          font-size: 13px;
+          color: #94a3b8;
+        }
+
+        @keyframes search-marker-bounce-pulse {
+          0% { transform: translateY(0) scale(1); }
+          30% { transform: translateY(-12px) scale(1.1); }
+          50% { transform: translateY(0) scale(1); }
+          70% { transform: translateY(-6px) scale(1.05); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        .search-marker-bounce {
+          animation: search-marker-bounce-pulse 1.2s ease-in-out infinite;
+        }
+
+        /* ── Mobile label panel shift ───────────────────────────────── */
+        @media (max-width: 768px) {
+          .map-control-panel { top: 80px !important; }
         }
 
         /* ----------------------------------------------------------- */
@@ -1480,87 +2039,368 @@ export default function Maps({
         }
       `}</style>
 
-      {/* Floating Google Maps-Style Filter Bar */}
+      {/* Filter Bar — pills scroll independently; search area sits outside overflow so dropdown is never clipped */}
       {isProject && (
-        <div className="floating-filter-bar">
-          <div
-            className={`pill-button ${isWorldFilter ? "active" : ""}`}
-            onClick={() => {
-              setIsWorldFilter(prev => !prev);
-              setSelectedCountry(null);
-              setSelectedState(null);
-              setSelectedCity(null);
-            }}
-          >
-            🌍 World ({worldCount})
+        <div className="floating-filter-bar" role="toolbar" aria-label="Project filters">
+
+          {/* Mobile-only: filter trigger button (hidden on desktop via CSS) */}
+          <div className="mobile-filter-btn-wrap">
+            <button
+              className={`mobile-filter-btn${activeFilterCount > 0 ? ' has-filters' : ''}`}
+              onClick={() => setIsMobileFilterOpen(true)}
+              aria-label={`Open filters${activeFilterCount > 0 ? `, ${activeFilterCount} active` : ''}`}
+            >
+              <i className="bi bi-sliders2" style={{ fontSize: 13 }} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="mobile-filter-badge">{activeFilterCount}</span>
+              )}
+            </button>
           </div>
 
-          <div className="total-badge">
-            {filteredLocations.length} Projects
-          </div>
+          {/* Scrollable pills — All, World, count, cascading dropdowns, Clear */}
+          <div className="filter-pills-scroll">
 
-          {/* Country Dropdown */}
-          {!isWorldFilter && (
+            <div
+              className={`pill-button pill-button--all ${!isWorldFilter && !selectedCountry && !selectedState && !selectedCity && !selectedLocality ? "active" : ""}`}
+              onClick={() => {
+                setIsWorldFilter(false);
+                setSelectedCountry(null);
+                setSelectedState(null);
+                setSelectedCity(null);
+                setSelectedLocality(null);
+                setFlyTarget({ lat: 20, lng: 10, zoom: 2 });
+              }}
+              aria-label={`Show all ${locations.length} projects`}
+              title="Show all projects"
+            >
+              <BriefcaseIcon style={{ fontSize: 14, marginRight: 4 }} />
+              All Projects ({locations.length})
+            </div>
+
+            <div className="filter-divider" />
+
+            <div
+              className={`pill-button ${isWorldFilter ? "active" : ""}`}
+              onClick={() => {
+                setIsWorldFilter(prev => !prev);
+                setSelectedCountry(null);
+                setSelectedState(null);
+                setSelectedCity(null);
+                setSelectedLocality(null);
+              }}
+              title="Show only international (non-India) projects"
+            >
+              <i className="bi bi-globe2 me-1" style={{ fontSize: 11 }} />
+              World ({worldCount})
+            </div>
+
+            <div className="filter-divider" />
+
+            {/* Country */}
             <select
               className={`pill-select ${selectedCountry ? 'active' : ''}`}
               value={selectedCountry || ""}
+              disabled={isWorldFilter}
+              style={{ minWidth: 150 }}
               onChange={(e) => {
                 setSelectedCountry(e.target.value || null);
                 setSelectedState(null);
                 setSelectedCity(null);
+                setSelectedLocality(null);
               }}
+              aria-label="Filter by country"
+              title={isWorldFilter ? "Disabled in World view" : undefined}
             >
-              <option value="">All Countries</option>
-              {Object.entries(filterOptions.countries).sort().map(([name, count]) => (
+              <option value="">{isWorldFilter ? "N/A" : "All Countries"}</option>
+              {!isWorldFilter && Object.entries(filterOptions.countries).sort().map(([name, count]) => (
                 <option key={name} value={name}>{name} ({count})</option>
               ))}
             </select>
-          )}
 
-          {/* State Dropdown (Hierarchical) */}
-          {selectedCountry && (
+            {/* State */}
             <select
               className={`pill-select ${selectedState ? 'active' : ''}`}
               value={selectedState || ""}
+              disabled={isWorldFilter || !selectedCountry}
+              style={{ minWidth: 140 }}
               onChange={(e) => {
                 setSelectedState(e.target.value || null);
                 setSelectedCity(null);
+                setSelectedLocality(null);
               }}
+              aria-label="Filter by state"
+              title={isWorldFilter ? "Disabled in World view" : !selectedCountry ? "Select a country first" : undefined}
             >
-              <option value="">All States</option>
-              {Object.entries(filterOptions.states).sort().map(([name, count]) => (
+              <option value="">
+                {isWorldFilter ? "N/A" : selectedCountry ? "All States" : "Select Country"}
+              </option>
+              {selectedCountry && !isWorldFilter && Object.entries(filterOptions.states).sort().map(([name, count]) => (
                 <option key={name} value={name}>{name} ({count})</option>
               ))}
             </select>
-          )}
 
-          {/* City Dropdown (Hierarchical) */}
-          {selectedState && (
+            {/* City */}
             <select
               className={`pill-select ${selectedCity ? 'active' : ''}`}
               value={selectedCity || ""}
-              onChange={(e) => setSelectedCity(e.target.value || null)}
+              disabled={isWorldFilter || !selectedState}
+              style={{ minWidth: 130 }}
+              onChange={(e) => {
+                const city = e.target.value || null;
+                setSelectedCity(city);
+                setSelectedLocality(null);
+                if (city) {
+                  const cityLocs = locations.filter(loc => loc.city === city && loc.state === selectedState);
+                  const centroid = computeCentroid(cityLocs);
+                  if (centroid) setFlyTarget({ ...centroid, zoom: 11 });
+                }
+              }}
+              aria-label="Filter by city"
+              title={isWorldFilter ? "Disabled in World view" : !selectedState ? "Select a state first" : undefined}
             >
-              <option value="">All Cities</option>
-              {Object.entries(filterOptions.cities).sort().map(([name, count]) => (
+              <option value="">
+                {isWorldFilter ? "N/A" : selectedState ? "All Cities" : "Select State"}
+              </option>
+              {selectedState && !isWorldFilter && Object.entries(filterOptions.cities).sort().map(([name, count]) => (
                 <option key={name} value={name}>{name} ({count})</option>
               ))}
             </select>
-          )}
 
-          {(selectedCountry || selectedState || selectedCity || isWorldFilter) && (
-            <button
-              onClick={() => {
-                setSelectedCountry(null);
-                setSelectedState(null);
-                setSelectedCity(null);
-                setIsWorldFilter(false);
+            {/* Locality */}
+            <select
+              className={`pill-select ${selectedLocality ? 'active' : ''}`}
+              value={selectedLocality || ""}
+              disabled={isWorldFilter || !selectedCity}
+              style={{ minWidth: 130 }}
+              onChange={(e) => {
+                const locality = e.target.value || null;
+                setSelectedLocality(locality);
+                if (locality) {
+                  const localityLocs = locations.filter(loc => loc.locality === locality && loc.city === selectedCity);
+                  const centroid = computeCentroid(localityLocs);
+                  if (centroid) setFlyTarget({ ...centroid, zoom: 14 });
+                }
               }}
-              style={{ border: "none", background: "none", color: "#ef4444", fontSize: "13px", fontWeight: 600, cursor: "pointer", marginLeft: "8px" }}
+              aria-label="Filter by locality"
+              title={isWorldFilter ? "Disabled in World view" : !selectedCity ? "Select a city first" : undefined}
             >
-              Clear
-            </button>
-          )}
+              <option value="">
+                {isWorldFilter ? "N/A" : selectedCity ? "All Localities" : "Select City"}
+              </option>
+              {selectedCity && !isWorldFilter && Object.entries(filterOptions.localities).sort().map(([name, count]) => (
+                <option key={name} value={name}>{name} ({count})</option>
+              ))}
+            </select>
+
+            {/* Clear — visible when any filter is active */}
+            {(selectedCountry || selectedState || selectedCity || selectedLocality || isWorldFilter) && (
+              <button
+                onClick={() => {
+                  setSelectedCountry(null);
+                  setSelectedState(null);
+                  setSelectedCity(null);
+                  setSelectedLocality(null);
+                  setIsWorldFilter(false);
+                }}
+                style={{ border: "none", background: "none", color: "#ef4444", fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, paddingLeft: 4 }}
+                aria-label="Clear all filters"
+              >
+                Clear
+              </button>
+            )}
+          </div>{/* end filter-pills-scroll */}
+
+          {/* Search — outside pills scroll so dropdown is never clipped */}
+          <div className="filter-search-area">
+            <div className="map-search-wrapper" ref={searchRef}>
+              <div className="map-search-row">
+                <i className="bi bi-search" style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0 }} />
+                <input
+                  type="text"
+                  className="map-search-input"
+                  placeholder="Search project..."
+                  value={searchQuery}
+                  autoComplete="off"
+                  onChange={e => { setSearchQuery(e.target.value); setIsSearchOpen(true); setSearchFocusIndex(-1); }}
+                  onFocus={() => { if (searchQuery.trim()) setIsSearchOpen(true); }}
+                  onKeyDown={handleSearchKeyDown}
+                  aria-label="Search projects"
+                  aria-autocomplete="list"
+                  aria-expanded={isSearchOpen}
+                />
+                {searchQuery && (
+                  <button
+                    className="map-search-clear"
+                    onMouseDown={e => { e.preventDefault(); setSearchQuery(''); setIsSearchOpen(false); setSearchFocusIndex(-1); }}
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {isSearchOpen && searchQuery.trim() && (
+                <div className="map-search-dropdown" role="listbox">
+                  {searchResults.length === 0 ? (
+                    <div className="map-search-empty">No projects found for "{searchQuery}"</div>
+                  ) : (
+                    searchResults.map((loc, idx) => {
+                      const sub = [
+                        loc.item?.code,
+                        loc.item?.companyName || loc.item?.client,
+                        loc.city,
+                        loc.country !== 'Unknown' ? loc.country : null
+                      ].filter(Boolean).join(' · ');
+                      return (
+                        <div
+                          key={String(loc.id || loc.projectId || idx)}
+                          className={`map-search-item${idx === searchFocusIndex ? ' focused' : ''}`}
+                          role="option"
+                          aria-selected={idx === searchFocusIndex}
+                          onMouseDown={e => { e.preventDefault(); handleSearchSelect(loc); }}
+                        >
+                          <div className="map-search-item-name">
+                            {highlightMatch(loc.name || 'Unnamed', searchQuery)}
+                          </div>
+                          {sub && <div className="map-search-item-sub">{sub}</div>}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ── Mobile filter bottom-sheet (position:fixed escapes the overflow:hidden wrapper) ── */}
+      {isMobileFilterOpen && isProject && (
+        <div className="mobile-filter-overlay" onClick={() => setIsMobileFilterOpen(false)}>
+          <div className="mobile-filter-sheet" onClick={e => e.stopPropagation()}>
+            <div className="mobile-filter-drag-handle" />
+            <div className="mobile-filter-header">
+              <h3 className="mobile-filter-title">Filters</h3>
+              <button className="mobile-filter-close" onClick={() => setIsMobileFilterOpen(false)} aria-label="Close filters">×</button>
+            </div>
+            <div className="mobile-filter-body">
+
+              {/* View */}
+              <div className="mf-row">
+                <span className="mf-label">View</span>
+                <div className="mf-toggle-row">
+                  <button
+                    className={`mf-toggle-btn${!isWorldFilter ? ' active' : ''}`}
+                    onClick={() => { setIsWorldFilter(false); setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); }}
+                  >
+                    <BriefcaseIcon style={{ fontSize: 15, marginRight: 4 }} />
+                    All ({locations.length})
+                  </button>
+                  <button
+                    className={`mf-toggle-btn${isWorldFilter ? ' active' : ''}`}
+                    onClick={() => { setIsWorldFilter(true); setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); }}
+                  >
+                    <i className="bi bi-globe2 me-1" style={{ fontSize: 12 }} />
+                    International ({worldCount})
+                  </button>
+                </div>
+              </div>
+
+              {/* Country */}
+              <div className="mf-row">
+                <span className="mf-label">Country</span>
+                <select
+                  className="mf-select"
+                  value={selectedCountry || ""}
+                  disabled={isWorldFilter}
+                  onChange={e => { setSelectedCountry(e.target.value || null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); }}
+                >
+                  <option value="">{isWorldFilter ? 'N/A' : 'All Countries'}</option>
+                  {!isWorldFilter && Object.entries(filterOptions.countries).sort().map(([n, c]) => (
+                    <option key={n} value={n}>{n} ({c})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* State */}
+              <div className="mf-row">
+                <span className="mf-label">State / Province</span>
+                <select
+                  className="mf-select"
+                  value={selectedState || ""}
+                  disabled={isWorldFilter || !selectedCountry}
+                  onChange={e => { setSelectedState(e.target.value || null); setSelectedCity(null); setSelectedLocality(null); }}
+                >
+                  <option value="">{isWorldFilter ? 'N/A' : selectedCountry ? 'All States' : 'Select Country first'}</option>
+                  {selectedCountry && !isWorldFilter && Object.entries(filterOptions.states).sort().map(([n, c]) => (
+                    <option key={n} value={n}>{n} ({c})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City */}
+              <div className="mf-row">
+                <span className="mf-label">City</span>
+                <select
+                  className="mf-select"
+                  value={selectedCity || ""}
+                  disabled={isWorldFilter || !selectedState}
+                  onChange={e => {
+                    const city = e.target.value || null;
+                    setSelectedCity(city); setSelectedLocality(null);
+                    if (city) {
+                      const cl = locations.filter(l => l.city === city && l.state === selectedState);
+                      const ct = computeCentroid(cl);
+                      if (ct) setFlyTarget({ ...ct, zoom: 11 });
+                    }
+                  }}
+                >
+                  <option value="">{isWorldFilter ? 'N/A' : selectedState ? 'All Cities' : 'Select State first'}</option>
+                  {selectedState && !isWorldFilter && Object.entries(filterOptions.cities).sort().map(([n, c]) => (
+                    <option key={n} value={n}>{n} ({c})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Locality */}
+              <div className="mf-row">
+                <span className="mf-label">Locality</span>
+                <select
+                  className="mf-select"
+                  value={selectedLocality || ""}
+                  disabled={isWorldFilter || !selectedCity}
+                  onChange={e => {
+                    const loc = e.target.value || null;
+                    setSelectedLocality(loc);
+                    if (loc) {
+                      const ll = locations.filter(l => l.locality === loc && l.city === selectedCity);
+                      const ct = computeCentroid(ll);
+                      if (ct) setFlyTarget({ ...ct, zoom: 14 });
+                    }
+                  }}
+                >
+                  <option value="">{isWorldFilter ? 'N/A' : selectedCity ? 'All Localities' : 'Select City first'}</option>
+                  {selectedCity && !isWorldFilter && Object.entries(filterOptions.localities).sort().map(([n, c]) => (
+                    <option key={n} value={n}>{n} ({c})</option>
+                  ))}
+                </select>
+              </div>
+
+            </div>
+            <div className="mobile-filter-footer">
+              <button
+                className="mf-btn-reset"
+                onClick={() => { setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); setIsWorldFilter(false); }}
+              >
+                Reset All
+              </button>
+              <button className="mf-btn-apply" onClick={() => setIsMobileFilterOpen(false)}>
+                Apply Filters
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1574,6 +2414,10 @@ export default function Maps({
       <MapContainer
         center={[20.5937, 78.9629]}
         zoom={4}
+        minZoom={2}
+        maxBounds={WORLD_PAN_BOUNDS}
+        maxBoundsViscosity={0.65}
+        worldCopyJump={true}
         style={{ height: isProject ? "100%" : "calc(100% - 4.5rem)", width: "100%", minHeight: "500px" }}
         zoomControl={false}
       >
@@ -1586,6 +2430,7 @@ export default function Maps({
         <ZoomHandler setZoom={setZoom} />
         <MapCenterHandler userLocation={userLocation} />
         <MapClickHandler onClick={() => setActiveCompany(null)} />
+        <MapFlyHandler target={flyTarget} onDone={() => setFlyTarget(null)} />
 
         {/* Relationship Arcs (Curved Polylines) */}
         {activeCompany && (
@@ -1640,6 +2485,7 @@ export default function Maps({
 
         {filteredLocations.map((loc, idx) => {
           const uniqueId = `marker-${idx}-${loc.lat}-${loc.lng}`;
+          const isAnimating = animatedProjectId === String(loc.id || loc.projectId || loc.item?.id);
           return (
             <LocationMarker
               key={uniqueId}
@@ -1655,6 +2501,7 @@ export default function Maps({
               setActiveMarkerId={setActiveMarkerId}
               activeCompany={activeCompany}
               setActiveCompany={setActiveCompany}
+              isAnimating={isAnimating}
             />
           );
         })}
@@ -1666,48 +2513,59 @@ export default function Maps({
         className={`map-control-panel ${isLabelPanelExpanded ? 'expanded' : 'collapsed'}`}
       >
         {!isLabelPanelExpanded ? (
-          <button 
+          <button
             className="map-control-toggle-btn"
             onClick={() => setIsLabelPanelExpanded(true)}
             title="Label Display"
+            aria-label="Toggle map label settings"
           >
             <LayersIcon
               style={{
                 fontSize: '20px',
-                color: labelMode === 'smart' || labelMode === 'all' ? '#2c7be5' : '#475569'
+                color: labelMode !== 'none' ? '#2c7be5' : '#94a3b8'
               }}
             />
-            <div className="active-indicator-dot" />
+            {labelMode !== 'none' && <div className="active-indicator-dot" />}
           </button>
         ) : (
-          <div className="map-control-expanded-content">
+          <div className="map-control-expanded-content" role="group" aria-label="Map label options">
             <div className="map-control-header">
               <span className="map-control-title">Map Labels</span>
-              <button 
+              <button
                 className="map-control-close-btn"
                 onClick={() => setIsLabelPanelExpanded(false)}
+                aria-label="Close label settings"
               >
                 &times;
               </button>
             </div>
 
             <label className="map-control-option">
-              <input 
-                type="radio" 
-                name="labelMode" 
-                checked={labelMode === 'smart'} 
+              <input
+                type="radio"
+                name="labelMode"
+                checked={labelMode === 'smart'}
                 onChange={() => handleLabelModeChange('smart')}
               />
               Smart labels
             </label>
             <label className="map-control-option">
-              <input 
-                type="radio" 
-                name="labelMode" 
-                checked={labelMode === 'all'} 
+              <input
+                type="radio"
+                name="labelMode"
+                checked={labelMode === 'all'}
                 onChange={() => handleLabelModeChange('all')}
               />
               All labels
+            </label>
+            <label className="map-control-option">
+              <input
+                type="radio"
+                name="labelMode"
+                checked={labelMode === 'none'}
+                onChange={() => handleLabelModeChange('none')}
+              />
+              No labels
             </label>
           </div>
         )}

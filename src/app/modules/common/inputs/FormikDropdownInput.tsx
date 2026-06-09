@@ -11,6 +11,7 @@ interface FormikDropdownInputProps {
         value: string;
         label: string;
         color?: string;  // Color for the status circle
+        isDisabled?: boolean;
     }>;
     formikField: string;
     placeholder?: string;

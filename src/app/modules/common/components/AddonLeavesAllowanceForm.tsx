@@ -9,7 +9,9 @@ import {
     IAddonLeavesAllowanceCreate 
 } from "@services/addonLeavesAllowance";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
- 
+import eventBus from "@utils/EventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
+
 interface FormValues {
     experience1: number;
     experience2: number;
@@ -122,10 +124,13 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                     // if (errorCount > 0) message += ` Errors: ${errorCount}.`;
                     
                     await successConfirmation(message);
-                    
+
+                    // Notify every subscriber (card, rules page, balances, etc.) to reload
+                    eventBus.emit(EVENT_KEYS.addonLeavesAllowanceUpdated, {});
+
                     // Refresh data
                     await loadExistingAllowances();
-                    
+
                     if (onClose) onClose();
                 } else {
                     throw new Error('Failed to process addon leaves allowances');

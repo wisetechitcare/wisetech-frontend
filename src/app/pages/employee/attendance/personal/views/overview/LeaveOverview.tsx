@@ -1,8 +1,10 @@
 import { savePersonalLeavesSummary } from "@redux/slices/leaves";
 import { RootState } from "@redux/store";
 import { fetchEmployeeLeaveBalance } from "@services/employee";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 interface LeaveStats {
     type: string;
     count: number;
@@ -14,10 +16,9 @@ function LeaveOverview() {
     const leaves = useSelector((state: RootState) => state.attendanceStats.filteredLeaves);
     const dispatch = useDispatch();
 
-    useEffect(() => {
+    const fetchLeaveStats = useCallback(async () => {
         if (!employeeId) return;
-
-        async function fetchLeaveStats() {
+        try {
             const stats: LeaveStats[] = [];
             const { data: { leavesTaken, totalLeaves, leavesSummary } } = await fetchEmployeeLeaveBalance(employeeId);
 
@@ -27,10 +28,19 @@ function LeaveOverview() {
 
             setStats(stats);
             dispatch(savePersonalLeavesSummary(leavesSummary));
+        } catch (err) {
+            console.error("Error fetching leave stats:", err);
         }
+    }, [employeeId, dispatch]);
 
+    useEffect(() => {
         fetchLeaveStats();
-    }, [employeeId, leaves]);
+    }, [fetchLeaveStats, leaves]);
+
+    useEventBus(EVENT_KEYS.leaveRequestCreated, fetchLeaveStats);
+    useEventBus(EVENT_KEYS.leaveRequestUpdated, fetchLeaveStats);
+    useEventBus(EVENT_KEYS.leaveOptionsUpdated, fetchLeaveStats);
+    useEventBus(EVENT_KEYS.addonLeavesAllowanceUpdated, fetchLeaveStats);
 
     return (
         <>

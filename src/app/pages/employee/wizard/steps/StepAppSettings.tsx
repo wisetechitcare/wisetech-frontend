@@ -3,7 +3,6 @@ import { useFormikContext } from "formik";
 import { fetchAllEmployees } from "@services/employee";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import NumberInput from "@app/modules/common/inputs/NumberInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
 import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import AppSettings from "../forms/AppSettings";
@@ -55,6 +54,9 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
     const pfEnabled = String(formikProps.values.professionalFeesEnabled) === "true";
     const pfType =
         formikProps.values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    const tds2Enabled = String(formikProps.values.tds2Enabled) === "true";
+    const tds2Type =
+        formikProps.values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
 
     return (
         <>
@@ -86,7 +88,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                 </div>
             </div>
 
-            {/* Professional Fees */}
+            {/* Professional Fees (TDS1) */}
             <div className="row">
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                     <RadioInput
@@ -118,13 +120,13 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 {pfType === "PERCENTAGE" ? (
                                     <TextInput
                                         isRequired={false}
-                                        label="Professional Fees %"
+                                        label="Tax Deducted at Source (TDS) %"
                                         formikField="professionalFeesPercentage"
                                     />
                                 ) : (
                                     <TextInput
                                         isRequired={false}
-                                        label="Professional Fees Amount"
+                                        label="Tax Deducted at Source (TDS) Amount"
                                         formikField="professionalFeesAmount"
                                         formatter={formatINNumber}
                                         parser={parseINNumber}
@@ -134,6 +136,55 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                         </>
                     )}
                 </div>
+
+            {/* TDS2 — independent from TDS1 / PTAX */}
+            <div className="separator separator-dashed my-6" />
+            <div className="row">
+                <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                    <RadioInput
+                        formikField="tds2Enabled"
+                        inputLabel="TDS 2 (Additional)"
+                        radioBtns={[
+                            { label: "Enabled", value: "true" },
+                            { label: "Disabled", value: "false" },
+                        ]}
+                        isRequired={false}
+                    />
+                </div>
+
+                {tds2Enabled && (
+                    <>
+                        <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
+                            <RadioInput
+                                formikField="tds2Type"
+                                inputLabel="TDS 2 Type"
+                                radioBtns={[
+                                    { label: "Fixed", value: "FIXED" },
+                                    { label: "Percentage", value: "PERCENTAGE" },
+                                ]}
+                                isRequired={false}
+                            />
+                        </div>
+                        <div className="col-lg-4 col-md-4 col-sm-12">
+                            {tds2Type === "PERCENTAGE" ? (
+                                <TextInput
+                                    isRequired={false}
+                                    label="TDS 2 %"
+                                    formikField="tds2Percentage"
+                                />
+                            ) : (
+                                <TextInput
+                                    isRequired={false}
+                                    label="TDS 2 Amount"
+                                    formikField="tds2Amount"
+                                    formatter={formatINNumber}
+                                    parser={parseINNumber}
+                                />
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
             </>
         );
 }
@@ -179,27 +230,6 @@ function PrivacyControls() {
     );
 }
 
-function MonthlyLeaveLimit() {
-    return (
-        <div className="row">
-            <div className="col-lg-6 col-md-6 col-sm-12">
-                <NumberInput
-                    isRequired={false}
-                    formikField="allowedPerMonth"
-                    label="Allowed Per Month"
-                    margin="mb-0"
-                />
-                <div className="form-text text-muted mt-2">
-                    <i className="bi bi-info-circle me-1"></i>
-                    <strong>Combined monthly limit</strong> across Annual, Sick, Floater,
-                    Casual, and Maternal leaves. Example: If set to 5, employee can take
-                    maximum 5 total leaves per month.
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ── Root component ────────────────────────────────────────────────────────────
 function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProps: any; editMode: boolean; sidebarProfile?: any }) {
     const [activeSection, setActiveSection] = useState("reporting");
@@ -213,10 +243,6 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         }
         if (errors.ctcInLpa || errors.professionalFeesPercentage || errors.professionalFeesAmount) {
             setActiveSection("financial");
-            return;
-        }
-        if (errors.allowedPerMonth) {
-            setActiveSection("leaves");
             return;
         }
         if (errors.appRole) {
@@ -237,12 +263,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         reporting: <ReportingConfig />,
         financial: <FinancialConfig formikProps={formikProps} editMode={editMode} />,
         leaves: (
-            <>
-                <LeaveAllocationStep />
-                <div style={{ marginTop: "24px" }}>
-                    <MonthlyLeaveLimit />
-                </div>
-            </>
+            <LeaveAllocationStep />
         ),
         access: <AppSettings />,
         privacy: <PrivacyControls />,

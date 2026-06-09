@@ -6,6 +6,10 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), tsconfigPaths()],
+  define: {
+    // Make Node globals available in browser — required by @react-pdf/renderer
+    global: 'globalThis',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -19,7 +23,10 @@ export default defineConfig({
       '@hooks': path.resolve(__dirname, './src/hooks'),
       '@models': path.resolve(__dirname, './src/models'),
       '@pages': path.resolve(__dirname, './src/app/pages'),
+      '@modules': path.resolve(__dirname, './src/modules'),
       'app': path.resolve(__dirname, './src/app'),
+      // Polyfill Node's Buffer for browser bundles (@react-pdf/renderer needs it)
+      'buffer': path.resolve(__dirname, './node_modules/buffer/index.js'),
     },
   },
   optimizeDeps: {

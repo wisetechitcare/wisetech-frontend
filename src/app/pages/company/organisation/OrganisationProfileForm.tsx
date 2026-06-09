@@ -1,15 +1,17 @@
 ﻿import { useState, useEffect, ChangeEvent } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
-import * as Yup from 'yup';
 import { dateFormatter } from '@utils/date';
 import Flatpickr from "react-flatpickr";
-import { createCompanyOverview, fetchCompanyLogo, fetchCompanyOverview, updateCompanyOverview } from '@services/company'; // API function to create company overview
-import { uploadCompanyAsset } from '@services/uploader'; // API function to upload files
-import { successConfirmation, errorConfirmation } from '@utils/modal'; // Success and error handling
-import { ICompanyOverview } from "@models/company";
-import RadioInput from '@app/modules/common/inputs/RadioInput';
+import { createCompanyOverview, fetchCompanyLogo, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
+import { uploadCompanyAsset } from '@services/uploader';
+import { successConfirmation, errorConfirmation } from '@utils/modal';
+import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
+import { cloneDefaults, resolveFormSchema, buildValidationSchema, deriveCustomSections } from './formSchema';
 import { Modal, Row, Col } from 'react-bootstrap';
 import OrganisationInfo from './OrganisationInfo';
+import FormSchemaManager from '@app/modules/common/components/FormSchemaManager';
+import DragDropFileField from '@app/modules/common/components/DragDropFileField';
+import { IconGear } from '@app/modules/common/components/icons/OrgIcons';
 import { Box, IconButton, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import eventBus from '@utils/EventBus';
@@ -20,7 +22,8 @@ import { saveCurrentCompanyInfo } from '@redux/slices/company';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 
-// Breadcrumbs setup (same as Overview)
+// The canonical form-schema helpers (defaults, merge, validation, legacy derive)
+// live in ./formSchema so the Organization Info page renders from the same source.
 
 // Initial Values setup (consistent with Overview)
 const initialValues: ICompanyOverview = {
@@ -60,39 +63,16 @@ const initialValues: ICompanyOverview = {
     // postalCode: "" // Commented out postal code
 };
 
-// Validation schema updated to match Overview
-const validationSchema = Yup.object({
-    name: Yup.string().required('Organisation name is required'),
-    address: Yup.string().required('Organisation address is required'),
-    logo: Yup.string().required('Logo is required'), // Updated to expect a string path
-    salaryStamp: Yup.string().required('Salary stamp is required'), // Updated field name
-    fiscalYear: Yup.string().required('Fiscal Year is required'),
-    gstNumber: Yup.string().required('Company GST Number is required'),
-    // numberOfEmployees: Yup.string().required('Number of employees is required'),
-    foundedIn: Yup.string().required('Founded in is required'),
-    contactNumber: Yup.string().required('Contact number is required'),
-    websiteUrl: Yup.string().required('Website URL is required'),
-    // workingDays: Yup.string().required('Working days is required'), // Commented out - not being used in the app
-    // workingHrs: Yup.string().required('Working hours is required'), // Commented out - not being used in the app
-    superAdminEmail: Yup.string().required('Super admin email is required'),
-    certificateOfIncorporation: Yup.string().required('Certificate of incorporation is required'),
-    panNo: Yup.string().required('Pan number is required'),
-    tanNo: Yup.string().required('Tan number is required'),
-    ptecCertificate: Yup.string().required('PTEC certificate is required'),
-    hsnSacNo: Yup.string().required('HSN/SAC number is required'),
-    beneficiaryName: Yup.string().required('Beneficiary name is required'),
-    bankNameAndAddress: Yup.string().required('Bank name and address is required'),
-    ifscCode: Yup.string().required('IFSC code is required'),
-    accountNo: Yup.string().required('Account number is required'),
-    micrCode: Yup.string().required('MICR code is required'),
-    contactPerson: Yup.string().required('Contact person is required'),
-    accountantNo: Yup.string().required('Accountant number is required'),
-    additionalplacesofbusiness: Yup.string().required('Additional places of business is required'),
-    businessType: Yup.string(), // Optional field
-    founder: Yup.string(), // Optional field
-});
+interface OrganisationProfileFormProps {
+    /** When provided, the form reads/edits this specific organization. */
+    organizationId?: string;
+    /** When provided, a back button is rendered inline with the info header. */
+    onBack?: () => void;
+    /** When provided, a "Branches" button is shown beside Download PDF. */
+    onBranchesClick?: () => void;
+}
 
-const OrganisationProfileForm = () => {
+const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: OrganisationProfileFormProps = {}) => {
     const dispatch = useDispatch<AppDispatch>();
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [stampPreview, setStampPreview] = useState<string | null>(null); // Added state for stamp preview
@@ -102,8 +82,31 @@ const OrganisationProfileForm = () => {
     const [logoUrl, setLogoUrl] = useState('');
     const [stampUrl, setStampUrl] = useState('');
     const [showEditModal, setShowEditModal] = useState<boolean>(false);
+    const [showSchemaManager, setShowSchemaManager] = useState(false);
+    const [formSchema, setFormSchema] = useState<IFormSection[]>(cloneDefaults());
+    const [schemaDirty, setSchemaDirty] = useState(false);
+    const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
     const [companyData, setCompanyData] = useState<ICompanyOverview | null>(null);
     const [formInitialValues, setFormInitialValues] = useState<ICompanyOverview>(initialValues);
+
+    // Update a custom field's stored value (built-in field values live in Formik)
+    function updateCustomValue(sectionId: string, fieldId: string, value: string) {
+        setSchemaDirty(true);
+        setFormSchema(prev => prev.map(s =>
+            s.id === sectionId ? { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, value } : f) } : s
+        ));
+        if (customErrors[fieldId]) setCustomErrors(prev => { const n = { ...prev }; delete n[fieldId]; return n; });
+    }
+
+    // Validate required custom fields (Formik only tracks built-in columns)
+    function validateCustomFields(): boolean {
+        const errs: Record<string, string> = {};
+        formSchema.forEach(sec => sec.fields.forEach(f => {
+            if (!f.isSystem && !f.hidden && f.required && !(f.value ?? '').trim()) errs[f.id] = `${f.label} is required`;
+        }));
+        setCustomErrors(errs);
+        return Object.keys(errs).length === 0;
+    }
 
     const allEmployees = useSelector((state: RootState) => state.allEmployees?.list.length || 0);
 
@@ -147,8 +150,12 @@ const OrganisationProfileForm = () => {
         }
     };
  
-    // get logo and stamp url to download and set previews
+    // get logo and stamp url to download and set previews.
+    // Only valid for the default/active org — fetchCompanyLogo() returns the default
+    // company's assets, so skip it when viewing a specific organization (its own
+    // logo/stamp come from the record loaded in the edit modal's fetchCompanyDetails).
     useEffect(()=>{
+        if (organizationId) return;
         const getUrl = async ()=>{
             const ALLUrl = await fetchCompanyLogo();
             const fetchedLogoUrl = ALLUrl?.data?.logo;
@@ -166,7 +173,7 @@ const OrganisationProfileForm = () => {
             }
         }
         getUrl()
-    },[])
+    },[organizationId])
 
 
     const downloadImage = async (imageUrl: string, filename: string) => {
@@ -208,7 +215,7 @@ const OrganisationProfileForm = () => {
     // Show OrganisationInfo component by default with edit modal
     return (
         <>
-        {hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.readOthers) && <OrganisationInfo onEditClick={() => setShowEditModal(true)} />}
+        {hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.readOthers) && <OrganisationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
             
 
             {/* Edit Modal */}
@@ -243,14 +250,17 @@ const OrganisationProfileForm = () => {
                     <Formik
                     initialValues={formInitialValues}
                     enableReinitialize={true}
-                    validationSchema={validationSchema}
+                    validationSchema={buildValidationSchema(formSchema)}
                     onSubmit={async (values, { resetForm }) => {
+                        if (!validateCustomFields()) return;
                         setLoading(true);
+                        const payload = { ...values, sectionConfig: formSchema, customSections: deriveCustomSections(formSchema) };
                         try {
                             if (isCreate) {
-                                const res = await createCompanyOverview(values);
+                                const res = await createCompanyOverview(payload as any);
                                 if (res && !res.hasError) {
                                     successConfirmation('Successfully created organisation profile');
+                                    setSchemaDirty(false);
                                     setLoading(false);
                                     // resetForm();
                                 } else {
@@ -261,9 +271,10 @@ const OrganisationProfileForm = () => {
                                 if (!companyId) {
                                     throw new Error('Company ID is missing');
                                 }
-                                const res = await updateCompanyOverview(companyId, values);
+                                const res = await updateCompanyOverview(companyId, payload as any);
                                 if (res && !res.hasError) {
                                     successConfirmation('Successfully updated organisation profile');
+                                    setSchemaDirty(false);
                                     setCompanyData(values);
 
                                     // Update Redux store with new showDateIn12HourFormat value
@@ -298,14 +309,17 @@ const OrganisationProfileForm = () => {
                         useEffect(() => {
                             async function fetchCompanyDetails() {
                                 try {
-                                    const { data: { companyOverview } } = await fetchCompanyOverview();
+                                    const { data: { companyOverview } } = organizationId
+                                        ? await fetchOrganizationById(organizationId)
+                                        : await fetchCompanyOverview();
                                     if (companyOverview[0]) {
                                         setIsCreate(false);
                                         setCompanyId(companyOverview[0]?.id);
                                         setCompanyData(companyOverview[0]);
 
-                                        // console.log('Fetched company data:', companyOverview[0]);
-                                        // console.log('superAdminEmail from API:', companyOverview[0].superAdminEmail);
+                                        // Resolve the data-driven form layout (saved config → legacy → defaults)
+                                        setFormSchema(resolveFormSchema(companyOverview[0]));
+                                        setSchemaDirty(false);
 
                                         // Create new initial values object with fetched data
                                         const newInitialValues: ICompanyOverview = { ...initialValues };
@@ -332,42 +346,123 @@ const OrganisationProfileForm = () => {
                             fetchCompanyDetails();
                         }, [isCreate]);
 
-                        return (<Form className="form">
-                                    {/* Logo and Stamp Upload Section */}
-                                    <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
+                        // Unified field renderer — drives every section from formSchema.
+                        // System fields bind to Formik (their value maps to a DB column);
+                        // custom fields bind to the schema's inline value.
+                        const renderField = (field: IFormField, sectionId: string) => {
+                            const reqCls = field.required ? 'required' : '';
+
+                            // ── System fields ──────────────────────────────────────────
+                            if (field.isSystem) {
+                                // Special widget: fiscal year date-range picker
+                                if (field.id === 'fiscalYear') {
+                                    return (
+                                        <>
+                                            <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
+                                            <Flatpickr
+                                                value={values.fiscalYear ? [new Date(values.fiscalYear.split(' to ')[0]), new Date(values.fiscalYear.split(' to ')[1])] : []}
+                                                className='form-control form-control-solid'
+                                                placeholder="Set fiscal year"
+                                                onChange={(selectedDates: Date[]) => {
+                                                    if (selectedDates.length === 2) {
+                                                        setFieldValue('fiscalYear', `${dateFormatter.format(selectedDates[0])} to ${dateFormatter.format(selectedDates[1])}`);
+                                                        setFieldTouched('fiscalYear', false);
+                                                    }
                                                 }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
+                                                onOpen={() => setFieldTouched('fiscalYear', true)}
+                                                options={{ dateFormat: "Y-m-d", altInput: true, altFormat: "F j, Y", enableTime: false, mode: 'range' }}
+                                            />
+                                            <ErrorMessage name="fiscalYear">{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
+                                        </>
+                                    );
+                                }
+                                if (field.type === 'file') {
+                                    return (
+                                        <DragDropFileField label={field.label} required={field.required}
+                                            currentFileUrl={(values as any)[field.id]}
+                                            currentFileName={(values as any)[field.id] ? String((values as any)[field.id]).split('/').pop() : ''}
+                                            uploadFn={uploadCompanyAsset}
+                                            onChange={(url) => setFieldValue(field.id, url)} />
+                                    );
+                                }
+                                // Number built-in field: text input + strict numeric filter (reliable
+                                // across browsers — Firefox lets type="number" accept letters).
+                                if (field.type === 'number') {
+                                    return (
+                                        <>
+                                            <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                className="form-control form-control-lg form-control-solid"
+                                                placeholder={field.label}
+                                                value={(values as any)[field.id] ?? ''}
+                                                onChange={e => {
+                                                    const next = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                                                    setFieldValue(field.id, next);
+                                                }}
+                                            />
+                                            <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
+                                        </>
+                                    );
+                                }
+                                return (
+                                    <>
+                                        <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
+                                        <Field name={field.id} type="text" className="form-control form-control-lg form-control-solid" placeholder={field.label} />
+                                        <ErrorMessage name={field.id}>{msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}</ErrorMessage>
+                                    </>
+                                );
+                            }
+
+                            // ── Custom fields ──────────────────────────────────────────
+                            if (field.type === 'file') {
+                                return (
+                                    <DragDropFileField label={field.label} required={field.required}
+                                        currentFileUrl={field.value}
+                                        currentFileName={field.value ? field.value.split('/').pop() : ''}
+                                        uploadFn={uploadCompanyAsset}
+                                        onChange={(url) => updateCustomValue(sectionId, field.id, url)} />
+                                );
+                            }
+                            const isNumber = field.type === 'number';
+                            return (
+                                <>
+                                    <label className={`${reqCls} col-form-label fw-bold fs-6`}>{field.label}</label>
+                                    <input
+                                        // Always a text input; for number fields we strip non-numeric input
+                                        // ourselves. This is reliable everywhere (Firefox lets type="number"
+                                        // accept letters while reporting an empty value).
+                                        type="text"
+                                        inputMode={isNumber ? 'decimal' : undefined}
+                                        className="form-control form-control-lg form-control-solid"
+                                        placeholder={field.label}
+                                        value={field.value ?? ''}
+                                        onChange={e => {
+                                            const next = isNumber ? e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') : e.target.value;
+                                            updateCustomValue(sectionId, field.id, next);
+                                        }}
+                                    />
+                                    {customErrors[field.id] && <div className="fv-plugins-message-container"><div className="fv-help-block">{customErrors[field.id]}</div></div>}
+                                </>
+                            );
+                        };
+
+                        return (<Form className="form">
+                                    {/* ⚙ Schema manager trigger */}
+                                    <div className="d-flex justify-content-end mb-2">
+                                        <button type="button" onClick={() => setShowSchemaManager(true)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #9D4141', borderRadius: '8px', padding: '6px 16px', color: '#9D4141', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <i className="bi bi-gear-fill" style={{ fontSize: '15px', lineHeight: 1 }} />
+                                            <span>Manage Form Fields</span>
+                                        </button>
+                                    </div>
+
+                                    {/* LOGO & STAMP */}
+                                    <div className="mb-4">
+                                        <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                                            <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                                <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
                                                 LOGO & STAMP
                                             </legend>
                                             <div className="card-body card responsive-card p-md-10 p-3">
@@ -376,11 +471,7 @@ const OrganisationProfileForm = () => {
                                                     <div className="d-flex gap-3 align-items-center flex-grow-1" style={{ minHeight: '72px' }}>
                                                         <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '50%', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
                                                             {logoPreview ? (
-                                                                <img
-                                                                    src={logoPreview}
-                                                                    alt="Logo Preview"
-                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                                />
+                                                                <img src={logoPreview} alt="Logo Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                             ) : (
                                                                 <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                     <i className="fa fa-image" style={{ color: '#9ca3af', fontSize: '24px' }}></i>
@@ -389,12 +480,8 @@ const OrganisationProfileForm = () => {
                                                         </div>
                                                         <div className="d-flex flex-column gap-1">
                                                             <div className="d-flex flex-column" style={{ gap: '3px' }}>
-                                                                <p style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#000', margin: 0, lineHeight: 'normal' }}>
-                                                                    Organization Logo
-                                                                </p>
-                                                                <p style={{ fontFamily: 'Inter', fontSize: '13px', fontWeight: 400, color: '#7a8597', margin: 0, lineHeight: '1.56' }}>
-                                                                    PNG or JPG Format only, and not more than 5MB
-                                                                </p>
+                                                                <p style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#000', margin: 0, lineHeight: 'normal' }}>Organization Logo</p>
+                                                                <p style={{ fontFamily: 'Inter', fontSize: '13px', fontWeight: 400, color: '#7a8597', margin: 0, lineHeight: '1.56' }}>PNG or JPG Format only, and not more than 5MB</p>
                                                             </div>
                                                             <div className="d-flex gap-3" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: 500, color: '#9d4141' }}>
                                                                 <label style={{ cursor: 'pointer', margin: 0 }}>
@@ -480,722 +567,49 @@ const OrganisationProfileForm = () => {
                                         </fieldset>
                                     </div>
 
-                                    {/* Form Fields - Organisation Name, Fiscal Year */}
-                                    <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
-                                                BASIC INFORMATION
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <Row>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Organisation Name
-                                            </label>
-                                            <Field
-                                                name="name"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Organisation name"
-                                            />
-                                            <ErrorMessage name="name">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
 
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6 ">
-                                                Fiscal Year
-                                            </label>
-                                            <Field name="fiscalYear">
-                                                {({ field, form }: { field: any; form: any }) => (
-                                                    <Flatpickr
-                                                        value={values.fiscalYear ? [
-                                                            new Date(values.fiscalYear.split(' to ')[0]),
-                                                            new Date(values.fiscalYear.split(' to ')[1])
-                                                        ] : []}
-                                                        className='form-control form-control-solid'
-                                                        placeholder={"Set fiscal year"}
-                                                        onChange={(selectedDates: Date[]) => {
-                                                            if (selectedDates.length === 2) {
-                                                                const startDate = dateFormatter.format(selectedDates[0]);
-                                                                const endDate = dateFormatter.format(selectedDates[1]);
-                                                                setFieldValue("fiscalYear", `${startDate} to ${endDate}`);
-                                                                setFieldTouched("fiscalYear", false);
-                                                            }
-                                                        }}
-                                                        onOpen={() => {
-                                                            setFieldTouched("fiscalYear", true);
-                                                        }}
-                                                        options={{
-                                                            dateFormat: "Y-m-d",
-                                                            altInput: true,
-                                                            altFormat: "F j, Y",
-                                                            enableTime: false,
-                                                            mode: 'range'
-                                                        }}
-                                                    />
-                                                )}
-                                            </Field>
-                                            <ErrorMessage name="fiscalYear">
-                                                {msg => <div className='fv-plugins-message-container'><div className='fv-help-block'>{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Contact Number
-                                            </label>
-                                            <Field
-                                                name="contactNumber"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Contact number"
-                                            />
-                                            <ErrorMessage name="contactNumber">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Website URL
-                                            </label>
-                                            <Field
-                                                name="websiteUrl"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="https://www.example.com"
-                                            />
-                                            <ErrorMessage name="websiteUrl">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="col-form-label fw-bold fs-6">
-                                                Business Type
-                                            </label>
-                                            <Field
-                                                name="businessType"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Business Type"
-                                            />
-                                            <ErrorMessage name="businessType">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="col-form-label fw-bold fs-6">
-                                                Founder
-                                            </label>
-                                            <Field
-                                                name="founder"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Founder"
-                                            />
-                                            <ErrorMessage name="founder">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        {/* Commented out - not being used in the app */}
-                                        {/* <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Working Days
-                                            </label>
-                                            <Field
-                                                name="workingDays"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Working days"
-                                            />
-                                            <ErrorMessage name="workingDays">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col> */}
-
-                                        {/* Commented out - not being used in the app */}
-                                        {/* <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Working Hours
-                                            </label>
-                                            <Field
-                                                name="workingHrs"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Working hours"
-                                            />
-                                            <ErrorMessage name="workingHrs">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col> */}
-                                                </Row>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-                                    {/* GST & Company Details */}
-                                    <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
-                                                GST & COMPANY DETAILS
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <Row>
-                                        <Col md={12} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Organisation Address
-                                            </label>
-                                            <Field
-                                                name="address"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Organisation Address"
-                                            />
-                                            <ErrorMessage name="address">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                GST Number
-                                            </label>
-                                            <Field
-                                                name="gstNumber"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="GST Number"
-                                            />
-                                            <ErrorMessage name="gstNumber">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        {/* <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Number of Employees
-                                            </label>
-                                            <Field
-                                                name="numberOfEmployees"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Number of Employees"
-                                                readOnly
-                                                disabled
-                                                title="Auto-calculated from total employees"
-                                            />
-                                            <ErrorMessage name="numberOfEmployees">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col> */}
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Founded In
-                                            </label>
-                                            <Field
-                                                name="foundedIn"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Founded In"
-                                            />
-                                            <ErrorMessage name="foundedIn">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                                </Row>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-{/* Super Admin Email and Certificate of Incorporation */}
-                                    <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
-                                                ADMIN & CERTIFICATES
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <Row>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Super Admin Email
-                                            </label>
-                                            <Field
-                                                name="superAdminEmail"
-                                                type="email"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Super Admin Email"
-                                            />
-                                            <ErrorMessage name="superAdminEmail">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Certificate of Incorporation
-                                            </label>
-                                            <Field
-                                                name="certificateOfIncorporation"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Certificate of Incorporation"
-                                            />
-                                            <ErrorMessage name="certificateOfIncorporation">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Pan Number
-                                            </label>
-                                            <Field
-                                                name="panNo"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Pan Number"
-                                            />
-                                            <ErrorMessage name="panNo">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Tan Number
-                                            </label>
-                                            <Field
-                                                name="tanNo"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Tan Number"
-                                            />
-                                            <ErrorMessage name="tanNo">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                                </Row>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-                                    {/* PTEC Certificate and HSN/SAC Number */}
-                                    <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
-                                                TAX & BUSINESS DETAILS
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <Row>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                PTEC Certificate
-                                            </label>
-                                            <Field
-                                                name="ptecCertificate"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="PTEC Certificate"
-                                            />
-                                            <ErrorMessage name="ptecCertificate">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                HSN/SAC Number
-                                            </label>
-                                            <Field
-                                                name="hsnSacNo"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="HSN/SAC Number"
-                                            />
-                                            <ErrorMessage name="hsnSacNo">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                                </Row>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-                                    {/* Beneficiary Name and Bank Name and Address */}
-                                    <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
-                                                BANK DETAILS
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <Row>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Beneficiary Name
-                                            </label>
-                                            <Field
-                                                name="beneficiaryName"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Beneficiary Name"
-                                            />
-                                            <ErrorMessage name="beneficiaryName">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Bank Name and Address
-                                            </label>
-                                            <Field
-                                                name="bankNameAndAddress"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Bank Name and Address"
-                                            />
-                                            <ErrorMessage name="bankNameAndAddress">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                IFSC Code
-                                            </label>
-                                            <Field
-                                                name="ifscCode"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="IFSC Code"
-                                            />
-                                            <ErrorMessage name="ifscCode">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Account Number
-                                            </label>
-                                            <Field
-                                                name="accountNo"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Account Number"
-                                            />
-                                            <ErrorMessage name="accountNo">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                MICR Code
-                                            </label>
-                                            <Field
-                                                name="micrCode"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="MICR Code"
-                                            />
-                                            <ErrorMessage name="micrCode">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Contact Person
-                                            </label>
-                                            <Field
-                                                name="contactPerson"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Contact Person"
-                                            />
-                                            <ErrorMessage name="contactPerson">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Accountant Number
-                                            </label>
-                                            <Field
-                                                name="accountantNo"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Accountant Number"
-                                            />
-                                            <ErrorMessage name="accountantNo">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                        <Col md={6} xs={12}>
-                                            <label className="required col-form-label fw-bold fs-6">
-                                                Additional Places of Business
-                                            </label>
-                                            <Field
-                                                name="additionalplacesofbusiness"
-                                                type="text"
-                                                className="form-control form-control-lg form-control-solid"
-                                                placeholder="Additional Places of Business"
-                                            />
-                                            <ErrorMessage name="additionalplacesofbusiness">
-                                                {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                            </ErrorMessage>
-                                        </Col>
-                                                </Row>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-                                    {/* Date Settings */}
-                                    {/* <div className="mb-4">
-                                        <fieldset
-                                            style={{
-                                                borderTop: "1px solid #9D4141",
-                                                padding: "clamp(14px, 2vw, 15px)",
-                                            }}
-                                            className="mt-7"
-                                        >
-                                            <legend
-                                                style={{
-                                                    fontSize: "17px",
-                                                    fontWeight: 600,
-                                                    fontFamily: "Inter",
-                                                    marginTop: "-25px",
-                                                    marginLeft: "-17px",
-                                                    backgroundColor: "#F3F4F7",
-                                                    width: "auto",
-                                                    lineHeight: "1",
-                                                    letterSpacing: 0,
-                                                    color: "#9D4141",
-                                                    padding: "2px 2px 8px",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                }}
-                                            >
-                                                <div
-                                                    className="ms-5"
-                                                    style={{
-                                                        borderTop: "1px solid #9D4141",
-                                                        width: "30px",
-                                                        height: "0px",
-                                                    }}
-                                                ></div>
-                                                DATE SETTINGS
-                                            </legend>
-                                            <div className="card-body card responsive-card p-md-10 p-3">
-                                                <Row>
-                                        <Col md={6} xs={12}>
-                                            <div className="mt-4">
-                                                <RadioInput
-                                                    isRequired={false}
-                                                    inputLabel="Show Date In 12 Hour Format"
-                                                    radioBtns={[
-                                                        { label: "Yes", value: "1" },
-                                                        { label: "No", value: "0" },
-                                                    ]}
-                                                    formikField="showDateIn12HourFormat"
-                                                />
-                                                <ErrorMessage name="showDateIn12HourFormat">
-                                                    {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                                                </ErrorMessage>
-                                            </div>
-                                        </Col>
-                                                </Row>
-                                            </div>
-                                        </fieldset>
-                                    </div> */}
-
+                                    {/* DATA-DRIVEN SECTIONS (order, titles, fields all come from formSchema) */}
+                                    {formSchema.map(section => (
+                                        <div key={section.id} className="mb-4">
+                                            <fieldset style={{ borderTop: "1px solid #9D4141", padding: "clamp(14px, 2vw, 15px)" }} className="mt-7">
+                                                <legend style={{ fontSize: "17px", fontWeight: 600, fontFamily: "Inter", marginTop: "-25px", marginLeft: "-17px", backgroundColor: "#F3F4F7", width: "auto", lineHeight: "1", letterSpacing: 0, color: "#9D4141", padding: "2px 2px 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                                    <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
+                                                    {section.title}
+                                                </legend>
+                                                <div className="card-body card responsive-card p-md-10 p-3">
+                                                    <Row>
+                                                        {section.fields.filter(field => !field.hidden).map(field => (
+                                                            <Col key={field.id} md={field.type === 'file' ? 12 : 6} xs={12}>
+                                                                {renderField(field, section.id)}
+                                                            </Col>
+                                                        ))}
+                                                        {section.fields.filter(field => !field.hidden).length === 0 && (
+                                                            <Col xs={12}>
+                                                                <p className="text-muted fst-italic" style={{ fontSize: '13px' }}>No fields yet — open Manage Form Fields to add some.</p>
+                                                            </Col>
+                                                        )}
+                                                    </Row>
+                                                </div>
+                                            </fieldset>
+                                        </div>
+                                    ))}
                                     {/* Submit Button */}
                                     <div className="d-flex justify-content-end gap-2 mt-5">
-                                                {!isCreate && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-secondary text-white"
-                                                        onClick={() => setShowEditModal(false)}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                )}
-                                                <button
-                                                    type="submit"
-                                                    className="btn btn-primary"
-                                                    disabled={loading || !isValid || !dirty}
-                                                    onClick={(e) => {
-                                                        console.log('Button clicked', { loading, isValid, dirty });
-                                                        console.log('Form values:', values);
-                                                    }}
-                                                >
-                                                    {loading ? (
-                                                        <span className="indicator-progress" style={{ display: 'block' }}>
-                                                            Please wait...{' '}
-                                                            <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                                        </span>
-                                                    ) : (
-                                                        isCreate ? 'Submit' : 'Update'
-                                                    )}
-                                                </button>
+                                        {!isCreate && (
+                                            <button type="button" className="btn btn-secondary text-white" onClick={() => setShowEditModal(false)}>
+                                                Cancel
+                                            </button>
+                                        )}
+                                        <button type="submit" className="btn btn-primary" disabled={loading || (!dirty && !schemaDirty)}>
+                                            {loading ? (
+                                                <span className="indicator-progress" style={{ display: 'block' }}>
+                                                    Please wait...{' '}
+                                                    <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+                                                </span>
+                                            ) : (
+                                                isCreate ? 'Submit' : 'Update'
+                                            )}
+                                        </button>
                                     </div>
                         </Form>)
                     }}
@@ -1203,6 +617,17 @@ const OrganisationProfileForm = () => {
                 </Modal.Body>
                 </Box>
             </Modal>
+
+            <FormSchemaManager
+                show={showSchemaManager}
+                sections={formSchema}
+                onSave={(sections) => {
+                    setFormSchema(sections);
+                    setSchemaDirty(true);
+                    setShowSchemaManager(false);
+                }}
+                onClose={() => setShowSchemaManager(false)}
+            />
         </>
     );
 };

@@ -222,6 +222,7 @@ const UpcomingEventsCard: React.FC = () => {
         data: { users },
       } = await fetchAllUsers();
       const upcomingBirthdays = users.filter((user: any) => {
+        if (!user.isActive) return false;
         if (!user.dateOfBirth) return false;
         const birthday = new Date(user.dateOfBirth);
         const today = new Date();

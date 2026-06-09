@@ -262,7 +262,7 @@ const FIELD_WEIGHTS: Record<string, number> = {
 
 import axios from 'axios';
 
-export const performGlobalSearch = async (query: string): Promise<UnifiedSearchResult[]> => {
+export const performGlobalSearch = async (query: string, signal?: AbortSignal): Promise<UnifiedSearchResult[]> => {
   if (!query || query.trim().length < 2) return [];
 
   try {
@@ -274,8 +274,10 @@ export const performGlobalSearch = async (query: string): Promise<UnifiedSearchR
     const [backendRes] = await Promise.all([
       axios.get(`${API_BASE_URL}/api/search/global-search`, {
         params: { q: query, limit: 50 },
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        signal,
       }).catch((err) => {
+        if (axios.isCancel(err)) return { data: { results: {} } };
         console.error('Backend Search Failed:', err);
         return { data: { results: {} } };
       })
@@ -320,10 +322,10 @@ export const performGlobalSearch = async (query: string): Promise<UnifiedSearchR
       });
     };
 
-    if (backendData.projects) backendData.projects.forEach((p: any) => mapResult(p, 'Project', '/qc/projects', 'element-11'));
+    if (backendData.projects) backendData.projects.forEach((p: any) => mapResult(p, 'Project', '/projects', 'element-11'));
     if (backendData.leads) backendData.leads.forEach((l: any) => mapResult(l, 'Lead', '/employee/lead', 'graph-3'));
-    if (backendData.companies) backendData.companies.forEach((c: any) => mapResult(c, 'Company', '/qc/companies', 'briefcase'));
-    if (backendData.contacts) backendData.contacts.forEach((c: any) => mapResult(c, 'Contact', '/qc/contacts', 'profile-circle'));
+    if (backendData.companies) backendData.companies.forEach((c: any) => mapResult(c, 'Company', '/companies', 'briefcase'));
+    if (backendData.contacts) backendData.contacts.forEach((c: any) => mapResult(c, 'Contact', '/contacts', 'profile-circle'));
     if (backendData.employees) backendData.employees.forEach((e: any) => mapResult(e, 'Employee', '/employees', 'profile-user'));
     if (backendData.pages) backendData.pages.forEach((pg: any) => mapResult(pg, 'Navigation', '', 'explore'));
 

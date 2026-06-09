@@ -30,6 +30,7 @@ const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttend
 const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
 const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
 const Salary = lazy(() => import('@pages/employee/salary/Salary'))
+const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
 const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
 const Settings = lazy(() => import('@pages/company/Settings'))
@@ -47,6 +48,7 @@ const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companie
 const AllProjectMainToggle = lazy(() => import('@pages/employee/projects/project/components/AllProjectMainToggle'))
 const LeadDetails = lazy(() => import('@pages/employee/leads/lead/LeadDetails'))
 const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
+const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
 const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
@@ -70,9 +72,6 @@ const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
 const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
 const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
 const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
-const PayrollLedger = lazy(() => import('../../modules/payroll/pages/PayrollLedger'))
-const PayrollDetails = lazy(() => import('../../modules/payroll/pages/PayrollDetails'))
-
 const PrivateRoutes = () => {
   const [isStored, setIsStored] = useState(false)
   const employeeId = useSelector(
@@ -174,20 +173,13 @@ const PrivateRoutes = () => {
               <Salary />
             </SuspensedView>}
         />}
-        <Route
-          path='/payroll/ledger'
+        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/finance/increment'
           element={
             <SuspensedView>
-              <PayrollLedger />
+              <Increment />
             </SuspensedView>}
-        />
-        <Route
-          path='/payroll/ledger/:id'
-          element={
-            <SuspensedView>
-              <PayrollDetails />
-            </SuspensedView>}
-        />
+        />}
         <Route
           path='/finance/loans'
           element={
@@ -330,6 +322,13 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <OrganisationProfileMain />
+            </SuspensedView>}
+        />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/company/organisation-profile/:orgId'
+          element={
+            <SuspensedView>
+              <OrganizationProfilePage />
             </SuspensedView>}
         />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route

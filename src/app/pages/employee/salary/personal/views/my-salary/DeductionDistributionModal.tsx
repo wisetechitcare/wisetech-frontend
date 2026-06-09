@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, OverlayTrigger, Tooltip as BSTooltip } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import * as Yup from 'yup';
@@ -9,7 +9,7 @@ import { createUpdateDeductionConfiguration, fetchDeductionConfiguration, valida
 import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
 import { Close, InfoOutlined } from '@mui/icons-material';
-import { formatINR2 } from '../../../../../../../modules/payroll/utils/payrollFormatters';
+import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -135,16 +135,14 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             .forEach(key => {
                 schemaFields[key] = Yup.number()
                     .typeError(`${deductionDistributionData[key].name} must be a valid number`)
-                    .required(`${deductionDistributionData[key].name} is required`)
-                    .min(0, `${deductionDistributionData[key].name} must be greater than or equal to 0`);
+                    .required(`${deductionDistributionData[key].name} is required`);
             });
 
         // Add validation for new fields
         dynamicFields.forEach(field => {
             schemaFields[field.id] = Yup.number()
                 .typeError(`${field.name} must be a valid number`)
-                .required(`${field.name} is required`)
-                .min(0, `${field.name} must be greater than or equal to 0`);
+                .required(`${field.name} is required`);
         });
 
         return Yup.object().shape(schemaFields);
@@ -201,21 +199,26 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             const defaultFields: any = {
                 'Provident Fund': { name: 'Provident Fund', type: 'number', value: 0, isActive: true },
                 'Professional Tax': { name: 'Professional Tax', type: 'number', value: 0, isActive: true },
-                'Professional Fees': { name: 'Professional Fees', type: 'number', value: 0, isActive: true }
+                'Professional Fees': { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true }
             };
 
-            // Merge existing data if found
+            // Always start with all default fields, then overlay any saved values
             const finalData: any = {};
-            const baseData = existingAdditionalData || defaultFields;
-            
-            Object.entries(baseData).forEach(([key, value]: [string, any]) => {
-                if (key === '_fieldOrder') return;
-                finalData[key] = {
-                    ...value,
-                    value: value.value || 0,
-                    type: 'number'
-                };
+
+            Object.entries(defaultFields).forEach(([key, value]: [string, any]) => {
+                finalData[key] = { ...value, value: 0, type: 'number' };
             });
+
+            if (existingAdditionalData) {
+                Object.entries(existingAdditionalData).forEach(([key, value]: [string, any]) => {
+                    if (key === '_fieldOrder') return;
+                    if (finalData[key]) {
+                        finalData[key] = { ...finalData[key], ...value, value: value.value || 0, type: 'number' };
+                    } else {
+                        finalData[key] = { ...value, value: value.value || 0, type: 'number' };
+                    }
+                });
+            }
 
             setDeductionDistributionData(finalData);
             
@@ -243,14 +246,11 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             Object.entries(deductionDistributionData)
                 .filter(([key]) => !deletedFields.includes(key))
                 .forEach(([key, fieldData]: [string, any]) => {
-                    // Business Rule: Only active deduction should accept extra amount
-                    const isProfTax = key === 'Professional Tax';
-                    const isProfFees = key === 'Professional Fees';
-                    
-                    let finalValue = Number(values[key]);
-                    
-                    if (isProfTax && !profTaxEnabled) finalValue = 0;
-                    if (isProfFees && !profFeesEnabled) finalValue = 0;
+                    // NOTE: Extra manual amounts are ALWAYS saved regardless of whether the
+                    // auto-calculated component is enabled or disabled. The auto-calculation
+                    // engine already handles the Professional Tax / Professional Fees mutual
+                    // exclusivity. The extra amount here is independent (additive).
+                    const finalValue = Number(values[key]);
 
                     transformedData[key] = {
                         ...fieldData,
@@ -278,7 +278,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             };
 
             await createUpdateDeductionConfiguration(apiPayload as any);
-            successConfirmation(`Additional deductions updated successfully!`);
+            successConfirmation(`Deduction adjustments updated successfully!`);
             onSuccess();
             onClose();
 
@@ -300,22 +300,27 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
     const renderPreview = (fieldName: string, extraValue: number) => {
         const auto = autoCalculatedDeductions[fieldName] || 0;
-        const total = auto + extraValue;
+        const total = Math.max(0, auto + extraValue);
+        const formatSignedAdjustment = (value: number) => {
+            if (value > 0) return `+${formatINRDecimal(value)}`;
+            if (value < 0) return `-${formatINRDecimal(Math.abs(value))}`;
+            return formatINRDecimal(0);
+        };
         
         return (
             <div className="mt-2 p-3 bg-light rounded border border-dashed border-gray-300">
                 <div className="d-flex justify-content-between fs-8 text-gray-600 mb-1">
                     <span>Auto Calculated:</span>
-                    <span>{formatINR2(auto)}</span>
+                    <span>{formatINRDecimal(auto)}</span>
                 </div>
                 <div className="d-flex justify-content-between fs-8 text-primary mb-1">
-                    <span>Additional:</span>
-                    <span>+{formatINR2(extraValue)}</span>
+                    <span>Adjustment:</span>
+                    <span>{formatSignedAdjustment(extraValue)}</span>
                 </div>
                 <div className="separator separator-dashed my-1"></div>
                 <div className="d-flex justify-content-between fs-7 fw-bolder text-gray-800">
                     <span>Final {fieldName}:</span>
-                    <span>{formatINR2(total)}</span>
+                    <span>{formatINRDecimal(total)}</span>
                 </div>
             </div>
         );
@@ -358,7 +363,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                         <div className="d-flex flex-column pe-0 pe-sm-10">
                                             <h5 className="mb-1 text-primary fw-bolder">Important Note</h5>
                                             <span className="fs-7 text-gray-700">
-                                                Amounts entered here will be <strong>added</strong> to the payroll calculated deductions. 
+                                                Positive amounts increase payroll calculated deductions. Negative amounts reduce them.
                                                 They will <strong>not</strong> overwrite the original calculations.
                                             </span>
                                         </div>
@@ -384,12 +389,13 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                             let isDisabled = false;
                                             let disabledReason = '';
 
+                                            // We only visually warn — we no longer block input.
+                                            // Extra manual amounts are independent of the
+                                            // auto-calculated component state.
                                             if (isProfTax && !profTaxEnabled) {
-                                                isDisabled = true;
-                                                disabledReason = "Professional Tax disabled because Professional Fees is active";
+                                                disabledReason = "Professional Tax is auto-disabled (Tax Deducted at Source (TDS) is active). Extra amount still applies separately.";
                                             } else if (isProfFees && !profFeesEnabled) {
-                                                isDisabled = true;
-                                                disabledReason = "Professional Fees disabled because Professional Tax is active";
+                                                disabledReason = "Tax Deducted at Source (TDS) is auto-disabled (Professional Tax is active). Extra amount still applies separately.";
                                             }
 
                                             const currentExtra = Number(formikProps.values[field.id] || 0);
@@ -437,8 +443,8 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                         </div>
 
                                                         <div className="mb-2">
-                                                            <label className={`form-label fw-bold fs-8 text-uppercase ${isDisabled ? 'text-gray-500' : 'text-gray-700'}`}>
-                                                                Additional Deduction Amount
+                                                            <label className={`form-label fw-bold fs-8 text-uppercase ${disabledReason ? 'text-warning' : 'text-gray-700'}`}>
+                                                                Deduction Adjustment Amount
                                                             </label>
                                                             <TextInput
                                                                 isRequired={true}
@@ -446,15 +452,15 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                                 formikField={field.id}
                                                                 type="number"
                                                                 placeholder="0.00"
-                                                                readonly={isDisabled}
+                                                                readonly={false}
                                                             />
                                                         </div>
 
-                                                        {!isDisabled && renderPreview(field.isNew ? field.id : field.name || field.id, currentExtra)}
+                                                        {renderPreview(field.isNew ? field.id : field.name || field.id, currentExtra)}
                                                         
-                                                        {isDisabled && (
-                                                            <div className="text-center py-4 bg-gray-100 rounded border border-dashed border-gray-300 mt-2">
-                                                                <span className="text-muted fs-8 fw-bold italic">{disabledReason}</span>
+                                                        {disabledReason && (
+                                                            <div className="text-center py-3 bg-light-warning rounded border border-dashed border-warning mt-2">
+                                                                <span className="text-warning fs-8 fw-bold">{disabledReason}</span>
                                                             </div>
                                                         )}
                                                     </div>

@@ -20,6 +20,7 @@ const BirthdayCelebration = () => {
         const today = dayjs();
 
         const todayBirthdayUsers = usersList.filter((user: any) => {
+          if (!user.isActive) return false;
           const dob = dayjs(user.dateOfBirth);
           return dob.date() === today.date() && dob.month() === today.month();
         });

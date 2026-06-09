@@ -1,6 +1,50 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_APP_API_URL;
+const API_URL = `${import.meta.env.VITE_APP_WISE_TECH_BACKEND}/api`;
+
+export interface PayrollComponent {
+  id: string;
+  companyId: string;
+  key: string;
+  displayName: string;
+  shortCode?: string;
+  description?: string;
+  isActive: boolean;
+  isSystem: boolean;
+  sortOrder: number;
+  category: string;
+  direction: string;
+  calculationType: string;
+  enableInOnboarding: boolean;
+  applyDuration: string;
+  defaultAmount?: number | null;
+  defaultPercentage?: number | null;
+  effectiveFrom?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const deductionMasterService = {
+  getAll: async (): Promise<PayrollComponent[]> => {
+    const res = await axios.get(`${API_URL}/salary-component-master`);
+    return res.data?.data?.items || [];
+  },
+  seed: async (): Promise<PayrollComponent[]> => {
+    const res = await axios.post(`${API_URL}/salary-component-master/seed`);
+    return res.data?.data?.items || [];
+  },
+  create: async (data: Partial<PayrollComponent>): Promise<PayrollComponent> => {
+    const res = await axios.post(`${API_URL}/salary-component-master`, data);
+    return res.data?.data?.item;
+  },
+  update: async (id: string, data: Partial<PayrollComponent>): Promise<PayrollComponent> => {
+    const res = await axios.put(`${API_URL}/salary-component-master/${id}`, data);
+    return res.data?.data?.item;
+  },
+  delete: async (id: string): Promise<void> => {
+    await axios.delete(`${API_URL}/salary-component-master/${id}`);
+  },
+};
 
 export const payrollService = {
   /**
@@ -55,6 +99,16 @@ export const payrollService = {
     remarks?: string;
   }) => {
     const response = await axios.post(`${API_URL}/payroll/govt-payment`, paymentData);
+    return response.data;
+  },
+
+  /**
+   * Download Salary Slip PDF
+   */
+  downloadSalarySlip: async (salaryId: string) => {
+    const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}/download-slip`, {
+      responseType: 'blob'
+    });
     return response.data;
   },
 };

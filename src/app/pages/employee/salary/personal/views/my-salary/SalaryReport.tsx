@@ -1,4 +1,4 @@
-﻿import TextInput from '@app/modules/common/inputs/TextInput';
+import TextInput from '@app/modules/common/inputs/TextInput';
 import { CUSTOM_SALARY, DEDUCTIONS, GROSS_PAY, LEAVE_MANAGEMENT, SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
 import { HOLIDAYS, LATE_CHECKIN, MONTH, ON_LEAVE, Status, YEAR, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -14,8 +14,10 @@ import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetch
 // import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
+import { payrollService } from '@modules/payroll/services/payrollService';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { toast } from 'react-toastify';
 import { salaryCalculations, donutaDataLabel, getWorkingDaysInMonth, multipleRadialBarData, totalCheckInCheckOutMinutes, getWorkingDaysInYear, getCountOfMonthsEmployeePresentOrOnLeaveInAYear, getTotalWeekendDaysInMonth, getTotalWeekendsInYear, formatNumber, formatStringINR, filterLeavesPublicHolidays, customLeaves, getTotalDaysInMonth, getTotalDaysInYear, getTotalWeekendsInYearFilteredByDOJOrCurrentYearDate, getTotalWeekendDaysInMonthFilteredByDOJOrCurrentMonthDate, SalaryCalculations, geAllDaysInAMonth, getAllDaysInAYear, salaryCalculationsForDays } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { Form, Formik, FormikValues } from 'formik';
@@ -76,10 +78,16 @@ interface SalaryReportProps {
     isRefreshing?: boolean;
 }
 
-const formatINR2 = (n: number) =>
-    `₹${(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+const formatINRDecimal = (n: number) =>
+    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    })}`;
+
+const formatINRRounded = (n: number) =>
+    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     })}`;
 
 const sumEarnings = (entries: Record<string, IBreakdownItem> | undefined) =>
@@ -106,6 +114,10 @@ const DeductionPanel = ({
     const totalDeductions = totalVariable + totalFixed;
 
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+    const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
+        const sign = extraAmount < 0 ? '-' : '+';
+        return `(${formatINRDecimal(calculatedAmount)} ${sign} ${formatINRDecimal(Math.abs(extraAmount))})`;
+    };
 
     return (
         <div className="deduction-panel ">
@@ -134,7 +146,7 @@ const DeductionPanel = ({
                                         {item.value ?? '-'}
                                     </td>
                                     <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                        {formatINR2(Number(item.earned || 0))}
+                                        {formatINRDecimal(Number(item.earned || 0))}
                                     </td>
                                 </tr>
                             ))}
@@ -152,7 +164,7 @@ const DeductionPanel = ({
                                     className={`fw-bold py-2 ${sensitiveCls}`}
                                     style={{ textAlign: 'right', color: '#AA393D' }}
                                 >
-                                    -{formatINR2(totalVariable)}
+                                    -{formatINRDecimal(totalVariable)}
                                 </td>
                             </tr>
                         </tbody>
@@ -182,7 +194,7 @@ const DeductionPanel = ({
                             border: '1px solid #E5C8CA',
                         }}
                     >
-                        {formatINR2(intermediateSalary)}
+                        {formatINRDecimal(intermediateSalary)}
                     </div>
                 </div>
             </div>
@@ -207,8 +219,11 @@ const DeductionPanel = ({
                             )}
                             {fixedEntries.map(([key, item]: [string, any]) => {
                                 const isPct = String(item.type).toLowerCase() === 'percentage';
-                                const rate = isPct ? `${item.value}%` : formatINR2(Number(item.value || 0));
+                                    const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
                                 const typeLabel = isPct ? 'Percentage' : 'Fixed';
+                                const extraAmount = Number(item.extraAmount || 0);
+                                const calculatedAmount = Number(item.calculatedAmount || 0);
+                                const earnedAmount = Math.max(0, Number(item.earned || 0));
                                 return (
                                     <tr key={key} style={{ fontSize: 11 }}>
                                         <td>{item.name || key}</td>
@@ -217,11 +232,17 @@ const DeductionPanel = ({
                                             {rate}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {isPct ? formatINR2(intermediateSalary) : '—'}
+                                            {isPct ? formatINRDecimal(intermediateSalary) : '—'}
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
-                                            {formatINR2(Number(item.earned || 0))}
-                                            
+                                            <div className="d-flex flex-column align-items-end">
+                                                        <span>{formatINRDecimal(earnedAmount)}</span>
+                                                {extraAmount !== 0 && (
+                                                    <span className="text-muted" style={{ fontSize: 10 }}>
+                                                        {formatAdjustmentFormula(calculatedAmount, extraAmount)}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         
                                     </tr>
@@ -241,7 +262,7 @@ const DeductionPanel = ({
                                     className={`fw-bold py-2 ${sensitiveCls}`}
                                     style={{ textAlign: 'right', color: '#AA393D' }}
                                 >
-                                    -{formatINR2(totalFixed)}
+                                    -{formatINRDecimal(totalFixed)}
                                 </td>
                             </tr>
                         </tbody>
@@ -267,7 +288,7 @@ const DeductionPanel = ({
                             border: '1px solid #E5C8CA',
                         }}
                     >
-                        {formatINR2(intermediateSalary)}
+                        {formatINRDecimal(intermediateSalary)}
                     </div>
                 </div>
             </div>
@@ -324,7 +345,7 @@ const NetAmountPayable = ({
                     className={`fs-2 fw-bolder ${net < 0 ? 'text-danger' : ''} ${sensitiveCls}`}
                     style={{ color: net < 0 ? undefined : '#008C7C' }}
                 >
-                    {formatINR2(Math.abs(net))}
+                    {formatINRRounded(Math.abs(net))}
                 </div>
             </div>
             {isApiDataLoaded && (
@@ -332,12 +353,12 @@ const NetAmountPayable = ({
                     className={`mt-3 d-flex justify-content-center align-items-center gap-2 px-3 py-2 rounded-2 ${sensitiveCls}`}
                     style={{ backgroundColor: '#D6F4EE', fontSize: 13 }}
                 >
-                    <span className="fw-semibold">{formatINR2(intermediateSalary)}</span>
+                    <span className="fw-semibold">{formatINRDecimal(intermediateSalary)}</span>
                     <span className="text-muted">−</span>
-                    <span className="fw-semibold">{formatINR2(totalFixed)}</span>
+                    <span className="fw-semibold">{formatINRDecimal(totalFixed)}</span>
                     <span className="text-muted">=</span>
                     <span className="fw-bolder" style={{ color: '#008C7C' }}>
-                        {formatINR2(net)}
+                        {formatINRRounded(net)}
                     </span>
                 </div>
             )}
@@ -476,19 +497,17 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         // console.log("grossBreakdownTable:: ",data);
 
         const formatCurrency = (amount: number) => {
-            return `₹${amount.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+            return `₹${Math.round(amount).toLocaleString('en-IN', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
             })}`;
         };
 
         const formatValue = (value: any, type?: string) => {
             if (value === null || value === undefined) return '-';
             if (typeof value === 'number') {
-                // Format to 2 decimal places, but show integers without decimals
-                const formatted = Number.isInteger(value) ?
-                    value.toString() :
-                    value.toFixed(2);
+                // Format to 0 decimal places
+                const formatted = Math.round(value).toString();
                 return type === 'percentage' ? `${formatted}%` : formatted;
             }
             return value.toString();
@@ -525,19 +544,31 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     <tr>
                                         <th style={{ fontWeight: '600', fontSize: '12px' }}>Name</th>
                                         <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'center' }}>Value</th>
+                                        <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'center' }}>Rate</th>
                                         <th style={{ fontWeight: '600', fontSize: '12px', textAlign: 'right' }}>Earned</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Object.entries(data.variable).map(([key, item]) => (
-                                        <tr key={key} style={{ fontSize: '11px' }}>
-                                            <td>{item.name || key}</td>
-                                            <td style={{ textAlign: 'center' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatValue(item.value, item.type)}</td>
-                                            <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
-                                        </tr>
-                                    ))}
+                                    {Object.entries(data.variable).map(([key, item], index) => {
+                                        const isHourly = index < 2;
+                                        const hourlySalaryVal = apiSalaryData?.hourlySalary;
+                                        const dailySalaryVal = hourlySalaryVal ? hourlySalaryVal * 8 : undefined;
+                                        const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
+                                        const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0 
+                                            ? `${formatCurrency(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
+                                            : '-';
+                                        
+                                        return (
+                                            <tr key={key} style={{ fontSize: '11px' }}>
+                                                <td>{item.name || key}</td>
+                                                <td style={{ textAlign: 'center' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatValue(item.value, item.type)}</td>
+                                                <td style={{ textAlign: 'center' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{rateLabel}</td>
+                                                <td style={{ textAlign: 'right' }} className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>{formatCurrency(item.earned)}</td>
+                                            </tr>
+                                        );
+                                    })}
                                     <tr style={{ fontSize: '11px', borderTop: '1px solid #E5E8ED' }}>
-                                        <td colSpan={2} className="fw-bold pt-2">{variableSubtotalLabel}</td>
+                                        <td colSpan={3} className="fw-bold pt-2">{variableSubtotalLabel}</td>
                                         <td
                                             style={{ textAlign: 'right', color: subtotalColor }}
                                             className={`fw-bold pt-2 ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}
@@ -808,7 +839,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     // const holidays = leavesHolidaysMap.get(HOLIDAYS) || 0;
 
-    const dailySalary = monthlySalary / totalWorkingDay;
+    const dailySalary = monthlySalary / 30;
     let hourlySalary = totalWorkingHour ? dailySalary / totalWorkingHour : 1;
 
     hourlySalary = Number(hourlySalary.toFixed(2))
@@ -2297,27 +2328,27 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 </td>
                                                 <td className="text-end">
                                                     <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedGrossPay)}
+                                                        {formatINRDecimal(row.calculatedGrossPay)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end text-danger">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        -{formatINR2(row.calculatedVariableDeduction)}
+                                                        -{formatINRDecimal(row.calculatedVariableDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end text-danger">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        -{formatINR2(row.calculatedFixedDeduction)}
+                                                        -{formatINRDecimal(row.calculatedFixedDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end fw-bold">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedTotalDeduction)}
+                                                        {formatINRDecimal(row.calculatedTotalDeduction)}
                                                     </span>
                                                 </td>
                                                 <td className="text-end fw-bolder text-primary">
                                                     <span className={`currency-text ${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedNetSalary)}
+                                                        {formatINRRounded(row.calculatedNetSalary)}
                                                     </span>
                                                 </td>
                                                 <td className="text-center">
@@ -2334,7 +2365,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                 </td>
                                                 <td className="text-end fw-bold text-success">
                                                     <span className={`${showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden'}`}>
-                                                        {formatINR2(row.calculatedPaidAmount)}
+                                                        {formatINRRounded(row.calculatedPaidAmount)}
                                                     </span>
                                                 </td>
                                                 <td className="text-center">
@@ -2376,42 +2407,38 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 <Card className="p-4 shadow-sm w-100">
                     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }} className='my-3 mx-1'>
                         <h4 className="fw-bold mb-4">Report</h4>
-                        {/* <PDFDownloadLink document={
-                            <SalarySlipTemplate
-                                grossPayVariable={grossPayVariable}
-                                totalGrossPayEarned={`${formatNumber(totalGrossPayEarned)}`}
-                                grossPayFixed={grossPayFixed}
-                                deductions={deductions}
-                                totalDeductionsEarned={`${formatNumber(totalDeductionsEarned)}`}
-                                taxes={taxes}
-                                employee={employee}
-                                finalAmount={formatNumber(Math.abs(totalGrossPayEarned - totalDeductionsEarned))}
-                                totalPayableDays={totalPayableDays}
-                                date={date}
-                                paidLeaves={paidLeaves}
-                                unpaidLeaves={totalUnpaidLeaves}
-                            />
-                        } fileName="salaryslip.pdf" className="me-2" >
-                            <Button>
-                                Download Report (Pdf)
-                            </Button>
-                        </PDFDownloadLink> */}
                         <div className="d-flex justify-content-end mb-4 md:justify-content-center">
-                                                    
                             {salarySlipProps ? (
-                                <PDFDownloadLink document={
-                                    <SalarySlipTemplate {...salarySlipProps} />
-                                } fileName="salaryslip.pdf" className="me-2" >
-                                    <Button>
-                                        Download Report (Pdf)
-                                    </Button>
-                                </PDFDownloadLink>
+                                <Button
+                                    className="me-2"
+                                    onClick={async () => {
+                                        try {
+                                            setLoading(true);
+                                            const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
+                                            const url = window.URL.createObjectURL(new Blob([blob]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `${salarySlipProps.employee?.users?.firstName || ''} ${salarySlipProps.employee?.users?.lastName || ''} Salary Slip ${salarySlipProps.date || ''}.pdf`.trim());
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.parentNode?.removeChild(link);
+                                        } catch (e) {
+                                            console.error(e);
+                                            errorConfirmation("Failed to download PDF");
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                >
+                                    Download Report (Pdf)
+                                </Button>
                             ) : (
                                 <Button disabled>
                                     No Data Available for PDF
                                 </Button>
                             )}
-                            {salarySlipProps && <Button className="wt-btn-primary" onClick={
+                            {salarySlipProps && <Button className="wt-btn-primary" disabled={loading} onClick={
                                 async ()=> {
                                 setLoading(true);
                                 if (!salarySlipProps) {
@@ -2419,7 +2446,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     setLoading(false);
                                     return;
                                 }
-                                const blob = await pdf(<SalarySlipTemplate {...salarySlipProps} />).toBlob();
+                                const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
                                 const form = new FormData();
                                 const fileFinal = new File([blob], `${userId}-SalarySlip-${Date.now()}.pdf`, { type: 'application/pdf' });
                                 form.append("file", fileFinal);
@@ -2435,11 +2462,34 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 try {
                                     const data = {
                                         path: fileUploadedUrl,
-                                        employeeId : employee?.id
+                                        employeeId : employee?.id,
+                                        salaryData: salarySlipProps
                                     };
                                     const res = await sendSalarySlipToEmployee(data);
                                     if(res?.statusCode==200 && !res.hasError){
-                                        successConfirmation("Salary slip sent successfully");
+                                        const email = salarySlipProps.employee?.companyEmailId || 'Employee';
+                                        toast.success(
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                                        <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
+                                                        {email}
+                                                    </div>
+                                                </div>
+                                            </div>,
+                                            {
+                                                position: 'bottom-right',
+                                                autoClose: 6000,
+                                                style: {
+                                                    borderRadius: '12px',
+                                                    padding: '16px',
+                                                    border: '1px solid #e2e8f0',
+                                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                                }
+                                            }
+                                        );
                                     }
                                     else{
                                         errorConfirmation("Failed to send salary slip. Please try again.");
@@ -2450,19 +2500,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 }
                                 setLoading(false);
                             }}
-                            disabled={loading}
                             >
                                 {loading ? "Please wait..." : "Email Salary Slip"}
                             </Button>}
-                            
 
-                            {/* {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
-                            <Button style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }} className='ms-2' onClick={() => handleEdit()}>
-                                Modify
-                            </Button>
-                        } */}
-
-                            {/* un comment it later after fixing the issue */}
                             {(fromAdmin && keyword == MONTH && !hideSummarySection) &&
                                 <Button className='wt-btn-primary ms-2' onClick={() => handleSalaryIncrementOpen()}>
                                     Increment Salary
@@ -2682,7 +2723,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 paidLeaves={paidLeaves}
                                 unpaidLeaves={totalUnpaidLeaves}
                             />
-                        } fileName="salaryslip.pdf" className="me-2" >
+                        } fileName={`${employee?.firstName || ''} ${employee?.lastName || ''} Salary Slip ${date || ''}.pdf`.trim()} className="me-2" >
                             <Button>
                                 Download Report (Pdf)
                             </Button>
@@ -2716,7 +2757,29 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 };
                                 const res = await sendSalarySlipToEmployee(data);
                                 if(res?.statusCode==200 && !res.hasError){
-                                    successConfirmation("Salary slip sent successfully");
+                                    const email = salarySlipProps.employee?.companyEmailId || 'Employee';
+                                    toast.success(
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                                    <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
+                                                    {email}
+                                                </div>
+                                            </div>
+                                        </div>,
+                                        {
+                                            position: 'bottom-right',
+                                            autoClose: 6000,
+                                            style: {
+                                                borderRadius: '12px',
+                                                padding: '16px',
+                                                border: '1px solid #e2e8f0',
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                            }
+                                        }
+                                    );
                                 }
                                 else{
                                     errorConfirmation("Failed to send salary slip. Please try again.");

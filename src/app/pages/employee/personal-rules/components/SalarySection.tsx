@@ -536,7 +536,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
               color: '#000',
               margin: 0
             }}>
-              Professional Fees
+              Tax Deducted at Source (TDS)
             </p>
             <p style={{
               fontFamily: 'Inter, sans-serif',
@@ -545,7 +545,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
               color: '#8998ab',
               margin: 0
             }}>
-              Monthly professional fees deduction
+              Monthly Tax Deducted at Source (TDS) deduction
             </p>
           </div>
 
@@ -584,7 +584,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
                   color: '#000',
                   margin: 0
                 }}>
-                  Professional Fees
+                  Tax Deducted at Source (TDS)
                 </p>
               </Col>
               <Col xs={12} sm={4} md={4}>

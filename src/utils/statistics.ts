@@ -1,7 +1,7 @@
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
-import { attendanceStatsSlice, saveAttendanceRequestRaiseLimit, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
+import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
+import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById } from "@services/employee";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -335,9 +335,9 @@ export function convertMinutesIntoHrMinFormats(minutes: number): string {
         if (workingTimeMinutes !== null && startMin !== null && endMin !== null) {
             const calculatedLunchMinutes = endMin - startMin;
 
-            // Threshold = (half of working time) + lunch duration
-            // const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
-            const threshold = (workingTimeMinutes / 2);
+            // Threshold = (half of working time) + lunch duration — matches backend salary and KPI.
+            // e.g. 8h day + 1h lunch: threshold = 4h + 1h = 5h (300 min).
+            const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
 
             if (minutes >= threshold) {
                 lunchMinutes = calculatedLunchMinutes;
@@ -3263,7 +3263,6 @@ export function salaryCalculationsForDays(totalDaysOfMonthOrYearForEmployee: num
 
 export async function fetchAllCompanySettings() {
     const { data } = await fetchCompanySettings();
-    store.dispatch(saveAttendanceRequestRaiseLimit(data?.appSettings?.attendanceRequestRaiseLimit));
     return data?.appSettings;
 }
 
@@ -3601,14 +3600,14 @@ export const formatNumber = (number: number | string) => {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 0
     }).format(Number(number));
 }
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
-    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 // get total weekends in a month
@@ -3827,20 +3826,6 @@ export const formatDateFromISTString = (dateString: string | undefined | null): 
         return '-';
     }
 };
-
-export const handleSendEmailForResetAttendanceRequestLimit = async (employeeId: string, setRequestLimitResetLoading: React.Dispatch<React.SetStateAction<boolean>>, reportsToId?: string) => {
-    setRequestLimitResetLoading(true);
-    const res = await sendAttendanceRequestResetLimit({ employeeId: employeeId, reportsToId: reportsToId });
-
-    if (!res.hasError) {
-        successConfirmation('Request sent successfully');
-    }
-    else {
-        errorConfirmation('Request failed. Try again later.');
-    }
-    setRequestLimitResetLoading(false);
-};
-
 
 
 // export const markWeekendOrHoliday = ( attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {

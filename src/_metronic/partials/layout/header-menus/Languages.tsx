@@ -1,39 +1,38 @@
 
 import clsx from 'clsx'
 import {FC} from 'react'
-import {toAbsoluteUrl} from '../../../helpers'
 import {useLang, setLanguage} from '../../../i18n/Metronici18n'
 
 const languages = [
   {
     lang: 'en',
     name: 'English',
-    flag: toAbsoluteUrl('media/flags/united-states.svg'),
+    flag: 'https://flagcdn.com/us.svg',
   },
   {
     lang: 'zh',
     name: 'Mandarin',
-    flag: toAbsoluteUrl('media/flags/china.svg'),
+    flag: 'https://flagcdn.com/cn.svg',
   },
   {
     lang: 'es',
     name: 'Spanish',
-    flag: toAbsoluteUrl('media/flags/spain.svg'),
+    flag: 'https://flagcdn.com/es.svg',
   },
   {
     lang: 'ja',
     name: 'Japanese',
-    flag: toAbsoluteUrl('media/flags/japan.svg'),
+    flag: 'https://flagcdn.com/jp.svg',
   },
   {
     lang: 'de',
     name: 'German',
-    flag: toAbsoluteUrl('media/flags/germany.svg'),
+    flag: 'https://flagcdn.com/de.svg',
   },
   {
     lang: 'fr',
     name: 'French',
-    flag: toAbsoluteUrl('media/flags/france.svg'),
+    flag: 'https://flagcdn.com/fr.svg',
   },
 ]
 

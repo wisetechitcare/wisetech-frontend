@@ -1,23 +1,22 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
-import { toAbsoluteUrl } from "@metronic/helpers";
+import { useSelector } from "react-redux";
+import { RootState } from "@redux/store";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { fetchSalaryRecordsBasedOnDateRange } from "@services/employee";
 import MonthlySalary from "./MonthlySalary";
 import YearlySalary from "./YearlySalary";
+import SalaryPeriodToolbar from "../components/SalaryPeriodToolbar";
 
 const SalaryEmployeeData = () => {
-  const [alignment, setAlignment] = useState<"monthly" | "yearly">("monthly");
+  const [alignment, setAlignment] = useState<"monthly" | "yearly" | "allTime">("monthly");
   const [month, setMonth] = useState(dayjs());
   const [year, setYear] = useState(dayjs());
   const [fiscalYear, setFiscalYear] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [employeesData, setEmployeesData] = useState<any[]>([]);
 
-  const handleToggleChange = useCallback((_: React.MouseEvent<HTMLElement>, newValue: "monthly" | "yearly") => {
-    if (newValue !== null) setAlignment(newValue);
-  }, []);
+  const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
 
   // Handle previous month
   const handlePrevMonth = useCallback(() => {
@@ -61,12 +60,14 @@ const SalaryEmployeeData = () => {
         startDate: month.startOf('month').format('YYYY-MM-DD'),
         endDate: month.endOf('month').format('YYYY-MM-DD')
       };
-    } else if (fiscalYear) {
+    } else if (alignment === 'yearly' && fiscalYear) {
       const [fiscalStartDate, fiscalEndDate] = fiscalYear.split(' to ');
       return {
         startDate: fiscalStartDate,
         endDate: fiscalEndDate
       };
+    } else if (alignment === 'allTime') {
+      return { startDate: '1970-01-01', endDate: dayjs().format('YYYY-MM-DD') };
     }
     return { startDate: '', endDate: '' };
   }, [alignment, month, fiscalYear]);
@@ -94,91 +95,37 @@ const SalaryEmployeeData = () => {
     }
 
     fetchData();
-  }, [dateRanges]);
+  }, [dateRanges, toggleChange]);
 
   return (
     <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Salary Employee Data</h3>
+      <h3 className="fw-bold fs-1 mb-5 font-barlow">Employee Payrolls Data</h3>
 
       {/* Toggle and Date Selection */}
-      <div className="d-flex flex-md-row justify-content-lg-between flex-column align-items-lg-center mb-8 gap-5 gap-lg-0">
-        <ToggleButtonGroup
-          value={alignment}
-          exclusive
-          onChange={handleToggleChange}
-          aria-label="View Selection"
-          sx={{
-            '& .MuiToggleButton-root': {
-              borderRadius: '20px',
-              borderColor: '#B0BEC5 !important',
-              color: '#000 !important',
-              padding: '6px 16px',
-              borderWidth: '2px',
-              fontWeight: '600',
-              marginRight:"10px"
-            },
-            '& .Mui-selected': {
-              borderColor: '#9D4141 !important',
-              color: '#9D4141 !important'
-            },
-            '& .MuiToggleButton-root:hover': {
-              borderColor: '#9D4141 !important',
-              color: '#9D4141 !important'
-            },
-          }}
-        >
-          <ToggleButton value="monthly">Monthly</ToggleButton>
-          <ToggleButton value="yearly">Yearly</ToggleButton>
-        </ToggleButtonGroup>
-
-        {/* Month Selector */}
-        {alignment === 'monthly' && (
-          <div className="d-flex align-items-center">
-            <button
-              className="btn btn-sm p-0"
-              onClick={handlePrevMonth}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous Month" />
-            </button>
-            <span className="mx-2 my-5">{month.format('MMM, YYYY')}</span>
-            <button
-              className="btn btn-sm p-0"
-              onClick={handleNextMonth}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next Month" />
-            </button>
-          </div>
-        )}
-
-        {/* Yearly Selector */}
-        {alignment === 'yearly' && (
-          <div className="d-flex align-items-center">
-            <button
-              className="btn btn-sm p-0"
-              onClick={handlePrevYear}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous Year" />
-            </button>
-            <span className="mx-2 my-5">{fiscalYear}</span>
-            <button
-              className="btn btn-sm p-0"
-              onClick={handleNextYear}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next Year" />
-            </button>
-          </div>
-        )}
-      </div>
+      <SalaryPeriodToolbar
+        alignment={alignment}
+        options={[
+          { label: 'Monthly', value: 'monthly' },
+          { label: 'Yearly', value: 'yearly' },
+          { label: 'All Time', value: 'allTime' },
+        ]}
+        onAlignmentChange={(value) => setAlignment(value as "monthly" | "yearly" | "allTime")}
+        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : alignment === 'yearly' ? fiscalYear : undefined}
+        onPrevious={alignment === 'monthly' ? handlePrevMonth : alignment === 'yearly' ? handlePrevYear : undefined}
+        onNext={alignment === 'monthly' ? handleNextMonth : alignment === 'yearly' ? handleNextYear : undefined}
+        disablePrevious={isLoading}
+        disableNext={isLoading}
+      />
 
       {/* Conditional Rendering */}
-      {alignment === 'monthly' ? (
+      {alignment === 'monthly' && (
         <MonthlySalary month={month} employeesData={employeesData} isLoading={isLoading} />
-      ) : (
+      )}
+      {alignment === 'yearly' && (
         <YearlySalary year={year} fiscalYear={fiscalYear} employeesData={employeesData} isLoading={isLoading} />
+      )}
+      {alignment === 'allTime' && (
+        <YearlySalary year={year} fiscalYear="All Time" employeesData={employeesData} isLoading={isLoading} title="All Time Salary" />
       )}
     </>
   );

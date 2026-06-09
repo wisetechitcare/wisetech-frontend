@@ -1,92 +1,143 @@
 import React from 'react';
-import { Row, Col } from 'react-bootstrap';
-import { KTIcon } from '@metronic/helpers';
+import dayjs from 'dayjs';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
+import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
+import { Box, Skeleton } from '@mui/material';
+import YearlyKpiCard, { YearlyKpiCardProps } from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
 import { PayrollSummary } from '../../types/payroll.types';
-import { formatINR2 } from '../../utils/payrollFormatters';
+import { formatINRDecimal } from '../../utils/payrollFormatters';
 
 interface PayrollStatsCardsProps {
     summaryData: PayrollSummary;
     showSensitiveData: boolean;
+    month?: string | number;
+    year?: string | number;
+    isLoading?: boolean;
 }
 
-const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({ summaryData, showSensitiveData }) => {
-    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+const fmtAbs = (n: number) =>
+    `₹${Math.round(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-    // Calculate Gov Pending
-    const govPending = Math.max(0, (summaryData.totalFixedDeduction || 0) - (summaryData.governmentPaid || 0));
+const pendingFooter = (amount: number): { label: string; value: string } => {
+    const rounded = Math.round(amount);
+    if (rounded > 0) return { label: 'Pending', value: fmtAbs(amount) };
+    if (rounded < 0) return { label: 'Extra',   value: fmtAbs(amount) };
+    return { label: 'Cleared', value: '' };
+};
 
-    const isProfFees = summaryData.activeGovType?.toLowerCase().includes('professional fees');
+const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
+    summaryData,
+    showSensitiveData,
+    month,
+    year,
+    isLoading = false,
+}) => {
+    if (isLoading) {
+        return (
+            <Box
+                sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(3,1fr)' },
+                    gap: '14px',
+                    mb: 3,
+                }}
+            >
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} variant="rounded" height={130} sx={{ borderRadius: '16px' }} />
+                ))}
+            </Box>
+        );
+    }
 
-    const cards = [
-        { 
-            label: 'Salary In Hand', 
-            value: summaryData.netSalary, 
-            pendingValue: summaryData.salaryPending,
-            icon: 'wallet', 
-            color: 'primary', // Blue
-            statusLabel: 'Pending'
+    const now = dayjs();
+    const isCurrentMonth =
+        String(month ?? now.format('MM')) === now.format('MM') &&
+        String(year ?? now.format('YYYY')) === now.format('YYYY');
+
+    const monthLabel = isCurrentMonth
+        ? 'Current Month'
+        : dayjs(`${year}-${String(month).padStart(2, '0')}-01`).format('MMMM YYYY');
+
+    const totalAfterAttendance = Math.max(0, summaryData.totalGrossPay - summaryData.totalVariableDeduction);
+    const deductionsPending    = Math.round(summaryData.governmentPending);
+    const payablePending       = Math.round(summaryData.salaryPending);
+    const hasPendingArrears    = (summaryData.totalPendingArrears ?? 0) > 0;
+
+    let deductionLabel = 'DEDUCTIONS';
+    if (summaryData.hasTDS && summaryData.hasPTax) deductionLabel = 'DEDUCTIONS (TDS & PTAX)';
+    else if (summaryData.hasTDS)                   deductionLabel = 'DEDUCTIONS (TDS)';
+    else if (summaryData.hasPTax)                  deductionLabel = 'DEDUCTIONS (PTAX)';
+
+    const deductionFt  = pendingFooter(deductionsPending);
+    const payableFt    = pendingFooter(payablePending);
+
+    const cards: YearlyKpiCardProps[] = [
+        {
+            label:      'TOTAL SALARY AFTER ATTENDANCE ADJUSTMENTS',
+            sublabel:   'After variable deductions',
+            value:      formatINRDecimal(totalAfterAttendance),
+            footer:     monthLabel,
+            footerValue: '',
+            tone:       'blue',
+            icon:       <AccountBalanceWalletOutlinedIcon fontSize="small" />,
+            showSensitiveData,
         },
-        ...(isProfFees ? [{ 
-            label: `${summaryData.activeGovType || 'Gov Fee'} Payable`, 
-            value: summaryData.totalFixedDeduction, 
-            pendingValue: govPending,
-            icon: 'percentage', 
-            color: 'danger', // Pinkish
-            statusLabel: 'Pending'
-        }] : []),
-        { 
-            label: 'Salary Paid', 
-            value: summaryData.salaryPaid, 
-            icon: 'check-circle', 
-            color: 'success', // Green
-            statusLabel: 'Paid to Employee'
+        {
+            label:       deductionLabel,
+            sublabel:    'Govt. & fixed charges',
+            value:       formatINRDecimal(summaryData.totalFixedDeduction),
+            footer:      deductionFt.label,
+            footerValue: deductionFt.value,
+            tone:        'purple',
+            icon:        <AccountBalanceOutlinedIcon fontSize="small" />,
+            showSensitiveData,
         },
-        ...(isProfFees ? [{ 
-            label: `${summaryData.activeGovType || 'Gov Fee'} Paid`, 
-            value: summaryData.governmentPaid, 
-            icon: 'shield-tick', 
-            color: 'info', // Purpleish
-            statusLabel: 'Paid to Govt'
-        }] : []),
+        {
+            label:       'PAYABLE SALARY',
+            sublabel:    'Net take-home amount',
+            value:       formatINRDecimal(Math.abs(summaryData.netSalary)),
+            footer:      payableFt.label,
+            footerValue: payableFt.value,
+            tone:        summaryData.netSalary < 0 ? 'danger' : 'green',
+            icon:        <CheckCircleOutlineOutlinedIcon fontSize="small" />,
+            showSensitiveData,
+        },
+        ...(hasPendingArrears
+            ? [{
+                label:       'PENDING ARREARS',
+                sublabel:    'Backdated increments',
+                value:       formatINRDecimal(summaryData.totalPendingArrears!),
+                footer:      `${summaryData.arrearCount ?? 0} record(s)`,
+                footerValue: fmtAbs(summaryData.totalPendingArrears!),
+                tone:        'amber' as const,
+                icon:        <HourglassBottomOutlinedIcon fontSize="small" />,
+                badge:       'Action Required',
+                showSensitiveData,
+            }]
+            : []),
     ];
 
-    return (
-        <Row className="g-7 mb-10">
-            {cards.map((card, idx) => (
-                <Col xl={3} lg={6} key={idx}>
-                    <div 
-                        className={`card h-100 border-1 border-${card.color} border-opacity-10 shadow-sm rounded-4 overflow-hidden position-relative`}
-                        style={{ backgroundColor: `var(--bs-light-${card.color})` }}
-                    >
-                        <div className="card-body p-7">
-                            <div className="d-flex align-items-center mb-5">
-                                <span className="text-gray-600 fw-bold fs-8 text-uppercase ls-2 tracking-wider">
-                                    {card.label}
-                                </span>
-                            </div>
-                            
-                            <div className="d-flex flex-column mb-5">
-                                <span className={`fs-1 fw-bolder text-gray-900 ${sensitiveCls} mb-1`}>
-                                    {formatINR2(card.value)}
-                                </span>
-                            </div>
+    const cols = hasPendingArrears ? 4 : 3;
 
-                            <div className="d-flex align-items-center">
-                                {card.statusLabel.includes('Pending') ? (
-                                    <div className={`badge badge-light-danger fw-bolder fs-8 px-4 py-2 rounded-2 border border-danger border-opacity-10`}>
-                                        {card.statusLabel}: {formatINR2(card.pendingValue || 0)}
-                                    </div>
-                                ) : (
-                                    <div className={`badge badge-light-${card.color} fw-bolder fs-8 px-4 py-2 rounded-2 border border-${card.color} border-opacity-10`}>
-                                        {card.statusLabel}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </Col>
+    return (
+        <Box
+            sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, minmax(0,1fr))',
+                    lg: `repeat(${cols}, minmax(0,1fr))`,
+                },
+                gap: '14px',
+                mb: 3,
+            }}
+        >
+            {cards.map((card) => (
+                <YearlyKpiCard key={card.label} {...card} />
             ))}
-        </Row>
+        </Box>
     );
 };
 

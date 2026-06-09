@@ -3,6 +3,7 @@ import { Modal, Button, Form, Row, Col } from 'react-bootstrap';
 import { payrollService } from '../../services/payrollService';
 import { toast } from 'react-toastify';
 import dayjs from 'dayjs';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface RecordPaymentModalProps {
   show: boolean;
@@ -21,25 +22,22 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const pendingAmount = employeeData.netSalary - employeeData.paidAmount;
-  
+
   const [formData, setFormData] = useState({
-    amountPaid: pendingAmount,
+    amountPaid: pendingAmount > 0 ? pendingAmount : 0,
     paymentDate: dayjs().format('YYYY-MM-DD'),
     paymentMethod: 'Bank Transfer',
     transactionId: '',
     remarks: '',
   });
 
+  const isExtraPayment = Number(formData.amountPaid) > pendingAmount;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.amountPaid <= 0) {
       toast.error('Amount paid must be greater than zero');
-      return;
-    }
-
-    if (formData.amountPaid > pendingAmount) {
-      toast.error('Amount paid cannot exceed pending salary');
       return;
     }
 
@@ -74,11 +72,18 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           <div className="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-5 mb-10">
             <div className="d-flex flex-column pe-0 pe-sm-10">
               <h4 className="fw-bold">Payment for {employeeData.employee?.fullName}</h4>
-              <span>Net Salary: <strong>₹{employeeData.netSalary?.toLocaleString('en-IN')}</strong> | 
-              Already Paid: <strong>₹{employeeData.paidAmount?.toLocaleString('en-IN')}</strong> | 
-              Pending: <strong className="text-danger">₹{pendingAmount?.toLocaleString('en-IN')}</strong></span>
+              <span>Net Salary: <strong>{formatINRRounded(employeeData.netSalary || 0)}</strong> |
+              Already Paid: <strong>{formatINRRounded(employeeData.paidAmount || 0)}</strong> |
+              Pending: <strong className="text-danger">{formatINRRounded(pendingAmount || 0)}</strong></span>
             </div>
           </div>
+
+          {isExtraPayment && (
+            <div className="alert alert-warning d-flex align-items-center p-4 mb-5">
+              <span className="me-2">⚠️</span>
+              <span>This amount exceeds the pending balance by <strong>{formatINRRounded(Number(formData.amountPaid) - pendingAmount)}</strong>. An extra-payment notification email will be sent.</span>
+            </div>
+          )}
 
           <Row className="mb-5">
             <Col md={6}>
@@ -87,7 +92,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 <Form.Control
                   type="number"
                   step="0.01"
-                  max={pendingAmount}
+                  min={0.01}
                   value={formData.amountPaid}
                   onChange={(e) => setFormData({ ...formData, amountPaid: Number(e.target.value) })}
                   required

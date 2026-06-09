@@ -167,6 +167,74 @@ export const fetchCompanyOverview = async () => {
     }
 }
 
+// ─── Multi-organization endpoints ──────────────────────────────────────────────
+
+export const fetchOrganizationById = async (orgId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_OVERVIEW_BY_ID.replace(':id', orgId)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const fetchOrganizationTree = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ORGANIZATION_TREE}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const fetchOrganizationStats = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.GET_ORGANIZATION_STATS}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const deleteOrganizationById = async (orgId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_OVERVIEW_BY_ID.replace(':id', orgId)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const deleteBranchById = async (branchId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_BRANCH_BY_ID.replace(':id', branchId)}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const promoteBranchToSubOrg = async (branchId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${COMPANY.PROMOTE_BRANCH_TO_SUBORG.replace(':id', branchId)}`;
+        const { data } = await axios.post(endpoint, {});
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const createNewBranch = async (branches: ICompanyBranch[]) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.CREATE_BRANCHES}`;

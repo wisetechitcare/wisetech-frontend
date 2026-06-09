@@ -149,7 +149,8 @@ export function AsideMenuMain() {
         {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/organisation-profile' title='Organisation Profile' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
        {/* {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/organisation-info' title='Organisation Info' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/announcements' title='Announcements' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/branches' title='Branches' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        {/* Branches are now managed from within an organization's profile (Organizations → open an org → Branches). */}
+        {/* {hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/branches' title='Branches' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {/* {hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/departments' title='Departments' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {/* {hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/designations' title='Designations' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {/* <AsideMenuItem to='/company/employee-types' title='Masters' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers'/> */}
@@ -168,7 +169,8 @@ export function AsideMenuMain() {
         {hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/loans' title='Loans' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='price-tag' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/bills' title='Reimbursements' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='price-tag' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/salary' title='Salary' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='dollar' />}
-        <AsideMenuItem to='/payroll/ledger' title='Payroll Ledger' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bank' />
+        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/increment' title='Increment' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='dollar' />}
+       
       </AsideMenuItemWithSub>
     </>
   )
@@ -217,7 +219,7 @@ export function AsideMenuMain() {
       <AsideMenuItemWithSub to='/company' icon='home' title='Company' fontIcon='bi-layers'>
         <AsideMenuItem to='/company/public-holiday' title='Holidays' icon='calendar-remove' fontIcon='bi-layers' />
         <AsideMenuItem to='/company/overview' title='Overview' icon='setting-4' fontIcon='bi-layers' />
-        <AsideMenuItem to='/company/branches' title='Branches' icon='geolocation-home' fontIcon='bi-layers' />
+        {/* Branches are now managed from an organization's profile page */}
         <AsideMenuItem to='/company/departments' title='Departments' icon='abstract-29' fontIcon='bi-layers' />
       </AsideMenuItemWithSub>
       <AsideMenuItem to='#' icon='data' title='Rules' fontIcon='bi-layers' />

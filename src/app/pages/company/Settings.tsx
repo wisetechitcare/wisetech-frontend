@@ -5,6 +5,7 @@ import { KTIcon } from '@metronic/helpers';
 import { Modal } from 'react-bootstrap';
 import Appearance from './settings/Appearance';
 import RolesAndPermissions from './settings/RolesAndPermissions';
+import AdminSettings from './settings/AdminSettings';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import GeneralSettings from './settings/GeneralSettings';
 import SandwichLeave from './settings/SandwhichLeave';
@@ -28,6 +29,7 @@ const settingsBreadCrumb: Array<PageLink> = [
 function Settings() {
     const [showColorSelectionModal, setShowColorSelectionModal] = useState(false);
     const [showRolesAndPermissionsModal, setShowRolesAndPermissionsModal] = useState(false);
+    const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
     const [showGeneralSettingsModal, setShowGeneralSettingsModal] = useState(false);
     const [showSandWhichLeaveModal, setShowSandWhichLeaveModal] = useState(false);
     const [showLeadsProjectsCompanyModal, setShowLeadsProjectsCompanyModal] = useState(false);
@@ -91,6 +93,15 @@ function Settings() {
                     <img src={miscellaneousIcons.rolesAndPermissions} alt="" style={{width: "36px", height: "36px", cursor: 'pointer'}} />
                     <div className="card-title m-0">
                         <p className="fw-bolder m-0">Roles and Permissions</p>
+                    </div>
+                    </div>
+                </div>
+                <div className="card d-flex flex-row align-items-center justify-content-start">
+                    <div className="card-header border-0 cursor-pointer d-flex align-items-center justify-content-between gap-2"
+                    onClick={() => setShowAdminSettingsModal(true)}>
+                    <KTIcon iconName="setting-2" className="fs-2qx text-muted" iconType="duotone" />
+                    <div className="card-title m-0">
+                        <p className="fw-bolder m-0">Admin Settings</p>
                     </div>
                     </div>
                 </div>
@@ -167,7 +178,18 @@ function Settings() {
             </Modal.Body>
             </Modal> */}
 
-           {/* Roles And Permissions Modal */}       
+           {/* Admin Settings Modal */}
+            <Modal size='lg' show={showAdminSettingsModal} onHide={() => setShowAdminSettingsModal(false)} centered>
+            <Modal.Body style={{backgroundColor: '#F7F9FC', borderRadius: '10px'}}>
+                <div className='d-flex flex-row align-items-center justify-content-start gap-2 mb-4'>
+                    <img src={miscellaneousIcons.leftArrow} alt="" style={{width: "36px", height: "36px", cursor: 'pointer'}} onClick={() => setShowAdminSettingsModal(false)}/>
+                    <h2 className='my-auto'>Admin Settings</h2>
+                </div>
+                <AdminSettings/>
+            </Modal.Body>
+            </Modal>
+
+           {/* Roles And Permissions Modal */}
             <Modal size='xl' show={showRolesAndPermissionsModal} onHide={handleCloseRolesAndPermissionsModal} centered>
             {/* <Modal.Header closeButton>
                 <Modal.Title></Modal.Title>

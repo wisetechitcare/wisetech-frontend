@@ -20,12 +20,98 @@ export interface IHoliday {
     companyId?: string;
 }
 
+export interface ICustomField {
+    id: string;
+    label: string;
+    value: string;
+    required: boolean;
+    type?: 'text' | 'number' | 'file';
+}
+
+export interface ISystemFieldOverride {
+    id: string;       // matches the Formik field name
+    type: string;
+    required: boolean;
+}
+
+export interface ICustomSection {
+    id: string;
+    title: string;
+    fields: ICustomField[];
+    builtinKey?: string; // when set, fields are rendered inside the matching built-in section
+    systemOverrides?: ISystemFieldOverride[]; // persisted edits to built-in field type/required
+}
+
+// ─── Unified, data-driven form schema (the canonical layout store) ─────────────
+// A single ordered list of sections describes the entire editable form: section
+// order, section titles, field order, field labels, types and required-ness.
+// System fields map 1:1 to DB columns (values live in the column via Formik);
+// custom fields store their value inline.
+export type FormFieldType = 'text' | 'number' | 'file';
+
+export interface IFormField {
+    id: string;          // system: the DB column / Formik name; custom: a uuid
+    label: string;
+    type: FormFieldType;
+    required: boolean;
+    isSystem: boolean;   // true = built-in column, false = admin-added
+    value?: string;      // only custom fields persist their value here
+    hidden?: boolean;    // built-in fields can be hidden from the form instead of deleted
+                         // (their DB column still exists); custom fields are removed outright
+    showOnInfoPage?: boolean; // visible on the read-only Organization Info page.
+                              // undefined/true = shown (opt-out only); false = hidden there.
+}
+
+export interface IFormSection {
+    id: string;          // system: stable key (e.g. "basic_info"); custom: a uuid
+    title: string;
+    isSystem: boolean;   // built-in section (cannot be deleted)
+    fields: IFormField[];
+    showOnInfoPage?: boolean; // whole section visible on the Organization Info page.
+                              // undefined/true = shown (opt-out only); false = hidden there.
+}
+
+// ─── Multi-organization hierarchy ──────────────────────────────────────────────
+export interface IOrgBranchNode {
+    id: string;
+    name: string;
+    address?: string;
+    isActive?: boolean;
+    companyId: string;
+    latitude?: number | string;
+    longitude?: number | string;
+    employeeCount: number;
+}
+
+export interface IOrgNode {
+    id: string;
+    name: string;
+    logo?: string;
+    businessType?: string;
+    parentOrganizationId?: string | null;
+    address?: string;
+    contactNumber?: string;
+    websiteUrl?: string;
+    employeeCount: number;
+    branchCount: number;
+    childCount: number;
+    branches: IOrgBranchNode[];
+    children: IOrgNode[];
+}
+
+export interface IOrgStats {
+    totalOrgs: number;
+    rootOrgs: number;
+    subOrgs: number;
+    totalBranches: number;
+    totalEmployees: number;
+}
+
 export interface ICompanyOverview {
     name: string,
     fiscalYear: string,
     logo: string,
     salaryStamp?:string,
-    attendanceRequestRaiseLimit?:string,
     monthlyAnnualLeaveLimit?:string,
     showDateIn12HourFormat?:string,
     // workingHrs: string,
@@ -51,7 +137,9 @@ export interface ICompanyOverview {
     accountantNo?:string,
     additionalplacesofbusiness?:string,
     businessType?:string,
-    founder?:string
+    founder?:string,
+    customSections?: ICustomSection[],
+    sectionConfig?: IFormSection[], // canonical data-driven form layout
 
     accountant?:string
 }

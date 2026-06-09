@@ -7,7 +7,7 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS } from "./steps/Step2";
+import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD } from "./steps/Step2";
 import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
@@ -107,6 +107,26 @@ const PROF_FEES_KEYS = new Set([
   "professionalFeesAmount",
   "professionalFeesPercentage",
 ]);
+
+function buildTds2Payload(values: {
+  tds2Enabled: unknown;
+  tds2Type: unknown;
+  tds2Amount: unknown;
+  tds2Percentage: unknown;
+}) {
+  const enabled = String(values.tds2Enabled) === "true";
+  const type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+  if (!enabled) {
+    return { tds2Enabled: false, tds2Type: "FIXED" as const, tds2Amount: null, tds2Percentage: null };
+  }
+  if (type === "PERCENTAGE") {
+    return { tds2Enabled: true, tds2Type: "PERCENTAGE" as const, tds2Amount: null, tds2Percentage: toNumberOrNull(values.tds2Percentage) };
+  }
+  return { tds2Enabled: true, tds2Type: "FIXED" as const, tds2Amount: toNumberOrNull(values.tds2Amount), tds2Percentage: null };
+}
+
+const TDS2_KEYS = new Set(["tds2Enabled", "tds2Type", "tds2Amount", "tds2Percentage"]);
 
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
@@ -296,7 +316,24 @@ const newEmployeeWizardSchema = [
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
         dateOfBirth: optionalString().label("Date of Birth"),
-      }),
+      })
+        // If a family row is started, its core fields become required so a
+        // half-filled member surfaces a clear error instead of silently submitting.
+        .test("family-name-required", "Family Member Name is required", function (value) {
+          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
+          if (!started || value?.name) return true;
+          return this.createError({ path: `${this.path}.name`, message: "Family Member Name is required" });
+        })
+        .test("family-relationship-required", "Member Relationship is required", function (value) {
+          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
+          if (!started || value?.relationship) return true;
+          return this.createError({ path: `${this.path}.relationship`, message: "Member Relationship is required" });
+        })
+        .test("family-mobile-required", "Member Phone Number is required", function (value) {
+          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
+          if (!started || value?.mobileNumber) return true;
+          return this.createError({ path: `${this.path}.mobileNumber`, message: "Member Phone Number is required" });
+        }),
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -336,6 +373,8 @@ const newEmployeeWizardSchema = [
     }).required(),
   }),
   Yup.object({
+    organizationId: Yup.string().required().label("Organization"),
+    subOrganizationId: optionalString().label("Sub-Organization"),
     designationId: Yup.string().required().label("Job Profile"),
     departmentId: Yup.string().required().label("Department"),
     branchId: Yup.string().required().label("Branch"),
@@ -386,7 +425,6 @@ const newEmployeeWizardSchema = [
     reportsToId: optionalString().label("Reporting Manager"),
     ctcInLpa: optionalString().label("CTC In LPA"),
     appRole: optionalString().label("App Role"),
-    allowedPerMonth: optionalString().label("Allowed Per Month"),
   }),
   Yup.object({
     obj: optionalString(),
@@ -432,20 +470,21 @@ const initialState = {
     presentAddressLine1: "", presentAddressLine2: "", presentCountry: "",
     presentState: "", presentCity: "", presentPostalCode: "",
   },
+  organizationId: "", subOrganizationId: "",
   designationId: "", departmentId: "", branchId: "", teamId: "", roomOrBlock: "",
   employeeTypeId: "", employeeTypeConfigId: "", workingMethodId: "", shift: "",
   experienceLevel: "", employeeLevelId: "", companyEmailId: "", companyPhoneNumber: "",
   companyPhoneExtension: "", sourceOfHire: "", referredBy: "", dateOfJoining: "",
   dateOfExit: "", rejoinHistory: [{ dateOfReJoining: "", dateOfReExit: "", reason: "" }],
   employeeStatusId: "", employeeStatusConfigId: "", ctcInLpa: "", appRole: "",
-  allowedPerMonth: 1, allowOverTime: "0",
-  discretionaryLeaveBoolean: "false", discretionaryLeaveBalance: 0,
+  allowOverTime: "0",
   leaveAllocations: [] as any[],
   workExpInfo: [createDefaultWorkExpInfo()],
   documentInfo: [{ identityNumber: "", employeeId: "", documentId: "", path: "", fileName: "" }],
   roles: [] as any[],
   professionalFeesEnabled: "false", professionalFeesAmount: "",
   professionalFeesPercentage: "", professionalFeesType: "FIXED",
+  tds2Enabled: "false", tds2Type: "FIXED", tds2Amount: "", tds2Percentage: "",
   isHiddenFromStaff: false,
 };
 
@@ -463,12 +502,13 @@ const saveNewUser = async (values: any) => {
     firstName, lastName, dateOfBirth, personalPhoneNumber, personalEmailId,
     alternatePhoneNumber, personalPhoneNumberExtension, isEmployeeActive,
     bloodGroup, hobbies, notes, linkedInProfileUrl, instagramProfileUrl, facebookProfileUrl,
+    isAdmin,
   } = values;
 
   const user = {
     firstName, lastName,
     isActive: isEmployeeActive === "1",
-    isAdmin: false,
+    isAdmin: isAdmin === "1",
     dateOfBirth,
     ...(personalPhoneNumber && { personalPhoneNumber }),
     ...(personalEmailId && { personalEmailId }),
@@ -488,7 +528,9 @@ const saveNewUser = async (values: any) => {
 
 const saveNewEmployee = async (values: any, userId: string) => {
   const { data: { companyOverview } } = await fetchCompanyOverview();
-  const companyId = companyOverview[0].id;
+  // Employee belongs to the chosen organization (sub-org if one was selected),
+  // falling back to the default org for backward compatibility.
+  const companyId = values.subOrganizationId || values.organizationId || companyOverview[0].id;
   let vegMealPreference, nonVegMealPreference, veganMealPreference;
 
   const {
@@ -499,10 +541,10 @@ const saveNewEmployee = async (values: any, userId: string) => {
     employeeStatusId, employeeStatusConfigId, avatar, meal, reportsToId,
     anniversary, documentFields, documentInfo, appRole, isAdmin, rejoinHistory,
     teamId, roomOrBlock, shift, experienceLevel, employeeLevelId,
-    discretionaryLeaveBoolean, discretionaryLeaveBalance,
-    allowedPerMonth, allowOverTime,
+    allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
+    tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -558,17 +600,15 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
-    ...(allowedPerMonth && { allowedPerMonth }),
     ...(allowOverTime && { allowOverTime }),
-    discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
-    ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && { discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0 }),
     ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+    ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
     isHiddenFromStaff: isHiddenFromStaff === true,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "discretionaryLeaveBoolean" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -621,7 +661,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
   } catch (err) { console.log(err); }
 };
 
-function FormikValidationErrorFocus() {
+function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { activeStepIndex: number; setActiveSection: (id: string) => void }) {
   const { errors, submitCount } = useFormikContext<any>();
 
   useEffect(() => {
@@ -648,7 +688,13 @@ function FormikValidationErrorFocus() {
 
       const fieldName = getFirstErrorField(errors);
       if (fieldName) {
-        setTimeout(() => {
+        // Step 1 renders one section at a time, so the offending field may not be in
+        // the DOM. Switch to the section that owns it first, then scroll/focus it.
+        const topKey = fieldName.split('.')[0];
+        const targetSection = activeStepIndex === 1 ? SECTION_OF_FIELD[topKey] : undefined;
+        if (targetSection) setActiveSection(targetSection);
+
+        const scrollToField = () => {
           let inputEl = document.querySelector(`[name="${fieldName}"]`) as HTMLElement;
           if (!inputEl) {
             inputEl = document.getElementById(fieldName) as HTMLElement;
@@ -660,7 +706,9 @@ function FormikValidationErrorFocus() {
             inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             inputEl.focus({ preventScroll: true });
           }
-        }, 150);
+        };
+        // Longer delay when we changed section so the new section finishes animating in.
+        setTimeout(scrollToField, targetSection ? 380 : 150);
       }
     }
   }, [submitCount]);
@@ -744,6 +792,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
   };
 
+  // Drop a pending upload so a removed file is not re-uploaded on save.
+  const removeFileFromState = (documentId: string) => {
+    setFiles((prev: any) => {
+      const next = { ...prev };
+      delete next[documentId];
+      return next;
+    });
+
+    if (documentId === "userProfilePicture") {
+      if (profilePhotoPreviewRef.current) {
+        URL.revokeObjectURL(profilePhotoPreviewRef.current);
+        profilePhotoPreviewRef.current = "";
+      }
+      setMobileProfilePhotoPreview("");
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
@@ -815,7 +880,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   const updateWizardData = async (values: any) => {
     const { data: { companyOverview } } = await fetchCompanyOverview();
-    const companyId = companyOverview[0].id;
+    const companyId = values.subOrganizationId || values.organizationId || companyOverview[0].id;
     const {
       userId, firstName, lastName, dateOfBirth, appRole,
       personalPhoneNumber, personalEmailId, alternatePhoneNumber,
@@ -852,6 +917,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     const userPayload = {
       firstName, lastName, isActive: isEmployeeActive === "1",
+      isAdmin: values.isAdmin === "1",
       ...(dateOfBirth && { dateOfBirth }),
       ...(personalPhoneNumber && { personalPhoneNumber }),
       ...(personalEmailId && { personalEmailId }),
@@ -871,10 +937,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       departmentId, companyEmailId, referredById, method, nickName, employeeCode,
       companyPhoneNumber, companyPhoneExtension, employeeStatusId, employeeStatusConfigId,
       avatar, meal, anniversary, reportsToId,
-      allowedPerMonth, allowOverTime, professionalFeesEnabled, professionalFeesAmount,
+      allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
-      roomOrBlock, shift, experienceLevel, employeeLevelId, discretionaryLeaveBoolean,
-      discretionaryLeaveBalance, isHiddenFromStaff: isHiddenFromStaffEdit,
+      roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
+      tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -910,7 +976,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (meal === "2") veganMealPreference = true;
 
     const employeePayload: any = {
-      ...(avatar && { avatar }), id: employeeId, userId, dateOfJoining, ctcInLpa,
+      // Always send avatar (even when empty) so removing the photo persists —
+      // a guarded `...(avatar && {avatar})` would silently keep the old image.
+      avatar: avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
       gender: parseInt(gender), designationId, branchId,
       isActive: isEmployeeActive === "1",
       ...(employeeTypeId && { employeeTypeId }),
@@ -921,7 +989,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(employeeStatusConfigId && { employeeStatusConfigId }),
       companyId, method: parseInt(method), companyPhoneNumber, companyPhoneExtension, employeeCode,
       ...(isAdmin && { isAdmin: isAdmin === "1" }),
-      ...(allowedPerMonth && { allowedPerMonth }),
       ...(allowOverTime && { allowOverTime }),
       ...(aadharNumber && { aadharNumber }), ...(aadharCardPath && { aadharCardPath }),
       ...(panNumber && { panNumber }), ...(panCardPath && { panCardPath }),
@@ -933,15 +1000,14 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
       ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
-      discretionaryLeaveBoolean: discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true,
-      ...((discretionaryLeaveBoolean === "true" || discretionaryLeaveBoolean === true) && discretionaryLeaveBalance && { discretionaryLeaveBalance: parseInt(discretionaryLeaveBalance) || 0 }),
       ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+      ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "discretionaryLeaveBoolean" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1020,7 +1086,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     if (currentStepIndex === totalStepsNumber && editMode) {
       try { setIsSubmitting(true); await updateWizardData(values); }
-      catch (error) { console.error("Update wizard error:", error); }
+      catch (error) {
+        // Never fail silently — surface the reason so the user knows what went wrong
+        // (e.g. a half-filled row the backend rejected) instead of a dead-end submit.
+        console.error("Update wizard error:", error);
+        await handleSubmissionError(error);
+      }
       finally { setIsSubmitting(false); }
       return;
     }
@@ -1184,7 +1255,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       const { data: { wizardData } } = await fetchWizardData(employeeId, false);
 
       let presentAddress = {};
-      const { allowedPerMonth, allowOverTime } = wizardData;
+      const { allowOverTime } = wizardData;
       const isSameAddress = wizardData.addressInfo?.presentAddressLine1 === null;
       if (isSameAddress) {
         const { permanentAddressLine1, permanentAddressLine2, permanentCountry, permanentState, permanentCity, permanentPostalCode } = wizardData.addressInfo;
@@ -1201,7 +1272,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         appRole: wizardData?.roles[0]?.id,
         isEmployeeActive: wizardData?.isActive ? "1" : "0",
         isAdmin: wizardData?.isAdmin ? "1" : "0",
-        allowedPerMonth: allowedPerMonth || 1,
         allowOverTime,
         bloodGroup: wizardData?.users?.bloodGroup || wizardData?.bloodGroup || "",
         ...(wizardData?.employeeTypeConfigId && { employeeTypeConfigId: wizardData.employeeTypeConfigId }),
@@ -1213,13 +1283,15 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         instagramProfileUrl: wizardData?.users?.instagramProfileUrl || "",
         facebookProfileUrl: wizardData?.users?.facebookProfileUrl || "",
         hobbies: wizardData?.users?.hobbies || "", notes: wizardData?.users?.notes || "",
-        discretionaryLeaveBoolean: wizardData?.discretionaryLeaveBoolean ? "true" : "false",
-        discretionaryLeaveBalance: wizardData?.discretionaryLeaveBalance || 0,
         isHiddenFromStaff: wizardData?.isHiddenFromStaff === true,
         professionalFeesEnabled: readProfessionalFeesEnabled(wizardData?.professionalFeesEnabled ?? (wizardData as any)?.professional_fees_enabled),
         professionalFeesAmount: (() => { const v = wizardData?.professionalFeesAmount ?? (wizardData as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
         professionalFeesPercentage: (() => { const v = (wizardData as any)?.professionalFeesPercentage ?? (wizardData as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
         professionalFeesType: wizardData?.professionalFeesType || (wizardData as any)?.professional_fees_type || "FIXED",
+        tds2Enabled: (() => { const v = (wizardData as any)?.tds2Enabled ?? (wizardData as any)?.tds2_enabled; return (v === true || v === 1 || v === '1' || v === 'true') ? "true" : "false"; })(),
+        tds2Type: (wizardData as any)?.tds2Type || (wizardData as any)?.tds2_type || "FIXED",
+        tds2Amount: (() => { const v = (wizardData as any)?.tds2Amount ?? (wizardData as any)?.tds2_amount; return v != null && v !== "" ? String(v) : ""; })(),
+        tds2Percentage: (() => { const v = (wizardData as any)?.tds2Percentage ?? (wizardData as any)?.tds2_percentage; return v != null && v !== "" ? String(v) : ""; })(),
       };
       setDefaultState(newState);
     }
@@ -1281,7 +1353,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               return (
                 <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
-                  <FormikValidationErrorFocus />
+                  <FormikValidationErrorFocus activeStepIndex={activeStepIndex} setActiveSection={setActiveSection} />
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}
@@ -1421,6 +1493,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                               <Step2
                                 formikProps={formikProps}
                                 setFile={addFileToState}
+                                removeFile={removeFileFromState}
                                 setEducationFile={addEducationFileToState}
                                 activeSection={activeSection}
                                 onSectionChange={setActiveSection}

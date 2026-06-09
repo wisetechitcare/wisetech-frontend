@@ -1,12 +1,28 @@
-export const formatINR2 = (n: number) =>
-    `₹${(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+export const roundPayrollAmount = (n: number) => Math.round(Number.isFinite(n) ? n : 0);
+
+export const truncatePayrollAmount = (n: number, fractionDigits = 2) => {
+    const value = Number.isFinite(n) ? n : 0;
+    const factor = 10 ** fractionDigits;
+    return Math.trunc(value * factor) / factor;
+};
+
+const formatINR = (n: number, fractionDigits: number) =>
+    `₹${Math.round(Number.isFinite(n) ? (n || 0) : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     })}`;
+
+export const formatINRDecimal = (n: number) => formatINR(n, 2);
+
+export const formatINRDecimalTruncated = (n: number) => formatINR(truncatePayrollAmount(n, 2), 2);
+
+export const formatINRRounded = (n: number) => formatINR(roundPayrollAmount(n), 0);
+
+export const formatINR2 = formatINRRounded;
 
 export const parseCurrencyString = (str: string | undefined): number => {
     if (!str) return 0;
-    return parseFloat(str.replace(/[₹,]/g, '') || '0');
+    return parseFloat(str.replace(/[₹,\s]/g, '') || '0');
 };
 
 export const sumBreakdownEarnings = (entries: Record<string, any> | undefined) =>
@@ -18,9 +34,7 @@ export const sumBreakdownEarnings = (entries: Record<string, any> | undefined) =
 export const formatValue = (value: any, type?: string) => {
     if (value === null || value === undefined) return '-';
     if (typeof value === 'number') {
-        const formatted = Number.isInteger(value) ?
-            value.toString() :
-            value.toFixed(2);
+        const formatted = Math.round(value).toString();
         return type === 'percentage' ? `${formatted}%` : formatted;
     }
     return value.toString();

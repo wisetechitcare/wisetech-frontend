@@ -4,12 +4,14 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import ExportButton from "@app/modules/common/components/ExportButton";
 
 interface YearlySalaryProps {
-  year: Dayjs;
-  fiscalYear: string;
+  year?: Dayjs;
+  fiscalYear?: string;
   employeesData: any;
   isLoading?: boolean;
+  title?: string;
 }
 
 interface SalarySummary {
@@ -20,9 +22,8 @@ interface SalarySummary {
   totalPaidAmount: number;
 }
 
-const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employeesData, isLoading = false }) => {
+const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employeesData, isLoading = false, title }) => {
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  console.log("YearlySalary employeesData:", employeesData);
   // Memoized calculation for optimal performance
   const salarySummary = useMemo<SalarySummary>(() => {
     if (!employeesData?.message) {
@@ -89,13 +90,43 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
         overTime: rawTotals?.overTime ? `${rawTotals?.overTime?.toFixed(2)} hrs` : '-',
         remainingMinutes: rawTotals?.remainingMinutes ? `${rawTotals?.remainingMinutes?.toFixed(2)} hrs` : '-',
         salary: rawTotals.netAmount || '-',
-        paidAmount: rawTotals.paidAmount || '-',
+        paidAmount: rawTotals.amountPaid || '-',
         basicSalary: rawTotals.basicSalary || '-',
         overTimeAmount: rawTotals?.overTimeAmount || '-',
         dueAmount: rawTotals.dueAmount || '-',
       };
     }); 
   }, [employeesData]);
+
+  const exportColumns = useMemo(() => [
+    { key: 'id',              header: 'ID',                 type: 'text'     as const },
+    { key: 'name',            header: 'Name',               type: 'text'     as const },
+    { key: 'department',      header: 'Department',         type: 'text'     as const },
+    { key: 'basicSalary',     header: 'Basic Salary',       type: 'currency' as const, showTotal: true },
+    { key: 'overTimeAmount',  header: 'Over Time Amount',   type: 'currency' as const, showTotal: true },
+    { key: 'salary',          header: 'Net Payable',        type: 'currency' as const, showTotal: true },
+    { key: 'paidAmount',      header: 'Paid Amount',        type: 'currency' as const, showTotal: true, color: '#1d4ed8' },
+    {
+      key: 'dueAmount', header: 'Due Amount', type: 'currency' as const, showTotal: true,
+      color: (val: any) => {
+        const n = Number(val);
+        if (n < 0) return '#0369a1';
+        if (n > 0) return '#dc2626';
+        return '#16a34a';
+      },
+    },
+    { key: 'totalDays',       header: 'Total Days',         type: 'number'   as const },
+    { key: 'present',         header: 'Present',            type: 'number'   as const },
+    { key: 'absent',          header: 'Absent',             type: 'number'   as const },
+    { key: 'late',            header: 'Late',               type: 'number'   as const },
+    { key: 'leaves',          header: 'Leaves',             type: 'number'   as const },
+    { key: 'extraDay',        header: 'Extra Day',          type: 'number'   as const },
+    { key: 'workingTime',     header: 'Working Time',       type: 'text'     as const },
+    { key: 'overTime',        header: 'Over Time',          type: 'text'     as const },
+    { key: 'remainingMinutes',header: 'Remaining Time',     type: 'text'     as const },
+  ], []);
+
+  const exportLabel = title || fiscalYear || (year ? year.format('YYYY') : 'All Time');
 
   return (
     <>
@@ -111,7 +142,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
 
       {/* Employee Salary Table */}
       <div className="mt-5">
-        <h1>Yearly Salary</h1>
+        <h1>{title || "Yearly Salary"}</h1>
         <MaterialTable
           columns={[
             {
@@ -130,11 +161,16 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
             },
             {
+              accessorKey: "branch",
+              header: "Branch",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+            },
+            {
               accessorKey: "basicSalary",
               header: "Basic Salary",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -142,7 +178,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Over Time Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -155,7 +191,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Net Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -163,7 +199,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Paid Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -171,7 +207,7 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
               header: "Due Amount",
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `₹${Number(renderedCellValue)?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               }
             },
             {
@@ -220,6 +256,19 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
           tableName="YearlySalaryEmployeeData"
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
+          renderExportActions={() => (
+            <ExportButton
+              data={tableData}
+              columns={exportColumns}
+              filename={`salary-${exportLabel.replace(/\s+/g, '-').toLowerCase()}`}
+              title={`${title || 'Yearly Salary'} — ${exportLabel}`}
+              subtitle="Employee-wise salary, deductions and payment status"
+              sheetName={exportLabel.slice(0, 31)}
+              showTotals
+              totalLabel="TOTAL"
+              disabled={tableData.length === 0}
+            />
+          )}
         />
       </div>
     </>

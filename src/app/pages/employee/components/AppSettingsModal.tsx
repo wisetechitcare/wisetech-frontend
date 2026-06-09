@@ -2,11 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "react-bootstrap";
 import { Formik, Form as FormikForm, useFormikContext } from "formik";
 import * as Yup from "yup";
-import { fetchWizardData, updateEmployee, fetchAllEmployees } from "@services/employee";
+import { fetchWizardData, updateEmployee, fetchAllEmployees, saveEmployeeAccessSettings } from "@services/employee";
 import { fetchRoles } from "@services/roles";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
-import NumberInput from "@app/modules/common/inputs/NumberInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import Loader from "@app/modules/common/utils/Loader";
@@ -35,6 +34,22 @@ function buildProfessionalFeesPayload(values: any) {
     return { professionalFeesEnabled: true, professionalFeesType: type, professionalFeesAmount: amt, professionalFeesPercentage: pct };
 }
 
+function buildTds2Payload(values: any) {
+    const raw = values.tds2Enabled;
+    const enabled = raw === true || raw === 1 || raw === "1" || raw === "true";
+    const type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    if (!enabled) {
+        return { tds2Enabled: false, tds2Type: "FIXED" as const, tds2Amount: null, tds2Percentage: null };
+    }
+    const parse = (v: any) => { const n = parseFloat(String(v || "").replace(/,/g, "")); return isFinite(n) ? n : null; };
+    return {
+        tds2Enabled: true,
+        tds2Type: type,
+        tds2Amount: type === "FIXED" ? parse(values.tds2Amount) : null,
+        tds2Percentage: type === "PERCENTAGE" ? parse(values.tds2Percentage) : null,
+    };
+}
+
 // ─── Section components (all use useFormikContext, identical to wizard) ───────
 
 function GeneralSettings() {
@@ -56,45 +71,13 @@ function GeneralSettings() {
                     isRequired={false}
                 />
             </div>
-            <div className="col-sm-6">
-                <NumberInput
-                    isRequired={false}
-                    formikField="attendanceRequestRaiseLimit"
-                    label="Attendance Request Limit"
-                    margin="mb-0"
-                    min={0}
-                />
-                <div className="form-text text-muted mt-1" style={{ fontSize: 12 }}>
-                    <i className="bi bi-info-circle me-1" />
-                    Max attendance correction requests allowed per month.
-                </div>
-            </div>
         </div>
     );
 }
 
 function LeaveSection() {
     return (
-        <>
-            <LeaveAllocationStep />
-            <div className="mt-4">
-                <div className="row">
-                    <div className="col-sm-6">
-                        <NumberInput
-                            isRequired={false}
-                            formikField="allowedPerMonth"
-                            label="Allowed Per Month"
-                            margin="mb-0"
-                            min={1}
-                        />
-                        <div className="form-text text-muted mt-1" style={{ fontSize: 12 }}>
-                            <i className="bi bi-info-circle me-1" />
-                            <strong>Combined monthly limit</strong> across all leave types.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
+        <LeaveAllocationStep />
     );
 }
 
@@ -123,6 +106,8 @@ function FinancialSection() {
     const parseIN = (val: string) => val.replace(/,/g, "");
     const pfEnabled = String(values.professionalFeesEnabled) === "true";
     const pfType = values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+    const tds2Enabled = String(values.tds2Enabled) === "true";
+    const tds2Type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
 
     return (
         <>
@@ -164,9 +149,47 @@ function FinancialSection() {
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {pfType === "PERCENTAGE" ? (
-                                <TextInput isRequired={false} label="Professional Fees %" formikField="professionalFeesPercentage" />
+                                <TextInput isRequired={false} label="Tax Deducted at Source (TDS) %" formikField="professionalFeesPercentage" />
                             ) : (
-                                <TextInput isRequired={false} label="Professional Fees Amount" formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
+                                <TextInput isRequired={false} label="Tax Deducted at Source (TDS) Amount" formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* TDS2 — fully independent from TDS1/PTAX */}
+            <div className="separator separator-dashed my-6" />
+            <div className="row g-4">
+                <div className="col-sm-6 col-md-4">
+                    <RadioInput
+                        formikField="tds2Enabled"
+                        inputLabel="TDS 2 (Additional)"
+                        radioBtns={[
+                            { label: "Enabled", value: "true" },
+                            { label: "Disabled", value: "false" },
+                        ]}
+                        isRequired={false}
+                    />
+                </div>
+                {tds2Enabled && (
+                    <>
+                        <div className="col-sm-6 col-md-4">
+                            <RadioInput
+                                formikField="tds2Type"
+                                inputLabel="TDS 2 Type"
+                                radioBtns={[
+                                    { label: "Fixed", value: "FIXED" },
+                                    { label: "Percentage", value: "PERCENTAGE" },
+                                ]}
+                                isRequired={false}
+                            />
+                        </div>
+                        <div className="col-sm-6 col-md-4">
+                            {tds2Type === "PERCENTAGE" ? (
+                                <TextInput isRequired={false} label="TDS 2 %" formikField="tds2Percentage" />
+                            ) : (
+                                <TextInput isRequired={false} label="TDS 2 Amount" formikField="tds2Amount" formatter={formatIN} parser={parseIN} />
                             )}
                         </div>
                     </>
@@ -342,9 +365,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // general
         isAdmin: "0",
         allowOverTime: "0",
-        attendanceRequestRaiseLimit: 0,
         // leave
-        allowedPerMonth: 1,
         leaveAllocations: [],
         branchId: "",
         employeeId: "",
@@ -356,11 +377,17 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         professionalFeesType: "FIXED",
         professionalFeesAmount: "",
         professionalFeesPercentage: "",
+        // TDS2
+        tds2Enabled: "false",
+        tds2Type: "FIXED",
+        tds2Amount: "",
+        tds2Percentage: "",
         // access
         isEmployeeActive: "1",
         appRole: "",
         // privacy
         isHiddenFromStaff: false,
+        userId: "",
     });
 
     useEffect(() => {
@@ -380,9 +407,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // general
                     isAdmin: w?.isAdmin ? "1" : "0",
                     allowOverTime: w?.allowOverTime ?? "0",
-                    attendanceRequestRaiseLimit: w?.attendanceRequestRaiseLimit ?? 0,
                     // leave
-                    allowedPerMonth: w?.allowedPerMonth ?? 1,
                     leaveAllocations: [],
                     branchId: w?.branchId ?? "",
                     employeeId,
@@ -394,11 +419,17 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     professionalFeesType: w?.professionalFeesType ?? (w as any)?.professional_fees_type ?? "FIXED",
                     professionalFeesAmount: (() => { const v = w?.professionalFeesAmount ?? (w as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
                     professionalFeesPercentage: (() => { const v = (w as any)?.professionalFeesPercentage ?? (w as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
+                    // TDS2
+                    tds2Enabled: (() => { const v = w?.tds2Enabled; return (v === true || v === 1 || v === "1" || v === "true") ? "true" : "false"; })(),
+                    tds2Type: w?.tds2Type ?? "FIXED",
+                    tds2Amount: (() => { const v = w?.tds2Amount; return v != null && v !== "" ? String(v) : ""; })(),
+                    tds2Percentage: (() => { const v = w?.tds2Percentage; return v != null && v !== "" ? String(v) : ""; })(),
                     // access
                     isEmployeeActive: w?.isActive ? "1" : "0",
                     appRole: w?.roles?.[0]?.id ?? "",
                     // privacy
                     isHiddenFromStaff: w?.isHiddenFromStaff === true,
+                    userId: w?.userId ?? "",
                 });
 
                 // manager options
@@ -431,20 +462,32 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 id: employeeId,
                 isAdmin: values.isAdmin === "1",
                 allowOverTime: values.allowOverTime,
-                allowedPerMonth: Number(values.allowedPerMonth),
-                attendanceRequestRaiseLimit: Number(values.attendanceRequestRaiseLimit),
                 reportsToId: values.reportsToId || null,
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",
-                appRole: values.appRole || null,
                 isHiddenFromStaff: values.isHiddenFromStaff === true,
                 ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
                     ? { leaveAllocations: values.leaveAllocations }
                     : {}),
                 ...buildProfessionalFeesPayload(values),
+                ...buildTds2Payload(values),
             };
 
-            await updateEmployee(employeeId, payload);
+            const roleId = values.appRole || null;
+            const isAdmin = values.isAdmin === "1";
+
+            const oldRoleId = initialValues.appRole || null;
+            const oldIsAdmin = initialValues.isAdmin === "1";
+
+            await saveEmployeeAccessSettings(
+                employeeId,
+                initialValues.userId,
+                payload,
+                roleId,
+                isAdmin,
+                oldRoleId,
+                oldIsAdmin
+            );
             successConfirmation("Settings saved successfully");
             if (onSuccess) onSuccess();
             onClose();
