@@ -2,7 +2,7 @@ import { resolveActiveOrg } from '@utils/activeOrg';
 
 import React, { useState, useEffect } from 'react';
 import { KTCard } from '@metronic/helpers';
-import { fetchCompanyOverview, fetchCompanyLogo, fetchOrganizationById } from '@services/company';
+import { fetchCompanyOverview, fetchOrganizationById } from '@services/company';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { ICompanyOverview } from "@models/company";
 import { resolveFormSchema } from './formSchema';
@@ -25,8 +25,6 @@ interface OrganisationInfoProps {
 
 const OrganisationInfo: React.FC<OrganisationInfoProps> = ({ onEditClick, organizationId, onBack, onBranchesClick }) => {
     const [companyData, setCompanyData] = useState<ICompanyOverview | null>(null);
-    const [logoUrl, setLogoUrl] = useState('');
-    const [stampUrl, setStampUrl] = useState('');
     const [loading, setLoading] = useState(true);
     const [pdfGenerating, setPdfGenerating] = useState(false);
 
@@ -148,8 +146,6 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                 const org = resolveActiveOrg(companyOverview);
                 if (org) {
                     setCompanyData(org);
-                    setLogoUrl(org.logo);
-                    setStampUrl(org.salaryStamp);
                 }
             } else {
                 // Default / active organization (today's behavior)
@@ -157,9 +153,6 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                 if (resolveActiveOrg(companyOverview)) {
                     setCompanyData(resolveActiveOrg(companyOverview));
                 }
-                const logoData = await fetchCompanyLogo();
-                setLogoUrl(logoData?.data?.logo);
-                setStampUrl(logoData?.data?.salaryStamp);
             }
         } catch (error) {
             console.error('Failed to fetch company details', error);
@@ -209,6 +202,22 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     const sectionIcon = (id: string) => SECTION_ICONS[id] || 'bi-card-text';
     // Section titles are stored UPPERCASE in the schema; show them in Title Case here.
     const titleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
+    // A single logo/stamp slot: shows the image, or a clean placeholder when none is set.
+    const renderAssetSlot = (url: string | undefined, label: string) => (
+        <div className="d-flex flex-column align-items-center text-center" style={{ flex: 1, gap: '10px', minWidth: 0 }}>
+            {url ? (
+                <div style={{ height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={url} alt={label} style={{ maxHeight: 84, maxWidth: '100%', objectFit: 'contain' }} />
+                </div>
+            ) : (
+                <div style={{ width: 84, height: 84, borderRadius: 16, border: '1.5px dashed #d3dae6', background: '#f7f9fc', display: 'grid', placeItems: 'center', color: '#aab4c6' }}>
+                    <i className="bi bi-image" style={{ fontSize: 28 }} />
+                </div>
+            )}
+            <span style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 'clamp(11px, 2vw, 13px)', color: url ? '#2c3e50' : '#9aa4b6' }}>{label}</span>
+        </div>
+    );
 
     const renderFieldValue = (f: any) => {
         const raw = f.isSystem ? (companyData as any)[f.id] : f.value;
@@ -303,37 +312,24 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                 </div>
             </div>
 
-            {/* First Row - Company & Overview */}
+            {/* Info sections grid */}
             <div className="row g-3 mb-3">
-                {/* Company Name & Logo Card */}
+                {/* Logo & Stamp — shows the org's assets, or a clean placeholder when unset */}
                 <div className="col-12 col-lg-6">
                     <KTCard className="shadow-sm h-100">
-                        <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(16px, 3vw, 24px)' }}>
-                            <div className="d-flex flex-column" style={{ gap: '8px' }}>
-                                <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 18px)', letterSpacing: '0.18px', color: 'black' }}>
-                                    {companyData.name || 'Wisetech'}
+                        <div className="d-flex flex-column h-100" style={{ padding: 'clamp(16px, 3vw, 24px)', gap: 'clamp(14px, 3vw, 20px)' }}>
+                            <div className="d-flex align-items-center gap-2">
+                                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center" style={{ width: '44px', height: '44px', backgroundColor: '#e6eaf1' }}>
+                                    <i className="bi bi-building fs-2 text-primary"></i>
+                                </div>
+                                <h5 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: '600', fontSize: 'clamp(16px, 3vw, 19px)', letterSpacing: '0.19px', color: 'black' }}>
+                                    Logo & Stamp
                                 </h5>
-                                <p className="mb-0" style={{ fontFamily: 'Inter', fontWeight: '400', fontSize: 'clamp(12px, 2.5vw, 14px)', lineHeight: '1.56', color: '#7a8597' }}>
-                                    {companyData.name} Private Limited
-                                </p>
                             </div>
-                            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
-                                {logoUrl && (
-                                    <img
-                                        src={logoUrl}
-                                        alt="Company Logo"
-                                        className="img-fluid"
-                                        style={{ maxHeight: '52px', maxWidth: '100%', objectFit: 'contain' }}
-                                    />
-                                )}
-                                {stampUrl && (
-                                    <img
-                                        src={stampUrl}
-                                        alt="Company Stamp"
-                                        className="img-fluid"
-                                        style={{ maxHeight: '68px', maxWidth: '67px', objectFit: 'contain' }}
-                                    />
-                                )}
+                            <div className="d-flex flex-row justify-content-around align-items-center gap-3 flex-grow-1">
+                                {renderAssetSlot(companyData.logo, 'Organization Logo')}
+                                <div style={{ width: 1, alignSelf: 'stretch', background: '#eef1f6' }} />
+                                {renderAssetSlot(companyData.salaryStamp, 'Stamp')}
                             </div>
                         </div>
                     </KTCard>
