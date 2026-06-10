@@ -2,21 +2,19 @@ import React from 'react';
 import { Paper, Typography, Box, Grid } from '@mui/material';
 import WatchLaterOutlinedIcon from '@mui/icons-material/WatchLaterOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import PersonOffOutlinedIcon from '@mui/icons-material/PersonOffOutlined';
+import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import MoneyOffOutlinedIcon from '@mui/icons-material/MoneyOffOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 
 interface MonthlyOverviewCardProps {
   title?: string;
   lateCheckins?: string | number;
   presentDays?: string | number;
-  absentDays?: string | number;
+  workingDays?: string | number;
+  payableDays?: string | number;
   paidLeaves?: string | number;
   unpaidLeaves?: string | number;
-  netPayable?: string | number;
-  netPayableLabel?: string;
-  netPayableLabelSubtitle?: React.ReactNode;
-  showSensitiveData?: boolean;
 }
 
 const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
@@ -24,23 +22,19 @@ const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
       title = 'Monthly Overview',
       lateCheckins = '-',
       presentDays = '-',
-      absentDays = '-',
+      workingDays = '-',
+      payableDays = '-',
       paidLeaves = '-',
       unpaidLeaves = '-',
-      netPayable = '-',
-      netPayableLabel = 'Net Payable This Month',
-      netPayableLabelSubtitle,
-      showSensitiveData = true,
     } = props;
 
-    const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
-
     const infoRows = [
-        { label: 'Present Days', value: presentDays, icon: <PersonOutlineOutlinedIcon fontSize="small" />, color: '#16a34a' },
-        { label: 'Absent Days', value: absentDays, icon: <PersonOffOutlinedIcon fontSize="small" />, color: '#ef4444' },
+        { label: 'Working Days', value: workingDays, icon: <BusinessCenterOutlinedIcon fontSize="small" />, color: '#0891b2' },
+       
+        { label: 'Payable Days', value: payableDays, icon: <TaskAltOutlinedIcon fontSize="small" />, color: '#8b5cf6' },
         { label: 'Paid Leaves', value: paidLeaves, icon: <EventAvailableOutlinedIcon fontSize="small" />, color: '#2563eb' },
         { label: 'Unpaid Leaves', value: unpaidLeaves, icon: <MoneyOffOutlinedIcon fontSize="small" />, color: '#d97706' },
-        { label: 'Late Checkins', value: lateCheckins, icon: <WatchLaterOutlinedIcon fontSize="small" />, color: '#8b5cf6' },
+        { label: 'Late Checkins', value: lateCheckins, icon: <WatchLaterOutlinedIcon fontSize="small" />, color: '#ef4444' },
     ];
 
     return (
@@ -113,32 +107,6 @@ const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
                         </Grid>
                     ))}
                 </Grid>
-            </Box>
-
-            <Box
-                sx={{
-                    mt: 'auto',
-                    p: 1.5,
-                    borderRadius: '12px',
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    display: 'flex',
-                    flexDirection: 'column',
-                }}
-            >
-                <Typography sx={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>
-                    {netPayableLabel}
-                </Typography>
-                {netPayableLabelSubtitle && (
-                    <Typography sx={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 500, mt: 0.2, mb: 0.2 }}>
-                        {netPayableLabelSubtitle}
-                    </Typography>
-                )}
-                <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }} className={sensitiveCls}>
-                    {typeof netPayable === 'number'
-                        ? `₹${Math.round(netPayable).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-                        : (String(netPayable).includes('₹') ? netPayable : `₹${netPayable}`)}
-                </Typography>
             </Box>
         </Paper>
     );

@@ -9,7 +9,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import SeedIcon from '@mui/icons-material/AutoFixHigh';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import { deductionMasterService, PayrollComponent } from '@modules/payroll/services/payrollService';
-import { ConfigSectionCard } from '@app/modules/configuration';
 import { successConfirmation } from '@utils/modal';
 import Swal from 'sweetalert2';
 
@@ -673,7 +672,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange }: ComponentPan
 
   const showGrouped = categoryFilter === 'All';
 
-  const addBtnColor = mode === 'earnings' ? '#16a34a' : '#8B4444';
+  const addBtnColor = '#9d4141';
 
   return (
     <>
@@ -853,21 +852,63 @@ export default function DeductionMaster() {
   const deductionsCount = allItems.filter(i => DEDUCTION_CATEGORIES.includes(i.category)).length;
 
   return (
-    <ConfigSectionCard
-      title="Salary Master"
-      description="Full control over every component that appears in your employees' salary breakdowns. System components cannot be deleted but can be renamed, described, and toggled."
-      headerRight={
+    <Box>
+      {/* ── Gradient section header (matches General Settings pattern) ── */}
+      <Box sx={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        mb: 3,
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Box sx={{
+            width: 34, height: 34, borderRadius: '9px',
+            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          }}>
+            <i className="bi bi-grid-3x3-gap-fill" style={{ fontSize: '14px', color: '#fff' }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: 16, color: '#181C32', letterSpacing: '-0.2px', lineHeight: 1.2, m: 0 }}>
+              Salary Master
+            </Typography>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#A1A5B7', fontWeight: 400, mt: '2px', m: 0 }}>
+              Manage earnings, allowances &amp; deduction components
+            </Typography>
+          </Box>
+        </Box>
         <button
-          className="btn btn-sm btn-light-secondary rounded-3 d-flex align-items-center gap-1"
           onClick={handleSeed}
           disabled={seeding}
-          style={{ fontSize: 13 }}
+          style={{
+            backgroundColor: '#fff',
+            border: '1px solid #E1E3EA',
+            borderRadius: '9px',
+            color: '#3F4254',
+            padding: '7px 16px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: seeding ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 1px 4px rgba(24,28,50,0.06)',
+            transition: 'all 0.15s ease',
+            opacity: seeding ? 0.7 : 1,
+          }}
+          onMouseEnter={(e) => { if (!seeding) { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; } }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#fff'; }}
         >
-          <SeedIcon style={{ fontSize: 16 }} />
+          <SeedIcon style={{ fontSize: 15 }} />
           {seeding ? 'Seeding…' : 'Seed Defaults'}
         </button>
-      }
-    >
+      </Box>
+
       {/* Sub-tabs */}
       <Box sx={{
         display: 'flex',
@@ -880,8 +921,8 @@ export default function DeductionMaster() {
         padding: { xs: '4px', sm: '0' },
       }}>
         {([
-          { key: 'earnings',   label: 'Earnings & Allowances', shortLabel: 'Earnings', count: earningsCount,   color: '#16a34a', desc: 'Work Earnings · Allowances · Benefits' },
-          { key: 'deductions', label: 'Deductions',            shortLabel: 'Deductions', count: deductionsCount, color: '#dc2626', desc: 'Attendance · Government · Custom' },
+          { key: 'earnings',   label: 'Earnings & Allowances', shortLabel: 'Earnings',   count: earningsCount,   color: '#9d4141', desc: 'Work Earnings · Allowances · Benefits' },
+          { key: 'deductions', label: 'Deductions',            shortLabel: 'Deductions', count: deductionsCount, color: '#9d4141', desc: 'Attendance · Government · Custom' },
         ] as const).map(tab => {
           const isActive = activeTab === tab.key;
           return (
@@ -951,6 +992,6 @@ export default function DeductionMaster() {
         loading={loading}
         onItemsChange={setAllItems}
       />
-    </ConfigSectionCard>
+    </Box>
   );
 }

@@ -124,8 +124,8 @@ export const useSalaryReport = () => {
                     const uniqueEmails = Array.from(new Set(emailNotification.to.split(',').map(e => e.trim())));
                     toast.success(
                         React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
-                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Email Sent Successfully'),
-                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Salary slip delivered to:'),
+                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Payment Confirmation Sent'),
+                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Payment notification emailed to:'),
                             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
                                 uniqueEmails.map((email, i) => 
                                     React.createElement('div', { key: i, style: { display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' } },

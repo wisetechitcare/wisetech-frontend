@@ -17,6 +17,8 @@ const DEDUCTION_COLORS = [
     '#ef4444', '#f43f5e', '#ec4899', '#dc2626',
 ];
 
+const OT_COLOR = '#f59e0b';
+
 function isOvertime(name: string): boolean {
     const n = name.toLowerCase();
     return (
@@ -47,20 +49,19 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
     const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
-    const { grossPay, netPay, totalDeductions, retainPercentage } = useMemo(() => {
-        if (!salarySlipProps) return { grossPay: 0, netPay: 0, totalDeductions: 0, retainPercentage: 0 };
+    const { grossPay, totalDeductions } = useMemo(() => {
+        if (!salarySlipProps) return { grossPay: 0, totalDeductions: 0 };
         const gross = parseFloat(salarySlipProps.totalGrossPayEarned.replace(/,/g, '')) || 0;
         const net   = parseFloat(salarySlipProps.finalAmount.replace(/,/g, '')) || 0;
         let deductions = gross - net;
         if (deductions < 0) deductions = 0;
-        const retainPct = gross > 0 ? (net / gross) * 100 : 0;
-        return { grossPay: gross, netPay: net, totalDeductions: deductions, retainPercentage: retainPct };
+        return { grossPay: gross, totalDeductions: deductions };
     }, [salarySlipProps]);
 
     const { data, overtimeItems } = useMemo(() => {
         if (!salarySlipProps || grossPay === 0) return { data: [], overtimeItems: [] };
 
-        const chartData: Array<{ name: string; value: number; color: string; kind: 'earning' | 'deduction' }> = [];
+        const chartData: Array<{ name: string; value: number; color: string; kind: 'earning' | 'deduction' | 'overtime' }> = [];
         const otItems:   Array<{ name: string; value: number }> = [];
         let earningIdx = 0, deductionIdx = 0;
 
@@ -73,12 +74,13 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
             }
         });
 
-        // Variable earnings — only OT goes to separate callout, rest stays in chart
+        // Variable earnings — OT gets its own segment + callout, rest stays in chart
         salarySlipProps.grossPayVariable.forEach((item) => {
             const val = parseFloat(item.earned.replace(/,/g, '')) || 0;
             if (val <= 0) return;
             if (isOvertime(item.name)) {
                 otItems.push({ name: item.name, value: val });
+                chartData.push({ name: item.name, value: val, color: OT_COLOR, kind: 'overtime' });
             } else {
                 chartData.push({ name: item.name || 'Work Earning', value: val, color: EARNING_COLORS[earningIdx % EARNING_COLORS.length], kind: 'earning' });
                 earningIdx++;
@@ -117,12 +119,21 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
     const onPieEnter = (_: any, index: number) => setActiveIndex(index);
     const onPieLeave = () => setActiveIndex(undefined);
 
-    let centerLabel = 'Monthly Salary';
-    let centerValue = formatCurrencyRounded(salarySlipProps.baseMonthlySalary ?? netPay);
+    let centerLabel = 'Total Salary';
+    let centerValue = formatCurrencyRounded(grossPay);
     if (activeIndex !== undefined && data[activeIndex]) {
         centerLabel = data[activeIndex].name;
         centerValue = formatCurrencyRounded(data[activeIndex].value);
     }
+
+    // Group legend by kind — OT segments are represented by the callout below
+    const earningRows   = data.filter(d => d.kind === 'earning');
+    const deductionRows = data.filter(d => d.kind === 'deduction');
+    const totalOT       = overtimeItems.reduce((s, i) => s + i.value, 0);
+    const otSegmentIdx  = data.findIndex(d => d.kind === 'overtime');
+
+    const monthlySalary = salarySlipProps.baseMonthlySalary ?? Math.max(0, grossPay - totalOT);
+    const totalPct      = monthlySalary > 0 ? (grossPay / monthlySalary) * 100 : 0;
 
     let insightTitle = '';
     let insightDesc  = '';
@@ -137,14 +148,9 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
         insightColor = '#ef4444';
     } else {
         insightTitle = '✅ Excellent Payroll Efficiency';
-        insightDesc  = `${retainPercentage.toFixed(1)}% salary retained successfully.`;
+        insightDesc  = `${totalPct.toFixed(1)}% of monthly salary earned this month.`;
         insightColor = '#22c55e';
     }
-
-    // Group legend by kind
-    const earningRows   = data.filter(d => d.kind === 'earning');
-    const deductionRows = data.filter(d => d.kind === 'deduction');
-    const totalOT       = overtimeItems.reduce((s, i) => s + i.value, 0);
 
     const LegendRow = ({ entry, index }: { entry: typeof data[0]; index: number }) => {
         const globalIdx = data.indexOf(entry);
@@ -247,9 +253,13 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                             </>
                         )}
 
-                        {/* Overtime callout — separate from salary */}
+                        {/* Overtime callout — legend for the OT chart segment */}
                         {totalOT > 0 && (
-                            <Box sx={{ mt: 1, p: 1, borderRadius: '10px', background: 'linear-gradient(135deg,#fef9c3,#fef3c7)', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                            <Box
+                                onMouseEnter={() => otSegmentIdx >= 0 && setActiveIndex(otSegmentIdx)}
+                                onMouseLeave={() => setActiveIndex(undefined)}
+                                sx={{ mt: 1, p: 1, borderRadius: '10px', background: 'linear-gradient(135deg,#fef9c3,#fef3c7)', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, cursor: 'pointer' }}
+                            >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                                     <Box sx={{ width: 22, height: 22, borderRadius: '6px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                         <Typography sx={{ fontSize: '0.65rem', color: '#fff', fontWeight: 800, lineHeight: 1 }}>OT</Typography>
@@ -269,20 +279,31 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                     </Box>
                 </Box>
 
-                {/* Net Received progress bar */}
+                {/* Total salary (before deductions) vs monthly salary */}
                 <Box sx={{ width: '100%', mt: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography sx={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>Net Received</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Typography sx={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>
+                            Total Salary{' '}
+                            <Typography component="span" sx={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>
+                                {formatCurrencyRounded(grossPay)}
+                            </Typography>
+                        </Typography>
                         <Typography sx={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 700 }}>
-                            {retainPercentage.toFixed(1)}%
+                            
+                            <Typography component="span" sx={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>
+                                Monthly Salary{' '}
+                                <Typography component="span" sx={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>
+                                    {formatCurrencyRounded(monthlySalary)}
+                                </Typography>
+                            </Typography>
                         </Typography>
                     </Box>
                     <LinearProgress
                         variant="determinate"
-                        value={retainPercentage}
+                        value={Math.min(100, totalPct)}
                         sx={{
                             height: 6, borderRadius: 3, backgroundColor: '#f1f5f9',
-                            '& .MuiLinearProgress-bar': { backgroundColor: EARNING_COLORS[0], borderRadius: 3 },
+                            '& .MuiLinearProgress-bar': { backgroundColor: totalPct > 100 ? OT_COLOR : EARNING_COLORS[0], borderRadius: 3 },
                         }}
                     />
                 </Box>

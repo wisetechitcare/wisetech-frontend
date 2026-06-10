@@ -44,7 +44,7 @@ const SALARY_CONFIG_CSS = `
     .sc-row-right         { width: 100% !important; margin-top: 8px !important; flex-wrap: wrap !important; gap: 8px !important; }
     .sc-row-right select  { flex: 1 !important; min-width: unset !important; }
     .sc-row-right > button { flex: 1 !important; justify-content: center !important; }
-    .sc-rule-row         { flex-wrap: wrap !important; gap: 6px !important; padding: 10px 12px !important; }
+    .sc-rule-row         { gap: 6px !important; padding: 10px 12px !important; }
     .sc-form-footer      { flex-wrap: wrap !important; gap: 8px !important; margin-right: 0 !important; }
     .sc-form-footer > button { flex: 1 1 calc(50% - 4px) !important; min-width: 100px !important; justify-content: center !important; margin-right: 0 !important; }
     .sc-pf-modal         { padding: 24px !important; }
@@ -65,20 +65,25 @@ const SALARY_CONFIG_CSS = `
 
   /* ── DeductionRules – global rule row design ──────────────────────── */
 
-  /* Base row: remove dashed, add clean solid border + left accent */
+  /* Base row layout – always a single flex row */
   .sc-rule-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
     border: 1px solid #eef0f5 !important;
     border-left: 3px solid #E1E3EA !important;
     border-radius: 10px !important;
     background: #ffffff !important;
     margin-bottom: 0 !important;
-    padding: 12px 16px !important;
-    gap: 8px !important;
+    padding: 11px 16px !important;
+    gap: 10px !important;
     transition: box-shadow 0.15s ease !important;
   }
   .sc-rule-row:hover {
     box-shadow: 0 2px 10px rgba(0,0,0,0.06) !important;
   }
+  /* Condition text always fills available space */
+  .sc-rule-condition { flex: 1 !important; min-width: 0 !important; }
 
   /* Male rows – blue accent + subtle tint */
   .sc-rule-male {
@@ -145,30 +150,19 @@ const SALARY_CONFIG_CSS = `
 
   /* ── DeductionRules – mobile (≤ 575px) ─────────────────────────── */
   @media (max-width: 575.98px) {
-    .sc-rule-row   { padding: 10px 12px !important; gap: 6px !important; }
+    .sc-rule-row      { padding: 10px 12px !important; gap: 8px !important; }
 
-    /* left side takes full width → value drops to next line */
-    .sc-rule-left  { flex: 1 1 100% !important; }
+    .sc-rule-condition { font-size: 12.5px !important; }
+    .sc-rule-value     { font-size: 12.5px !important; padding: 3px 10px !important; }
 
-    /* override desktop pill constraints for mobile flow */
-    .sc-rule-value { white-space: normal !important; flex-shrink: unset !important; }
+    /* Exception aligns left on mobile */
+    .sc-val-group      { align-items: flex-start !important; }
+    .sc-except-text    { text-align: left !important; }
 
-    /* exception aligns left on mobile */
-    .sc-val-group  { align-items: flex-start !important; }
-    .sc-except-text { text-align: left !important; }
-
-    .sc-badge-male,
-    .sc-badge-female {
-      margin-right: 8px !important;
-      font-size: 11px !important;
-      padding: 3px 8px !important;
-    }
-    .sc-rule-condition { font-size: 13px !important; }
-
-    /* EPF card columns */
-    .sc-epf-label     { font-size: 11px !important; margin-bottom: 6px !important; }
-    .sc-epf-name      { font-size: 13.5px !important; }
-    .sc-deduction-tag { font-size: 13px !important; padding: 5px 12px !important; }
+    /* EPF card */
+    .sc-epf-label      { font-size: 11px !important; margin-bottom: 4px !important; }
+    .sc-epf-name       { font-size: 13.5px !important; }
+    .sc-deduction-tag  { font-size: 13px !important; }
   }
 `;
 

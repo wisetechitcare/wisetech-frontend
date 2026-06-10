@@ -9,6 +9,7 @@ import React, { useEffect, useState } from "react";
 import DateSelector from "@components/DateSelector";
 import { IReimbursements, IReimbursementsUpdate } from "@models/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import { useDispatch } from "react-redux";
 import { fetchAllTimeReimbursementsOfAllEmp } from "@utils/statistics";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
@@ -167,7 +168,7 @@ const MaterialToggleReimbursement = ({
               handleDatesChange("increment", "year", setYear);
               toggleItemsActions?.yearly(year.add(1, "year"));
             }}
-            displayValue={fiscalYear}
+            displayValue={formatFiscalYearLabel(fiscalYear)}
           />
         )}
       </div>

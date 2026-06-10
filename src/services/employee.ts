@@ -950,9 +950,9 @@ export const fetchAllEmployeeSalaryAllTimeDateRage = async (employeeId: string) 
     }
 }
 // GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE
-export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string) => {
+export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string, status: 'active' | 'inactive' | 'all' = 'active') => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}&status=${status}`;
         const { data } = await axios.get(endpoint);
         return data;
     }

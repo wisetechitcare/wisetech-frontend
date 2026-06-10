@@ -194,15 +194,30 @@ function CustomRules() {
 
   return (
     <div className="mb-10 sc-container" style={{ padding: '28px', backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-6 sc-page-header">
-        <h2 className="sc-header-title" style={{
-          fontFamily: 'Barlow, sans-serif',
-          fontWeight: 700,
-          fontSize: '24px',
-          color: '#181C32',
-          letterSpacing: '-0.5px',
-          margin: 0
-        }}>Custom Rules</h2>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        marginBottom: '20px',
+      }}>
+        <div style={{
+          width: '34px', height: '34px', borderRadius: '9px',
+          background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+        }}>
+          <i className="bi bi-sliders" style={{ fontSize: '15px', color: '#fff' }} />
+        </div>
+        <div>
+          <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+            Custom Rules
+          </h2>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+            Configure custom salary deduction rules and periods
+          </p>
+        </div>
       </div>
       <MaterialTable
         columns={columnsCustomRules}

@@ -7,7 +7,7 @@
  * Uses the shared apiClient so auth headers and 401 handling are automatic.
  */
 
-import { api } from '@lib/apiClient';
+import { api } from '@/lib/apiClient';
 import { LEAD_PROJECT_COMPANY, CLIENT_COMPANIES } from '@constants/api-endpoint';
 
 // ─────────────────────────────────────────────────────────────────────────────

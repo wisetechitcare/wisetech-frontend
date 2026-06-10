@@ -158,26 +158,30 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                 borderRadiusApplication: 'around' as 'around',
                 borderRadiusWhenStacked: 'all' as 'all',
                 dataLabels: {
-                    position: 'top',
+                    position: 'center',
+                    orientation: 'vertical' as 'vertical', // Values written inside the bars, rotated
                 }
             }
         },
         colors: ['#FBD678', '#58C25D', '#AA393D'], // Warm gold, Soft premium green, Deep dark crimson/red theme color
         dataLabels: {
             enabled: true,
-            enabledOnSeries: [0, 1], // Display small, premium labels only above the bar columns
+            enabledOnSeries: [0, 1], // Labels only inside the bar columns
             formatter: function (val: number) {
                 if (!val || val === 0) return '';
                 return '₹' + (val / 1000).toFixed(0) + 'k';
             },
-                offsetY: compact ? -14 : -22,
+            offsetY: 0,
             style: {
-                    fontSize: compact ? '9px' : '11px',
+                fontSize: compact ? '9px' : '11px',
                 fontWeight: 700,
-                colors: ['#334155', '#334155'] // Fixed colors array: very bold, dark color to be 100% visible on white bg!
+                colors: ['#7a4f01', '#ffffff'] // Dark amber on gold bars, white on green bars
             },
             background: {
-                enabled: false // DISABLED dark badge background to solve color visibility issue entirely
+                enabled: false
+            },
+            dropShadow: {
+                enabled: false
             }
         },
         xaxis: {

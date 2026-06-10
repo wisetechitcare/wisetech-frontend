@@ -12,17 +12,21 @@ interface State {
   showStack: boolean;
 }
 
+// Neutral slate palette for the error surface — intentionally not the pink
+// semantic danger token, which reads too loud for a full-page failure state.
+const SLATE = {
+  dark: '#1e293b',
+  mid: '#334155',
+  red: '#b91c1c',
+  redBg: '#fdf6f6',
+};
+
 const EXTRA_KEYFRAMES = `
   @keyframes errFadeUp {
     from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes errPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(241,65,108,0.25); }
-    50%       { box-shadow: 0 0 0 10px rgba(241,65,108,0); }
-  }
-  .err-card   { animation: errFadeUp 0.35s ease; }
-  .err-icon   { animation: errPulse 2.2s ease-in-out infinite; }
+  .err-card { animation: errFadeUp 0.35s ease; }
 `;
 
 class ErrorBoundary extends React.Component<Props, State> {
@@ -64,94 +68,80 @@ class ErrorBoundary extends React.Component<Props, State> {
             width: '100%',
             maxWidth: 540,
             backgroundColor: C.bgCard,
-            borderRadius: RADIUS.xl,
+            borderRadius: RADIUS.lg,
             border: `1px solid ${C.border}`,
-            boxShadow: '0 8px 32px rgba(24,28,50,0.10)',
+            boxShadow: '0 8px 32px rgba(24,28,50,0.08)',
             overflow: 'hidden',
-            position: 'relative',
           }}
         >
-          {/* Top accent bar */}
+          {/* Header strip */}
           <div style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0,
-            height: '3px',
-            background: `linear-gradient(90deg, ${C.danger} 0%, #e0395f 50%, #f97398 100%)`,
-          }} />
+            display: 'flex', alignItems: 'center', gap: SP.md,
+            padding: `${SP.lg} ${SP.xl}`,
+            borderBottom: `1px solid ${C.border}`,
+            backgroundColor: C.bgSection,
+          }}>
+            <div
+              style={{
+                width: 44, height: 44,
+                borderRadius: RADIUS.md,
+                background: `linear-gradient(135deg, ${SLATE.dark} 0%, ${SLATE.mid} 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <i className="bi bi-exclamation-triangle" style={{ fontSize: 20, color: '#fff' }} />
+            </div>
+            <div>
+              <h3 style={{
+                fontFamily: FONT.heading,
+                fontWeight: 700, fontSize: 19,
+                color: C.textPrimary,
+                letterSpacing: '-0.3px',
+                margin: 0, lineHeight: 1.25,
+              }}>
+                Something went wrong on this page
+              </h3>
+              <span style={{
+                fontSize: 12, fontWeight: 500,
+                color: C.textSecondary,
+              }}>
+                Application Error
+              </span>
+            </div>
+          </div>
 
           {/* Card body */}
-          <div style={{ padding: `${SP.xl} ${SP.xl} ${SP.lg} ${SP.xl}`, paddingTop: '36px' }}>
-
-            {/* Icon + Badge row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: SP.md, marginBottom: SP.lg }}>
-              <div
-                className="err-icon"
-                style={{
-                  width: 52, height: 52,
-                  borderRadius: RADIUS.lg,
-                  background: `linear-gradient(135deg, ${C.danger} 0%, #e0395f 100%)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <i className="bi bi-exclamation-triangle-fill" style={{ fontSize: 24, color: '#fff' }} />
-              </div>
-              <div>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  backgroundColor: C.dangerLight,
-                  color: C.danger,
-                  borderRadius: RADIUS.full,
-                  fontSize: 11, fontWeight: 700,
-                  padding: '3px 10px',
-                  letterSpacing: '0.5px',
-                  textTransform: 'uppercase',
-                  marginBottom: 6,
-                }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: C.danger, display: 'inline-block' }} />
-                  Runtime Error
-                </span>
-                <h3 style={{
-                  fontFamily: FONT.heading,
-                  fontWeight: 700, fontSize: 20,
-                  color: C.textPrimary,
-                  letterSpacing: '-0.3px',
-                  margin: 0, lineHeight: 1.2,
-                }}>
-                  Something went wrong on this page
-                </h3>
-              </div>
-            </div>
+          <div style={{ padding: `${SP.lg} ${SP.xl}` }}>
 
             {/* Description */}
             <p style={{
               fontSize: 13.5, color: C.textSecondary, lineHeight: 1.6,
               margin: `0 0 ${SP.lg} 0`, fontWeight: 400,
             }}>
-              An unexpected error stopped this page from loading. The rest of the app is
-              still working — you can go back or reload.
+              An unexpected error stopped this page from loading. The rest of the
+              application is unaffected — you can go back or reload this page.
             </p>
 
             {/* Error message box */}
             {error && (
               <div style={{
-                backgroundColor: C.dangerLight,
-                border: `1px solid rgba(241,65,108,0.18)`,
-                borderRadius: RADIUS.lg,
+                backgroundColor: SLATE.redBg,
+                border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${SLATE.red}`,
+                borderRadius: RADIUS.md,
                 padding: SP.md,
                 marginBottom: SP.md,
               }}>
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 11, fontWeight: 700, color: SLATE.mid,
+                  textTransform: 'uppercase', letterSpacing: '0.6px',
                   marginBottom: 6,
                 }}>
-                  <i className="bi bi-bug-fill" style={{ fontSize: 12, color: C.danger }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.danger, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                    Error message
-                  </span>
+                  Error details
                 </div>
                 <pre style={{
-                  fontSize: 12.5, color: '#c0304f',
+                  fontSize: 12.5, color: SLATE.red,
                   whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                   margin: 0, fontFamily: "'Fira Code', 'Consolas', monospace",
                   lineHeight: 1.6,
@@ -176,7 +166,7 @@ class ErrorBoundary extends React.Component<Props, State> {
                   }}
                 >
                   <i className={`bi bi-chevron-${showStack ? 'up' : 'down'}`} style={{ fontSize: 11 }} />
-                  {showStack ? 'Hide' : 'Show'} stack trace
+                  {showStack ? 'Hide' : 'Show'} technical details
                 </button>
 
                 {showStack && (
@@ -214,7 +204,7 @@ class ErrorBoundary extends React.Component<Props, State> {
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                style={{ ...BTN.primary, padding: '9px 20px', backgroundColor: C.danger, boxShadow: '0 4px 12px rgba(241,65,108,0.25)', borderColor: 'transparent' } as React.CSSProperties}
+                style={{ ...BTN.primary, padding: '9px 20px' }}
               >
                 <i className="bi bi-arrow-clockwise" style={{ fontSize: 13 }} />
                 Reload page

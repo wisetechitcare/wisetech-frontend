@@ -7,6 +7,7 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { handleDatesChange } from '@utils/statistics';
 import DateSelector from '@components/DateSelector';
@@ -152,6 +153,6 @@ export const DateNavigation = ({ fiscalYear, setYear }: { fiscalYear: string, se
     <DateSelector
         onPrevious={() => handleDatesChange('decrement', 'year', setYear)}
         onNext={() => handleDatesChange('increment', 'year', setYear)}
-        displayValue={fiscalYear}
+        displayValue={formatFiscalYearLabel(fiscalYear)}
     />
 );
