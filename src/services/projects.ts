@@ -542,9 +542,20 @@ export const deleteStakeholderService = async (id: string) => {
 }
 
 // Get projects by company id
-export const getProjectsByCompanyId = async (id: string) => {
+export const getProjectsByCompanyId = async (
+    id: string,
+    options?: { includeProjectId?: string; ongoingStatusIds?: string[] }
+) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_COMPANY_ID.replace(":companyId", id)}`;
+        const params = new URLSearchParams();
+        if (options?.includeProjectId) {
+            params.set("includeProjectId", options.includeProjectId);
+        }
+        if (options?.ongoingStatusIds?.length) {
+            params.set("ongoingStatusIds", options.ongoingStatusIds.join(","));
+        }
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_COMPANY_ID.replace(":companyId", id)}${query}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {

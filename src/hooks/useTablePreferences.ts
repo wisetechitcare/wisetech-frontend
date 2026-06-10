@@ -29,7 +29,7 @@ interface TablePreferences {
     exportType: string | null;
 }
 
-function useTablePreferences(tableName: string, columns: any[], employeeId?: string) {
+function useTablePreferences(tableName: string, columns: any[], employeeId?: string, defaultSorting?: Array<{ id: string; desc: boolean }>) {
     // Use refs to prevent recreating functions and causing loops
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isMountedRef = useRef(true);
@@ -50,7 +50,7 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
             columnOrder: columns.map(col => col.accessorKey).filter(Boolean),
             columnSizing: {},
             columnPinning: {},
-            sorting: [],
+            sorting: defaultSorting ?? [],
             // columnFilters: [],
             // globalFilter: '',
             pagination: {
