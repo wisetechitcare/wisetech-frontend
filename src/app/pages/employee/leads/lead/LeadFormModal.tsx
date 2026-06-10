@@ -1,3 +1,4 @@
+import { resolveActiveOrg } from '@utils/activeOrg';
 import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
@@ -4253,7 +4254,7 @@ const LeadFormModal = ({
                                                   companyOverview.length > 0
                                                 ) {
                                                   const companyName =
-                                                    companyOverview[0]?.name ||
+                                                    resolveActiveOrg(companyOverview)?.name ||
                                                     "Wisetech MEP";
                                                   setFieldValue(
                                                     `referrals[${index}].companyName`,

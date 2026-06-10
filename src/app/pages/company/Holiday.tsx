@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { KTCard, KTCardBody } from '@metronic/helpers';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import { IHoliday } from '@models/company';
@@ -48,7 +49,7 @@ function Holiday({ onCloseHolidayForm, refreshHolidayList }: { onCloseHolidayFor
             setLoading(true);
             try {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                values.companyId = companyOverview[0].id;
+                values.companyId = (resolveActiveOrgId(companyOverview) ?? '');
                 
                 const res = await createHoliday(values);
                 if (res && !res.hasError) {

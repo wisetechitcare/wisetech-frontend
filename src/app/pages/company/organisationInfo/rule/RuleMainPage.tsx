@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useState, useEffect, useCallback } from 'react';
 import RuleSectionHeader from './components/RuleSectionHeader';
 import RuleSectionTitle from './components/RuleSectionTitle';
@@ -25,7 +26,7 @@ const RuleMainPage = () => {
   const fetchFaqs = useCallback(async () => {
     try {
       const { data: { companyOverview } } = await fetchCompanyOverview();
-      const companyId = companyOverview[0].id;
+      const companyId = (resolveActiveOrgId(companyOverview) ?? '');
       const response = await fetchAllFaqs(companyId);
 
       // Extract FAQs from all sections and ensure type is set

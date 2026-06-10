@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
 import AttendanceCheckCell, {
@@ -647,7 +648,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         const getAllholiday = async () => {
             try {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                const companyId = companyOverview[0].id;
+                const companyId = (resolveActiveOrgId(companyOverview) ?? '');
                 const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
 
                 dispatch(savePublicHolidays(publicHolidays));

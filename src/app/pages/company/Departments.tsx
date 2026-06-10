@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
@@ -219,7 +220,7 @@ function Departments() {
 
                                 async function fetchCompany() {
                                     const { data: { companyOverview } } = await fetchCompanyOverview();
-                                    formikProps.setFieldValue("companyId", companyOverview[0].id, true);
+                                    formikProps.setFieldValue("companyId", (resolveActiveOrgId(companyOverview) ?? ''), true);
                                 }
 
                                 fetchCompany();

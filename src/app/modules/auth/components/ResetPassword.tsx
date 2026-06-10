@@ -33,15 +33,21 @@ function ResetPasswordForm() {
         validationSchema: resetPasswordSchema,
         onSubmit: async (values, { setStatus, setSubmitting }) => {
             setLoading(true)
-            await resetPassword(values.password, values.confirmPassword, resetToken)
-            navigate('/auth/')
-            removeAuth()
-            dispatch(logoutUser())
             try {
-                setLoading(false)
+                await resetPassword(values.password, values.confirmPassword, resetToken)
+                removeAuth()
+                dispatch(logoutUser())
+                navigate('/auth/')
             } catch (error: any) {
-                setStatus(error?.response.data.detail)
+                // Surface the real reason instead of spinning forever (expired/invalid
+                // token, server error, etc.).
+                setStatus(
+                    error?.response?.data?.detail ||
+                    error?.response?.data?.message ||
+                    'Could not reset your password. The link may be invalid or expired — please request a new one.'
+                )
                 setSubmitting(false)
+            } finally {
                 setLoading(false)
             }
         },
@@ -142,8 +148,6 @@ export function ResetPassword() {
         <div className="d-flex flex-column flex-lg-row flex-column-fluid login__page">
         <div className="d-flex flex-lg-row-fluid">
             <div className="d-flex flex-column flex-center pb-0 pb-lg-10 p-10 w-100">
-            {/* <img className="mx-auto" src={logoSrc}/> */}
-            <img className="mx-auto" src="https://s3-alpha-sig.figma.com/img/0297/f193/b24c43c071d3513e8bd14747a84a90ed?Expires=1723420800&Key-Pair-Id=APKAQ4GOSFWCVNEHN3O4&Signature=etsmWMpOPinqqZnjiW49Uim8~GdThnHgTqa21sdwTqaxzRMkHrwR5YJXBTeHqZPjo46haAg6v2Ni1f1WfWbtZqUHD2DYs3GDlFGTp46ZGkNVttxj40~DcXVItHxd6cL43j-ZcPIjHhgxniQC5VBOg9maFzSwVDr9b9qTQEZv5KOeF5-~R9NjC9-aNN9lVZAMvLx0zJWG4Sc520DHlXxA5YFt64k9sDo7xRJ62IpYc69xrwndiI9200mrIxZ3luKC0szEbKTXibKXGPH1YHrxhnEOQMLYegJm4UGxfN8gHnFNEzAwHusvoGXBhDjpemBSxCtJEuLJ8CEIQsRTaC~d1Q__"/>
                 <img className="mx-auto w-150px w-lg-500px" src={toAbsoluteUrl("media/login/WTgif.gif")}/>
                 <h1 className="fs-1qx text-center mb-5 text-uppercase login__subtitle">Fast, Efficient and Productive</h1>
                 <h3 className="text-gray-800 fs-2qx fw-bold text-center mb-7"> All-in-one employee management solution for startups</h3>

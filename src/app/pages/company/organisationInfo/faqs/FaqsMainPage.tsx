@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useState, useRef, useEffect } from 'react';
 import { FAQItem, FAQItemEdit, FAQSectionCard, AddFAQModal } from './components';
 import { FAQSection, FAQ, FAQType } from './types';
@@ -87,7 +88,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
       try {
         setIsLoading(true);
         const { data: { companyOverview } } = await fetchCompanyOverview();
-        const fetchedCompanyId = companyOverview[0]?.id;
+        const fetchedCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
         setCompanyId(fetchedCompanyId);
 
         if (fetchedCompanyId) {

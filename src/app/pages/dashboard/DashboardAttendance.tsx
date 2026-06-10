@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { KTCard, KTCardBody, KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { RootState, store } from "@redux/store";
@@ -120,7 +121,7 @@ useEffect(() => {
     async function checkPreviousAttendanceAndSetStateNew() {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
             // Get leaves and holidays data
             const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);

@@ -149,7 +149,13 @@ export function buildValidationSchema(formSchema: IFormSection[]) {
     };
     formSchema.forEach(sec => sec.fields.forEach(f => {
         // Hidden built-in fields are not rendered, so they must not be validated/required.
-        if (f.isSystem && !f.hidden) shape[f.id] = f.required ? Yup.string().required(`${f.label} is required`) : Yup.string();
+        if (f.isSystem && !f.hidden) {
+            let s = Yup.string();
+            // Date fields must hold a valid date (the calendar picker enforces format,
+            // this guards any stray/typed value too).
+            if (f.type === 'date') s = s.test('valid-date', `${f.label} must be a valid date`, v => !v || !isNaN(Date.parse(v)));
+            shape[f.id] = f.required ? s.required(`${f.label} is required`) : s;
+        }
     }));
     return Yup.object(shape);
 }

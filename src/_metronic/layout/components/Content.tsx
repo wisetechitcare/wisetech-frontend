@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import {useLayout} from '../core'
 import {DrawerComponent} from '../../assets/ts/components'
 import {WithChildren} from '../../helpers'
+import ErrorBoundary from '@app/components/ErrorBoundary'
 
 const Content: FC<WithChildren> = ({children}) => {
   const {classes} = useLayout()
@@ -13,10 +14,14 @@ const Content: FC<WithChildren> = ({children}) => {
   }, [location])
 
   return (
-    <div id='kt_content_container' 
+    <div id='kt_content_container'
     className={clsx(classes.contentContainer.join(' '))}
     >
-      {children}
+      {/* Contain page crashes so one screen can't white-out the whole app.
+          Keyed by path so navigating away clears a previous error. */}
+      <ErrorBoundary key={location.pathname}>
+        {children}
+      </ErrorBoundary>
     </div>
   )
 }

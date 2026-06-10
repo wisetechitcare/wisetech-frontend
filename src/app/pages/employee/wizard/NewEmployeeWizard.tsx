@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
@@ -530,7 +531,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
   const { data: { companyOverview } } = await fetchCompanyOverview();
   // Employee belongs to the chosen organization (sub-org if one was selected),
   // falling back to the default org for backward compatibility.
-  const companyId = values.subOrganizationId || values.organizationId || companyOverview[0].id;
+  const companyId = values.subOrganizationId || values.organizationId || (resolveActiveOrgId(companyOverview) ?? '');
   let vegMealPreference, nonVegMealPreference, veganMealPreference;
 
   const {
@@ -880,7 +881,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   const updateWizardData = async (values: any) => {
     const { data: { companyOverview } } = await fetchCompanyOverview();
-    const companyId = values.subOrganizationId || values.organizationId || companyOverview[0].id;
+    const companyId = values.subOrganizationId || values.organizationId || (resolveActiveOrgId(companyOverview) ?? '');
     const {
       userId, firstName, lastName, dateOfBirth, appRole,
       personalPhoneNumber, personalEmailId, alternatePhoneNumber,

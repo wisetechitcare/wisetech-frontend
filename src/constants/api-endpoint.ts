@@ -368,6 +368,7 @@ export const LEAD_PROJECT_COMPANY = {
     CREATE_MULTIPLE_TEAMS_MEMBERS: 'api/lead-project-companies/many',
 
     GET_ALL_PROJECTS: 'api/lead-project-companies/projects',
+    GET_PROJECT_MAP_POINTS: 'api/lead-project-companies/projects/map-points',
     GET_PROJECT_COUNT_FOR_PREFIX: "api/lead-project-companies/projects/count-for-prefix",
     GET_PROJECT_BY_ID: 'api/lead-project-companies/projects/:id',
     CREATE_PROJECT: 'api/lead-project-companies/projects',

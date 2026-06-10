@@ -24,6 +24,7 @@ const C = {
 const TYPE_META: Record<FormFieldType, { label: string; color: string; bg: string; icon: string }> = {
   text:   { label: 'Text',     color: '#2563EB', bg: '#EAF1FE', icon: 'Aa' },
   number: { label: 'Number',   color: '#0E9F6E', bg: '#E6F6EF', icon: '#' },
+  date:   { label: 'Date',     color: '#7C3AED', bg: '#F1ECFE', icon: '📅' },
   file:   { label: 'Document', color: '#C2710C', bg: '#FBF0E2', icon: '📎' },
 };
 
@@ -69,6 +70,7 @@ function TypeSelect({ value, onChange }: { value: FormFieldType; onChange: (v: F
       style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, border: `1px solid ${C.line}`, background: '#fff', color: C.ink, cursor: 'pointer', outline: 'none', minWidth: 130 }}>
       <option value="text">Character (Text)</option>
       <option value="number">Number</option>
+      <option value="date">Date</option>
       <option value="file">Document / File</option>
     </select>
   );
@@ -120,7 +122,7 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
       </div>
 
       {/* control row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 92px 110px', gap: 12, alignItems: 'end' }}>
+      <div className="schema-field-controls" style={{ display: 'grid', gridTemplateColumns: '1fr 150px 92px 110px', gap: 12, alignItems: 'end' }}>
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>FIELD LABEL{!sys && <span style={{ color: C.brand }}> *</span>}</label>
           <input type="text" value={field.label} placeholder="e.g. Emergency Contact"
@@ -270,6 +272,36 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
           overflow: hidden;
           box-shadow: 0 30px 80px rgba(8, 10, 18, 0.45), 0 4px 14px rgba(8, 10, 18, 0.25);
         }
+
+        /* Below the desktop width, keep the dialog within the viewport with a small gutter. */
+        @media (max-width: 1180px) {
+          .schema-mgr-dialog { max-width: calc(100% - 1rem); margin-left: auto; margin-right: auto; }
+        }
+
+        /* ── Tablet / phone: stack the two panels so the editor never gets clipped ── */
+        @media (max-width: 768px) {
+          .schema-mgr-body {
+            flex-direction: column !important;
+            height: auto !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+          }
+          .schema-mgr-rail {
+            width: 100% !important;
+            flex-shrink: 1 !important;
+            border-right: none !important;
+            border-bottom: 1px solid ${C.line} !important;
+            max-height: 34vh;
+          }
+          .schema-mgr-editor { padding: 16px 16px 20px !important; }
+          /* Field controls wrap instead of overflowing the narrow editor */
+          .schema-field-controls {
+            grid-template-columns: 1fr 1fr !important;
+          }
+        }
+        @media (max-width: 460px) {
+          .schema-field-controls { grid-template-columns: 1fr !important; }
+        }
       `}</style>
       <Modal
         show={show}
@@ -297,10 +329,10 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
       </div>
 
       {/* Body */}
-      <div style={{ display: 'flex', height: '70vh', overflow: 'hidden', background: C.panel }}>
+      <div className="schema-mgr-body" style={{ display: 'flex', height: '70vh', overflow: 'hidden', background: C.panel }}>
 
         {/* Left rail */}
-        <div style={{ width: 248, flexShrink: 0, borderRight: `1px solid ${C.line}`, background: C.surface, display: 'flex', flexDirection: 'column' }}>
+        <div className="schema-mgr-rail" style={{ width: 248, flexShrink: 0, borderRight: `1px solid ${C.line}`, background: C.surface, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 16px 8px', fontSize: 11, fontWeight: 700, color: C.inkFaint, letterSpacing: '.8px' }}>SECTIONS</div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 10px' }}>
             {local.map((s, i) => {
@@ -338,7 +370,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
         </div>
 
         {/* Right editor */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 30px', background: C.panel }}>
+        <div className="schema-mgr-editor" style={{ flex: 1, overflowY: 'auto', padding: '24px 30px', background: C.panel }}>
           {active ? (
             <>
               {/* Section title (editable for all sections) */}
@@ -425,9 +457,9 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
       </div>
 
       {/* Footer */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 26px', borderTop: `1px solid ${C.line}`, background: C.surface }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', padding: '14px 26px', borderTop: `1px solid ${C.line}`, background: C.surface }}>
         <span style={{ fontSize: 12, color: C.inkFaint }}>Changes apply after you click <b style={{ color: C.inkSoft }}>Update</b> on the form.</span>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexGrow: 1, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 22px', fontWeight: 600, color: C.inkSoft, cursor: 'pointer', fontSize: 14 }}>Cancel</button>
           <button type="button" onClick={handleSave} style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '9px 28px', fontWeight: 700, color: '#fff', cursor: 'pointer', fontSize: 14, boxShadow: '0 1px 3px rgba(157,65,65,.3)' }}>Apply Changes</button>
         </div>

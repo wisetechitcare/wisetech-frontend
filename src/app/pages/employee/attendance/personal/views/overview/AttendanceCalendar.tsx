@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
@@ -171,7 +172,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
         try {
             // Get company info first
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0]?.id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             const observedIn = 'India'; // Default to India
             if (!companyId) {
                 console.error('Company ID not found');
@@ -543,7 +544,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
     const handleSubmit = async (values: FormValues, actions: FormikHelpers<FormValues>) => {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const currentCompanyId = companyOverview[0].id;
+            const currentCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
 
             const formattedDate = selectedDate;
 

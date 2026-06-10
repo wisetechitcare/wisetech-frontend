@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import { fetchCompanyOverview } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { Form, Formik } from 'formik';
@@ -47,7 +48,7 @@ function CommonModal({ show, setShow, functionToCallOnModalSubmit, fieldName, fu
         async function fetchData() {
             if (show && !companyId) {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                setCompanyId(companyOverview[0]?.id);
+                setCompanyId((resolveActiveOrgId(companyOverview) ?? ''));
             }
         }
         fetchData();
