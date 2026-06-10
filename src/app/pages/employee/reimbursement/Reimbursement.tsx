@@ -40,8 +40,7 @@ import { hasPermission } from "@utils/authAbac";
 import eventBus from "@utils/EventBus";
 import { Select } from "@mui/material";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
-import { getProjectsByCompanyId } from "@services/projects";
-const getProjectsByCompanyIdForReimbursement = getProjectsByCompanyId;
+import { getProjectsByCompanyId, getAllProjectStatuses } from "@services/projects";
 
 const getReimbursementSchema = (currentReimbursement: IReimbursementsCreate) => {
   return Yup.object({
@@ -120,6 +119,8 @@ function Reimbursement() {
   const [selectedClientType, setSelectedClientType] = useState<Option | null>(null);
   const [selectedClientCompany, setSelectedClientCompany] = useState<Option | null>(null);
   const [selectedProject, setSelectedProject] = useState<Option | null>(null);
+  // IDs of project statuses that are considered "On Ongoing" — loaded from DB on mount
+  const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
 
   const toggleItemsActions: ToggleItemsCallBackFunctions = {
     monthly: function (month: Dayjs): void {
@@ -182,9 +183,10 @@ function Reimbursement() {
 
   const loadClientTypeAndCompanyData = async () => {
     try {
-      const [typesRes, companiesRes] = await Promise.all([
+      const [typesRes, companiesRes, statusesRes] = await Promise.all([
         getAllCompanyTypes(),
         getAllClientCompanies(),
+        getAllProjectStatuses(),
       ]);
       const types = (typesRes.companyTypes || []).map((ct: any) => ({
         value: ct.id,
@@ -200,6 +202,13 @@ function Reimbursement() {
         companiesRes?.companies ||
         [];
       setAllClientCompanies(companies);
+
+      // Derive "On Ongoing" status IDs from the Project Configuration table — no hardcoded values
+      const allStatuses: any[] = statusesRes?.projectStatuses || [];
+      const ids = allStatuses
+        .filter((s: any) => s.name?.trim().toLowerCase() === "on ongoing")
+        .map((s: any) => s.id);
+      setOngoingStatusIds(ids);
     } catch (err) {
       console.error("Failed to load client data", err);
     }
@@ -250,11 +259,14 @@ function Reimbursement() {
   useEffect(() => {
     if (!editMode || !currentReimbursement?.clientCompanyId) return;
 
-    // Pass the currently saved projectId so the server always includes that project
-    // in results even if its status has since changed from "On Ongoing" — this
-    // keeps historical reimbursement records intact without breaking old data.
-    getProjectsByCompanyIdForReimbursement(
-      currentReimbursement.clientCompanyId
+    // Fetch ongoing projects plus the saved project (even if its status has since
+    // changed) so existing reimbursements never lose their linked project reference.
+    getProjectsByCompanyId(
+      currentReimbursement.clientCompanyId,
+      {
+        ongoingStatusIds,
+        includeProjectId: currentReimbursement.projectId || undefined,
+      }
     )
       .then((res: any) => {
         const projects = res?.projects || res?.data?.projects || [];
@@ -270,7 +282,7 @@ function Reimbursement() {
         }
       })
       .catch(() => setProjectOptions([]));
-  }, [editMode, currentReimbursement?.clientCompanyId, currentReimbursement?.projectId]);
+  }, [editMode, currentReimbursement?.clientCompanyId, currentReimbursement?.projectId, ongoingStatusIds]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -423,9 +435,9 @@ function Reimbursement() {
     if (option?.value) {
       setProjectsLoading(true);
       try {
-        // In create mode there is no pre-existing project, so no includeProjectId is passed.
-        // The server will return only projects whose status is "On Ongoing".
-        const res = await getProjectsByCompanyIdForReimbursement(option.value);
+        // New selection: only show projects whose status ID is in ongoingStatusIds (from DB).
+        // No includeProjectId — inactive projects must not appear as new choices.
+        const res = await getProjectsByCompanyId(option.value, { ongoingStatusIds });
         const projects = res?.projects || res?.data?.projects || [];
         setProjectOptions(
           projects.map((p: any) => ({
