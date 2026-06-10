@@ -41,9 +41,9 @@ const SALARY_CONFIG_CSS = `
     .sc-page-header      { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
     .sc-page-header > button { width: 100% !important; justify-content: center !important; }
     .sc-settings-row     { flex-wrap: wrap !important; align-items: flex-start !important; }
-    .sc-row-right        { width: 100% !important; margin-top: 4px !important; flex-wrap: wrap !important; gap: 8px !important; }
-    .sc-row-right select { flex: 1 !important; min-width: unset !important; }
-    .sc-row-right .sc-save-btn { flex: 1 !important; justify-content: center !important; }
+    .sc-row-right         { width: 100% !important; margin-top: 8px !important; flex-wrap: wrap !important; gap: 8px !important; }
+    .sc-row-right select  { flex: 1 !important; min-width: unset !important; }
+    .sc-row-right > button { flex: 1 !important; justify-content: center !important; }
     .sc-rule-row         { flex-wrap: wrap !important; gap: 6px !important; padding: 10px 12px !important; }
     .sc-form-footer      { flex-wrap: wrap !important; gap: 8px !important; margin-right: 0 !important; }
     .sc-form-footer > button { flex: 1 1 calc(50% - 4px) !important; min-width: 100px !important; justify-content: center !important; margin-right: 0 !important; }
