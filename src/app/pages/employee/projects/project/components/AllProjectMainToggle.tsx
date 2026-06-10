@@ -11,8 +11,9 @@ import ProjectFiles from "./ProjectFlies";
 import TaskTimesheet from "@pages/employee/tasks/tasks/components/TaskTimesheet";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
+import ProjectReimbursements from "./ProjectReimbursements";
 
-type TabType = "overview" | "tasks" | "timelog" | "files";
+type TabType = "overview" | "tasks" | "timelog" | "files" | "reimbursements";
 
 const AllProjectMainToggle = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -56,7 +57,8 @@ const AllProjectMainToggle = () => {
     { key: "overview", label: "Overview" },
     { key: "timelog", label: "Timesheet" },
     { key: "tasks", label: "Tasks" },
-    { key: "files", label: "Files"}
+    { key: "files", label: "Files" },
+    { key: "reimbursements", label: "Reimbursments" },
   ];
 
   const renderTabContent = () => {
@@ -76,6 +78,8 @@ const AllProjectMainToggle = () => {
         return <TaskTimesheet fetchMode="project" projectId={projectId!} />
       case "files":
         return <ProjectFiles projectId={projectId!}/>
+      case "reimbursements":
+        return <ProjectReimbursements projectId={projectId!} />;
     }
   };
 

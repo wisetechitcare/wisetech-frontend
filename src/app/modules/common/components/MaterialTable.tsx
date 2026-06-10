@@ -84,6 +84,7 @@ interface MaterialTableProps {
   renderTopToolbarRightActions?: () => React.ReactNode;
   /** Replaces the bottom-left "Select Export File + Export" UI with custom content */
   renderExportActions?: () => React.ReactNode;
+  defaultSorting?: Array<{ id: string; desc: boolean }>;
 }
 
 const defaultColumnSizes = {
@@ -132,6 +133,7 @@ function MaterialTable({
   enableStatusColorCoding = true,
   renderTopToolbarRightActions,
   renderExportActions,
+  defaultSorting,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -291,7 +293,7 @@ function MaterialTable({
     updateExpanded,
     updateExportType,
     resetPreferences,
-  } = useTablePreferences(tableName, finalColumns, employeeId);
+  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,

@@ -125,6 +125,7 @@ export const ResourceMapWithName = {
 
 export const resourceNameMapWithCamelCase = {
     attendanceRequest: "attendancerequest",
+    attendanceRequestLimit: "attendancerequestlimit",
     attendanceReport: "attendancereport",
     reimbursement: "reimbursement",
     leave: "leave",

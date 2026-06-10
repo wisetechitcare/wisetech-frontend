@@ -5,6 +5,8 @@ import WorkContactInfo from "../forms/WorkContactInfo";
 import WorkExperience from "../forms/WorkExperience";
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
 import WizardSectionLayout from "./WizardSectionLayout";
+import DiscretionaryLeave from "../forms/DiscretionaryLeave";
+import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import "./Step2.css";
 
 const createNewWorkExp = () => ({
@@ -87,6 +89,7 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
         { id: "contact_info", title: "Work Contact Details", icon: "phone" },
         { id: "hiring_info", title: "Hiring Information", icon: "briefcase" },
         { id: "work_experience", title: "Work Experience Information", icon: "teacher" },
+        { id: "leave_settings", title: "Leave Settings", icon: "calendar-add" },
     ];
 
     const sectionContent: Record<string, any> = {
@@ -114,6 +117,12 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
                     </div>
                 ))}
                 <AddAnotherBtn onClick={addNewWorkExperience} />
+            </div>
+        ),
+        leave_settings: (
+            <div>
+                <LeaveAllocationStep />
+                <DiscretionaryLeave />
             </div>
         ),
     };
