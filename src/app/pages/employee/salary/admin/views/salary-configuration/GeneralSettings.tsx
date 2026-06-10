@@ -82,7 +82,7 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
   const modalStyles = {
     header: {
       borderBottom: 'none',
-      padding: '30px 40px 20px 40px',
+      padding: '24px 32px 16px 32px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -101,17 +101,18 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
       border: '1px solid #E1E3EA',
       fontFamily: 'Inter, sans-serif',
       fontSize: '14px',
-      width: '300px',
+      width: '100%',
+      maxWidth: '400px',
       outline: 'none',
     },
     body: {
-      padding: '0 40px 28px 40px',
-      maxHeight: '600px',
+      padding: '0 32px 24px 32px',
+      maxHeight: '70vh',
       overflowY: 'auto' as const,
     },
     footer: {
       borderTop: 'none',
-      padding: '0 40px 30px 40px',
+      padding: '0 32px 24px 32px',
       display: 'flex',
       justifyContent: 'flex-end',
     },
@@ -188,22 +189,20 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
   return (
     <Modal show={show} onHide={handleClose} centered size="xl">
       <Modal.Header closeButton style={modalStyles.header}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <Modal.Title style={modalStyles.title}>
-              {title}
-            </Modal.Title>
-          </div>
-          <input 
-            type="text" 
-            placeholder="Search by name or designation..." 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+          <Modal.Title style={modalStyles.title} className="sc-modal-title">
+            {title}
+          </Modal.Title>
+          <input
+            type="text"
+            placeholder="Search by name or designation..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={modalStyles.searchInput}
           />
         </div>
       </Modal.Header>
-      <Modal.Body style={modalStyles.body}>
+      <Modal.Body className="sc-modal-body" style={modalStyles.body}>
         <div className="row g-4">
           {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => {
             const isSelected = tempSelection.includes(emp.id);
@@ -233,7 +232,7 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
           )}
         </div>
       </Modal.Body>
-      <Modal.Footer style={modalStyles.footer}>
+      <Modal.Footer className="sc-modal-body" style={modalStyles.footer}>
         <button style={modalStyles.saveBtn} onClick={() => onSave(tempSelection)}>
           Save Selection ({tempSelection.length})
         </button>
@@ -347,6 +346,8 @@ function GeneralSettings() {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
     padding: '20px 24px',
     backgroundColor: '#fff',
     border: '1px solid #E8EAF0',
@@ -376,6 +377,7 @@ function GeneralSettings() {
 
       {/* Payment Mode row */}
       <div
+        className="sc-settings-row"
         style={rowBase}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 24px rgba(24,28,50,0.09)';
@@ -388,16 +390,16 @@ function GeneralSettings() {
       >
         {/* Left accent */}
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', backgroundColor: '#9d4141', opacity: 0.6 }} />
-        <div className="d-flex align-items-center gap-3" style={{ paddingLeft: '8px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #fdf3f4 0%, #fce8e8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9d4141', fontSize: '18px', boxShadow: '0 2px 8px rgba(157,65,65,0.1)' }}>
+        <div className="d-flex align-items-center gap-3" style={{ paddingLeft: '8px', minWidth: 0, flex: 1 }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #fdf3f4 0%, #fce8e8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9d4141', fontSize: '18px', boxShadow: '0 2px 8px rgba(157,65,65,0.1)', flexShrink: 0 }}>
             <i className="bi bi-wallet2"></i>
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px', color: '#181C32', margin: 0, letterSpacing: '0.01em' }}>Payment Mode</h3>
             <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '12px', color: '#A1A5B7', margin: '3px 0 0 0' }}>Select the base payment structure for all employees</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="sc-row-right" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <select
             value={paymentMode}
             onChange={(e) => setPaymentMode(e.target.value as 'Hour Based' | 'Day Based')}
@@ -409,7 +411,7 @@ function GeneralSettings() {
               fontSize: '13px',
               fontWeight: 500,
               color: '#374151',
-              minWidth: '200px',
+              minWidth: '160px',
               outline: 'none',
               backgroundColor: '#fafbfc',
               cursor: 'pointer',
@@ -422,6 +424,7 @@ function GeneralSettings() {
             <option value="Day Based">Day Based</option>
           </select>
           <button
+            className="sc-save-btn"
             onClick={handleSubmitPaymentMode}
             style={{
               backgroundColor: '#9d4141',
@@ -438,6 +441,7 @@ function GeneralSettings() {
               gap: '6px',
               boxShadow: '0 3px 10px rgba(157,65,65,0.2)',
               transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(157,65,65,0.28)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.2)'; }}
@@ -449,6 +453,7 @@ function GeneralSettings() {
 
       {/* Excluded employees row */}
       <div
+        className="sc-settings-row"
         style={rowBase}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 24px rgba(24,28,50,0.09)';
@@ -461,16 +466,16 @@ function GeneralSettings() {
       >
         {/* Left accent */}
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', backgroundColor: '#0085db', opacity: 0.6 }} />
-        <div className="d-flex align-items-center gap-3" style={{ paddingLeft: '8px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #e1f0fa 0%, #cce4f6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0085db', fontSize: '18px', boxShadow: '0 2px 8px rgba(0,133,219,0.1)' }}>
+        <div className="d-flex align-items-center gap-3" style={{ paddingLeft: '8px', minWidth: 0, flex: 1 }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #e1f0fa 0%, #cce4f6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0085db', fontSize: '18px', boxShadow: '0 2px 8px rgba(0,133,219,0.1)', flexShrink: 0 }}>
             <i className="bi bi-person-x"></i>
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px', color: '#181C32', margin: 0, letterSpacing: '0.01em' }}>Excluded from late Attendance deduction</h3>
             <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '12px', color: '#A1A5B7', margin: '3px 0 0 0' }}>Manage employees exempt from late attendance penalties</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="sc-row-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           {selectedEmployeeIds.length > 0 && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '5px',

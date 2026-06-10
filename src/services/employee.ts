@@ -961,16 +961,6 @@ export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endD
     }
 }
 
-// Fetch salary totals for all active employees in date range
-export const fetchSalaryRecordsForAllActiveEmployees = async (startDate: string, endDate: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_RECORDS_ALL_ACTIVE_EMPLOYEES}?startDate=${startDate}&endDate=${endDate}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
 export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, startYear: string, endYear: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_Total_salary_By_Year}?companyId=${companyId}&startYear=${startYear}&endYear=${endYear}`;

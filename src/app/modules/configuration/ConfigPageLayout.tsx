@@ -68,7 +68,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
         }} />
 
         {/* Title + actions row */}
-        <div style={{
+        <div className="cfg-header-row" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -78,7 +78,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             {icon && (
-              <div style={{
+              <div className="cfg-header-icon" style={{
                 width: '44px', height: '44px',
                 borderRadius: RADIUS.lg,
                 background: `linear-gradient(135deg, ${C.primary} 0%, #c0695a 100%)`,
@@ -90,7 +90,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
               </div>
             )}
             <div>
-              <h1 style={{
+              <h1 className="cfg-header-title" style={{
                 fontFamily: FONT.heading,
                 fontWeight: 700,
                 fontSize: '22px',
@@ -116,7 +116,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
             </div>
           </div>
           {actions && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>{actions}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexWrap: 'wrap' }}>{actions}</div>
           )}
         </div>
 
@@ -127,13 +127,15 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
 
         {/* Tab bar */}
         {tabs && tabs.length > 0 && (
-          <div style={{
+          <div className="cfg-tab-bar" style={{
             display: 'flex',
             gap: '4px',
             padding: `${SP.md} ${SP.xl} 0 ${SP.xl}`,
             borderBottom: `2px solid ${C.border}`,
             overflowX: 'auto',
             scrollbarWidth: 'none',
+            msOverflowStyle: 'none' as any,
+            WebkitOverflowScrolling: 'touch' as any,
           }}>
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -141,6 +143,8 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
               return (
                 <button
                   key={tab.id}
+                  className="cfg-tab-btn"
+                  data-active={isActive ? 'true' : 'false'}
                   onClick={() => onTabChange?.(tab.id)}
                   onMouseEnter={() => setHoveredTab(tab.id)}
                   onMouseLeave={() => setHoveredTab(null)}
@@ -166,7 +170,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                     transition: 'all 0.15s ease',
                     whiteSpace: 'nowrap',
                     flexShrink: 0,
-                    letterSpacing: isActive ? '0' : '0',
+                    letterSpacing: '0',
                   }}
                 >
                   <i className={`bi ${tab.icon}`} style={{ fontSize: '14px', opacity: isActive ? 1 : 0.75 }} />
@@ -185,8 +189,8 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                       {tab.badge}
                     </span>
                   )}
-                  {/* Active bottom border */}
-                  <span style={{
+                  {/* Active bottom border – hidden on mobile via CSS */}
+                  <span className="cfg-tab-active-line" style={{
                     position: 'absolute',
                     bottom: '-2px',
                     left: 0, right: 0,
@@ -204,7 +208,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
 
       {/* ── Body ───────────────────────────────────────────────────────── */}
       <div
-        className="cfg-fade-in"
+        className="cfg-fade-in cfg-body-wrap"
         style={{
           backgroundColor: tabs ? '#fff' : 'transparent',
           borderRadius: tabs ? `0 0 ${RADIUS.xl} ${RADIUS.xl}` : 0,

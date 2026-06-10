@@ -193,9 +193,9 @@ function CustomRules() {
   ];
 
   return (
-    <div className="mb-10 p-8" style={{ backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
-      <div className="d-flex justify-content-between align-items-center mb-6">
-        <h2 style={{
+    <div className="mb-10 sc-container" style={{ padding: '28px', backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-6 sc-page-header">
+        <h2 className="sc-header-title" style={{
           fontFamily: 'Barlow, sans-serif',
           fontWeight: 700,
           fontSize: '24px',
@@ -243,18 +243,18 @@ function CustomRules() {
       </div>}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-modal-body" style={{
           backgroundColor: '#ffffff',
           borderRadius: '16px',
-          padding: '32px 40px',
+          padding: '28px 32px',
         }}>
           <div className="d-flex justify-content-between align-items-center mb-5">
-            <div style={{
+            <div className="sc-modal-title" style={{
               fontFamily: 'Barlow, sans-serif',
               fontWeight: 700,
-              fontSize: '22px',
+              fontSize: '20px',
               color: '#181C32',
-              letterSpacing: '-0.5px',
+              letterSpacing: '-0.4px',
             }}>
               Edit {oldValue.name || "Custom Rule"}
             </div>
@@ -306,7 +306,7 @@ function CustomRules() {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
                   <button
                     type="button"
                     onClick={handleClose}

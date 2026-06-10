@@ -337,23 +337,20 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
 
     const hasProfessionalFees = !!employee?.professionalFeesEnabled;
 
-    // Truncate helper: floor to 2 decimal places (avoids rounding 666.666 → 666.67)
-    const trunc2 = (n: number) => Math.floor(n * 100) / 100;
-
     let annualCTC: number | undefined;
     if (apiSalaryData?.employeeCardDeatils?.annualCTC) {
-        annualCTC = trunc2(apiSalaryData.employeeCardDeatils.annualCTC);
+        annualCTC = apiSalaryData.employeeCardDeatils.annualCTC;
     }
     if (apiSalaryData?.employeeCardDeatils?.monthlySalary) {
-        monthlySalary = trunc2(apiSalaryData.employeeCardDeatils.monthlySalary);
+        monthlySalary = apiSalaryData.employeeCardDeatils.monthlySalary;
     }
     if (apiSalaryData?.employeeCardDeatils?.hourlySalary) {
-        hourlySalary = trunc2(apiSalaryData.employeeCardDeatils.hourlySalary);
+        hourlySalary = apiSalaryData.employeeCardDeatils.hourlySalary;
     }
 
     let monthlyPaidAmount: number;
     if (apiSalaryData?.employeeCardDeatils?.monthlyPaid) {
-        monthlyPaidAmount = trunc2(apiSalaryData.employeeCardDeatils.monthlyPaid);
+        monthlyPaidAmount = apiSalaryData.employeeCardDeatils.monthlyPaid;
     } else {
         monthlyPaidAmount = 0;
     }
@@ -361,11 +358,11 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const apiDailySalary = apiSalaryData?.employeeCardDeatils?.dailySalary;
 
     const dailySalary = typeof apiDailySalary === 'number' && apiDailySalary >= 0
-        ? trunc2(apiDailySalary)
+        ? apiDailySalary
         : typeof monthlySalary === 'number' && monthlySalary >= 0
-            ? trunc2(monthlySalary / 30)
+            ? (monthlySalary / 30)
             : typeof hourlySalary === 'number' && hourlySalary >= 0
-                ? trunc2(hourlySalary * 8)
+                ? (hourlySalary * 8)
                 : undefined;
 
     async function fetchPayments() {
@@ -382,9 +379,12 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         fetchPayments();
     }, [employee, toggleChange]);
 
-    const formatSalaryValue = (value: number | undefined, fallback = '-') => (
-        typeof value === 'number' && value >= 0 ? formatCurrencyDecimal(value) : fallback
-    );
+    const formatSalaryValue = (value: number | undefined, fallback = '-') => {
+        if (typeof value === 'number' && value >= 0) {
+            return formatCurrencyDecimal(value);
+        }
+        return fallback;
+    };
     const totalExperience = (() => {
         if (!employee?.dateOfJoining) return '-';
 

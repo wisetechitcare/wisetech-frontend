@@ -39,6 +39,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
 
   return (
     <div
+      className="cfg-settings-row"
       onMouseEnter={() => !disabled && setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
@@ -95,7 +96,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
             </>
           ) : (
             <>
-              <div style={{
+              <div className="cfg-row-label" style={{
                 fontFamily: FONT.body,
                 fontWeight: 600,
                 fontSize: compact ? '13px' : '14px',
@@ -106,7 +107,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
                 {label}
               </div>
               {description && (
-                <div style={{
+                <div className="cfg-row-desc" style={{
                   fontFamily: FONT.body,
                   fontWeight: 400,
                   fontSize: '12px',
@@ -124,7 +125,7 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
       </div>
 
       {/* Right: value + action */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+      <div className="cfg-row-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {loading ? (
           <Shimmer width="80px" height="32px" radius={RADIUS.md} />
         ) : (

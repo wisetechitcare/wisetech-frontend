@@ -140,7 +140,7 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                 enabled: false
             },
             zoom: {
-                enabled: true,
+                enabled: false,
                 type: 'x'
             }
         },

@@ -229,15 +229,15 @@ function DeductionRules() {
     container: {
       backgroundColor: '#f8f9fa',
       borderRadius: '16px',
-      padding: '32px',
+      padding: '28px',
       display: 'flex',
       flexDirection: 'column' as const,
-      gap: '32px',
+      gap: '28px',
     },
     headerTitle: {
       fontFamily: 'Barlow, sans-serif',
       fontWeight: 700,
-      fontSize: '28px',
+      fontSize: '24px',
       color: '#181C32',
       marginBottom: '8px',
       letterSpacing: '-0.5px',
@@ -262,7 +262,9 @@ function DeductionRules() {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: '24px 32px',
+      flexWrap: 'wrap' as const,
+      gap: '10px',
+      padding: '20px 24px',
       backgroundColor: '#ffffff',
       borderBottom: '1px solid #f0f0f0',
     },
@@ -292,21 +294,21 @@ function DeductionRules() {
       border: '1px solid #E1E3EA',
       borderRadius: '8px',
       color: '#3F4254',
-      padding: '0 20px',
-      height: '40px',
+      padding: '8px 20px',
       fontFamily: 'Inter, sans-serif',
       fontWeight: 600,
       fontSize: '14px',
-      display: 'flex',
+      display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
       gap: '8px',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
       boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+      whiteSpace: 'nowrap' as const,
     },
     cardBody: {
-      padding: '32px',
+      padding: '24px',
     },
     columnHeader: {
       fontFamily: 'Inter, sans-serif',
@@ -321,11 +323,13 @@ function DeductionRules() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '16px 20px',
+      flexWrap: 'wrap' as const,
+      gap: '8px',
+      padding: '14px 18px',
       backgroundColor: '#fafafa',
       border: '1px dashed #E1E3EA',
       borderRadius: '12px',
-      marginBottom: '12px',
+      marginBottom: '10px',
       transition: 'background-color 0.2s ease',
     },
     badgeMale: {
@@ -413,15 +417,14 @@ function DeductionRules() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="sc-container" style={styles.container}>
       <div>
-        <h1 style={styles.headerTitle}>Deductions Rules</h1>
-        {/* <p style={styles.headerDesc}>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p> */}
+        <h1 className="sc-header-title" style={styles.headerTitle}>Deductions Rules</h1>
       </div>
 
       {/* Professional Tax Card */}
       <div style={styles.card} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)'}>
-        <div style={styles.cardHeader}>
+        <div className="sc-card-header" style={styles.cardHeader}>
           <h3 style={styles.cardTitle}>
             <div style={styles.iconWrapper}>
               <i className="bi bi-bank"></i>
@@ -430,6 +433,7 @@ function DeductionRules() {
           </h3>
           {canEdit && (
             <button
+              className="sc-configure-btn"
               style={styles.configureBtn}
               onClick={() => setShowPTModal(true)}
               onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; }}
@@ -440,7 +444,7 @@ function DeductionRules() {
           )}
         </div>
 
-        <div style={styles.cardBody}>
+        <div className="sc-card-body" style={styles.cardBody}>
           <div className="row">
             <div className="col-12">
               <div style={styles.columnHeader}>Configured Rules</div>
@@ -511,7 +515,7 @@ function DeductionRules() {
 
       {/* Provident Fund Card */}
       <div style={styles.card} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)'}>
-        <div style={styles.cardHeader}>
+        <div className="sc-card-header" style={styles.cardHeader}>
           <h3 style={styles.cardTitle}>
             <div style={styles.iconWrapper}>
               <i className="bi bi-shield-check"></i>
@@ -530,7 +534,7 @@ function DeductionRules() {
           )}
         </div>
 
-        <div style={styles.cardBody}>
+        <div className="sc-card-body" style={styles.cardBody}>
           <div className="row">
             <div className="col-md-6">
               <div style={styles.columnHeader}>Fund Name</div>
@@ -554,18 +558,18 @@ function DeductionRules() {
 
       {/* Professional Tax Modal */}
       <Modal show={showPTModal} onHide={() => setShowPTModal(false)} size="lg" centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-modal-body-lg" style={{
           backgroundColor: '#f8f9fa',
           borderRadius: '16px',
-          padding: '32px 40px',
+          padding: '28px 32px',
           maxHeight: '85vh',
           overflowY: 'auto'
         }}>
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <div style={{
+            <div className="sc-modal-title" style={{
               fontFamily: 'Barlow, sans-serif',
               fontWeight: 700,
-              fontSize: '26px',
+              fontSize: '22px',
               color: '#181C32',
               letterSpacing: '-0.5px',
             }}>
@@ -602,17 +606,17 @@ function DeductionRules() {
                   <div style={styles.sectionTitle}>FOR MALE</div>
                   <div style={styles.sectionDivider}></div>
                 </div>
-                <div style={{
-                  backgroundColor: '#FFFFFF', 
-                  borderRadius: '16px', 
-                  padding: '28px 24px',
+                <div className="sc-section-panel" style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '16px',
+                  padding: '24px 20px',
                   border: '1px solid #E1E3EA',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-                  marginBottom: '24px'
+                  marginBottom: '20px'
                 }}>
 
                   {/* Header Row */}
-                  <div className="row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '1px'}}>
+                  <div className="pt-header-row row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '12px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '0.8px'}}>
                     <div className="col-2"></div>
                     <div className="col-4">Monthly Gross Salary</div>
                     <div className="col-4">Monthly Tax</div>
@@ -743,15 +747,15 @@ function DeductionRules() {
                   <div style={styles.sectionDivider}></div>
                 </div>
 
-                <div style={{
-                  backgroundColor: '#FFFFFF', 
-                  borderRadius: '16px', 
-                  padding: '28px 24px',
+                <div className="sc-section-panel" style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '16px',
+                  padding: '24px 20px',
                   border: '1px solid #E1E3EA',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
                 }}>
                   {/* Header Row */}
-                  <div className="row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '1px'}}>
+                  <div className="pt-header-row row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '12px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '0.8px'}}>
                     <div className="col-2"></div>
                     <div className="col-4">Monthly Gross Salary</div>
                     <div className="col-4">Monthly Tax</div>
@@ -876,7 +880,7 @@ function DeductionRules() {
                 </div>
 
                 {/* Save Button */}
-                <div className="d-flex justify-content-end mt-4 pt-3" style={{ borderTop: '1px solid #E1E3EA' }}>
+                <div className="d-flex justify-content-end sc-form-footer mt-4 pt-3" style={{ borderTop: '1px solid #E1E3EA' }}>
                   <button
                     type="button"
                     onClick={() => setShowPTModal(false)}
@@ -929,10 +933,10 @@ function DeductionRules() {
 
       {/* Provident Fund Modal */}
       <Modal show={showPFModal} onHide={() => setShowPFModal(false)} centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-pf-modal sc-modal-body" style={{
           backgroundColor: '#ffffff',
           borderRadius: '12px',
-          padding: '40px 44px',
+          padding: '32px 36px',
         }}>
           <div style={{
             fontFamily: 'Barlow, sans-serif',
