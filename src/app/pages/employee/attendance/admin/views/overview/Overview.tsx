@@ -15,6 +15,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
+import { getUserTablePreferences, upsertUserTablePreferences } from "@services/users";
 import { isCheckOutMissing } from "@app/modules/common/components/attendanceDurationUtils";
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import "./OverviewStatsGrid.css";
@@ -264,8 +265,13 @@ function Overview({ date }: OverviewProps) {
     const [lunchTime, setLunchTime] = useState<string>('');
     const [isOnSiteSettingsOn, setIsOnSiteSettingsOn] = useState<string>('0');
 
-    // User-customisable order of the overview stat cards (drag to reorder), persisted.
+    // User-customisable order of the overview stat cards (drag to reorder), persisted
+    // PER EMPLOYEE on the server (via the shared user-table-preferences store) so it
+    // survives restarts and follows the user across browsers/devices. localStorage is
+    // kept only as an instant cache to avoid a flash before the server value loads.
     const OVERVIEW_CARD_ORDER_KEY = 'attendanceOverviewCardOrder';
+    const CARD_ORDER_PREF_NAME = 'attendanceOverviewCards';
+    const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
     const [cardOrder, setCardOrder] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem(OVERVIEW_CARD_ORDER_KEY);
@@ -274,9 +280,32 @@ function Overview({ date }: OverviewProps) {
             return [];
         }
     });
+
+    // Load this employee's saved order from the server (the source of truth).
+    useEffect(() => {
+        if (!currentEmployeeId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await getUserTablePreferences(currentEmployeeId, CARD_ORDER_PREF_NAME);
+                const order = res?.data?.preferences?.order;
+                if (!cancelled && Array.isArray(order) && order.length) {
+                    setCardOrder(order);
+                    try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(order)); } catch { /* ignore */ }
+                }
+            } catch { /* keep localStorage/default order */ }
+        })();
+        return () => { cancelled = true; };
+    }, [currentEmployeeId]);
+
     const persistCardOrder = (types: string[]) => {
         setCardOrder(types);
         try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(types)); } catch { /* ignore */ }
+        // Persist to the employee's account so the order is fixed for them everywhere.
+        if (currentEmployeeId) {
+            upsertUserTablePreferences(currentEmployeeId, CARD_ORDER_PREF_NAME, { order: types })
+                .catch((err) => console.error('Failed to save overview card order', err));
+        }
     };
 
     const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({

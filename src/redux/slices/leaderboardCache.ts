@@ -29,8 +29,15 @@ interface LeaderboardCacheState {
   moduleChampions: Record<string, any[]>;
   /** Factor score maps: outer key = date-range key, inner key = factorId */
   factorRankings: Record<string, Record<string, any[]>>;
-  /** KPI factor definitions — date-independent, cached once per session */
+  /** KPI factor definitions — date-independent, cached per toggle generation */
   kpiFactors: any[] | null;
+  /**
+   * The `toggleChange` value that the cached kpiFactors correspond to.
+   * When an admin edits KPI config, `toggleChange` is bumped; if this no longer
+   * matches the current toggle the leaderboard refetches the factor definitions
+   * so type / weightage / active changes reflect instantly (no reload).
+   */
+  kpiFactorsToggle: boolean | null;
 }
 
 const initialState: LeaderboardCacheState = {
@@ -38,6 +45,7 @@ const initialState: LeaderboardCacheState = {
   moduleChampions: {},
   factorRankings: {},
   kpiFactors: null,
+  kpiFactorsToggle: null,
 };
 
 const leaderboardCacheSlice = createSlice({
@@ -63,8 +71,12 @@ const leaderboardCacheSlice = createSlice({
     ) => {
       state.factorRankings[action.payload.key] = action.payload.map;
     },
-    cacheKpiFactors: (state, action: PayloadAction<any[]>) => {
-      state.kpiFactors = action.payload;
+    cacheKpiFactors: (
+      state,
+      action: PayloadAction<{ factors: any[]; toggle: boolean }>
+    ) => {
+      state.kpiFactors = action.payload.factors;
+      state.kpiFactorsToggle = action.payload.toggle;
     },
   },
 });
