@@ -341,6 +341,7 @@ export interface IReimbursementsFetch {
   employeeId?: string;
   expenseDate?: string;
   fromLocation?: string;
+  toLocation?: string;
   id?: string;
   reimbursementTypeId?: string;
   reimbursementType?: {

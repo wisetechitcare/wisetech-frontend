@@ -1,50 +1,20 @@
-import React from "react";
-import { KTCard, KTCardBody } from "@metronic/helpers";
-import { PageLink, PageTitle } from "@metronic/layout/core";
-import { Route, Routes, Outlet, Navigate } from "react-router-dom";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { useFormik } from "formik";
-import { useEffect, useState } from "react";
-import * as Yup from "yup";
+import React, { useCallback, useEffect, useState } from "react";
 import dayjs, { Dayjs } from "dayjs";
-import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialToggleReimbursement, {
-  ToggleItemsCallBackFunctions,
-} from "../../MaterialToggleReimbursement";
-
-import { UsersListWrapper } from "@app/modules/apps/user-management/users-list/UsersList";
+import { IReimbursementsFetch } from "@models/employee";
 import {
-  fetchAllReimbursementTypesFromDb,
   fetchEmpAlltimeReimbursements,
   fetchEmpMonthlyReimbursements,
   fetchEmpYearlyReimbursements,
 } from "@utils/statistics";
-import {
-  IReimbursementsCreate,
-  IReimbursementsFetch,
-  IReimbursementsUpdate,
-} from "@models/employee";
-import { Modal } from "react-bootstrap";
-import { Form, Formik, FormikValues, useField } from "formik";
-import { Option } from "@models/dropdown";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import DateInput from "@app/modules/common/inputs/DateInput";
-import { fetchAllReimbursementTypes } from "@services/options";
-import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
-import { uploadUserAsset } from "@services/uploader";
-import {
-  createEmployeeReimbursement,
-  updateReimbursementById,
-} from "@services/employee";
-import Overview from "../common/Overview";
+import MaterialToggleReimbursement, {
+  PeriodAlignment,
+  ToggleItemsCallBackFunctions,
+} from "../../MaterialToggleReimbursement";
+import ReimbursementOverview from "../common/ReimbursementOverview";
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
-
 
 function SearchEmployee() {
   const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
@@ -52,87 +22,86 @@ function SearchEmployee() {
   const [approvedRequests, setApprovedRequests] = useState(0);
   const [rejectedRequests, setRejectedRequests] = useState(0);
   const [pendingRequests, setPendingRequests] = useState(0);
-  const [reimbursementData, setReimbursementData] = useState<
-    IReimbursementsFetch[]
-  >([]);
-  const [showEditDeleteOption, setShowEditDeleteOption] = useState(false);
+  const [approvedAmount, setApprovedAmount] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [showEditDeleteOption] = useState(false);
+  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({
+    alignment: 'monthly',
+    date: dayjs(),
+  });
 
-  const [show, setShow] = useState(false);
-  const [reimbursementOptions, setReimbursementOptions] = useState<any>([]);
-  const employeeId = useSelector(
-    (state: RootState) => state.employee.currentEmployee.id
-  );
   const selectedEmployeeId = useSelector(
     (state: RootState) => state.employee.selectedEmployee?.id
   );
-  const selectedEmployee = useSelector(
-    (state: RootState) => state.employee.selectedEmployee
-  );
 
   const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (month: Dayjs): void {
-      fetchEmpMonthlyReimbursements(month, selectedEmployeeId); // create custom
-    },
-    yearly: function (year: Dayjs): void {
-      fetchEmpYearlyReimbursements(year, selectedEmployeeId); // create custom
-    },
-    allTime: function (year: Dayjs): void {
-      fetchEmpAlltimeReimbursements(selectedEmployeeId); // create custom and pass empId if required
-    },
+    monthly: function (): void { /* handled by onPeriodChange */ },
+    yearly: function (): void { /* handled by onPeriodChange */ },
+    allTime: function (): void { /* handled by onPeriodChange */ },
   };
-  
-  useEffect(() => {
-    const currentYear = dayjs().startOf("year");
-    // console.log("selected employee: ", selectedEmployee);
-    fetchEmpYearlyReimbursements(currentYear, selectedEmployeeId).then((data) => {
-      let totalAmount = 0,
-        totalRequest = 0,
-        approvedCount = 0,
-        rejectedCount = 0,
-        pendingCount = 0;
-      data.forEach((ele) => {
-        if (ele.id && ele.employeeId == selectedEmployeeId) {
-          totalAmount += parseInt(ele.amount ? ele.amount : "0");
-          totalRequest += 1;
-          if (ele.status == "Pending") {
-            pendingCount += 1;
-          } else if (ele.status == "Rejected") {
-            rejectedCount += 1;
-          } else {
-            approvedCount += 1;
-          }
+
+  // ── Stats calculator ───────────────────────────────────────────────────────
+  const applyStats = (data: IReimbursementsFetch[]) => {
+    let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
+    let approvedAmt = 0, pendingAmt = 0;
+    data.forEach((ele) => {
+      if (ele.id) {
+        const amt = parseInt(ele.amount ?? "0");
+        totalAmount += amt;
+        totalRequest++;
+        if (ele.status === "Pending") {
+          pendingCount++;
+          pendingAmt += amt;
+        } else if (ele.status === "Rejected") {
+          rejectedCount++;
+        } else {
+          approvedCount++;
+          approvedAmt += amt;
         }
-      });
-      setApprovedRequests(approvedCount);
-      setPendingRequests(pendingCount);
-      setRejectedRequests(rejectedCount);
-      setTotalRequests(totalRequest);
-      setTotalRequestedAmount(totalAmount);
-      setReimbursementData(data);
+      }
     });
-  }, [show, selectedEmployeeId]);
-
-  const fetchAllReimbursementsTypesData = async () => {
-    const reimbursementResponse = await fetchAllReimbursementTypesFromDb();
-    const reimbursementOptions = reimbursementResponse.map((country: any) => ({
-      value: country.id,
-      label: country.type,
-    }));
-
-    setReimbursementOptions(reimbursementOptions);
+    setTotalRequestedAmount(totalAmount);
+    setTotalRequests(totalRequest);
+    setApprovedRequests(approvedCount);
+    setRejectedRequests(rejectedCount);
+    setPendingRequests(pendingCount);
+    setApprovedAmount(approvedAmt);
+    setPendingAmount(pendingAmt);
+    setOverviewLoading(false);
   };
+
+  // ── Re-fetch stats when period or selected employee changes ───────────────
+  useEffect(() => {
+    setOverviewLoading(true);
+    const { alignment, date } = currentPeriod;
+    const fetchPromise =
+      alignment === 'monthly' ? fetchEmpMonthlyReimbursements(date, selectedEmployeeId) :
+      alignment === 'yearly'  ? fetchEmpYearlyReimbursements(date, selectedEmployeeId)  :
+      fetchEmpAlltimeReimbursements(selectedEmployeeId);
+    fetchPromise.then(applyStats);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPeriod, selectedEmployeeId]);
+
+  const handlePeriodChange = useCallback((alignment: PeriodAlignment, date: Dayjs) => {
+    setOverviewLoading(true);
+    setCurrentPeriod({ alignment, date });
+  }, []);
 
   return (
     <>
       <div className="mb-6">
         <AllEmployeesSearchDropdown />
       </div>
-      <Overview
+      <ReimbursementOverview
         totalRequestedAmount={totalRequestedAmount}
         totalRequests={totalRequests}
         approvedRequests={approvedRequests}
         rejectedRequests={rejectedRequests}
         pendingRequests={pendingRequests}
+        approvedAmount={approvedAmount}
+        pendingAmount={pendingAmount}
+        isLoading={overviewLoading}
       />
 
       <div className="my-6">
@@ -140,6 +109,7 @@ function SearchEmployee() {
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
+        onPeriodChange={handlePeriodChange}
         showEditDeleteOption={showEditDeleteOption}
         selectedEmployeeId={selectedEmployeeId}
         resource={resourceNameMapWithCamelCase.reimbursement}

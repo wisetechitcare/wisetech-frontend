@@ -13,6 +13,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialToggleReimbursement, {
+  PeriodAlignment,
   ToggleItemsCallBackFunctions,
 } from "./MaterialToggleReimbursement";
 import { UsersListWrapper } from "@app/modules/apps/user-management/users-list/UsersList";
@@ -33,7 +34,7 @@ import { createNewTowns, fetchAllReimbursementTypes, fetchAllTowns } from "@serv
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { uploadUserAsset } from "@services/uploader";
 import { createEmployeeReimbursement, updateReimbursementById } from "@services/employee";
-import Overview from "./views/common/Overview";
+import ReimbursementOverview from "./views/common/ReimbursementOverview";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
@@ -95,7 +96,12 @@ function Reimbursement() {
   const [approvedRequests, setApprovedRequests] = useState(0);
   const [rejectedRequests, setRejectedRequests] = useState(0);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [approvedAmount, setApprovedAmount] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
   const [showEditDeleteOption, setShowEditDeleteOption] = useState(true);
   const [refreshFlag, setRefreshFlag] = useState(false);
   const [show, setShow] = useState(false);
@@ -123,47 +129,54 @@ function Reimbursement() {
   const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
 
   const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (month: Dayjs): void {
-      fetchEmpMonthlyReimbursements(month);
-    },
-    yearly: function (year: Dayjs): void {
-      fetchEmpYearlyReimbursements(year);
-    },
-    allTime: function (year: Dayjs): void {
-      fetchEmpAlltimeReimbursements();
-    },
+    monthly: function (month: Dayjs): void { /* handled by onPeriodChange */ },
+    yearly: function (year: Dayjs): void { /* handled by onPeriodChange */ },
+    allTime: function (): void { /* handled by onPeriodChange */ },
   };
 
-  // ── Stats load ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const currentYear = dayjs().startOf("year");
-    fetchEmpYearlyReimbursements(currentYear).then((data) => {
-      let totalAmount = 0,
-        totalRequest = 0,
-        approvedCount = 0,
-        rejectedCount = 0,
-        pendingCount = 0;
-      data.forEach((ele) => {
-        if (ele.id && ele.employeeId == employeeId) {
-          totalAmount += parseInt(ele.amount ? ele.amount : "0");
-          totalRequest += 1;
-          if (ele.status == "Pending") {
-            pendingCount += 1;
-          } else if (ele.status == "Rejected") {
-            rejectedCount += 1;
-          } else {
-            approvedCount += 1;
-          }
+  // ── Shared stats calculator ────────────────────────────────────────────────
+  const applyStats = (data: IReimbursementsFetch[]) => {
+    let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
+    let approvedAmt = 0, pendingAmt = 0;
+    data.forEach((ele) => {
+      if (ele.id) {
+        const amt = parseInt(ele.amount ?? "0");
+        totalAmount += amt;
+        totalRequest += 1;
+        if (ele.status === "Pending") {
+          pendingCount++;
+          pendingAmt += amt;
+        } else if (ele.status === "Rejected") {
+          rejectedCount++;
+        } else {
+          approvedCount++;
+          approvedAmt += amt;
         }
-      });
-      setApprovedRequests(approvedCount);
-      setPendingRequests(pendingCount);
-      setRejectedRequests(rejectedCount);
-      setTotalRequests(totalRequest);
-      setTotalRequestedAmount(totalAmount);
+      }
+    });
+    setTotalRequestedAmount(totalAmount);
+    setTotalRequests(totalRequest);
+    setApprovedRequests(approvedCount);
+    setRejectedRequests(rejectedCount);
+    setPendingRequests(pendingCount);
+    setApprovedAmount(approvedAmt);
+    setPendingAmount(pendingAmt);
+    setOverviewLoading(false);
+  };
+
+  // ── Stats: re-fetch whenever the period or a data mutation occurs ──────────
+  useEffect(() => {
+    const { alignment, date } = currentPeriod;
+    const fetchPromise =
+      alignment === 'monthly' ? fetchEmpMonthlyReimbursements(date) :
+      alignment === 'yearly'  ? fetchEmpYearlyReimbursements(date)  :
+      fetchEmpAlltimeReimbursements();
+    fetchPromise.then((data) => {
+      applyStats(data);
       setReimbursementData(data);
     });
-  }, [show, employeeId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPeriod, statsRefreshKey, employeeId]);
 
   // ── Load all static dropdown data once on mount ────────────────────────────
   useEffect(() => {
@@ -350,6 +363,7 @@ function Reimbursement() {
         setLoading(false);
         successConfirmation("Reimbursement updated successfully");
         eventBus.emit("reimbursementRecords", { records: [] });
+        setStatsRefreshKey((prev) => prev + 1);
         setShow(false);
         setEditMode(false);
         return;
@@ -375,10 +389,16 @@ function Reimbursement() {
       setLoading(false);
       successConfirmation("Reimbursement created successfully");
       eventBus.emit("reimbursementRecords", { records: [] });
+      setStatsRefreshKey((prev) => prev + 1);
       setShow(false);
     } catch (err) {
       setLoading(false);
     }
+  };
+
+  const handlePeriodChange = (alignment: PeriodAlignment, date: Dayjs) => {
+    setOverviewLoading(true);
+    setCurrentPeriod({ alignment, date });
   };
 
   const handleClose = () => {
@@ -485,12 +505,15 @@ function Reimbursement() {
   return (
     <>
       {/* <UsersListWrapper /> */}
-      <Overview
+      <ReimbursementOverview
         totalRequestedAmount={totalRequestedAmount}
         totalRequests={totalRequests}
         approvedRequests={approvedRequests}
         rejectedRequests={rejectedRequests}
         pendingRequests={pendingRequests}
+        approvedAmount={approvedAmount}
+        pendingAmount={pendingAmount}
+        isLoading={overviewLoading}
       />
 
       <div
@@ -515,6 +538,7 @@ function Reimbursement() {
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
+        onPeriodChange={handlePeriodChange}
         onEdit={handleEdit}
         showEditDeleteOption={showEditDeleteOption}
         resource={resourceNameMapWithCamelCase.reimbursement}
