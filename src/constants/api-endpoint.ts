@@ -306,6 +306,7 @@ export const OPTIONS = {
     UPSERT_EMPLOYEE_LPC_CHART_SETTINGS: "api/options/employee-lpc-chart-settings",
     GET_EMPLOYEE_LPC_CHART_SETTINGS: "api/options/employee-lpc-chart-settings",
     GET_CURRENCIES: "api/options/currencies",
+    GET_REIMBURSEMENT_EMPLOYEE_LIMITS: "api/options/reimbursement-employee-limits",
 }
 
 export const LOCATION = {

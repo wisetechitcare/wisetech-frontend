@@ -10,11 +10,38 @@ import SearchEmployee from "./views/admin/SearchEmployee";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import Settings from "./views/admin/Settings";
+import ReimbursementEmployeeLimit from "./views/admin/ReimbursementEmployeeLimit";
 import overviewIcon from '../../../../_metronic/assets/sidepanelicons/overview.svg'
 import { leadsIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+
+function ConfigureView() {
+  const [configTab, setConfigTab] = useState<"categories" | "limits">("categories");
+
+  return (
+    <div>
+      <div className="d-flex gap-3 mb-6 border-bottom pb-3">
+        <button
+          type="button"
+          className={`btn btn-sm ${configTab === "categories" ? "btn-primary" : "btn-light"}`}
+          onClick={() => setConfigTab("categories")}
+        >
+          Reimbursement Categories
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${configTab === "limits" ? "btn-primary" : "btn-light"}`}
+          onClick={() => setConfigTab("limits")}
+        >
+          Reimbursement Employee Per Request Limit
+        </button>
+      </div>
+      {configTab === "categories" ? <Settings /> : <ReimbursementEmployeeLimit />}
+    </div>
+  );
+}
 
 function AdminAndEmployeeReimbursementViewer() {
   const dispatch = useDispatch();
@@ -45,7 +72,7 @@ function AdminAndEmployeeReimbursementViewer() {
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Configure",
-      component: <Settings />,
+      component: <ConfigureView />,
       icon: activeTab === 3 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
     }]:[]),
   ];

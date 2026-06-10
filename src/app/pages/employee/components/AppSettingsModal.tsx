@@ -222,6 +222,20 @@ function AccessSection({ roleOptions }: { roleOptions: any[] }) {
     );
 }
 
+function ReimbursementSection() {
+    return (
+        <div className="row g-4">
+            <div className="col-sm-6">
+                <TextInput
+                    isRequired={false}
+                    label="Reimbursement Limit Per Request"
+                    formikField="reimbursementLimitPerRequest"
+                />
+            </div>
+        </div>
+    );
+}
+
 function PrivacySection() {
     const { values, setFieldValue } = useFormikContext<any>();
     const isHidden = values.isHiddenFromStaff === true;
@@ -253,13 +267,14 @@ function PrivacySection() {
 
 // ─── Section nav config ───────────────────────────────────────────────────────
 const SECTIONS = [
-    { id: "general",   label: "General App Settings",              icon: "setting-3"   },
-    { id: "leaves",    label: "Leave Allocation",                  icon: "calendar"    },
-    { id: "approval",  label: "Approval Workflow",                 icon: "verify"      },
-    { id: "reporting", label: "Reporting Config",                  icon: "profile-user" },
-    { id: "financial", label: "Financial Config",                  icon: "wallet"      },
-    { id: "access",    label: "System Access",                     icon: "setting-2"   },
-    { id: "privacy",   label: "Privacy Controls",                  icon: "shield-tick" },
+    { id: "general",        label: "General App Settings",    icon: "setting-3"    },
+    { id: "leaves",         label: "Leave Allocation",        icon: "calendar"     },
+    { id: "approval",       label: "Approval Workflow",       icon: "verify"       },
+    { id: "reporting",      label: "Reporting Config",        icon: "profile-user" },
+    { id: "financial",      label: "Financial Config",        icon: "wallet"       },
+    { id: "reimbursement",  label: "Reimbursement Config",    icon: "dollar"       },
+    { id: "access",         label: "System Access",           icon: "setting-2"    },
+    { id: "privacy",        label: "Privacy Controls",        icon: "shield-tick"  },
 ];
 
 // ─── Inner modal content (inside Formik) ─────────────────────────────────────
@@ -276,13 +291,14 @@ function ModalContent({
     const [activeSection, setActiveSection] = useState("general");
 
     const sectionContent: Record<string, React.ReactNode> = {
-        general:   <GeneralSettings />,
-        leaves:    <LeaveSection />,
-        approval:  <ApprovalSection employeeId={employeeId} />,
-        reporting: <ReportingSection managerOptions={managerOptions} />,
-        financial: <FinancialSection />,
-        access:    <AccessSection roleOptions={roleOptions} />,
-        privacy:   <PrivacySection />,
+        general:        <GeneralSettings />,
+        leaves:         <LeaveSection />,
+        approval:       <ApprovalSection employeeId={employeeId} />,
+        reporting:      <ReportingSection managerOptions={managerOptions} />,
+        financial:      <FinancialSection />,
+        reimbursement:  <ReimbursementSection />,
+        access:         <AccessSection roleOptions={roleOptions} />,
+        privacy:        <PrivacySection />,
     };
 
     const activeLabel = SECTIONS.find(s => s.id === activeSection)?.label ?? "";
@@ -385,6 +401,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         // access
         isEmployeeActive: "1",
         appRole: "",
+        reimbursementLimitPerRequest: "",
         // privacy
         isHiddenFromStaff: false,
         userId: "",
@@ -427,6 +444,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                     // access
                     isEmployeeActive: w?.isActive ? "1" : "0",
                     appRole: w?.roles?.[0]?.id ?? "",
+                    reimbursementLimitPerRequest: w?.reimbursementLimitPerRequest != null ? String(w.reimbursementLimitPerRequest) : "",
                     // privacy
                     isHiddenFromStaff: w?.isHiddenFromStaff === true,
                     userId: w?.userId ?? "",
@@ -458,6 +476,12 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
         setError(null);
         setIsSubmitting(true);
         try {
+            const reimbLimitRaw = values.reimbursementLimitPerRequest;
+            const reimbursementLimitPerRequest =
+                reimbLimitRaw !== "" && reimbLimitRaw != null && !isNaN(Number(reimbLimitRaw))
+                    ? Number(reimbLimitRaw)
+                    : null;
+
             const payload: any = {
                 id: employeeId,
                 isAdmin: values.isAdmin === "1",
@@ -466,6 +490,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",
                 isHiddenFromStaff: values.isHiddenFromStaff === true,
+                reimbursementLimitPerRequest,
                 ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
                     ? { leaveAllocations: values.leaveAllocations }
                     : {}),

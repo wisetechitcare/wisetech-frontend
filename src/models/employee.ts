@@ -356,6 +356,22 @@ export interface IReimbursementsFetch {
     }
   }
   status: string | number;
+  isExceedingLimit?: boolean;
+  hasApprovalInstance?: boolean;
+  clientTypeId?: string;
+  clientCompanyId?: string;
+  projectId?: string;
+  day?: string;
+  type?: string;
+  name?: string;
+  ID?: string;
+}
+
+export interface IReimbursementEmployeeLimit {
+  id: string;
+  employeeCode?: string;
+  name: string;
+  reimbursementLimitPerRequest: string | number | null;
 }
 
 export enum ReimbursementStatus {

@@ -416,6 +416,33 @@ function AllTime({
               paddingY: "5px",
             },
           },
+          muiTableBodyRowProps: ({ row }: any) => {
+            if (row.original?.isExceedingLimit) {
+              return {
+                sx: {
+                  backgroundColor: "rgba(239, 68, 68, 0.08)",
+                  "& td:first-of-type": { borderLeft: "4px solid #ef4444 !important" },
+                  transition: "background-color 0.12s ease",
+                  "&:hover td": { backgroundColor: "rgba(239, 68, 68, 0.14) !important" },
+                },
+              };
+            }
+            const statusStr = String(row.original?.status || "").toLowerCase();
+            const colorMap: Record<string, { bg: string; border: string; hover: string }> = {
+              approved: { bg: "rgba(16,185,129,0.04)", border: "#10b981", hover: "rgba(16,185,129,0.08)" },
+              rejected: { bg: "rgba(239,68,68,0.04)", border: "#ef4444", hover: "rgba(239,68,68,0.08)" },
+              pending:  { bg: "rgba(245,158,11,0.04)", border: "#f59e0b", hover: "rgba(245,158,11,0.08)" },
+            };
+            const c = colorMap[statusStr] ?? null;
+            return {
+              sx: {
+                backgroundColor: c ? c.bg : undefined,
+                "& td:first-of-type": c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                transition: "background-color 0.12s ease",
+                "&:hover td": { backgroundColor: c ? `${c.hover} !important` : "#F8FAFC" },
+              },
+            };
+          },
         }}
         tableName="All Time Reimbursements"
         resource={resource}

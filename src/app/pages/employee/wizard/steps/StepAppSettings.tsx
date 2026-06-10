@@ -189,6 +189,21 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
         );
 }
 
+// ── 4. Reimbursement Config ───────────────────────────────────────────────────
+function ReimbursementConfig() {
+    return (
+        <div className="row">
+            <div className="col-lg-6 col-md-6 col-sm-12">
+                <TextInput
+                    isRequired={false}
+                    label="Reimbursement Limit Per Request"
+                    formikField="reimbursementLimitPerRequest"
+                />
+            </div>
+        </div>
+    );
+}
+
 // ── 5. Privacy Controls ───────────────────────────────────────────────────────
 function PrivacyControls() {
     const { values, setFieldValue } = useFormikContext<any>();
@@ -252,21 +267,21 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
     }, [formikProps.submitCount, formikProps.errors]);
 
     const sections = [
-        { id: "reporting", title: "Reporting Config", icon: "profile-user" },
-        { id: "financial", title: "Financial Config", icon: "wallet" },
-        { id: "leaves", title: "Custom Leave Allocation (optional)", icon: "calendar" },
-        { id: "access", title: "System Access Settings", icon: "setting-2" },
-        { id: "privacy", title: "Privacy Controls", icon: "shield-tick" },
+        { id: "reporting",     title: "Reporting Config",                  icon: "profile-user" },
+        { id: "financial",     title: "Financial Config",                  icon: "wallet"       },
+        { id: "leaves",        title: "Custom Leave Allocation (optional)", icon: "calendar"     },
+        { id: "reimbursement", title: "Reimbursement Config",              icon: "dollar"       },
+        { id: "access",        title: "System Access Settings",            icon: "setting-2"    },
+        { id: "privacy",       title: "Privacy Controls",                  icon: "shield-tick"  },
     ];
 
     const sectionContent: Record<string, any> = {
-        reporting: <ReportingConfig />,
-        financial: <FinancialConfig formikProps={formikProps} editMode={editMode} />,
-        leaves: (
-            <LeaveAllocationStep />
-        ),
-        access: <AppSettings />,
-        privacy: <PrivacyControls />,
+        reporting:     <ReportingConfig />,
+        financial:     <FinancialConfig formikProps={formikProps} editMode={editMode} />,
+        leaves:        <LeaveAllocationStep />,
+        reimbursement: <ReimbursementConfig />,
+        access:        <AppSettings />,
+        privacy:       <PrivacyControls />,
     };
 
     return (
