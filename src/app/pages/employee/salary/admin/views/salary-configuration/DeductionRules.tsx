@@ -324,12 +324,12 @@ function DeductionRules() {
       alignItems: 'center',
       justifyContent: 'space-between',
       flexWrap: 'wrap' as const,
-      gap: '8px',
-      padding: '14px 18px',
+      gap: '6px',
+      padding: '12px 16px',
       backgroundColor: '#fafafa',
       border: '1px dashed #E1E3EA',
       borderRadius: '12px',
-      marginBottom: '10px',
+      marginBottom: '8px',
       transition: 'background-color 0.2s ease',
     },
     badgeMale: {
@@ -451,57 +451,69 @@ function DeductionRules() {
               {professionalTax ? (
                 <div className="d-flex flex-column gap-2">
                   {professionalTax.male.till.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeMale}>Male</span>
-                        <span style={styles.ruleCondition}>Till ₹{professionalTax.male.till.maxValue}</span>
+                    <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
+                      <div className="sc-rule-left d-flex align-items-center">
+                        <span className="sc-badge-male" style={styles.badgeMale}>Male</span>
+                        <span className="sc-rule-condition" style={styles.ruleCondition}>Till ₹{professionalTax.male.till.maxValue}</span>
                       </div>
-                      <span style={styles.ruleValue}>{professionalTax.male.till.monthlyTax === 0 ? "NIL" : `₹${professionalTax.male.till.monthlyTax} / month`}</span>
+                      <span className={`sc-rule-value ${professionalTax.male.till.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`} style={styles.ruleValue}>
+                        {professionalTax.male.till.monthlyTax === 0 ? "NIL" : `₹${professionalTax.male.till.monthlyTax} / month`}
+                      </span>
                     </div>
                   )}
                   {professionalTax.male.range.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeMale}>Male</span>
-                        <span style={styles.ruleCondition}>₹{professionalTax.male.range.minValue} - ₹{professionalTax.male.range.maxValue}</span>
+                    <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
+                      <div className="sc-rule-left d-flex align-items-center">
+                        <span className="sc-badge-male" style={styles.badgeMale}>Male</span>
+                        <span className="sc-rule-condition" style={styles.ruleCondition}>₹{professionalTax.male.range.minValue} – ₹{professionalTax.male.range.maxValue}</span>
                       </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.male.range.monthlyTax} / month</span>
+                      <span className="sc-rule-value sc-val-amount" style={styles.ruleValue}>₹{professionalTax.male.range.monthlyTax} / month</span>
                     </div>
                   )}
                   {professionalTax.male.moreThan.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeMale}>Male</span>
-                        <span style={styles.ruleCondition}>Above ₹{professionalTax.male.moreThan.minValue}</span>
+                    <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
+                      <div className="sc-rule-left d-flex align-items-center">
+                        <span className="sc-badge-male" style={styles.badgeMale}>Male</span>
+                        <span className="sc-rule-condition" style={styles.ruleCondition}>Above ₹{professionalTax.male.moreThan.minValue}</span>
                       </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.male.moreThan.monthlyTax} / month <span style={{fontSize: '12px', color: '#A1A5B7', fontWeight: 500}}>(Except {getMonthName(professionalTax.male.lastMonth.month)}: ₹{professionalTax.male.lastMonth.monthlyTax})</span></span>
+                      <span className="sc-val-group">
+                        <span className="sc-rule-value sc-val-amount" style={styles.ruleValue}>₹{professionalTax.male.moreThan.monthlyTax} / month</span>
+                        <span className="sc-except-text">Except {getMonthName(professionalTax.male.lastMonth.month)}: ₹{professionalTax.male.lastMonth.monthlyTax}</span>
+                      </span>
                     </div>
                   )}
                   {professionalTax.female.till.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeFemale}>Female</span>
-                        <span style={styles.ruleCondition}>Till ₹{professionalTax.female.till.maxValue}</span>
+                    <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
+                      <div className="sc-rule-left d-flex align-items-center">
+                        <span className="sc-badge-female" style={styles.badgeFemale}>Female</span>
+                        <span className="sc-rule-condition" style={styles.ruleCondition}>Till ₹{professionalTax.female.till.maxValue}</span>
                       </div>
-                      <span style={styles.ruleValue}>{professionalTax.female.till.monthlyTax === 0 ? "NIL" : `₹${professionalTax.female.till.monthlyTax} / month`}</span>
+                      <span className={`sc-rule-value ${professionalTax.female.till.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`} style={styles.ruleValue}>
+                        {professionalTax.female.till.monthlyTax === 0 ? "NIL" : `₹${professionalTax.female.till.monthlyTax} / month`}
+                      </span>
                     </div>
                   )}
                   {professionalTax.female.range.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeFemale}>Female</span>
-                        <span style={styles.ruleCondition}>₹{professionalTax.female.range.minValue} - ₹{professionalTax.female.range.maxValue}</span>
+                    <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
+                      <div className="sc-rule-left d-flex align-items-center">
+                        <span className="sc-badge-female" style={styles.badgeFemale}>Female</span>
+                        <span className="sc-rule-condition" style={styles.ruleCondition}>₹{professionalTax.female.range.minValue} – ₹{professionalTax.female.range.maxValue}</span>
                       </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.female.range.monthlyTax} / month</span>
+                      <span className={`sc-rule-value ${professionalTax.female.range.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`} style={styles.ruleValue}>
+                        {professionalTax.female.range.monthlyTax === 0 ? "NIL" : `₹${professionalTax.female.range.monthlyTax} / month`}
+                      </span>
                     </div>
                   )}
                   {professionalTax.female.moreThan.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeFemale}>Female</span>
-                        <span style={styles.ruleCondition}>Above ₹{professionalTax.female.moreThan.minValue}</span>
+                    <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
+                      <div className="sc-rule-left d-flex align-items-center">
+                        <span className="sc-badge-female" style={styles.badgeFemale}>Female</span>
+                        <span className="sc-rule-condition" style={styles.ruleCondition}>Above ₹{professionalTax.female.moreThan.minValue}</span>
                       </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.female.moreThan.monthlyTax} / month <span style={{fontSize: '12px', color: '#A1A5B7', fontWeight: 500}}>(Except {getMonthName(professionalTax.female.lastMonth.month)}: ₹{professionalTax.female.lastMonth.monthlyTax})</span></span>
+                      <span className="sc-val-group">
+                        <span className="sc-rule-value sc-val-amount" style={styles.ruleValue}>₹{professionalTax.female.moreThan.monthlyTax} / month</span>
+                        <span className="sc-except-text">Except {getMonthName(professionalTax.female.lastMonth.month)}: ₹{professionalTax.female.lastMonth.monthlyTax}</span>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -524,6 +536,7 @@ function DeductionRules() {
           </h3>
           {canEdit && (
             <button
+              className="sc-configure-btn"
               style={styles.configureBtn}
               onClick={() => setShowPFModal(true)}
               onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; }}
@@ -535,19 +548,19 @@ function DeductionRules() {
         </div>
 
         <div className="sc-card-body" style={styles.cardBody}>
-          <div className="row">
-            <div className="col-md-6">
-              <div style={styles.columnHeader}>Fund Name</div>
+          <div className="row g-3">
+            <div className="col-12 col-md-6">
+              <div className="sc-epf-label" style={styles.columnHeader}>Fund Name</div>
               {providentFund ? (
-                <div style={styles.ruleCondition}>{providentFund.name}</div>
+                <div className="sc-epf-name" style={styles.ruleCondition}>{providentFund.name}</div>
               ) : (
                 <div style={styles.noData}>No EPF configured</div>
               )}
             </div>
-            <div className="col-md-6">
-              <div style={styles.columnHeader}>Deduction Rate</div>
+            <div className="col-12 col-md-6">
+              <div className="sc-epf-label" style={styles.columnHeader}>Deduction Rate</div>
               {providentFund && (
-                <div><span style={styles.tagValue}>{providentFund.deduction}% of Basic</span></div>
+                <div><span className="sc-deduction-tag" style={styles.tagValue}>{providentFund.deduction}% of Basic</span></div>
               )}
             </div>
           </div>

@@ -6,6 +6,7 @@ import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
 import { PayrollService } from '../services/payroll.service';
+import { payrollService } from '../services/payrollService';
 import { parseCurrencyString } from '../utils/payrollFormatters';
 
 export const useSalaryReport = () => {
@@ -46,8 +47,7 @@ export const useSalaryReport = () => {
                 toast.warning('Legacy payment records cannot be deleted individually. Edit the salary record instead.', { position: 'bottom-right', autoClose: 5000 });
                 return;
             }
-            // The backend now checks both tables, so always call salary payment delete
-            await PayrollService.deletePayment(payment.id);
+            await payrollService.deletePayment(payment.id);
             successConfirmation('Payment deleted successfully');
             handleRefresh();
         } catch (error) {
@@ -88,7 +88,7 @@ export const useSalaryReport = () => {
             if (paymentType === 'SALARY' || paymentType === 'COMBINED') {
                 const amount = typeof salaryAmount === 'string' ? parseCurrencyString(salaryAmount) : Number(salaryAmount);
                 if (amount > 0) {
-                    const res = await PayrollService.recordSalaryPayment({
+                    const res = await payrollService.recordPayment({
                         ...basePayload,
                         amount: amount,
                         paymentType: 'SALARY',

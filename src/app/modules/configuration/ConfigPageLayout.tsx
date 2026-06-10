@@ -155,6 +155,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                       ? '#f5f6f8'
                       : 'transparent',
                     border: 'none',
+                    outline: 'none',
                     borderRadius: `${RADIUS.md} ${RADIUS.md} 0 0`,
                     padding: '9px 16px 11px 16px',
                     margin: 0,

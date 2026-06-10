@@ -248,6 +248,10 @@ export const KEYFRAMES = `
   .cfg-fade-in  { animation: cfgFadeIn  0.3s ease; }
   .cfg-slide-in { animation: cfgSlideIn 0.25s ease; }
 
+  /* ─── Base: remove browser focus outline on tab buttons ─────────── */
+  .cfg-tab-btn { outline: none !important; }
+  .cfg-tab-btn:focus { outline: none !important; box-shadow: none !important; }
+
   /* ─── Responsive: Tablet (≤ 768px) ───────────────────────────────── */
   @media (max-width: 767.98px) {
     .cfg-header-row {
@@ -296,8 +300,14 @@ export const KEYFRAMES = `
     .cfg-tab-active-line { display: none !important; }
 
     .cfg-body-wrap { padding: 16px !important; }
-    .cfg-section-header { padding: 16px 16px 8px 22px !important; }
+    .cfg-section-header { padding: 14px 16px 8px 20px !important; }
     .cfg-settings-row   { padding: 14px 16px !important; }
+    .cfg-section-desc {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 2 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+    }
   }
 
   /* ─── Responsive: Phone (≤ 576px) ────────────────────────────────── */

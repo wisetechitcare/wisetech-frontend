@@ -182,7 +182,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
             </div>
 
             {description && !loading && (
-              <p style={{ fontFamily: FONT.body, fontSize: '12px', color: C.textMuted, fontWeight: 400, margin: '4px 0 0 0', lineHeight: 1.5 }}>
+              <p className="cfg-section-desc" style={{ fontFamily: FONT.body, fontSize: '12px', color: C.textMuted, fontWeight: 400, margin: '4px 0 0 0', lineHeight: 1.5 }}>
                 {description}
               </p>
             )}

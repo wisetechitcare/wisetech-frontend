@@ -37,8 +37,9 @@ const SALARY_CONFIG_CSS = `
     .sc-card-body        { padding: 14px !important; }
     .sc-container        { padding: 14px !important; gap: 14px !important; }
     .sc-configure-btn    { width: 100% !important; justify-content: center !important; }
-    .sc-header-title     { font-size: 18px !important; letter-spacing: -0.3px !important; }
-    .sc-page-header      { flex-wrap: wrap !important; gap: 8px !important; }
+    .sc-header-title     { font-size: 18px !important; letter-spacing: -0.3px !important; text-align: center !important; width: 100% !important; }
+    .sc-page-header      { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
+    .sc-page-header > button { width: 100% !important; justify-content: center !important; }
     .sc-settings-row     { flex-wrap: wrap !important; align-items: flex-start !important; }
     .sc-row-right        { width: 100% !important; margin-top: 4px !important; flex-wrap: wrap !important; gap: 8px !important; }
     .sc-row-right select { flex: 1 !important; min-width: unset !important; }
@@ -60,6 +61,114 @@ const SALARY_CONFIG_CSS = `
     .sc-container     { padding: 10px !important; }
     .sc-form-footer > button { flex: 1 1 100% !important; }
     .sc-pf-modal      { padding: 16px !important; }
+  }
+
+  /* ── DeductionRules – global rule row design ──────────────────────── */
+
+  /* Base row: remove dashed, add clean solid border + left accent */
+  .sc-rule-row {
+    border: 1px solid #eef0f5 !important;
+    border-left: 3px solid #E1E3EA !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    margin-bottom: 0 !important;
+    padding: 12px 16px !important;
+    gap: 8px !important;
+    transition: box-shadow 0.15s ease !important;
+  }
+  .sc-rule-row:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06) !important;
+  }
+
+  /* Male rows – blue accent + subtle tint */
+  .sc-rule-male {
+    border-left-color: #0085db !important;
+    background: linear-gradient(to right, #f0f8ff 0%, #ffffff 60%) !important;
+  }
+
+  /* Female rows – pink accent + subtle tint */
+  .sc-rule-female {
+    border-left-color: #e91e8c !important;
+    background: linear-gradient(to right, #fff5fb 0%, #ffffff 60%) !important;
+  }
+
+  /* Value pill – base (all screens) */
+  .sc-rule-value {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 4px 14px !important;
+    border-radius: 20px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.2px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* NIL – soft red */
+  .sc-val-nil {
+    background: #fff1f2 !important;
+    border: 1px solid #fecdd3 !important;
+    color: #be123c !important;
+    letter-spacing: 0.8px !important;
+    font-size: 11.5px !important;
+    text-transform: uppercase !important;
+    padding: 4px 12px !important;
+  }
+
+  /* Amount – green */
+  .sc-val-amount {
+    background: #f0fdf4 !important;
+    border: 1px solid #86efac !important;
+    color: #15803d !important;
+  }
+
+  /* Value + exception wrapper */
+  .sc-val-group {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 3px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Exception text – subdued, below the pill */
+  .sc-except-text {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 11px !important;
+    color: #94a3b8 !important;
+    font-weight: 500 !important;
+    font-style: italic !important;
+    text-align: right !important;
+  }
+
+  /* ── DeductionRules – mobile (≤ 575px) ─────────────────────────── */
+  @media (max-width: 575.98px) {
+    .sc-rule-row   { padding: 10px 12px !important; gap: 6px !important; }
+
+    /* left side takes full width → value drops to next line */
+    .sc-rule-left  { flex: 1 1 100% !important; }
+
+    /* override desktop pill constraints for mobile flow */
+    .sc-rule-value { white-space: normal !important; flex-shrink: unset !important; }
+
+    /* exception aligns left on mobile */
+    .sc-val-group  { align-items: flex-start !important; }
+    .sc-except-text { text-align: left !important; }
+
+    .sc-badge-male,
+    .sc-badge-female {
+      margin-right: 8px !important;
+      font-size: 11px !important;
+      padding: 3px 8px !important;
+    }
+    .sc-rule-condition { font-size: 13px !important; }
+
+    /* EPF card columns */
+    .sc-epf-label     { font-size: 11px !important; margin-bottom: 6px !important; }
+    .sc-epf-name      { font-size: 13.5px !important; }
+    .sc-deduction-tag { font-size: 13px !important; padding: 5px 12px !important; }
   }
 `;
 

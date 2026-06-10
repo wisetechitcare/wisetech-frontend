@@ -1005,16 +1005,6 @@ export const updatePaymentById = async (paymentId: string, payload: IPayment) =>
     }
 }
 
-export const recordSalaryPayment = async (payload: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment`;
-        const { data } = await axios.post(endpoint, payload);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
 export const recordGovernmentPayment = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/company/salary/government-payment`;
@@ -1031,28 +1021,6 @@ export const getPaymentHistory = async (salaryId: string) => {
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
-        throw err;
-    }
-}
-
-export const deletePaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
-export const deleteGovernmentPaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/government-payment/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
         throw err;
     }
 }
