@@ -2976,6 +2976,9 @@ export async function fetchEmpMonthlyReimbursements(month: Dayjs, empId = store.
     const startDate = month.startOf('month').format('YYYY-MM-DD');
     const endDate = month.endOf('month').format('YYYY-MM-DD');
     const { data: { reimbursements: empMonthlyReimbursements } } = await fetchReimbursementsForEmployee(empId, startDate, endDate);
+    empMonthlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empMonthlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3004,6 +3007,9 @@ export async function fetchEmpYearlyReimbursements(year: Dayjs, empId = store.ge
 
     const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForEmployee(empId, startDate, endDate);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3030,6 +3036,9 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
     const startDate = month.startOf('month').format('YYYY-MM-DD');
     const endDate = month.endOf('month').format('YYYY-MM-DD');
     const { data: { reimbursements: allEmpMonthlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
+    allEmpMonthlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = allEmpMonthlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3058,6 +3067,9 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
     const startDate = (year.startOf('year').format('YYYY-MM-DD'));
     const endDate = (year.endOf('year').format('YYYY-MM-DD'));
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3083,6 +3095,9 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
 
 export async function fetchAllTimeReimbursementsOfAllEmp() {
     const { data: { reimbursements: allEmpAllTimeReimbursements } } = await fetchAllReimbursementsForAllEmployees();
+    allEmpAllTimeReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = allEmpAllTimeReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3119,6 +3134,9 @@ export async function approveEmpReimbursementRequestById(reimbursementId: string
 
 export async function fetchEmpAlltimeReimbursements(empId = store.getState().employee.currentEmployee.id) {
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchAllReimbursementsForEmployee(empId);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
