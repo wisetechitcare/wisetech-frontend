@@ -120,7 +120,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                                         <span className="text-gray-800 fw-bold fs-7">{displayLabel}</span>
                                                     )}
                                                     {meta?.shortCode && (
-                                                        <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                        <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
                                                     )}
                                                 </div>
                                             </td>

@@ -77,11 +77,22 @@ export const payrollService = {
   recordPayment: async (paymentData: {
     payrollId?: string;
     employeeId: string;
-    amountPaid: number;
+    amountPaid?: number;
+    amount?: number;           // legacy alias
     paymentDate: string;
     paymentMethod: string;
     transactionId?: string;
+    referenceNumber?: string;
     remarks?: string;
+    paymentType?: string;      // legacy alias for paymentCategory
+    paymentCategory?: string;
+    month?: number;
+    year?: number;
+    salaryId?: string;
+    netSalary?: number;
+    totalPaidBefore?: number;
+    skipEmail?: boolean;
+    id?: string;
   }) => {
     const response = await axios.post(`${API_URL}/payroll/payment`, paymentData);
     return response.data;
@@ -99,6 +110,22 @@ export const payrollService = {
     remarks?: string;
   }) => {
     const response = await axios.post(`${API_URL}/payroll/govt-payment`, paymentData);
+    return response.data;
+  },
+
+  /**
+   * Delete a salary or government payment by ID
+   */
+  deletePayment: async (id: string) => {
+    const response = await axios.delete(`${API_URL}/payroll/payment/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Delete a government payment by ID
+   */
+  deleteGovernmentPayment: async (id: string) => {
+    const response = await axios.delete(`${API_URL}/payroll/govt-payment/${id}`);
     return response.data;
   },
 

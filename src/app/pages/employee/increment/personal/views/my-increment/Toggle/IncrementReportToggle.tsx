@@ -10,6 +10,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import DateSelector from '@components/DateSelector';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import AddEditIncrementDialog from '../components/AddEditIncrementDialog';
 import { incrementService } from '../../../../../../../../services/incrementService';
 import { Box, Typography } from '@mui/material';
@@ -165,7 +166,7 @@ const IncrementReportToggle = ({
                                 handleDatesChange('increment', 'year', setYear);
                                 toggleItemsActions?.yearly(year.add(1, 'year'));
                             }}
-                            displayValue={fiscalYear}
+                            displayValue={formatFiscalYearLabel(fiscalYear)}
                             disableNext={disableFutureDates && isYearInFuture(year.add(1, 'year'))}
                         />
                     )}

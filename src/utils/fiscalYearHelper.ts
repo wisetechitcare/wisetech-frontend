@@ -14,6 +14,24 @@ import { generateFiscalYearFromGivenYear } from './file';
  * calculateFiscalMonth(4, 4)  // April = 1 (1st month in fiscal year)
  * calculateFiscalMonth(3, 4)  // March = 12 (12th month in fiscal year)
  */
+/**
+ * Format a fiscal year range string ("2026-04-01 to 2027-03-31") as a
+ * year-only label: "2026-27" when it spans two calendar years, "2026" when
+ * it falls within one. Strings not in "start to end" form are returned as-is.
+ */
+export const formatFiscalYearLabel = (fiscalYear: string): string => {
+    const [start, end] = fiscalYear.split(' to ');
+    if (!start || !end) return fiscalYear;
+
+    const startYear = dayjs(start).year();
+    const endYear = dayjs(end).year();
+    if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) return fiscalYear;
+
+    return startYear === endYear
+        ? `${startYear}`
+        : `${startYear}-${String(endYear).slice(-2)}`;
+};
+
 export const calculateFiscalMonth = (
     calendarMonth: number,
     fiscalStartMonth: number

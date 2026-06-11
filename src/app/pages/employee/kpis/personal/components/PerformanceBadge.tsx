@@ -101,7 +101,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
 
   return (
     <div className="d-flex flex-column flex-lg-row gap-3 mb-4">
-      <style jsx>{`
+      <style>{`
         @keyframes pulse-soft {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.8; transform: scale(0.95); }

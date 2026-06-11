@@ -5,7 +5,7 @@ import DateRangeOutlinedIcon from '@mui/icons-material/DateRangeOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
+import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
 
 interface YearlyOverViewCardProps {
   overview?: {
@@ -23,16 +23,10 @@ interface YearlyOverViewCardProps {
   payableDays?: string | number;
   workingDays?: string | number;
   attendance?: string;
-  leavePercentage?: string;
-  netPayable?: string | number;
-  netPayableLabel?: string;
-  netPayableLabelSubtitle?: React.ReactNode;
-  paidAmount?: string | number;
-  remainingAmount?: string | number;
+  paymentProgress?: string;
   startDate?: string;
   endDate?: string;
   loading?: boolean;
-  showSensitiveData?: boolean;
 }
 
 const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
@@ -44,19 +38,12 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
     payableDays = '-',
     workingDays = '-',
     attendance = '-',
-    leavePercentage = '-',
-    netPayable = '-',
-    netPayableLabel = 'Net Payable This Year',
-    netPayableLabelSubtitle,
+    paymentProgress = '-',
     startDate = '-',
     endDate = '-',
-    showSensitiveData = true,
   } = props;
 
-  const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
-
   const computedPayableDays = overview?.totalPayableDays ?? payableDays;
-  const computedNetPayable = overview?.totalNetAmount ?? netPayable;
   const computedStartDate = overview?.startDate ?? startDate;
   const computedEndDate = overview?.endDate ?? endDate;
   const computedFiscalMonth = overview?.totalMonths ? `${overview?.totalMonths} Months` : fiscalMonth;
@@ -67,11 +54,11 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
 
   const infoRows = [
     { label: 'Fiscal Year', value: paymentYear, icon: <CalendarMonthOutlinedIcon fontSize="small" />, color: '#2563eb' },
-    { label: 'Fiscal Month', value: computedFiscalMonth, icon: <DateRangeOutlinedIcon fontSize="small" />, color: '#8b5cf6' },
+    { label: 'Months Processed', value: computedFiscalMonth, icon: <DateRangeOutlinedIcon fontSize="small" />, color: '#8b5cf6' },
     { label: 'Working Days', value: workingDays, icon: <BusinessCenterOutlinedIcon fontSize="small" />, color: '#0891b2' },
     { label: 'Payable Days', value: computedPayableDays, icon: <EventAvailableOutlinedIcon fontSize="small" />, color: '#16a34a' },
     { label: 'Attendance', value: attendance, icon: <PersonOutlineOutlinedIcon fontSize="small" />, color: '#d97706' },
-    { label: 'Leave Percentage', value: leavePercentage, icon: <EventBusyOutlinedIcon fontSize="small" />, color: '#ef4444' },
+    { label: 'Salary Paid', value: paymentProgress, icon: <PaidOutlinedIcon fontSize="small" />, color: '#059669' },
   ];
 
   return (
@@ -144,32 +131,6 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
           </Grid>
         ))}
       </Grid>
-
-      <Box
-        sx={{
-          mt: 'auto',
-          p: 1.5,
-          borderRadius: '12px',
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Typography sx={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>
-          {netPayableLabel}
-        </Typography>
-        {netPayableLabelSubtitle && (
-          <Typography sx={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 500, mt: 0.2, mb: 0.2 }}>
-            {netPayableLabelSubtitle}
-          </Typography>
-        )}
-        <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, color: '#166534', lineHeight: 1.2 }} className={sensitiveCls}>
-          {typeof computedNetPayable === 'number'
-            ? `₹${Math.round(computedNetPayable).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-            : (String(computedNetPayable).includes('₹') ? computedNetPayable : `₹${computedNetPayable}`)}
-        </Typography>
-      </Box>
     </Paper>
   );
 };

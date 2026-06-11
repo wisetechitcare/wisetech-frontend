@@ -8,6 +8,7 @@ import Yearly from './Yearly';
 import AllTime from './AllTime';
 import { SalaryToggleItemsCallBackFunctions } from '../../../SalaryView';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { IMonthlyApiResponse } from '@redux/slices/salaryData';
 
 interface MaterialToggleProps {
@@ -167,7 +168,7 @@ const SalaryReportToggle = ({ toggleItemsActions, fromAdmin = false, showSensiti
                         }}>
                             <i className="bi bi-chevron-left text-muted fs-6"></i>
                         </button>
-                        <span className="fw-bolder px-4 py-1 fs-6" style={{ color: '#aa393d' }}>{fiscalYear}</span>
+                        <span className="fw-bolder px-4 py-1 fs-6" style={{ color: '#aa393d' }}>{formatFiscalYearLabel(fiscalYear)}</span>
                         <button 
                             className="btn btn-sm btn-icon btn-active-light border-start border-gray-200 rounded-end rounded-0 w-35px h-35px d-flex justify-content-center align-items-center" 
                             onClick={(e) => {

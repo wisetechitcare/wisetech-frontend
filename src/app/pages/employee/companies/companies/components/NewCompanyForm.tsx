@@ -1,4 +1,4 @@
-﻿import {
+import {
   createClientCompany,
   getAllCompanyTypes,
   updateClientCompany,
@@ -702,7 +702,7 @@ const NewCompanyForm: React.FC<Props> = ({
               Add Sub Company
             </button> */}
             <p style={{ marginBottom: "10px", fontSize: "15px" }}>
-              {prefix && `Inquiry Id: ${prefix}`}
+              {prefix && `Company Id: ${prefix}`}
             </p>
           </Typography>
           <IconButton

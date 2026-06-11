@@ -128,7 +128,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
       }} />
 
       {/* Header */}
-      <div style={{
+      <div className="cfg-section-header" style={{
         padding: `${pad} ${pad} ${children && !collapsed ? SP.sm : pad} calc(${pad} + 8px)`,
         display: 'flex',
         justifyContent: 'space-between',
@@ -182,7 +182,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
             </div>
 
             {description && !loading && (
-              <p style={{ fontFamily: FONT.body, fontSize: '12px', color: C.textMuted, fontWeight: 400, margin: '4px 0 0 0', lineHeight: 1.5 }}>
+              <p className="cfg-section-desc" style={{ fontFamily: FONT.body, fontSize: '12px', color: C.textMuted, fontWeight: 400, margin: '4px 0 0 0', lineHeight: 1.5 }}>
                 {description}
               </p>
             )}
@@ -193,7 +193,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
         </div>
 
         {/* Right: actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexShrink: 0 }}>
+        <div className="cfg-section-actions" style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexShrink: 0 }}>
           {headerRight}
           {!loading && secondaryActions.map((a, i) => <ActionBtn key={i} action={a} />)}
           {!loading && primaryAction && <ActionBtn action={primaryAction} />}

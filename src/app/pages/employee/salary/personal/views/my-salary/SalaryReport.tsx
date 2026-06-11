@@ -14,7 +14,7 @@ import { RootState, store } from '@redux/store';
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetchSalaryHistory, updateConfigurationById } from '@services/company';
 // import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
+import { createNewPayment, createUpdateGrossPayDeductions, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
 import { payrollService } from '@modules/payroll/services/payrollService';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -80,13 +80,13 @@ interface SalaryReportProps {
 }
 
 const formatINRDecimal = (n: number) =>
-    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 
 const formatINRRounded = (n: number) =>
-    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
@@ -553,10 +553,11 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     {Object.entries(data.variable).map(([key, item], index) => {
                                         const isHourly = index < 2;
                                         const hourlySalaryVal = apiSalaryData?.hourlySalary;
-                                        const dailySalaryVal = hourlySalaryVal ? hourlySalaryVal * 8 : undefined;
+                                        const dailySalaryVal = apiSalaryData?.employeeCardDeatils?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
                                         const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
-                                        const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0 
-                                            ? `${formatCurrency(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
+                                        const displayRateValue = rateValue ? Math.floor(rateValue * 100) / 100 : undefined;
+                                        const rateLabel = displayRateValue && typeof displayRateValue === 'number' && displayRateValue > 0 
+                                            ? `${formatCurrency(displayRateValue)} / ${isHourly ? 'Hour' : 'Day'}`
                                             : '-';
                                         
                                         return (
@@ -1484,7 +1485,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     const handlePaymentDelete = async (payment: IPayment) => {
         try {
-            await deletePaymentById(payment.id);
+            await payrollService.deletePayment(payment.id);
             successConfirmation('Payment deleted successfully');
             fetchPayments();
             dispatch(saveToggleChange(!toggleChange));

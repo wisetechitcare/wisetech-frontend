@@ -250,38 +250,52 @@ const GrossPayDistribution = () => {
   ];
 
   return (
-    <div className="mb-10 p-8" style={{ backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
-      <div className="d-flex justify-content-between align-items-center mb-6">
-        <h2 style={{
-          fontFamily: 'Barlow, sans-serif',
-          fontWeight: 700,
-          fontSize: '24px',
-          color: '#181C32',
-          letterSpacing: '-0.5px',
-          margin: 0
-        }}>Gross Pay Distribution</h2>
-        
+    <div className="mb-10 sc-container" style={{ padding: '28px', backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: '12px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        marginBottom: '20px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '34px', height: '34px', borderRadius: '9px',
+            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          }}>
+            <i className="bi bi-cash-stack" style={{ fontSize: '15px', color: '#fff' }} />
+          </div>
+          <div>
+            <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+              Gross Pay Distribution
+            </h2>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+              Define how gross pay splits across salary components
+            </p>
+          </div>
+        </div>
+
         {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && (
-          <button
-            className="btn btn-sm d-flex align-items-center gap-2"
-            onClick={() => handleNew()}
-            style={{
-              backgroundColor: '#9d4141',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 20px',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 600,
-              fontSize: '14px',
-              boxShadow: '0 4px 12px rgba(157, 65, 65, 0.15)',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(157, 65, 65, 0.2)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(157, 65, 65, 0.15)'; }}
-          >
-            <i className="bi bi-plus-lg"></i> Add New Category
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              className="btn btn-sm d-flex align-items-center gap-2"
+              onClick={() => handleNew()}
+              style={{
+                backgroundColor: '#9d4141', color: '#fff', border: 'none',
+                borderRadius: '9px', padding: '9px 18px',
+                fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px',
+                boxShadow: '0 3px 10px rgba(157,65,65,0.2)', transition: 'all 0.15s ease',
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(157,65,65,0.28)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.2)'; }}
+            >
+              <i className="bi bi-plus-lg"></i> Add New Category
+            </button>
+          </div>
         )}
       </div>
       <MaterialTable
@@ -330,10 +344,10 @@ const GrossPayDistribution = () => {
       )}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-modal-body" style={{
           backgroundColor: '#ffffff',
           borderRadius: '16px',
-          padding: '32px 40px',
+          padding: '28px 32px',
         }}>
           <div className="d-flex justify-content-between align-items-center mb-5">
             <div style={{
@@ -370,27 +384,27 @@ const GrossPayDistribution = () => {
                 id="gross_pay_distribution_form"
                
               >
-                <div className="row">
-                  <div className="col-lg-6">
+                <div className="row g-3">
+                  <div className="col-12 col-sm-6">
                     <TextInput
                       isRequired={true}
                       label="Enter Name"
-                      margin="mb-7"
+                      margin="mb-3"
                       formikField="name"
                       readonly={isBasicSalaryRow}
                     />
                   </div>
 
-                  <div className="col-lg-6">
+                  <div className="col-12 col-sm-6">
                     <TextInput
                       isRequired={true}
                       label="Enter value"
-                      margin="mb-7"
+                      margin="mb-3"
                       formikField="value"
                     />
                   </div>
 
-                  <div className="col-lg-12">
+                  <div className="col-12">
                     <DropDownInput
                       isRequired={true}
                       formikField="type"
@@ -399,7 +413,7 @@ const GrossPayDistribution = () => {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
                   <button
                     type="button"
                     onClick={handleClose}

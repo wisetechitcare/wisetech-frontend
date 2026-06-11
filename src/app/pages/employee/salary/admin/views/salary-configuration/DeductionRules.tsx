@@ -224,149 +224,147 @@ function DeductionRules() {
   const professionalTax = config.professionalTax || null;
   const providentFund = config.providentFund || null;
 
-  // Styles matching premium modern UI
   const styles = {
     container: {
       backgroundColor: '#f8f9fa',
       borderRadius: '16px',
-      padding: '32px',
+      padding: '28px',
       display: 'flex',
       flexDirection: 'column' as const,
-      gap: '32px',
+      gap: '24px',
     },
     headerTitle: {
       fontFamily: 'Barlow, sans-serif',
       fontWeight: 700,
-      fontSize: '28px',
+      fontSize: '24px',
       color: '#181C32',
       marginBottom: '8px',
       letterSpacing: '-0.5px',
     },
-    headerDesc: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 500,
-      fontSize: '14px',
-      color: '#A1A5B7',
-    },
     card: {
       backgroundColor: '#ffffff',
-      border: '1px solid #E1E3EA',
+      border: '1px solid #E8EAF0',
       borderRadius: '16px',
       display: 'flex',
       flexDirection: 'column' as const,
       overflow: 'hidden',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+      boxShadow: '0 2px 12px rgba(24,28,50,0.05)',
       transition: 'box-shadow 0.2s ease',
     },
     cardHeader: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: '24px 32px',
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #f0f0f0',
+      flexWrap: 'wrap' as const,
+      gap: '10px',
+      padding: '18px 22px',
+      background: 'linear-gradient(135deg, #ffffff 0%, #fdf9f9 100%)',
+      borderBottom: '1px solid #f0f2f7',
     },
-    cardTitle: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 700,
-      fontSize: '18px',
-      color: '#181C32',
-      margin: 0,
+    cardHeaderLeft: {
       display: 'flex',
       alignItems: 'center',
-      gap: '12px',
+      gap: '14px',
     },
-    iconWrapper: {
-      width: '40px',
-      height: '40px',
-      borderRadius: '10px',
-      backgroundColor: '#fdf3f4',
+    cardIcon: {
+      width: '44px',
+      height: '44px',
+      borderRadius: '12px',
+      background: 'linear-gradient(135deg, #fdf3f4 0%, #fce8e8 100%)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       color: '#9d4141',
       fontSize: '20px',
+      boxShadow: '0 3px 10px rgba(157,65,65,0.12)',
+      border: '1px solid rgba(157,65,65,0.08)',
+      flexShrink: 0 as const,
+    },
+    cardIconBlue: {
+      width: '44px',
+      height: '44px',
+      borderRadius: '12px',
+      background: 'linear-gradient(135deg, #e1f0fa 0%, #cce4f6 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#0085db',
+      fontSize: '20px',
+      boxShadow: '0 3px 10px rgba(0,133,219,0.12)',
+      border: '1px solid rgba(0,133,219,0.08)',
+      flexShrink: 0 as const,
+    },
+    cardTitle: {
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 700,
+      fontSize: '16px',
+      color: '#181C32',
+      margin: 0,
+    },
+    cardSubtitle: {
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 400,
+      fontSize: '12px',
+      color: '#A1A5B7',
+      margin: '2px 0 0 0',
     },
     configureBtn: {
       backgroundColor: '#ffffff',
       border: '1px solid #E1E3EA',
-      borderRadius: '8px',
+      borderRadius: '9px',
       color: '#3F4254',
-      padding: '0 20px',
-      height: '40px',
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 600,
-      fontSize: '14px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-      cursor: 'pointer',
-      transition: 'all 0.2s ease',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-    },
-    cardBody: {
-      padding: '32px',
-    },
-    columnHeader: {
+      padding: '8px 18px',
       fontFamily: 'Inter, sans-serif',
       fontWeight: 600,
       fontSize: '13px',
-      color: '#B5B5C3',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '7px',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      boxShadow: '0 1px 4px rgba(24,28,50,0.06)',
+      whiteSpace: 'nowrap' as const,
+    },
+    cardBody: {
+      padding: '20px 22px',
+    },
+    sectionLabel: {
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 700,
+      fontSize: '10.5px',
+      color: '#A1A5B7',
+      letterSpacing: '1.2px',
       textTransform: 'uppercase' as const,
-      letterSpacing: '1px',
-      marginBottom: '20px',
+      marginBottom: '14px',
+    },
+    genderGroupHeader: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      marginBottom: '10px',
+    },
+    genderLine: {
+      flex: 1,
+      height: '1px',
+      backgroundColor: '#eef0f5',
     },
     ruleRow: {
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '16px 20px',
-      backgroundColor: '#fafafa',
-      border: '1px dashed #E1E3EA',
-      borderRadius: '12px',
-      marginBottom: '12px',
-      transition: 'background-color 0.2s ease',
-    },
-    badgeMale: {
-      backgroundColor: '#e1f0fa',
-      color: '#0085db',
-      padding: '4px 10px',
-      borderRadius: '6px',
-      fontSize: '12px',
-      fontWeight: 700,
-      marginRight: '12px',
-      textTransform: 'uppercase' as const,
-    },
-    badgeFemale: {
-      backgroundColor: '#fcecf2',
-      color: '#d61a5e',
-      padding: '4px 10px',
-      borderRadius: '6px',
-      fontSize: '12px',
-      fontWeight: 700,
-      marginRight: '12px',
-      textTransform: 'uppercase' as const,
+      flexWrap: 'nowrap' as const,
+      gap: '12px',
     },
     ruleCondition: {
       fontFamily: 'Inter, sans-serif',
       fontWeight: 600,
-      fontSize: '15px',
+      fontSize: '13.5px',
       color: '#3F4254',
-    },
-    ruleValue: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 700,
-      fontSize: '15px',
-      color: '#181C32',
-    },
-    tagValue: {
-      backgroundColor: '#f1f1f4',
-      padding: '6px 12px',
-      borderRadius: '8px',
-      color: '#3F4254',
-      fontWeight: 600,
-      fontSize: '14px',
+      flex: 1,
+      minWidth: 0,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap' as const,
     },
     noData: {
       fontFamily: 'Inter, sans-serif',
@@ -375,10 +373,29 @@ function DeductionRules() {
       color: '#A1A5B7',
       fontStyle: 'italic',
       textAlign: 'center' as const,
-      padding: '40px 0',
+      padding: '32px 0',
       backgroundColor: '#f9f9f9',
       borderRadius: '12px',
       border: '1px dashed #E1E3EA',
+    },
+    epfRow: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '3px',
+    },
+    epfLabel: {
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 600,
+      fontSize: '10.5px',
+      color: '#A1A5B7',
+      letterSpacing: '1px',
+      textTransform: 'uppercase' as const,
+    },
+    epfValue: {
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: 600,
+      fontSize: '15px',
+      color: '#181C32',
     },
     sectionHeader: {
       display: 'flex',
@@ -413,140 +430,267 @@ function DeductionRules() {
   };
 
   return (
-    <div style={styles.container}>
-      <div>
-        <h1 style={styles.headerTitle}>Deductions Rules</h1>
-        {/* <p style={styles.headerDesc}>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p> */}
+    <div className="sc-container" style={styles.container}>
+      {/* ── Gradient section header (matches General Settings pattern) ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap' as const, gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '34px', height: '34px', borderRadius: '9px',
+            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          }}>
+            <i className="bi bi-dash-square-fill" style={{ fontSize: '15px', color: '#fff' }} />
+          </div>
+          <div>
+            <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+              Deductions Rules
+            </h2>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+              Professional tax slabs, provident fund &amp; deduction rules
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Professional Tax Card */}
-      <div style={styles.card} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)'}>
-        <div style={styles.cardHeader}>
-          <h3 style={styles.cardTitle}>
-            <div style={styles.iconWrapper}>
-              <i className="bi bi-bank"></i>
+      {/* ── Professional Tax Card ─────────────────────────────── */}
+      <div
+        style={styles.card}
+        onMouseOver={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 28px rgba(24,28,50,0.08)'}
+        onMouseOut={(e)  => (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 12px rgba(24,28,50,0.05)'}
+      >
+        {/* Card header */}
+        <div className="sc-card-header" style={styles.cardHeader}>
+          <div style={styles.cardHeaderLeft}>
+            <div style={styles.cardIcon}><i className="bi bi-bank"></i></div>
+            <div>
+              <h3 style={styles.cardTitle}>Professional Tax</h3>
+              <p style={styles.cardSubtitle}>Monthly salary-based tax deductions per gender</p>
             </div>
-            Professional Tax
-          </h3>
+          </div>
           {canEdit && (
             <button
+              className="sc-configure-btn"
               style={styles.configureBtn}
               onClick={() => setShowPTModal(true)}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.12)'; }}
+              onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
-              <i className="bi bi-pencil-square"></i> Configure
+              <i className="bi bi-pencil-square" style={{ fontSize: '13px' }}></i> Configure
             </button>
           )}
         </div>
 
-        <div style={styles.cardBody}>
-          <div className="row">
-            <div className="col-12">
-              <div style={styles.columnHeader}>Configured Rules</div>
-              {professionalTax ? (
-                <div className="d-flex flex-column gap-2">
+        {/* Card body */}
+        <div className="sc-card-body" style={styles.cardBody}>
+          {professionalTax ? (
+            <>
+              <div style={styles.sectionLabel}>Configured Rules</div>
+
+              {/* ── Male group ──────────────────────────────────── */}
+              <div style={{ marginBottom: '18px' }}>
+                <div style={styles.genderGroupHeader}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    backgroundColor: '#e1f0fa', color: '#0085db',
+                    border: '1px solid rgba(0,133,219,0.18)',
+                    borderRadius: '99px', padding: '4px 12px',
+                    fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 700,
+                    letterSpacing: '0.5px', textTransform: 'uppercase' as const, flexShrink: 0,
+                  }}>
+                    <i className="bi bi-gender-male" style={{ fontSize: '12px' }}></i> Male
+                  </span>
+                  <div style={styles.genderLine}></div>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: '#A1A5B7', flexShrink: 0 }}>
+                    {[professionalTax.male.till, professionalTax.male.range, professionalTax.male.moreThan].filter(r => r.isActive).length} rules
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                   {professionalTax.male.till.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeMale}>Male</span>
-                        <span style={styles.ruleCondition}>Till ₹{professionalTax.male.till.maxValue}</span>
-                      </div>
-                      <span style={styles.ruleValue}>{professionalTax.male.till.monthlyTax === 0 ? "NIL" : `₹${professionalTax.male.till.monthlyTax} / month`}</span>
+                    <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
+                      <span className="sc-rule-condition" style={styles.ruleCondition}>
+                        Till ₹{professionalTax.male.till.maxValue}
+                      </span>
+                      <span className={`sc-rule-value ${professionalTax.male.till.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`}>
+                        {professionalTax.male.till.monthlyTax === 0 ? 'NIL' : `₹${professionalTax.male.till.monthlyTax} / month`}
+                      </span>
                     </div>
                   )}
                   {professionalTax.male.range.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeMale}>Male</span>
-                        <span style={styles.ruleCondition}>₹{professionalTax.male.range.minValue} - ₹{professionalTax.male.range.maxValue}</span>
-                      </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.male.range.monthlyTax} / month</span>
+                    <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
+                      <span className="sc-rule-condition" style={styles.ruleCondition}>
+                        ₹{professionalTax.male.range.minValue} – ₹{professionalTax.male.range.maxValue}
+                      </span>
+                      <span className="sc-rule-value sc-val-amount">
+                        ₹{professionalTax.male.range.monthlyTax} / month
+                      </span>
                     </div>
                   )}
                   {professionalTax.male.moreThan.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeMale}>Male</span>
-                        <span style={styles.ruleCondition}>Above ₹{professionalTax.male.moreThan.minValue}</span>
-                      </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.male.moreThan.monthlyTax} / month <span style={{fontSize: '12px', color: '#A1A5B7', fontWeight: 500}}>(Except {getMonthName(professionalTax.male.lastMonth.month)}: ₹{professionalTax.male.lastMonth.monthlyTax})</span></span>
-                    </div>
-                  )}
-                  {professionalTax.female.till.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeFemale}>Female</span>
-                        <span style={styles.ruleCondition}>Till ₹{professionalTax.female.till.maxValue}</span>
-                      </div>
-                      <span style={styles.ruleValue}>{professionalTax.female.till.monthlyTax === 0 ? "NIL" : `₹${professionalTax.female.till.monthlyTax} / month`}</span>
-                    </div>
-                  )}
-                  {professionalTax.female.range.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeFemale}>Female</span>
-                        <span style={styles.ruleCondition}>₹{professionalTax.female.range.minValue} - ₹{professionalTax.female.range.maxValue}</span>
-                      </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.female.range.monthlyTax} / month</span>
-                    </div>
-                  )}
-                  {professionalTax.female.moreThan.isActive && (
-                    <div style={styles.ruleRow}>
-                      <div className="d-flex align-items-center">
-                        <span style={styles.badgeFemale}>Female</span>
-                        <span style={styles.ruleCondition}>Above ₹{professionalTax.female.moreThan.minValue}</span>
-                      </div>
-                      <span style={styles.ruleValue}>₹{professionalTax.female.moreThan.monthlyTax} / month <span style={{fontSize: '12px', color: '#A1A5B7', fontWeight: 500}}>(Except {getMonthName(professionalTax.female.lastMonth.month)}: ₹{professionalTax.female.lastMonth.monthlyTax})</span></span>
+                    <div className="sc-rule-row sc-rule-male" style={styles.ruleRow}>
+                      <span className="sc-rule-condition" style={styles.ruleCondition}>
+                        Above ₹{professionalTax.male.moreThan.minValue}
+                      </span>
+                      <span className="sc-val-group">
+                        <span className="sc-rule-value sc-val-amount">
+                          ₹{professionalTax.male.moreThan.monthlyTax} / month
+                        </span>
+                        <span className="sc-except-text">
+                          Except {getMonthName(professionalTax.male.lastMonth.month)}: ₹{professionalTax.male.lastMonth.monthlyTax}
+                        </span>
+                      </span>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div style={styles.noData}><i className="bi bi-info-circle me-2"></i>No Professional Tax rules configured</div>
-              )}
-            </div>
-          </div>
+              </div>
+
+              {/* Gender divider */}
+              <div style={{ height: '1px', background: 'linear-gradient(to right, #f0f2f7, #e8eaf0, #f0f2f7)', margin: '4px 0 18px' }}></div>
+
+              {/* ── Female group ─────────────────────────────────── */}
+              <div>
+                <div style={styles.genderGroupHeader}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    backgroundColor: '#fff0f6', color: '#e91e8c',
+                    border: '1px solid rgba(233,30,140,0.18)',
+                    borderRadius: '99px', padding: '4px 12px',
+                    fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 700,
+                    letterSpacing: '0.5px', textTransform: 'uppercase' as const, flexShrink: 0,
+                  }}>
+                    <i className="bi bi-gender-female" style={{ fontSize: '12px' }}></i> Female
+                  </span>
+                  <div style={styles.genderLine}></div>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: '#A1A5B7', flexShrink: 0 }}>
+                    {[professionalTax.female.till, professionalTax.female.range, professionalTax.female.moreThan].filter(r => r.isActive).length} rules
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  {professionalTax.female.till.isActive && (
+                    <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
+                      <span className="sc-rule-condition" style={styles.ruleCondition}>
+                        Till ₹{professionalTax.female.till.maxValue}
+                      </span>
+                      <span className={`sc-rule-value ${professionalTax.female.till.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`}>
+                        {professionalTax.female.till.monthlyTax === 0 ? 'NIL' : `₹${professionalTax.female.till.monthlyTax} / month`}
+                      </span>
+                    </div>
+                  )}
+                  {professionalTax.female.range.isActive && (
+                    <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
+                      <span className="sc-rule-condition" style={styles.ruleCondition}>
+                        ₹{professionalTax.female.range.minValue} – ₹{professionalTax.female.range.maxValue}
+                      </span>
+                      <span className={`sc-rule-value ${professionalTax.female.range.monthlyTax === 0 ? 'sc-val-nil' : 'sc-val-amount'}`}>
+                        {professionalTax.female.range.monthlyTax === 0 ? 'NIL' : `₹${professionalTax.female.range.monthlyTax} / month`}
+                      </span>
+                    </div>
+                  )}
+                  {professionalTax.female.moreThan.isActive && (
+                    <div className="sc-rule-row sc-rule-female" style={styles.ruleRow}>
+                      <span className="sc-rule-condition" style={styles.ruleCondition}>
+                        Above ₹{professionalTax.female.moreThan.minValue}
+                      </span>
+                      <span className="sc-val-group">
+                        <span className="sc-rule-value sc-val-amount">
+                          ₹{professionalTax.female.moreThan.monthlyTax} / month
+                        </span>
+                        <span className="sc-except-text">
+                          Except {getMonthName(professionalTax.female.lastMonth.month)}: ₹{professionalTax.female.lastMonth.monthlyTax}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={styles.noData}><i className="bi bi-info-circle me-2"></i>No Professional Tax rules configured</div>
+          )}
         </div>
       </div>
 
-      {/* Provident Fund Card */}
-      <div style={styles.card} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)'}>
-        <div style={styles.cardHeader}>
-          <h3 style={styles.cardTitle}>
-            <div style={styles.iconWrapper}>
-              <i className="bi bi-shield-check"></i>
+      {/* ── Employee Provident Fund Card ──────────────────────── */}
+      <div
+        style={styles.card}
+        onMouseOver={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 28px rgba(24,28,50,0.08)'}
+        onMouseOut={(e)  => (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 12px rgba(24,28,50,0.05)'}
+      >
+        {/* Card header */}
+        <div className="sc-card-header" style={{ ...styles.cardHeader, background: 'linear-gradient(135deg, #ffffff 0%, #f7fbff 100%)' }}>
+          <div style={styles.cardHeaderLeft}>
+            <div style={styles.cardIconBlue}><i className="bi bi-shield-check"></i></div>
+            <div>
+              <h3 style={styles.cardTitle}>Employee Provident Fund (EPF)</h3>
+              <p style={styles.cardSubtitle}>Percentage-based retirement savings deduction</p>
             </div>
-            Employee Provident Fund (EPF)
-          </h3>
+          </div>
           {canEdit && (
             <button
+              className="sc-configure-btn"
               style={styles.configureBtn}
               onClick={() => setShowPFModal(true)}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#e1f0fa'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,133,219,0.12)'; }}
+              onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
-              <i className="bi bi-pencil-square"></i> Configure
+              <i className="bi bi-pencil-square" style={{ fontSize: '13px' }}></i> Configure
             </button>
           )}
         </div>
 
-        <div style={styles.cardBody}>
-          <div className="row">
-            <div className="col-md-6">
-              <div style={styles.columnHeader}>Fund Name</div>
-              {providentFund ? (
-                <div style={styles.ruleCondition}>{providentFund.name}</div>
-              ) : (
-                <div style={styles.noData}>No EPF configured</div>
-              )}
+        {/* Card body */}
+        <div className="sc-card-body" style={styles.cardBody}>
+          {providentFund ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap' as const,
+              gap: '16px',
+              padding: '14px 18px',
+              background: 'linear-gradient(135deg, #f7fbff 0%, #eef6fd 100%)',
+              borderRadius: '12px',
+              border: '1px solid rgba(0,133,219,0.1)',
+            }}>
+              {/* Fund name */}
+              <div style={{ flex: 1, minWidth: '180px' }}>
+                <div className="sc-epf-label" style={styles.epfLabel}>Fund Name</div>
+                <div className="sc-epf-name" style={styles.epfValue}>{providentFund.name}</div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ width: '1px', height: '36px', backgroundColor: 'rgba(0,133,219,0.15)', flexShrink: 0 }}
+                className="d-none d-sm-block"
+              ></div>
+
+              {/* Deduction rate */}
+              <div style={{ flexShrink: 0 }}>
+                <div className="sc-epf-label" style={styles.epfLabel}>Deduction Rate</div>
+                <div style={{ marginTop: '4px' }}>
+                  <span className="sc-deduction-tag" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                    backgroundColor: '#e1f0fa', color: '#0085db',
+                    border: '1px solid rgba(0,133,219,0.2)',
+                    borderRadius: '9px', padding: '6px 14px',
+                    fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 700,
+                  }}>
+                    <i className="bi bi-percent" style={{ fontSize: '12px' }}></i>
+                    {providentFund.deduction}% of Basic
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="col-md-6">
-              <div style={styles.columnHeader}>Deduction Rate</div>
-              {providentFund && (
-                <div><span style={styles.tagValue}>{providentFund.deduction}% of Basic</span></div>
-              )}
-            </div>
-          </div>
+          ) : (
+            <div style={styles.noData}><i className="bi bi-info-circle me-2"></i>No EPF configured</div>
+          )}
         </div>
       </div>
 
@@ -554,18 +698,18 @@ function DeductionRules() {
 
       {/* Professional Tax Modal */}
       <Modal show={showPTModal} onHide={() => setShowPTModal(false)} size="lg" centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-modal-body-lg" style={{
           backgroundColor: '#f8f9fa',
           borderRadius: '16px',
-          padding: '32px 40px',
+          padding: '28px 32px',
           maxHeight: '85vh',
           overflowY: 'auto'
         }}>
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <div style={{
+            <div className="sc-modal-title" style={{
               fontFamily: 'Barlow, sans-serif',
               fontWeight: 700,
-              fontSize: '26px',
+              fontSize: '22px',
               color: '#181C32',
               letterSpacing: '-0.5px',
             }}>
@@ -602,17 +746,17 @@ function DeductionRules() {
                   <div style={styles.sectionTitle}>FOR MALE</div>
                   <div style={styles.sectionDivider}></div>
                 </div>
-                <div style={{
-                  backgroundColor: '#FFFFFF', 
-                  borderRadius: '16px', 
-                  padding: '28px 24px',
+                <div className="sc-section-panel" style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '16px',
+                  padding: '24px 20px',
                   border: '1px solid #E1E3EA',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-                  marginBottom: '24px'
+                  marginBottom: '20px'
                 }}>
 
                   {/* Header Row */}
-                  <div className="row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '1px'}}>
+                  <div className="pt-header-row row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '12px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '0.8px'}}>
                     <div className="col-2"></div>
                     <div className="col-4">Monthly Gross Salary</div>
                     <div className="col-4">Monthly Tax</div>
@@ -743,15 +887,15 @@ function DeductionRules() {
                   <div style={styles.sectionDivider}></div>
                 </div>
 
-                <div style={{
-                  backgroundColor: '#FFFFFF', 
-                  borderRadius: '16px', 
-                  padding: '28px 24px',
+                <div className="sc-section-panel" style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: '16px',
+                  padding: '24px 20px',
                   border: '1px solid #E1E3EA',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
                 }}>
                   {/* Header Row */}
-                  <div className="row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '1px'}}>
+                  <div className="pt-header-row row mb-4" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '12px', color: '#B5B5C3', textTransform: 'uppercase', letterSpacing: '0.8px'}}>
                     <div className="col-2"></div>
                     <div className="col-4">Monthly Gross Salary</div>
                     <div className="col-4">Monthly Tax</div>
@@ -876,7 +1020,7 @@ function DeductionRules() {
                 </div>
 
                 {/* Save Button */}
-                <div className="d-flex justify-content-end mt-4 pt-3" style={{ borderTop: '1px solid #E1E3EA' }}>
+                <div className="d-flex justify-content-end sc-form-footer mt-4 pt-3" style={{ borderTop: '1px solid #E1E3EA' }}>
                   <button
                     type="button"
                     onClick={() => setShowPTModal(false)}
@@ -929,10 +1073,10 @@ function DeductionRules() {
 
       {/* Provident Fund Modal */}
       <Modal show={showPFModal} onHide={() => setShowPFModal(false)} centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-pf-modal sc-modal-body" style={{
           backgroundColor: '#ffffff',
           borderRadius: '12px',
-          padding: '40px 44px',
+          padding: '32px 36px',
         }}>
           <div style={{
             fontFamily: 'Barlow, sans-serif',

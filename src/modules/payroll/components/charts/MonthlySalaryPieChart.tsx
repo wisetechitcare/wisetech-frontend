@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Paper, Typography, LinearProgress } from '@mui/material';
+import { Box, Paper, Typography, LinearProgress, Chip } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { SalarySlipProps } from '@pages/employee/salary/utils/salarySlipDataTransformer';
 import { formatCurrencyRounded } from '@utils/currency';
@@ -12,17 +12,27 @@ interface MonthlySalaryPieChartProps {
 const EARNING_COLORS = [
     '#22c55e', '#10b981', '#14b8a6', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6'
 ];
+
 const DEDUCTION_COLORS = [
-    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#f43f5e', '#ec4899'
+    '#ef4444', '#f43f5e', '#ec4899', '#dc2626',
 ];
+
+const OT_COLOR = '#f59e0b';
+
+function isOvertime(name: string): boolean {
+    const n = name.toLowerCase();
+    return (
+        n.includes('over time') || n.includes('overtime') ||
+        n === 'ot' || n.startsWith('ot ') || n.includes(' ot')
+    );
+}
 
 const renderActiveShape = (props: any) => {
     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
     return (
         <g>
             <Sector
-                cx={cx}
-                cy={cy}
+                cx={cx} cy={cy}
                 innerRadius={innerRadius}
                 outerRadius={outerRadius + 8}
                 startAngle={startAngle}
@@ -30,7 +40,6 @@ const renderActiveShape = (props: any) => {
                 fill={fill}
                 style={{ filter: `drop-shadow(0px 4px 10px ${fill}40)` }}
                 cursor="pointer"
-                className="transition-all duration-300"
             />
         </g>
     );
@@ -40,82 +49,63 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
     const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
 
-    const { grossPay, netPay, totalDeductions, retainPercentage } = useMemo(() => {
-        if (!salarySlipProps) return { grossPay: 0, netPay: 0, totalDeductions: 0, retainPercentage: 0 };
-
+    const { grossPay, totalDeductions } = useMemo(() => {
+        if (!salarySlipProps) return { grossPay: 0, totalDeductions: 0 };
         const gross = parseFloat(salarySlipProps.totalGrossPayEarned.replace(/,/g, '')) || 0;
-        const net = parseFloat(salarySlipProps.finalAmount.replace(/,/g, '')) || 0;
-        
+        const net   = parseFloat(salarySlipProps.finalAmount.replace(/,/g, '')) || 0;
         let deductions = gross - net;
         if (deductions < 0) deductions = 0;
-
-        const retainPct = gross > 0 ? (net / gross) * 100 : 0;
-
-        return { grossPay: gross, netPay: net, totalDeductions: deductions, retainPercentage: retainPct };
+        return { grossPay: gross, totalDeductions: deductions };
     }, [salarySlipProps]);
 
-    const data = useMemo(() => {
-        if (!salarySlipProps || grossPay === 0) return [];
-        
-        const chartData: Array<{ name: string; value: number; color: string }> = [];
-        let earningIndex = 0;
-        let deductionIndex = 0;
-        
-        // 1. Work Earnings (Variable & Fixed)
-        salarySlipProps.grossPayVariable.forEach((item) => {
-            const val = parseFloat(item.earned.replace(/,/g, '')) || 0;
-            if (val > 0) {
-                chartData.push({
-                    name: item.name || 'Work Earning',
-                    value: val,
-                    color: EARNING_COLORS[earningIndex % EARNING_COLORS.length]
-                });
-                earningIndex++;
-            }
-        });
+    const { data, overtimeItems } = useMemo(() => {
+        if (!salarySlipProps || grossPay === 0) return { data: [], overtimeItems: [] };
+
+        const chartData: Array<{ name: string; value: number; color: string; kind: 'earning' | 'deduction' | 'overtime' }> = [];
+        const otItems:   Array<{ name: string; value: number }> = [];
+        let earningIdx = 0, deductionIdx = 0;
+
+        // Fixed earnings — always part of salary
         salarySlipProps.grossPayFixed.forEach((item) => {
             const val = parseFloat(item.earned.replace(/,/g, '')) || 0;
             if (val > 0) {
-                chartData.push({
-                    name: item.name || 'Fixed Earning',
-                    value: val,
-                    color: EARNING_COLORS[earningIndex % EARNING_COLORS.length]
-                });
-                earningIndex++;
-            }
-        });
-        
-        // 2. Attendance Adjustments (Variable Deductions)
-        salarySlipProps.deductions.forEach((deduction) => {
-            const val = parseFloat(deduction.earned.replace(/,/g, '')) || 0;
-            if (val > 0) {
-                chartData.push({
-                    name: deduction.name || 'Attendance Adjustment',
-                    value: val,
-                    color: DEDUCTION_COLORS[deductionIndex % DEDUCTION_COLORS.length]
-                });
-                deductionIndex++;
+                chartData.push({ name: item.name || 'Fixed Earning', value: val, color: EARNING_COLORS[earningIdx % EARNING_COLORS.length], kind: 'earning' });
+                earningIdx++;
             }
         });
 
-        // 3. Government & Payroll Deductions (Fixed Deductions)
-        salarySlipProps.taxes.forEach((tax) => {
-            const val = parseFloat(tax.earned.replace(/,/g, '')) || 0;
-            if (val > 0) {
-                let displayName = tax.name || 'Govt/Payroll Deduction';
-                if (displayName === 'Professional Fees') {
-                    displayName = 'Tax Deducted at Source (TDS)';
-                }
-                chartData.push({
-                    name: displayName,
-                    value: val,
-                    color: DEDUCTION_COLORS[deductionIndex % DEDUCTION_COLORS.length]
-                });
-                deductionIndex++;
+        // Variable earnings — OT gets its own segment + callout, rest stays in chart
+        salarySlipProps.grossPayVariable.forEach((item) => {
+            const val = parseFloat(item.earned.replace(/,/g, '')) || 0;
+            if (val <= 0) return;
+            if (isOvertime(item.name)) {
+                otItems.push({ name: item.name, value: val });
+                chartData.push({ name: item.name, value: val, color: OT_COLOR, kind: 'overtime' });
+            } else {
+                chartData.push({ name: item.name || 'Work Earning', value: val, color: EARNING_COLORS[earningIdx % EARNING_COLORS.length], kind: 'earning' });
+                earningIdx++;
             }
         });
 
-        return chartData;
+        // Deductions
+        salarySlipProps.deductions.forEach((d) => {
+            const val = parseFloat(d.earned.replace(/,/g, '')) || 0;
+            if (val > 0) {
+                chartData.push({ name: d.name || 'Deduction', value: val, color: DEDUCTION_COLORS[deductionIdx % DEDUCTION_COLORS.length], kind: 'deduction' });
+                deductionIdx++;
+            }
+        });
+        salarySlipProps.taxes.forEach((t) => {
+            const val = parseFloat(t.earned.replace(/,/g, '')) || 0;
+            if (val > 0) {
+                let name = t.name || 'Tax';
+                if (name === 'Professional Fees') name = 'TDS';
+                chartData.push({ name, value: val, color: DEDUCTION_COLORS[deductionIdx % DEDUCTION_COLORS.length], kind: 'deduction' });
+                deductionIdx++;
+            }
+        });
+
+        return { data: chartData, overtimeItems: otItems };
     }, [salarySlipProps, grossPay]);
 
     if (!salarySlipProps || grossPay === 0) {
@@ -126,56 +116,78 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
         );
     }
 
-    const onPieEnter = (_: any, index: number) => {
-        setActiveIndex(index);
-    };
+    const onPieEnter = (_: any, index: number) => setActiveIndex(index);
+    const onPieLeave = () => setActiveIndex(undefined);
 
-    const onPieLeave = () => {
-        setActiveIndex(undefined);
-    };
-
-    // Determine Center Text
-    let centerLabel = 'Monthly Salary';
-    let centerValue = formatCurrencyRounded(salarySlipProps.baseMonthlySalary ?? netPay);
-    
+    let centerLabel = 'Total Salary';
+    let centerValue = formatCurrencyRounded(grossPay);
     if (activeIndex !== undefined && data[activeIndex]) {
         centerLabel = data[activeIndex].name;
         centerValue = formatCurrencyRounded(data[activeIndex].value);
     }
 
-    // Determine Insights
-    let insightTitle = '';
-    let insightDesc = '';
-    let insightColor = '';
+    // Group legend by kind — OT segments are represented by the callout below
+    const earningRows   = data.filter(d => d.kind === 'earning');
+    const deductionRows = data.filter(d => d.kind === 'deduction');
+    const totalOT       = overtimeItems.reduce((s, i) => s + i.value, 0);
+    const otSegmentIdx  = data.findIndex(d => d.kind === 'overtime');
 
+    const monthlySalary = salarySlipProps.baseMonthlySalary ?? Math.max(0, grossPay - totalOT);
+    const totalPct      = monthlySalary > 0 ? (grossPay / monthlySalary) * 100 : 0;
+
+    let insightTitle = '';
+    let insightDesc  = '';
+    let insightColor = '';
     if (totalDeductions === 0) {
         insightTitle = 'Perfect Attendance 🎉';
-        insightDesc = '100% of your gross salary was retained this month.';
+        insightDesc  = '100% of your gross salary was retained this month.';
         insightColor = '#22c55e';
     } else if ((totalDeductions / grossPay) > 0.4) {
         insightTitle = '⚠ High Deductions Detected';
-        insightDesc = `Deductions account for ${((totalDeductions / grossPay) * 100).toFixed(1)}% of your gross pay.`;
+        insightDesc  = `Deductions account for ${((totalDeductions / grossPay) * 100).toFixed(1)}% of your gross pay.`;
         insightColor = '#ef4444';
     } else {
         insightTitle = '✅ Excellent Payroll Efficiency';
-        insightDesc = `${retainPercentage.toFixed(1)}% salary retained successfully.`;
+        insightDesc  = `${totalPct.toFixed(1)}% of monthly salary earned this month.`;
         insightColor = '#22c55e';
     }
+
+    const LegendRow = ({ entry, index }: { entry: typeof data[0]; index: number }) => {
+        const globalIdx = data.indexOf(entry);
+        const isActive  = activeIndex === globalIdx;
+        return (
+            <Box
+                key={index}
+                onMouseEnter={() => setActiveIndex(globalIdx)}
+                onMouseLeave={() => setActiveIndex(undefined)}
+                sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+                    px: 0.75, py: 0.4, borderRadius: '8px', cursor: 'pointer',
+                    background: isActive ? `${entry.color}12` : 'transparent',
+                    transition: 'background 0.15s',
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: entry.color, flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{entry.name}</Typography>
+                </Box>
+                <Typography sx={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>
+                    {formatCurrencyRounded(entry.value)}
+                </Typography>
+            </Box>
+        );
+    };
 
     return (
         <Paper
             elevation={0}
             sx={{
-                p: 2,
-                borderRadius: '16px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #f1f5f9',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
+                p: 2, borderRadius: '16px', backgroundColor: '#ffffff',
+                border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                height: '100%', display: 'flex', flexDirection: 'column',
             }}
         >
+            {/* Header */}
             <Box mb={1.5}>
                 <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', mb: 0.2, letterSpacing: '-0.02em' }}>
                     Salary Breakdown
@@ -185,22 +197,19 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                 </Typography>
             </Box>
 
-            <Box sx={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', width: '100%', gap: 2 }}>
-                    <Box sx={{ width: { xs: '100%', md: '45%' }, height: 180, position: 'relative', minWidth: 0, minHeight: 0 }}>
+                    {/* Donut Chart */}
+                    <Box sx={{ width: { xs: '100%', md: '45%' }, height: 180, position: 'relative' }}>
                         <ResponsiveContainer width="100%" height={180}>
                             <PieChart>
                                 {/* @ts-ignore */}
                                 <Pie
                                     data={data}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={55}
-                                    outerRadius={80}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                    stroke="none"
-                                    cornerRadius={4}
+                                    cx="50%" cy="50%"
+                                    innerRadius={55} outerRadius={80}
+                                    paddingAngle={3} dataKey="value"
+                                    stroke="none" cornerRadius={4}
                                     {...{ activeIndex } as any}
                                     activeShape={renderActiveShape}
                                     onMouseEnter={onPieEnter}
@@ -212,23 +221,8 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                                 </Pie>
                             </PieChart>
                         </ResponsiveContainer>
-                        
-                        {/* Center Text overlay */}
-                        <Box
-                            sx={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                textAlign: 'center',
-                                pointerEvents: 'none',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 100,
-                            }}
-                        >
+                        {/* Center text */}
+                        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none', width: 100 }}>
                             <Typography sx={{ fontSize: '1rem', color: '#0f172a', fontWeight: 800, lineHeight: 1.2, mb: 0.2 }} className={sensitiveCls}>
                                 {centerValue}
                             </Typography>
@@ -238,46 +232,83 @@ const MonthlySalaryPieChart: React.FC<MonthlySalaryPieChartProps> = ({ salarySli
                         </Box>
                     </Box>
 
-                    {/* Custom Legend (Vertical on the right) */}
-                    <Box sx={{ width: { xs: '100%', md: '55%' }, display: 'flex', flexDirection: 'column', gap: 0.75, justifyContent: 'center' }}>
-                        {data.map((entry, index) => (
-                            <Box key={index} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: entry.color }} />
-                                    <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{entry.name}</Typography>
+                    {/* Legend */}
+                    <Box sx={{ width: { xs: '100%', md: '55%' }, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        {/* Salary earnings */}
+                        {earningRows.map((entry, i) => <LegendRow key={i} entry={entry} index={i} />)}
+
+                        {/* Deductions separator */}
+                        {deductionRows.length > 0 && (
+                            <>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, mb: 0.25 }}>
+                                    <Box sx={{ flex: 1, height: '1px', background: '#f1f5f9' }} />
+                                    <Chip
+                                        label="Deductions"
+                                        size="small"
+                                        sx={{ fontSize: '0.58rem', fontWeight: 700, height: 16, px: 0.5, backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', '& .MuiChip-label': { px: 0.75 } }}
+                                    />
+                                    <Box sx={{ flex: 1, height: '1px', background: '#f1f5f9' }} />
                                 </Box>
-                                <Typography sx={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>{formatCurrencyRounded(entry.value)}</Typography>
+                                {deductionRows.map((entry, i) => <LegendRow key={i} entry={entry} index={i} />)}
+                            </>
+                        )}
+
+                        {/* Overtime callout — legend for the OT chart segment */}
+                        {totalOT > 0 && (
+                            <Box
+                                onMouseEnter={() => otSegmentIdx >= 0 && setActiveIndex(otSegmentIdx)}
+                                onMouseLeave={() => setActiveIndex(undefined)}
+                                sx={{ mt: 1, p: 1, borderRadius: '10px', background: 'linear-gradient(135deg,#fef9c3,#fef3c7)', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, cursor: 'pointer' }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                    <Box sx={{ width: 22, height: 22, borderRadius: '6px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Typography sx={{ fontSize: '0.65rem', color: '#fff', fontWeight: 800, lineHeight: 1 }}>OT</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: '#92400e', lineHeight: 1.2 }}>
+                                            {overtimeItems.length === 1 ? overtimeItems[0].name : 'Overtime Pay'}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '0.6rem', color: '#b45309', fontWeight: 500 }}>Extra · Not part of fixed salary</Typography>
+                                    </Box>
+                                </Box>
+                                <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: '#92400e' }} className={sensitiveCls}>
+                                    +{formatCurrencyRounded(totalOT)}
+                                </Typography>
                             </Box>
-                        ))}
+                        )}
                     </Box>
                 </Box>
 
-                {/* Progress Bar visualization */}
+                {/* Total salary (before deductions) vs monthly salary */}
                 <Box sx={{ width: '100%', mt: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                         <Typography sx={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>
-                            Net Received
+                            Total Salary{' '}
+                            <Typography component="span" sx={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>
+                                {formatCurrencyRounded(grossPay)}
+                            </Typography>
                         </Typography>
                         <Typography sx={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 700 }}>
-                            {retainPercentage.toFixed(1)}%
+                            
+                            <Typography component="span" sx={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>
+                                Monthly Salary{' '}
+                                <Typography component="span" sx={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 700 }} className={sensitiveCls}>
+                                    {formatCurrencyRounded(monthlySalary)}
+                                </Typography>
+                            </Typography>
                         </Typography>
                     </Box>
-                    <LinearProgress 
-                        variant="determinate" 
-                        value={retainPercentage} 
-                        sx={{ 
-                            height: 6, 
-                            borderRadius: 3, 
-                            backgroundColor: '#f1f5f9',
-                            '& .MuiLinearProgress-bar': {
-                                backgroundColor: EARNING_COLORS[0],
-                                borderRadius: 3
-                            }
-                        }} 
+                    <LinearProgress
+                        variant="determinate"
+                        value={Math.min(100, totalPct)}
+                        sx={{
+                            height: 6, borderRadius: 3, backgroundColor: '#f1f5f9',
+                            '& .MuiLinearProgress-bar': { backgroundColor: totalPct > 100 ? OT_COLOR : EARNING_COLORS[0], borderRadius: 3 },
+                        }}
                     />
                 </Box>
 
-                {/* Smart Insights */}
+                {/* Smart insights */}
                 <Box sx={{ width: '100%', mt: 1.5, p: 1.25, borderRadius: 2, backgroundColor: `${insightColor}10`, border: `1px solid ${insightColor}20` }}>
                     <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: insightColor, mb: 0.25 }}>
                         {insightTitle}

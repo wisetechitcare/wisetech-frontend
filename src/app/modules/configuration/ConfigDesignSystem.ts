@@ -245,8 +245,118 @@ export const KEYFRAMES = `
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.5; }
   }
-  .cfg-fade-in { animation: cfgFadeIn 0.3s ease; }
+  .cfg-fade-in  { animation: cfgFadeIn  0.3s ease; }
   .cfg-slide-in { animation: cfgSlideIn 0.25s ease; }
+
+  /* ─── Base: remove browser focus outline on tab buttons ─────────── */
+  .cfg-tab-btn { outline: none !important; }
+  .cfg-tab-btn:focus { outline: none !important; box-shadow: none !important; }
+
+  /* ─── Responsive: Tablet (≤ 768px) ───────────────────────────────── */
+  @media (max-width: 767.98px) {
+    .cfg-header-row {
+      padding: 18px 16px 8px 16px !important;
+      gap: 10px !important;
+    }
+    .cfg-header-icon {
+      width: 36px !important;
+      height: 36px !important;
+      min-width: 36px !important;
+    }
+    .cfg-header-icon i { font-size: 17px !important; }
+    .cfg-header-title  { font-size: 18px !important; }
+
+    /* ── Pill-style tab bar ── */
+    .cfg-tab-bar {
+      background: #f1f3f8 !important;
+      border-radius: 12px !important;
+      border-bottom: none !important;
+      padding: 5px !important;
+      margin: 12px 16px 16px !important;
+      gap: 4px !important;
+      flex-wrap: wrap !important;
+      overflow-x: visible !important;
+    }
+    .cfg-tab-btn {
+      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      font-size: 12.5px !important;
+      flex: 1 1 auto !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+      min-width: 0 !important;
+    }
+    .cfg-tab-btn[data-active="true"] {
+      background: #fff !important;
+      box-shadow: 0 2px 8px rgba(24,28,50,0.10), 0 1px 3px rgba(24,28,50,0.06) !important;
+      border-radius: 8px !important;
+      color: #9d4141 !important;
+      font-weight: 600 !important;
+    }
+    .cfg-tab-btn[data-active="false"] {
+      background: transparent !important;
+      color: #7E8299 !important;
+    }
+    .cfg-tab-active-line { display: none !important; }
+
+    .cfg-body-wrap { padding: 16px !important; }
+    .cfg-section-header { padding: 14px 16px 8px 20px !important; }
+    .cfg-settings-row   { padding: 14px 16px !important; }
+    .cfg-section-desc {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 2 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+    }
+  }
+
+  /* ─── Responsive: Phone (≤ 576px) ────────────────────────────────── */
+  @media (max-width: 575.98px) {
+    .cfg-header-row {
+      padding: 14px 12px 6px 12px !important;
+      gap: 8px !important;
+    }
+    .cfg-header-icon {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+    }
+    .cfg-header-icon i { font-size: 14px !important; }
+    .cfg-header-title  { font-size: 15px !important; }
+    .cfg-tab-bar   { padding: 4px !important; margin: 10px 12px 14px !important; gap: 3px !important; }
+    .cfg-tab-btn   { font-size: 11.5px !important; padding: 7px 10px !important; }
+    .cfg-body-wrap { padding: 12px !important; }
+    .cfg-section-header {
+      padding: 12px 12px 8px 18px !important;
+      flex-wrap: wrap !important;
+    }
+    .cfg-section-actions {
+      width: 100% !important;
+      flex-shrink: unset !important;
+      justify-content: flex-end !important;
+    }
+    .cfg-settings-row {
+      flex-wrap: wrap !important;
+      align-items: flex-start !important;
+      padding: 12px 12px !important;
+    }
+    .cfg-row-right {
+      width: 100% !important;
+      flex-shrink: unset !important;
+      justify-content: flex-end !important;
+      padding-left: 54px !important;
+    }
+    .cfg-row-label { white-space: normal !important; overflow: visible !important; }
+    .cfg-row-desc  { white-space: normal !important; overflow: visible !important; }
+  }
+
+  /* ─── Responsive: Small phone (≤ 400px) ──────────────────────────── */
+  @media (max-width: 400px) {
+    .cfg-header-title  { font-size: 13px !important; }
+    .cfg-tab-bar       { margin: 8px 10px 12px !important; gap: 2px !important; }
+    .cfg-tab-btn       { font-size: 11px !important; padding: 6px 8px !important; }
+    .cfg-row-right     { padding-left: 46px !important; }
+  }
 `;
 
 export default { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS, KEYFRAMES };
