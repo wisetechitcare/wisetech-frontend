@@ -1,5 +1,5 @@
-import { ChangeEvent, useRef, useState } from "react";
-import { Upload, FileText, X } from "lucide-react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { Upload, FileText, X, Eye } from "lucide-react";
 
 type ObFileUploadProps = {
   onChange: (file: File | null) => void;
@@ -7,6 +7,8 @@ type ObFileUploadProps = {
   accept?: string;
   hint?: string;
   existingFileName?: string;
+  /** URL of an already-saved document, used to preview when no new file is picked */
+  existingFileUrl?: string;
   onDisabledClick?: () => void;
   id?: string;
 };
@@ -17,17 +19,30 @@ function ObFileUpload({
   accept = ".pdf,.jpg,.jpeg,.png",
   hint = "PDF, JPG or PNG",
   existingFileName,
+  existingFileUrl,
   onDisabledClick,
   id,
 }: ObFileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const displayName = selectedName || existingFileName || null;
+  // Prefer the freshly-picked file's blob URL; fall back to the saved document URL.
+  const viewUrl = previewUrl || existingFileUrl || null;
+
+  // Revoke the object URL on change/unmount to avoid memory leaks.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setSelectedName(file?.name ?? null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(file ? URL.createObjectURL(file) : null);
     onChange(file);
   };
 
@@ -35,7 +50,14 @@ function ObFileUpload({
     e.stopPropagation();
     if (inputRef.current) inputRef.current.value = "";
     setSelectedName(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
     onChange(null);
+  };
+
+  const handleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (viewUrl) window.open(viewUrl, "_blank", "noopener,noreferrer");
   };
 
   const openPicker = () => {
@@ -82,6 +104,18 @@ function ObFileUpload({
           {displayName ? "Tap to replace" : hint}
         </span>
       </div>
+      {viewUrl && (
+        <button
+          type="button"
+          className="ob-file-upload-view"
+          onClick={handleView}
+          aria-label="View uploaded file"
+          title="View uploaded file"
+        >
+          <Eye size={14} />
+          <span>View</span>
+        </button>
+      )}
       <span className="ob-file-upload-action">
         {displayName ? "Change" : "Browse"}
       </span>

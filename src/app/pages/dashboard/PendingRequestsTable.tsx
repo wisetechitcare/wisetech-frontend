@@ -25,7 +25,7 @@ import {
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import { LeaveStatus, LEAVE_STATUS, WORKING_METHOD_TYPE } from "@constants/attendance";
-import { successConfirmation, deleteConfirmation } from "@utils/modal";
+import { successConfirmation, deleteConfirmation, errorConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
 import { convertTo12HourFormat } from "@utils/date";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
@@ -34,7 +34,7 @@ import { fetchConfiguration } from "@services/company";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
-import { fetchApprovalInstanceByRequest } from "@services/employee";
+import { fetchApprovalInstanceByRequest, fetchPendingApprovals, processApprovalAction } from "@services/employee";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 
@@ -185,8 +185,33 @@ const PendingRequestsTable = () => {
   const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // requestId -> instanceId for requests where the CURRENT user is the active approver
+  // (sourced from /api/approvals/pending, which already enforces "my action" + delegation).
+  const [actionableApprovals, setActionableApprovals] = useState<Map<string, string>>(new Map());
+  const [approvalProcessingId, setApprovalProcessingId] = useState<string | null>(null);
+  const [approvalRejectTarget, setApprovalRejectTarget] = useState<{ requestId: string; instanceId: string } | null>(null);
+  const [approvalRejectReason, setApprovalRejectReason] = useState('');
+  const [approvalRejectSubmitting, setApprovalRejectSubmitting] = useState(false);
+
   const { resolveClientType, resolveClientCompany, resolveProject } =
     useReimbursementLookups(reimbursementRequests);
+
+  // Fetch the approvals the current user can act on right now and key them by requestId.
+  const fetchActionableApprovals = useCallback(async () => {
+    try {
+      const res = await fetchPendingApprovals();
+      const rows = (res?.data ?? res ?? []) as any[];
+      const map = new Map<string, string>();
+      rows.forEach((step) => {
+        const reqId = step?.instance?.requestId;
+        const instId = step?.instance?.id;
+        if (reqId && instId) map.set(reqId, instId);
+      });
+      setActionableApprovals(map);
+    } catch {
+      setActionableApprovals(new Map());
+    }
+  }, []);
 
   const openTracker = async (requestId: string, requestModel: 'AttendanceRequests' | 'LeaveTracker' | 'Reimbursement') => {
     setTrackingId(requestId);
@@ -287,7 +312,47 @@ const PendingRequestsTable = () => {
     fetchAttendanceRequests();
     fetchLeaveRequests();
     fetchReimbursementRequests();
-  }, [fetchAttendanceRequests, fetchLeaveRequests, fetchReimbursementRequests]);
+    fetchActionableApprovals();
+  }, [fetchAttendanceRequests, fetchLeaveRequests, fetchReimbursementRequests, fetchActionableApprovals]);
+
+  // Approve a request through the multi-level approval workflow.
+  const approveWorkflowRequest = useCallback(async (requestId: string, refresh: () => void) => {
+    const instanceId = actionableApprovals.get(requestId);
+    if (!instanceId) return;
+    setApprovalProcessingId(requestId);
+    try {
+      await processApprovalAction(instanceId, 'approve');
+      successConfirmation('Request has been approved successfully.', 'Approved!');
+      await Promise.all([refresh(), fetchActionableApprovals()]);
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Failed to approve this request.');
+    } finally {
+      setApprovalProcessingId(null);
+    }
+  }, [actionableApprovals, fetchActionableApprovals]);
+
+  // Confirm a rejection (reason required, min 10 chars — enforced by the backend too).
+  const confirmWorkflowReject = useCallback(async () => {
+    if (!approvalRejectTarget) return;
+    const reason = approvalRejectReason.trim();
+    setApprovalRejectSubmitting(true);
+    try {
+      await processApprovalAction(approvalRejectTarget.instanceId, 'reject', reason);
+      successConfirmation('Request has been rejected.', 'Rejected');
+      setApprovalRejectTarget(null);
+      setApprovalRejectReason('');
+      await Promise.all([
+        fetchAttendanceRequests(),
+        fetchLeaveRequests(),
+        fetchReimbursementRequests(),
+        fetchActionableApprovals(),
+      ]);
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Failed to reject this request.');
+    } finally {
+      setApprovalRejectSubmitting(false);
+    }
+  }, [approvalRejectTarget, approvalRejectReason, fetchAttendanceRequests, fetchLeaveRequests, fetchReimbursementRequests, fetchActionableApprovals]);
 
   // Fetch grace-based thresholds for attendance
   useEffect(() => {
@@ -501,20 +566,54 @@ const PendingRequestsTable = () => {
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
           const isPending = row.original.status === LeaveStatus.ApprovalPending;
-          if (!isPending || !row.original.hasApprovalInstance) return null;
+          if (!isPending) return null;
+          const canAct = actionableApprovals.has(row.original.id);
+          if (!canAct && !row.original.hasApprovalInstance) return null;
+          const isProcessing = approvalProcessingId === row.original.id;
           return (
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
-              title="Track Approval"
-              onClick={() => openTracker(row.original.id, 'AttendanceRequests')}
-            >
-              <KTIcon iconName="map" className="fs-3" />
-            </button>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              {canAct && (
+                <>
+                  <button
+                    className="btn btn-icon btn-sm"
+                    title="Approve"
+                    disabled={isProcessing}
+                    onClick={() => approveWorkflowRequest(row.original.id, fetchAttendanceRequests)}
+                  >
+                    {isProcessing ? (
+                      <span className="spinner-border spinner-border-sm text-success" />
+                    ) : (
+                      <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="" />
+                    )}
+                  </button>
+                  <button
+                    className="btn btn-icon btn-sm"
+                    title="Reject"
+                    disabled={isProcessing}
+                    onClick={() => {
+                      setApprovalRejectTarget({ requestId: row.original.id, instanceId: actionableApprovals.get(row.original.id)! });
+                      setApprovalRejectReason('');
+                    }}
+                  >
+                    <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="" />
+                  </button>
+                </>
+              )}
+              {row.original.hasApprovalInstance && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                  title="Track Approval"
+                  onClick={() => openTracker(row.original.id, 'AttendanceRequests')}
+                >
+                  <KTIcon iconName="map" className="fs-3" />
+                </button>
+              )}
+            </div>
           );
         },
       },
     ],
-    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold]
+    [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchAttendanceRequests]
   );
 
   const hasLeaveEditPermission = hasPermission(
@@ -584,20 +683,54 @@ const PendingRequestsTable = () => {
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
           const isPending = row.original.status === LeaveStatus.ApprovalPending;
-          if (!isPending || !row.original.hasApprovalInstance) return null;
+          if (!isPending) return null;
+          const canAct = actionableApprovals.has(row.original.id);
+          if (!canAct && !row.original.hasApprovalInstance) return null;
+          const isProcessing = approvalProcessingId === row.original.id;
           return (
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
-              title="Track Approval"
-              onClick={() => openTracker(row.original.id, 'LeaveTracker')}
-            >
-              <KTIcon iconName="map" className="fs-3" />
-            </button>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              {canAct && (
+                <>
+                  <button
+                    className="btn btn-icon btn-sm"
+                    title="Approve"
+                    disabled={isProcessing}
+                    onClick={() => approveWorkflowRequest(row.original.id, fetchLeaveRequests)}
+                  >
+                    {isProcessing ? (
+                      <span className="spinner-border spinner-border-sm text-success" />
+                    ) : (
+                      <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="" />
+                    )}
+                  </button>
+                  <button
+                    className="btn btn-icon btn-sm"
+                    title="Reject"
+                    disabled={isProcessing}
+                    onClick={() => {
+                      setApprovalRejectTarget({ requestId: row.original.id, instanceId: actionableApprovals.get(row.original.id)! });
+                      setApprovalRejectReason('');
+                    }}
+                  >
+                    <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="" />
+                  </button>
+                </>
+              )}
+              {row.original.hasApprovalInstance && (
+                <button
+                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                  title="Track Approval"
+                  onClick={() => openTracker(row.original.id, 'LeaveTracker')}
+                >
+                  <KTIcon iconName="map" className="fs-3" />
+                </button>
+              )}
+            </div>
           );
         },
       },
     ],
-    [processingRowId, processingAction, leaveTypeColors]
+    [processingRowId, processingAction, leaveTypeColors, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchLeaveRequests]
   );
 
   // Reimbursement columns
@@ -1164,6 +1297,53 @@ const PendingRequestsTable = () => {
           </div>
         )}
       </Modal.Body>
+    </Modal>
+
+    <Modal
+      show={!!approvalRejectTarget}
+      onHide={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
+      centered
+      size='lg'
+    >
+      <Modal.Header closeButton>
+        <Modal.Title style={{ fontSize: 16, fontWeight: 700, color: '#181c32' }}>Reject Request</Modal.Title>
+      </Modal.Header>
+      <Modal.Body style={{ padding: '20px 24px' }}>
+        <label style={{ fontWeight: 600, fontSize: 13, color: '#181c32', display: 'block', marginBottom: 6 }}>
+          Reason for Rejection <span style={{ color: '#f1416c' }}>*</span>
+        </label>
+        <textarea
+          rows={3}
+          className='form-control'
+          placeholder='Describe why this request is being rejected (min 10 characters)…'
+          value={approvalRejectReason}
+          onChange={(e) => setApprovalRejectReason(e.target.value)}
+          style={{ resize: 'vertical', fontSize: 13 }}
+          disabled={approvalRejectSubmitting}
+        />
+        {approvalRejectReason.trim().length > 0 && approvalRejectReason.trim().length < 10 && (
+          <div style={{ fontSize: 11, color: '#f1416c', marginTop: 4 }}>
+            Reason must be at least 10 characters ({approvalRejectReason.trim().length}/10)
+          </div>
+        )}
+      </Modal.Body>
+      <Modal.Footer style={{ gap: 8 }}>
+        <button
+          className='btn btn-sm btn-light'
+          onClick={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
+          disabled={approvalRejectSubmitting}
+        >
+          Cancel
+        </button>
+        <button
+          className='btn btn-sm btn-danger d-flex align-items-center gap-2'
+          onClick={confirmWorkflowReject}
+          disabled={approvalRejectReason.trim().length < 10 || approvalRejectSubmitting}
+        >
+          {approvalRejectSubmitting && <span className='spinner-border spinner-border-sm' />}
+          Confirm Rejection
+        </button>
+      </Modal.Footer>
     </Modal>
     </>
   );

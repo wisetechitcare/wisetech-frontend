@@ -36,7 +36,10 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
       setLoading(true);
       try {
         const res = await fetchEmployeesByBranch(branchId);
-        if (!cancelled && !res.hasError) setEmployees(res.data?.employees ?? []);
+        // Show only active members in this branch list (exclude inactive employees).
+        if (!cancelled && !res.hasError) {
+          setEmployees((res.data?.employees ?? []).filter((emp: EmpRow) => emp.isActive !== false));
+        }
       } catch { /* surfaced as empty */ }
       finally { if (!cancelled) setLoading(false); }
     })();

@@ -13,7 +13,7 @@ import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
 import StepAppSettings from "./steps/StepAppSettings";
-import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, getQualificationConfig, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
+import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "./steps/Step2.css";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
@@ -234,41 +234,15 @@ const newEmployeeWizardSchema = [
           .nullable().transform((v, o) => o === "" ? null : v),
         filePath: optionalString().label("Upload Certificate"),
       })
-        .test("education-qualification", "Qualification is required", function (value) {
-          if (!hasStartedEducationInfo(value) || value?.qualificationName || value?.degree) return true;
-          return this.createError({ path: `${this.path}.qualificationMasterId`, message: "Qualification is required" });
-        })
-        .test("education-school-passing-year", "Passing Year is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesPassingYear || value?.passingYear) return true;
-          return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year is required" });
-        })
+        // NOTE: Onboarding may capture only partial education info — the admin
+        // often doesn't have every detail. So starting a row no longer forces
+        // the rest of the section to be filled. Only sanity checks below apply.
         .test("education-passing-year-format", "Passing Year must be a valid year", function (value) {
           if (!value?.passingYear) return true;
           const year = Number(value.passingYear);
           const currentYear = new Date().getFullYear();
           if (/^\d{4}$/.test(String(value.passingYear)) && year >= 1900 && year <= currentYear) return true;
           return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year must be between 1900 and the current year" });
-        })
-        .test("education-hsc-stream", "Stream is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream) return true;
-          return this.createError({ path: `${this.path}.stream`, message: "Stream is required" });
-        })
-        .test("education-custom-stream", "Custom Stream Name is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream !== "Others" || value?.customStream) return true;
-          return this.createError({ path: `${this.path}.customStream`, message: "Custom Stream Name is required" });
-        })
-        .test("education-from-date", "Date Started is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.fromDate) return true;
-          return this.createError({ path: `${this.path}.fromDate`, message: "Date Started is required" });
-        })
-        .test("education-to-date", "Date Completed is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.toDate) return true;
-          return this.createError({ path: `${this.path}.toDate`, message: "Date Completed is required" });
         })
         .test("education-date-order", "Date Completed cannot be before Date Started", function (value) {
           if (!value?.fromDate || !value?.toDate) return true;
@@ -317,24 +291,9 @@ const newEmployeeWizardSchema = [
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
         dateOfBirth: optionalString().label("Date of Birth"),
-      })
-        // If a family row is started, its core fields become required so a
-        // half-filled member surfaces a clear error instead of silently submitting.
-        .test("family-name-required", "Family Member Name is required", function (value) {
-          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
-          if (!started || value?.name) return true;
-          return this.createError({ path: `${this.path}.name`, message: "Family Member Name is required" });
-        })
-        .test("family-relationship-required", "Member Relationship is required", function (value) {
-          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
-          if (!started || value?.relationship) return true;
-          return this.createError({ path: `${this.path}.relationship`, message: "Member Relationship is required" });
-        })
-        .test("family-mobile-required", "Member Phone Number is required", function (value) {
-          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
-          if (!started || value?.mobileNumber) return true;
-          return this.createError({ path: `${this.path}.mobileNumber`, message: "Member Phone Number is required" });
-        }),
+      }),
+      // Family info is fully optional during onboarding — a partially filled
+      // member is allowed. Only the per-field format rules above apply.
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -403,23 +362,9 @@ const newEmployeeWizardSchema = [
         jobTitle: optionalString().label("Job Title"),
         fromDate: optionalString().label("From Date"),
         toDate: optionalString().label("To Date"),
-      })
-        .test("work-company-name", "Company Name is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.companyName) return true;
-          return this.createError({ path: `${this.path}.companyName`, message: "Company Name is required" });
-        })
-        .test("work-job-title", "Job Title is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.jobTitle) return true;
-          return this.createError({ path: `${this.path}.jobTitle`, message: "Job Title is required" });
-        })
-        .test("work-from-date", "From Date is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.fromDate) return true;
-          return this.createError({ path: `${this.path}.fromDate`, message: "From Date is required" });
-        })
-        .test("work-to-date", "To Date is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.toDate) return true;
-          return this.createError({ path: `${this.path}.toDate`, message: "To Date is required" });
-        }),
+      }),
+      // Work experience is fully optional during onboarding — a partially
+      // filled entry is allowed, so starting one field no longer forces the rest.
     ),
   }),
   Yup.object({
