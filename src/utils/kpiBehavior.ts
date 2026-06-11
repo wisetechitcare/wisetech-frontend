@@ -47,16 +47,30 @@ export const FACTOR_BEHAVIOR_MAP: Record<string, KpiBehavior> = {
  */
 export const getKpiBehavior = (factorName: string, factorType?: string): KpiBehavior => {
   const normalizedName = factorName.trim();
-  if (FACTOR_BEHAVIOR_MAP[normalizedName]) {
-    return FACTOR_BEHAVIOR_MAP[normalizedName];
-  }
+  const type = factorType?.toUpperCase();
 
-  // Fallback to type-based logic if name mapping is missing
-  if (factorType?.toUpperCase() === "NEGATIVE") {
+  // â”€â”€ LIVE CONFIG TYPE IS THE SOURCE OF TRUTH â”€â”€
+  // The configured type drives behavior with NO name-based overrides, so a leave
+  // factor set to POSITIVE is treated as positive (and NEGATIVE as a violation).
+  // The static name map only refines the *positive* direction into MANDATORY vs
+  // ACHIEVEMENT.
+
+  // NEGATIVE and LEAVE color as "violations": green only at 0.
+  if (type === "NEGATIVE" || type === "LEAVE") {
     return KpiBehavior.NEGATIVE;
   }
 
-  // Default to ACHIEVEMENT for other positive factors not explicitly marked as MANDATORY
+  if (type === "POSITIVE") {
+    // Within positive, the name map distinguishes a hard requirement
+    // (MANDATORY) from a voluntary bonus (ACHIEVEMENT). Default to ACHIEVEMENT.
+    const mapped = FACTOR_BEHAVIOR_MAP[normalizedName];
+    return mapped === KpiBehavior.MANDATORY ? KpiBehavior.MANDATORY : KpiBehavior.ACHIEVEMENT;
+  }
+
+  // â”€â”€ Type missing â†’ fall back to the static name map, then default â”€â”€
+  if (FACTOR_BEHAVIOR_MAP[normalizedName]) {
+    return FACTOR_BEHAVIOR_MAP[normalizedName];
+  }
   return KpiBehavior.ACHIEVEMENT;
 };
 
@@ -86,4 +100,23 @@ export const getKpiColorState = (
     default:
       return score >= 0 ? "success" : "danger";
   }
+};
+
+/**
+ * Normalizes a score's SIGN to match the factor's current type for DISPLAY.
+ *
+ * WHY: when an admin converts a factor (e.g. NEGATIVE â†’ POSITIVE) historical
+ * scores are intentionally NOT recalculated, so a positive factor can still
+ * carry a stale negative value like -10. Showing "-10" under a positive factor
+ * is wrong, so we re-sign by the live type:
+ *   â€¢ POSITIVE      â†’ magnitude is always non-negative (never shows "-")
+ *   â€¢ NEGATIVE/LEAVE â†’ magnitude is always shown as a penalty (negative)
+ * This only affects presentation; ranking order (from the API) is untouched.
+ */
+export const normalizeScoreSign = (score: number, factorType?: string): number => {
+  const mag = Math.abs(score);
+  const type = factorType?.toUpperCase();
+  // Negatives and leaves display as a penalty (negative); positives stay positive.
+  if (type === "NEGATIVE" || type === "LEAVE") return -mag;
+  return mag; // POSITIVE and unknown/overall default to non-negative
 };
