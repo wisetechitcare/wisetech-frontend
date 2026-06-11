@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { KTIcon } from "@metronic/helpers";
 import { IReimbursementEmployeeLimit } from "@models/employee";
 import { fetchReimbursementEmployeeLimits } from "@services/options";
 import { updateEmployee } from "@services/employee";
@@ -142,7 +143,7 @@ function ReimbursementEmployeeLimit() {
               <div className="d-flex align-items-center gap-2">
                 <button
                   type="button"
-                  className="btn btn-icon btn-sm btn-light-success"
+                  className="btn btn-icon btn-sm"
                   title="Save"
                   onClick={() => handleSave(rowData)}
                   disabled={isSaving}
@@ -158,7 +159,7 @@ function ReimbursementEmployeeLimit() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-icon btn-sm btn-light-danger"
+                  className="btn btn-icon btn-sm"
                   title="Cancel"
                   onClick={handleCancel}
                   disabled={isSaving}
@@ -175,14 +176,11 @@ function ReimbursementEmployeeLimit() {
           return (
             <button
               type="button"
-              className="btn btn-icon btn-sm btn-light-primary"
+              className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
               title="Edit"
               onClick={() => handleEdit(rowData)}
             >
-              <i className="ki-duotone ki-pencil fs-4 text-primary">
-                <span className="path1" />
-                <span className="path2" />
-              </i>
+              <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
             </button>
           );
         },
