@@ -5,7 +5,8 @@ import Select from 'react-select';
 import { KTCardBody } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import TextInput from '@app/modules/common/inputs/TextInput';
-import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeLeaveBalance, getAllLeaveManagements } from '@services/employee';
+import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeLeaveBalance, getAllLeaveManagements, fetchEmployeeDiscretionaryBalanceById } from '@services/employee';
+import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { ILeaveRequest } from '@models/employee';
 import { useDispatch, useSelector } from 'react-redux';
@@ -109,6 +110,16 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
   const [cumulativeSummary, setCumulativeSummary] = useState<{
     total: number; used: number; allowedTillNow: number; remaining: number;
   } | null>(null);
+
+  // Monthly leave limit tracking (from salman_conveyance)
+  const allowedPerMonthFromRedux = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.allowedPerMonth);
+  const [allowedPerMonth, setAllowedPerMonth] = useState<number>(allowedPerMonthFromRedux || 1);
+  const [currentMonthUsage, setCurrentMonthUsage] = useState<number>(0);
+  const [showMonthlyLimitInfo, setShowMonthlyLimitInfo] = useState(false);
+
+  // Discretionary leave balance
+  const [discretionaryLeaveBalance, setDiscretionaryLeaveBalance] = useState<number>(0);
+  const [discretionaryLeaveBoolean, setDiscretionaryLeaveBoolean] = useState<boolean>(false);
 
   const dispatch = useDispatch();
   // F4: Track the last fetch context to avoid redundant API calls when only the
@@ -654,6 +665,19 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
 
   const setFieldValueRef = useRef<((field: string, value: any, shouldValidate?: boolean) => void) | null>(null);
+
+  // Load discretionary leave balance for the current employee
+  useEffect(() => {
+    if (!employeeId) return;
+    fetchEmployeeDiscretionaryBalanceById(employeeId)
+      .then((result: any) => {
+        const balance = result?.data?.employee?.discretionaryLeaveBalance;
+        const enabled = result?.data?.employee?.discretionaryLeaveBoolean;
+        if (balance != null) setDiscretionaryLeaveBalance(Number(balance));
+        if (enabled != null) setDiscretionaryLeaveBoolean(Boolean(enabled));
+      })
+      .catch(() => {/* silently ignore — optional feature */});
+  }, [employeeId]);
 
   useEffect(() => {
     const setFieldValue = setFieldValueRef.current;

@@ -250,10 +250,10 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
             shared: true,
             intersect: false,
             custom: function({ series, seriesIndex, dataPointIndex, w }: any) {
-                const month = w.globals.categoryHeaders[dataPointIndex];
-                const basic = series[0][dataPointIndex] || 0;
-                const net = series[1][dataPointIndex] || 0;
-                const avg = series[2][dataPointIndex] || 0;
+                const month = w.globals.categoryHeaders?.[dataPointIndex] ?? '';
+                const basic = series[0]?.[dataPointIndex] ?? 0;
+                const net = series[1]?.[dataPointIndex] ?? 0;
+                const avg = series[2]?.[dataPointIndex] ?? 0;
                 
                 return `
                     <div style="

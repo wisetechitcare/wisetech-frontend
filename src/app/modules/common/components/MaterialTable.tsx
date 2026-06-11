@@ -86,6 +86,7 @@ interface MaterialTableProps {
   renderExportActions?: () => React.ReactNode;
   /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
   showColumnFooter?: boolean;
+  defaultSorting?: Array<{ id: string; desc: boolean }>;
 }
 
 const defaultColumnSizes = {
@@ -135,6 +136,7 @@ function MaterialTable({
   renderTopToolbarRightActions,
   renderExportActions,
   showColumnFooter = false,
+  defaultSorting,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -294,7 +296,7 @@ function MaterialTable({
     updateExpanded,
     updateExportType,
     resetPreferences,
-  } = useTablePreferences(tableName, finalColumns, employeeId);
+  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,

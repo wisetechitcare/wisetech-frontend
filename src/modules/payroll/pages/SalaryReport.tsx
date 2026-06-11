@@ -77,10 +77,10 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
             minHeight: '100%',
             paddingBottom: '2rem',
         }}>
-            <style jsx>{`
+            <style>{`
                 .sensitive-data-hidden { filter: blur(5px); user-select: none; }
                 .sensitive-data-visible { filter: none; }
-                :global(.wt-btn-primary) {
+                .wt-btn-primary {
                     background-color: #AA393D !important;
                     border-color: #AA393D !important;
                     color: #fff !important;

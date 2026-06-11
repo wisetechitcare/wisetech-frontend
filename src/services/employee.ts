@@ -190,6 +190,60 @@ export const fetchCurrentEmployeeByEmpId = async (employeeId: string) => {
     }
 }
 
+export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const sendAttendanceRequestResetLimit = async (payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const getAttendanceRequestLimitResetRequests = async (companyId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS}?companyId=${companyId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const approveAttendanceRequestLimitReset = async (requestId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, { requestId });
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.REJECT_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, { requestId });
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchDocumentsField = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ONBOARDING_DOC_LIST}`;
@@ -872,6 +926,16 @@ export const deleteEmployeeReimbursement = async (reimbursementId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_REIMBURSEMENT}${`?id=${reimbursementId}`}`;
         const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const fetchReimbursementsByProjectId = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENTS_BY_PROJECT_ID}/${projectId}`;
+        const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
         throw err;
