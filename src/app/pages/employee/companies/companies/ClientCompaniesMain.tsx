@@ -152,7 +152,7 @@ const ClientCompaniesMain = ({
     () => [
       {
         accessorKey: "prefix",
-        header: "Inquiry Id",
+        header: "Company Id",
         size: 80,
         enableEditing: false,
         Cell: ({ row }: { row: any }) => {
