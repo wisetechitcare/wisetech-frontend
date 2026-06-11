@@ -80,15 +80,15 @@ interface SalaryReportProps {
 }
 
 const formatINRDecimal = (n: number) =>
-    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 
 const formatINRRounded = (n: number) =>
-    `₹${(Math.trunc((Number.isFinite(n) ? n : 0) * 100) / 100).toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
     })}`;
 
 const sumEarnings = (entries: Record<string, IBreakdownItem> | undefined) =>

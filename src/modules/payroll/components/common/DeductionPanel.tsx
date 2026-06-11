@@ -140,7 +140,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                 <span className="text-gray-800 fw-bold fs-7">{itemName}</span>
                                             )}
                                             {meta?.shortCode && (
-                                                <span className="badge badge-light-danger fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                <span className="badge badge-light-danger fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
                                             )}
                                             </div>
                                         </td>
@@ -288,7 +288,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                     <span className="text-gray-800 fw-bold fs-7">{displayName}</span>
                                                 )}
                                                 {meta?.shortCode && (
-                                                    <span className="badge badge-light-warning fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                    <span className="badge badge-light-warning fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
                                                 )}
                                                 </div>
                                                 {isInactiveWithExtra && (

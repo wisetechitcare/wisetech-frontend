@@ -19,11 +19,11 @@ const formatINR = (n: number, fractionDigits: number) => {
     })}`;
 };
 
-export const formatINRDecimal = (n: number) => formatINR(n, 2);
+export const formatINRDecimal = (n: number) => formatINR(Math.trunc(n), 0);
 
-export const formatINRDecimalTruncated = (n: number) => formatINR(truncatePayrollAmount(n, 2), 2);
+export const formatINRDecimalTruncated = (n: number) => formatINR(truncatePayrollAmount(n, 0), 0);
 
-export const formatINRRounded = (n: number) => formatINR(n, 2);
+export const formatINRRounded = (n: number) => formatINR(Math.trunc(n), 0);
 
 export const formatINR2 = formatINRRounded;
 

@@ -35,7 +35,7 @@ interface ToolbarFilterSelectProps {
   theme?: FilterSelectTheme;
 }
 
-const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
+export const ToolbarFilterSelect: React.FC<ToolbarFilterSelectProps> = ({
   label, icon, value, onChange, options, minWidth = 160, theme = FILTER_NEUTRAL,
 }) => (
   <div style={{ position: 'relative', minWidth }}>
@@ -167,21 +167,6 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
       <Box sx={{ width: '1px', height: '26px', backgroundColor: '#e5e7eb', mx: 0.5, display: { xs: 'none', md: 'block' } }} />
 
       <ToolbarFilterSelect
-        label="Sub Organization"
-        icon="bi-building"
-        value={subOrgFilter}
-        onChange={setSubOrgFilter}
-        minWidth={220}
-        theme={subOrgFilter !== 'All'
-          ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' }
-          : undefined}
-        options={[
-          { value: 'All', label: 'All Sub Organizations' },
-          ...subOrgOptions.map((name) => ({ value: name, label: name })),
-        ]}
-      />
-
-      <ToolbarFilterSelect
         label="Employee Status"
         icon="bi-person-circle"
         value={statusFilter}
@@ -202,7 +187,20 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
           { value: 'All', label: 'All' },
         ]}
       />
-
+      <ToolbarFilterSelect
+        label="Sub Organization"
+        icon="bi-building"
+        value={subOrgFilter}
+        onChange={setSubOrgFilter}
+        minWidth={220}
+        theme={subOrgFilter !== 'All'
+          ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' }
+          : undefined}
+        options={[
+          { value: 'All', label: 'All Sub Organizations' },
+          ...subOrgOptions.map((name) => ({ value: name, label: name })),
+        ]}
+      />
       <ToolbarFilterSelect
         label="Pay Type"
         icon="bi-briefcase"

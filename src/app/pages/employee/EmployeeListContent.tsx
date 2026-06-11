@@ -14,6 +14,7 @@ import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
+import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
 
 type StatusType = "all" | "active" | "inactive";
 
@@ -24,12 +25,15 @@ interface StatusCounts {
 }
 
 const EmployeeListContent = () => {
-  const [employees, setEmployees] = useState([]);
+  const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const [payTypeFilter, setPayTypeFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(() => {
     // Restore page from sessionStorage on mount
     const saved = sessionStorage.getItem('employeeListPage');
@@ -120,6 +124,21 @@ const EmployeeListContent = () => {
       header: "Date Of Joining",
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
+    {
+      accessorKey: "branches",
+      header: "Branch",
+      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+    },
+    {
+      accessorKey: "subOrganization",
+      header: "Sub Organization",
+      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+    },
+    {
+      accessorKey: "payType",
+      header: "Pay Type",
+      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+    },
   ], [navigate]);
 
   // Memoize admin columns
@@ -142,11 +161,6 @@ const EmployeeListContent = () => {
     {
       accessorKey: "employeeType",
       header: "Type of Employee",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    },
-    {
-      accessorKey: "branches",
-      header: "Branches",
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
     },
     {
@@ -261,7 +275,9 @@ const EmployeeListContent = () => {
             dateOfExit: obj.dateOfExit ? dayjs(obj.dateOfExit).format("DD/MM/YYYY") : "N/A",
             dateOfReJoining: obj.dateOfReJoining ? dayjs(obj.dateOfReJoining).format("DD/MM/YYYY") : "N/A",
             dateOfReExit: obj.dateOfReExit ? dayjs(obj.dateOfReExit).format("DD/MM/YYYY") : "N/A",
-            branches: branchesData.find((b: any) => b.id === obj.branchId)?.name || "N/A",
+            branches: obj.branches?.name || branchesData.find((b: any) => b.id === obj.branchId)?.name || "N/A",
+            subOrganization: obj.companyOverview?.name || "N/A",
+            payType: obj.professionalFeesEnabled ? "Contract Based" : "Salary Based",
             employeeStatus: employeeNewStatus,
             gender: obj.gender === 0 ? "Male" : (obj.gender === 1 ? "Female" : (obj.gender === 2 ? "Other" : "N/A")),
             maritalStatus: obj.maritalStatus ? "Unmarried" : (obj.maritalStatus === 0 ? "Married" : "N/A"),
@@ -280,15 +296,7 @@ const EmployeeListContent = () => {
           inactive: inactiveCount
         });
 
-        // Filter based on selectedStatus
-        let filteredEmployees = allMappedEmployees;
-        if (selectedStatus === "active") {
-          filteredEmployees = allMappedEmployees.filter((emp: any) => emp.employeeStatus === "Active");
-        } else if (selectedStatus === "inactive") {
-          filteredEmployees = allMappedEmployees.filter((emp: any) => emp.employeeStatus === "Inactive");
-        }
-
-        setEmployees(filteredEmployees);
+        setAllEmployees(allMappedEmployees);
       } catch (error) {
         console.error("Error fetching employees:", error);
       } finally {
@@ -297,7 +305,31 @@ const EmployeeListContent = () => {
       }
     }
     fetchData();
-  }, [selectedStatus]);
+  }, []);
+
+  const branchOptions = useMemo(() => {
+    const names = new Set<string>();
+    allEmployees.forEach((e: any) => { if (e.branches && e.branches !== 'N/A') names.add(e.branches); });
+    return Array.from(names).sort();
+  }, [allEmployees]);
+
+  const subOrgOptions = useMemo(() => {
+    const names = new Set<string>();
+    allEmployees.forEach((e: any) => { if (e.subOrganization && e.subOrganization !== 'N/A') names.add(e.subOrganization); });
+    return Array.from(names).sort();
+  }, [allEmployees]);
+
+  const displayedEmployees = useMemo(() => {
+    let result = allEmployees;
+    if (selectedStatus === 'active') result = result.filter((e: any) => e.employeeStatus === 'Active');
+    else if (selectedStatus === 'inactive') result = result.filter((e: any) => e.employeeStatus === 'Inactive');
+    if (branchFilter !== 'All') result = result.filter((e: any) => e.branches === branchFilter);
+    if (subOrgFilter !== 'All') result = result.filter((e: any) => e.subOrganization === subOrgFilter);
+    if (payTypeFilter !== 'All') result = result.filter((e: any) => e.payType === payTypeFilter);
+    return result;
+  }, [allEmployees, selectedStatus, branchFilter, subOrgFilter, payTypeFilter]);
+
+  const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All' || payTypeFilter !== 'All';
 
   if (initialLoading) {
     return <Loader />;
@@ -337,6 +369,66 @@ const EmployeeListContent = () => {
 </div>
 
 
+    {/* Filter toolbar */}
+    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', padding: '8px 4px', marginTop: '8px' }}>
+      <ToolbarFilterSelect
+        label="Branch"
+        icon="bi-geo-alt"
+        value={branchFilter}
+        onChange={setBranchFilter}
+        minWidth={170}
+        theme={branchFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
+        options={[
+          { value: 'All', label: 'All Branches' },
+          ...branchOptions.map((name) => ({ value: name, label: name })),
+        ]}
+      />
+      <ToolbarFilterSelect
+        label="Sub Organization"
+        icon="bi-building"
+        value={subOrgFilter}
+        onChange={setSubOrgFilter}
+        minWidth={220}
+        theme={subOrgFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
+        options={[
+          { value: 'All', label: 'All Sub Organizations' },
+          ...subOrgOptions.map((name) => ({ value: name, label: name })),
+        ]}
+      />
+      <ToolbarFilterSelect
+        label="Pay Type"
+        icon="bi-briefcase"
+        value={payTypeFilter}
+        onChange={setPayTypeFilter}
+        minWidth={170}
+        theme={payTypeFilter === 'Salary Based' ? { icon: '#16a34a', border: '#bbf7d0', bg: '#f0fdf4', text: '#166534', ring: 'rgba(22, 163, 74, 0.12)' } : payTypeFilter === 'Contract Based' ? { icon: '#7c3aed', border: '#ddd6fe', bg: '#f5f3ff', text: '#5b21b6', ring: 'rgba(124, 58, 237, 0.12)' } : undefined}
+        options={[
+          { value: 'All', label: 'All Pay Types' },
+          { value: 'Salary Based', label: 'Salary Based' },
+          { value: 'Contract Based', label: 'Contract Based' },
+        ]}
+      />
+      {hasActiveFilters && (
+        <button
+          onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); setPayTypeFilter('All'); }}
+          title="Reset filters"
+          style={{
+            height: '38px', padding: '0 12px',
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            border: '1px dashed #fca5a5', borderRadius: '10px',
+            backgroundColor: '#ffffff', color: '#dc2626',
+            fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 600,
+            cursor: 'pointer', transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
+        >
+          <i className="bi bi-arrow-counterclockwise" style={{ fontSize: '13px' }} />
+          Reset
+        </button>
+      )}
+    </div>
+
     {/* Table section */}
     <div className="" style={{ position: 'relative', minHeight: dataLoading ? '300px' : 'auto' }}>
       {dataLoading && (
@@ -357,7 +449,7 @@ const EmployeeListContent = () => {
       )}
       <MaterialTable
         columns={columns}
-        data={employees}
+        data={displayedEmployees}
         tableName="Employees"
         employeeId={employeeId}
         enableColumnSpecificSearch={true}
