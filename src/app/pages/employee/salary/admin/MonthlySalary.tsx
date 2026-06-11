@@ -1,16 +1,19 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
-import { Box, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
 
 interface MonthlySalaryProps {
   month: Dayjs;
   employeesData: any;
   isLoading?: boolean;
+  // Notifies the parent so it can refetch — the API returns active employees
+  // only by default, so inactive ones must be requested from the server.
+  onStatusFilterChange?: (status: StatusFilter) => void;
 }
 
 interface SalarySummary {
@@ -21,22 +24,12 @@ interface SalarySummary {
   totalPaidAmount: number;
 }
 
-const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false }) => {
+const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false, onStatusFilterChange }) => {
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
-  const [statusFilter, setStatusFilter] = useState<'Active' | 'Deactive' | 'All'>('Active');
-
-  const filteredEmployeeSummaries = useMemo(() => {
-    if (!employeesData?.message?.employeeSummaries) return [];
-    
-    return employeesData.message.employeeSummaries.filter((summary: any) => {
-      const isActive = summary.isActive !== false;
-      if (statusFilter === 'Active') return isActive;
-      if (statusFilter === 'Deactive') return !isActive;
-      return true; // 'All'
-    });
-  }, [employeesData, statusFilter]);
+  const filters = useSalaryFilters(employeesData);
+  const { filteredEmployeeSummaries, statusFilter } = filters;
 
   // Memoized calculation for optimal performance
   const salarySummary = useMemo<SalarySummary>(() => {
@@ -93,12 +86,13 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
   // Transform employee data for table
   const tableData = useMemo(() => {
-    return filteredEmployeeSummaries.map((summary: any) => {
+    const rows = filteredEmployeeSummaries.map((summary: any) => {
       const rawTotals = summary.rawTotals || {};
 
       return {
         id: summary.employeeCode || 'N/A',
         name: summary.fullName || 'N/A',
+        subOrganization: summary.subOrganization || 'N/A',
         department: summary.department || 'N/A',
         branch: summary.branch || 'N/A',
         basicSalary: rawTotals.basicSalary ?? '-',
@@ -120,11 +114,54 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         extraDay: rawTotals.extraDaysWorked ?? 0,
       };
     });
-  }, [filteredEmployeeSummaries]);
+
+    const dataScore = (r: any) => {
+      const numFields = ['basicSalary', 'overTimeAmount', 'netAmount', 'amountPaid',
+        'professionalFees', 'professionalTax', 'totalDays', 'present'];
+      return numFields.reduce((s, k) => {
+        const v = Number(r[k]);
+        return s + (Number.isFinite(v) && v > 0 ? 1 : 0);
+      }, 0);
+    };
+
+    const byName = (a: any, b: any) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+    if (statusFilter === 'Deactive') {
+      // Inactive view: most-data rows first, then A-Z by name within same score
+      return rows.sort((a, b) => {
+        const scoreDiff = dataScore(b) - dataScore(a);
+        return scoreDiff !== 0 ? scoreDiff : byName(a, b);
+      });
+    }
+
+    // Active / All: ascending by name (case-insensitive)
+    return rows.sort(byName);
+  }, [filteredEmployeeSummaries, statusFilter]);
+
+  // Column totals across ALL filtered rows (matches the export totals).
+  const fmtINR = (n: number) => `₹${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const columnTotals = useMemo(() => {
+    const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+    return tableData.reduce(
+      (acc: any, r: any) => {
+        acc.basicSalary      += num(r.basicSalary);
+        acc.overTimeAmount   += num(r.overTimeAmount);
+        acc.professionalFees += num(r.professionalFees);
+        acc.professionalTax  += num(r.professionalTax);
+        acc.netAmount        += num(r.netAmount);
+        acc.amountPaid       += num(r.amountPaid);
+        acc.dueAmount        += num(r.dueAmount);
+        return acc;
+      },
+      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
+    );
+  }, [tableData]);
 
   const exportColumns = useMemo(() => [
     { key: 'id',              header: 'ID',                  type: 'text'     as const },
     { key: 'name',            header: 'Name',                type: 'text'     as const },
+    { key: 'subOrganization', header: 'Sub Organization',    type: 'text'     as const },
     { key: 'department',      header: 'Department',          type: 'text'     as const },
     { key: 'branch',          header: 'Branch',              type: 'text'     as const },
     { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
@@ -172,27 +209,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         <h1>Monthly Salary</h1>
         <MaterialTable
           renderTopToolbarRightActions={() => (
-            <Box sx={{ display: 'flex', gap: '0.75rem', alignItems: 'center', px: 1 }}>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel id="status-filter-label">Employee Status</InputLabel>
-                <Select
-                  labelId="status-filter-label"
-                  id="status-filter"
-                  value={statusFilter}
-                  label="Employee Status"
-                  onChange={(e) => setStatusFilter(e.target.value as 'Active' | 'Deactive' | 'All')}
-                  sx={{
-                    bgcolor: '#fff',
-                    borderRadius: '10px',
-                    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#d9e1ec' },
-                  }}
-                >
-                  <MenuItem value="Active">Active</MenuItem>
-                  <MenuItem value="Deactive">Inactive</MenuItem>
-                  <MenuItem value="All">All</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+            <SalaryFilterToolbar filters={filters} onStatusChange={onStatusFilterChange} />
           )}
           renderExportActions={() => (
             <ExportButton
@@ -211,11 +228,17 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             {
               accessorKey: "id",
               header: "ID",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
+              Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
             },
             {
               accessorKey: "name",
               header: "Name",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+            },
+            {
+              accessorKey: "subOrganization",
+              header: "Sub Organization",
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
             },
             {
@@ -234,7 +257,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-              }
+              },
+              Footer: () => fmtINR(columnTotals.basicSalary),
             },
             {
               accessorKey: "overTimeAmount",
@@ -242,7 +266,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-              }
+              },
+              Footer: () => fmtINR(columnTotals.overTimeAmount),
             },
                         {
               accessorKey: "professionalFees",
@@ -251,7 +276,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
                 return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-              }
+              },
+              Footer: () => fmtINR(columnTotals.professionalFees),
             },
             {
               accessorKey: "professionalTax",
@@ -260,7 +286,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
                 return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-              }
+              },
+              Footer: () => fmtINR(columnTotals.professionalTax),
             },
             {
               accessorKey: "netAmount",
@@ -268,7 +295,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-              }
+              },
+              Footer: () => fmtINR(columnTotals.netAmount),
             },
             {
               accessorKey: "amountPaid",
@@ -276,7 +304,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => {
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-              }
+              },
+              Footer: () => <span style={{ color: '#1d4ed8' }}>{fmtINR(columnTotals.amountPaid)}</span>,
             },
             {
               accessorKey: "dueAmount",
@@ -291,7 +320,12 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 } else {
                     return <span className="text-success fw-bold">₹0</span>;
                 }
-              }
+              },
+              Footer: () => {
+                const t = Math.round(columnTotals.dueAmount);
+                const color = t > 0 ? '#dc2626' : t < 0 ? '#0369a1' : '#16a34a';
+                return <span style={{ color }}>{fmtINR(t)}</span>;
+              },
             },
             {
               accessorKey: "totalWorkingTime",
@@ -349,6 +383,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           tableName="MonthlySalaryEmployeeData"
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
+          showColumnFooter={true}
         />
       </div>
     </>

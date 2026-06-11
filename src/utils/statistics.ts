@@ -3612,15 +3612,18 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
 }
 
 // ================================================================================
-// format number to currency in INR, 
+// format number to currency in INR
 export const formatNumber = (number: number | string) => {
-    return Intl.NumberFormat('en-IN', {
+    // Truncate to prevent rounding up for "perfect no rounding off" requirement
+    const num = typeof number === 'string' ? parseFloat(number) : number;
+    const truncated = isNaN(num) ? 0 : Math.trunc(num);
+    return new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(Number(number));
-}
+    }).format(truncated);
+};
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {

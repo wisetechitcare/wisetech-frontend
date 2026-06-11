@@ -8,6 +8,7 @@ import { fetchAllEmployees, fetchEmpAttendanceStatistics } from "@services/emplo
 import { fetchCompanyOverview } from "@services/company";
 import { fetchAllEmployeeTotalSalaryOfYear, fetchAllEmployeeMonthlySalary } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
@@ -520,7 +521,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
           { label: 'Yearly', value: 'yearly' },
         ]}
         onAlignmentChange={(value) => setAlignment(value as "monthly" | "yearly")}
-        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : fiscalYear}
+        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : formatFiscalYearLabel(fiscalYear)}
         onPrevious={alignment === 'monthly' ? handlePrevMonth : handlePrevYear}
         onNext={alignment === 'monthly' ? handleNextMonth : handleNextYear}
         disablePrevious={isLoading}

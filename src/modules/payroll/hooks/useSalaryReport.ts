@@ -6,6 +6,7 @@ import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
 import { PayrollService } from '../services/payroll.service';
+import { payrollService } from '../services/payrollService';
 import { parseCurrencyString } from '../utils/payrollFormatters';
 
 export const useSalaryReport = () => {
@@ -46,8 +47,7 @@ export const useSalaryReport = () => {
                 toast.warning('Legacy payment records cannot be deleted individually. Edit the salary record instead.', { position: 'bottom-right', autoClose: 5000 });
                 return;
             }
-            // The backend now checks both tables, so always call salary payment delete
-            await PayrollService.deletePayment(payment.id);
+            await payrollService.deletePayment(payment.id);
             successConfirmation('Payment deleted successfully');
             handleRefresh();
         } catch (error) {
@@ -88,7 +88,7 @@ export const useSalaryReport = () => {
             if (paymentType === 'SALARY' || paymentType === 'COMBINED') {
                 const amount = typeof salaryAmount === 'string' ? parseCurrencyString(salaryAmount) : Number(salaryAmount);
                 if (amount > 0) {
-                    const res = await PayrollService.recordSalaryPayment({
+                    const res = await payrollService.recordPayment({
                         ...basePayload,
                         amount: amount,
                         paymentType: 'SALARY',
@@ -124,8 +124,8 @@ export const useSalaryReport = () => {
                     const uniqueEmails = Array.from(new Set(emailNotification.to.split(',').map(e => e.trim())));
                     toast.success(
                         React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
-                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Email Sent Successfully'),
-                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Salary slip delivered to:'),
+                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Payment Confirmation Sent'),
+                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Payment notification emailed to:'),
                             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
                                 uniqueEmails.map((email, i) => 
                                     React.createElement('div', { key: i, style: { display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' } },

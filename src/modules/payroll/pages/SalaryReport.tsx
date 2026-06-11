@@ -107,13 +107,12 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                             }}
                         >
                             <MonthlyOverviewCard
+                                workingDays={(apiSalaryData as any)?.workingdays != null ? Math.round((apiSalaryData as any).workingdays) : '-'}
                                 presentDays={(apiSalaryData as any)?.extraData?.presentDays || tableData?.filter((s: any) => s.status?.toLowerCase().includes('present') || s.status?.toLowerCase().includes('late')).length || 0}
-                                absentDays={(apiSalaryData as any)?.extraData?.absentDays || tableData?.filter((s: any) => s.status?.toLowerCase().includes('absent')).length || 0}
+                                payableDays={salarySlipProps?.totalPayableDays ?? ((apiSalaryData as any)?.totalPayableDays != null ? Math.round((apiSalaryData as any).totalPayableDays) : '-')}
                                 paidLeaves={salarySlipProps?.paidLeaves || 0}
                                 unpaidLeaves={salarySlipProps?.unpaidLeaves || 0}
                                 lateCheckins={(apiSalaryData as any)?.extraData?.lateCheckins || tableData?.filter((s: any) => s.status?.toLowerCase().includes('late')).length || 0}
-                                netPayable={summaryData.netSalary}
-                                showSensitiveData={showSensitiveData}
                             />
                             <Box sx={{ minWidth: 0, '& > .card, & > .MuiPaper-root': { height: '100%', mb: '0 !important' } }}>
                                 <MonthlySalaryPieChart salarySlipProps={salarySlipProps} showSensitiveData={showSensitiveData} />

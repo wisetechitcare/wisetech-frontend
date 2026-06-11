@@ -84,6 +84,8 @@ interface MaterialTableProps {
   renderTopToolbarRightActions?: () => React.ReactNode;
   /** Replaces the bottom-left "Select Export File + Export" UI with custom content */
   renderExportActions?: () => React.ReactNode;
+  /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
+  showColumnFooter?: boolean;
   defaultSorting?: Array<{ id: string; desc: boolean }>;
 }
 
@@ -133,6 +135,7 @@ function MaterialTable({
   enableStatusColorCoding = true,
   renderTopToolbarRightActions,
   renderExportActions,
+  showColumnFooter = false,
   defaultSorting,
 }: MaterialTableProps) {
   // Column-specific search state
@@ -1232,9 +1235,19 @@ function MaterialTable({
           data={tableData}
           columns={finalColumns}
           muiTableFooterProps={{
-            sx: {
-              display: "none",
-            },
+            sx: showColumnFooter
+              ? {
+                  "& .MuiTableCell-footer": {
+                    backgroundColor: "#f8fafc",
+                    color: "#0f172a",
+                    fontWeight: 700,
+                    borderTop: "2px solid #e2e8f0",
+                    fontSize: "0.8rem",
+                  },
+                }
+              : {
+                  display: "none",
+                },
           }}
           muiTopToolbarProps={{
             sx: {

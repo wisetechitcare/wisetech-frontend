@@ -100,9 +100,23 @@ export function hasPermission(
     if (can(canonicalKey)) return true;
   }
 
-  const dynamicRoles = JSON.parse(store.getState().rolesAndPermissions.rap);
-  const emp = JSON.parse(store.getState().rolesAndPermissions.emp || "{}");
+  let dynamicRoles: Record<string, any> = {};
+  let emp: any = {};
   
+  try {
+    const rapState = store.getState().rolesAndPermissions.rap;
+    dynamicRoles = rapState ? JSON.parse(rapState) : {};
+    
+    const empState = store.getState().rolesAndPermissions.emp;
+    emp = empState ? JSON.parse(empState) : {};
+  } catch (e) {
+    console.error("Error parsing roles and permissions state:", e);
+  }
+  
+  if (!emp || !Array.isArray(emp.roles)) {
+    return false;
+  }
+
   return emp.roles.some((role: any) => {
     // Convert the role to lowercase to match your dynamic roles keys.
     const roleKey = role?.name?.toLowerCase();

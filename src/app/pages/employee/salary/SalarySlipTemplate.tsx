@@ -33,8 +33,9 @@ const parseAmt = (s: string | number): number => {
   if (typeof s === 'number') return isFinite(s) ? s : 0;
   return parseFloat((s || '0').replace(/,/g, '')) || 0;
 };
-const fmt2 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const rupee = (v: string | number) => `₹${fmt2(parseAmt(v))}`;
+const fmt0 = (n: number) => Math.trunc(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt2 = (n: number) => Math.trunc(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const rupee = (v: string | number) => `₹${fmt0(parseAmt(v))}`;
 
 function numberToWords(n: number): string {
   const num = Math.abs(n);

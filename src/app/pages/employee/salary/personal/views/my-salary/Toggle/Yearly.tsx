@@ -74,8 +74,8 @@ const getFixedDeductionAmount = (row: any, matcher: (key: string) => boolean): n
 };
 
 const isPfKey = (key: string) => key.includes('provident fund') || key.includes('pf');
-const isPtaxKey = (key: string) => key.includes('professional tax') || key.includes('ptax') || key.includes('professional fees');
-const isTdsKey = (key: string) => key.includes('tds') || key.includes('tax deducted');
+const isPtaxKey = (key: string) => key.includes('professional tax') || key.includes('ptax');
+const isTdsKey = (key: string) => key.includes('tds') || key.includes('tax deducted') || key.includes('professional fees');
 const isTds2Key = (key: string) => key.includes('tds 2') || key.includes('tds2') || key.includes('tds ii');
 
 const getAllFixedDeductions = (item: any): number => {
@@ -495,9 +495,7 @@ const Yearly = ({
                             payableDays={yearOverview.totalPayableDays.toFixed(2)}
                             workingDays={yearOverview.totalWorkingDays.toString()}
                             attendance={`${yearOverview.attendancePercent}%`}
-                            leavePercentage={`${100 - yearOverview.attendancePercent}%`}
-                            netPayable={formatCurrencyDecimal(yearOverview.totalNetAmount)}
-                            showSensitiveData={showSensitiveData}
+                            paymentProgress={`${paidPercent}%`}
                         />
                         <Box sx={{ minWidth: 0, '& > .card': { height: '100%', mb: '0 !important' } }}>
                             <MonthlySalaryComparison ComparisonData={yearlySalaryRows} loading={isLoadingSalaryData} compact showSensitiveData={showSensitiveData} />

@@ -52,7 +52,7 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
             });
 
             if (res?.statusCode === 200 && !res.hasError) {
-                const email = salarySlipProps.employee?.companyEmailId || 'Employee';
+                const email = salarySlipProps.employee?.companyEmailId || (salarySlipProps.employee as any)?.users?.personalEmailId || 'Employee';
                 toast.success(
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
@@ -88,7 +88,13 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
     };
 
     return (
-        <div className="d-flex flex-wrap justify-content-end align-items-center mb-4 gap-3">
+        // pointerEvents:auto + filter:none keep these actions clickable & crisp even when an
+        // ancestor carries the `sensitive-data-hidden` class (eye closed) which sets
+        // pointer-events:none. Slip download/email are not sensitive data, so they stay accessible.
+        <div
+            className="d-flex flex-wrap justify-content-end align-items-center mb-4 gap-3"
+            style={{ pointerEvents: 'auto', filter: 'none' }}
+        >
             {salarySlipProps && salaryId ? (
                 <button
                     disabled={loading}

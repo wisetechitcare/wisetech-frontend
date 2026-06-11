@@ -164,228 +164,30 @@ function exportCsv<T>(
     saveAs(blob, `${filename}.csv`);
 }
 
-// ─── Excel (SpreadsheetML / true .xls) Export ────────────────────────────────
-// Uses the Excel 2003 XML Spreadsheet format — Excel opens it without warnings
-// because the file IS a real XLS, not an HTML masquerading as one.
+// ─── Excel (.xlsx) Export ─────────────────────────────────────────────────────
+// Builds a real Office Open XML workbook via ExcelJS (lazy-loaded so it stays
+// out of the main bundle). A true .xlsx avoids Excel's "file format and
+// extension don't match" warning that XML-based .xls files always trigger.
 
-interface SmlStyle {
-    bgColor: string;     // hex e.g. "#1e3a5f"
-    textColor: string;   // hex
-    bold: boolean;
-    align: 'Left' | 'Center' | 'Right';
-    fontSize: number;
-    borders: boolean;
-    borderColor: string;
-}
+const argb = (hex: string) => 'FF' + hex.replace('#', '').toUpperCase();
 
-function buildSpreadsheetML<T>(
-    data: T[],
-    columns: ExportColumn<T>[],
-    title: string,
-    subtitle: string,
-    sheetName: string,
-    showTotals: boolean,
-    totalLabel: string,
-): string {
-    const cols = columns.filter(c => !c.xlsSkip);
-    const colCount = cols.length;
+// Indian-grouped rupee format (₹1,23,45,678.90). Negatives fall through to the
+// last section and render as -₹48,079.00.
+const INR_FORMAT = '[>=10000000]"₹"##\\,##\\,##\\,##0.00;[>=100000]"₹"##\\,##\\,##0.00;"₹"#,##0.00';
 
-    // ── Style registry: collects unique styles, assigns IDs ──────────────────
-    const styleMap = new Map<string, string>();
-    let styleIdx = 0;
+const thinBorder = (hex: string) => {
+    const side = { style: 'thin' as const, color: { argb: argb(hex) } };
+    return { top: side, left: side, bottom: side, right: side };
+};
 
-    function sid(s: SmlStyle): string {
-        const key = `${s.bgColor}|${s.textColor}|${s.bold}|${s.align}|${s.fontSize}|${s.borders}|${s.borderColor}`;
-        if (!styleMap.has(key)) styleMap.set(key, `S${++styleIdx}`);
-        return styleMap.get(key)!;
-    }
+const colAlign = (col: ExportColumn): 'left' | 'center' | 'right' => {
+    if (col.align) return col.align;
+    if (col.type === 'currency' || col.type === 'number') return 'right';
+    if (col.type === 'status') return 'center';
+    return 'left';
+};
 
-    function styleXml(id: string, s: SmlStyle): string {
-        const borders = s.borders ? `
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${s.borderColor}"/>
-        <Border ss:Position="Left"   ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${s.borderColor}"/>
-        <Border ss:Position="Right"  ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${s.borderColor}"/>
-        <Border ss:Position="Top"    ss:LineStyle="Continuous" ss:Weight="1" ss:Color="${s.borderColor}"/>
-      </Borders>` : '<Borders/>';
-        return `  <Style ss:ID="${id}">
-    <Alignment ss:Horizontal="${s.align}" ss:Vertical="Center" ss:WrapText="0"/>
-    ${borders}
-    <Font ss:FontName="Calibri" ss:Size="${s.fontSize}"${s.bold ? ' ss:Bold="1"' : ''} ss:Color="${s.textColor}"/>
-    <Interior ss:Color="${s.bgColor}" ss:Pattern="Solid"/>
-    <NumberFormat ss:Format="@"/>
-  </Style>`;
-    }
-
-    // Pre-register fixed styles
-    const ST_TITLE = sid({ bgColor:'#ffffff', textColor:'#0f172a', bold:true,  align:'Center', fontSize:18, borders:false, borderColor:'#ffffff' });
-    const ST_SUB   = sid({ bgColor:'#ffffff', textColor:'#64748b', bold:false, align:'Center', fontSize:12, borders:false, borderColor:'#ffffff' });
-    const ST_BLANK = sid({ bgColor:'#ffffff', textColor:'#ffffff', bold:false, align:'Left',   fontSize:11, borders:false, borderColor:'#ffffff' });
-    const ST_HDR   = sid({ bgColor:'#1e3a5f', textColor:'#ffffff', bold:true,  align:'Center', fontSize:12, borders:true,  borderColor:'#2d4f7c' });
-
-    const mkData = (bg: string, textColor: string, bold: boolean, align: 'Left'|'Center'|'Right') =>
-        sid({ bgColor: bg, textColor, bold, align, fontSize: 11, borders: true, borderColor: '#d1d9e6' });
-
-    const mkTotal = (textColor: string, align: 'Left'|'Center'|'Right') =>
-        sid({ bgColor: '#dbeafe', textColor, bold: true, align, fontSize: 12, borders: true, borderColor: '#93c5fd' });
-
-    // ── Helper: escape XML ────────────────────────────────────────────────────
-    const esc = (v: string) =>
-        v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-    // ── Cell XML ─────────────────────────────────────────────────────────────
-    const xmlCell = (value: string, styleId: string, mergeAcross = 0): string => {
-        const merge = mergeAcross > 0 ? ` ss:MergeAcross="${mergeAcross}"` : '';
-        return `      <Cell ss:StyleID="${styleId}"${merge}><Data ss:Type="String">${esc(value)}</Data></Cell>`;
-    };
-
-    // ── Determine per-column alignment ────────────────────────────────────────
-    const colAlign = (col: ExportColumn): 'Left' | 'Center' | 'Right' => {
-        if (col.align === 'left') return 'Left';
-        if (col.align === 'center') return 'Center';
-        if (col.align === 'right') return 'Right';
-        if (col.type === 'currency' || col.type === 'number') return 'Right';
-        if (col.type === 'status') return 'Center';
-        return 'Left';
-    };
-
-    // ── Build rows XML ────────────────────────────────────────────────────────
-    const xmlRows: string[] = [];
-
-    // Title row (merged)
-    xmlRows.push(`    <Row ss:Height="28">
-${xmlCell(title, ST_TITLE, colCount - 1)}
-    </Row>`);
-
-    // Subtitle row
-    if (subtitle) {
-        xmlRows.push(`    <Row ss:Height="18">
-${xmlCell(subtitle, ST_SUB, colCount - 1)}
-    </Row>`);
-    }
-
-    // Blank spacer
-    xmlRows.push(`    <Row ss:Height="8">
-${xmlCell('', ST_BLANK, colCount - 1)}
-    </Row>`);
-
-    // Header row
-    const hdrCells = cols.map(col => xmlCell(col.header, ST_HDR)).join('\n');
-    xmlRows.push(`    <Row ss:Height="22">\n${hdrCells}\n    </Row>`);
-
-    // Data rows
-    data.forEach((row, i) => {
-        const bg = i % 2 === 0 ? '#ffffff' : '#f8fafd';
-        const cells = cols.map(col => {
-            const display = getCellDisplay(row, col);
-            const align = colAlign(col);
-
-            let textColor = '#0f172a';
-
-            if (col.type === 'status') {
-                const cfg = { ...DEFAULT_STATUS_CONFIG, ...(col.statusConfig ?? {}) };
-                const raw = String(getRawValue(row, col) ?? display);
-                const sc = cfg[raw] ?? { bg: '#f1f5f9', text: '#475569' };
-                const stId = sid({ bgColor: sc.bg, textColor: sc.text, bold: true, align: 'Center', fontSize: 11, borders: true, borderColor: '#d1d9e6' });
-                return xmlCell(display, stId);
-            }
-
-            if (col.type === 'currency' || col.type === 'number') {
-                const rawVal = getRawValue(row, col);
-                if (typeof col.color === 'function') {
-                    textColor = col.color(rawVal, row) || '#0f172a';
-                } else if (typeof col.color === 'string') {
-                    textColor = col.color;
-                }
-                return xmlCell(display, mkData(bg, textColor, true, align));
-            }
-
-            if (typeof col.color === 'function') {
-                textColor = col.color(getRawValue(row, col), row) || '#0f172a';
-            } else if (typeof col.color === 'string') {
-                textColor = col.color;
-            }
-            return xmlCell(display, mkData(bg, textColor, false, align));
-        }).join('\n');
-        xmlRows.push(`    <Row>\n${cells}\n    </Row>`);
-    });
-
-    // Totals row
-    if (showTotals) {
-        const totalCells = cols.map((col, idx) => {
-            if (idx === 0) return xmlCell(totalLabel, mkTotal('#1e3a5f', 'Left'));
-            if (col.showTotal && (col.type === 'currency' || col.type === 'number')) {
-                const sum = data.reduce((acc, r) => acc + getNumericValue(r, col), 0);
-                const display = col.type === 'currency' ? fmtCurrency(sum) : fmtNumber(sum);
-                const tc = typeof col.color === 'string' ? col.color : '#0f172a';
-                return xmlCell(display, mkTotal(tc, 'Right'));
-            }
-            return xmlCell('', mkTotal('#0f172a', 'Left'));
-        }).join('\n');
-        xmlRows.push(`    <Row>\n${totalCells}\n    </Row>`);
-    }
-
-    // ── Generate <Styles> XML from registry ──────────────────────────────────
-    const stylesXml = Array.from(styleMap.entries())
-        .map(([key, id]) => {
-            const parts = key.split('|');
-            const s: SmlStyle = {
-                bgColor:     parts[0],
-                textColor:   parts[1],
-                bold:        parts[2] === 'true',
-                align:       parts[3] as SmlStyle['align'],
-                fontSize:    Number(parts[4]),
-                borders:     parts[5] === 'true',
-                borderColor: parts[6],
-            };
-            return styleXml(id, s);
-        })
-        .join('\n');
-
-    // ── Column widths ─────────────────────────────────────────────────────────
-    const colWidthsXml = cols.map(col => {
-        let w = 100;
-        if (col.type === 'currency') w = 120;
-        if (col.type === 'status') w = 90;
-        if (col.header.length > 15) w = Math.max(w, col.header.length * 8);
-        return `    <Column ss:Width="${w}"/>`;
-    }).join('\n');
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:o="urn:schemas-microsoft-com:office:office"
-  xmlns:x="urn:schemas-microsoft-com:office:excel"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
-    <Created>${new Date().toISOString()}</Created>
-  </DocumentProperties>
-  <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
-    <WindowHeight>12000</WindowHeight>
-    <WindowWidth>20000</WindowWidth>
-    <ActiveSheet>0</ActiveSheet>
-  </ExcelWorkbook>
-  <Styles>
-${stylesXml}
-  </Styles>
-  <Worksheet ss:Name="${esc(sheetName.slice(0, 31))}">
-    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
-      <Selected/>
-      <FreezePanes/>
-      <FrozenNoSplit/>
-      <SplitHorizontal>4</SplitHorizontal>
-      <TopRowBottomPane>4</TopRowBottomPane>
-      <ActivePane>2</ActivePane>
-    </WorksheetOptions>
-    <Table>
-${colWidthsXml}
-${xmlRows.join('\n')}
-    </Table>
-  </Worksheet>
-</Workbook>`;
-}
-
-function exportXls<T>(
+async function exportXlsx<T>(
     data: T[],
     columns: ExportColumn<T>[],
     filename: string,
@@ -395,9 +197,140 @@ function exportXls<T>(
     showTotals: boolean,
     totalLabel: string,
 ) {
-    const xml = buildSpreadsheetML(data, columns, title, subtitle, sheetName, showTotals, totalLabel);
-    const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    saveAs(blob, `${filename}.xls`);
+    const ExcelJS: any = await import('exceljs');
+    const Workbook = ExcelJS.Workbook ?? ExcelJS.default?.Workbook;
+    const wb = new Workbook();
+    const ws = wb.addWorksheet(sheetName.slice(0, 31) || 'Sheet1');
+
+    const cols = columns.filter(c => !c.xlsSkip);
+    const colCount = cols.length;
+
+    // Column widths (ExcelJS width ≈ character count; old widths were px)
+    ws.columns = cols.map(col => {
+        let px = 100;
+        if (col.type === 'currency') px = 120;
+        if (col.type === 'status') px = 90;
+        if (col.header.length > 15) px = Math.max(px, col.header.length * 8);
+        return { width: Math.round(px / 7) };
+    });
+
+    let r = 1;
+
+    // Title row (merged)
+    ws.mergeCells(r, 1, r, colCount);
+    const titleCell = ws.getCell(r, 1);
+    titleCell.value = title;
+    titleCell.font = { name: 'Calibri', size: 18, bold: true, color: { argb: argb('#0f172a') } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(r).height = 28;
+    r++;
+
+    // Subtitle row
+    if (subtitle) {
+        ws.mergeCells(r, 1, r, colCount);
+        const subCell = ws.getCell(r, 1);
+        subCell.value = subtitle;
+        subCell.font = { name: 'Calibri', size: 12, color: { argb: argb('#64748b') } };
+        subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getRow(r).height = 18;
+        r++;
+    }
+
+    // Blank spacer
+    ws.getRow(r).height = 8;
+    r++;
+
+    // Header row
+    const headerRow = ws.getRow(r);
+    cols.forEach((col, i) => {
+        const c = headerRow.getCell(i + 1);
+        c.value = col.header;
+        c.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('#1e3a5f') } };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.border = thinBorder('#2d4f7c');
+    });
+    headerRow.height = 22;
+    ws.views = [{ state: 'frozen', xSplit: 0, ySplit: r }];
+    r++;
+
+    // Data rows
+    data.forEach((row, i) => {
+        const stripe = i % 2 === 0 ? '#ffffff' : '#f8fafd';
+        const xRow = ws.getRow(r);
+
+        cols.forEach((col, ci) => {
+            const cell = xRow.getCell(ci + 1);
+            const raw = getRawValue(row, col);
+            const display = getCellDisplay(row, col);
+
+            let bg = stripe;
+            let textColor = '#0f172a';
+            let bold = false;
+            if (typeof col.color === 'function') textColor = col.color(raw, row) || '#0f172a';
+            else if (typeof col.color === 'string') textColor = col.color;
+
+            if (col.type === 'status') {
+                const cfg = { ...DEFAULT_STATUS_CONFIG, ...(col.statusConfig ?? {}) };
+                const sc = cfg[String(raw ?? display)] ?? { bg: '#f1f5f9', text: '#475569' };
+                bg = sc.bg;
+                textColor = sc.text;
+                bold = true;
+                cell.value = display;
+            } else if (col.type === 'currency' || col.type === 'number') {
+                bold = true;
+                const n = Number(raw);
+                // Write real numbers so Excel can sort/sum them; formatted
+                // strings only when a custom formatter or non-numeric value.
+                if (!col.format && raw !== null && raw !== undefined && raw !== '' && raw !== '-' && !isNaN(n)) {
+                    cell.value = n;
+                    if (col.type === 'currency') cell.numFmt = INR_FORMAT;
+                } else {
+                    cell.value = display;
+                }
+            } else {
+                cell.value = display;
+            }
+
+            cell.font = { name: 'Calibri', size: 11, bold, color: { argb: argb(textColor) } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(bg) } };
+            cell.alignment = { horizontal: colAlign(col), vertical: 'middle' };
+            cell.border = thinBorder('#d1d9e6');
+        });
+        r++;
+    });
+
+    // Totals row
+    if (showTotals) {
+        const totalRow = ws.getRow(r);
+        cols.forEach((col, idx) => {
+            const cell = totalRow.getCell(idx + 1);
+            let textColor = '#0f172a';
+            let align: 'left' | 'right' = 'left';
+
+            if (idx === 0) {
+                cell.value = totalLabel;
+                textColor = '#1e3a5f';
+            } else if (col.showTotal && (col.type === 'currency' || col.type === 'number')) {
+                const sum = data.reduce((acc, row) => acc + getNumericValue(row, col), 0);
+                cell.value = sum;
+                if (col.type === 'currency') cell.numFmt = INR_FORMAT;
+                if (typeof col.color === 'string') textColor = col.color;
+                align = 'right';
+            }
+
+            cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: argb(textColor) } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb('#dbeafe') } };
+            cell.alignment = { horizontal: align, vertical: 'middle' };
+            cell.border = thinBorder('#93c5fd');
+        });
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    saveAs(blob, `${filename}.xlsx`);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -416,26 +349,24 @@ function ExportButton<T = any>({
     sx = {},
 }: ExportButtonProps<T>) {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [loading, setLoading] = useState<'xls' | 'csv' | null>(null);
+    const [loading, setLoading] = useState<'xlsx' | 'csv' | null>(null);
     const open = Boolean(anchorEl);
 
     const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
     const handleClose = () => setAnchorEl(null);
 
-    const runExport = (type: 'xls' | 'csv') => {
+    const runExport = async (type: 'xlsx' | 'csv') => {
         handleClose();
         setLoading(type);
-        setTimeout(() => {
-            try {
-                if (type === 'xls') {
-                    exportXls(data, columns, filename, title, subtitle, sheetName, showTotals, totalLabel);
-                } else {
-                    exportCsv(data, columns, filename, title, showTotals, totalLabel);
-                }
-            } finally {
-                setLoading(null);
+        try {
+            if (type === 'xlsx') {
+                await exportXlsx(data, columns, filename, title, subtitle, sheetName, showTotals, totalLabel);
+            } else {
+                exportCsv(data, columns, filename, title, showTotals, totalLabel);
             }
-        }, 10);
+        } finally {
+            setLoading(null);
+        }
     };
 
     const btnSx = {
@@ -518,12 +449,12 @@ function ExportButton<T = any>({
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-                <MenuItem onClick={() => runExport('xls')}>
+                <MenuItem onClick={() => runExport('xlsx')}>
                     <ListItemIcon>
                         <TableChartIcon sx={{ fontSize: 18, color: '#1d6f42' }} />
                     </ListItemIcon>
                     <ListItemText
-                        primary="Excel (.xls)"
+                        primary="Excel (.xlsx)"
                         secondary="Styled with colours"
                         secondaryTypographyProps={{ style: { fontSize: 11, color: '#64748b' } }}
                     />
