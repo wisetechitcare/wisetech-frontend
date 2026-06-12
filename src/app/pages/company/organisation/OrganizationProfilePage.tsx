@@ -15,7 +15,7 @@ const breadcrumbs: Array<PageLink> = [
 
 /**
  * Routed profile page for a single organization (`/company/organisation-profile/:orgId`).
- * Renders the same editable Organisation Profile used for the default org, scoped
+ * Renders the same editable Organization Profile used for the default org, scoped
  * to the selected organization. The org's branches open in a modal from the
  * "Branches" button beside Download PDF.
  */

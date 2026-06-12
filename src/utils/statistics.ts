@@ -3902,12 +3902,15 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty):
+    // JSON.parse(null) and JSON.parse("null") both yield null, and indexing it by the
+    // weekday would crash the whole page ("Cannot read properties of null").
+    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3936,12 +3939,13 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty).
+    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
