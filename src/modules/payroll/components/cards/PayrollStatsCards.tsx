@@ -18,10 +18,10 @@ interface PayrollStatsCardsProps {
 }
 
 const fmtAbs = (n: number) =>
-    `₹${Math.round(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    `₹${Math.trunc(Math.abs(n)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const pendingFooter = (amount: number): { label: string; value: string } => {
-    const rounded = Math.round(amount);
+    const rounded = Math.trunc(amount);
     if (rounded > 0) return { label: 'Pending', value: fmtAbs(amount) };
     if (rounded < 0) return { label: 'Extra',   value: fmtAbs(amount) };
     return { label: 'Cleared', value: '' };
@@ -61,8 +61,8 @@ const PayrollStatsCards: React.FC<PayrollStatsCardsProps> = ({
         : dayjs(`${year}-${String(month).padStart(2, '0')}-01`).format('MMMM YYYY');
 
     const totalAfterAttendance = Math.max(0, summaryData.totalGrossPay - summaryData.totalVariableDeduction);
-    const deductionsPending    = Math.round(summaryData.governmentPending);
-    const payablePending       = Math.round(summaryData.salaryPending);
+    const deductionsPending    = Math.trunc(summaryData.governmentPending);
+    const payablePending       = Math.trunc(summaryData.salaryPending);
     const hasPendingArrears    = (summaryData.totalPendingArrears ?? 0) > 0;
 
     let deductionLabel = 'DEDUCTIONS';

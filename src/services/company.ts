@@ -665,3 +665,17 @@ export const fetchSalaryDataForDateRangeMonthly = async (params: { employeeId: s
         throw error;
     }
 }
+
+export const fetchSalaryPaymentHistory = async (salaryId: string) => {
+    try {
+        if (!salaryId) {
+            throw new Error('Salary ID is required');
+        }
+        const endpoint = `${API_BASE_URL}/salary/payments/${salaryId}`;
+        const { data } = await axios.get(endpoint);
+        return data?.data || null;
+    } catch (error) {
+        console.warn('Failed to fetch salary payment history:', error);
+        return null;
+    }
+}

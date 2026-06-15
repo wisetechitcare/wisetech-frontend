@@ -138,4 +138,14 @@ export const payrollService = {
     });
     return response.data;
   },
+
+  /**
+   * Download Contract Bill PDF
+   */
+  downloadContractBill: async (salaryId: string) => {
+    const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}/download-contract-bill`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
 };
