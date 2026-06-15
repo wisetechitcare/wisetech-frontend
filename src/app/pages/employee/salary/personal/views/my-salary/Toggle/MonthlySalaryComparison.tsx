@@ -8,320 +8,319 @@ interface MonthlySalaryComparisonProps {
     showSensitiveData?: boolean;
 }
 
-const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = false, showSensitiveData = true }: MonthlySalaryComparisonProps) => {
+// ── Deduction key matchers (same logic as Yearly.tsx) ──────────────────────
+const isPfKey   = (k: string) => k.includes('provident fund') || k.includes('pf');
+const isPtaxKey = (k: string) => k.includes('professional tax') || k.includes('ptax');
+const isTdsKey  = (k: string) => k.includes('tds') || k.includes('tax deducted') || k.includes('professional fees');
+const isTds2Key = (k: string) => k.includes('tds 2') || k.includes('tds2') || k.includes('tds ii');
+
+const sumBreakdown = (breakdown: any, matcher: (k: string) => boolean): number => {
+    if (!breakdown || typeof breakdown !== 'object') return 0;
+    return Object.entries(breakdown).reduce((sum, [key, item]: [string, any]) => {
+        const earned = Number(item?.earned || 0);
+        if (item?.isActive === false || earned <= 0) return sum;
+        return matcher(key.toLowerCase()) ? sum + earned : sum;
+    }, 0);
+};
+
+const getDeduction = (row: any, matcher: (k: string) => boolean): number =>
+    sumBreakdown(row?.deductionBreakdown?.fixed, matcher) +
+    sumBreakdown(row?.deductionBreakdown?.variable, matcher);
+
+// ── Color palette ──────────────────────────────────────────────────────────
+const COLOR_BASIC  = '#FBD678'; // warm gold  — Basic Salary
+const COLOR_NET    = '#58C25D'; // soft green — Net Take-Home
+const COLOR_PF     = '#3B82F6'; // bright blue    — PF
+const COLOR_PTAX   = '#8B5CF6'; // vivid purple   — PTax
+const COLOR_TDS    = '#EF4444'; // vivid red       — TDS
+const COLOR_TDS2   = '#F97316'; // vivid orange    — TDS2
+const COLOR_LINE   = '#AA393D'; // dark crimson   — Average line
+
+const MonthlySalaryComparison = ({
+    ComparisonData,
+    loading = false,
+    compact = false,
+    showSensitiveData = true,
+}: MonthlySalaryComparisonProps) => {
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
-    const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
-    
-    // Standard Indian Fiscal Year: April to March order
+
     const standardMonths = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-    
-    // Helper to parse amount strings or numbers robustly
-    const parseAmount = (raw: any) => {
+
+    const monthMapper: Record<string, number> = {
+        'apr': 0, 'april': 0, 'may': 1, 'jun': 2, 'june': 2,
+        'jul': 3, 'july': 3, 'aug': 4, 'august': 4, 'sep': 5, 'september': 5,
+        'oct': 6, 'october': 6, 'nov': 7, 'november': 7, 'dec': 8, 'december': 8,
+        'jan': 9, 'january': 9, 'feb': 10, 'february': 10, 'mar': 11, 'march': 11,
+    };
+
+    const parseAmount = (raw: any): number => {
         if (raw === null || raw === undefined) return 0;
         if (typeof raw === 'number') return raw;
-        const cleaned = String(raw).replace(/₹|,/g, "").trim();
-        const n = Number(cleaned);
+        const n = Number(String(raw).replace(/₹|,/g, '').trim());
         return Number.isFinite(n) ? n : 0;
     };
 
-    const formatCurrency = (val: number | string | null | undefined) => {
-        if (val === null || val === undefined) return '₹0';
-        const num = typeof val === 'number' ? val : Number(String(val).replace(/₹|,/g, '').trim());
-        if (isNaN(num)) return '₹0';
-        return '₹' + num.toLocaleString('en-IN');
-    };
+    interface MonthStat {
+        month: string;
+        basicSalary: number | null;
+        netTakeHome: number | null;   // net after all deductions
+        pf: number | null;
+        ptax: number | null;
+        tds: number | null;
+        tds2: number | null;
+        average: number | null;
+    }
+
+    const [monthlyStats, setMonthlyStats] = useState<MonthStat[]>([]);
+    const [hasPf, setHasPf]     = useState(false);
+    const [hasPtax, setHasPtax] = useState(false);
+    const [hasTds, setHasTds]   = useState(false);
+    const [hasTds2, setHasTds2] = useState(false);
 
     useEffect(() => {
-        // Map months to index based on Indian Fiscal Year order (Apr to Mar)
-        const monthMapper: { [key: string]: number } = {
-            'apr': 0, 'april': 0,
-            'may': 1,
-            'jun': 2, 'june': 2,
-            'jul': 3, 'july': 3,
-            'aug': 4, 'august': 4,
-            'sep': 5, 'september': 5,
-            'oct': 6, 'october': 6,
-            'nov': 7, 'november': 7,
-            'dec': 8, 'december': 8,
-            'jan': 9, 'january': 9,
-            'feb': 10, 'february': 10,
-            'mar': 11, 'march': 11
-        };
-
-        const stats = standardMonths.map(m => ({
+        const stats: MonthStat[] = standardMonths.map(m => ({
             month: m,
-            basicSalary: null as number | null,
-            netSalary: null as number | null,
-            average: null as number | null
+            basicSalary: null, netTakeHome: null,
+            pf: null, ptax: null, tds: null, tds2: null, average: null,
         }));
+
+        let _pf = false, _ptax = false, _tds = false, _tds2 = false;
 
         if (ComparisonData && Array.isArray(ComparisonData)) {
             ComparisonData.forEach((item: any) => {
                 if (!item || !item.month) return;
-                const lowerMonth = String(item.month).toLowerCase().trim();
-                const index = monthMapper[lowerMonth];
-                if (index !== undefined) {
-                    // Extract basic salary or fallbacks
-                    let basic = 0;
-                    if (item.basicSalary && item.basicSalary !== '-') basic = parseAmount(item.basicSalary);
-                    else if (item.netAmount && item.netAmount !== '-') basic = parseAmount(item.netAmount);
-                    else if (item.annualCTC) basic = parseAmount(item.annualCTC / 12);
+                const idx = monthMapper[String(item.month).toLowerCase().trim()];
+                if (idx === undefined) return;
 
-                    // Extract net salary or fallbacks
-                    let net = 0;
-                    if (item.netAmount && item.netAmount !== '-') net = parseAmount(item.netAmount);
-                    else if (item.amountPaid && item.amountPaid !== '-') net = parseAmount(item.amountPaid);
-                    else if (item.paidAmount && item.paidAmount !== '-') net = parseAmount(item.paidAmount);
-                    else if (item.basicSalary && item.basicSalary !== '-') net = parseAmount(item.basicSalary);
+                // Basic salary
+                let basic = 0;
+                if (item.basicSalary && item.basicSalary !== '-') basic = parseAmount(item.basicSalary);
+                else if (item.netAmount && item.netAmount !== '-')  basic = parseAmount(item.netAmount);
+                else if (item.annualCTC) basic = parseAmount(item.annualCTC / 12);
 
-                    // Calculate average between basic and net
-                    const avg = (basic + net) / 2;
+                // Gross net (before deductions stacking)
+                let grossNet = 0;
+                if (item.netAmount && item.netAmount !== '-') grossNet = parseAmount(item.netAmount);
+                else if (item.amountPaid && item.amountPaid !== '-') grossNet = parseAmount(item.amountPaid);
+                else if (item.basicSalary && item.basicSalary !== '-') grossNet = parseAmount(item.basicSalary);
 
-                    stats[index].basicSalary = basic;
-                    stats[index].netSalary = net;
-                    stats[index].average = avg;
-                }
+                // Deductions from breakdown
+                const pf   = getDeduction(item, isPfKey);
+                const ptax = getDeduction(item, isPtaxKey);
+                const tds  = getDeduction(item, isTdsKey);
+                const tds2 = getDeduction(item, isTds2Key);
+                const totalDed = pf + ptax + tds + tds2;
+
+                // Net take-home = grossNet minus deductions that exist in breakdown
+                // If breakdown deductions sum > 0, subtract them from grossNet
+                const netTakeHome = totalDed > 0 ? Math.max(0, grossNet - totalDed) : grossNet;
+
+                if (pf   > 0) _pf   = true;
+                if (ptax > 0) _ptax = true;
+                if (tds  > 0) _tds  = true;
+                if (tds2 > 0) _tds2 = true;
+
+                const avg = (basic + grossNet) / 2;
+
+                stats[idx] = {
+                    month: standardMonths[idx],
+                    basicSalary: basic   > 0 ? basic       : null,
+                    netTakeHome: grossNet > 0 ? netTakeHome : null,
+                    pf:   pf   > 0 ? pf   : null,
+                    ptax: ptax > 0 ? ptax : null,
+                    tds:  tds  > 0 ? tds  : null,
+                    tds2: tds2 > 0 ? tds2 : null,
+                    average: grossNet > 0 ? avg : null,
+                };
             });
         }
 
         setMonthlyStats(stats);
+        setHasPf(_pf); setHasPtax(_ptax); setHasTds(_tds); setHasTds2(_tds2);
     }, [ComparisonData]);
 
-    // Compute KPI values
-    const totalBasic = monthlyStats.reduce((sum, item) => sum + (item.basicSalary || 0), 0);
-    const totalNet = monthlyStats.reduce((sum, item) => sum + (item.netSalary || 0), 0);
-    
-    const activeMonths = monthlyStats.filter(item => (item.basicSalary || 0) > 0);
-    const activeCount = activeMonths.length > 0 ? activeMonths.length : 12;
+    // ── Build series ─────────────────────────────────────────────────────────
+    // Series order matters for stacking. ApexCharts stacks from first to last.
+    // We want: Basic (ungrouped), then stacked group: NetTakeHome, PF, PTax, TDS, TDS2, Average (line).
+    const get = (key: keyof MonthStat) => monthlyStats.map(s => s[key] as number | null);
 
-    const avgBasic = Math.round(totalBasic / activeCount);
-    const avgNet = Math.round(totalNet / activeCount);
-
-    function getFullMonthName(shortMonth: string) {
-        const mapping: { [key: string]: string } = {
-            'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
-            'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
-            'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December'
-        };
-        return mapping[shortMonth] || shortMonth;
-    }
-
-    // Chart Series configuration
-    const series = [
-        {
-            name: 'Basic Salary',
-            type: 'column',
-            data: monthlyStats.map(item => item.basicSalary)
-        },
-        {
-            name: 'Net Salary',
-            type: 'column',
-            data: monthlyStats.map(item => item.netSalary)
-        },
-        {
-            name: 'Average',
-            type: 'line',
-            data: monthlyStats.map(item => item.average)
-        }
+    const series: any[] = [
+        { name: 'Basic Salary', type: 'column', data: get('basicSalary'), group: 'basic' },
+        { name: 'Net Take-Home', type: 'column', data: get('netTakeHome'), group: 'salary' },
+        ...(hasPf   ? [{ name: 'PF',   type: 'column', data: get('pf'),   group: 'salary' }] : []),
+        ...(hasPtax ? [{ name: 'PTax', type: 'column', data: get('ptax'), group: 'salary' }] : []),
+        ...(hasTds  ? [{ name: 'TDS',  type: 'column', data: get('tds'),  group: 'salary' }] : []),
+        ...(hasTds2 ? [{ name: 'TDS2', type: 'column', data: get('tds2'), group: 'salary' }] : []),
+        { name: 'Average', type: 'line', data: get('average') },
     ];
 
-    // Chart Options configuration with high-visibility floating labels
+    const stackedSeriesCount = 1 + (hasPf ? 1 : 0) + (hasPtax ? 1 : 0) + (hasTds ? 1 : 0) + (hasTds2 ? 1 : 0);
+    const totalSeriesCount   = series.length;
+
+    const colorsArr = [
+        COLOR_BASIC, COLOR_NET,
+        ...(hasPf   ? [COLOR_PF]   : []),
+        ...(hasPtax ? [COLOR_PTAX] : []),
+        ...(hasTds  ? [COLOR_TDS]  : []),
+        ...(hasTds2 ? [COLOR_TDS2] : []),
+        COLOR_LINE,
+    ];
+
+    // stroke: 0 for all column series, 3 for the line
+    const strokeWidths = Array.from({ length: totalSeriesCount - 1 }, () => 0);
+    strokeWidths.push(3);
+    const strokeColors = Array.from({ length: totalSeriesCount - 1 }, () => 'transparent');
+    strokeColors.push(COLOR_LINE);
+
+    // dataLabels only on Net Take-Home (index 1) — shows total net inside green bar
+    const labelsEnabledOn = [1]; // only Net Take-Home
+
+    function getFullMonthName(s: string) {
+        const m: Record<string, string> = {
+            'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
+            'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
+            'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December',
+        };
+        return m[s] || s;
+    }
+
     const chartOptions: any = {
         chart: {
             id: 'salary-combo-chart',
-            type: 'line' as 'line',
+            type: 'line' as const,
             height: compact ? 300 : 430,
-            toolbar: {
-                show: false,
-                autoSelected: 'pan'
-            },
+            stacked: true, // enables grouping + stacking
+            toolbar: { show: false },
             fontFamily: 'Inter, sans-serif',
-            selection: {
-                enabled: false
-            },
-            zoom: {
-                enabled: false,
-                type: 'x'
-            }
+            selection: { enabled: false },
+            zoom: { enabled: false },
         },
         stroke: {
-            width: [0, 0, 3], // Columns have no border stroke; line series has 3px width
-            curve: 'straight' as 'straight',
-            colors: ['transparent', 'transparent', '#AA393D']
+            width: strokeWidths,
+            curve: 'straight' as const,
+            colors: strokeColors,
         },
         plotOptions: {
             bar: {
                 horizontal: false,
                 columnWidth: '55%',
                 borderRadius: 4,
-                endingShape: 'rounded',
-                borderRadiusApplication: 'around' as 'around',
-                borderRadiusWhenStacked: 'all' as 'all',
+                borderRadiusApplication: 'around' as const,
+                borderRadiusWhenStacked: 'last' as const,
                 dataLabels: {
                     position: 'center',
-                    orientation: 'vertical' as 'vertical', // Values written inside the bars, rotated
-                }
-            }
+                    orientation: 'vertical' as const,
+                },
+            },
         },
-        colors: ['#FBD678', '#58C25D', '#AA393D'], // Warm gold, Soft premium green, Deep dark crimson/red theme color
+        colors: colorsArr,
         dataLabels: {
             enabled: true,
-            enabledOnSeries: [0, 1], // Labels only inside the bar columns
-            formatter: function (val: number) {
-                if (!val || val === 0) return '';
-                return '₹' + (val / 1000).toFixed(0) + 'k';
-            },
+            enabledOnSeries: labelsEnabledOn,
+            formatter: (val: number) => (!val || val === 0 ? '' : '₹' + (val / 1000).toFixed(0) + 'k'),
             offsetY: 0,
             style: {
                 fontSize: compact ? '9px' : '11px',
                 fontWeight: 700,
-                colors: ['#7a4f01', '#ffffff'] // Dark amber on gold bars, white on green bars
+                colors: ['#ffffff'],
             },
-            background: {
-                enabled: false
-            },
-            dropShadow: {
-                enabled: false
-            }
+            background: { enabled: false },
         },
         xaxis: {
             categories: standardMonths,
-            axisBorder: {
-                show: true,
-                color: '#e2e8f0'
-            },
-            axisTicks: {
-                show: false
-            },
-            labels: {
-                style: {
-                    colors: '#64748b',
-                    fontSize: '12px',
-                    fontWeight: 500
-                }
-            }
+            axisBorder: { show: true, color: '#e2e8f0' },
+            axisTicks: { show: false },
+            labels: { style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 } },
         },
         yaxis: {
             labels: {
                 minWidth: 54,
                 maxWidth: 54,
-                formatter: function (val: number) {
-                    return '₹' + val.toLocaleString('en-IN');
-                },
-                style: {
-                    colors: '#64748b',
-                    fontSize: '12px',
-                    fontWeight: 500
-                }
+                formatter: (val: number) => '₹' + val.toLocaleString('en-IN'),
+                style: { colors: '#64748b', fontSize: '12px', fontWeight: 500 },
             },
             title: {
                 text: 'Amount (₹)',
-                style: {
-                    color: '#64748b',
-                    fontSize: '13px',
-                    fontWeight: 600
-                }
-            }
+                style: { color: '#64748b', fontSize: '13px', fontWeight: 600 },
+            },
         },
         grid: {
             borderColor: '#f1f5f9',
             strokeDashArray: 4,
-            xaxis: {
-                lines: {
-                    show: false
-                }
-            },
-            yaxis: {
-                lines: {
-                    show: true
-                }
-            }
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } },
         },
         markers: {
-            size: [0, 0, 5], // Markers only show on the line series (Difference)
-            colors: ['#AA393D'],
+            size: [...Array(totalSeriesCount - 1).fill(0), 5],
+            colors: [COLOR_LINE],
             strokeColors: '#ffffff',
             strokeWidth: 2,
-            hover: {
-                size: 7
-            }
+            hover: { size: 7 },
         },
         tooltip: {
             shared: true,
             intersect: false,
-            custom: function({ series, seriesIndex, dataPointIndex, w }: any) {
-                const month = w.globals.categoryHeaders?.[dataPointIndex] ?? '';
-                const basic = series[0]?.[dataPointIndex] ?? 0;
-                const net = series[1]?.[dataPointIndex] ?? 0;
-                const avg = series[2]?.[dataPointIndex] ?? 0;
-                
+            custom: ({ series: sv, dataPointIndex, w }: any) => {
+                const month    = w.globals.categoryHeaders?.[dataPointIndex] ?? '';
+                const basic    = sv[0]?.[dataPointIndex] ?? 0;
+                const net      = sv[1]?.[dataPointIndex] ?? 0;
+                let si = 2;
+                const pfVal    = hasPf   ? (sv[si++]?.[dataPointIndex] ?? 0) : 0;
+                const ptaxVal  = hasPtax ? (sv[si++]?.[dataPointIndex] ?? 0) : 0;
+                const tdsVal   = hasTds  ? (sv[si++]?.[dataPointIndex] ?? 0) : 0;
+                const tds2Val  = hasTds2 ? (sv[si++]?.[dataPointIndex] ?? 0) : 0;
+                const avgVal   = sv[si]?.[dataPointIndex] ?? 0;
+                const totalNet = net + pfVal + ptaxVal + tdsVal + tds2Val;
+
+                const row = (color: string, label: string, val: number) =>
+                    val > 0 ? `
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:12px;">
+                        <span style="display:inline-flex;align-items:center;gap:6px;color:#64748b;">
+                            <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>
+                            ${label}:
+                        </span>
+                        <span style="font-weight:600;color:#1e293b;">₹${val.toLocaleString('en-IN')}</span>
+                    </div>` : '';
+
                 return `
-                    <div style="
-                        padding: 12px 16px;
-                        background: #ffffff;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-                        font-family: 'Inter', sans-serif;
-                        min-width: 180px;
-                    ">
-                        <div style="font-weight: 600; font-size: 13px; color: #1e293b; margin-bottom: 8px;">${getFullMonthName(month)}</div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px;">
-                            <span style="display: inline-flex; align-items: center; gap: 6px; color: #64748b;">
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #FBD678; display: inline-block;"></span>
-                                Basic Salary:
-                            </span>
-                            <span style="font-weight: 600; color: #1e293b;">₹${basic.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px;">
-                            <span style="display: inline-flex; align-items: center; gap: 6px; color: #64748b;">
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #58C25D; display: inline-block;"></span>
-                                Net Salary:
-                            </span>
-                            <span style="font-weight: 600; color: #1e293b;">₹${net.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 6px;">
-                            <span style="display: inline-flex; align-items: center; gap: 6px; color: #64748b;">
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: #AA393D; display: inline-block;"></span>
+                    <div style="padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;
+                        box-shadow:0 4px 12px rgba(0,0,0,.08);font-family:'Inter',sans-serif;min-width:210px;">
+                        <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">${getFullMonthName(month)}</div>
+                        ${row(COLOR_BASIC, 'Basic Salary', basic)}
+                        <div style="border-top:1px solid #f1f5f9;margin:6px 0;"></div>
+                        ${row(COLOR_NET,   'Net Take-Home', net)}
+                        ${row(COLOR_PF,    'PF', pfVal)}
+                        ${row(COLOR_PTAX,  'PTax', ptaxVal)}
+                        ${row(COLOR_TDS,   'TDS', tdsVal)}
+                        ${row(COLOR_TDS2,  'TDS2', tds2Val)}
+                        ${totalNet > 0 ? `<div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">
+                            Total: ₹${totalNet.toLocaleString('en-IN')}</div>` : ''}
+                        ${avgVal > 0 ? `
+                        <div style="display:flex;align-items:center;justify-content:space-between;
+                            border-top:1px solid #f1f5f9;padding-top:6px;margin-top:6px;font-size:12px;">
+                            <span style="display:inline-flex;align-items:center;gap:6px;color:#64748b;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:${COLOR_LINE};display:inline-block;"></span>
                                 Average:
                             </span>
-                            <span style="font-weight: 600; color: #AA393D;">₹${avg.toLocaleString('en-IN')}</span>
-                        </div>
-                    </div>
-                `;
-            }
+                            <span style="font-weight:600;color:${COLOR_LINE};">₹${avgVal.toLocaleString('en-IN')}</span>
+                        </div>` : ''}
+                    </div>`;
+            },
         },
-        legend: {
-            show: false // Custom elegant legend is rendered
-        }
+        legend: { show: false },
     };
 
-    // Skeleton loader component
-    const SkeletonLoader = ({ width = "100%", height = "20px" }: { width?: string; height?: string }) => (
-        <div style={{
-            width,
-            height,
-            backgroundColor: "#f1f5f9",
-            borderRadius: "6px",
-            animation: "pulse-shim 1.6s ease-in-out infinite"
-        }} />
+    // ── Skeleton ─────────────────────────────────────────────────────────────
+    const SkeletonLoader = ({ width = '100%', height = '20px' }: { width?: string; height?: string }) => (
+        <div style={{ width, height, backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse-shim 1.6s ease-in-out infinite' }} />
     );
 
     useEffect(() => {
-        const styleElement = document.createElement('style');
-        styleElement.innerHTML = `
-            @keyframes pulse-shim {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.45; }
-            }
-            .kpi-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
-            }
-        `;
         if (!document.querySelector('style[data-skeleton-animation]')) {
-            styleElement.setAttribute('data-skeleton-animation', 'true');
-            document.head.appendChild(styleElement);
+            const s = document.createElement('style');
+            s.setAttribute('data-skeleton-animation', 'true');
+            s.innerHTML = `@keyframes pulse-shim{0%,100%{opacity:1}50%{opacity:0.45}}`;
+            document.head.appendChild(s);
         }
     }, []);
 
@@ -341,26 +340,32 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
         );
     }
 
+    // ── Legend items ─────────────────────────────────────────────────────────
+    const legendItems: { color: string; label: string; line?: boolean }[] = [
+        { color: COLOR_BASIC, label: 'Basic Salary' },
+        { color: COLOR_NET,   label: 'Net Take-Home' },
+        ...(hasPf   ? [{ color: COLOR_PF,   label: 'PF' }]   : []),
+        ...(hasPtax ? [{ color: COLOR_PTAX, label: 'PTax' }] : []),
+        ...(hasTds  ? [{ color: COLOR_TDS,  label: 'TDS' }]  : []),
+        ...(hasTds2 ? [{ color: COLOR_TDS2, label: 'TDS2' }] : []),
+        { color: COLOR_LINE, label: 'Average', line: true },
+    ];
+
     return (
         <div className="card mb-5" style={{
             padding: compact ? '16px' : '24px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+            boxShadow: '0 4px 20px rgba(0,0,0,.04)',
             borderRadius: '16px',
             backgroundColor: '#ffffff',
             border: '1px solid #f1f5f9',
-            fontFamily: 'Inter, sans-serif'
+            fontFamily: 'Inter, sans-serif',
         }}>
-            {/* Top Header Section - Only essential title & subtitle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: compact ? '14px' : '24px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: compact ? '10px' : '20px' }}>
                 <div style={{
-                    width: compact ? '34px' : '40px',
-                    height: compact ? '34px' : '40px',
-                    backgroundColor: '#8a1c1410',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#AA393D'
+                    width: compact ? '34px' : '40px', height: compact ? '34px' : '40px',
+                    backgroundColor: '#8a1c1410', borderRadius: '8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: COLOR_LINE,
                 }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
@@ -369,68 +374,45 @@ const MonthlySalaryComparison = ({ ComparisonData, loading = false, compact = fa
                 </div>
                 <div style={{ minWidth: 0 }}>
                     <h3 style={{ fontSize: compact ? '16px' : '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Monthly Salary Comparison</h3>
-                    <span style={{ fontSize: compact ? '11.5px' : '12.5px', color: '#64748b' }}>Basic vs Net salary by month</span>
+                    <span style={{ fontSize: compact ? '11.5px' : '12.5px', color: '#64748b' }}>Basic vs Net salary with deduction breakdown</span>
                 </div>
             </div>
 
-            {/* Premium Legend */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: compact ? '12px' : '24px', margin: compact ? '4px 0 2px 0' : '16px 0 24px 0', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500, color: '#475569' }}>
-                    <span style={{ width: '20px', height: '10px', backgroundColor: '#FBD678', borderRadius: '2px', display: 'inline-block' }}></span>
-                    Basic Salary (₹)
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500, color: '#475569' }}>
-                    <span style={{ width: '20px', height: '10px', backgroundColor: '#58C25D', borderRadius: '2px', display: 'inline-block' }}></span>
-                    Net Salary (₹)
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500, color: '#475569' }}>
-                    <span style={{
-                        width: '20px',
-                        height: '2px',
-                        backgroundColor: '#AA393D',
-                        position: 'relative',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <span style={{ width: '6px', height: '6px', backgroundColor: '#AA393D', borderRadius: '50%', display: 'inline-block' }}></span>
-                    </span>
-                    Average (₹)
-                </div>
+            {/* Legend */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: compact ? '8px 14px' : '8px 20px', margin: compact ? '2px 0 4px' : '12px 0 18px' }}>
+                {legendItems.map(({ color, label, line }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 500, color: '#475569' }}>
+                        {line ? (
+                            <span style={{ width: '18px', height: '2px', background: color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                <span style={{ width: '5px', height: '5px', background: color, borderRadius: '50%', display: 'inline-block' }} />
+                            </span>
+                        ) : (
+                            <span style={{ width: '16px', height: '10px', background: color, borderRadius: '2px', display: 'inline-block' }} />
+                        )}
+                        {label}
+                    </div>
+                ))}
             </div>
 
-            {/* Grouped Connected Bar Chart */}
+            {/* Chart */}
             <div className={`bar-chart-container ${sensitiveCls}`} style={{ minHeight: compact ? '300px' : '430px' }}>
-                <ApexCharts
-                    options={chartOptions}
-                    series={series}
-                    type="line"
-                    height={compact ? 300 : 430}
-                />
+                <ApexCharts options={chartOptions} series={series} type="line" height={compact ? 300 : 430} />
             </div>
 
-            {/* Footer notes */}
+            {/* Footer */}
             <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: compact ? '2px' : '24px',
-                paddingTop: compact ? '8px' : '16px',
-                borderTop: '1px solid #f1f5f9',
-                fontSize: '12.5px',
-                color: '#94a3b8',
-                flexWrap: 'wrap',
-                gap: '8px'
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginTop: compact ? '2px' : '20px', paddingTop: compact ? '8px' : '14px',
+                borderTop: '1px solid #f1f5f9', fontSize: '12px', color: '#94a3b8',
+                flexWrap: 'wrap', gap: '8px',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                     </svg>
-                    Net Salary includes all deductions (PF, Tax, Insurance, etc.)
+                    Stacked bar = Net Take-Home + applicable deductions (PF, TDS, PTax…)
                 </div>
-                <div>All amounts are in Indian Rupees (₹)</div>
+                <div>All amounts in ₹ (Indian Rupees)</div>
             </div>
         </div>
     );

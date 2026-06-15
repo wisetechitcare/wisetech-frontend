@@ -18,6 +18,7 @@ import YearlyKpiCard from './components/salary/YearlyKpiCard';
 import YearlyOverViewCard from './YearlyOverViewCard';
 import SalaryBreakdownTable, { YearlyBreakdownRow } from './components/salary/SalaryBreakdownTable';
 import MonthlySalaryComparison from './MonthlySalaryComparison';
+import { deductionMasterService, PayrollComponent } from '../../../../../../../../modules/payroll/services/payrollService';
 
 type YearOverview = {
     startDate: string;
@@ -77,6 +78,23 @@ const isPfKey = (key: string) => key.includes('provident fund') || key.includes(
 const isPtaxKey = (key: string) => key.includes('professional tax') || key.includes('ptax');
 const isTdsKey = (key: string) => key.includes('tds') || key.includes('tax deducted') || key.includes('professional fees');
 const isTds2Key = (key: string) => key.includes('tds 2') || key.includes('tds2') || key.includes('tds ii');
+
+/** Returns the display name of the first active TDS-type deduction found in the data rows, or null if none exist. */
+const resolveTdsLabel = (rows: any[]): string | null => {
+    for (const row of rows) {
+        for (const breakdown of [row?.deductionBreakdown?.fixed, row?.deductionBreakdown?.variable]) {
+            if (!breakdown || typeof breakdown !== 'object') continue;
+            for (const [key, item] of Object.entries(breakdown) as [string, any][]) {
+                const earned = Number(item?.earned || 0);
+                if (item?.isActive === false || earned <= 0) continue;
+                if (isTdsKey(key.toLowerCase())) {
+                    return item?.name || key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                }
+            }
+        }
+    }
+    return null;
+};
 
 const getAllFixedDeductions = (item: any): number => {
     const fixed = item?.deductionBreakdown?.fixed;
@@ -207,6 +225,23 @@ const Yearly = ({
     const [startDaySalaryData, setStartDaySalaryData] = useState<any[]>([]);
     const [salaryData, setSalaryData] = useState<any[]>([]);
     const [yearOverview, setYearOverview] = useState<YearOverview>(initialOverview);
+
+    // TDS column label from the Salary Component Master (source of truth)
+    const [tdsLabel, setTdsLabel] = useState<string | null>(null);
+
+    useEffect(() => {
+        deductionMasterService.getAll().then((items: PayrollComponent[]) => {
+            const tdsComponent = items.find(
+                (item) => item.key === 'professionalFees' && item.isActive !== false
+            );
+            setTdsLabel(tdsComponent?.displayName ?? null);
+        }).catch(() => {
+            // If master fetch fails, fall back to breakdown detection
+            setTdsLabel(null);
+        });
+    }, []);
+
+    const showTds = tdsLabel !== null;
 
     const [isLoadingOverview, setIsLoadingOverview] = useState<boolean>(true);
     const [isLoadingSalaryData, setIsLoadingSalaryData] = useState<boolean>(true);
@@ -504,7 +539,7 @@ const Yearly = ({
                 )}
             </Box>
 
-            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showPtax={hasPtax} showTds2={hasTds2} showSensitiveData={showSensitiveData} />
+            <SalaryBreakdownTable rows={breakdownRows} loading={isLoadingSalaryData} showPtax={hasPtax} showTds={showTds} tdsLabel={tdsLabel ?? 'TDS'} showTds2={hasTds2} showSensitiveData={showSensitiveData} />
         </Box>
     );
 };

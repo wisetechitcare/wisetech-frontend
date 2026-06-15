@@ -44,6 +44,14 @@ export const useSalaryReport = () => {
             }
             const idStr = String(payment.id);
 
+            // A row is a government payment when its paymentType says so, or when its id
+            // carries a government marker. Real govt payments are a plain UUID from the
+            // governmentPayments table; synthetic rows use "<masterId>-GOVERNMENT-<date>"
+            // or "<masterId>-legacy-gov". Salary payments are "payment_*" / "-SALARY-" / "-legacy-salary".
+            const isGovernment =
+                payment?.paymentType === 'GOVERNMENT' ||
+                /-(?:legacy-gov|GOVERNMENT)\b/.test(idStr);
+
             // Resolve the id the backend can actually delete:
             //  - Real history payments:  "payment_<ts>_<rand>"  → removed from paymentHistoryJson
             //  - Real government payments: a plain UUID          → removed from governmentPayments
@@ -56,8 +64,13 @@ export const useSalaryReport = () => {
                 if (derived) deleteId = derived[1];
             }
 
-            console.log('🗑️ [DeletePayment] row id:', idStr, '→ backend id:', deleteId);
-            const response = await payrollService.deletePayment(deleteId);
+            // Route to the matching endpoint. Government payments live in the
+            // governmentPayments table, NOT in paymentHistoryJson — sending them to the
+            // salary delete route returns 404 ("Payment not found").
+            console.log('🗑️ [DeletePayment] row id:', idStr, '→ backend id:', deleteId, '| government:', isGovernment);
+            const response = isGovernment
+                ? await payrollService.deleteGovernmentPayment(deleteId)
+                : await payrollService.deletePayment(deleteId);
             console.log('🗑️ [DeletePayment] API response:', response);
 
             successConfirmation('Payment deleted successfully');
