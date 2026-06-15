@@ -2,35 +2,20 @@ import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
 import { leadsIcons, projectsIcons } from "@metronic/assets/sidepanelicons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import LeadsConfigurationMain from "./configuration/LeadsConfigurationMain";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
-import { useEffect } from "react";
 import { PageTitle } from "@metronic/layout/core";
-import LeadNewLead from "./lead/LeadNewLead";
+import LeadTablePage from "./table/LeadTablePage";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
-import { getAllLeads } from "@services/leads";
 import GlobalFilesView from "./GlobalFilesView";
 
 const LeadsMain = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const [rawLeadsData, setRawLeadsData] = useState<any>([]);
 
   const dispatch = useDispatch<AppDispatch>();
-  useEffect(() => {
-    async function fetchLeadData() {
-      const {
-        data: {
-          data: { leads },
-        },
-      } = await getAllLeads();
-      // console.log("AllLeadsData:: ",leads);
-      setRawLeadsData(leads);
-    }
-    fetchLeadData();
-  }, []);
 
   useEffect(() => {
     // Initialize chart settings when app loads
@@ -48,7 +33,7 @@ const LeadsMain = () => {
     },
     {
       title: "Leads",
-      component: <LeadNewLead />,
+      component: <LeadTablePage />,
       icon:
         activeTab === 1
           ? leadsIcons.leadsIcon.active

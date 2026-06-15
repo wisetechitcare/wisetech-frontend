@@ -2,7 +2,7 @@
 import ReactApexChart from "react-apexcharts";
 import { Col, Card } from "react-bootstrap";
 import { ChartDialogModal } from "../../leads/overview/components/ChartDialogModal";
-import { ProjectDialogModal } from "../overview/components/ProjectDialogModal";
+
 import { Dayjs } from "dayjs";
 
 type TransformedSeriesItem = {
@@ -22,9 +22,11 @@ interface YearlyStatusCountChartProps {
   isThisLead?: boolean;
   isThisBelongsToLead?: boolean;
   isThisProjectModal?: boolean;
-  isThisCompanyTypeModal?: boolean; 
+  isThisCompanyTypeModal?: boolean;
   startDate?: Dayjs;
   endDate?: Dayjs;
+  // Project section (Received Leads): restrict drill-down table to received/project leads.
+  receivedOnly?: boolean;
 }
 
 const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
@@ -39,6 +41,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
   isThisCompanyTypeModal = false, // Add this new prop
   startDate,
   endDate,
+  receivedOnly = false,
 }) => {
   
   // Transform data for ApexCharts
@@ -55,26 +58,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
   const [monthlyStatusName, setMonthlyStatusName] = useState<string | null>(null);
   const [monthlyStatusId, setMonthlyStatusId] = useState<string | null>(null);
 
-  const [openCompanyType, setOpenCompanyType] = useState(false);
-  const [companyTypeName, setCompanyTypeName] = useState<string | null>(null);
-  const [companyTypeId, setCompanyTypeId] = useState<string | null>(null);
-
   const handleLocationChartClick = (selectedLabel: string, selectedId: string) => {
-    
-    if (isThisCompanyTypeModal) {
-      const companyTypeData = data?.find((item: any) => item.id === selectedId || item.label === selectedId);
-      
-      if (companyTypeData) {
-        setCompanyTypeName(selectedLabel);
-        setCompanyTypeId(selectedId);
-      } else {
-        setCompanyTypeName(selectedLabel);
-        setCompanyTypeId(selectedId);
-      }
-      setOpenCompanyType(true);
-      return;
-    }
-
     const monthlyStatus: any = data?.find(
       (location: any) => location.location === selectedLabel
     );
@@ -399,34 +383,16 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
       </Card>
 
       {/* Location Modal */}
-      {isThisBelongsToLead && ( 
+      {isThisBelongsToLead && (
         <ChartDialogModal
           open={openMonthlyLeadByStatus}
           onClose={() => setOpenMonthlyLeadByStatus(false)}
           monthlyStatusName={monthlyStatusName || undefined}
           monthlyStatusId={monthlyStatusId || undefined}
+          receivedOnly={receivedOnly || undefined}
         />
       )}
 
-      {/* Project Modal */}
-      {isThisProjectModal && ( 
-        <ProjectDialogModal
-          open={openMonthlyLeadByStatus}
-          onClose={() => setOpenMonthlyLeadByStatus(false)}
-          monthlyStatusName={monthlyStatusName || undefined}
-          monthlyStatusId={monthlyStatusId || undefined}
-        />
-      )}
-
-      {/* Company Type Modal */}
-      {isThisCompanyTypeModal && (
-        <ProjectDialogModal
-          open={openCompanyType}
-          onClose={() => setOpenCompanyType(false)}
-          projectCompanyTypeName={companyTypeName || undefined}
-          projectCompanyTypeId={companyTypeId || undefined}
-        />
-      )}
     </>
   );
 };

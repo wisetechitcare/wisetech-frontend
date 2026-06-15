@@ -34,6 +34,7 @@ import {
   getAllProjectStatuses,
   getAllProjectSubcategories,
   getAllTeams,
+  updateProjectById,
 } from "@services/projects";
 import {
   getAllClientCompanies,
@@ -809,6 +810,13 @@ const LeadFormModal = ({
         exportTemplate: "placeholder.docx", // Default template
         revision_number: "01",
 
+        // ─── Project fields (empty for new leads, populated on edit if project exists) ───
+        projectStatusId: "",
+        projectManagerId: "",
+        projectTeams: [{ id: Date.now().toString(), teamId: "" }],
+        projectHandledByEntries: [],
+        projectPrefix: "",
+
         // additional details
         // Additional fields for web-dev type
         ...(leadTemplateId?.toString() ===
@@ -1234,6 +1242,36 @@ const LeadFormModal = ({
 
       poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
+
+      // ─── Project fields (from lead.project when status is Received/project trigger) ───
+      // Only populated when editing a lead that has an associated project
+      projectStatusId: leadData.project?.statusId || "",
+      projectManagerId: leadData.project?.assignedToId || leadData.project?.projectManagerId || "",
+      projectTeams: (() => {
+        if (leadData.project?.projectTeams && Array.isArray(leadData.project.projectTeams)) {
+          return leadData.project.projectTeams.map((pt: any) => ({
+            id: pt.id || Date.now().toString(),
+            teamId: pt.team?.id || pt.teamId || "",
+          }));
+        }
+        return [{ id: Date.now().toString(), teamId: "" }];
+      })(),
+      projectHandledByEntries: (() => {
+        if (leadData.project?.handledByEntries && Array.isArray(leadData.project.handledByEntries)) {
+          return leadData.project.handledByEntries.map((entry: any) => ({
+            id: entry.id || `phb-${Date.now()}`,
+            employeeId: entry.employeeId || "",
+            handledDate: entry.handledDate
+              ? new Date(entry.handledDate).toISOString().split("T")[0]
+              : new Date().toISOString().split("T")[0],
+            handledOutDate: entry.handledOutDate
+              ? new Date(entry.handledOutDate).toISOString().split("T")[0]
+              : "",
+          }));
+        }
+        return [];
+      })(),
+      projectPrefix: leadData.project?.prefix || "", // read-only display
     };
   };
 
@@ -2703,6 +2741,29 @@ const LeadFormModal = ({
       delete finalCleanPayload?.projectAreas;
     }
 
+    // ─── Extract project-only fields (don't send to lead API) ───
+    const projectDelta: any = {};
+    if (formData.projectStatusId) projectDelta.statusId = formData.projectStatusId;
+    if (formData.projectManagerId) projectDelta.assignedToId = formData.projectManagerId;
+    if (Array.isArray(formData.projectTeams)) {
+      projectDelta.teamDetails = formData.projectTeams.filter((t: any) => t.teamId).map((t: any) => ({ teamId: t.teamId }));
+    }
+    if (Array.isArray(formData.projectHandledByEntries)) {
+      projectDelta.handledByEntries = formData.projectHandledByEntries
+        .filter((e: any) => e.employeeId)
+        .map((e: any) => ({
+          employeeId: e.employeeId,
+          handledDate: e.handledDate || new Date().toISOString().split("T")[0],
+          handledOutDate: e.handledOutDate || null,
+        }));
+    }
+    // Remove project fields from lead payload
+    delete finalCleanPayload.projectStatusId;
+    delete finalCleanPayload.projectManagerId;
+    delete finalCleanPayload.projectTeams;
+    delete finalCleanPayload.projectHandledByEntries;
+    delete finalCleanPayload.projectPrefix;
+
     // Add prefix to payload for backend to use
     if (prefix && prefix.trim()) {
       finalCleanPayload.prefix = prefix.trim();
@@ -2736,6 +2797,15 @@ const LeadFormModal = ({
         if (res?.hasError) {
           errorConfirmation("Failed to update lead. Please try again.");
         } else {
+          // ─── If lead has a project, update project delta (status, manager, teams, handled-by) ───
+          if (currLeadData?.projectId && Object.keys(projectDelta).length > 0) {
+            try {
+              await updateProjectById(currLeadData.projectId, projectDelta);
+            } catch (projError) {
+              console.error("Error updating project delta:", projError);
+              errorConfirmation("Lead updated but project update failed. Please refresh.");
+            }
+          }
           successConfirmation("Lead Updated successfully!");
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
           if (onClose) onClose();
@@ -5884,6 +5954,220 @@ const LeadFormModal = ({
                           </Row>
                         </div>
                       </fieldset>
+
+                      {/* PROJECT EXECUTION — unlock when status is project-trigger (Received) */}
+                      {(() => {
+                        const selectedStatus = leadStatuses.find(
+                          (s: any) => s.id === values.statusId,
+                        );
+                        const isProjectTrigger = selectedStatus?.isProjectTrigger === true ||
+                          selectedStatus?.name?.toLowerCase().trim() === "received";
+                        if (!isProjectTrigger) return null;
+
+                        return (
+                          <fieldset
+                            style={{
+                              borderTop: "1px solid #9D4141",
+                              padding: "clamp(14px, 2vw, 15px)",
+                            }}
+                            className="mt-7"
+                          >
+                            <legend
+                              style={{
+                                fontSize: "17px",
+                                fontWeight: 600,
+                                fontFamily: "Inter",
+                                marginTop: "-25px",
+                                marginLeft: "-17px",
+                                backgroundColor: "#F3F4F7",
+                                width: "auto",
+                                lineHeight: "1",
+                                letterSpacing: 0,
+                                color: "#9D4141",
+                                padding: "2px 2px 8px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <div
+                                className="ms-5"
+                                style={{
+                                  borderTop: "1px solid #9D4141",
+                                  width: "30px",
+                                  height: "0px",
+                                }}
+                              ></div>
+                              PROJECT EXECUTION
+                            </legend>
+
+                            <Grid
+                              container
+                              spacing={1}
+                              className="card-body p-md-10"
+                              sx={{
+                                backgroundColor: {
+                                  xs: "transparent",
+                                  md: "white",
+                                  borderRadius: "8px",
+                                },
+                              }}
+                            >
+                              {/* Project Status */}
+                              <Grid item xs={12} md={6}>
+                                <DropDownInput
+                                  formikField="projectStatusId"
+                                  inputLabel="Project Status"
+                                  options={statuses.map((s) => ({
+                                    value: s.id,
+                                    label: s.name,
+                                    color: s.color,
+                                  }))}
+                                  isRequired={false}
+                                  showColor={true}
+                                  placeholder="Select project status"
+                                />
+                              </Grid>
+
+                              {/* Project Manager (Lead Assigned To) */}
+                              <Grid item xs={12} md={6}>
+                                <DropDownInput
+                                  formikField="projectManagerId"
+                                  inputLabel="Project Manager"
+                                  isRequired={false}
+                                  options={buildEmployeeOptions(
+                                    allEmployees?.list || [],
+                                    values.projectManagerId || undefined,
+                                  )}
+                                  showColor={true}
+                                  placeholder="Select employee"
+                                />
+                              </Grid>
+
+                              {/* Project Teams */}
+                              <Grid item xs={12}>
+                                <FieldArray name="projectTeams">
+                                  {({ push, remove }) => (
+                                    <div>
+                                      <label className="form-label mb-2">Internal Teams</label>
+                                      <div className="d-flex flex-wrap gap-2 mb-3">
+                                        {values.projectTeams?.map((team: any, index: number) => (
+                                          <div key={index} className="d-flex gap-2 align-items-center" style={{ position: 'relative' }}>
+                                            <select
+                                              value={team.teamId || ""}
+                                              onChange={(e) =>
+                                                formikProps.setFieldValue(
+                                                  `projectTeams.${index}.teamId`,
+                                                  e.target.value
+                                                )
+                                              }
+                                              className="form-select"
+                                              style={{ minWidth: "180px" }}
+                                            >
+                                              <option value="">Select team</option>
+                                              {teams?.map((t: any) => (
+                                                <option key={t.id} value={t.id}>
+                                                  {t.name}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            {values.projectTeams.length > 1 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => remove(index)}
+                                                className="btn btn-sm btn-link text-danger"
+                                              >
+                                                ×
+                                              </button>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => push({ id: Date.now().toString(), teamId: "" })}
+                                        className="btn btn-sm"
+                                        style={{ color: "#9D4141", border: "1px dotted #9D4141" }}
+                                      >
+                                        + Add Team
+                                      </button>
+                                    </div>
+                                  )}
+                                </FieldArray>
+                              </Grid>
+
+                              {/* Handled By Entries */}
+                              <Grid item xs={12}>
+                                <FieldArray name="projectHandledByEntries">
+                                  {({ push, remove }) => (
+                                    <div>
+                                      <label className="form-label mb-2">Project Handled By</label>
+                                      {values.projectHandledByEntries?.map((entry: any, index: number) => (
+                                        <Row key={index} className="mb-2 align-items-end">
+                                          <Col md={4}>
+                                            <DropDownInput
+                                              formikField={`projectHandledByEntries.${index}.employeeId`}
+                                              inputLabel={index === 0 ? "Employee" : ""}
+                                              options={buildEmployeeOptions(
+                                                allEmployees?.list || [],
+                                                entry.employeeId || undefined,
+                                              )}
+                                              isRequired={false}
+                                              placeholder="Select employee"
+                                            />
+                                          </Col>
+                                          <Col md={3}>
+                                            <DateInput
+                                              formikField={`projectHandledByEntries.${index}.handledDate`}
+                                              inputLabel={index === 0 ? "From Date" : ""}
+                                              formikProps={formikProps}
+                                              placeHolder="DD-MM-YYYY"
+                                              isRequired={false}
+                                            />
+                                          </Col>
+                                          <Col md={3}>
+                                            <DateInput
+                                              formikField={`projectHandledByEntries.${index}.handledOutDate`}
+                                              inputLabel={index === 0 ? "To Date" : ""}
+                                              formikProps={formikProps}
+                                              placeHolder="DD-MM-YYYY"
+                                              isRequired={false}
+                                            />
+                                          </Col>
+                                          <Col md={2} className="text-end">
+                                            {values.projectHandledByEntries.length > 1 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => remove(index)}
+                                                className="btn btn-sm btn-link text-danger"
+                                              >
+                                                Remove
+                                              </button>
+                                            )}
+                                          </Col>
+                                        </Row>
+                                      ))}
+                                      <button
+                                        type="button"
+                                        onClick={() => push({
+                                          id: `phb-${Date.now()}`,
+                                          employeeId: "",
+                                          handledDate: new Date().toISOString().split("T")[0],
+                                          handledOutDate: "",
+                                        })}
+                                        className="btn btn-sm"
+                                        style={{ color: "#9D4141", border: "1px dotted #9D4141" }}
+                                      >
+                                        + Add Handler
+                                      </button>
+                                    </div>
+                                  )}
+                                </FieldArray>
+                              </Grid>
+                            </Grid>
+                          </fieldset>
+                        );
+                      })()}
 
                       {/* CANCELLATION REASON Card - only visible when lead Status is "Not Received" */}
                       {(() => {

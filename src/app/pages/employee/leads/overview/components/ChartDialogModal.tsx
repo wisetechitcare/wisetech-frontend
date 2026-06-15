@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import LeadNewLead from "../../lead/LeadNewLead";
+import EntityTablePage from "@pages/employee/entity/EntityTablePage";
 import dayjs from "dayjs";
 import { useEffect } from "react";
 import eventBus from "@utils/EventBus";
@@ -23,10 +23,11 @@ export const ChartDialogModal = ({
   monthlyStatusId,
   startDate,
   endDate,
+  receivedOnly,
 }: {
   open: boolean;
   onClose: () => void;
-  
+
   statusId?: string;
   serviceId?: string;
   categoryId?: string;
@@ -40,6 +41,8 @@ export const ChartDialogModal = ({
   monthlyStatusId?: string;
   startDate?: dayjs.Dayjs;
   endDate?: dayjs.Dayjs;
+  // Project section drill-down: restrict the table to received/project leads.
+  receivedOnly?: boolean;
 }) => {
   // Listen for the closeChartDialogModal event
   useEventBus(EVENT_KEYS.closeChartDialogModal, onClose);
@@ -69,7 +72,8 @@ export const ChartDialogModal = ({
       <DialogContent className="!p-0 !shadow-none">
         <div className="flex flex-col w-full max-w-4xl mx-auto p-0 bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
           <div className="overflow-y-auto max-h-[50vh]">
-            <LeadNewLead
+            <EntityTablePage
+              entityScope="lead"
               statusId={statusId || undefined}
               serviceId={serviceId || undefined}
               categoryId={categoryId || undefined}
@@ -83,6 +87,7 @@ export const ChartDialogModal = ({
               monthlyStatusId={monthlyStatusId || undefined}
               startDate={startDate || undefined}
               endDate={endDate || undefined}
+              receivedOnly={receivedOnly || undefined}
             />
           </div>
         </div>

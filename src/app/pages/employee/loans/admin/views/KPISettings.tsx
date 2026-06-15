@@ -12,6 +12,15 @@ import { hasPermission } from "@utils/authAbac";
 import { useSelector, useDispatch } from "react-redux";
 import { saveToggleChange } from "@redux/slices/attendanceStats";
 import { sortKpiFactors } from "@utils/kpiSort";
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from "@app/modules/configuration";
 
 const tooltipDescriptions: Record<string, string> = {
   "Working Days":
@@ -269,197 +278,241 @@ export default function KpiSettings() {
   if (!showData) return <h2 className="text-center">Not Allowed To View</h2>;
 
   return (
-    <div>
-      <div className="d-flex align-items-center justify-content-between mb-8">
-        <div>
-          <h2 className="fw-bolder text-dark mb-1">KPI Configuration</h2>
-          <span className="text-muted fw-bold fs-7">Manage factor weightage and scoring rules</span>
-        </div>
-        <div 
-          className="d-flex align-items-center bg-white border border-gray-300 rounded-pill px-5 py-2 shadow-sm transition-all hover-elevated"
-          style={{ cursor: "pointer", transition: "all 0.2s ease" }}
-          onClick={() => setShowInactive(!showInactive)}
-        >
-          <Form.Check
-            type="switch"
-            id="show-inactive-toggle"
-            label={<span className="fw-bolder text-gray-800 fs-7 ms-2 user-select-none">Show Inactive Factors</span>}
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="form-check-custom form-check-solid form-check-success mb-0"
-          />
-        </div>
-      </div>
-      <style jsx>{`
-        .hover-neutral:hover {
-          background-color: #F9FAFB !important;
-          box-shadow: inset 0 0 0 1px #EFF2F5;
-        }
-        .bg-light-neutral {
-          background-color: #F9FAFB;
-        }
-        .hover-elevated:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
-        }
-        .border-dashed {
-          border-style: dashed !important;
-        }
-      `}</style>
-
-      <div className="card shadow-sm mb-5">
-        <div className="card-header border-0 pt-6">
-          <div className="card-title">
-            <div className="d-flex align-items-center position-relative my-1">
-              <h3 className="fw-bolder text-dark fs-3" style={{ fontFamily: "Barlow" }}>
-                KPI Weightage Configuration
-              </h3>
-            </div>
+    <>
+      <style>{KEYFRAMES}</style>
+      <ConfigPageLayout
+        title="KPI Configuration"
+        subtitle="Manage factor weightage and scoring rules"
+        icon="bi-graph-up"
+      >
+        <div style={{ marginBottom: SP.lg }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: SP.md,
+              backgroundColor: C.bgCard,
+              border: `1px solid ${C.border}`,
+              borderRadius: RADIUS.lg,
+              padding: SP.md,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onClick={() => setShowInactive(!showInactive)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = C.bgSection;
+              e.currentTarget.style.boxShadow = `0 2px 8px ${C.primaryShadowMd}`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = C.bgCard;
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <Form.Check
+              type="switch"
+              id="show-inactive-toggle"
+              label={<span style={{ fontFamily: FONT.body, fontWeight: 500, color: C.textPrimary, marginLeft: SP.sm }}>Show Inactive Factors</span>}
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="form-check-custom form-check-solid form-check-success mb-0"
+            />
           </div>
         </div>
-        <div className="card-body py-4">
 
-        {sectionsData.length === 0 && (
-          <p className="text-muted">No KPI modules found.</p>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
+          {sectionsData.length === 0 && (
+            <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+              <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No KPI modules found.</p>
+            </div>
+          )}
 
-        {sectionsData.map((section, idx) => {
-          const visibleFactors = showInactive
-            ? section.factors
-            : section.factors.filter((f: any) => f.isActive);
+          {sectionsData.map((section, idx) => {
+            const visibleFactors = showInactive
+              ? section.factors
+              : section.factors.filter((f: any) => f.isActive);
 
-          const activeFactors = section.factors.filter((f: any) => f.isActive);
+            const activeFactors = section.factors.filter((f: any) => f.isActive);
 
-          return (
-            <div key={idx} className="card shadow-none mb-8" style={{ border: "1px solid #EFF2F5", borderRadius: "12px" }}>
-              <div className="card-body p-6">
-                <div className="d-flex align-items-center justify-content-between mb-6">
-                  <div className="d-flex align-items-center gap-3">
-                    <div 
-                      className="d-flex align-items-center justify-content-center bg-light rounded"
-                      style={{ width: "40px", height: "40px", border: "1px solid #EFF2F5" }}
-                    >
-                      <img
-                        src={kpiAttendanceIcons.kpiIcon.default}
-                        alt={section.category}
-                        width={24}
-                        height={24}
-                      />
-                    </div>
-                    <div>
-                      <span className="d-block fs-5 fw-bolder text-dark" style={{ fontFamily: "Barlow" }}>
-                        {section.category}
-                      </span>
-                      <span className="badge badge-light-primary fw-bold px-3 py-1 fs-8">
-                        {activeFactors.length} active factors
-                      </span>
-                    </div>
-                  </div>
-                  {canEdit && (
-                    <button
-                      className="btn btn-sm btn-light-primary fw-bolder px-4 py-2"
-                      onClick={() => openAddModal(section.moduleId, section.category)}
-                    >
-                      <i className="fa fa-plus me-2" />
-                      Add Factor
-                    </button>
-                  )}
-                </div>
+            const totalContribution = activeFactors.reduce((sum: number, f: any) => {
+              const w = Math.abs(Number(f.point));
+              return sum + (f.type === "negative" || f.type === "leave" ? -w : w);
+            }, 0);
 
-                <div className="table-responsive">
-                  <table className="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4">
+            return (
+              <ConfigSectionCard
+                key={idx}
+                title={section.category}
+                description={`${activeFactors.length} active factors`}
+                icon="bi-diagram-2"
+                iconColor="info"
+                badge={{ label: `${activeFactors.length}`, color: C.info, bg: '#dbeafe' }}
+              >
+                {canEdit && (
+                  <button
+                    onClick={() => openAddModal(section.moduleId, section.category)}
+                    style={{
+                      backgroundColor: C.info,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: RADIUS.md,
+                      padding: `${SP.sm} ${SP.md}`,
+                      fontFamily: FONT.body,
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      marginBottom: SP.lg,
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#0066b3';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = `0 6px 18px rgba(0, 133, 219, 0.3)`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = C.info;
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <i className="bi bi-plus me-2" /> Add Factor
+                  </button>
+                )}
+
+                <div style={{ overflowX: 'auto', marginBottom: SP.lg }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: FONT.body }}>
                     <thead>
-                      <tr className="fw-bolder text-muted bg-light">
-                        <th className="ps-4 min-w-200px rounded-start">Factor Name</th>
-                        <th className="text-center min-w-150px">Weightage</th>
-                        <th className="text-center min-w-125px">Scale</th>
-                        <th className="text-center min-w-100px">Type</th>
-                        <th className="text-center min-w-125px pe-4 rounded-end">Actions</th>
+                      <tr style={{ backgroundColor: C.bgSection, borderBottom: `1px solid ${C.border}` }}>
+                        <th style={{ padding: SP.md, textAlign: 'left', fontWeight: 600, fontSize: '13px', color: C.textPrimary }}>
+                          Factor Name
+                        </th>
+                        <th style={{ padding: SP.md, textAlign: 'center', fontWeight: 600, fontSize: '13px', color: C.textPrimary }}>
+                          Weightage
+                        </th>
+                        <th style={{ padding: SP.md, textAlign: 'center', fontWeight: 600, fontSize: '13px', color: C.textPrimary }}>
+                          Scale
+                        </th>
+                        <th style={{ padding: SP.md, textAlign: 'center', fontWeight: 600, fontSize: '13px', color: C.textPrimary }}>
+                          Type
+                        </th>
+                        <th style={{ padding: SP.md, textAlign: 'center', fontWeight: 600, fontSize: '13px', color: C.textPrimary }}>
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {visibleFactors.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center text-muted py-4">
+                          <td colSpan={5} style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted, fontSize: '14px' }}>
                             No factors found.
                           </td>
                         </tr>
                       ) : (
-                        visibleFactors.map((factor: any, i: number) => (
+                        visibleFactors.map((factor: any) => (
                           <tr
                             key={factor.id}
-                            className="hover-neutral"
-                            style={{ 
+                            style={{
+                              borderBottom: `1px solid ${C.border}`,
                               opacity: factor.isActive ? 1 : 0.6,
-                              transition: "all 0.2s ease"
+                              transition: 'all 0.2s ease',
+                              backgroundColor: C.bgCard,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = C.bgSection;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = C.bgCard;
                             }}
                           >
-                            <td className="ps-4">
-                              <div className="d-flex align-items-center">
-                                <div className="d-flex flex-column">
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="text-dark fw-bolder text-hover-primary mb-1 fs-6">
-                                      {factor.name}
-                                    </span>
-                                    {factor.name in tooltipDescriptions && (
-                                      <OverlayTrigger
-                                        placement="top"
-                                        overlay={
-                                          <RBTooltip id={`tooltip-${section.category}-${factor.id}`}>
-                                            {tooltipDescriptions[factor.name]}
-                                          </RBTooltip>
-                                        }
-                                      >
-                                        <i className="fa fa-question-circle text-gray-400 fs-7" />
-                                      </OverlayTrigger>
-                                    )}
-                                  </div>
-                                  {!factor.isActive && (
-                                    <span className="text-muted fw-bold fs-7 italic">
-                                      Disabled
-                                    </span>
-                                  )}
-                                </div>
+                            <td style={{ padding: SP.md }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
+                                <span style={{ fontWeight: 500, color: C.textPrimary, fontSize: '13px' }}>
+                                  {factor.name}
+                                </span>
+                                {factor.name in tooltipDescriptions && (
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={
+                                      <RBTooltip id={`tooltip-${section.category}-${factor.id}`}>
+                                        {tooltipDescriptions[factor.name]}
+                                      </RBTooltip>
+                                    }
+                                  >
+                                    <i className="bi bi-question-circle" style={{ fontSize: '14px', color: C.textMuted, cursor: 'help' }} />
+                                  </OverlayTrigger>
+                                )}
+                                {!factor.isActive && (
+                                  <span style={{ fontSize: '11px', color: C.textMuted, fontStyle: 'italic' }}>
+                                    (Disabled)
+                                  </span>
+                                )}
                               </div>
                             </td>
-                            <td className="text-center">
-                              <span className={`fw-bolder fs-6 ${factor.type === "positive" ? "text-success" : "text-danger"}`}>
+                            <td style={{ padding: SP.md, textAlign: 'center' }}>
+                              <span style={{
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                color: factor.type === "positive" ? C.success : '#dc3545',
+                              }}>
                                 {factor.type === "positive" ? "+" : "-"}
                                 {Math.abs(Number(factor.point))}
-                                <span className="text-muted fs-8 ms-1">pts</span>
+                                <span style={{ color: C.textMuted, fontSize: '11px', marginLeft: '4px' }}>pts</span>
                               </span>
                             </td>
-                            <td className="text-center">
-                              <span className="text-muted fw-bold d-block fs-7">
-                                Per {factor.scale}
-                              </span>
+                            <td style={{ padding: SP.md, textAlign: 'center', color: C.textSecondary, fontSize: '13px' }}>
+                              Per {factor.scale}
                             </td>
-                            <td className="text-center">
-                              <span
-                                className={`badge fw-bolder fs-8 px-3 py-2 ${
+                            <td style={{ padding: SP.md, textAlign: 'center' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                backgroundColor:
                                   factor.type === "positive"
-                                    ? "badge-light-success"
+                                    ? '#dcfce7'
                                     : factor.type === "leave"
-                                      ? "badge-light-warning"
-                                      : "badge-light-danger"
-                                }`}
-                              >
+                                      ? '#fef3c7'
+                                      : '#fee2e2',
+                                color:
+                                  factor.type === "positive"
+                                    ? '#166534'
+                                    : factor.type === "leave"
+                                      ? '#92400e'
+                                      : '#991b1b',
+                                padding: `${SP.xs} ${SP.sm}`,
+                                borderRadius: RADIUS.sm,
+                                fontWeight: 500,
+                                fontSize: '11px',
+                              }}>
                                 {factor.type === "positive" ? "Positive" : factor.type === "leave" ? "Leave" : "Negative"}
                               </span>
                             </td>
-                            <td className="text-center pe-4">
+                            <td style={{ padding: SP.md, textAlign: 'center' }}>
                               {canEdit ? (
-                                <div className="d-flex align-items-center justify-content-center gap-2">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: SP.sm }}>
                                   <OverlayTrigger
                                     placement="top"
                                     overlay={<RBTooltip id={`edit-${factor.id}`}>Edit</RBTooltip>}
                                   >
                                     <button
-                                      className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
                                       onClick={() => openEditModal(factor, section.category)}
-                                      style={{ border: "1px solid #EFF2F5" }}
+                                      style={{
+                                        background: 'transparent',
+                                        border: `1px solid ${C.border}`,
+                                        color: C.primary,
+                                        cursor: 'pointer',
+                                        padding: '6px 8px',
+                                        borderRadius: RADIUS.md,
+                                        transition: 'all 0.2s ease',
+                                        fontSize: '14px',
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = C.bgSection;
+                                        e.currentTarget.style.color = C.primaryMid;
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = C.primary;
+                                      }}
                                     >
-                                      <i className="fa-solid fa-pen-to-square fs-6" />
+                                      <i className="bi bi-pencil" />
                                     </button>
                                   </OverlayTrigger>
                                   <OverlayTrigger
@@ -471,18 +524,30 @@ export default function KpiSettings() {
                                     }
                                   >
                                     <button
-                                      className={`btn btn-icon btn-sm btn-light-${factor.isActive ? "primary" : "secondary"}`}
                                       onClick={() => handleDeactivate(factor.id, factor.isActive)}
-                                      style={{ border: "1px solid #EFF2F5" }}
+                                      style={{
+                                        background: 'transparent',
+                                        border: `1px solid ${C.border}`,
+                                        color: factor.isActive ? C.success : C.textMuted,
+                                        cursor: 'pointer',
+                                        padding: '6px 8px',
+                                        borderRadius: RADIUS.md,
+                                        transition: 'all 0.2s ease',
+                                        fontSize: '14px',
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = C.bgSection;
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                      }}
                                     >
-                                      <i
-                                        className={`fa-solid ${factor.isActive ? "fa-toggle-on text-success" : "fa-toggle-off"} fs-4`}
-                                      />
+                                      <i className={`bi ${factor.isActive ? 'bi-toggle-on' : 'bi-toggle-off'}`} />
                                     </button>
                                   </OverlayTrigger>
                                 </div>
                               ) : (
-                                <span className="text-muted fs-7">-NA-</span>
+                                <span style={{ color: C.textMuted, fontSize: '13px' }}>-</span>
                               )}
                             </td>
                           </tr>
@@ -490,39 +555,44 @@ export default function KpiSettings() {
                       )}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-light-neutral border-top border-gray-300">
-                        <td className="ps-4 fw-bolder text-gray-700">Total Contribution (Active Factors)</td>
-                        <td className="text-center fw-bolder text-dark fs-6">
-                          {(() => {
-                            const total = activeFactors.reduce((sum: number, f: any) => {
-                              const w = Math.abs(Number(f.point));
-                              return sum + (f.type === "negative" || f.type === "leave" ? -w : w);
-                            }, 0);
-                            return (
-                              <span className={total >= 0 ? "text-success" : "text-danger"}>
-                                {total >= 0 ? "+" : ""}{total} pts
-                              </span>
-                            );
-                          })()}
+                      <tr style={{ backgroundColor: C.bgSection, borderTop: `1px solid ${C.border}` }}>
+                        <td style={{ padding: SP.md, fontWeight: 600, color: C.textPrimary }}>
+                          Total Contribution (Active)
                         </td>
-                        <td className="text-center text-muted fs-8 fw-bold">N/A</td>
-                        <td className="text-center text-muted fs-8 fw-bold">N/A</td>
-                        <td className="text-center text-muted fs-8 fw-bold pe-4">N/A</td>
+                        <td style={{ padding: SP.md, textAlign: 'center' }}>
+                          <span style={{
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            color: totalContribution >= 0 ? C.success : '#dc3545',
+                          }}>
+                            {totalContribution >= 0 ? "+" : ""}{totalContribution} pts
+                          </span>
+                        </td>
+                        <td style={{ padding: SP.md, textAlign: 'center', color: C.textMuted, fontSize: '11px' }}>
+                          —
+                        </td>
+                        <td style={{ padding: SP.md, textAlign: 'center', color: C.textMuted, fontSize: '11px' }}>
+                          —
+                        </td>
+                        <td style={{ padding: SP.md, textAlign: 'center', color: C.textMuted, fontSize: '11px' }}>
+                          —
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
-              </div>
-            </div>
-          );
-        })}
+              </ConfigSectionCard>
+            );
+          })}
         </div>
-      </div>
+      </ConfigPageLayout>
 
       {/* ── Edit Modal ── */}
-      <Modal show={editModal.open} onHide={() => setEditModal({ open: false, item: null, moduleName: "" })} centered>
-        <Modal.Header closeButton style={{ borderBottom: "none" }}>
-          <Modal.Title>Edit Factor</Modal.Title>
+      <Modal show={editModal.open} onHide={() => setEditModal({ open: false, item: null, moduleName: "" })} centered backdropClassName="modal-backdrop-blur">
+        <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
+          <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
+            Edit Factor
+          </Modal.Title>
         </Modal.Header>
         {editModal.item && (
           <Formik
@@ -567,11 +637,11 @@ export default function KpiSettings() {
           >
             {({ values, setFieldValue }) => (
               <FormikForm>
-                <Modal.Body>
-                  <div className="pb-3" style={{ fontFamily: "Inter", fontWeight: 500, fontSize: 14 }}>
+                <Modal.Body style={{ padding: SP.lg }}>
+                  <div style={{ marginBottom: SP.md, fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary }}>
                     {editModal.moduleName} : {editModal.item.name}
                   </div>
-                  <p className="text-muted fs-6">
+                  <p style={{ color: C.textMuted, fontSize: '14px', fontFamily: FONT.body, marginBottom: SP.lg }}>
                     Adjust the KPI weightage and type. Historical scores are preserved and will not be recalculated.
                   </p>
 
@@ -608,23 +678,67 @@ export default function KpiSettings() {
                     </small>
                   </div>
                 </Modal.Body>
-                <Modal.Footer>
-                  <Button
-                    variant="secondary"
+                <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.lg}`, gap: SP.md }}>
+                  <button
+                    type="button"
                     onClick={() => setEditModal({ open: false, item: null, moduleName: "" })}
+                    disabled={saving}
+                    style={{
+                      backgroundColor: C.bgCard,
+                      color: C.textSecondary,
+                      border: `1px solid ${C.border}`,
+                      borderRadius: RADIUS.md,
+                      padding: `8px 16px`,
+                      fontFamily: FONT.body,
+                      fontWeight: 500,
+                      fontSize: '13px',
+                      cursor: saving ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      opacity: saving ? 0.6 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!saving) {
+                        e.currentTarget.style.backgroundColor = C.bgSection;
+                        e.currentTarget.style.borderColor = C.borderDark;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = C.bgCard;
+                      e.currentTarget.style.borderColor = C.border;
+                    }}
                   >
                     Cancel
-                  </Button>
-                  <Button variant="primary" type="submit" disabled={saving}>
-                    {saving ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save"
-                    )}
-                  </Button>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    style={{
+                      backgroundColor: saving ? `${C.primary}80` : C.primary,
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: RADIUS.md,
+                      padding: '8px 16px',
+                      fontFamily: FONT.body,
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      cursor: saving ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!saving) {
+                        e.currentTarget.style.backgroundColor = C.primaryMid;
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = C.primary;
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    {saving ? "Saving..." : "Save"}
+                  </button>
                 </Modal.Footer>
               </FormikForm>
             )}
@@ -637,9 +751,12 @@ export default function KpiSettings() {
         show={addModal.open}
         onHide={() => setAddModal({ open: false, moduleId: "", moduleName: "" })}
         centered
+        backdropClassName="modal-backdrop-blur"
       >
-        <Modal.Header closeButton style={{ borderBottom: "none" }}>
-          <Modal.Title>Add Factor — {addModal.moduleName}</Modal.Title>
+        <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
+          <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
+            Add Factor — {addModal.moduleName}
+          </Modal.Title>
         </Modal.Header>
         <Formik
           enableReinitialize
@@ -681,8 +798,8 @@ export default function KpiSettings() {
         >
           {({ values, setFieldValue, errors, touched }) => (
             <FormikForm>
-              <Modal.Body>
-                <p className="text-muted fs-6 mb-4">
+              <Modal.Body style={{ padding: SP.lg }}>
+                <p style={{ color: C.textMuted, fontSize: '14px', fontFamily: FONT.body, marginBottom: SP.lg }}>
                   New factors will be used in future KPI calculations. Existing scores are not affected.
                 </p>
 
@@ -755,28 +872,79 @@ export default function KpiSettings() {
                   formikField="type"
                 />
               </Modal.Body>
-              <Modal.Footer>
-                <Button
-                  variant="secondary"
+              <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.lg}`, gap: SP.md }}>
+                <button
+                  type="button"
                   onClick={() => setAddModal({ open: false, moduleId: "", moduleName: "" })}
+                  disabled={saving}
+                  style={{
+                    backgroundColor: C.bgCard,
+                    color: C.textSecondary,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: RADIUS.md,
+                    padding: `8px 16px`,
+                    fontFamily: FONT.body,
+                    fontWeight: 500,
+                    fontSize: '13px',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!saving) {
+                      e.currentTarget.style.backgroundColor = C.bgSection;
+                      e.currentTarget.style.borderColor = C.borderDark;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = C.bgCard;
+                    e.currentTarget.style.borderColor = C.border;
+                  }}
                 >
                   Cancel
-                </Button>
-                <Button variant="primary" type="submit" disabled={saving}>
-                  {saving ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                      Adding...
-                    </>
-                  ) : (
-                    "Add Factor"
-                  )}
-                </Button>
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    backgroundColor: saving ? `${C.primary}80` : C.primary,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: RADIUS.md,
+                    padding: '8px 16px',
+                    fontFamily: FONT.body,
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!saving) {
+                      e.currentTarget.style.backgroundColor = C.primaryMid;
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = C.primary;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {saving ? "Adding..." : "Add Factor"}
+                </button>
               </Modal.Footer>
             </FormikForm>
           )}
         </Formik>
       </Modal>
-    </div>
+
+      <style>{`
+        .modal-backdrop-blur {
+          background-color: rgba(0, 0, 0, 0.2);
+          backdrop-filter: blur(2px);
+        }
+      `}</style>
+    </>
   );
 }

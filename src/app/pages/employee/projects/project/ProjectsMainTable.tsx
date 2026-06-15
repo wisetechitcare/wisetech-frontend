@@ -21,9 +21,8 @@ import { formatNumber } from "@utils/statistics";
 import { getAllCompanyTypes } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 import { useNavigate } from "react-router-dom";
-import ChooseProjectTypeModal from "../overview/components/chooseProjectTypeModal";
+
 import { KTIcon } from "@metronic/helpers";
-import BlankBasicProjectForm from "../overview/components/BlankBasicProjectForm";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -96,9 +95,6 @@ const ProjectsMainTable = ({
   const [allTeams, setAllTeams] = useState<any>([]);
   const [rowColors, setRowColors] = useState<any>([]);
   const [chooseProjectTypeModal, setChooseProjectTypeModal] = useState(false);
-  const [editProjectModal, setEditProjectModal] = useState(false);
-  const [editProject, setEditProject] = useState<any>(null);
-  const [editProjectTempletId, setEditProjectTempletId] = useState<any>(null);
   const [deleteProjectModal, setDeleteProjectModal] = useState(false);
   const [deleteProject, setDeleteProject] = useState<any>(null);
   const [projectCanAddFromLeads, setProjectCanAddFromLeads] = useState(true);
@@ -172,9 +168,9 @@ const ProjectsMainTable = ({
   };
 
   const handleEditProject = (project: any, projectTempletId: any) => {
-    setEditProject(project);
-    setEditProjectTempletId(projectTempletId);
-    setEditProjectModal(true);
+    // Navigate to project's detail page, which resolves to the linked lead
+    // The detail page will handle opening the unified edit form
+    navigate(`/projects/${project.id}`);
   };
 
   const handleDeleteProject = async (project: any) => {
@@ -855,12 +851,6 @@ const ProjectsMainTable = ({
       <ChooseProjectTypeModal
         show={chooseProjectTypeModal}
         onHide={() => setChooseProjectTypeModal(false)}
-      />
-      <BlankBasicProjectForm
-        showBlankProjectForm={editProjectModal}
-        onHide={() => setEditProjectModal(false)}
-        editingProjectId={editProject?.id}
-        selectedProjectType={editProjectTempletId}
       />
     </div>
   );

@@ -9,7 +9,7 @@ import {
   SelectChangeEvent,
 } from "@mui/material";
 import { Card } from "react-bootstrap";
-import { ProjectDialogModal } from "../overview/components/ProjectDialogModal";
+
 import dayjs, { Dayjs } from "dayjs";
  
 type Filters = {
@@ -60,8 +60,6 @@ export default function ProjectByLocationAndStatus({
 }) {
   // default filters
   
-  const [openLocation, setOpenLocation] = useState(false);
-  const [locationId, setLocationId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
     country: "All",
     state: "All",
@@ -209,19 +207,6 @@ export default function ProjectByLocationAndStatus({
     });
   }, [allProjects, filters, startDate, endDate]);
 
-  const handleLocationChartClick = (selectedLabel: string) => {
-    const selectedLocation:any = data?.find(
-      (location: any) => location.location === selectedLabel
-    );
-    
-    if (selectedLocation) {
-      setLocationId(selectedLocation.location);
-    } else {
-      setLocationId(selectedLabel);
-    }
-    setOpenLocation(true);
-  };
- 
   // grouping decision:
   // - if country === 'All' -> group by country
   // - else if state === 'All' -> group by state (within selected country)
@@ -364,21 +349,10 @@ export default function ProjectByLocationAndStatus({
   });
  
   const chartOptions: any = {
-    chart: { 
-      type: "bar", 
-      height: 350, 
+    chart: {
+      type: "bar",
+      height: 350,
       toolbar: { show: false },
-      events: {
-        dataPointSelection: (event: any, chartContext: any, config: any) => {
-          const dataPointIndex = config.dataPointIndex;
-          const selectedLabel = categories[dataPointIndex]; // Use categories array instead
-          
-          
-          if (selectedLabel) {
-            handleLocationChartClick(selectedLabel); // Use your existing function
-          }
-        },
-      }, 
     },
     plotOptions: { bar: { borderRadius: 6, columnWidth: data.length === 1 ? '10%' : '80%', dataLabels: { position: "top" } } },
     dataLabels: {
@@ -707,13 +681,6 @@ export default function ProjectByLocationAndStatus({
         </Box>
       </Card.Body>
     </Card>
-
-    {/* Location Modal */}
-    <ProjectDialogModal
-      open={openLocation}
-      onClose={() => setOpenLocation(false)}
-      locationId={locationId || undefined}
-    />
 
     </>
   );

@@ -45,8 +45,10 @@ const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
 const CompaniesMain = lazy(() => import('@pages/employee/companies/CompaniesMain'))
 const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companies/components/AllCompaniesToggle'))
-const AllProjectMainToggle = lazy(() => import('@pages/employee/projects/project/components/AllProjectMainToggle'))
-const LeadDetails = lazy(() => import('@pages/employee/leads/lead/LeadDetails'))
+// Unified Entity (Lead = Project): one detail page for both; legacy
+// /projects/:id URLs resolve to the owning lead via ProjectEntityRedirect.
+const EntityDetailPage = lazy(() => import('@pages/employee/entity/EntityDetailPage'))
+const ProjectEntityRedirect = lazy(() => import('@pages/employee/entity/ProjectEntityRedirect'))
 const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
 const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
@@ -443,7 +445,7 @@ const PrivateRoutes = () => {
           path='/leads/:id'
           element={
             <SuspensedView>
-              <LeadDetails />
+              <EntityDetailPage />
             </SuspensedView>
           }
         />
@@ -500,7 +502,7 @@ const PrivateRoutes = () => {
           path='/employee/lead/:leadId'
           element={
             <SuspensedView>
-              <LeadDetails />
+              <EntityDetailPage />
             </SuspensedView>
           }
         />
@@ -540,7 +542,7 @@ const PrivateRoutes = () => {
           path='/projects/:projectId'
           element={
             <SuspensedView>
-              <AllProjectMainToggle />
+              <ProjectEntityRedirect />
             </SuspensedView>
           }
         />
