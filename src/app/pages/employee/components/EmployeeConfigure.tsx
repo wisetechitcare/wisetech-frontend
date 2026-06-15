@@ -590,7 +590,7 @@ const EmployeeConfigure = () => {
       />
 
       <EmployeeTypes/>
-    </div>
+    </>
   );
 };
 

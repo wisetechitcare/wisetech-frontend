@@ -10,8 +10,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
+import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -272,12 +271,11 @@ const LeadsOverviewToggle = ({
       <div className="d-flex flex-row justify-content-between align-items-center mb-6 ">
         <div className="d-flex flex-column align-items-center d-md-block">
 
-          <Select
+          <TimePeriodDropdown
             value={alignment}
             onChange={(e) => handleChange(e as any, e.target.value)}
-            displayEmpty
-            variant="outlined"
-            size="small"
+            showCustom={true}
+            modes={["monthly", "yearly"]}
             sx={{
               width: { xs: "100%", md: "200px" },
               borderRadius: "8px",
@@ -291,11 +289,7 @@ const LeadsOverviewToggle = ({
                 borderColor: "#9D4141",
               },
             }}
-          >
-            <MenuItem value="monthly">Monthly</MenuItem>
-            <MenuItem value="yearly">Yearly</MenuItem>
-            <MenuItem value="custom">Custom</MenuItem>
-          </Select>
+          />
         </div>
         <div>
 

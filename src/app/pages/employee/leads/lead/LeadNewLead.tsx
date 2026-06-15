@@ -1,5 +1,6 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
+import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
 import {
   Box,
   Button,
@@ -1307,51 +1308,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               width: isMobile ? '100%' : 'auto'
             }}>
               {/* Period Selector Tabs */}
-              <div style={{
-                display: "flex",
-                background: "#F1F5F9",
-                borderRadius: "6px",
-                padding: "2px",
-                gap: "2px",
-                width: isMobile ? "100%" : "fit-content",
-                overflowX: "auto",
-                scrollbarWidth: "none",
-                marginRight: "4px"
-              }}>
-                {["daily", "weekly", "monthly", "yearly", "allyear", "custom"].map((mode) => {
-                  const isActive = alignment === mode;
-                  const labels: Record<string, string> = {
-                    daily: "Daily",
-                    weekly: "Weekly",
-                    monthly: "Monthly",
-                    yearly: "Yearly",
-                    allyear: "All Year",
-                    custom: "Custom"
-                  };
-                  return (
-                    <button
-                      key={mode}
-                      onClick={(e) => handleAlignmentChange(e, mode)}
-                      style={{
-                        background: isActive ? "#ffffff" : "transparent",
-                        color: isActive ? "#AA393D" : "#64748B",
-                        border: "none",
-                        borderRadius: "4px",
-                        padding: "4px 10px",
-                        fontSize: "12px",
-                        fontWeight: isActive ? 600 : 500,
-                        fontFamily: "Inter, sans-serif",
-                        boxShadow: isActive ? "0 1px 2px rgba(16, 24, 40, 0.06)" : "none",
-                        transition: "all 0.2s ease",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flex: isMobile ? 1 : "none"
-                      }}
-                    >
-                      {labels[mode]}
-                    </button>
-                  );
-                })}
+              <div style={{ marginRight: "4px" }}>
+                <TimePeriodSelector
+                  value={alignment as TimePeriodMode}
+                  onChange={(mode) => handleAlignmentChange({} as any, mode)}
+                  isMobile={isMobile}
+                  variant="boxed"
+                />
               </div>
 
               {/* Date Nav placed next to Period Tabs */}
