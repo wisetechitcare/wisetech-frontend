@@ -1427,6 +1427,17 @@ export const sendSalarySlipToEmployee = async (details: { path: string, employee
     }
 }
 
+export const sendContractBillToEmployee = async (details: { path: string, employeeId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_CONTRACT_BILL}`;
+        const { data } = await axios.post(endpoint, details);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const fetchEmployeeLoans = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_LOAN_BY_EMPLOYEE_ID}?id=${id}`;

@@ -197,32 +197,21 @@ const S = StyleSheet.create({
   totGreen: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6, backgroundColor: C.green },
   totRed: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6, backgroundColor: C.red },
   totTxt: { fontFamily: F, fontWeight: 700, fontSize: 7.5, color: C.white },
-  netBar: {
-    backgroundColor: C.navy, borderRadius: 5, padding: 10,
-    flexDirection: 'row', alignItems: 'center', marginBottom: 6
+  paymentHistoryBox: {
+    backgroundColor: C.gray50, borderRadius: 5, borderWidth: 0.8, borderColor: C.gray200,
+    padding: 8, marginBottom: 6
   },
-  netLeft: { flexDirection: 'row', alignItems: 'center', flex: 1.2 },
-  netCirc: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 8
-  },
-  netCircTxt: { fontFamily: F, fontWeight: 700, fontSize: 13, color: C.white },
-  netLbl: { fontSize: 7, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 0.4 },
-  netSub: { fontSize: 6, color: 'rgba(255,255,255,0.5)', marginTop: 1 },
-  netCtr: { flex: 1.6, alignItems: 'center' },
-  netAmt: { fontFamily: F, fontWeight: 700, fontSize: 22, color: C.white },
-  readyBadge: {
-    backgroundColor: C.green, paddingHorizontal: 8, paddingVertical: 2.5,
-    borderRadius: 10, marginTop: 4
-  },
-  readyTxt: { fontFamily: F, fontWeight: 700, fontSize: 6.5, color: C.white },
-  netRight: { flex: 1.2 },
-  wordsBox: {
-    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, padding: 6,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)'
-  },
-  wordsLbl: { fontSize: 5.5, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginBottom: 3 },
-  wordsTxt: { fontSize: 6.5, color: C.white, lineHeight: 1.45 },
+  phTitle: { fontFamily: F, fontWeight: 700, fontSize: 7.5, color: C.navy, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 5 },
+  phTable: { borderTopWidth: 0.5, borderTopColor: C.gray200 },
+  phHeader: { flexDirection: 'row', paddingVertical: 3.5, paddingHorizontal: 5, borderBottomWidth: 0.5, borderBottomColor: C.gray300, backgroundColor: C.gray100 },
+  phHeaderText: { fontFamily: F, fontWeight: 700, fontSize: 5.5, color: C.gray600, textTransform: 'uppercase', letterSpacing: 0.2 },
+  phRow: { flexDirection: 'row', paddingVertical: 3, paddingHorizontal: 5, borderBottomWidth: 0.5, borderBottomColor: C.gray100 },
+  phRowAlt: { flexDirection: 'row', paddingVertical: 3, paddingHorizontal: 5, borderBottomWidth: 0.5, borderBottomColor: C.gray100, backgroundColor: C.gray50 },
+  phCell: { fontSize: 6, color: C.gray700 },
+  phCellRight: { fontSize: 6, color: C.gray700, textAlign: 'right' },
+  phFallback: { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 5, justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: C.gray100 },
+  phFallbackLabel: { fontSize: 6, color: C.gray600, fontFamily: F, fontWeight: 700 },
+  phFallbackValue: { fontSize: 6, color: C.navy, fontFamily: F, fontWeight: 700, textAlign: 'right' },
   fInfoRow: {
     flexDirection: 'row', borderWidth: 0.5, borderColor: C.gray200,
     borderRadius: 3, overflow: 'hidden', marginBottom: 6
@@ -254,6 +243,20 @@ const S = StyleSheet.create({
 });
 
 // ── Component ─────────────────────────────────────────────────────────────────
+interface PaymentRecord {
+  id?: string;
+  amount: number;
+  paidAt: string;
+  paymentMethod?: string;
+  transactionId?: string | null;
+}
+
+interface PaymentHistory {
+  salaryPayments: PaymentRecord[];
+  netPayable: number;
+  amountPaid: number;
+}
+
 export default function SalarySlipTemplate({
   grossPayVariable,
   grossPayFixed,
@@ -272,6 +275,8 @@ export default function SalarySlipTemplate({
   presentDays,
   monthStartDate,
   monthEndDate,
+  paymentHistory: paymentHistoryProp,
+  salaryId,
 }: {
   grossPayVariable: { name: string; value?: string; earned: string }[];
   grossPayFixed: { name: string; value?: string; earned: string }[];
@@ -298,6 +303,8 @@ export default function SalarySlipTemplate({
   presentDays?: number;
   monthStartDate?: string;
   monthEndDate?: string;
+  paymentHistory?: PaymentHistory | null;
+  salaryId?: string;
 }) {
   const [logoUrl, setLogoUrl] = useState('');
   const [stampUrl, setStampUrl] = useState('');
@@ -611,25 +618,47 @@ export default function SalarySlipTemplate({
           </View>
         </View>
 
-        {/* Net Salary Bar */}
-        <View style={S.netBar}>
-          <View style={S.netLeft}>
-            <View style={S.netCirc}><Text style={S.netCircTxt}>₹</Text></View>
+        {/* Payment History / Salary Summary */}
+        <View style={S.paymentHistoryBox}>
+          <Text style={S.phTitle}>Payment History</Text>
+          {paymentHistoryProp?.salaryPayments && paymentHistoryProp.salaryPayments.length > 0 ? (
+            <View style={S.phTable}>
+              <View style={S.phHeader}>
+                <Text style={[S.phHeaderText, { flex: 2 }]}>Date</Text>
+                <Text style={[S.phHeaderText, { flex: 1.5, textAlign: 'right' }]}>Net Payable</Text>
+                <Text style={[S.phHeaderText, { flex: 1.5, textAlign: 'right' }]}>Paid</Text>
+                <Text style={[S.phHeaderText, { flex: 1.5, textAlign: 'right' }]}>Remaining</Text>
+              </View>
+              {paymentHistoryProp.salaryPayments.map((payment: PaymentRecord, idx: number) => {
+                const paidDate = new Date(payment.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                const netPayable = paymentHistoryProp.netPayable || 0;
+                const remaining = Math.max(0, netPayable - (paymentHistoryProp.salaryPayments.slice(0, idx + 1).reduce((sum, p) => sum + p.amount, 0)));
+                return (
+                  <View key={idx} style={idx % 2 === 0 ? S.phRow : S.phRowAlt}>
+                    <Text style={[S.phCell, { flex: 2 }]}>{paidDate}</Text>
+                    <Text style={[S.phCellRight, { flex: 1.5 }]}>{rupee(netPayable)}</Text>
+                    <Text style={[S.phCellRight, { flex: 1.5 }]}>{rupee(payment.amount)}</Text>
+                    <Text style={[S.phCellRight, { flex: 1.5, color: remaining > 0 ? C.red : C.green }]}>{rupee(remaining)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
             <View>
-              <Text style={S.netLbl}>Net Salary Payable</Text>
-              <Text style={S.netSub}>After all deductions</Text>
+              <View style={S.phFallback}>
+                <Text style={S.phFallbackLabel}>Net Payable</Text>
+                <Text style={S.phFallbackValue}>{rupee(netPay)}</Text>
+              </View>
+              <View style={S.phFallback}>
+                <Text style={S.phFallbackLabel}>Paid</Text>
+                <Text style={S.phFallbackValue}>₹0</Text>
+              </View>
+              <View style={S.phFallback}>
+                <Text style={S.phFallbackLabel}>Remaining</Text>
+                <Text style={[S.phFallbackValue, { color: C.red }]}>{rupee(netPay)}</Text>
+              </View>
             </View>
-          </View>
-          <View style={S.netCtr}>
-            <Text style={S.netAmt}>{rupee(netPay)}</Text>
-            <View style={S.readyBadge}><Text style={S.readyTxt}> ✓  READY TO PAY</Text></View>
-          </View>
-          <View style={S.netRight}>
-            <View style={S.wordsBox}>
-              <Text style={S.wordsLbl}>Amount in Words</Text>
-              <Text style={S.wordsTxt}>{numberToWords(netPay)}</Text>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Footer Info */}
@@ -642,14 +671,6 @@ export default function SalarySlipTemplate({
 
         {/* Signatures */}
         <View style={S.sigRow}>
-          <View style={S.sigLeft}>
-            {(employee as any)?.digitalSignaturePath ? <Image src={`${(employee as any).digitalSignaturePath}?nc=${Date.now()}`} style={S.sigImg} /> : <View style={{ height: 28 }} />}
-            <View style={S.sigLine} /><Text style={S.sigName}>( {empName} )</Text><Text style={S.sigLbl}>Employee Signature</Text>
-          </View>
-          <View style={S.sigCtr}>
-            <View style={S.checkCirc}><Text style={S.checkTxt}>✓</Text></View>
-            <Text style={S.thankTxt}>Thank you for your{'\n'}valuable contributions!</Text>
-          </View>
           <View style={S.sigRight}>
             {stampUrl ? <Image src={`${stampUrl}?nc=${Date.now()}`} style={S.sigImg} /> : <View style={{ height: 28 }} />}
             <View style={S.sigLine} /><Text style={S.sigName}>( {companyName || 'WiseTech'} )</Text><Text style={S.sigLbl}>Authorized Signatory</Text>

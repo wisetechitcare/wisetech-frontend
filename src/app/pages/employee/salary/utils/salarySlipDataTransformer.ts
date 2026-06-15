@@ -4,6 +4,18 @@ import { ISalaryData } from "@redux/slices/salaryData";
 // Use the existing ISalaryData interface
 export type ApiSalaryData = ISalaryData;
 
+export interface PaymentRecord {
+  id?: string;
+  amount: number;
+  paidAt: string;
+  paymentMethod?: string;
+  transactionId?: string | null;
+  referenceNumber?: string | null;
+  remarks?: string | null;
+  createdAt?: string;
+  createdBy?: string | null;
+}
+
 export interface SalarySlipProps {
   grossPayVariable: { name: string; value?: string; earned: string }[];
   grossPayFixed: { name: string; value?: string; earned: string }[];
@@ -32,6 +44,12 @@ export interface SalarySlipProps {
   monthStartDate?: string;
   monthEndDate?: string;
   baseMonthlySalary?: number;
+  paymentHistory?: {
+    salaryPayments: PaymentRecord[];
+    netPayable: number;
+    amountPaid: number;
+  } | null;
+  salaryId?: string;
 }
 
 /**
@@ -81,8 +99,10 @@ function validateApiSalaryData(apiData: ApiSalaryData | null): boolean {
 }
 
 export function transformApiDataToSalarySlipProps(
-  apiData: ApiSalaryData | null, 
-  employee: Employee
+  apiData: ApiSalaryData | null,
+  employee: Employee,
+  paymentHistory?: any | null,
+  salaryId?: string
 ): SalarySlipProps {
   // Validate API data comprehensively
   if (!validateApiSalaryData(apiData)) {
@@ -241,8 +261,8 @@ export function transformApiDataToSalarySlipProps(
   return {
     grossPayVariable,
     grossPayFixed,
-    deductions, // These map to "Variable" section in deductions column (from deductionBreakdown.fixed)
-    taxes,      // These map to "Fixed" section in deductions column (from deductionBreakdown.variable)
+    deductions,
+    taxes,
     totalGrossPayEarned: parseAmount(validApiData.totalGrossPayAmount),
     totalDeductionsEarned: parseAmount(validApiData.totalDeductedAmount),
     finalAmount: parseAmount(validApiData.netAmount),
@@ -265,6 +285,8 @@ export function transformApiDataToSalarySlipProps(
     monthStartDate: validApiData.monthStartDate ?? undefined,
     monthEndDate: validApiData.monthEndDate ?? undefined,
     baseMonthlySalary: (validApiData as any).employeeCardDeatils?.monthlySalary ?? undefined,
+    paymentHistory: paymentHistory ?? null,
+    salaryId: salaryId ?? undefined,
   };
 }
 

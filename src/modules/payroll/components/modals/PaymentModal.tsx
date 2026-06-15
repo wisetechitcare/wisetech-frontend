@@ -282,8 +282,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     initialValues={{
                         ...initialValues,
                         paymentType: activeTab,
-                        salaryAmount: Math.round(initialValues.salaryAmount || payableAmount),
-                        govAmount: Math.round(initialValues.govAmount || 0),
+                        salaryAmount: Math.trunc(initialValues.salaryAmount || payableAmount),
+                        govAmount: Math.trunc(initialValues.govAmount || 0),
                         govType: initialValues.govType || (hasGovtDeductions ? govtDeductions[0].value : ''),
                         govChallan: initialValues.govChallan || '',
                         paymentMethod: initialValues.paymentMethod || 'BANK_TRANSFER',
@@ -390,7 +390,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     type="number"
                                                                     isRequired={activeTab === 'SALARY'}
                                                                 />
-                                                                <div className="text-muted fs-8 mt-1">Remaining: {formatINR2(salaryPending)}</div>
+                                                                <div className="text-muted fs-8 mt-1">Remaining: {formatINR2(Math.max(0, salaryPending - (Number(values.salaryAmount) || 0)))}</div>
                                                             </Col>
                                                             <Col md={6}>
                                                                 <TextInput
@@ -422,8 +422,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const paid = isDeductionFullyPaid(d.value, d.amount);
                                                                         return {
                                                                             label: paid
-                                                                                ? `${d.label} (₹${Math.round(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
-                                                                                : `${d.label} (₹${Math.round(d.amount).toLocaleString('en-IN')})`,
+                                                                                ? `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')}) — ✓ Paid`
+                                                                                : `${d.label} (₹${Math.trunc(d.amount).toLocaleString('en-IN')})`,
                                                                             value: d.value,
                                                                             color: paid ? '#22c55e' : '#FFB700',
                                                                             isDisabled: paid,
@@ -434,7 +434,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         const selected = govtDeductions.find(d => d.value === option.value);
                                                                         setFieldValue('govType', option.value);
                                                                         if (selected) {
-                                                                            setFieldValue('govAmount', Math.round(selected.amount));
+                                                                            setFieldValue('govAmount', Math.trunc(selected.amount));
                                                                         } else {
                                                                             setFieldValue('govAmount', 0);
                                                                         }
@@ -449,7 +449,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                     isRequired={activeTab === 'GOVERNMENT'}
                                                                 />
                                                                 <div className="text-muted fs-8 mt-1">
-                                                                    {values.govType && `Total pending govt: ${formatINR2(govtPending)}`}
+                                                                    {values.govType && `Total pending govt: ${formatINR2(Math.max(0, govtPending - (Number(values.govAmount) || 0)))}`}
                                                                 </div>
                                                             </Col>
                                                             <Col md={4}>

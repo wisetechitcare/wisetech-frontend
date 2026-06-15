@@ -318,12 +318,12 @@ export const useSalaryCalculations = (
                 if (isGov && matchedKey) {
                     // Remaining = typeTotal − all prior same-type payments − this payment
                     const cumPaid = cumulativePaidByKey.get(matchedKey) || 0;
-                    calculatedRemainingAmount = Math.round(currentNetPayable - cumPaid - paymentAmount) || 0;
+                    calculatedRemainingAmount = Math.floor(currentNetPayable - cumPaid - paymentAmount) || 0;
                 } else if (!isGov) {
                     // Remaining = full net − all prior salary payments − this payment
-                    calculatedRemainingAmount = Math.round(currentNetPayable - cumulativeSalaryPaid - paymentAmount) || 0;
+                    calculatedRemainingAmount = Math.floor(currentNetPayable - cumulativeSalaryPaid - paymentAmount) || 0;
                 } else {
-                    calculatedRemainingAmount = Math.round(currentNetPayable - paymentAmount) || 0;
+                    calculatedRemainingAmount = Math.floor(currentNetPayable - paymentAmount) || 0;
                 }
 
                 const calculatedStatus = calculatedRemainingAmount < 0 ? 'Paid Extra' : calculatedRemainingAmount === 0 ? 'Full Paid' : 'Partially Paid';
