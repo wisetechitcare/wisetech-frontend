@@ -21,6 +21,8 @@ interface SalaryBreakdownTableProps {
     rows: YearlyBreakdownRow[];
     loading?: boolean;
     showPtax?: boolean;
+    showTds?: boolean;
+    tdsLabel?: string;
     showTds2?: boolean;
     showSensitiveData?: boolean;
 }
@@ -31,7 +33,7 @@ const statusStyles = {
     Partial: { color: '#d97706', bg: '#fff7e8' },
 } as const;
 
-const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds2 = false, showSensitiveData = true }: SalaryBreakdownTableProps) => {
+const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds = true, tdsLabel = 'TDS', showTds2 = false, showSensitiveData = true }: SalaryBreakdownTableProps) => {
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     if (loading) {
         return (
@@ -106,7 +108,7 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
         { key: 'overtime',    header: 'Overtime',     type: 'currency', showTotal: true },
         { key: 'pf',          header: 'PF',           type: 'currency', showTotal: true },
         ...(showPtax ? [{ key: 'ptax', header: 'PTax', type: 'currency' as const, showTotal: true }] : []),
-        { key: 'tds',         header: 'TDS',          type: 'currency', showTotal: true },
+        ...(showTds  ? [{ key: 'tds',  header: tdsLabel, type: 'currency' as const, showTotal: true }] : []),
         ...(showTds2 ? [{ key: 'tds2', header: 'TDS 2', type: 'currency' as const, showTotal: true }] : []),
         { key: 'netPayable',  header: 'Net Payable',  type: 'currency', showTotal: true },
         { key: 'paid',        header: 'Paid',         type: 'currency', showTotal: true, color: '#1d4ed8' },
@@ -158,9 +160,9 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                     <TableHead>
                         <TableRow>
                             {[
-                                'Month', 'Basic Salary', 'Overtime', 'PF',
+                            'Month', 'Basic Salary', 'Overtime', 'PF',
                                 ...(showPtax ? ['PTax'] : []),
-                                'TDS',
+                                ...(showTds  ? [tdsLabel] : []),
                                 ...(showTds2 ? ['TDS 2'] : []),
                                 'Net Payable', 'Paid', 'Pending', 'Status',
                             ].map((head) => (
@@ -224,9 +226,11 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                         </TableCell>
                                     )}
 
-                                    <TableCell sx={{ fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
-                                        <span className={sensitiveCls}>{row.tdsDeduction}</span>
-                                    </TableCell>
+                                    {showTds && (
+                                        <TableCell sx={{ fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
+                                            <span className={sensitiveCls}>{row.tdsDeduction}</span>
+                                        </TableCell>
+                                    )}
 
                                     {showTds2 && (
                                         <TableCell sx={{ fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', py: 1.15 }}>
@@ -317,9 +321,11 @@ const SalaryBreakdownTable = ({ rows, loading = false, showPtax = false, showTds
                                     </TableCell>
                                 )}
 
-                                <TableCell>
-                                    <span className={sensitiveCls}>{formatCurrency(totals.tdsDeduction)}</span>
-                                </TableCell>
+                                {showTds && (
+                                    <TableCell>
+                                        <span className={sensitiveCls}>{formatCurrency(totals.tdsDeduction)}</span>
+                                    </TableCell>
+                                )}
 
                                 {showTds2 && (
                                     <TableCell>
