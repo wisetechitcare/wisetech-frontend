@@ -321,8 +321,6 @@ function CustomCalendar() {
             }) || [];
           }
 
-          debugger;
-          
           // Process employee anniversaries for the calendar
           let employeeAnniversaries: any[] = [];
           if (showWorkAnniversary.showWorkAnniversaryOnCalendar === true) {

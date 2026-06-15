@@ -454,7 +454,7 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
         {settings.showProjectsMonthlyCompanyType && (
           <div className="col-12 col-md-6">
             <CustomPieChart
-              data={chartData?.companyTypeData!}
+              data={chartData.companyTypeData}
               title="Project By Company Type"
               width={250}
               height={250}

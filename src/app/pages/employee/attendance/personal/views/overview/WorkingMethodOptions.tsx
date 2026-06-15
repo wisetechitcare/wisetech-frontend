@@ -1154,8 +1154,8 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const [distanceAllowedFromOfficeInMeters, setDistanceAllowedFromOfficeInMeters] = useState(0);
     const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
     const allEmpDetails = useSelector((state: RootState) => state.employee.currentEmployee);
-    const branchLatitude = allEmpDetails.branches?.latitude!;
-    const branchLongitude = allEmpDetails.branches?.longitude!;
+    const branchLatitude = allEmpDetails.branches?.latitude as number;
+    const branchLongitude = allEmpDetails.branches?.longitude as number;
     const publicHolidays = useSelector((state: RootState) => state.attendanceStats.publicHolidays);
     const branchDetails = useSelector((state: RootState) => state.employee?.currentEmployee?.branches);
     const employeeWorkingAndOffDays = JSON.parse(branchDetails?.workingAndOffDays || '{}');
