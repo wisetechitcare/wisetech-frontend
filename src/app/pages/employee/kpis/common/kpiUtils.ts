@@ -64,11 +64,18 @@ export const getFactorUnit = (factorName: string | undefined): string => {
 /**
  * Converts a decimal hour value to a human-readable "XH YM" string.
  * e.g. 84.84 → "84H 50M", 0.5 → "30M", 2 → "2H"
+ *
+ * IMPORTANT: minutes are TRUNCATED (floored), never rounded up. This keeps KPI
+ * identical to the Salary & Attendance pages — and to the backend, which already
+ * floors these factors to whole minutes (e.g. overtime 18:33:59 → 18h 33m, not
+ * 18h 34m). The tiny epsilon absorbs float noise so a value that is exactly on a
+ * minute boundary still lands on that minute (and fixes the old "29H 60M" glitch).
  */
 export function formatHours(decimalHours: number): string {
   if (!decimalHours || decimalHours <= 0) return "0H";
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.round((decimalHours - hours) * 60);
+  const totalMinutes = Math.floor(decimalHours * 60 + 1e-6);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   if (hours === 0) return `${minutes}M`;
   if (minutes === 0) return `${hours}H`;
   return `${hours}H ${minutes}M`;

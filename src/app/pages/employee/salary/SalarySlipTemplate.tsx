@@ -1,58 +1,264 @@
 import React, { useEffect, useState } from "react";
-import {
-  Page,
-  Text,
-  View,
-  Document,
-  StyleSheet,
-  Image,
-} from "@react-pdf/renderer";
+import { Page, Text, View, Document, StyleSheet, Image, Font } from "@react-pdf/renderer";
 import { Employee } from "@redux/slices/employee";
-import { fetchBranchById, fetchCompanyLogo } from "@services/company";
+import { fetchBranchById, fetchCompanyLogo, fetchCompanyOverview } from "@services/company";
 
-const styles = StyleSheet.create({
-  page: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    width: "100%",
-    height: "100%",
-  },
-  section: {
-    margin: 10,
-    padding: 10,
-    flexGrow: 1,
-  },
-  table: {
-    display: "flex",
-    width: "100%",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  tableRow: {
-    margin: "auto",
-    flexDirection: "row",
-  },
-  tableCell: {
-    width: "25%",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    padding: "6px 3px",
-    fontSize: 10,
-  },
-  bold: {
-    fontFamily: "Helvetica-Bold",
-  },
+// ── Register Noto Sans for full ₹ (U+20B9) support ──────────────────────────
+Font.register({
+  family: 'Noto',
+  fonts: [
+    { src: 'https://fonts.gstatic.com/s/notosans/v27/o-0IIpQlx3QUlC5A4PNb4j5Ba_2c7A.ttf', fontWeight: 400 },
+    { src: 'https://fonts.gstatic.com/s/notosans/v27/o-0NIpQlx3QUlC5A4PNjXhFlY9aA5Wl6PQ.ttf', fontWeight: 700 },
+  ],
 });
 
-function SalarySlipTemplate({
+// ── Palette ───────────────────────────────────────────────────────────────────
+const C = {
+  navy: '#1A2D4B',
+  navyDark: '#0f1e34',
+  brand: '#AA393D',
+  green: '#16a34a', greenBg: '#f0fdf4', greenBd: '#bbf7d0',
+  red: '#dc2626', redBg: '#fff5f5', redBd: '#fecaca',
+  orange: '#ea580c', orangeBg: '#fff7ed', orangeBd: '#fed7aa',
+  blue: '#1d6fc5', blueBg: '#eff6ff', blueBd: '#bfdbfe',
+  amber: '#d97706', amberBg: '#fffbeb', amberBd: '#fde68a',
+  gray50: '#f8fafc', gray100: '#f1f5f9', gray200: '#e2e8f0',
+  gray300: '#cbd5e1', gray400: '#94a3b8', gray500: '#64748b',
+  gray600: '#475569', gray700: '#334155', gray800: '#1e293b',
+  white: '#ffffff',
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const parseAmt = (s: string | number): number => {
+  if (typeof s === 'number') return isFinite(s) ? s : 0;
+  return parseFloat((s || '0').replace(/,/g, '')) || 0;
+};
+const fmt0 = (n: number) => Math.trunc(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt2 = (n: number) => Math.trunc(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const rupee = (v: string | number) => `₹${fmt0(parseAmt(v))}`;
+
+function numberToWords(n: number): string {
+  const num = Math.abs(n);
+  const int = Math.floor(num);
+  const paise = Math.round((num - int) * 100);
+  if (int === 0 && paise === 0) return 'Zero Rupees Only';
+  const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven',
+    'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const t = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const h = (x: number): string => {
+    if (!x) return '';
+    if (x < 20) return a[x];
+    if (x < 100) return t[Math.floor(x / 10)] + (x % 10 ? ' ' + a[x % 10] : '');
+    return a[Math.floor(x / 100)] + ' Hundred' + (x % 100 ? ' ' + h(x % 100) : '');
+  };
+  const parts: string[] = [];
+  if (Math.floor(int / 10000000)) parts.push(h(Math.floor(int / 10000000)) + ' Crore');
+  if (Math.floor((int % 10000000) / 100000)) parts.push(h(Math.floor((int % 10000000) / 100000)) + ' Lakh');
+  if (Math.floor((int % 100000) / 1000)) parts.push(h(Math.floor((int % 100000) / 1000)) + ' Thousand');
+  if (int % 1000) parts.push(h(int % 1000));
+  return `Rupees ${parts.join(' ')}${paise > 0 ? ` and ${h(paise)} Paise` : ''} Only`;
+}
+
+const fmtDate = (iso?: string) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+const nowStr = () => {
+  const d = new Date();
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
+    ', ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+const parsePeriod = (date: string, startDate?: string, endDate?: string) => {
+  if (startDate && endDate) return { start: fmtDate(startDate), end: fmtDate(endDate) };
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const [mn, yr] = date.split(' ');
+  const mIdx = months.indexOf(mn);
+  const y = parseInt(yr) || new Date().getFullYear();
+  const last = new Date(y, mIdx + 1, 0).getDate();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return { start: `01 ${mn.slice(0, 3)} ${y}`, end: `${p(last)} ${mn.slice(0, 3)} ${y}` };
+};
+
+// ── Styles (Pixel-perfect clone of the image, no extra margins/spacing) ─────
+const F = 'Noto';
+const S = StyleSheet.create({
+  page: {
+    fontFamily: F,
+    backgroundColor: C.white,
+    paddingTop: 14,
+    paddingBottom: 14,
+    paddingLeft: 20,
+    paddingRight: 20,
+    fontSize: 8,
+    color: C.gray800,
+  },
+  hRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
+  hLeft: { flexDirection: 'row', alignItems: 'center', width: 190 },
+  hCtr: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
+  hRight: { width: 170, alignItems: 'flex-end' },
+  logoBox: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: C.navy,
+    justifyContent: 'center', alignItems: 'center', marginRight: 7, flexShrink: 0
+  },
+  logoImg: { width: 40, height: 40, borderRadius: 20 },
+  logoTxt: { fontFamily: F, fontWeight: 700, fontSize: 15, color: C.white },
+  co1: { fontFamily: F, fontWeight: 700, fontSize: 9.5, color: C.navy },
+  co2: { fontSize: 7, color: C.gray500, marginTop: 1 },
+  co3: { fontSize: 6.5, color: C.gray400, marginTop: 2 },
+  title1: { fontFamily: F, fontWeight: 700, fontSize: 19, color: C.brand, letterSpacing: 0.5 },
+  title2: { fontSize: 7, color: C.gray500, marginTop: 2, letterSpacing: 0.3 },
+  addrTxt: { fontSize: 6.5, color: C.gray600, textAlign: 'right', marginBottom: 1.5 },
+  cinTxt: { fontSize: 5.5, color: C.gray400, textAlign: 'right', marginTop: 1 },
+  divider: { borderTopWidth: 1.5, borderTopColor: C.brand, marginBottom: 6 },
+  thinDivider: { borderTopWidth: 0.5, borderTopColor: C.gray200, marginBottom: 4 },
+  pBar: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    borderWidth: 0.8, borderColor: C.gray200, borderRadius: 4,
+    paddingVertical: 5, paddingHorizontal: 12, marginBottom: 6, backgroundColor: C.gray50
+  },
+  pItem: { flexDirection: 'row', alignItems: 'center' },
+  pLbl: { fontFamily: F, fontWeight: 700, fontSize: 7.5, color: C.gray600, letterSpacing: 0.2 },
+  pVal: { fontFamily: F, fontWeight: 700, fontSize: 8, color: C.navy, marginLeft: 4 },
+  pSep: { width: 0.8, height: 14, backgroundColor: C.gray300, marginHorizontal: 18 },
+  empCard: {
+    flexDirection: 'row', borderWidth: 0.8, borderColor: C.gray200,
+    borderRadius: 5, padding: 8, marginBottom: 6
+  },
+  empLeft: { flexDirection: 'row', alignItems: 'flex-start', width: 130, marginRight: 8 },
+  avatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: C.blueBg,
+    justifyContent: 'center', alignItems: 'center', marginRight: 8, flexShrink: 0,
+    borderWidth: 1.5, borderColor: C.blue
+  },
+  avatarImg: { width: 40, height: 40, borderRadius: 20 },
+  avatarTxt: { fontFamily: F, fontWeight: 700, fontSize: 14, color: C.blue },
+  empName: { fontFamily: F, fontWeight: 700, fontSize: 10.5, color: C.navy },
+  empBadge: {
+    backgroundColor: C.blue, paddingHorizontal: 4, paddingVertical: 1.5,
+    borderRadius: 3, marginLeft: 4
+  },
+  empBadgeTxt: { fontFamily: F, fontWeight: 700, fontSize: 6, color: C.white },
+  empNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  empDesig: { fontSize: 7.5, color: C.gray500, marginBottom: 1 },
+  empDept: { fontSize: 7, color: C.gray400 },
+  empRight: { flex: 1 },
+  infoGrid: { flexDirection: 'row' },
+  infoCol: { flex: 1, marginRight: 5 },
+  infoItem: { marginBottom: 5 },
+  infoLbl: { fontSize: 6, color: C.gray400, textTransform: 'uppercase', letterSpacing: 0.2, marginBottom: 1 },
+  infoVal: { fontFamily: F, fontWeight: 700, fontSize: 7.5, color: C.gray700 },
+  sumRow: { flexDirection: 'row', marginBottom: 6, gap: 5 },
+  sumCard: {
+    flex: 1, borderRadius: 5, padding: 7, flexDirection: 'row', alignItems: 'center',
+    borderWidth: 0.8
+  },
+  sumIcon: {
+    width: 26, height: 26, borderRadius: 13, justifyContent: 'center',
+    alignItems: 'center', marginRight: 6, flexShrink: 0
+  },
+  sumIcoTxt: { fontFamily: F, fontWeight: 700, fontSize: 10, color: C.white },
+  sumLbl: { fontSize: 6, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2 },
+  sumAmt: { fontFamily: F, fontWeight: 700, fontSize: 10 },
+  bRow: { flexDirection: 'row', marginBottom: 5, gap: 6 },
+  bCol: { flex: 1 },
+  secHdr: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  secIcon: {
+    width: 14, height: 14, borderRadius: 2, justifyContent: 'center',
+    alignItems: 'center', marginRight: 4
+  },
+  secIcoTxt: { fontFamily: F, fontWeight: 700, fontSize: 8, color: C.white },
+  secTitle: { fontFamily: F, fontWeight: 700, fontSize: 7.5, textTransform: 'uppercase', letterSpacing: 0.4 },
+  tBox: { borderWidth: 0.5, borderColor: C.gray200, borderRadius: 3, overflow: 'hidden' },
+  subHdr: { paddingVertical: 3.5, paddingHorizontal: 6 },
+  subTxt: { fontFamily: F, fontWeight: 700, fontSize: 6.5, letterSpacing: 0.2 },
+  tHead: {
+    flexDirection: 'row', paddingVertical: 3.5, paddingHorizontal: 6,
+    borderBottomWidth: 0.5, borderBottomColor: C.gray200
+  },
+  thTxt: { fontFamily: F, fontWeight: 700, fontSize: 6, color: C.gray500, textTransform: 'uppercase' },
+  tRow0: {
+    flexDirection: 'row', paddingVertical: 3.5, paddingHorizontal: 6,
+    borderBottomWidth: 0.5, borderBottomColor: C.gray100
+  },
+  tRow1: {
+    flexDirection: 'row', paddingVertical: 3.5, paddingHorizontal: 6,
+    backgroundColor: C.gray50, borderBottomWidth: 0.5, borderBottomColor: C.gray100
+  },
+  tCell: { fontSize: 7, color: C.gray700 },
+  tCellC: { fontSize: 7, color: C.gray700, textAlign: 'center' },
+  tCellR: { fontSize: 7, color: C.gray700, textAlign: 'right' },
+  tRed: { fontSize: 7, color: C.red, textAlign: 'right' },
+  subTot: {
+    flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6,
+    borderTopWidth: 0.5, borderTopColor: C.gray200
+  },
+  stTxt: { fontFamily: F, fontWeight: 700, fontSize: 6.5, color: C.gray600 },
+  stVal: { fontFamily: F, fontWeight: 700, fontSize: 7, textAlign: 'right' },
+  totGreen: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6, backgroundColor: C.green },
+  totRed: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6, backgroundColor: C.red },
+  totTxt: { fontFamily: F, fontWeight: 700, fontSize: 7.5, color: C.white },
+  netBar: {
+    backgroundColor: C.navy, borderRadius: 5, padding: 10,
+    flexDirection: 'row', alignItems: 'center', marginBottom: 6
+  },
+  netLeft: { flexDirection: 'row', alignItems: 'center', flex: 1.2 },
+  netCirc: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center', marginRight: 8
+  },
+  netCircTxt: { fontFamily: F, fontWeight: 700, fontSize: 13, color: C.white },
+  netLbl: { fontSize: 7, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 0.4 },
+  netSub: { fontSize: 6, color: 'rgba(255,255,255,0.5)', marginTop: 1 },
+  netCtr: { flex: 1.6, alignItems: 'center' },
+  netAmt: { fontFamily: F, fontWeight: 700, fontSize: 22, color: C.white },
+  readyBadge: {
+    backgroundColor: C.green, paddingHorizontal: 8, paddingVertical: 2.5,
+    borderRadius: 10, marginTop: 4
+  },
+  readyTxt: { fontFamily: F, fontWeight: 700, fontSize: 6.5, color: C.white },
+  netRight: { flex: 1.2 },
+  wordsBox: {
+    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, padding: 6,
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)'
+  },
+  wordsLbl: { fontSize: 5.5, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginBottom: 3 },
+  wordsTxt: { fontSize: 6.5, color: C.white, lineHeight: 1.45 },
+  fInfoRow: {
+    flexDirection: 'row', borderWidth: 0.5, borderColor: C.gray200,
+    borderRadius: 3, overflow: 'hidden', marginBottom: 6
+  },
+  fInfoCell: { flex: 1, padding: 6, borderRightWidth: 0.5, borderRightColor: C.gray200 },
+  fInfoLast: { flex: 1.6, padding: 6 },
+  fInfoLbl: { fontSize: 6, color: C.gray400, textTransform: 'uppercase', letterSpacing: 0.2, marginBottom: 2 },
+  fInfoVal: { fontFamily: F, fontWeight: 700, fontSize: 7, color: C.gray700 },
+  fInfoNote: { fontSize: 6, color: C.gray500, lineHeight: 1.4 },
+  sigRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 5 },
+  sigLeft: { flex: 1, alignItems: 'center' },
+  sigCtr: { flex: 1.5, alignItems: 'center' },
+  sigRight: { flex: 1, alignItems: 'center' },
+  sigImg: { height: 28, width: 70, objectFit: 'contain', marginBottom: 2 },
+  sigLine: { width: '65%', borderTopWidth: 0.5, borderTopColor: C.gray400, marginBottom: 3 },
+  sigName: { fontSize: 7, color: C.gray600 },
+  sigLbl: { fontSize: 6.5, color: C.gray500, textTransform: 'uppercase', letterSpacing: 0.3 },
+  checkCirc: {
+    width: 20, height: 20, borderRadius: 10, backgroundColor: C.green,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 3
+  },
+  checkTxt: { fontFamily: F, fontWeight: 700, fontSize: 10, color: C.white },
+  thankTxt: { fontSize: 7, color: C.gray600, textAlign: 'center', lineHeight: 1.4 },
+  confBar: {
+    backgroundColor: C.navy, borderRadius: 3, paddingVertical: 5,
+    paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'
+  },
+  confTxt: { fontSize: 6.5, color: 'rgba(255,255,255,0.8)' },
+});
+
+// ── Component ─────────────────────────────────────────────────────────────────
+export default function SalarySlipTemplate({
   grossPayVariable,
   grossPayFixed,
-  deductions, // variable
-  taxes, // fixed
+  deductions,
+  taxes,
   totalGrossPayEarned,
   totalDeductionsEarned,
   employee,
@@ -62,10 +268,14 @@ function SalarySlipTemplate({
   paidLeaves,
   unpaidLeaves,
   pipeline,
+  hourlySalary: hourlySalaryProp,
+  presentDays,
+  monthStartDate,
+  monthEndDate,
 }: {
   grossPayVariable: { name: string; value?: string; earned: string }[];
   grossPayFixed: { name: string; value?: string; earned: string }[];
-  deductions: { name: string; value: string; earned: string }[];
+  deductions: { name: string; value?: string; earned: string }[];
   taxes: { name: string; value?: string; earned: string }[];
   totalGrossPayEarned: string;
   totalDeductionsEarned: string;
@@ -84,526 +294,373 @@ function SalarySlipTemplate({
     variableDeductions: { name: string; earned: string }[];
     fixedDeductions: { name: string; earned: string }[];
   };
+  hourlySalary?: number;
+  presentDays?: number;
+  monthStartDate?: string;
+  monthEndDate?: string;
 }) {
-  const [logoUrl, setLogoUrl] = useState("");
-  const [branchAddress, setBranchAddress] = useState("");
-  const [stampUrl, setStampUrl] = useState("");
-
-  const getLogoUrl = async () => {
-    try {
-      const logo = await fetchCompanyLogo();
-      return logo || "";
-    } catch (error) {
-      console.error("Error fetching company logo:", error);
-      return "";
-    }
-  };
-
-  const branchDetails = async (branchId: string) => {
-    try {
-      const res = await fetchBranchById(branchId);
-      return res.data?.branch?.address;
-    } catch (error) {
-      console.error("Error fetching branch details:", error);
-      return "";
-    }
-  };
-
-  
+  const [logoUrl, setLogoUrl] = useState('');
+  const [stampUrl, setStampUrl] = useState('');
+  const [branchAddress, setBranchAddress] = useState('');
+  const [companyEmail, setCompanyEmail] = useState('');
+  const [companyPhone, setCompanyPhone] = useState('');
+  const [companyWeb, setCompanyWeb] = useState('');
+  const [companyCIN, setCompanyCIN] = useState('');
+  const [companyGST, setCompanyGST] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
   useEffect(() => {
-    const fetchBranchAddress = async () => {
-      const address = await branchDetails(employee.branchId);
-      setBranchAddress(address);
-    };
+    fetchCompanyLogo().then(r => {
+      setLogoUrl(r?.data?.logo || '');
+      setStampUrl(r?.data?.salaryStamp || '');
+    }).catch(() => { });
+    fetchCompanyOverview().then((r: any) => {
+      const o = r?.data?.companyOverview?.[0] || {};
+      setCompanyName(o.name || '');
+      setCompanyEmail(o.superAdminEmail || '');
+      setCompanyPhone(o.contactNumber || '');
+      setCompanyWeb(o.websiteUrl || '');
+      setCompanyCIN(o.certificateOfIncorporation || '');
+      setCompanyGST(o.gstNumber || '');
+    }).catch(() => { });
+  }, []);
 
-    if (employee.branchId) {
-      fetchBranchAddress();
+  useEffect(() => {
+    if (employee?.branchId) {
+      fetchBranchById(employee.branchId).then(r => {
+        setBranchAddress(r?.data?.branch?.address || '');
+      }).catch(() => { });
     }
   }, [employee]);
 
-  useEffect(() => {
-    const fetchLogo = async () => {
-      const logoUrl = await getLogoUrl();
-      setLogoUrl(logoUrl.data.logo);
-      setStampUrl(logoUrl.data.salaryStamp);
-      // console.log("stampUrl", logoUrl.data.salaryStamp);
-    };
+  // Employee data
+  const empName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim();
+  const empId = (employee as any)?.wiseEmployeeId || (employee as any)?.employeeCode || '—';
+  const designation = (employee as any)?.designation?.name || (employee as any)?.designationName || '—';
+  const department = (employee as any)?.department?.name || (employee as any)?.departmentName || '—';
+  const doj = employee?.dateOfJoining ? fmtDate(employee.dateOfJoining as string) : '—';
+  const empType = (employee as any)?.employeeType || 'Full Time';
+  const bankName = (employee as any)?.bankName || '—';
+  const acctLast4 = (employee as any)?.accountNumber ? `**** ${String((employee as any).accountNumber).slice(-4)}` : '—';
+  const uanNo = (employee as any)?.uan || (employee as any)?.pfNumber || '—';
+  const initials = empName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const avatarSrc = employee?.avatar;
 
-    fetchLogo();
-  }, []);
+  // Amounts
+  const grossEarned = parseAmt(pipeline?.grossPay || totalGrossPayEarned);
+  const attAdj = parseAmt(pipeline?.totalVariableDeductions || '0');
+  const fixedDed = parseAmt(pipeline?.totalFixedDeductions || '0');
+  const totalDed = fixedDed + attAdj || parseAmt(totalDeductionsEarned);
+  const netPay = parseAmt(pipeline?.finalNetSalary || finalAmount);
+  const leaveDays = (paidLeaves || 0) + (unpaidLeaves || 0);
+  const hourlySal = hourlySalaryProp || (employee as any)?.hourlySalary || 0;
+  const dailySal = hourlySal * 8;
 
-  function createTotalSideData(
-    variablePay: { name: string; earned: string }[],
-    fixedPay: { name: string; earned: string }[],
-    deductionsDetails: { name: string; value: string; earned: string }[],
-    taxDetails: { name: string; earned: string }[]
-  ) {
-    // Validate input arrays and provide defaults if undefined
-    const safeVariablePay = Array.isArray(variablePay) ? variablePay : [];
-    const safeFixedPay = Array.isArray(fixedPay) ? fixedPay : [];
-    const safeDeductionsDetails = Array.isArray(deductionsDetails) ? deductionsDetails : [];
-    const safeTaxDetails = Array.isArray(taxDetails) ? taxDetails : [];
+  // Period
+  const { start: pStart, end: pEnd } = parsePeriod(date, monthStartDate, monthEndDate);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const [mName, mYr] = date.split(' ');
+  const mIdx = months.indexOf(mName);
+  const yr = parseInt(mYr) || new Date().getFullYear();
+  const psMonth = (mIdx + 1).toString().padStart(2, '0');
+  const empNum = parseInt((employee?.id || '').slice(-4), 16) || 124;
+  const payslipId = `PS-${yr}-${psMonth}-${String(empNum).padStart(6, '0').slice(0, 6)}`;
 
-    let finalData: [
-      {
-        leftName: string;
-        leftEarned: string | undefined;
-        rightName: string;
-        rightEarned: string | undefined;
-      }
-    ] = [
-      {
-        leftName: "Variables",
-        leftEarned: undefined,
-        rightName: "Variables",
-        rightEarned: undefined,
-      },
-    ];
- 
-    let finalLength = Math.max(safeVariablePay.length, safeDeductionsDetails.length);
+  // Rate helpers
+  const varRate = (i: number) => {
+    if (!hourlySal) return '—';
+    const nm = (grossPayVariable[i]?.name || '').toLowerCase().replace(/\s/g, '');
+    return (nm.includes('workingtime') || nm.includes('overtime'))
+      ? `₹${hourlySal.toFixed(2)}/Hour`
+      : `₹${dailySal.toFixed(2)}/Day`;
+  };
+  const dedRate = (i: number) => {
+    const nm = (deductions[i]?.name || '').toLowerCase();
+    return (nm.includes('late') && dailySal) ? `₹${dailySal.toFixed(2)}/Day` : '—';
+  };
+  const isPercent = (v?: string) => (v || '').trim().endsWith('%');
+  const dedTypeLbl = (v?: string) => isPercent(v) ? 'Percentage' : 'Fixed';
+  const dedRateDsp = (v?: string) => {
+    if (!v || v === '-') return '—';
+    if (isPercent(v)) return v;
+    const n = parseAmt(v);
+    return n > 0 ? `₹${n.toFixed(2)}` : '—';
+  };
+  const dedBase = (v?: string) => isPercent(v) ? rupee(grossEarned) : '—';
 
-    for (let i = 0; i < finalLength; i++) {
-      let obj = {
-        leftName: safeVariablePay[i]?.name || '',
-        leftEarned: safeVariablePay[i]?.earned ? (
-          safeVariablePay[i].earned.startsWith('₹') ? 
-          safeVariablePay[i].earned.slice(1) : safeVariablePay[i].earned
-        ) : '',
-        rightName: safeDeductionsDetails[i]?.name || '',
-        rightEarned: safeDeductionsDetails[i]?.earned ? (
-          safeDeductionsDetails[i].earned.startsWith('₹') ? 
-          safeDeductionsDetails[i].earned.slice(1) : safeDeductionsDetails[i].earned
-        ) : '',
-      };
-
-      finalData.push(obj);
-    }
-
-    finalData.push({
-      leftName: "Fixed",
-      leftEarned: undefined,
-      rightName: "Fixed",
-      rightEarned: undefined,
-    });
-
-    finalLength = Math.max(safeFixedPay.length, safeTaxDetails.length);
-
-    for (let i = 0; i < finalLength; i++) {
-      let obj = {
-        leftName: safeFixedPay[i]?.name || '',
-        leftEarned: safeFixedPay[i]?.earned ? (
-          safeFixedPay[i].earned.startsWith('₹') ? 
-          safeFixedPay[i].earned.slice(1) : safeFixedPay[i].earned
-        ) : '',
-        rightName: safeTaxDetails[i]?.name || "",
-        rightEarned: safeTaxDetails[i]?.earned ? (
-          safeTaxDetails[i].earned.startsWith('₹') ? 
-          safeTaxDetails[i].earned.slice(1) : safeTaxDetails[i].earned
-        ) : '',
-      };
-      finalData.push(obj);
-    }
-
-    finalData.push({
-      leftName: "Total Earnings (A)",
-      leftEarned: totalGrossPayEarned.startsWith('₹') ? 
-        totalGrossPayEarned.slice(1) : totalGrossPayEarned,
-      rightName: "Total Deductions (B)",
-      rightEarned: totalDeductionsEarned.startsWith('₹') ? 
-        totalDeductionsEarned.slice(1) : totalDeductionsEarned,
-    });
-
-    return finalData;
-  }
-
-  let totalData = createTotalSideData(
-    grossPayVariable,
-    grossPayFixed,
-    deductions,
-    taxes
-  );
-
-  console.log("totalData", totalData);
-  // console.log("FinalData:: ",finalData);
-  
+  const varSubtotal = grossPayVariable.reduce((a, r) => a + parseAmt(r.earned), 0);
+  const fixedSubtotal = grossPayFixed.reduce((a, r) => a + parseAmt(r.earned), 0);
+  const attSubtotal = deductions.reduce((a, r) => a + parseAmt(r.earned), 0);
+  const govSubtotal = taxes.reduce((a, r) => a + parseAmt(r.earned), 0);
 
   return (
     <Document>
-      <Page
-        size="A4"
-        style={{
-          flexDirection: "column",
-          backgroundColor: "#FFFFFF",
-          fontFamily: "Helvetica",
-          width: "100%",
-          height: "100%",
-          justifyContent: "flex-start",
-          alignItems: "flex-start",
-          padding: "3% 10%",
-        }}
-      >
-        <View
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-            width: "100%",
-            height: "auto",
-            fontSize: "10px",
-          }}
-        >
-          <View style={{ width: "50%" }}>
-            <Image 
-              style={{ width: "200px", padding: "0px 3px" }}
-              src={`${logoUrl}?noCache=${Math.random().toString()}`}
-            />
+      <Page size="A4" style={S.page}>
+        {/* Header */}
+        <View style={S.hRow}>
+          <View style={S.hLeft}>
+            <View style={S.logoBox}>
+              {logoUrl ? <Image src={`${logoUrl}?nc=${Date.now()}`} style={S.logoImg} /> : <Text style={S.logoTxt}>W</Text>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.co1}>{companyName || 'WiseTech'}</Text>
+              <Text style={S.co2}>MEP CONSULTANTS PVT. LTD.</Text>
+              <Text style={S.co3}>Engineering · Design · Excellence</Text>
+            </View>
           </View>
-          <View
-            style={{
-              width: "50%",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              padding: "10px 3px",
-            }}
-          >
-            <Text
-              style={{
-                width: "70%",
-                marginLeft: "auto",
-                fontFamily: "Helvetica-Bold",
-              }}
-            >
-              Address:
-            </Text>
-            <Text style={{ width: "70%" }}>{branchAddress}</Text>
+          <View style={S.hCtr}>
+            <Text style={S.title1}>SALARY SLIP</Text>
+            <Text style={S.title2}>Monthly Payroll Statement</Text>
+          </View>
+          <View style={S.hRight}>
+            {branchAddress ? <Text style={S.addrTxt}>{branchAddress}</Text> : null}
+            {companyEmail ? <Text style={S.addrTxt}>{companyEmail}</Text> : null}
+            {companyPhone ? <Text style={S.addrTxt}>{companyPhone}</Text> : null}
+            {companyWeb ? <Text style={S.addrTxt}>{companyWeb}</Text> : null}
+            {companyCIN ? <Text style={S.cinTxt}>CIN: {companyCIN}</Text> : null}
+            {companyGST ? <Text style={S.cinTxt}>GSTIN: {companyGST}</Text> : null}
           </View>
         </View>
-        <View
-          style={{
-            backgroundColor: "",
-            borderBottom: "1px solid black",
-            borderTop: "1px solid black",
-            width: "100%",
-          }}
-        >
-          <Text
-            style={{
-              margin: "5px auto",
-              fontFamily: "Helvetica-Bold",
-              fontSize: "15px",
-            }}
-          >
-            SALARY SLIP
-          </Text>
-        </View>
-        <View
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "center",
-            alignItems: "center",
-            borderBottom: "1px solid black",
-            fontSize: "10px",
-            fontFamily: "Helvetica-Bold",
-          }}
-        >
-          <Text style={{ width: "50%", margin: "5px auto" }}>
-            PAYSLIP FOR MONTH
-          </Text>
-          <Text style={{ width: "50%", margin: "5px auto" }}>: {date}</Text>
-        </View>
-        <View
-          style={{
-            display: "flex",
-            fontSize: "10px",
-            flexDirection: "column",
-            justifyContent: "center",
-            fontFamily: "Helvetica-Bold",
-            alignItems: "flex-start",
-          }}
-        >
-          <Text
-            style={{
-              margin: "2px 0px",
-              fontSize: "13px",
-              fontFamily: "Helvetica-Bold",
-              textDecoration: "underline",
-            }}
-          >
-            Employee Details:
-          </Text>
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: "2px",
-            }}
-          >
-            <Text style={{ width: "50%" }}>Employee Name</Text>
-            <Text style={{ width: "50%" }}>
-              : {employee?.users.firstName} {employee?.users.lastName}
-            </Text>
-          </View>
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: "2px",
-            }}
-          >
-            <Text style={{ width: "50%" }}>Total Working Days</Text>
-            <Text style={{ width: "50%" }}>: {totalPayableDays}</Text>
-          </View>
+        <View style={S.divider} />
 
-          {paidLeaves && (
-            <View
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                justifyContent: "center",
-                alignItems: "center",
-                marginTop: "2px",
-              }}
-            >
-              <Text style={{ width: "50%" }}>This Month Paid Leave</Text>
-              <Text style={{ width: "50%" }}>: {paidLeaves}</Text>
+        {/* Pay Period Bar */}
+        <View style={S.pBar}>
+          <View style={S.pItem}><Text style={S.pLbl}>PAY MONTH :</Text><Text style={S.pVal}>{date}</Text></View>
+          <View style={S.pSep} />
+          <View style={S.pItem}><Text style={S.pLbl}>PAY PERIOD :</Text><Text style={S.pVal}>{pStart} - {pEnd}</Text></View>
+        </View>
+
+        {/* Employee Card */}
+        <View style={S.empCard}>
+          <View style={S.empLeft}>
+            <View style={S.avatar}>
+              {avatarSrc ? <Image src={`${avatarSrc}?nc=${Date.now()}`} style={S.avatarImg} /> : <Text style={S.avatarTxt}>{initials}</Text>}
             </View>
-          )}
-          {unpaidLeaves && (
-            <View
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                justifyContent: "center",
-                alignItems: "center",
-                marginTop: "2px",
-              }}
-            >
-              <Text style={{ width: "50%" }}>This Month Unpaid Leave</Text>
-              <Text style={{ width: "50%" }}>: {unpaidLeaves}</Text>
+            <View style={{ flex: 1 }}>
+              <View style={S.empNameRow}>
+                <Text style={S.empName}>{empName || '—'}</Text>
+                <View style={S.empBadge}><Text style={S.empBadgeTxt}>{empId}</Text></View>
+              </View>
+              <Text style={S.empDesig}>Designation : {designation}</Text>
+              <Text style={S.empDept}>Department : {department}</Text>
             </View>
-          )}
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: "2px",
-            }}
-          >
-            <Text style={{ width: "50%" }}>Basic Salary</Text>
-            <Text style={{ width: "50%" }}>: {employee?.ctcInLpa}</Text>
+          </View>
+          <View style={S.empRight}>
+            <View style={S.infoGrid}>
+              <View style={S.infoCol}>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Joining Date</Text><Text style={S.infoVal}>{doj}</Text></View>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Employment Type</Text><Text style={S.infoVal}>{empType}</Text></View>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Pay Mode</Text><Text style={S.infoVal}>Bank Transfer</Text></View>
+              </View>
+              <View style={S.infoCol}>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Total Working Days</Text><Text style={S.infoVal}>{totalPayableDays || 0}</Text></View>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Present Days</Text><Text style={S.infoVal}>{presentDays ?? totalPayableDays ?? 0}</Text></View>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Leave Days</Text><Text style={S.infoVal}>{leaveDays}</Text></View>
+              </View>
+              <View style={[S.infoCol, { marginRight: 0 }]}>
+                <View style={S.infoItem}><Text style={S.infoLbl}>Bank Name</Text><Text style={S.infoVal}>{bankName}</Text></View>
+                <View style={S.infoItem}><Text style={S.infoLbl}>A/C No (Last 4)</Text><Text style={S.infoVal}>{acctLast4}</Text></View>
+                <View style={S.infoItem}><Text style={S.infoLbl}>UAN (PF)</Text><Text style={S.infoVal}>{uanNo}</Text></View>
+              </View>
+            </View>
           </View>
         </View>
-        <View
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            flexWrap: "wrap",
-            backgroundColor: "white",
-            width: "100%",
-            height: "50%",
-            marginTop: "20px",
-          }}
-        >
-          <View style={{ width: "100%", fontSize: "5px" }}>
-            <View style={styles.table}>
-              <View style={styles.tableRow}>
-                <View style={[styles.tableCell, { width: "35%" }]}>
-                  <Text style={styles.bold}>Earnings</Text>
-                </View>
-                <View
-                  style={[
-                    styles.tableCell,
-                    { width: "15%", textAlign: "center" },
-                  ]}
-                >
-                  <Text style={styles.bold}>Amount (Rs.)</Text>
-                </View>
-                <View style={[styles.tableCell, { width: "35%" }]}>
-                  <Text style={styles.bold}>Deductions</Text>
-                </View>
-                <View
-                  style={[
-                    styles.tableCell,
-                    { width: "15%", textAlign: "center" },
-                  ]}
-                >
-                  <Text style={styles.bold}>Amount (Rs.)</Text>
-                </View>
+
+        {/* Summary Cards */}
+        <View style={S.sumRow}>
+          <View style={[S.sumCard, { backgroundColor: C.greenBg, borderColor: C.greenBd }]}>
+            <View style={[S.sumIcon, { backgroundColor: C.green }]}><Text style={S.sumIcoTxt}>₹</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.sumLbl, { color: C.green }]}>Gross Pay</Text>
+              <Text style={[S.sumAmt, { color: C.green }]}>{rupee(grossEarned)}</Text>
+            </View>
+          </View>
+          <View style={[S.sumCard, { backgroundColor: C.orangeBg, borderColor: C.orangeBd }]}>
+            <View style={[S.sumIcon, { backgroundColor: C.orange }]}><Text style={S.sumIcoTxt}>%</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.sumLbl, { color: C.orange }]}>Attendance Adj.</Text>
+              <Text style={[S.sumAmt, { color: C.orange }]}>-{rupee(attAdj)}</Text>
+            </View>
+          </View>
+          <View style={[S.sumCard, { backgroundColor: C.redBg, borderColor: C.redBd }]}>
+            <View style={[S.sumIcon, { backgroundColor: C.red }]}><Text style={S.sumIcoTxt}>-</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.sumLbl, { color: C.red }]}>Total Deductions</Text>
+              <Text style={[S.sumAmt, { color: C.red }]}>-{rupee(totalDed)}</Text>
+            </View>
+          </View>
+          <View style={[S.sumCard, { backgroundColor: C.blueBg, borderColor: C.blueBd }]}>
+            <View style={[S.sumIcon, { backgroundColor: C.blue }]}><Text style={S.sumIcoTxt}>₹</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.sumLbl, { color: C.blue }]}>Net Salary</Text>
+              <Text style={[S.sumAmt, { color: C.blue }]}>{rupee(netPay)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Breakdown Tables */}
+        <View style={S.bRow}>
+          {/* Left: Earnings */}
+          <View style={S.bCol}>
+            <View style={S.secHdr}>
+              <View style={[S.secIcon, { backgroundColor: C.green }]}><Text style={S.secIcoTxt}>$</Text></View>
+              <Text style={[S.secTitle, { color: C.green }]}>Earnings Breakdown</Text>
+            </View>
+            <View style={S.tBox}>
+              <View style={[S.subHdr, { backgroundColor: C.amberBg, borderBottomWidth: 0.5, borderBottomColor: C.amberBd }]}>
+                <Text style={[S.subTxt, { color: C.amber }]}>A. Work Earnings (Variable)</Text>
               </View>
-              {totalData.map((row, index) => (
-                <View style={styles.tableRow} key={index}>
-                  <View style={[styles.tableCell, { width: "35%" }]}>
-                    <Text>{row.leftName}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.tableCell,
-                      { width: "15%", textAlign: "center" },
-                    ]}
-                  >
-                    <Text>{row.leftEarned || ""}</Text>
-                  </View>
-                  <View style={[styles.tableCell, { width: "35%" }]}>
-                    <Text>{row.rightName}</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.tableCell,
-                      { width: "15%", textAlign: "center" },
-                    ]}
-                  >
-                    <Text>{row.rightEarned || ""}</Text>
-                  </View>
+              <View style={[S.tHead, { backgroundColor: C.gray50 }]}>
+                <Text style={[S.thTxt, { flex: 2.2 }]}>Description</Text>
+                <Text style={[S.thTxt, { flex: 1.3, textAlign: 'center' }]}>Details</Text>
+                <Text style={[S.thTxt, { flex: 1.8, textAlign: 'center' }]}>Rate</Text>
+                <Text style={[S.thTxt, { flex: 1.2, textAlign: 'right' }]}>Amount (₹)</Text>
+              </View>
+              {grossPayVariable.map((r, i) => (
+                <View key={i} style={i % 2 === 0 ? S.tRow0 : S.tRow1}>
+                  <Text style={[S.tCell, { flex: 2.2 }]}>{r.name}</Text>
+                  <Text style={[S.tCellC, { flex: 1.3 }]}>{r.value || '—'}</Text>
+                  <Text style={[S.tCellC, { flex: 1.8 }]}>{varRate(i)}</Text>
+                  <Text style={[S.tCellR, { flex: 1.2 }]}>{fmt2(parseAmt(r.earned))}</Text>
                 </View>
               ))}
+              <View style={[S.subTot, { backgroundColor: C.amberBg }]}>
+                <Text style={[S.stTxt, { flex: 1, color: C.amber }]}>Subtotal Variable Earnings</Text>
+                <Text style={[S.stVal, { color: C.amber }]}>{rupee(varSubtotal)}</Text>
+              </View>
+              <View style={[S.subHdr, { backgroundColor: C.amberBg, borderTopWidth: 0.5, borderTopColor: C.amberBd, borderBottomWidth: 0.5, borderBottomColor: C.amberBd }]}>
+                <Text style={[S.subTxt, { color: C.amber }]}>B. Allowances &amp; Benefits (Fixed)</Text>
+              </View>
+              <View style={[S.tHead, { backgroundColor: C.gray50 }]}>
+                <Text style={[S.thTxt, { flex: 3.5 }]}>Description</Text>
+                <Text style={[S.thTxt, { flex: 1.2, textAlign: 'right' }]}>Amount (₹)</Text>
+              </View>
+              {grossPayFixed.map((r, i) => (
+                <View key={i} style={i % 2 === 0 ? S.tRow0 : S.tRow1}>
+                  <Text style={[S.tCell, { flex: 3.5 }]}>{r.name}</Text>
+                  <Text style={[S.tCellR, { flex: 1.2 }]}>{fmt2(parseAmt(r.earned))}</Text>
+                </View>
+              ))}
+              <View style={[S.subTot, { backgroundColor: C.amberBg }]}>
+                <Text style={[S.stTxt, { flex: 1, color: C.amber }]}>Subtotal Fixed Earnings</Text>
+                <Text style={[S.stVal, { color: C.amber }]}>{rupee(fixedSubtotal)}</Text>
+              </View>
+              <View style={S.totGreen}>
+                <Text style={[S.totTxt, { flex: 1 }]}>Total Earnings (A+B)</Text>
+                <Text style={S.totTxt}>{rupee(totalGrossPayEarned)}</Text>
+              </View>
             </View>
           </View>
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-start",
-              alignItems: "flex-start",
-              backgroundColor: "#FFFFFF",
-              width: "100%",
-              fontSize: "11px",
-              padding: "10px 3px",
-            }}
-          >
-            {pipeline ? (
-              <View style={{ width: "100%", marginBottom: 8 }}>
-                <Text style={{ fontFamily: "Helvetica-Bold", marginBottom: 4 }}>
-                  Payroll Pipeline
-                </Text>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                  <Text>Gross Pay (A)</Text>
-                  <Text>Rs. {pipeline.grossPay}</Text>
-                </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                  <Text>(-) Variable Deductions (B)</Text>
-                  <Text>- Rs. {pipeline.totalVariableDeductions}</Text>
-                </View>
-                <View style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  paddingVertical: 4,
-                  borderTop: "1px solid #888",
-                  borderBottom: "1px solid #888",
-                  fontFamily: "Helvetica-Bold",
-                }}>
-                  <Text>Intermediate Salary</Text>
-                  <Text>Rs. {pipeline.intermediateSalary}</Text>
-                </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
-                  <Text>(-) Fixed Deductions (C)</Text>
-                  <Text>- Rs. {pipeline.totalFixedDeductions}</Text>
-                </View>
-                <View style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  paddingVertical: 4,
-                  borderTop: "1px solid black",
-                  fontFamily: "Helvetica-Bold",
-                }}>
-                  <Text>Final Net Salary</Text>
-                  <Text>Rs. {pipeline.finalNetSalary}</Text>
-                </View>
-              </View>
-            ) : (
-              <Text>Net payable for the month ( A ) - ( B ) :</Text>
-            )}
-            <View
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                width: "100%",
-                paddingBottom: "15px",
-                borderBottom: "1px solid black",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontFamily: "Helvetica-Bold",
-              }}
-            >
-              <Text>Net Amount Payable</Text>
-              <Text>Rs. {pipeline?.finalNetSalary ?? finalAmount}</Text>
-            </View>
-            <View
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-                padding: "13px 3px",
-                fontFamily: "Helvetica-Bold",
-                gap: "2px",
-                justifyContent: "center",
-                alignItems: "flex-end",
-              }}
-            >
-              <View
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  height: 80,
-                  justifyContent: "flex-end",
-                  alignItems: "flex-end",
-                  marginTop: 10,
-                }}
-              >
-                {/* Stamp Image */}
-                {stampUrl && (
-                  <Image
-                    src={`${stampUrl}?noCache=${Math.random().toString()}`}
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: 0,
-                      width: 80,
-                      opacity: 0.5,
-                    }}
-                  />
-                )}
 
-                {/* Text Block */}
-                <View
-                  style={{
-                    zIndex: 1,
-                    width: "35%",
-                    fontFamily: "Helvetica-Bold",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                  }}
-                >
-                  <Text>FOR WISETECH PVT. LTD.</Text>
-                  <Text>Authorised Signatory.</Text>
-                  <Text
-                    style={{
-                      fontSize: 7,
-                      marginLeft: "auto",
-                      textAlign: "right",
-                    }}
-                  >
-                    This is a system generated payslip and does not require
-                    signature.
-                  </Text>
+          {/* Right: Deductions */}
+          <View style={S.bCol}>
+            <View style={S.secHdr}>
+              <View style={[S.secIcon, { backgroundColor: C.red, borderRadius: 7 }]}><Text style={[S.secIcoTxt, { fontSize: 7 }]}>&#9099;</Text></View>
+              <Text style={[S.secTitle, { color: C.red }]}>Deductions Breakdown</Text>
+            </View>
+            <View style={S.tBox}>
+              <View style={[S.subHdr, { backgroundColor: C.redBg, borderBottomWidth: 0.5, borderBottomColor: C.redBd }]}>
+                <Text style={[S.subTxt, { color: C.red }]}>1. Attendance Adjustments</Text>
+              </View>
+              <View style={[S.tHead, { backgroundColor: C.gray50 }]}>
+                <Text style={[S.thTxt, { flex: 2.2 }]}>Description</Text>
+                <Text style={[S.thTxt, { flex: 1.2, textAlign: 'center' }]}>Details</Text>
+                <Text style={[S.thTxt, { flex: 1.7, textAlign: 'center' }]}>Rate</Text>
+                <Text style={[S.thTxt, { flex: 1.2, textAlign: 'right' }]}>Amount (₹)</Text>
+              </View>
+              {deductions.map((r, i) => (
+                <View key={i} style={i % 2 === 0 ? S.tRow0 : S.tRow1}>
+                  <Text style={[S.tCell, { flex: 2.2 }]}>{r.name}</Text>
+                  <Text style={[S.tCellC, { flex: 1.2 }]}>{r.value ?? '—'}</Text>
+                  <Text style={[S.tCellC, { flex: 1.7 }]}>{dedRate(i)}</Text>
+                  <Text style={[S.tRed, { flex: 1.2 }]}>-{fmt2(parseAmt(r.earned))}</Text>
                 </View>
+              ))}
+              <View style={[S.subTot, { backgroundColor: C.redBg }]}>
+                <Text style={[S.stTxt, { flex: 1, color: C.red }]}>Total Attendance Adjustments</Text>
+                <Text style={[S.stVal, { color: C.red }]}>-{rupee(attSubtotal)}</Text>
+              </View>
+              <View style={[S.subHdr, { backgroundColor: C.redBg, borderTopWidth: 0.5, borderTopColor: C.redBd, borderBottomWidth: 0.5, borderBottomColor: C.redBd }]}>
+                <Text style={[S.subTxt, { color: C.red }]}>2. Government &amp; Payroll Deductions</Text>
+              </View>
+              <View style={[S.tHead, { backgroundColor: C.gray50 }]}>
+                <Text style={[S.thTxt, { flex: 1.8 }]}>Description</Text>
+                <Text style={[S.thTxt, { flex: 1.1, textAlign: 'center' }]}>Type</Text>
+                <Text style={[S.thTxt, { flex: 1, textAlign: 'center' }]}>Rate</Text>
+                <Text style={[S.thTxt, { flex: 1.2, textAlign: 'center' }]}>Base</Text>
+                <Text style={[S.thTxt, { flex: 1, textAlign: 'right' }]}>Amount (₹)</Text>
+              </View>
+              {taxes.map((r, i) => (
+                <View key={i} style={i % 2 === 0 ? S.tRow0 : S.tRow1}>
+                  <Text style={[S.tCell, { flex: 1.8 }]}>{r.name}</Text>
+                  <Text style={[S.tCellC, { flex: 1.1 }]}>{dedTypeLbl(r.value)}</Text>
+                  <Text style={[S.tCellC, { flex: 1 }]}>{dedRateDsp(r.value)}</Text>
+                  <Text style={[S.tCellC, { flex: 1.2 }]}>{dedBase(r.value)}</Text>
+                  <Text style={[S.tRed, { flex: 1 }]}>-{fmt2(parseAmt(r.earned))}</Text>
+                </View>
+              ))}
+              <View style={[S.subTot, { backgroundColor: C.redBg, borderTopWidth: 0.5, borderTopColor: C.redBd }]}>
+                <Text style={[S.stTxt, { flex: 1, color: C.red }]}>Total Gov. &amp; Payroll Deductions</Text>
+                <Text style={[S.stVal, { color: C.red }]}>-{rupee(govSubtotal)}</Text>
+              </View>
+              <View style={S.totRed}>
+                <Text style={[S.totTxt, { flex: 1 }]}>Total Deductions</Text>
+                <Text style={S.totTxt}>-{rupee(totalDeductionsEarned)}</Text>
               </View>
             </View>
           </View>
+        </View>
+
+        {/* Net Salary Bar */}
+        <View style={S.netBar}>
+          <View style={S.netLeft}>
+            <View style={S.netCirc}><Text style={S.netCircTxt}>₹</Text></View>
+            <View>
+              <Text style={S.netLbl}>Net Salary Payable</Text>
+              <Text style={S.netSub}>After all deductions</Text>
+            </View>
+          </View>
+          <View style={S.netCtr}>
+            <Text style={S.netAmt}>{rupee(netPay)}</Text>
+            <View style={S.readyBadge}><Text style={S.readyTxt}> ✓  READY TO PAY</Text></View>
+          </View>
+          <View style={S.netRight}>
+            <View style={S.wordsBox}>
+              <Text style={S.wordsLbl}>Amount in Words</Text>
+              <Text style={S.wordsTxt}>{numberToWords(netPay)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer Info */}
+        <View style={S.fInfoRow}>
+          <View style={S.fInfoCell}><Text style={S.fInfoLbl}>Payslip Generated On</Text><Text style={S.fInfoVal}>{nowStr()}</Text></View>
+          <View style={S.fInfoCell}><Text style={S.fInfoLbl}>Generated By</Text><Text style={S.fInfoVal}>Payroll System</Text></View>
+          <View style={S.fInfoCell}><Text style={S.fInfoLbl}>Payslip ID</Text><Text style={S.fInfoVal}>{payslipId}</Text></View>
+          <View style={S.fInfoLast}><Text style={S.fInfoNote}>This is a system-generated document.{'\n'}No signature is required.</Text></View>
+        </View>
+
+        {/* Signatures */}
+        <View style={S.sigRow}>
+          <View style={S.sigLeft}>
+            {(employee as any)?.digitalSignaturePath ? <Image src={`${(employee as any).digitalSignaturePath}?nc=${Date.now()}`} style={S.sigImg} /> : <View style={{ height: 28 }} />}
+            <View style={S.sigLine} /><Text style={S.sigName}>( {empName} )</Text><Text style={S.sigLbl}>Employee Signature</Text>
+          </View>
+          <View style={S.sigCtr}>
+            <View style={S.checkCirc}><Text style={S.checkTxt}>✓</Text></View>
+            <Text style={S.thankTxt}>Thank you for your{'\n'}valuable contributions!</Text>
+          </View>
+          <View style={S.sigRight}>
+            {stampUrl ? <Image src={`${stampUrl}?nc=${Date.now()}`} style={S.sigImg} /> : <View style={{ height: 28 }} />}
+            <View style={S.sigLine} /><Text style={S.sigName}>( {companyName || 'WiseTech'} )</Text><Text style={S.sigLbl}>Authorized Signatory</Text>
+          </View>
+        </View>
+
+        {/* Confidential Bar */}
+        <View style={S.confBar}>
+          <Text style={S.confTxt}>Confidential: This salary slip is confidential and intended for the employee only.</Text>
         </View>
       </Page>
     </Document>
   );
-}
-
-export default SalarySlipTemplate;
+} 

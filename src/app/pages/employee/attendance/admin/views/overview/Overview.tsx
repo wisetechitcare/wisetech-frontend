@@ -1,4 +1,4 @@
-import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+﻿import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { Attendance } from "@models/employee";
@@ -15,7 +15,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
+import { getUserTablePreferences, upsertUserTablePreferences } from "@services/users";
 import { isCheckOutMissing } from "@app/modules/common/components/attendanceDurationUtils";
+import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import "./OverviewStatsGrid.css";
 
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
@@ -262,6 +264,49 @@ function Overview({ date }: OverviewProps) {
     const [graceTimeOffice, setGraceTimeOffice] = useState<string>('');
     const [lunchTime, setLunchTime] = useState<string>('');
     const [isOnSiteSettingsOn, setIsOnSiteSettingsOn] = useState<string>('0');
+
+    // User-customisable order of the overview stat cards (drag to reorder), persisted
+    // PER EMPLOYEE on the server (via the shared user-table-preferences store) so it
+    // survives restarts and follows the user across browsers/devices. localStorage is
+    // kept only as an instant cache to avoid a flash before the server value loads.
+    const OVERVIEW_CARD_ORDER_KEY = 'attendanceOverviewCardOrder';
+    const CARD_ORDER_PREF_NAME = 'attendanceOverviewCards';
+    const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+    const [cardOrder, setCardOrder] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem(OVERVIEW_CARD_ORDER_KEY);
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+
+    // Load this employee's saved order from the server (the source of truth).
+    useEffect(() => {
+        if (!currentEmployeeId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await getUserTablePreferences(currentEmployeeId, CARD_ORDER_PREF_NAME);
+                const order = res?.data?.preferences?.order;
+                if (!cancelled && Array.isArray(order) && order.length) {
+                    setCardOrder(order);
+                    try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(order)); } catch { /* ignore */ }
+                }
+            } catch { /* keep localStorage/default order */ }
+        })();
+        return () => { cancelled = true; };
+    }, [currentEmployeeId]);
+
+    const persistCardOrder = (types: string[]) => {
+        setCardOrder(types);
+        try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(types)); } catch { /* ignore */ }
+        // Persist to the employee's account so the order is fixed for them everywhere.
+        if (currentEmployeeId) {
+            upsertUserTablePreferences(currentEmployeeId, CARD_ORDER_PREF_NAME, { order: types })
+                .catch((err) => console.error('Failed to save overview card order', err));
+        }
+    };
 
     const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({
         employeePresent: state.attendance.employeesAttendance?.length || 0,
@@ -599,7 +644,7 @@ function Overview({ date }: OverviewProps) {
                                         const employeeData = emp.employee || {};
                                         const user = employeeData.users || emp.users || {};
                                         const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                                        const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/avatars/blank.png');
+                                        const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                         const leaveType = emp.leaveType || 'Leave';
                                         const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
                                         const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
@@ -619,7 +664,7 @@ function Overview({ date }: OverviewProps) {
                                                             alt={fullName}
                                                             onError={(e) => {
                                                                 const target = e.target as HTMLImageElement;
-                                                                target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                                             }}
                                                         />
                                                         <div>
@@ -895,7 +940,7 @@ function Overview({ date }: OverviewProps) {
                                                 <td>
                                                     <div className="d-flex align-items-center">
                                                         <Image
-                                                            src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                                                            src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                                                             roundedCircle
                                                             width="36"
                                                             height="36"
@@ -903,7 +948,7 @@ function Overview({ date }: OverviewProps) {
                                                             alt={`${emp.firstName} ${emp.lastName}`}
                                                             onError={(e) => {
                                                                 const target = e.target as HTMLImageElement;
-                                                                target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                                                target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                                             }}
                                                         />
                                                         <span className="fw-semibold">
@@ -988,7 +1033,7 @@ function Overview({ date }: OverviewProps) {
                         <Col md={4} key={emp._id}>
                             <div className="d-flex align-items-center p-3 rounded" style={{ transition: 'all 0.2s', border: '1px solid #9D4141' }}>
                                 <Image
-                                    src={emp.avatar || toAbsoluteUrl('media/avatars/blank.png')}
+                                    src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
                                     roundedCircle
                                     width={45}
                                     height={45}
@@ -996,7 +1041,7 @@ function Overview({ date }: OverviewProps) {
                                     alt={`${emp.firstName || ''} ${emp.lastName || ''}`}
                                     onError={(e) => {
                                         const target = e.target as HTMLImageElement;
-                                        target.src = toAbsoluteUrl('media/avatars/blank.png');
+                                        target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
                                     }}
                                 />
                                 <div className="flex-grow-1">
@@ -1310,6 +1355,14 @@ function Overview({ date }: OverviewProps) {
         { type: 'absent', accent: 'absent', img: toAbsoluteUrl('media/svg/misc/absent.svg'), stat: `${absentCount}`, label: 'Absent' },
     ];
 
+    // Apply the user's saved order; any card not in the saved order keeps its
+    // natural position at the end (handles new cards / first run gracefully).
+    const cardsByType = new Map<string, StatCardConfig>(cardsData.map((c) => [c.type, c]));
+    const orderedCards: StatCardConfig[] = [
+        ...cardOrder.map((t) => cardsByType.get(t)).filter(Boolean) as StatCardConfig[],
+        ...cardsData.filter((c) => !cardOrder.includes(c.type)),
+    ];
+
     // if (isLoading) {
     //     return (
     //         <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
@@ -1358,9 +1411,15 @@ function Overview({ date }: OverviewProps) {
 
     return (
         <>
-            <div className="overview-stats-container mt-3">
-                {cardsData.map(renderStatCard)}
-            </div>
+            <ReorderableGroup
+                items={orderedCards}
+                getItemId={(c) => c.type}
+                onReorder={(items) => persistCardOrder(items.map((c) => c.type))}
+                renderItem={(card) => renderStatCard(card)}
+                axis="x"
+                className="overview-stats-container mt-3"
+                itemStyle={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}
+            />
 
             <CustomModal
                 show={showModal !== null}

@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "react-bootstrap";
@@ -7,12 +8,12 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS } from "./steps/Step2";
+import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD } from "./steps/Step2";
 import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
 import StepAppSettings from "./steps/StepAppSettings";
-import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, getQualificationConfig, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
+import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "./steps/Step2.css";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
@@ -107,6 +108,26 @@ const PROF_FEES_KEYS = new Set([
   "professionalFeesAmount",
   "professionalFeesPercentage",
 ]);
+
+function buildTds2Payload(values: {
+  tds2Enabled: unknown;
+  tds2Type: unknown;
+  tds2Amount: unknown;
+  tds2Percentage: unknown;
+}) {
+  const enabled = String(values.tds2Enabled) === "true";
+  const type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+  if (!enabled) {
+    return { tds2Enabled: false, tds2Type: "FIXED" as const, tds2Amount: null, tds2Percentage: null };
+  }
+  if (type === "PERCENTAGE") {
+    return { tds2Enabled: true, tds2Type: "PERCENTAGE" as const, tds2Amount: null, tds2Percentage: toNumberOrNull(values.tds2Percentage) };
+  }
+  return { tds2Enabled: true, tds2Type: "FIXED" as const, tds2Amount: toNumberOrNull(values.tds2Amount), tds2Percentage: null };
+}
+
+const TDS2_KEYS = new Set(["tds2Enabled", "tds2Type", "tds2Amount", "tds2Percentage"]);
 
 const ONBOARDING_DRAFT_KEY = "employee-onboarding-draft";
 
@@ -213,41 +234,15 @@ const newEmployeeWizardSchema = [
           .nullable().transform((v, o) => o === "" ? null : v),
         filePath: optionalString().label("Upload Certificate"),
       })
-        .test("education-qualification", "Qualification is required", function (value) {
-          if (!hasStartedEducationInfo(value) || value?.qualificationName || value?.degree) return true;
-          return this.createError({ path: `${this.path}.qualificationMasterId`, message: "Qualification is required" });
-        })
-        .test("education-school-passing-year", "Passing Year is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesPassingYear || value?.passingYear) return true;
-          return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year is required" });
-        })
+        // NOTE: Onboarding may capture only partial education info — the admin
+        // often doesn't have every detail. So starting a row no longer forces
+        // the rest of the section to be filled. Only sanity checks below apply.
         .test("education-passing-year-format", "Passing Year must be a valid year", function (value) {
           if (!value?.passingYear) return true;
           const year = Number(value.passingYear);
           const currentYear = new Date().getFullYear();
           if (/^\d{4}$/.test(String(value.passingYear)) && year >= 1900 && year <= currentYear) return true;
           return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year must be between 1900 and the current year" });
-        })
-        .test("education-hsc-stream", "Stream is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream) return true;
-          return this.createError({ path: `${this.path}.stream`, message: "Stream is required" });
-        })
-        .test("education-custom-stream", "Custom Stream Name is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream !== "Others" || value?.customStream) return true;
-          return this.createError({ path: `${this.path}.customStream`, message: "Custom Stream Name is required" });
-        })
-        .test("education-from-date", "Date Started is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.fromDate) return true;
-          return this.createError({ path: `${this.path}.fromDate`, message: "Date Started is required" });
-        })
-        .test("education-to-date", "Date Completed is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.toDate) return true;
-          return this.createError({ path: `${this.path}.toDate`, message: "Date Completed is required" });
         })
         .test("education-date-order", "Date Completed cannot be before Date Started", function (value) {
           if (!value?.fromDate || !value?.toDate) return true;
@@ -297,6 +292,8 @@ const newEmployeeWizardSchema = [
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
         dateOfBirth: optionalString().label("Date of Birth"),
       }),
+      // Family info is fully optional during onboarding — a partially filled
+      // member is allowed. Only the per-field format rules above apply.
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -336,6 +333,8 @@ const newEmployeeWizardSchema = [
     }).required(),
   }),
   Yup.object({
+    organizationId: Yup.string().required().label("Organization"),
+    subOrganizationId: optionalString().label("Sub-Organization"),
     designationId: Yup.string().required().label("Job Profile"),
     departmentId: Yup.string().required().label("Department"),
     branchId: Yup.string().required().label("Branch"),
@@ -363,23 +362,9 @@ const newEmployeeWizardSchema = [
         jobTitle: optionalString().label("Job Title"),
         fromDate: optionalString().label("From Date"),
         toDate: optionalString().label("To Date"),
-      })
-        .test("work-company-name", "Company Name is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.companyName) return true;
-          return this.createError({ path: `${this.path}.companyName`, message: "Company Name is required" });
-        })
-        .test("work-job-title", "Job Title is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.jobTitle) return true;
-          return this.createError({ path: `${this.path}.jobTitle`, message: "Job Title is required" });
-        })
-        .test("work-from-date", "From Date is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.fromDate) return true;
-          return this.createError({ path: `${this.path}.fromDate`, message: "From Date is required" });
-        })
-        .test("work-to-date", "To Date is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.toDate) return true;
-          return this.createError({ path: `${this.path}.toDate`, message: "To Date is required" });
-        }),
+      }),
+      // Work experience is fully optional during onboarding — a partially
+      // filled entry is allowed, so starting one field no longer forces the rest.
     ),
   }),
   Yup.object({
@@ -431,6 +416,7 @@ const initialState = {
     presentAddressLine1: "", presentAddressLine2: "", presentCountry: "",
     presentState: "", presentCity: "", presentPostalCode: "",
   },
+  organizationId: "", subOrganizationId: "",
   designationId: "", departmentId: "", branchId: "", teamId: "", roomOrBlock: "",
   employeeTypeId: "", employeeTypeConfigId: "", workingMethodId: "", shift: "",
   experienceLevel: "", employeeLevelId: "", companyEmailId: "", companyPhoneNumber: "",
@@ -444,6 +430,7 @@ const initialState = {
   roles: [] as any[],
   professionalFeesEnabled: "false", professionalFeesAmount: "",
   professionalFeesPercentage: "", professionalFeesType: "FIXED",
+  tds2Enabled: "false", tds2Type: "FIXED", tds2Amount: "", tds2Percentage: "",
   isHiddenFromStaff: false,
 };
 
@@ -487,7 +474,9 @@ const saveNewUser = async (values: any) => {
 
 const saveNewEmployee = async (values: any, userId: string) => {
   const { data: { companyOverview } } = await fetchCompanyOverview();
-  const companyId = companyOverview[0].id;
+  // Employee belongs to the chosen organization (sub-org if one was selected),
+  // falling back to the default org for backward compatibility.
+  const companyId = values.subOrganizationId || values.organizationId || (resolveActiveOrgId(companyOverview) ?? '');
   let vegMealPreference, nonVegMealPreference, veganMealPreference;
 
   const {
@@ -501,6 +490,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     allowOverTime,
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
+    tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -559,11 +549,12 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(allowOverTime && { allowOverTime }),
     ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+    ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
     isHiddenFromStaff: isHiddenFromStaff === true,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -616,7 +607,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
   } catch (err) { console.log(err); }
 };
 
-function FormikValidationErrorFocus() {
+function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { activeStepIndex: number; setActiveSection: (id: string) => void }) {
   const { errors, submitCount } = useFormikContext<any>();
 
   useEffect(() => {
@@ -643,7 +634,13 @@ function FormikValidationErrorFocus() {
 
       const fieldName = getFirstErrorField(errors);
       if (fieldName) {
-        setTimeout(() => {
+        // Step 1 renders one section at a time, so the offending field may not be in
+        // the DOM. Switch to the section that owns it first, then scroll/focus it.
+        const topKey = fieldName.split('.')[0];
+        const targetSection = activeStepIndex === 1 ? SECTION_OF_FIELD[topKey] : undefined;
+        if (targetSection) setActiveSection(targetSection);
+
+        const scrollToField = () => {
           let inputEl = document.querySelector(`[name="${fieldName}"]`) as HTMLElement;
           if (!inputEl) {
             inputEl = document.getElementById(fieldName) as HTMLElement;
@@ -655,7 +652,9 @@ function FormikValidationErrorFocus() {
             inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             inputEl.focus({ preventScroll: true });
           }
-        }, 150);
+        };
+        // Longer delay when we changed section so the new section finishes animating in.
+        setTimeout(scrollToField, targetSection ? 380 : 150);
       }
     }
   }, [submitCount]);
@@ -739,6 +738,23 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
   };
 
+  // Drop a pending upload so a removed file is not re-uploaded on save.
+  const removeFileFromState = (documentId: string) => {
+    setFiles((prev: any) => {
+      const next = { ...prev };
+      delete next[documentId];
+      return next;
+    });
+
+    if (documentId === "userProfilePicture") {
+      if (profilePhotoPreviewRef.current) {
+        URL.revokeObjectURL(profilePhotoPreviewRef.current);
+        profilePhotoPreviewRef.current = "";
+      }
+      setMobileProfilePhotoPreview("");
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (profilePhotoPreviewRef.current) URL.revokeObjectURL(profilePhotoPreviewRef.current);
@@ -810,7 +826,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   const updateWizardData = async (values: any) => {
     const { data: { companyOverview } } = await fetchCompanyOverview();
-    const companyId = companyOverview[0].id;
+    const companyId = values.subOrganizationId || values.organizationId || (resolveActiveOrgId(companyOverview) ?? '');
     const {
       userId, firstName, lastName, dateOfBirth, appRole,
       personalPhoneNumber, personalEmailId, alternatePhoneNumber,
@@ -870,6 +886,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       allowOverTime, professionalFeesEnabled, professionalFeesAmount,
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
       roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
+      tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -905,7 +922,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (meal === "2") veganMealPreference = true;
 
     const employeePayload: any = {
-      ...(avatar && { avatar }), id: employeeId, userId, dateOfJoining, ctcInLpa,
+      // Always send avatar (even when empty) so removing the photo persists —
+      // a guarded `...(avatar && {avatar})` would silently keep the old image.
+      avatar: avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
       gender: parseInt(gender), designationId, branchId,
       isActive: isEmployeeActive === "1",
       ...(employeeTypeId && { employeeTypeId }),
@@ -929,11 +948,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(employeeLevelId && { employeeLevelId }),
       ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
+      ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1012,7 +1032,12 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     if (currentStepIndex === totalStepsNumber && editMode) {
       try { setIsSubmitting(true); await updateWizardData(values); }
-      catch (error) { console.error("Update wizard error:", error); }
+      catch (error) {
+        // Never fail silently — surface the reason so the user knows what went wrong
+        // (e.g. a half-filled row the backend rejected) instead of a dead-end submit.
+        console.error("Update wizard error:", error);
+        await handleSubmissionError(error);
+      }
       finally { setIsSubmitting(false); }
       return;
     }
@@ -1209,6 +1234,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         professionalFeesAmount: (() => { const v = wizardData?.professionalFeesAmount ?? (wizardData as any)?.professional_fees_amount; return v != null && v !== "" ? String(v) : ""; })(),
         professionalFeesPercentage: (() => { const v = (wizardData as any)?.professionalFeesPercentage ?? (wizardData as any)?.professional_fees_percentage; return v != null && v !== "" ? String(v) : ""; })(),
         professionalFeesType: wizardData?.professionalFeesType || (wizardData as any)?.professional_fees_type || "FIXED",
+        tds2Enabled: (() => { const v = (wizardData as any)?.tds2Enabled ?? (wizardData as any)?.tds2_enabled; return (v === true || v === 1 || v === '1' || v === 'true') ? "true" : "false"; })(),
+        tds2Type: (wizardData as any)?.tds2Type || (wizardData as any)?.tds2_type || "FIXED",
+        tds2Amount: (() => { const v = (wizardData as any)?.tds2Amount ?? (wizardData as any)?.tds2_amount; return v != null && v !== "" ? String(v) : ""; })(),
+        tds2Percentage: (() => { const v = (wizardData as any)?.tds2Percentage ?? (wizardData as any)?.tds2_percentage; return v != null && v !== "" ? String(v) : ""; })(),
       };
       setDefaultState(newState);
     }
@@ -1270,7 +1299,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
               return (
                 <Form className="ob-wizard-root" noValidate id="employee_onboarding_form">
-                  <FormikValidationErrorFocus />
+                  <FormikValidationErrorFocus activeStepIndex={activeStepIndex} setActiveSection={setActiveSection} />
                   <div ref={stepperRef} className="stepper stepper-pills d-flex flex-column flex-row-fluid" id="kt_create_account_stepper">
 
                     {/* ── Header Bar ── */}
@@ -1410,6 +1439,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                               <Step2
                                 formikProps={formikProps}
                                 setFile={addFileToState}
+                                removeFile={removeFileFromState}
                                 setEducationFile={addEducationFileToState}
                                 activeSection={activeSection}
                                 onSectionChange={setActiveSection}

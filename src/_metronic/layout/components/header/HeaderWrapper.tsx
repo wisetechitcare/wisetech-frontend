@@ -19,8 +19,12 @@ export function HeaderWrapper() {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   useEffect(() => {
     async function getCompanyLogo() {
-      const { data: { logo: logoSrc } } = await fetchCompanyLogo();      
-      setLogoSrc(logoSrc);
+      try {
+        const { data: { logo } } = await fetchCompanyLogo();
+        // Only replace the default when a real logo is returned (a logo-less org
+        // would otherwise blank out the brand and show the alt "Logo" text).
+        if (logo) setLogoSrc(logo);
+      } catch { /* keep default logo */ }
     }
 
     getCompanyLogo();
@@ -57,6 +61,7 @@ export function HeaderWrapper() {
             src={logoSrc}
             className='h-30px h-lg-40px'
             title='logo'
+            onError={(e) => { if (e.currentTarget.src !== defaultLogo) e.currentTarget.src = defaultLogo; }}
           />
         </Link>
 

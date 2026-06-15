@@ -1,93 +1,212 @@
-import { Box, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { ReactNode } from 'react';
+import React from 'react';
+import { Box, Paper } from '@mui/material';
+import { SxProps } from '@mui/system';
+import { Theme } from '@mui/material/styles';
 
-type KpiTone = 'green' | 'blue' | 'amber' | 'purple';
+export type YearlyKpiCardTone = 'green' | 'blue' | 'amber' | 'purple' | 'danger' | 'info';
 
-const toneMap: Record<KpiTone, { icon: string; tint: string; border: string; shadow: string }> = {
-    green: { icon: '#15803d', tint: '#ecfdf3', border: '#ccefd8', shadow: 'rgba(21, 128, 61, 0.08)' },
-    blue: { icon: '#2563eb', tint: '#eef5ff', border: '#dbe8ff', shadow: 'rgba(37, 99, 235, 0.08)' },
-    amber: { icon: '#d97706', tint: '#fff7e8', border: '#fde7c3', shadow: 'rgba(217, 119, 6, 0.08)' },
-    purple: { icon: '#7c3aed', tint: '#f5efff', border: '#e7dbff', shadow: 'rgba(124, 58, 237, 0.08)' },
+export type YearlyKpiCardProps = {
+  label: string;
+  sublabel?: string;
+  value: string;
+  footer?: string;
+  footerValue?: string;
+  tone: YearlyKpiCardTone;
+  icon: React.ReactNode;
+  sx?: SxProps<Theme>;
+  showSensitiveData?: boolean;
+  badge?: string;
 };
 
-interface YearlyKpiCardProps {
-    icon: ReactNode;
-    label: string;
-    value: string;
-    footer: string;
-    tone: KpiTone;
-}
+const toneMap: Record<YearlyKpiCardTone, { color: string; bg: string; border: string }> = {
+  green:  { color: '#16a34a', bg: '#f0fdf4',  border: '#bbf7d0' },
+  blue:   { color: '#2563eb', bg: '#eff6ff',  border: '#dbeafe' },
+  amber:  { color: '#d97706', bg: '#fffbeb',  border: '#fde68a' },
+  purple: { color: '#7c3aed', bg: '#ffffff',  border: '#e9d5ff' },
+  danger: { color: '#dc2626', bg: '#fef2f2',  border: '#fecaca' },
+  info:   { color: '#0891b2', bg: '#ecfeff',  border: '#a5f3fc' },
+};
 
-const YearlyKpiCard = ({ icon, label, value, footer, tone }: YearlyKpiCardProps) => {
-    const palette = toneMap[tone];
+const resolveFooterPalette = (footer: string | undefined, mainPalette: typeof toneMap[YearlyKpiCardTone]) => {
+  if (!footer) return mainPalette;
+  const f = footer.toLowerCase();
+  if (f.includes('pending')) return toneMap.danger;
+  if (f.includes('extra'))   return toneMap.info;
+  return mainPalette;
+};
 
-    return (
-        <Paper
-            elevation={0}
-            sx={{
-                minHeight: 104,
-                p: 1.75,
-                borderRadius: '16px',
-                background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
-                border: `1px solid ${palette.border}`,
-                boxShadow: `0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 20px ${palette.shadow}`,
-                transition: 'transform 180ms ease, box-shadow 180ms ease',
-                '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: `0 2px 4px rgba(15, 23, 42, 0.04), 0 14px 24px ${palette.shadow}`,
-                },
-            }}
+const YearlyKpiCard: React.FC<YearlyKpiCardProps> = ({
+  label,
+  sublabel,
+  value,
+  footer,
+  footerValue,
+  tone,
+  icon,
+  sx,
+  showSensitiveData = true,
+  badge,
+}) => {
+  const palette      = toneMap[tone];
+  const footerPal    = resolveFooterPalette(footer, palette);
+  const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        height: '100%',
+        borderRadius: '16px',
+        border: '1px solid #f0f0f0',
+        background: '#ffffff',
+        overflow: 'hidden',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'box-shadow 220ms ease, transform 220ms ease',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)',
+        '&:hover': {
+          transform: 'translateY(-3px)',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.06), 0 12px 24px rgba(0,0,0,0.08)',
+        },
+        ...sx,
+      }}
+    >
+
+      {/* Action-required badge */}
+      {badge && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            px: 1,
+            py: 0.4,
+            borderRadius: '6px',
+            fontSize: '0.62rem',
+            fontWeight: 800,
+            letterSpacing: '0.07em',
+            textTransform: 'uppercase',
+            color: palette.color,
+            backgroundColor: palette.bg,
+            border: `1px solid ${palette.border}`,
+          }}
         >
-            <Stack spacing={0.85} sx={{ height: '100%' }}>
-                <Box
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '10px',
-                        display: 'grid',
-                        placeItems: 'center',
-                        color: palette.icon,
-                        backgroundColor: palette.tint,
-                    }}
-                >
-                    {icon}
-                </Box>
-                <Typography sx={{ fontSize: 10.5, color: '#64748b', fontWeight: 800, lineHeight: 1.2, letterSpacing: '0.08em' }}>
-                    {label}
-                </Typography>
-                <Tooltip title={value} arrow>
-                    <Typography
-                        sx={{
-                            fontSize: { xs: 21, md: 23 },
-                            fontWeight: 800,
-                            color: '#0f172a',
-                            lineHeight: 1.1,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                        }}
-                    >
-                        {value}
-                    </Typography>
-                </Tooltip>
-                <Chip
-                    size="small"
-                    label={footer}
-                    sx={{
-                        alignSelf: 'flex-start',
-                        mt: 'auto',
-                        height: 22,
-                        borderRadius: '999px',
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        color: palette.icon,
-                        backgroundColor: palette.tint,
-                        '& .MuiChip-label': { px: 0.95 },
-                    }}
-                />
-            </Stack>
-        </Paper>
-    );
+          {badge}
+        </Box>
+      )}
+
+      <Box sx={{ p: '18px 20px 0 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Top row: label + icon */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+          <Box sx={{ pr: 1, minWidth: 0 }}>
+            <Box
+              component="span"
+              sx={{
+                display: 'block',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: '#94a3b8',
+                lineHeight: 1.3,
+              }}
+            >
+              {label}
+            </Box>
+            {sublabel && (
+              <Box
+                component="span"
+                sx={{ display: 'block', fontSize: '0.68rem', color: '#b0bec5', fontWeight: 500, mt: 0.2 }}
+              >
+                {sublabel}
+              </Box>
+            )}
+          </Box>
+
+          {/* Icon badge */}
+          <Box
+            sx={{
+              width: 38,
+              height: 38,
+              borderRadius: '11px',
+              display: 'grid',
+              placeItems: 'center',
+              color: palette.color,
+              backgroundColor: palette.bg,
+              border: `1px solid ${palette.border}`,
+              flexShrink: 0,
+            }}
+          >
+            {icon}
+          </Box>
+        </Box>
+
+        {/* Value */}
+        <Box
+          component="span"
+          className={sensitiveCls}
+          sx={{
+            display: 'block',
+            fontSize: '1.6rem',
+            fontWeight: 800,
+            color: palette.color,
+            lineHeight: 1.1,
+            letterSpacing: '-0.5px',
+            wordBreak: 'break-word',
+            mb: 2,
+          }}
+        >
+          {value}
+        </Box>
+      </Box>
+
+      {/* Footer strip */}
+      {footer && (
+        <Box
+          sx={{
+            mx: '20px',
+            mb: '16px',
+            borderRadius: '10px',
+            px: 2,
+            py: 1.2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: footerPal.bg,
+            border: `1px solid ${footerPal.border}`,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: footerPal.color,
+                flexShrink: 0,
+              }}
+            />
+            <Box
+              component="span"
+              sx={{ fontSize: '0.76rem', fontWeight: 700, color: footerPal.color }}
+            >
+              {footer}
+            </Box>
+          </Box>
+          {footerValue && (
+            <Box
+              component="span"
+              className={sensitiveCls}
+              sx={{ fontSize: '0.76rem', fontWeight: 800, color: footerPal.color }}
+            >
+              {footerValue}
+            </Box>
+          )}
+        </Box>
+      )}
+    </Paper>
+  );
 };
 
 export default YearlyKpiCard;

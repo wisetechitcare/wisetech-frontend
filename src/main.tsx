@@ -1,3 +1,9 @@
+// ── Node.js polyfills — must be first, before any library that needs Buffer ──
+import { Buffer } from 'buffer'
+if (typeof globalThis.Buffer === 'undefined') {
+  globalThis.Buffer = Buffer
+}
+
 import { createRoot } from 'react-dom/client'
 // Axios
 import axios from 'axios'
@@ -44,7 +50,18 @@ import { jwtDecode } from "jwt-decode"
 setupAxios(axios)
 Chart.register(...registerables)
 
-const queryClient = new QueryClient()
+// Sensible defaults so React Query caches/dedupes instead of refetching on every mount
+// or window focus (the previous default of staleTime:0 made cached data instantly stale).
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,        // treat data fresh for 5 min
+      gcTime: 60 * 60 * 1000,          // keep in cache 1 hour
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 const ls = localStorage.getItem("wise_tech_login")
 const parsedLs = ls ? JSON.parse(ls) : null

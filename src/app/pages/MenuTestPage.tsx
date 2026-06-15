@@ -1,7 +1,5 @@
 
 import {FC} from 'react'
-import SVG from 'react-inlinesvg'
-import {toAbsoluteUrl} from '../../_metronic/helpers'
 
 const MenuTestPage: FC = () => {
   return (
@@ -53,7 +51,7 @@ const MenuTestPage: FC = () => {
                       <span className='menu-link py-3'>
                         <span className='menu-icon'>
                           <span className=''>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Profile</span>
@@ -101,7 +99,7 @@ const MenuTestPage: FC = () => {
                           <span className='menu-link py-3'>
                             <span className='menu-icon'>
                               <span className=''>
-                                <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                                <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                               </span>
                             </span>
                             <span className='menu-title'>Profile -</span>
@@ -217,7 +215,7 @@ const MenuTestPage: FC = () => {
                           <span className='menu-link py-3'>
                             <span className='menu-icon'>
                               <span className=''>
-                                <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                                <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                               </span>
                             </span>
                             <span className='menu-title'>Profile -</span>
@@ -335,7 +333,7 @@ const MenuTestPage: FC = () => {
                       <span className='menu-link py-3'>
                         <span className='menu-icon'>
                           <span className=''>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Projects</span>
@@ -414,7 +412,7 @@ const MenuTestPage: FC = () => {
                       <span className='menu-link py-3'>
                         <span className='menu-icon'>
                           <span className=''>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Wizards</span>
@@ -449,7 +447,7 @@ const MenuTestPage: FC = () => {
                       <span className='menu-link py-3'>
                         <span className='menu-icon'>
                           <span className=''>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Search</span>
@@ -502,7 +500,7 @@ const MenuTestPage: FC = () => {
                       >
                         <span className='menu-icon'>
                           <span className=' fs-1'>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Documentation</span>
@@ -515,7 +513,7 @@ const MenuTestPage: FC = () => {
                       >
                         <span className='menu-icon'>
                           <span className=' fs-1'>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Layout Builder</span>
@@ -528,7 +526,7 @@ const MenuTestPage: FC = () => {
                       >
                         <span className='menu-icon'>
                           <span className=' fs-1'>
-                            <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                            <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                           </span>
                         </span>
                         <span className='menu-title'>Changelog</span>
@@ -662,7 +660,7 @@ const MenuTestPage: FC = () => {
             >
               <div className='btn btn-icon btn-active-light-primary w-30px h-30px w-lg-40px h-lg-40px'>
                 <span className=' fs-2 text-lg-1'>
-                  <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                  <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                 </span>
               </div>
             </div>
@@ -689,7 +687,7 @@ const MenuTestPage: FC = () => {
               >
                 <div className='position-relative'>
                   <span className=' fs-1 text-gray-500 position-absolute top-50 translate-middle-y ms-0'>
-                    <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                    <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                   </span>
                   <input
                     type='text'
@@ -711,7 +709,7 @@ const MenuTestPage: FC = () => {
                     id='kt_header_search_clear'
                   >
                     <span className=' fs-1 me-0'>
-                      <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                      <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                     </span>
                   </span>
                 </div>
@@ -737,7 +735,7 @@ const MenuTestPage: FC = () => {
                 >
                   <span className='menu-icon'>
                     <span className=' fs-1'>
-                      <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                      <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                     </span>
                   </span>
                   <span className='menu-title'>Dashboard</span>
@@ -752,7 +750,7 @@ const MenuTestPage: FC = () => {
                 <span className='menu-link'>
                   <span className='menu-icon'>
                     <span className=' fs-1'>
-                      <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                      <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                     </span>
                   </span>
                   <span className='menu-title'>Pages</span>
@@ -1009,7 +1007,7 @@ const MenuTestPage: FC = () => {
                 >
                   <span className='menu-icon'>
                     <span className=' fs-1'>
-                      <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                      <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                     </span>
                   </span>
                   <span className='menu-title'>Documentation</span>
@@ -1022,7 +1020,7 @@ const MenuTestPage: FC = () => {
                 >
                   <span className='menu-icon'>
                     <span className=' fs-1'>
-                      <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                      <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                     </span>{' '}
                   </span>
                   <span className='menu-title'>Layout Builder</span>
@@ -1035,7 +1033,7 @@ const MenuTestPage: FC = () => {
                 >
                   <span className='menu-icon'>
                     <span className=' fs-1'>
-                      <SVG src={toAbsoluteUrl('media/logos/default-small.svg')} />
+                      <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                     </span>
                   </span>
                   <span className='menu-title'>Changelog</span>

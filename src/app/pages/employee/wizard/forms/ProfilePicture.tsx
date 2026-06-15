@@ -5,12 +5,14 @@ import { Upload, Camera, X, Image } from 'lucide-react';
 interface ProfilePictureProps {
   setFile: (id: string, file: File) => void;
   avatar: string;
+  /** Clear the photo in the parent (Formik avatar + any pending upload file). */
+  onRemove?: () => void;
 }
 
 const ACCEPTED_FORMATS = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] };
 const MAX_SIZE_MB = 5;
 
-const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar }) => {
+const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemove }) => {
   const [preview, setPreview] = useState<string | null>(avatar || null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -42,6 +44,8 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar }) => {
   const removePhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
     setPreview(null);
+    // Propagate the removal so the saved avatar URL and any pending upload are cleared.
+    onRemove?.();
   };
 
   const hasPhoto = Boolean(preview);

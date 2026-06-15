@@ -10,6 +10,7 @@ import {saveCurrentBranchInfo, saveCurrentCompanyInfo} from '@redux/slices/compa
 import {getAvatar} from '@utils/avatar'
 import {fetchCurrentUser} from '@services/users'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
+import {KTIcon} from '../../../helpers'
 
 export const HeaderEmployee = () => {
   const {currentUser} = useAuth()
@@ -63,7 +64,13 @@ export const HeaderEmployee = () => {
       <div className='aside-user d-flex align-items-sm-center justify-content-center py-lg-5 py-0'>
         {/*begin::Symbol*/}
         <div className='symbol symbol-30px symbol-circle'>
-          {avatarUrl ? (<img src={`${avatarUrl}`} alt='Avatar' style={{ objectFit: "cover" }} />) : null}
+          {avatarUrl ? (
+            <img src={`${avatarUrl}`} alt='Avatar' style={{ objectFit: "cover" }} />
+          ) : (
+            <span className='symbol-label bg-light-primary'>
+              <KTIcon iconName='profile-circle' className='fs-2 text-primary' />
+            </span>
+          )}
         </div>
         <div>
           <span className='fw-bold ${fontSize} text-dark px-3 d-none d-lg-block'>

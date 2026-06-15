@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { Bar, Donut, HeatMap, MultipleRadialBar, Polar, ReportsTable, StokedCircle, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { EXTRA_DAYS, HOLIDAYS, months } from '@constants/statistics';
 import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
@@ -134,7 +135,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
         
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             
             const { data: { leaves } } = await fetchEmployeeLeaves(selectedEmployeeId);
             const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);

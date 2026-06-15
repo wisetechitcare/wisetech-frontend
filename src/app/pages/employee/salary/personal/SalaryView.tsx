@@ -114,24 +114,24 @@ function SalaryView({ fromAdmin = false }: { fromAdmin?: boolean }) {
   }, [employee?.id, toggleChange]);
 
   return (
-    <>
-      <EmployeeDetailsCard 
-        fromAdmin={fromAdmin} 
-        stats={stats} 
+    <div className="px-3 px-lg-5">
+      <EmployeeDetailsCard
+        fromAdmin={fromAdmin}
+        stats={stats}
         showSensitiveData={showSensitiveData}
         onToggleSensitiveData={toggleSensitiveData}
         monthlyApiData={monthlyApiData}
       />
-      <SalaryReportToggle 
-        toggleItemsActions={toggleItemsActions} 
-        fromAdmin={fromAdmin} 
+      <SalaryReportToggle
+        toggleItemsActions={toggleItemsActions}
+        fromAdmin={fromAdmin}
         showSensitiveData={showSensitiveData}
         monthlyApiData={monthlyApiData}
         isApiDataLoading={isApiDataLoading}
         onRefreshSalaryData={refreshSalaryData}
         isRefreshing={isRefreshing}
       />
-    </>
+    </div>
   );
 }
 

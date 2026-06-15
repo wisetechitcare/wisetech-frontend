@@ -118,8 +118,16 @@ export const formatCurrency = (
     ...options,
   };
 
+  // Truncate the amount to avoid rounding up by Intl.NumberFormat
+  let valueToFormat = Number(amount);
+  if (defaultOptions.maximumFractionDigits !== undefined) {
+    const factor = Math.pow(10, defaultOptions.maximumFractionDigits);
+    // Use Math.trunc to simply chop off the extra decimals
+    valueToFormat = Math.trunc(valueToFormat * factor) / factor;
+  }
+
   try {
-    return new Intl.NumberFormat(locale, defaultOptions).format(Number(amount));
+    return new Intl.NumberFormat(locale, defaultOptions).format(valueToFormat);
   } catch (error) {
     console.error('Error formatting currency:', error);
     // Fallback to INR if there's an error
@@ -128,8 +136,40 @@ export const formatCurrency = (
       currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(Number(amount));
+    }).format(valueToFormat);
   }
+};
+
+/**
+ * Format a number as currency with EXACTLY 2 decimal places.
+ * To be used for all intermediate calculations: daily salary, hourly salary, etc.
+ */
+export const formatCurrencyDecimal = (
+  amount: number | string,
+  branchCurrency?: string,
+  options?: Partial<Intl.NumberFormatOptions>
+): string => {
+  return formatCurrency(amount, branchCurrency, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    ...options
+  });
+};
+
+/**
+ * Format a number as currency with exactly 0 decimal places.
+ * To be used ONLY for the final net payable and TDS.
+ */
+export const formatCurrencyRounded = (
+  amount: number | string,
+  branchCurrency?: string,
+  options?: Partial<Intl.NumberFormatOptions>
+): string => {
+  return formatCurrency(amount, branchCurrency, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+    ...options
+  });
 };
 
 /**

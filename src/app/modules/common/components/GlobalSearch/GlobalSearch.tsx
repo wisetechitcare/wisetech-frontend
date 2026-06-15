@@ -14,9 +14,19 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
 import './GlobalSearch.css';
 
-// Shared type from search utility is used instead of local interface
+interface GlobalSearchProps {
+  restrictType?: 'Project' | 'Company' | 'Contact' | 'Lead' | 'Employee' | 'Task' | 'Navigation' | 'KPI';
+  onSelect?: (result: UnifiedSearchResult) => void;
+  placeholder?: string;
+  className?: string;
+}
 
-const GlobalSearch: React.FC = () => {
+const GlobalSearch: React.FC<GlobalSearchProps> = ({
+  restrictType,
+  onSelect,
+  placeholder = "Search...",
+  className = ""
+}) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UnifiedSearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -29,6 +39,7 @@ const GlobalSearch: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -48,43 +59,49 @@ const GlobalSearch: React.FC = () => {
     }
   }, [isExpanded]);
 
-  // Deep Linking: Sync query with URL
+  // Deep Linking: Sync query with URL (only when NOT restricted)
   useEffect(() => {
+    if (restrictType) return;
     const q = searchParams.get('q');
     if (q && q !== query) {
       setQuery(q);
       setIsOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, restrictType]);
 
   useEffect(() => {
+    if (restrictType) return;
     if (query.trim()) {
       setSearchParams({ q: query }, { replace: true });
     } else {
       setSearchParams({}, { replace: true });
     }
-  }, [query]);
+  }, [query, restrictType]);
 
-  // Load history from localStorage
+  // Load history from localStorage (scoped to restrictType if present)
+  const historyKey = restrictType ? `global_search_history_${restrictType.toLowerCase()}` : 'global_search_history';
+
   useEffect(() => {
-    const savedHistory = localStorage.getItem('global_search_history');
+    const savedHistory = localStorage.getItem(historyKey);
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory));
+    } else {
+      setHistory([]);
     }
-  }, []);
+  }, [historyKey]);
 
   const addToHistory = (q: string) => {
     if (!q || q.trim().length < 2) return;
     const newHistory = [q, ...history.filter(h => h !== q)].slice(0, 5);
     setHistory(newHistory);
-    localStorage.setItem('global_search_history', JSON.stringify(newHistory));
+    localStorage.setItem(historyKey, JSON.stringify(newHistory));
   };
 
   const removeFromHistory = (e: React.MouseEvent, q: string) => {
     e.stopPropagation();
     const newHistory = history.filter(h => h !== q);
     setHistory(newHistory);
-    localStorage.setItem('global_search_history', JSON.stringify(newHistory));
+    localStorage.setItem(historyKey, JSON.stringify(newHistory));
   };
 
   // Close dropdown on click outside
@@ -96,6 +113,9 @@ const GlobalSearch: React.FC = () => {
     };
     
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger global keyboard shortcut for scoped searches
+      if (restrictType) return;
+
       // Ctrl+K or Cmd+K
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
@@ -116,9 +136,9 @@ const GlobalSearch: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [history]);
+  }, [history, restrictType]);
 
-  // Search logic with debounce
+  // Search logic with debounce + AbortController to cancel stale requests
   useEffect(() => {
     if (!query || query.trim().length < 2) {
       setResults([]);
@@ -127,21 +147,33 @@ const GlobalSearch: React.FC = () => {
     }
 
     const timer = setTimeout(async () => {
+      // Cancel any in-flight request from the previous keystroke
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setIsLoading(true);
       try {
-        const searchResults = await performGlobalSearch(query);
+        let searchResults = await performGlobalSearch(query, controller.signal);
+        if (restrictType) {
+          searchResults = searchResults.filter(r => r.type === restrictType);
+        }
         setResults(searchResults);
         setIsOpen(true);
         setActiveIndex(-1);
-      } catch (error) {
-        console.error('Global search error:', error);
+      } catch (error: any) {
+        if (error?.name !== 'CanceledError' && error?.name !== 'AbortError') {
+          console.error('Global search error:', error);
+        }
       } finally {
         setIsLoading(false);
       }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, restrictType]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const filteredResults = filterType === 'All' ? results : results.filter(r => r.type === filterType);
@@ -155,11 +187,17 @@ const GlobalSearch: React.FC = () => {
     } else if (e.key === 'Enter') {
       if (activeIndex >= 0) {
         addToHistory(query);
-        navigate(filteredResults[activeIndex].path);
+        if (onSelect) {
+          onSelect(filteredResults[activeIndex]);
+        } else {
+          navigate(filteredResults[activeIndex].path);
+        }
         setIsOpen(false);
       } else {
         addToHistory(query);
-        navigate(`/search-results?q=${encodeURIComponent(query)}`);
+        if (!onSelect) {
+          navigate(`/search-results?q=${encodeURIComponent(query)}`);
+        }
         setIsOpen(false);
       }
     } else if (e.key === 'Escape') {
@@ -172,7 +210,11 @@ const GlobalSearch: React.FC = () => {
     console.log(`[Search Analytics] Selected ${result.type}: ${result.title} (ID: ${result.id})`);
     
     addToHistory(query);
-    navigate(result.path);
+    if (onSelect) {
+      onSelect(result);
+    } else {
+      navigate(result.path);
+    }
     setIsOpen(false);
     setIsExpanded(false);
     setQuery('');
@@ -190,11 +232,15 @@ const GlobalSearch: React.FC = () => {
   };
 
   const filteredResults = filterType === 'All' ? results : results.filter(r => r.type === filterMap[filterType]);
-  const bestMatches = results.slice(0, 3);
+  const bestMatches = filterType === 'All' ? results.slice(0, 3) : [];
+  const bestMatchIds = new Set(bestMatches.map(r => r.id));
+  // Categorized list excludes items already shown in Best Match to avoid duplication
+  const categorizedResults = filteredResults.filter(r => !bestMatchIds.has(r.id));
   const types = ['All', 'Projects', 'Leads', 'Companies', 'Contacts', 'Employees', 'Tasks', 'Pages'];
 
+
   return (
-    <div className={`global-search-container ${isMobile ? 'mobile-mode' : ''}`} ref={dropdownRef}>
+    <div className={`global-search-container ${isMobile ? 'mobile-mode' : ''} ${className}`} ref={dropdownRef}>
       {isMobile ? (
         <button 
           className="btn btn-icon btn-active-light-primary w-40px h-40px rounded-circle"
@@ -204,12 +250,19 @@ const GlobalSearch: React.FC = () => {
         </button>
       ) : (
         <div className={`global-search-input-wrapper ${isOpen ? 'active' : ''}`}>
-          <AutoAwesomeIcon sx={{ fontSize: '1.6rem', color: '#009ef7', position: 'absolute', left: '12px', zIndex: 2 }} />
+          {restrictType ? (
+            <span style={{ position: 'absolute', left: '12px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
+              <KTIcon iconName="magnifier" className="fs-4" />
+            </span>
+          ) : (
+            <AutoAwesomeIcon sx={{ fontSize: '1.6rem', color: '#009ef7', position: 'absolute', left: '12px', zIndex: 2 }} />
+          )}
           <input
             ref={inputRef}
             type="text"
             className="form-control global-search-input"
-            placeholder="Search..."
+            placeholder={placeholder}
+            style={restrictType ? { paddingLeft: '38px' } : undefined}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -246,23 +299,25 @@ const GlobalSearch: React.FC = () => {
             </div>
           )}
           {/* Filters Bar */}
-          <div className="search-filters-bar px-4 py-2 border-bottom bg-gray-50 d-flex gap-2 overflow-auto">
-            {types.map(t => (
-              <button
-                key={t}
-                className={`btn btn-sm btn-flex py-1 px-3 fs-9 fw-bold rounded-pill transition-all ${filterType === t ? 'btn-primary' : 'btn-light text-gray-600'}`}
-                onClick={() => setFilterType(t)}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          {!restrictType && (
+            <div className="search-filters-bar px-4 py-2 border-bottom bg-gray-50 d-flex gap-2 overflow-auto">
+              {types.map(t => (
+                <button
+                  key={t}
+                  className={`btn btn-sm btn-flex py-1 px-3 fs-9 fw-bold rounded-pill transition-all ${filterType === t ? 'btn-primary' : 'btn-light text-gray-600'}`}
+                  onClick={() => setFilterType(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
 
           {query.length < 2 && history.length > 0 && (
             <div className="search-history-section px-4 py-3">
               <div className="fs-9 fw-bold text-gray-500 text-uppercase mb-2 d-flex justify-content-between align-items-center">
                 <span>Recent Searches</span>
-                <span className="cursor-pointer hover-text-primary transition-all" onClick={() => { setHistory([]); localStorage.removeItem('global_search_history'); }}>Clear All</span>
+                <span className="cursor-pointer hover-text-primary transition-all" onClick={() => { setHistory([]); localStorage.removeItem(historyKey); }}>Clear All</span>
               </div>
               {history.map((h, i) => (
                 <div 
@@ -305,11 +360,11 @@ const GlobalSearch: React.FC = () => {
                   <div className="search-section-header px-4 py-2 d-flex align-items-center">
                     <span className="section-title fw-bold text-primary fs-8 text-uppercase">Best Match</span>
                   </div>
-                  {bestMatches.map((result) => (
+                  {bestMatches.map((result, idx) => (
                     <div
                       key={`best-${result.id}`}
                       className={`search-result-item d-flex align-items-center px-4 py-3 cursor-pointer transition-all ${
-                        activeIndex === filteredResults.indexOf(result) ? 'bg-light-primary' : 'hover-bg-light'
+                        activeIndex === idx ? 'bg-light-primary' : 'hover-bg-light'
                       }`}
                       onClick={() => handleResultClick(result)}
                     >
@@ -323,7 +378,7 @@ const GlobalSearch: React.FC = () => {
               {['Navigation', 'KPI', 'Company', 'Contact', 'Lead', 'Project', 'Employee', 'Task']
                 .filter(type => filterType === 'All' || filterMap[filterType] === type)
                 .map((type) => {
-                  const typeResults = filteredResults.filter(r => r.type === type);
+                  const typeResults = categorizedResults.filter(r => r.type === type);
                   if (typeResults.length === 0) return null;
 
                   const sectionLabels: Record<string, string> = {
@@ -343,11 +398,11 @@ const GlobalSearch: React.FC = () => {
                         <span className="section-title fw-bold text-gray-700 fs-8 text-uppercase">{sectionLabels[type]}</span>
                         <span className="section-count badge badge-light-primary fs-9">{typeResults.length}</span>
                       </div>
-                      {typeResults.slice(0, 10).map((result) => (
+                      {typeResults.slice(0, 10).map((result, idx) => (
                         <div
                           key={result.id}
                           className={`search-result-item d-flex align-items-center px-4 py-3 cursor-pointer transition-all ${
-                            activeIndex === filteredResults.indexOf(result) ? 'bg-light-primary' : 'hover-bg-light'
+                            activeIndex === bestMatches.length + idx ? 'bg-light-primary' : 'hover-bg-light'
                           }`}
                           onClick={() => handleResultClick(result)}
                         >
@@ -358,10 +413,12 @@ const GlobalSearch: React.FC = () => {
                   );
                 })}
               
-              <div className="search-footer" onClick={() => navigate(`/search-results?q=${encodeURIComponent(query)}`)}>
-                <span>Search for "{query}" across all fields</span>
-                <KeyboardReturnIcon className="fs-4" />
-              </div>
+              {!restrictType && (
+                <div className="search-footer" onClick={() => navigate(`/search-results?q=${encodeURIComponent(query)}`)}>
+                  <span>Search for "{query}" across all fields</span>
+                  <KeyboardReturnIcon className="fs-4" />
+                </div>
+              )}
             </div>
           ) : query.length >= 2 && !isLoading && (
             <div className="search-empty-state py-10">

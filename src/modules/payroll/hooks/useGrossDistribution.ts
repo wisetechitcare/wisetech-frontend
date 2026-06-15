@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import * as Yup from 'yup';
 import { GrossDistributionData, DynamicField } from '../types/payroll.types';
 import { PayrollService } from '../services/payroll.service';
+import { deductionMasterService } from '../services/payrollService';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 
 export const useGrossDistribution = (employee: any, month: string, year: string, onRefresh: () => void) => {
@@ -14,10 +15,39 @@ export const useGrossDistribution = (employee: any, month: string, year: string,
     const fetchGrossDistributionData = useCallback(async () => {
         try {
             setLoading(true);
-            const apiResult = await PayrollService.fetchGrossPayConfig(employee.id, month, year);
+            const [apiResult, masterItems] = await Promise.all([
+                PayrollService.fetchGrossPayConfig(employee.id, month, year),
+                deductionMasterService.getAll().catch(() => []),
+            ]);
+
+            let config: GrossDistributionData = {};
             if (!apiResult.hasError && apiResult.data?.configuration) {
-                setGrossDistributionData(apiResult.data.configuration);
+                config = apiResult.data.configuration;
             }
+
+            // Inject custom (non-system) CREDIT components from master that aren't in the saved config yet
+            const CREDIT_CATEGORIES = ['allowance', 'benefit'];
+            for (const mc of masterItems) {
+                if (mc.isSystem) continue;
+                if (!mc.isActive) continue;
+                const catLower = (mc.category ?? '').toLowerCase();
+                if (!CREDIT_CATEGORIES.includes(catLower)) continue;
+                if (mc.direction?.toUpperCase() !== 'CREDIT') continue;
+                // Only inject if not already present (by displayName key)
+                if (!config[mc.displayName]) {
+                    config = {
+                        ...config,
+                        [mc.displayName]: {
+                            name: mc.displayName,
+                            value: mc.defaultAmount != null ? Number(mc.defaultAmount) : 0,
+                            type: 'number',
+                            isActive: true,
+                        },
+                    };
+                }
+            }
+
+            setGrossDistributionData(config);
         } catch (error) {
             console.error("Failed to fetch gross distribution data", error);
         } finally {

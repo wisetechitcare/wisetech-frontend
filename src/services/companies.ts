@@ -1,6 +1,12 @@
 import axios from "axios";
 import { CLIENT_COMPANIES, LEAD_PROJECT_COMPANY, COMPANY_SERVICES, COMPANY, LOCATION } from "@constants/api-endpoint";
+import { cachedRequest, invalidateRequestCache } from "./_requestCache";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+
+// Static reference lists: cache 5 min. User-mutable lists: short 45s cache (mainly to
+// dedupe the duplicate fetches fired on a single page load).
+const LOOKUP_TTL = 5 * 60_000;
+const MUTABLE_TTL = 45_000;
 
 interface CompanyType {
     id: string;
@@ -66,9 +72,11 @@ export const deleteCompanyType = async (id: string, targetId?: string) => {
 // Get All Contact Role Types
 export const getAllContactRoleTypes = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_CONTACT_ROLE_TYPES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('contactRoleTypes', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_CONTACT_ROLE_TYPES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         throw err;
     }
@@ -124,6 +132,7 @@ export const createClientCompany = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.CREATE_CLIENT_COMPANY}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('clientCompanies');
         return data;
     } catch (err) {
         throw err;
@@ -135,6 +144,7 @@ export const updateClientCompany = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.UPDATE_CLIENT_COMPANY.replace(':id', id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('clientCompanies');
         return data;
     } catch (err) {
         throw err;
@@ -147,6 +157,7 @@ export const deleteClientCompany = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_CLIENT_COMPANY.replace(':id', id)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('clientCompanies');
         return data;
     } catch (err) {
         throw err;
@@ -154,11 +165,14 @@ export const deleteClientCompany = async (id: string) => {
 }
 
 // Get All Client Companies
-export const getAllClientCompanies = async () => {
+// Pass `light=true` for dropdowns — returns a slim payload (no heavy nested relations).
+export const getAllClientCompanies = async (light = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CLIENT_COMPANIES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest(`clientCompanies${light ? ':light' : ''}`, async () => {
+            const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CLIENT_COMPANIES}`;
+            const { data } = await axios.get(endpoint, { params: { pageSize: 9999, ...(light ? { light: true } : {}) } });
+            return data;
+        }, MUTABLE_TTL);
     } catch (err) {
         throw err;
     }
@@ -178,20 +192,26 @@ export const getClientCompanyById = async (id: string) => {
 // Get All Sub Companies
 export const getAllSubCompanies = async () => {
     try {
-        const finalEndpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_SUB_COMPANIES}`;
-        const { data } = await axios.get(finalEndpoint);
-        return data;
+        return await cachedRequest('subCompanies', async () => {
+            const finalEndpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_SUB_COMPANIES}`;
+            const { data } = await axios.get(finalEndpoint, { params: { pageSize: 9999 } });
+            return data;
+        }, MUTABLE_TTL);
     } catch (err) {
         throw err;
     }
 }
 
 // Get All Client Contacts
-export const getAllClientContacts = async (params: any = {}) => {
+// Pass `light=true` for dropdowns — returns only the small fields a picker needs.
+export const getAllClientContacts = async (params: any = {}, light = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CONTACTS}`;
-        const { data } = await axios.get(endpoint, { params });
-        return data;
+        const finalParams = light ? { ...params, light: true } : params;
+        return await cachedRequest(`clientContacts:${light ? 'light:' : ''}${JSON.stringify(params)}`, async () => {
+            const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CONTACTS}`;
+            const { data } = await axios.get(endpoint, { params: finalParams });
+            return data;
+        }, MUTABLE_TTL);
     } catch (err) {
         throw err;
     }
@@ -213,6 +233,7 @@ export const createClientContact = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.CREATE_CONTACT}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('clientContacts');
         return data;
     } catch (err) {
         throw err;
@@ -224,6 +245,7 @@ export const updateClientContact = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.UPDATE_CONTACT.replace(':id', id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('clientContacts');
         return data;
     } catch (err) {
         throw err;
@@ -235,6 +257,7 @@ export const deleteClientContact = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.DELETE_CONTACT.replace(':id', id)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('clientContacts');
         return data;
     } catch (err) {
         throw err;
@@ -437,9 +460,11 @@ export const updateCompanyRating = async (data: {
 // Get All Contact Statuses
 export const getAllContactStatuses = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CONTACT_STATUSES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('contactStatuses', async () => {
+            const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CONTACT_STATUSES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         throw err;
     }

@@ -1,7 +1,7 @@
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
 import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
-import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById } from "@services/employee";
+import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -335,9 +335,9 @@ export function convertMinutesIntoHrMinFormats(minutes: number): string {
         if (workingTimeMinutes !== null && startMin !== null && endMin !== null) {
             const calculatedLunchMinutes = endMin - startMin;
 
-            // Threshold = (half of working time) + lunch duration
-            // const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
-            const threshold = (workingTimeMinutes / 2);
+            // Threshold = (half of working time) + lunch duration — matches backend salary and KPI.
+            // e.g. 8h day + 1h lunch: threshold = 4h + 1h = 5h (300 min).
+            const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
 
             if (minutes >= threshold) {
                 lunchMinutes = calculatedLunchMinutes;
@@ -2976,6 +2976,9 @@ export async function fetchEmpMonthlyReimbursements(month: Dayjs, empId = store.
     const startDate = month.startOf('month').format('YYYY-MM-DD');
     const endDate = month.endOf('month').format('YYYY-MM-DD');
     const { data: { reimbursements: empMonthlyReimbursements } } = await fetchReimbursementsForEmployee(empId, startDate, endDate);
+    empMonthlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empMonthlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3004,6 +3007,9 @@ export async function fetchEmpYearlyReimbursements(year: Dayjs, empId = store.ge
 
     const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForEmployee(empId, startDate, endDate);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3030,6 +3036,9 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
     const startDate = month.startOf('month').format('YYYY-MM-DD');
     const endDate = month.endOf('month').format('YYYY-MM-DD');
     const { data: { reimbursements: allEmpMonthlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
+    allEmpMonthlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = allEmpMonthlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3058,6 +3067,9 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
     const startDate = (year.startOf('year').format('YYYY-MM-DD'));
     const endDate = (year.endOf('year').format('YYYY-MM-DD'));
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3083,6 +3095,9 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
 
 export async function fetchAllTimeReimbursementsOfAllEmp() {
     const { data: { reimbursements: allEmpAllTimeReimbursements } } = await fetchAllReimbursementsForAllEmployees();
+    allEmpAllTimeReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = allEmpAllTimeReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3119,6 +3134,9 @@ export async function approveEmpReimbursementRequestById(reimbursementId: string
 
 export async function fetchEmpAlltimeReimbursements(empId = store.getState().employee.currentEmployee.id) {
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchAllReimbursementsForEmployee(empId);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3594,20 +3612,23 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
 }
 
 // ================================================================================
-// format number to currency in INR, 
+// format number to currency in INR
 export const formatNumber = (number: number | string) => {
-    return Intl.NumberFormat('en-IN', {
+    // Truncate to prevent rounding up for "perfect no rounding off" requirement
+    const num = typeof number === 'string' ? parseFloat(number) : number;
+    const truncated = isNaN(num) ? 0 : Math.trunc(num);
+    return new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
-    }).format(Number(number));
-}
+        maximumFractionDigits: 0
+    }).format(truncated);
+};
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
-    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 // get total weekends in a month
@@ -3881,12 +3902,15 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty):
+    // JSON.parse(null) and JSON.parse("null") both yield null, and indexing it by the
+    // weekday would crash the whole page ("Cannot read properties of null").
+    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3915,12 +3939,13 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty).
+    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3970,4 +3995,19 @@ export const calculateProjectTotalTime = (timesheets: any = []) => {
     const mins = Math.floor((totalMs / (1000 * 60)) % 60);
     const secs = Math.floor((totalMs / 1000) % 60);
     return `${hrs}h ${mins}m ${secs}s`;
+};
+
+export const handleSendEmailForResetAttendanceRequestLimit = async (
+    employeeId: string,
+    setLoading: (v: boolean) => void,
+    reportsToId?: string
+): Promise<void> => {
+    setLoading(true);
+    try {
+        await sendAttendanceRequestResetLimit({ employeeId, reportsToId });
+    } catch (err) {
+        console.error('Failed to send attendance reset limit request', err);
+    } finally {
+        setLoading(false);
+    }
 };

@@ -9,7 +9,7 @@ import { createUpdateDeductionConfiguration, fetchDeductionConfiguration, valida
 import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
 import { IconButton } from '@mui/material';
 import { Close, InfoOutlined } from '@mui/icons-material';
-import { formatINR2 } from '../../../../../../../modules/payroll/utils/payrollFormatters';
+import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -199,21 +199,26 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
             const defaultFields: any = {
                 'Provident Fund': { name: 'Provident Fund', type: 'number', value: 0, isActive: true },
                 'Professional Tax': { name: 'Professional Tax', type: 'number', value: 0, isActive: true },
-                'Professional Fees': { name: 'Professional Fees', type: 'number', value: 0, isActive: true }
+                'Professional Fees': { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true }
             };
 
-            // Merge existing data if found
+            // Always start with all default fields, then overlay any saved values
             const finalData: any = {};
-            const baseData = existingAdditionalData || defaultFields;
-            
-            Object.entries(baseData).forEach(([key, value]: [string, any]) => {
-                if (key === '_fieldOrder') return;
-                finalData[key] = {
-                    ...value,
-                    value: value.value || 0,
-                    type: 'number'
-                };
+
+            Object.entries(defaultFields).forEach(([key, value]: [string, any]) => {
+                finalData[key] = { ...value, value: 0, type: 'number' };
             });
+
+            if (existingAdditionalData) {
+                Object.entries(existingAdditionalData).forEach(([key, value]: [string, any]) => {
+                    if (key === '_fieldOrder') return;
+                    if (finalData[key]) {
+                        finalData[key] = { ...finalData[key], ...value, value: value.value || 0, type: 'number' };
+                    } else {
+                        finalData[key] = { ...value, value: value.value || 0, type: 'number' };
+                    }
+                });
+            }
 
             setDeductionDistributionData(finalData);
             
@@ -297,16 +302,16 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         const auto = autoCalculatedDeductions[fieldName] || 0;
         const total = Math.max(0, auto + extraValue);
         const formatSignedAdjustment = (value: number) => {
-            if (value > 0) return `+${formatINR2(value)}`;
-            if (value < 0) return `-${formatINR2(Math.abs(value))}`;
-            return formatINR2(0);
+            if (value > 0) return `+${formatINRDecimal(value)}`;
+            if (value < 0) return `-${formatINRDecimal(Math.abs(value))}`;
+            return formatINRDecimal(0);
         };
         
         return (
             <div className="mt-2 p-3 bg-light rounded border border-dashed border-gray-300">
                 <div className="d-flex justify-content-between fs-8 text-gray-600 mb-1">
                     <span>Auto Calculated:</span>
-                    <span>{formatINR2(auto)}</span>
+                    <span>{formatINRDecimal(auto)}</span>
                 </div>
                 <div className="d-flex justify-content-between fs-8 text-primary mb-1">
                     <span>Adjustment:</span>
@@ -315,7 +320,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 <div className="separator separator-dashed my-1"></div>
                 <div className="d-flex justify-content-between fs-7 fw-bolder text-gray-800">
                     <span>Final {fieldName}:</span>
-                    <span>{formatINR2(total)}</span>
+                    <span>{formatINRDecimal(total)}</span>
                 </div>
             </div>
         );
@@ -388,9 +393,9 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                             // Extra manual amounts are independent of the
                                             // auto-calculated component state.
                                             if (isProfTax && !profTaxEnabled) {
-                                                disabledReason = "Professional Tax is auto-disabled (Professional Fees is active). Extra amount still applies separately.";
+                                                disabledReason = "Professional Tax is auto-disabled (Tax Deducted at Source (TDS) is active). Extra amount still applies separately.";
                                             } else if (isProfFees && !profFeesEnabled) {
-                                                disabledReason = "Professional Fees is auto-disabled (Professional Tax is active). Extra amount still applies separately.";
+                                                disabledReason = "Tax Deducted at Source (TDS) is auto-disabled (Professional Tax is active). Extra amount still applies separately.";
                                             }
 
                                             const currentExtra = Number(formikProps.values[field.id] || 0);

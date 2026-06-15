@@ -45,6 +45,16 @@ export const fetchAllEmployees = async (isActive?: boolean) => {
     }
 }
 
+export const fetchEmployeesByBranch = async (branchId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEES_BY_BRANCH}?branchId=${branchId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
 export const fetchAllEmployeesSelectedData = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_SELECTED_DATA}`;
@@ -173,6 +183,60 @@ export const fetchCurrentEmployeeByEmpId = async (employeeId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_BY_ID}?employeeId=${employeeId}`;
         const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const sendAttendanceRequestResetLimit = async (payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const getAttendanceRequestLimitResetRequests = async (companyId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS}?companyId=${companyId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const approveAttendanceRequestLimitReset = async (requestId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, { requestId });
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.REJECT_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, { requestId });
         return data;
     }
     catch (err) {
@@ -868,6 +932,16 @@ export const deleteEmployeeReimbursement = async (reimbursementId: string) => {
     }
 }
 
+export const fetchReimbursementsByProjectId = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENTS_BY_PROJECT_ID}/${projectId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 export const fetchGrossPayDeductions = async (employeeId: string, month?: string, year?: string) => {
     try {
         if (!employeeId) {
@@ -940,9 +1014,9 @@ export const fetchAllEmployeeSalaryAllTimeDateRage = async (employeeId: string) 
     }
 }
 // GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE
-export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string) => {
+export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string, status: 'active' | 'inactive' | 'all' = 'active') => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}&status=${status}`;
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -951,16 +1025,6 @@ export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endD
     }
 }
 
-// Fetch salary totals for all active employees in date range
-export const fetchSalaryRecordsForAllActiveEmployees = async (startDate: string, endDate: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_RECORDS_ALL_ACTIVE_EMPLOYEES}?startDate=${startDate}&endDate=${endDate}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
 export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, startYear: string, endYear: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_Total_salary_By_Year}?companyId=${companyId}&startYear=${startYear}&endYear=${endYear}`;
@@ -1005,16 +1069,6 @@ export const updatePaymentById = async (paymentId: string, payload: IPayment) =>
     }
 }
 
-export const recordSalaryPayment = async (payload: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment`;
-        const { data } = await axios.post(endpoint, payload);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
 export const recordGovernmentPayment = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/company/salary/government-payment`;
@@ -1031,28 +1085,6 @@ export const getPaymentHistory = async (salaryId: string) => {
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
-        throw err;
-    }
-}
-
-export const deletePaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
-export const deleteGovernmentPaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/government-payment/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
         throw err;
     }
 }
@@ -1384,7 +1416,7 @@ export const deleteEmployeePermissionById = async (employeeId: string, permissio
     }
 }
 
-export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string }) => {
+export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string, salaryData?: any }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_SALARY_SLIP}`;
         const { data } = await axios.post(endpoint, details);

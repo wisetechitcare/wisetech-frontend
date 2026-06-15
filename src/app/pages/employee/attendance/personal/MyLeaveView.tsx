@@ -7,8 +7,10 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { handleDatesChange } from '@utils/statistics';
+import DateSelector from '@components/DateSelector';
 import { Modal } from 'react-bootstrap';
 import MyLeaveManagementRequests from './views/my-leaves/MyLeaveManagementRequests';
 import SmartInsightsPanel from './views/my-leaves/SmartInsightsPanel';
@@ -148,13 +150,9 @@ const PersonalLeaveView = () => {
 export default PersonalLeaveView
 
 export const DateNavigation = ({ fiscalYear, setYear }: { fiscalYear: string, setYear: (date: any) => void }) => (
-    <div className="d-flex align-items-center justify-content-center">
-        <button className="btn btn-sm p-0" onClick={() => handleDatesChange('decrement', 'year', setYear)}>
-            <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous" />
-        </button>
-        <span className="mx-2 my-5">{fiscalYear}</span>
-        <button className="btn btn-sm p-0" onClick={() => handleDatesChange('increment', 'year', setYear)}>
-            <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next" />
-        </button>
-    </div>
+    <DateSelector
+        onPrevious={() => handleDatesChange('decrement', 'year', setYear)}
+        onNext={() => handleDatesChange('increment', 'year', setYear)}
+        displayValue={formatFiscalYearLabel(fiscalYear)}
+    />
 );

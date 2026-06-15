@@ -2,7 +2,7 @@ import { Attendance, IPayment } from '@models/employee';
 import { RootState } from '@redux/store';
 import { fetchAllPayments } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
-import { formatNumber } from '@utils/statistics';
+import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import dayjs from 'dayjs';
 import {
     Avatar,
@@ -160,7 +160,7 @@ interface EmployeeProfileCardProps {
     name: string;
     employeeCode?: string;
     isActive?: boolean;
-    bloodGroup?: string;
+    hasProfessionalFees?: boolean;
     email?: string;
     phone?: string;
     location?: string;
@@ -211,7 +211,7 @@ const EmployeeProfileCard = ({
     name,
     employeeCode,
     isActive,
-    bloodGroup,
+    hasProfessionalFees,
     email,
     phone,
     location
@@ -229,14 +229,13 @@ const EmployeeProfileCard = ({
             flexDirection: 'column',
         }}
     >
-        <Stack direction="row" spacing={1.5} alignItems="flex-start">
+        <Stack direction="row" spacing={{ xs: 1.5, md: 2 }} sx={{ mb: 1 }}>
             <Avatar
                 src={avatar}
                 alt={name}
-                variant="rounded"
                 sx={{
-                    width: { xs: 68, md: 76 },
-                    height: { xs: 68, md: 76 },
+                    width: { xs: 68, md: 74 },
+                    height: { xs: 68, md: 74 },
                     borderRadius: '16px',
                     boxShadow: '0 6px 12px rgba(15, 23, 42, 0.08)',
                     backgroundColor: '#f8fafc',
@@ -268,9 +267,7 @@ const EmployeeProfileCard = ({
                         </Tooltip>
                         <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: 0.35 }}>
                             {employeeCode || '-'}
-
                         </Typography>
-
                     </Box>
                 </Stack>
 
@@ -278,9 +275,22 @@ const EmployeeProfileCard = ({
                     {phone || '-'}
                 </Typography>
 
-                <Typography sx={{ color: '#64748b', fontSize: '0.76rem', mt: 0.55 }}>
-                    Blood Group: {bloodGroup || '-'}
-                </Typography>
+                <Box sx={{ mt: 0.75 }}>
+                    <Chip 
+                        label={hasProfessionalFees ? "CONTRACT BASED" : "SALARY BASED"} 
+                        size="small"
+                        sx={{ 
+                            height: '22px', 
+                            fontSize: '0.65rem', 
+                            fontWeight: 800, 
+                            letterSpacing: '0.5px',
+                            backgroundColor: hasProfessionalFees ? '#f5f3ff' : '#f0fdf4',
+                            color: hasProfessionalFees ? '#7c3aed' : '#16a34a',
+                            border: `1px solid ${hasProfessionalFees ? '#ede9fe' : '#dcfce7'}`,
+                            '& .MuiChip-label': { px: 1 }
+                        }} 
+                    />
+                </Box>
             </Box>
         </Stack>
 
@@ -325,32 +335,34 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const [totalPaidAmount, setTotalAmountPaid] = useState(0);
     const apiSalaryData = monthlyApiData?.salaryData?.[0];
 
+    const hasProfessionalFees = !!employee?.professionalFeesEnabled;
+
     let annualCTC: number | undefined;
     if (apiSalaryData?.employeeCardDeatils?.annualCTC) {
-        annualCTC = parseFloat(apiSalaryData?.employeeCardDeatils?.annualCTC?.toFixed(2));
+        annualCTC = apiSalaryData.employeeCardDeatils.annualCTC;
     }
     if (apiSalaryData?.employeeCardDeatils?.monthlySalary) {
-        monthlySalary = parseFloat(apiSalaryData?.employeeCardDeatils?.monthlySalary?.toFixed(2));
+        monthlySalary = apiSalaryData.employeeCardDeatils.monthlySalary;
     }
     if (apiSalaryData?.employeeCardDeatils?.hourlySalary) {
-        hourlySalary = parseFloat(apiSalaryData?.employeeCardDeatils?.hourlySalary?.toFixed(2));
+        hourlySalary = apiSalaryData.employeeCardDeatils.hourlySalary;
     }
 
     let monthlyPaidAmount: number;
     if (apiSalaryData?.employeeCardDeatils?.monthlyPaid) {
-        monthlyPaidAmount = parseFloat(apiSalaryData?.employeeCardDeatils?.monthlyPaid?.toFixed(2));
+        monthlyPaidAmount = apiSalaryData.employeeCardDeatils.monthlyPaid;
     } else {
         monthlyPaidAmount = 0;
     }
 
     const apiDailySalary = apiSalaryData?.employeeCardDeatils?.dailySalary;
 
-    const dailySalary = typeof hourlySalary === 'number' && hourlySalary >= 0
-        ? parseFloat((hourlySalary * 8).toFixed(2))
+    const dailySalary = typeof apiDailySalary === 'number' && apiDailySalary >= 0
+        ? apiDailySalary
         : typeof monthlySalary === 'number' && monthlySalary >= 0
-            ? parseFloat((monthlySalary / 30).toFixed(2))
-            : typeof apiDailySalary === 'number'
-                ? parseFloat(apiDailySalary.toFixed(2))
+            ? (monthlySalary / 30)
+            : typeof hourlySalary === 'number' && hourlySalary >= 0
+                ? (hourlySalary * 8)
                 : undefined;
 
     async function fetchPayments() {
@@ -367,32 +379,57 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         fetchPayments();
     }, [employee, toggleChange]);
 
-    const formatSalaryValue = (value: number | undefined, fallback = '-') => (
-        typeof value === 'number' && value >= 0 ? formatNumber(value) : fallback
-    );
-    const totalExperience = employee?.dateOfJoining
-        ? (() => {
-            const joiningDate = dayjs(employee.dateOfJoining);
-            const now = dayjs();
+    const formatSalaryValue = (value: number | undefined, fallback = '-') => {
+        if (typeof value === 'number' && value >= 0) {
+            return formatCurrencyDecimal(value);
+        }
+        return fallback;
+    };
+    const totalExperience = (() => {
+        if (!employee?.dateOfJoining) return '-';
 
-            const years = now.diff(joiningDate, 'year');
-            const months = now.diff(joiningDate.add(years, 'year'), 'month');
+        const today = dayjs();
 
-            if (years === 0) {
-                return `${months} Month${months !== 1 ? 's' : ''}`;
+        // Build all active employment periods
+        type Period = { start: ReturnType<typeof dayjs>; end: ReturnType<typeof dayjs> };
+        const periods: Period[] = [];
+
+        const joinDate = dayjs(employee.dateOfJoining);
+        const exitDate = employee.dateOfExit ? dayjs(employee.dateOfExit) : today;
+        const firstEnd = exitDate.isAfter(today) ? today : exitDate;
+        if (!joinDate.isAfter(firstEnd)) {
+            periods.push({ start: joinDate, end: firstEnd });
+        }
+
+        for (const r of employee.EmployeeRejoinHistory ?? []) {
+            if (!r.dateOfReJoining) continue;
+            const reJoin = dayjs(r.dateOfReJoining);
+            if (reJoin.isAfter(today)) continue; // Not yet rejoined
+            const reExit = r.dateOfReExit ? dayjs(r.dateOfReExit) : today;
+            const periodEnd = reExit.isAfter(today) ? today : reExit;
+            if (!reJoin.isAfter(periodEnd)) {
+                periods.push({ start: reJoin, end: periodEnd });
             }
+        }
 
-            if (months === 0) {
-                return `${years} Year${years !== 1 ? 's' : ''}`;
-            }
+        // Sum all periods in total months
+        let totalMonths = 0;
+        for (const p of periods) {
+            totalMonths += p.end.diff(p.start, 'month');
+        }
 
-            return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
-        })()
-        : '-';
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+
+        if (years === 0 && months === 0) return 'Less than 1 Month';
+        if (years === 0) return `${months} Month${months !== 1 ? 's' : ''}`;
+        if (months === 0) return `${years} Year${years !== 1 ? 's' : ''}`;
+        return `${years} Year${years !== 1 ? 's' : ''} ${months} Month${months !== 1 ? 's' : ''}`;
+    })();
     const employeeName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
     const paidAmountValue = apiSalaryData
-        ? formatSalaryValue(monthlyPaidAmount, formatNumber(0))
-        : formatNumber(totalPaidAmount || 0);
+        ? formatSalaryValue(monthlyPaidAmount, formatCurrencyDecimal(0))
+        : formatCurrencyDecimal(totalPaidAmount || 0);
 
     const metricItems: EmployeeMetricCardProps[] = [
         {
@@ -421,7 +458,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         },
         {
             label: 'Annual Salary (CTC)',
-            value: formatSalaryValue(annualCTC),
+            value: typeof annualCTC === 'number' && annualCTC >= 0 ? formatCurrencyRounded(annualCTC) : '-',
             icon: <SavingsOutlinedIcon fontSize="small" />, 
             tone: 'orange',
             isSensitive: true,
@@ -429,7 +466,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
         },
         {
             label: 'Monthly Salary',
-            value: formatSalaryValue(monthlySalary),
+            value: typeof monthlySalary === 'number' && monthlySalary >= 0 ? formatCurrencyRounded(monthlySalary) : '-',
             icon: <CurrencyRupeeOutlinedIcon fontSize="small" />, 
             tone: 'green',
             isSensitive: true,
@@ -521,7 +558,7 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                             name={employeeName}
                             employeeCode={employee?.employeeCode}
                             isActive={employee?.isActive}
-                            bloodGroup={(employee as any)?.bloodGroup || undefined}
+                            hasProfessionalFees={hasProfessionalFees}
                             email={employee?.companyEmailId || undefined}
                             phone={employee?.companyPhoneNumber || undefined}
                             location={employee?.workLocation || undefined}

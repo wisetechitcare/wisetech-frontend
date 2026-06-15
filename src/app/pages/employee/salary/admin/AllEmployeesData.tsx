@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -7,6 +8,7 @@ import { fetchAllEmployees, fetchEmpAttendanceStatistics } from "@services/emplo
 import { fetchCompanyOverview } from "@services/company";
 import { fetchAllEmployeeTotalSalaryOfYear, fetchAllEmployeeMonthlySalary } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
@@ -377,12 +379,12 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
       
       // Fetch additional employee data (leaves, holidays)
       const { data: { companyOverview } } = await fetchCompanyOverview();
-      if (!companyOverview || !companyOverview[0]?.id) {
+      if (!companyOverview || !(resolveActiveOrgId(companyOverview) ?? '')) {
         throw new Error("Company overview data not available");
       }
       
       const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
-      const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyOverview[0].id);
+      const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', (resolveActiveOrgId(companyOverview) ?? ''));
       
       const totalLeaves = await customLeaves(leaves);
       // const filteredLeaves = filterLeavesPublicHolidays(dateRanges.startDate, dateRanges.endDate);
@@ -519,7 +521,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
           { label: 'Yearly', value: 'yearly' },
         ]}
         onAlignmentChange={(value) => setAlignment(value as "monthly" | "yearly")}
-        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : fiscalYear}
+        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : formatFiscalYearLabel(fiscalYear)}
         onPrevious={alignment === 'monthly' ? handlePrevMonth : handlePrevYear}
         onNext={alignment === 'monthly' ? handleNextMonth : handleNextYear}
         disablePrevious={isLoading}
@@ -581,7 +583,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 <div className="card-body p-5">
                   <div className="d-flex align-items-center justify-content-between">
                     <div>
-                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Professional Fees Payable</h5>
+                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Tax Deducted at Source (TDS) Payable</h5>
                       <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPayable)}</span>
                     </div>
                     <div className="symbol symbol-50px">
@@ -599,7 +601,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 <div className="card-body p-5">
                   <div className="d-flex align-items-center justify-content-between">
                     <div>
-                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Professional Fees Paid</h5>
+                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Tax Deducted at Source (TDS) Paid</h5>
                       <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPaid)}</span>
                     </div>
                     <div className="symbol symbol-50px">

@@ -1,4 +1,4 @@
-
+﻿
 import React from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
@@ -35,7 +35,7 @@ const ListsWidget2: React.FC<Props> = ({className}) => {
         <div className='d-flex align-items-center mb-7'>
           {/* begin::Avatar */}
           <div className='symbol symbol-50px me-5'>
-            <img src={toAbsoluteUrl('media/avatars/300-6.jpg')} className='' alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/018-girl-9.svg')} className='' alt='' />
           </div>
           {/* end::Avatar */}
           {/* begin::Text */}
@@ -52,7 +52,7 @@ const ListsWidget2: React.FC<Props> = ({className}) => {
         <div className='d-flex align-items-center mb-7'>
           {/* begin::Avatar */}
           <div className='symbol symbol-50px me-5'>
-            <img src={toAbsoluteUrl('media/avatars/300-5.jpg')} className='' alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/014-girl-7.svg')} className='' alt='' />
           </div>
           {/* end::Avatar */}
           {/* begin::Text */}
@@ -69,7 +69,7 @@ const ListsWidget2: React.FC<Props> = ({className}) => {
         <div className='d-flex align-items-center mb-7'>
           {/* begin::Avatar */}
           <div className='symbol symbol-50px me-5'>
-            <img src={toAbsoluteUrl('media/avatars/300-11.jpg')} className='' alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/047-girl-25.svg')} className='' alt='' />
           </div>
           {/* end::Avatar */}
           {/* begin::Text */}
@@ -86,7 +86,7 @@ const ListsWidget2: React.FC<Props> = ({className}) => {
         <div className='d-flex align-items-center mb-7'>
           {/* begin::Avatar */}
           <div className='symbol symbol-50px me-5'>
-            <img src={toAbsoluteUrl('media/avatars/300-9.jpg')} className='' alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/029-boy-11.svg')} className='' alt='' />
           </div>
           {/* end::Avatar */}
           {/* begin::Text */}
@@ -103,7 +103,7 @@ const ListsWidget2: React.FC<Props> = ({className}) => {
         <div className='d-flex align-items-center'>
           {/* begin::Avatar */}
           <div className='symbol symbol-50px me-5'>
-            <img src={toAbsoluteUrl('media/avatars/300-23.jpg')} className='' alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/020-girl-11.svg')} className='' alt='' />
           </div>
           {/* end::Avatar */}
           {/* begin::Text */}

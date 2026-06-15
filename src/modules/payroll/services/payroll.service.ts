@@ -1,21 +1,19 @@
-import { 
-    fetchAllPayments, 
-    fetchGrossPayDeductions, 
-    fetchEmpAttendanceStatistics, 
+import {
+    fetchAllPayments,
+    fetchGrossPayDeductions,
+    fetchEmpAttendanceStatistics,
     getAllLeaveManagements,
     fetchGrossPayConfiguration,
     createUpdateGrossPayConfiguration,
-    deletePaymentById,
-    deleteGovernmentPaymentById,
     updatePaymentById,
     createNewPayment,
     createUpdateGrossPayDeductions,
-    recordSalaryPayment,
     recordGovernmentPayment,
     getPaymentHistory
 } from '@services/employee';
 import { fetchConfiguration, fetchCompanyOverview, fetchAllPublicHolidays } from '@services/company';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
+import { payrollService } from './payrollService';
 
 export const PayrollService = {
     fetchPayments: fetchAllPayments,
@@ -28,12 +26,11 @@ export const PayrollService = {
     fetchCompanyOverview: fetchCompanyOverview,
     fetchPublicHolidays: fetchAllPublicHolidays,
     fetchShifts: fetchDayWiseShifts,
-    deletePayment: deletePaymentById,
-    deleteGovernmentPayment: deleteGovernmentPaymentById,
+    deletePayment: payrollService.deletePayment,
+    deleteGovernmentPayment: payrollService.deleteGovernmentPayment,
     updatePayment: updatePaymentById,
     createPayment: createNewPayment,
     saveSalaryReport: createUpdateGrossPayDeductions,
-    recordSalaryPayment,
     recordGovernmentPayment,
     getPaymentHistory
 };

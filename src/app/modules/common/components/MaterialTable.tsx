@@ -1,4 +1,5 @@
- import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import ExportButton from "@app/modules/common/components/ExportButton";
 import { MaterialReactTable } from "material-react-table";
 import {
   Container,
@@ -81,6 +82,11 @@ interface MaterialTableProps {
   renderDetailPanel?: (props: { row: any; table: any }) => React.ReactNode;
   enableStatusColorCoding?: boolean;
   renderTopToolbarRightActions?: () => React.ReactNode;
+  /** Replaces the bottom-left "Select Export File + Export" UI with custom content */
+  renderExportActions?: () => React.ReactNode;
+  /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
+  showColumnFooter?: boolean;
+  defaultSorting?: Array<{ id: string; desc: boolean }>;
 }
 
 const defaultColumnSizes = {
@@ -128,6 +134,9 @@ function MaterialTable({
   renderDetailPanel,
   enableStatusColorCoding = true,
   renderTopToolbarRightActions,
+  renderExportActions,
+  showColumnFooter = false,
+  defaultSorting,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -287,7 +296,7 @@ function MaterialTable({
     updateExpanded,
     updateExportType,
     resetPreferences,
-  } = useTablePreferences(tableName, finalColumns, employeeId);
+  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,
@@ -492,6 +501,24 @@ function MaterialTable({
       { label: "Excel", value: "excel" },
     ],
     [],
+  );
+
+  // Auto-build ExportButton columns from the table's column definitions
+  const autoExportCols = useMemo(() =>
+    columns
+      .filter((col: any) => col.accessorKey && col.accessorKey !== 'actions')
+      .map((col: any) => ({
+        key: col.accessorKey as string,
+        header: col.header as string,
+        type: 'text' as const,
+      })),
+    [columns],
+  );
+
+  // Human-readable title from tableName (e.g. "MonthlySalary" → "Monthly Salary")
+  const autoExportTitle = useMemo(
+    () => tableName.replace(/([A-Z])/g, ' $1').trim(),
+    [tableName],
   );
 
   const tableTheme = useMemo(
@@ -1208,9 +1235,19 @@ function MaterialTable({
           data={tableData}
           columns={finalColumns}
           muiTableFooterProps={{
-            sx: {
-              display: "none",
-            },
+            sx: showColumnFooter
+              ? {
+                  "& .MuiTableCell-footer": {
+                    backgroundColor: "#f8fafc",
+                    color: "#0f172a",
+                    fontWeight: 700,
+                    borderTop: "2px solid #e2e8f0",
+                    fontSize: "0.8rem",
+                  },
+                }
+              : {
+                  display: "none",
+                },
           }}
           muiTopToolbarProps={{
             sx: {
@@ -1469,53 +1506,18 @@ function MaterialTable({
                       width: { xs: "100%", lg: "auto" },
                     }}
                   >
-                    {!hideExportCenter && (
-                      <>
-                        <Box
-                          sx={{
-                            minWidth: { xs: "100px", sm: "auto" },
-                            flex: { xs: "0 0 auto", sm: "0 1 auto" },
-                          }}
-                        >
-                          <SelectInput
-                            options={exportOptions}
-                            placeholder="Select Export File"
-                            value={
-                              exportTypeSelected
-                                ? exportOptions.find(
-                                    (opt) => opt.value === exportTypeSelected,
-                                  )
-                                : null
-                            }
-                            dropdown="export_select"
-                            passData={handleExportChange}
-                          />
-                        </Box>
-                        <button
-                          disabled={!exportTypeSelected}
-                          onClick={exportTable}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            whiteSpace: "nowrap",
-                            padding: isMobile ? "6px 10px" : "7px 14px",
-                            fontSize: isMobile ? "12px" : "13px",
-                            fontWeight: 500,
-                            border: "1px solid #E5E7EB",
-                            borderRadius: "8px",
-                            backgroundColor: exportTypeSelected ? "#fff" : "#F9FAFB",
-                            color: exportTypeSelected ? "#374151" : "#9CA3AF",
-                            cursor: exportTypeSelected ? "pointer" : "not-allowed",
-                            transition: "all 0.15s ease",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <KTIcon iconName="exit-up" className="fs-5" />
-                          Export
-                        </button>
-                      </>
-                    )}
+                    {renderExportActions ? (
+                      renderExportActions()
+                    ) : !hideExportCenter ? (
+                      <ExportButton
+                        data={tableData}
+                        columns={autoExportCols}
+                        filename={tableName}
+                        title={autoExportTitle}
+                        sheetName={tableName.slice(0, 31)}
+                        disabled={tableData.length === 0}
+                      />
+                    ) : null}
 
                     {/* Rows per page */}
                     <Box

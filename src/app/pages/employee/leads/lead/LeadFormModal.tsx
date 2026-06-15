@@ -1,3 +1,4 @@
+import { resolveActiveOrg } from '@utils/activeOrg';
 import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
@@ -1465,7 +1466,7 @@ const LeadFormModal = ({
   const fetchCompanies = useCallback(async () => {
     // if (companies.length > 0) return companies;
     try {
-      const response = await getAllClientCompanies();
+      const response = await getAllClientCompanies(true);
       const data = response?.data?.companies || [];
       const sortedData = sortCompaniesByName(data);
       setCompanies(sortedData);
@@ -1493,7 +1494,7 @@ const LeadFormModal = ({
   const fetchContacts = useCallback(async () => {
     // if (contacts.length > 0) return contacts;
     try {
-      const response = await getAllClientContacts();
+      const response = await getAllClientContacts({}, true);
       const data = response?.data?.contacts || [];
       const sortedData = sortContactsByName(data);
       setContacts(sortedData);
@@ -4253,7 +4254,7 @@ const LeadFormModal = ({
                                                   companyOverview.length > 0
                                                 ) {
                                                   const companyName =
-                                                    companyOverview[0]?.name ||
+                                                    resolveActiveOrg(companyOverview)?.name ||
                                                     "Wisetech MEP";
                                                   setFieldValue(
                                                     `referrals[${index}].companyName`,

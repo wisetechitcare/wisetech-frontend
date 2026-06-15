@@ -82,7 +82,7 @@ const MyEmployeeTimeSheetToggle = ({
             setCurrentYearStart(fiscalStart);
             setCurrentYearEnd(fiscalEnd);
             setFiscalYearDisplay(
-                `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format("DD MMM, YYYY")}`
+                `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
             );
         } catch (error) {
             console.error("Error initializing fiscal year:", error);
@@ -178,7 +178,7 @@ const MyEmployeeTimeSheetToggle = ({
             setCurrentYearStart(fiscalStart);
             setCurrentYearEnd(fiscalEnd);
             setFiscalYearDisplay(
-                `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format("DD MMM, YYYY")}`
+                `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
             );
         } catch (error) {
             console.error("Error navigating fiscal year:", error);

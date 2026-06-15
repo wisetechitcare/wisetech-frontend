@@ -6,8 +6,10 @@ import Monthly from "@pages/employee/reimbursement/views/Monthly";
 import Yearly from "@pages/employee/reimbursement/views/Yearly";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import React, { useEffect, useState } from "react";
+import DateSelector from "@components/DateSelector";
 import { IReimbursements, IReimbursementsUpdate } from "@models/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import { useDispatch } from "react-redux";
 import { fetchAllTimeReimbursementsOfAllEmp } from "@utils/statistics";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
@@ -143,51 +145,31 @@ const MaterialToggleReimbursement = ({
         </ToggleButtonGroup>
 
         {alignment == "monthly" && (
-          <div>
-            <button
-              className="btn btn-sm p-0"
-              onClick={(e) => {
-                handleDatesChange("decrement", "month", setMonth);
-                toggleItemsActions?.monthly(month.subtract(1, "month"));
-              }}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/back.svg")} />
-            </button>
-            <span className="mx-2 my-5">{month.format("MMM, YYYY")}</span>
-            <button
-              className="btn btn-sm p-0"
-              onClick={(e) => {
-                handleDatesChange("increment", "month", setMonth);
-                toggleItemsActions?.monthly(month.add(1, "month"));
-              }}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/next.svg")} />
-            </button>
-          </div>
+          <DateSelector
+            onPrevious={() => {
+              handleDatesChange("decrement", "month", setMonth);
+              toggleItemsActions?.monthly(month.subtract(1, "month"));
+            }}
+            onNext={() => {
+              handleDatesChange("increment", "month", setMonth);
+              toggleItemsActions?.monthly(month.add(1, "month"));
+            }}
+            displayValue={month.format("MMM YYYY")}
+          />
         )}
 
         {alignment == "yearly" && (
-          <div>
-            <button
-              className="btn btn-sm p-0"
-              onClick={(e) => {
-                handleDatesChange("decrement", "year", setYear);
-                toggleItemsActions?.yearly(year.subtract(1, "year"));
-              }}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/back.svg")} />
-            </button>
-            <span className="mx-2 my-5">{fiscalYear}</span>
-            <button
-              className="btn btn-sm p-0"
-              onClick={(e) => {
-                handleDatesChange("increment", "year", setYear);
-                toggleItemsActions?.yearly(year.add(1, "year"));
-              }}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/next.svg")} />
-            </button>
-          </div>
+          <DateSelector
+            onPrevious={() => {
+              handleDatesChange("decrement", "year", setYear);
+              toggleItemsActions?.yearly(year.subtract(1, "year"));
+            }}
+            onNext={() => {
+              handleDatesChange("increment", "year", setYear);
+              toggleItemsActions?.yearly(year.add(1, "year"));
+            }}
+            displayValue={formatFiscalYearLabel(fiscalYear)}
+          />
         )}
       </div>
 

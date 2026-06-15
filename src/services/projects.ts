@@ -1,6 +1,10 @@
 import axios from "axios";
 import { LEAD_PROJECT_COMPANY } from "@constants/api-endpoint";
+import { cachedRequest } from "./_requestCache";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+
+// Static reference lists change rarely — cache 5 min (also dedupes concurrent calls).
+const LOOKUP_TTL = 5 * 60_000;
 
 
 export const getPorjectById = async (id: string) => {
@@ -15,9 +19,11 @@ export const getPorjectById = async (id: string) => {
 // Get All Project Categories
 export const getAllProjectCategories = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_CATEGORIES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('projectCategories', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_CATEGORIES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         throw err;
     }
@@ -70,9 +76,11 @@ export const deleteProjectCategory = async (id: string) => {
 // Get All Project Subcategories
 export const getAllProjectSubcategories = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_SUBCATEGORIES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('projectSubcategories', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_SUBCATEGORIES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         throw err;
     }
@@ -125,9 +133,11 @@ export const deleteProjectSubcategory = async (id: string) => {
 // Get All Project Services
 export const getAllProjectServices = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_SERVICES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('projectServices', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_SERVICES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         throw err;
     }
@@ -181,9 +191,11 @@ export const deleteProjectService = async (id: string, targetId?: string) => {
 // Get All Project Statuses
 export const getAllProjectStatuses = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_STATUSES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('projectStatuses', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECT_STATUSES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         throw err;
     }
@@ -358,6 +370,17 @@ export const getAllProjects = async () => {
     }
 }
 
+// Every project that has coordinates (no pagination) — used by the map only.
+export const getProjectMapPoints = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_MAP_POINTS}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 export const getAllProjectCountForPrefix = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECT_COUNT_FOR_PREFIX}`;
@@ -519,9 +542,20 @@ export const deleteStakeholderService = async (id: string) => {
 }
 
 // Get projects by company id
-export const getProjectsByCompanyId = async (id: string) => {
+export const getProjectsByCompanyId = async (
+    id: string,
+    options?: { includeProjectId?: string; ongoingStatusIds?: string[] }
+) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_COMPANY_ID.replace(":companyId", id)}`;
+        const params = new URLSearchParams();
+        if (options?.includeProjectId) {
+            params.set("includeProjectId", options.includeProjectId);
+        }
+        if (options?.ongoingStatusIds?.length) {
+            params.set("ongoingStatusIds", options.ongoingStatusIds.join(","));
+        }
+        const query = params.toString() ? `?${params.toString()}` : "";
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_COMPANY_ID.replace(":companyId", id)}${query}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {

@@ -82,7 +82,7 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
   const modalStyles = {
     header: {
       borderBottom: 'none',
-      padding: '30px 40px 20px 40px',
+      padding: '24px 32px 16px 32px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -101,17 +101,18 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
       border: '1px solid #E1E3EA',
       fontFamily: 'Inter, sans-serif',
       fontSize: '14px',
-      width: '300px',
+      width: '100%',
+      maxWidth: '400px',
       outline: 'none',
     },
     body: {
-      padding: '0 40px 28px 40px',
-      maxHeight: '600px',
+      padding: '0 32px 24px 32px',
+      maxHeight: '70vh',
       overflowY: 'auto' as const,
     },
     footer: {
       borderTop: 'none',
-      padding: '0 40px 30px 40px',
+      padding: '0 32px 24px 32px',
       display: 'flex',
       justifyContent: 'flex-end',
     },
@@ -188,22 +189,20 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
   return (
     <Modal show={show} onHide={handleClose} centered size="xl">
       <Modal.Header closeButton style={modalStyles.header}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <Modal.Title style={modalStyles.title}>
-              {title}
-            </Modal.Title>
-          </div>
-          <input 
-            type="text" 
-            placeholder="Search by name or designation..." 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+          <Modal.Title style={modalStyles.title} className="sc-modal-title">
+            {title}
+          </Modal.Title>
+          <input
+            type="text"
+            placeholder="Search by name or designation..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={modalStyles.searchInput}
           />
         </div>
       </Modal.Header>
-      <Modal.Body style={modalStyles.body}>
+      <Modal.Body className="sc-modal-body" style={modalStyles.body}>
         <div className="row g-4">
           {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => {
             const isSelected = tempSelection.includes(emp.id);
@@ -233,7 +232,7 @@ const EmployeeSelectionModal: React.FC<EmployeeSelectionModalProps> = ({
           )}
         </div>
       </Modal.Body>
-      <Modal.Footer style={modalStyles.footer}>
+      <Modal.Footer className="sc-modal-body" style={modalStyles.footer}>
         <button style={modalStyles.saveBtn} onClick={() => onSave(tempSelection)}>
           Save Selection ({tempSelection.length})
         </button>
@@ -250,105 +249,6 @@ function GeneralSettings() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [configurationId, setConfigurationId] = useState<string>('');
   const [paymentModeConfigurationId, setPaymentModeConfigurationId] = useState<string>('');
-
-  const styles = {
-    container: {
-      backgroundColor: '#f8f9fa',
-      borderRadius: '16px',
-      padding: '32px',
-      display: 'flex',
-      flexDirection: 'column' as const,
-      gap: '24px',
-      margin: "24px 0px"
-    },
-    headerTitle: {
-      fontFamily: 'Barlow, sans-serif',
-      fontWeight: 700,
-      fontSize: '28px',
-      color: '#181C32',
-      marginBottom: '8px',
-      letterSpacing: '-0.5px',
-    },
-    sectionTitle: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 600,
-      fontSize: '16px',
-      color: '#181C32',
-      marginBottom: '4px',
-    },
-    sectionDesc: {
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 500,
-      fontSize: '13px',
-      color: '#A1A5B7',
-      margin: 0,
-    },
-    row: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '24px',
-      backgroundColor: '#ffffff',
-      border: '1px solid #E1E3EA',
-      borderRadius: '16px',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-      transition: 'box-shadow 0.2s ease',
-    },
-    dropdown: {
-      padding: '10px 16px',
-      borderRadius: '8px',
-      border: '1px solid #E1E3EA',
-      fontFamily: 'Inter, sans-serif',
-      fontSize: '14px',
-      fontWeight: 500,
-      color: '#3F4254',
-      minWidth: '220px',
-      outline: 'none',
-      backgroundColor: '#f9f9f9',
-      cursor: 'pointer',
-      transition: 'border-color 0.2s ease',
-    },
-    saveBtn: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #E1E3EA',
-      borderRadius: '8px',
-      color: '#3F4254',
-      padding: '10px 24px',
-      fontFamily: 'Inter, sans-serif',
-      fontWeight: 600,
-      fontSize: '14px',
-      cursor: 'pointer',
-      marginLeft: '16px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      transition: 'all 0.2s ease',
-    },
-    badge: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#fdf3f4',
-      color: '#9d4141',
-      borderRadius: '8px',
-      padding: '6px 12px',
-      fontSize: '15px',
-      fontWeight: 700,
-      fontFamily: 'Inter, sans-serif',
-      minWidth: '40px',
-    },
-    arrowBtn: {
-      background: '#ffffff',
-      border: '1px solid #E1E3EA',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      padding: '8px 16px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      color: '#3F4254',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      transition: 'all 0.2s ease',
-    }
-  };
 
   useEffect(() => {
     async function fetchAllData() {
@@ -442,65 +342,242 @@ function GeneralSettings() {
   };
   
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.headerTitle}>General Settings</h1>
+  const rowBase: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+    padding: '18px 20px 18px 24px',
+    backgroundColor: '#fff',
+    border: '1px solid #E8EAF0',
+    borderRadius: '14px',
+    boxShadow: '0 2px 8px rgba(24,28,50,0.05)',
+    transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+    position: 'relative' as const,
+    overflow: 'hidden' as const,
+  };
 
-      {/* Payment Mode */}
-      <div style={styles.row} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)'}>
-        <div className="d-flex align-items-center gap-3">
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#fdf3f4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9d4141', fontSize: '20px' }}>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '14px' }}>
+
+      {/* Section header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        marginBottom: '2px',
+      }}>
+        <div style={{
+          width: '34px', height: '34px', borderRadius: '9px',
+          background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+        }}>
+          <i className="bi bi-gear-fill" style={{ fontSize: '15px', color: '#fff' }} />
+        </div>
+        <div>
+          <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+            General Settings
+          </h2>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+            Core payroll settings applied across all employees.
+          </p>
+        </div>
+      </div>
+
+      {/* Payment Mode row */}
+      <div
+        className="sc-settings-row"
+        style={rowBase}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 24px rgba(24,28,50,0.09)';
+          (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5e0';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(24,28,50,0.05)';
+          (e.currentTarget as HTMLDivElement).style.borderColor = '#E8EAF0';
+        }}
+      >
+        {/* Left accent */}
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', background: 'linear-gradient(to bottom, #9d4141, #c06060)', borderRadius: '14px 0 0 14px' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingLeft: '6px', minWidth: 0, flex: 1 }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #fdf3f4 0%, #fce8e8 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#9d4141', fontSize: '19px',
+            boxShadow: '0 2px 10px rgba(157,65,65,0.12)', flexShrink: 0,
+            border: '1px solid rgba(157,65,65,0.08)',
+          }}>
             <i className="bi bi-wallet2"></i>
           </div>
-          <div>
-            <h3 style={styles.sectionTitle}>Payment Mode</h3>
-            <p style={styles.sectionDesc}>Select the base payment structure for all employees</p>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14.5px', color: '#181C32', margin: 0 }}>
+                Payment Mode
+              </h3>
+              <span style={{
+                fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 700,
+                backgroundColor: '#fdf3f4', color: '#9d4141',
+                border: '1px solid rgba(157,65,65,0.15)',
+                borderRadius: '99px', padding: '2px 8px', letterSpacing: '0.3px',
+              }}>
+                PAYROLL
+              </span>
+            </div>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '12px', color: '#A1A5B7', margin: '3px 0 0 0', lineHeight: 1.5 }}>
+              Select the base payment structure for all employees
+            </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+
+        <div className="sc-row-right" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <select
             value={paymentMode}
             onChange={(e) => setPaymentMode(e.target.value as 'Hour Based' | 'Day Based')}
-            style={styles.dropdown}
-            onFocus={(e) => e.currentTarget.style.borderColor = '#9d4141'}
-            onBlur={(e) => e.currentTarget.style.borderColor = '#E1E3EA'}
+            style={{
+              padding: '9px 14px',
+              borderRadius: '9px',
+              border: '1px solid #E1E3EA',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: '#374151',
+              minWidth: '160px',
+              outline: 'none',
+              backgroundColor: '#fafbfc',
+              cursor: 'pointer',
+              appearance: 'auto' as any,
+              boxShadow: '0 1px 3px rgba(24,28,50,0.04)',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(157,65,65,0.08)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(24,28,50,0.04)'; }}
           >
             <option value="Hour Based">Hour Based</option>
             <option value="Day Based">Day Based</option>
           </select>
-          <button 
-            style={styles.saveBtn} 
+          <button
             onClick={handleSubmitPaymentMode}
-            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+            style={{
+              backgroundColor: '#9d4141',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '9px',
+              padding: '9px 20px',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 3px 10px rgba(157,65,65,0.2)',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap' as const,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(157,65,65,0.28)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.2)'; }}
           >
-            <i className="bi bi-check-lg me-1"></i> Save
+            <i className="bi bi-check-lg" style={{ fontSize: '14px' }}></i> Save
           </button>
         </div>
       </div>
 
-      {/* Excluded from late Attendance deduction */}
-      <div style={styles.row} onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'} onMouseOut={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)'}>
-        <div className="d-flex align-items-center gap-3">
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#e1f0fa', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0085db', fontSize: '20px' }}>
+      {/* Excluded employees row */}
+      <div
+        className="sc-settings-row"
+        style={rowBase}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 24px rgba(24,28,50,0.09)';
+          (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5e0';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(24,28,50,0.05)';
+          (e.currentTarget as HTMLDivElement).style.borderColor = '#E8EAF0';
+        }}
+      >
+        {/* Left accent */}
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', background: 'linear-gradient(to bottom, #0085db, #3aa3e8)', borderRadius: '14px 0 0 14px' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', paddingLeft: '6px', minWidth: 0, flex: 1 }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #e1f0fa 0%, #cce4f6 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#0085db', fontSize: '19px',
+            boxShadow: '0 2px 10px rgba(0,133,219,0.12)', flexShrink: 0,
+            border: '1px solid rgba(0,133,219,0.08)',
+          }}>
             <i className="bi bi-person-x"></i>
           </div>
-          <div>
-            <h3 style={styles.sectionTitle}>Excluded from late Attendance deduction</h3>
-            <p style={styles.sectionDesc}>Manage employees exempt from late attendance penalties</p>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14.5px', color: '#181C32', margin: 0 }}>
+                Excluded from late Attendance deduction
+              </h3>
+              <span style={{
+                fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 700,
+                backgroundColor: '#e1f0fa', color: '#0085db',
+                border: '1px solid rgba(0,133,219,0.15)',
+                borderRadius: '99px', padding: '2px 8px', letterSpacing: '0.3px',
+              }}>
+                ATTENDANCE
+              </span>
+            </div>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '12px', color: '#A1A5B7', margin: '3px 0 0 0', lineHeight: 1.5 }}>
+              Manage employees exempt from late attendance penalties
+            </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={styles.badge}>
-            {selectedEmployeeIds.length} <span style={{fontSize: '12px', fontWeight: 500, marginLeft: '6px', color: '#a66969'}}>Selected</span>
-          </div>
-          <button 
-            style={styles.arrowBtn} 
+
+        <div className="sc-row-right" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          {selectedEmployeeIds.length > 0 && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              backgroundColor: '#fdf3f4',
+              border: '1px solid rgba(157,65,65,0.18)',
+              color: '#9d4141',
+              borderRadius: '9px',
+              padding: '7px 13px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '13px',
+              fontWeight: 700,
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(157,65,65,0.08)',
+            }}>
+              <span style={{ fontSize: '15px', lineHeight: 1 }}>{selectedEmployeeIds.length}</span>
+              <span style={{ fontSize: '11.5px', fontWeight: 500, color: '#b85555' }}>Selected</span>
+            </div>
+          )}
+          <button
             onClick={() => setShowModal(true)}
-            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#e1f0fa'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+            style={{
+              backgroundColor: '#fff',
+              border: '1px solid #E1E3EA',
+              borderRadius: '9px',
+              cursor: 'pointer',
+              padding: '9px 18px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: '13px',
+              color: '#374151',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 4px rgba(24,28,50,0.05)',
+              whiteSpace: 'nowrap' as const,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#f0f8ff'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,133,219,0.12)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.05)'; }}
           >
-            Configure <i className="bi bi-arrow-right ms-2"></i>
+            Configure <i className="bi bi-arrow-right" style={{ fontSize: '13px' }}></i>
           </button>
         </div>
       </div>

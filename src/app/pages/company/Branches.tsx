@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
@@ -20,8 +21,12 @@ import {
   fetchBranchById,
   fetchCompanyOverview,
   updateBranchById,
+  deleteBranchById,
+  promoteBranchToSubOrg,
 } from '@services/company'
-import { successConfirmation } from '@utils/modal'
+import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal'
+import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal'
+import Swal from 'sweetalert2'
 import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
 import { useDispatch, useSelector } from 'react-redux'
@@ -90,7 +95,16 @@ let initialState = {
   showDateIn12HourFormat: '0',
 }
 
-function Branches() {
+interface BranchesProps {
+  /** Scope the list + new-branch creation to this organization. */
+  companyId?: string;
+  /** Hide the standalone page title/breadcrumb when rendered inside another page. */
+  embedded?: boolean;
+  /** Hide the "Branches" heading (e.g. when the host modal already shows a title). */
+  hideHeading?: boolean;
+}
+
+function Branches({ companyId, embedded = false, hideHeading = false }: BranchesProps = {}) {
   const dispatch = useDispatch()
   const { countries } = useSelector((state: RootState) => state.locations)
 
@@ -122,7 +136,59 @@ function Branches() {
   const [isDeviceNotDesktop, setIsDeviceNotDesktop] = useState(false)
 
   const [branches, setBranches] = useState([])
+  const [orgOptions, setOrgOptions] = useState<{ value: string; label: string }[]>([])
+  const [empModal, setEmpModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [loading, setLoading] = useState(false)
+
+  const handlePromoteBranch = async (branch: any) => {
+    const empCount = branch._count?.Employees ?? 0
+    const result = await Swal.fire({
+      title: 'Promote to Sub-Organization?',
+      html: `This will create a sub-organization <b>"${branch.name}"</b> under the current organization and move this branch${empCount ? ` and its ${empCount} employee(s)` : ''} into it. Employees stay in this branch.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Promote',
+      cancelButtonText: 'Cancel',
+      customClass: { confirmButton: 'btn btn-primary fw-bold px-6', cancelButton: 'btn btn-light fw-bold px-6 ms-3' },
+      buttonsStyling: false,
+    })
+    if (!result.isConfirmed) return
+    try {
+      const res = await promoteBranchToSubOrg(branch.id)
+      if (res && !res.hasError) {
+        successConfirmation('Branch promoted to sub-organization')
+        setLoading(prev => !prev) // refetch (branch now lives under the new sub-org)
+      } else {
+        errorConfirmation(res?.message || 'Failed to promote branch')
+      }
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Failed to promote branch')
+    }
+  }
+
+  const handleDeleteBranch = async (branch: any) => {
+    const empCount = branch._count?.Employees ?? 0
+    if (empCount > 0) {
+      errorConfirmation(`This branch has ${empCount} employee(s). Reassign them before deleting.`)
+      return
+    }
+    const confirmed = await genericConfirmation(
+      'Confirm Deletion',
+      `Are you sure you want to delete "${branch.name}"? This action cannot be undone.`,
+      'Delete'
+    )
+    if (!confirmed) return
+    try {
+      // deleteBranchById throws on any non-2xx response. The success response is
+      // 204 No Content (empty body), so reaching here without throwing means the
+      // delete succeeded — do not gate on res.hasError (res is empty on 204).
+      await deleteBranchById(branch.id)
+      setLoading(prev => !prev) // trigger refetch
+      await successConfirmation('Branch deleted successfully')
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Failed to delete branch')
+    }
+  }
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [branchId, setBranchId] = useState('')
@@ -232,13 +298,17 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       town,
     } = branch
 
-    const countryName = await fetchCountryName(countryId)
-    const stateName = await fetchStateName(countryId, stateId)
+    // Resolve display labels defensively — the geo lookups can fail/return null
+    // (the local states dataset has no iso2). Never let that block opening the modal.
+    let countryLabel = countryId
+    let stateLabel = stateId
+    try { const cn = await fetchCountryName(countryId); if (cn?.name) countryLabel = cn.name } catch { /* keep id */ }
+    try { const sn = await fetchStateName(countryId, stateId); if (sn?.name) stateLabel = sn.name } catch { /* keep id */ }
 
-    setSelectedCountry({ value: countryId, label: countryName.name })
-    setSelectedState({ value: stateId, label: stateName.name })
-    setSelectedCity({ value: cityId, label: cityId })
-    setSelectedTown({ value: town.id, label: town.name })
+    setSelectedCountry(countryId ? { value: countryId, label: countryLabel } : null)
+    setSelectedState(stateId ? { value: stateId, label: stateLabel } : null)
+    setSelectedCity(cityId ? { value: cityId, label: cityId } : null)
+    setSelectedTown(town ? { value: town.id, label: town.name } : null)
 
     initialState = {
       address,
@@ -333,6 +403,26 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }
 
+  // Geocode the typed branch address into lat/long (works on desktop, no GPS needed).
+  const geocodeAddressToLatLng = async (formikProps: any) => {
+    const address = formikProps.values?.address
+    if (!address || !String(address).trim()) {
+      return
+    }
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+      const res = await fetch(url)
+      const data = await res.json()
+      if (data.status === 'OK' && data.results?.[0]) {
+        const { lat, lng } = data.results[0].geometry.location
+        formikProps.setFieldValue('latitude', Number(lat), true)
+        formikProps.setFieldValue('longitude', Number(lng), true)
+      }
+    } catch (error) {
+      console.error('Geocoding failed:', error)
+    }
+  }
+
   const getLocation = (formikProps: any) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -366,12 +456,14 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     async function fetchData() {
       const promise = [fetchAllBranches()]
       const [branchesResponse] = await Promise.all(promise)
-      setBranches(branchesResponse.data.branches)
+      const all = branchesResponse.data.branches
+      // When scoped to an organization, only show that org's branches.
+      setBranches(companyId ? all.filter((b: any) => b.companyId === companyId) : all)
     }
 
     fetchTowns()
     fetchData()
-  }, [loading])
+  }, [loading, companyId])
 
   const handleChange = (
     selectedOption: any,
@@ -410,11 +502,14 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
 
     // In case if country doesnt have states then assigning selected country
-    if (statesResponse.length > 0) {
-      const statesOptions = statesResponse.map((state: any) => ({
-        value: state.iso2,
-        label: state.name,
-      }))
+    if (statesResponse && statesResponse.length > 0) {
+      const statesOptions = statesResponse
+        .map((state: any) => ({
+          // Be resilient to differing field names from the geo source.
+          value: state.iso2 ?? state.state_code ?? state.id ?? state.name,
+          label: state.name,
+        }))
+        .filter((o: any) => o.value)
       setStatesOptions(statesOptions)
     } else {
       setStatesOptions([selectedCountry] as unknown as [])
@@ -422,10 +517,11 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   }
 
   const fetchCities = async () => {
-    if (selectedState == null) return
+    // Guard: never call the cities API with an undefined country/state (causes a 500).
+    if (!selectedState?.value || !selectedCountry?.value) return
 
-    countryCode = selectedCountry!.value
-    stateCode = selectedState!.value
+    countryCode = selectedCountry.value
+    stateCode = selectedState.value
 
     const citiesResponse = await fetchAllCities(countryCode, stateCode)
 
@@ -485,45 +581,54 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   useEffect(() => {
     fetchStates()
   }, [selectedCountry])
-  useEffect(() => {
-    fetchCities()
-  }, [selectedState])
+  // Cities are entered as free text (no offline city dataset / CSC key), so we
+  // no longer fetch them from the geo API.
   useEffect(() => {
     fetchTowns()
   }, [selectedCity])
   useEffect(() => {
     fetchCurrencies()
   }, [])
+
+  // Organizations (and sub-orgs) the branch can belong to.
+  useEffect(() => {
+    async function loadOrgs() {
+      try {
+        const { data: { companyOverview } } = await fetchCompanyOverview()
+        setOrgOptions((companyOverview || []).map((o: any) => ({ value: o.id, label: o.name })))
+      } catch (error) {
+        console.error('Failed to load organizations for branch form', error)
+      }
+    }
+    loadOrgs()
+  }, [])
  
+  const newBranchButton = isAdmin &&
+    hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
+      <div className='card-toolbar text-end' title='Add a branch'>
+        <button onClick={() => handleNew()} className='btn btn-sm btn-light-primary'>
+          <KTIcon iconName='plus' className='fs-3' />
+          New Branch
+        </button>
+      </div>
+    )
+
   return (
     <>
-       <div className="d-flex flex-wrap justify-content-between align-items-center px-lg-9 px-4 py-5">
-        <PageTitle breadcrumbs={branchesBreadCrumb}>Branches</PageTitle>
-        <div className="d-flex align-items-center justify-content-between w-100">
-          <PageHeadingTitle />
-          {isAdmin &&
-              hasPermission(
-                resourceNameMapWithCamelCase.branch,
-                permissionConstToUseWithHasPermission.create
-              ) && (
-                <div
-                  className='card-toolbar text-end'
-                  data-bs-toggle='tooltip'
-                  data-bs-placement='top'
-                  data-bs-trigger='hover'
-                  title='Click to add a user'
-                >
-                  <button
-                    onClick={() => handleNew()}
-                    className='btn btn-sm btn-light-primary'
-                  >
-                    <KTIcon iconName='plus' className='fs-3' />
-                    New Branch
-                  </button>
-                </div>
-              )}
+      {embedded ? (
+        <div className={`d-flex flex-wrap align-items-center px-lg-9 px-4 pt-6 pb-2 ${hideHeading ? 'justify-content-end' : 'justify-content-between'}`}>
+          {!hideHeading && <h3 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: 600, fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>Branches</h3>}
+          {newBranchButton}
         </div>
-       </div>
+      ) : (
+        <div className="d-flex flex-wrap justify-content-between align-items-center px-lg-9 px-4 py-5">
+          <PageTitle breadcrumbs={branchesBreadCrumb}>Branches</PageTitle>
+          <div className="d-flex align-items-center justify-content-between w-100">
+            <PageHeadingTitle />
+            {newBranchButton}
+          </div>
+        </div>
+      )}
         
 <div className="px-8">
   <Row>
@@ -546,21 +651,47 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                     dangerouslySetInnerHTML={{ __html: branch.address }}
                   />
                   <div className="d-flex justify-content-between align-items-center pt-5">
-                    <span className="fw-bold text-gray-500 text-muted fs-5">
-                      Total Employee: {branch._count?.Employees ?? 0}
-                    </span>
-                    {isAdmin &&
-                      hasPermission(
-                        resourceNameMapWithCamelCase.branch,
-                        permissionConstToUseWithHasPermission.editOthers
-                      ) && (
-                        <button
-                          className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                          onClick={() => handleEdit(branch.id)}
-                        >
-                          <KTIcon iconName="pencil" className="fs-3" />
-                        </button>
-                      )}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-light-primary d-inline-flex align-items-center"
+                      style={{ gap: 6 }}
+                      title="View employees in this branch"
+                      onClick={() => setEmpModal({ show: true, branch })}
+                    >
+                      <KTIcon iconName="people" className="fs-5" />
+                      {branch._count?.Employees ?? 0} Employees
+                    </button>
+                    {isAdmin && (
+                      <div className="d-flex gap-2">
+                        {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) && (
+                          <button
+                            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                            title="Promote this branch to a sub-organization"
+                            onClick={() => handlePromoteBranch(branch)}
+                          >
+                            <KTIcon iconName="arrow-up-right" className="fs-3" />
+                          </button>
+                        )}
+                        {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) && (
+                          <button
+                            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+                            title="Edit branch"
+                            onClick={() => handleEdit(branch.id)}
+                          >
+                            <KTIcon iconName="pencil" className="fs-3" />
+                          </button>
+                        )}
+                        {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) && (
+                          <button
+                            className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
+                            title="Delete branch"
+                            onClick={() => handleDeleteBranch(branch)}
+                          >
+                            <KTIcon iconName="trash" className="fs-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -592,7 +723,9 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     ) : null}
   </Row>
 </div>
-        <Modal show={show} onHide={handleClose} centered>
+        {/* Bumped z-index so the branch form sits above the host Branches modal when embedded */}
+        <style>{`.branch-form-backdrop.modal-backdrop{z-index:1086;} .branch-form-dialog{z-index:1090;}`}</style>
+        <Modal show={show} onHide={handleClose} centered backdropClassName="branch-form-backdrop" className="branch-form-dialog" style={{ zIndex: 1090 }}>
         <Modal.Header closeButton>
           <Modal.Title>Create a new branch</Modal.Title>
         </Modal.Header>
@@ -612,12 +745,17 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                 // }
 
                 async function fetchCompany() {
+                  // Scoped mode: attach the new branch to the given organization.
+                  if (companyId) {
+                    formikProps.setFieldValue('companyId', companyId, true)
+                    return
+                  }
                   const {
                     data: { companyOverview },
                   } = await fetchCompanyOverview()
                   formikProps.setFieldValue(
                     'companyId',
-                    companyOverview[0].id,
+                    (resolveActiveOrgId(companyOverview) ?? ''),
                     true
                   )
                 }
@@ -639,6 +777,14 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         label='Branch Name'
                         margin='mb-7'
                         formikField='name'
+                      />
+                    </div>
+                    <div className='col-lg-12 mb-7'>
+                      <DropDownInput
+                        isRequired={true}
+                        formikField='companyId'
+                        inputLabel='Organization'
+                        options={orgOptions}
                       />
                     </div>
                   </div>
@@ -727,23 +873,12 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                     </div>
 
                     <div className='col-lg-6 mb-7'>
-                      <LocationDropdown
-                        isDisabled={selectedState == null ? true : false}
+                      {/* City is a free-text field: the city dataset isn't available
+                          offline (CSC API needs a key) and cities are stored by name. */}
+                      <TextInput
                         isRequired={true}
-                        value={selectedCity}
-                        handleChange={(option: any) => {
-                          handleChange(
-                            option,
-                            'cityId',
-                            setSelectedCity,
-                            formikProps.setFieldValue
-                          )
-                          setSelectedTown(null)
-                          formikProps.setFieldValue('townId', '')
-                        }}
+                        label='City'
                         formikField='cityId'
-                        inputLabel='City'
-                        options={citiesOption}
                       />
                     </div>
 
@@ -787,17 +922,20 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         />
                       </div>
                     </div>
-                    <div 
-                      className="d-flex justify-content-end mt-4" 
-                      onClick={() => handleDetectLocation(formikProps)}
-                      style={{
-                        cursor: 'pointer',
-                        color: '#0D47A1',
-                        fontWeight: '600',
-                        fontSize: '13px'
-                      }}
-                    >
-                      Detect Current Location
+                    <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+                      <span
+                        onClick={() => geocodeAddressToLatLng(formikProps)}
+                        style={{ cursor: 'pointer', color: '#0D47A1', fontWeight: 600, fontSize: 13 }}
+                        title="Fill coordinates from the Branch Address below"
+                      >
+                        📍 Get coordinates from Address
+                      </span>
+                      <span
+                        onClick={() => handleDetectLocation(formikProps)}
+                        style={{ cursor: 'pointer', color: '#0D47A1', fontWeight: 600, fontSize: 13 }}
+                      >
+                        Detect Current Location
+                      </span>
                     </div>
                   </div>
                   <div className='col-lg'>
@@ -874,6 +1012,13 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           </Formik>
         </Modal.Body>
       </Modal>
+
+      <BranchEmployeesModal
+        show={empModal.show}
+        branchId={empModal.branch?.id}
+        branchName={empModal.branch?.name}
+        onClose={() => setEmpModal({ show: false, branch: null })}
+      />
     </>
   )
 }

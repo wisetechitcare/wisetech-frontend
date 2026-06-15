@@ -1032,20 +1032,26 @@
   padding: 0;
 }
 
-.ob-file-upload-view-btn {
-  align-self: flex-start;
-  border: none;
-  background: none;
-  padding: 0;
+.ob-file-upload-view {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--ob-accent);
+  border-radius: var(--ob-r-full);
+  background: #fff;
   color: var(--ob-accent);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   cursor: pointer;
   font-family: var(--ob-font);
 }
 
-.ob-file-upload-view-btn:hover {
-  text-decoration: underline;
+.ob-file-upload-view:hover {
+  background: var(--ob-accent);
+  color: #fff;
 }
 
 .ob-document-row {

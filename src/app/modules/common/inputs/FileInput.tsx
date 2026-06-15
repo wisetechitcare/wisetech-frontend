@@ -68,21 +68,12 @@ function FileInput({
                     accept=".pdf"
                     hint="PDF only — max 10MB"
                     existingFileName={existingDocument?.fileName || existingDocument?.path?.split("/").pop()}
+                    existingFileUrl={existingDocument?.path}
                     onDisabledClick={onDisabledClick}
                     onChange={(file) => {
                         if (file) setFile(documentId, file);
                     }}
                 />
-                {existingDocument?.path && (
-                    <button
-                        type="button"
-                        className="ob-file-upload-view-btn"
-                        onClick={() => window.open(existingDocument.path, "_blank")}
-                        disabled={disabled}
-                    >
-                        View uploaded file
-                    </button>
-                )}
             </div>
         );
     }

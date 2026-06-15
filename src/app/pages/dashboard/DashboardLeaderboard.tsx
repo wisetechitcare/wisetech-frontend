@@ -101,7 +101,7 @@ const DashboardLeaderboard = () => {
       setYearStart(fiscalStart);
       setYearEnd(fiscalEnd);
       setFiscalYearDisplay(
-        `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format("DD MMM, YYYY")}`
+        `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
       );
     }
 
@@ -156,7 +156,7 @@ const DashboardLeaderboard = () => {
     setYearStart(fiscalStart);
     setYearEnd(fiscalEnd);
     setFiscalYearDisplay(
-      `${fiscalStart.format("DD MMM, YYYY")} - ${fiscalEnd.format("DD MMM, YYYY")}`
+      `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
     );
   };
 

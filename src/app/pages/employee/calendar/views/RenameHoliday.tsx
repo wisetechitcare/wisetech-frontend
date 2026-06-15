@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { MRT_ColumnDef } from "material-react-table";
@@ -118,7 +119,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
       const {
         data: { companyOverview },
       } = await fetchCompanyOverview();
-      const companyId = companyOverview[0]?.id;
+      const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
       if (!companyId) {
         throw new Error("Company ID not found");
@@ -221,7 +222,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
       } = await fetchCompanyOverview();
       const {
         data: { holidays },
-      } = await fetchHolidays(companyOverview[0].id);
+      } = await fetchHolidays((resolveActiveOrgId(companyOverview) ?? ''));
       const transformedRes = holidays.map((holiday: RawHolidayData) => ({
         label: holiday.name,
         value: holiday.id,

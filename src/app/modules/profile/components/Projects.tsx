@@ -1,4 +1,4 @@
-
+﻿
 import React from 'react'
 import {Card2} from '../../../../_metronic/partials/content/cards/Card2'
 import {IconUserModel} from '../ProfileModels'
@@ -233,19 +233,19 @@ export function Projects() {
 }
 
 const users1: Array<IconUserModel> = [
-  {name: 'Emma Smith', avatar: 'media/avatars/300-6.jpg'},
-  {name: 'Rudy Stone', avatar: 'media/avatars/300-1.jpg'},
+  {name: 'Emma Smith', avatar: 'media/svg/avatars/018-girl-9.svg'},
+  {name: 'Rudy Stone', avatar: 'media/svg/avatars/001-boy.svg'},
   {name: 'Susan Redwood', initials: 'S', color: 'primary'},
 ]
 
 const users2 = [
   {name: 'Alan Warden', initials: 'A', color: 'warning'},
-  {name: 'Brian Cox', avatar: 'media/avatars/300-5.jpg'},
+  {name: 'Brian Cox', avatar: 'media/svg/avatars/014-girl-7.svg'},
 ]
 
 const users3 = [
-  {name: 'Mad Masy', avatar: 'media/avatars/300-6.jpg'},
-  {name: 'Cris Willson', avatar: 'media/avatars/300-1.jpg'},
+  {name: 'Mad Masy', avatar: 'media/svg/avatars/018-girl-9.svg'},
+  {name: 'Cris Willson', avatar: 'media/svg/avatars/001-boy.svg'},
   {name: 'Mike Garcie', initials: 'M', color: 'info'},
 ]
 
@@ -255,29 +255,29 @@ const users4 = [
 ]
 
 const users5 = [
-  {name: 'Francis Mitcham', avatar: 'media/avatars/300-20.jpg'},
-  {name: 'Michelle Swanston', avatar: 'media/avatars/300-7.jpg'},
+  {name: 'Francis Mitcham', avatar: 'media/svg/avatars/014-girl-7.svg'},
+  {name: 'Michelle Swanston', avatar: 'media/svg/avatars/020-girl-11.svg'},
   {name: 'Susan Redwood', initials: 'S', color: 'primary'},
 ]
 
 const users6 = [
-  {name: 'Emma Smith', avatar: 'media/avatars/300-6.jpg'},
-  {name: 'Rudy Stone', avatar: 'media/avatars/300-1.jpg'},
+  {name: 'Emma Smith', avatar: 'media/svg/avatars/018-girl-9.svg'},
+  {name: 'Rudy Stone', avatar: 'media/svg/avatars/001-boy.svg'},
   {name: 'Susan Redwood', initials: 'S', color: 'primary'},
 ]
 
 const users7 = [
-  {name: 'Meloday Macy', avatar: 'media/avatars/300-2.jpg'},
+  {name: 'Meloday Macy', avatar: 'media/svg/avatars/004-boy-1.svg'},
   {name: 'Rabbin Watterman', initials: 'S', color: 'success'},
 ]
 
 const users8 = [
-  {name: 'Emma Smith', avatar: 'media/avatars/300-6.jpg'},
-  {name: 'Rudy Stone', avatar: 'media/avatars/300-1.jpg'},
+  {name: 'Emma Smith', avatar: 'media/svg/avatars/018-girl-9.svg'},
+  {name: 'Rudy Stone', avatar: 'media/svg/avatars/001-boy.svg'},
   {name: 'Susan Redwood', initials: 'S', color: 'primary'},
 ]
 
 const users9 = [
-  {name: 'Meloday Macy', avatar: 'media/avatars/300-2.jpg'},
+  {name: 'Meloday Macy', avatar: 'media/svg/avatars/004-boy-1.svg'},
   {name: 'Rabbin Watterman', initials: 'S', color: 'danger'},
 ]

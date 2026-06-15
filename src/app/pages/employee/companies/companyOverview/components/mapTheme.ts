@@ -142,7 +142,7 @@ export const mapStyles = `
   /* Expanded state styling */
   .map-control-panel.expanded {
     width: 140px !important;
-    height: 95px !important;
+    height: 122px !important;
     border-radius: 10px !important;
     padding: 10px 14px !important;
   }

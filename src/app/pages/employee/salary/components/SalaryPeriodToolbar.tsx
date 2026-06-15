@@ -51,9 +51,6 @@ const SalaryPeriodToolbar = ({
                 options={options}
                 onChange={onAlignmentChange}
                 ariaLabel="salary period view selection"
-                sx={{
-                    '& .MuiToggleButtonGroup-grouped': { px: 1.6 },
-                }}
             />
 
             {periodLabel && (

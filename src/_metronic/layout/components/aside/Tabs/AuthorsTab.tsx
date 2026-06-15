@@ -1,4 +1,4 @@
-import {Link} from 'react-router-dom'
+﻿import {Link} from 'react-router-dom'
 import {toAbsoluteUrl} from '../../../../helpers'
 
 const authors: ReadonlyArray<{
@@ -7,43 +7,43 @@ const authors: ReadonlyArray<{
   description: string
 }> = [
   {
-    avatar: 'media/avatars/300-6.jpg',
+    avatar: 'media/svg/avatars/018-girl-9.svg',
     name: 'Emma Smith',
     description: 'Project Manager',
   },
 
   {
-    avatar: 'media/avatars/300-5.jpg',
+    avatar: 'media/svg/avatars/014-girl-7.svg',
     name: 'Sean Bean',
     description: 'PHP, SQLite, Artisan CLI',
   },
 
   {
-    avatar: 'media/avatars/300-11.jpg',
+    avatar: 'media/svg/avatars/047-girl-25.svg',
     name: 'Brian Cox',
     description: 'HTML5, jQuery, CSS3',
   },
 
   {
-    avatar: 'media/avatars/300-23.jpg',
+    avatar: 'media/svg/avatars/020-girl-11.svg',
     name: 'Dan Wilson',
     description: 'MangoDB, Java',
   },
 
   {
-    avatar: 'media/avatars/300-10.jpg',
+    avatar: 'media/svg/avatars/043-boy-18.svg',
     name: 'Natali Trump',
     description: 'NET, Oracle, MySQL',
   },
 
   {
-    avatar: 'media/avatars/300-9.jpg',
+    avatar: 'media/svg/avatars/029-boy-11.svg',
     name: 'Francis Mitcham',
     description: 'React, Vue',
   },
 
   {
-    avatar: 'media/avatars/300-12.jpg',
+    avatar: 'media/svg/avatars/001-boy.svg',
     name: 'Jessie Clarcson',
     description: 'Angular, React',
   },

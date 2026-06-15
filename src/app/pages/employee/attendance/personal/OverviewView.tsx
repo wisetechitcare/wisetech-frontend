@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useState, lazy, Suspense } from "react";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
@@ -255,7 +256,7 @@ function OverviewView() {
                     fetchAttendanceDetails(employeeId, month, year)
                 ]);
                 
-                const companyId = companyOverview[0].id;
+                const companyId = (resolveActiveOrgId(companyOverview) ?? '');
                 const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
                 dispatch(savePublicHolidays(publicHolidays));
                 const personalLeaves = transformLeaves(leaves);
@@ -336,7 +337,7 @@ function OverviewView() {
         async function fetchLeavesPublicHolidays() {
             try {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                const companyId = companyOverview[0].id;
+                const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
                 const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
                 const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);

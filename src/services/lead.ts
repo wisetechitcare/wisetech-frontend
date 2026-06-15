@@ -1,6 +1,12 @@
 import axios from "axios";
 import { LEAD_PROJECT_COMPANY, CLIENT_COMPANIES } from "@constants/api-endpoint";
+import { cachedRequest, invalidateRequestCache } from "./_requestCache";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+
+// Static reference lists: cache 5 min. User-mutable lists (branches): short 45s cache
+// — mainly to dedupe the duplicate fetches on a single page load.
+const LOOKUP_TTL = 5 * 60_000;
+const MUTABLE_TTL = 45_000;
 
 // Get All Lead Status
 export const getAllLeadStatus = async () => {
@@ -171,9 +177,11 @@ export const deleteLeadDirectSource = async (id: string, targetId?: string) => {
 // Get All Branches
 export const getAllClientBranches = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_LEAD_BRANCHES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('clientBranches', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_LEAD_BRANCHES}`;
+            const { data } = await axios.get(endpoint, { params: { pageSize: 9999 } });
+            return data;
+        }, MUTABLE_TTL);
     } catch (err) {
         throw err;
     }
@@ -195,6 +203,7 @@ export const createClientBranch = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_LEAD_BRANCH}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('clientBranches');
         return data;
     } catch (err) {
         throw err;
@@ -206,6 +215,7 @@ export const updateClientBranch = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_LEAD_BRANCH.replace(':id', id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('clientBranches');
         return data;
     } catch (err) {
         throw err;
@@ -217,6 +227,7 @@ export const deleteClientBranch = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_LEAD_BRANCH.replace(':id', id)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('clientBranches');
         return data;
     } catch (err) {
         throw err;
@@ -448,9 +459,11 @@ export const getLeadsCountByFiscalYear = async (formattedYear: string, prefixBas
 // Get All Lead Cancellation Reasons
 export const getAllLeadCancellationReasons = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEAD_CANCELLATION_REASONS}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('leadCancellationReasons', async () => {
+            const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEAD_CANCELLATION_REASONS}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
     } catch (err) {
         console.error('Error calling getAllLeadCancellationReasons:', err);
         throw err;

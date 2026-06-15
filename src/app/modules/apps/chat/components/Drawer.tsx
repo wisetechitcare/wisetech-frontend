@@ -1,4 +1,4 @@
-
+﻿
 import {FC} from 'react'
 import {Card1} from '../../../../../_metronic/partials/content/cards/Card1'
 
@@ -30,7 +30,7 @@ const Drawer: FC = () => {
       <div className='row g-6 g-xl-9'>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-6.jpg'
+            avatar='media/svg/avatars/018-girl-9.svg'
             name='Emma Smith'
             job='Art Director'
             avgEarnings='$14,560'
@@ -49,7 +49,7 @@ const Drawer: FC = () => {
         </div>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-1.jpg'
+            avatar='media/svg/avatars/001-boy.svg'
             name='Max Smith'
             job='Software Enginer'
             avgEarnings='$14,560'
@@ -58,7 +58,7 @@ const Drawer: FC = () => {
         </div>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-5.jpg'
+            avatar='media/svg/avatars/014-girl-7.svg'
             name='Sean Bean'
             job='Web Developer'
             avgEarnings='$14,560'
@@ -67,7 +67,7 @@ const Drawer: FC = () => {
         </div>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-25.jpg'
+            avatar='media/svg/avatars/029-boy-11.svg'
             name='Brian Cox'
             job='UI/UX Designer'
             avgEarnings='$14,560'
@@ -86,7 +86,7 @@ const Drawer: FC = () => {
         </div>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-9.jpg'
+            avatar='media/svg/avatars/029-boy-11.svg'
             name='Francis Mitcham'
             job='Software Arcitect'
             avgEarnings='$14,560'
@@ -115,7 +115,7 @@ const Drawer: FC = () => {
         </div>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-23.jpg'
+            avatar='media/svg/avatars/020-girl-11.svg'
             name='Dan Wilson'
             job='Web Desinger'
             avgEarnings='$14,560'
@@ -134,7 +134,7 @@ const Drawer: FC = () => {
         </div>
         <div className='col-md-6 col-xxl-4'>
           <Card1
-            avatar='media/avatars/300-12.jpg'
+            avatar='media/svg/avatars/001-boy.svg'
             name='Ana Crown'
             job='Customer Relationship'
             avgEarnings='$14,560'

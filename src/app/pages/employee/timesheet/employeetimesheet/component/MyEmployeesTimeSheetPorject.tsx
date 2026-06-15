@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { RootState } from "@redux/store";
@@ -319,7 +319,7 @@ const MyEmployeesTimeSheetPorject = ({
                 />
               ) : (
                 <img
-                  src={toAbsoluteUrl("media/avatars/blank.png")}
+                  src={toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")}
                   alt={employeeData?.employee?.users?.firstName}
                   style={{
                     width: "40px",

@@ -125,6 +125,7 @@ export const ResourceMapWithName = {
 
 export const resourceNameMapWithCamelCase = {
     attendanceRequest: "attendancerequest",
+    attendanceRequestLimit: "attendancerequestlimit",
     attendanceReport: "attendancereport",
     reimbursement: "reimbursement",
     leave: "leave",
@@ -141,6 +142,7 @@ export const resourceNameMapWithCamelCase = {
     kpi: "kpi",
     loanInstallment: "loanInstallment",
     salary: "salary",
+    increment: "increment",
     birthdays: "birthdays",
     attendanceConfig: "attendanceConfig",
     salaryConfig: "salaryConfig",
@@ -178,6 +180,7 @@ export const uiControlResourceNameMapWithCamelCase = {
     holidaysUnderReports: "reports->holidays",
     reimbursementsUnderFinance: "finance->reimbursements",
     salaryUnderFinance: "finance->salary",
+    incrementUnderFinance: "finance->increment",
     kpiUnderReports: "reports->kpi",
     loanUnderFinance: "finance-loan",
     leadProjectCompaniesContact: "lead-project->companiesContact",
