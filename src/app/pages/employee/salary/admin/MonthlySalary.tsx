@@ -6,6 +6,7 @@ import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
+import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 
 interface MonthlySalaryProps {
   month: Dayjs;
@@ -30,6 +31,12 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
   const filters = useSalaryFilters(employeesData);
   const { filteredEmployeeSummaries, statusFilter } = filters;
+
+  const { resolveComponent } = useSalaryMaster();
+  const tds1Comp = resolveComponent('Professional Fees');
+  const tds2Comp = resolveComponent('TDS 2');
+  const tds1Name = tds1Comp?.shortCode ? tds1Comp.shortCode.toUpperCase() : tds1Comp?.displayName ? tds1Comp.displayName.toUpperCase() : 'TDS';
+  const tds2Name = tds2Comp?.shortCode ? tds2Comp.shortCode.toUpperCase() : tds2Comp?.displayName ? tds2Comp.displayName.toUpperCase() : 'TDS 2';
 
   // Memoized calculation for optimal performance
   const salarySummary = useMemo<SalarySummary>(() => {
@@ -101,6 +108,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         amountPaid: rawTotals.amountPaid ?? '-',
         dueAmount: rawTotals.dueAmount ?? '-',
         professionalFees: rawTotals.professionalFeesDeducted ?? 0,
+        tds2: rawTotals.tds2Deducted ?? 0,
         professionalTax: rawTotals.professionalTaxDeducted ?? 0,
         totalWorkingTime: rawTotals?.workingDays ? `${((rawTotals?.workingDays ?? 0) * 8).toFixed(2)} hrs` : '-',
         workedTime: rawTotals?.payableHours != null ? `${Number(rawTotals.payableHours).toFixed(2)} hrs` : '-',
@@ -117,7 +125,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
     const dataScore = (r: any) => {
       const numFields = ['basicSalary', 'overTimeAmount', 'netAmount', 'amountPaid',
-        'professionalFees', 'professionalTax', 'totalDays', 'present'];
+        'professionalFees', 'tds2', 'professionalTax', 'totalDays', 'present'];
       return numFields.reduce((s, k) => {
         const v = Number(r[k]);
         return s + (Number.isFinite(v) && v > 0 ? 1 : 0);
@@ -148,13 +156,14 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         acc.basicSalary      += num(r.basicSalary);
         acc.overTimeAmount   += num(r.overTimeAmount);
         acc.professionalFees += num(r.professionalFees);
+        acc.tds2             += num(r.tds2);
         acc.professionalTax  += num(r.professionalTax);
         acc.netAmount        += num(r.netAmount);
         acc.amountPaid       += num(r.amountPaid);
         acc.dueAmount        += num(r.dueAmount);
         return acc;
       },
-      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
+      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
     );
   }, [tableData]);
 
@@ -166,7 +175,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'branch',          header: 'Branch',              type: 'text'     as const },
     { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
     { key: 'overTimeAmount',  header: 'Over Time Amount',    type: 'currency' as const, showTotal: true },
-    { key: 'professionalFees',header: 'TDS',                 type: 'currency' as const, showTotal: true },
+    { key: 'professionalFees',header: tds1Name,              type: 'currency' as const, showTotal: true },
+    { key: 'tds2',            header: tds2Name,              type: 'currency' as const, showTotal: true },
     { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
     { key: 'netAmount',       header: 'Net Payable',         type: 'currency' as const, showTotal: true },
     { key: 'amountPaid',      header: 'Paid',                type: 'currency' as const, showTotal: true, color: '#1d4ed8' },
@@ -188,7 +198,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'late',            header: 'Late',                type: 'number'   as const },
     { key: 'leaves',          header: 'Leaves',              type: 'number'   as const },
     { key: 'extraDay',        header: 'Extra Day',           type: 'number'   as const },
-  ], []);
+  ], [tds1Name, tds2Name]);
 
   return (
     <>
@@ -271,13 +281,23 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             },
                         {
               accessorKey: "professionalFees",
-              header: "TDS",
+              header: tds1Name,
               Cell: ({ renderedCellValue }: any) => {
                 const val = Math.round(Number(renderedCellValue));
                 if (!val || val === 0) return "-";
                 return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
               Footer: () => fmtINR(columnTotals.professionalFees),
+            },
+            {
+              accessorKey: "tds2",
+              header: tds2Name,
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Math.round(Number(renderedCellValue));
+                if (!val || val === 0) return "-";
+                return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              },
+              Footer: () => fmtINR(columnTotals.tds2),
             },
             {
               accessorKey: "professionalTax",

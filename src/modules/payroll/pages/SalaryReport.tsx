@@ -150,6 +150,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                                 salaryId={apiSalaryData?.id as string}
                                 loading={ui.loading}
                                 setLoading={ui.setLoading}
+                                employee={employee}
                             />
 
                             {/* Breakdown tables */}
@@ -209,7 +210,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                             fromAdmin={fromAdmin}
                             onAddPayment={() => ui.handlePaymentEdit()}
                             onEditPayment={ui.handlePaymentEdit}
-                            onDeletePayment={(item) => ui.handleDeletePayment(item)}
+                            onDeletePayment={(item) => ui.handleDeletePayment(item, onRefreshSalaryData)}
                         />
                     </div>
                 )}

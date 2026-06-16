@@ -24,6 +24,9 @@ export interface NormalizedPaymentEntry {
     transactionId?: string | null;
     remarks?: string | null;
     source: PaymentSource;
+    status?: 'PENDING' | 'PARTIAL' | 'PAID' | 'PAID_EXTRA';
+    remainingBefore?: number;
+    remainingAfter?: number;
 }
 
 export interface NormalizedPayrollRecord {
@@ -171,7 +174,32 @@ export function normalizePayrollRecord(raw: any): NormalizedPayrollRecord {
         });
 
         if (paymentHistory.length > 0) {
-            paymentHistory.sort((a, b) => new Date(b?.paymentDate ?? 0).getTime() - new Date(a?.paymentDate ?? 0).getTime());
+            paymentHistory.sort((a, b) => new Date(a?.paymentDate ?? 0).getTime() - new Date(b?.paymentDate ?? 0).getTime());
+
+            // Calculate individual payment status based on remaining balance
+            let cumulativePaid = 0;
+            paymentHistory.forEach((payment) => {
+                const remainingBefore = Math.max(0, finalNetSalary - cumulativePaid);
+                const amount = payment.amount;
+                const remainingAfter = Math.max(-amount, remainingBefore - amount);
+
+                let paymentStatus: 'PENDING' | 'PARTIAL' | 'PAID' | 'PAID_EXTRA';
+                if (amount <= 0) {
+                    paymentStatus = 'PENDING';
+                } else if (amount > remainingBefore) {
+                    paymentStatus = 'PAID_EXTRA';
+                } else if (amount >= remainingBefore && remainingBefore > 0) {
+                    paymentStatus = 'PAID';
+                } else {
+                    paymentStatus = 'PARTIAL';
+                }
+
+                payment.status = paymentStatus;
+                payment.remainingBefore = remainingBefore;
+                payment.remainingAfter = remainingAfter;
+
+                cumulativePaid += amount;
+            });
         } else if (legacyAmountPaid > 0) {
             hasLegacyFallback = true;
             paymentHistory = [
@@ -182,6 +210,9 @@ export function normalizePayrollRecord(raw: any): NormalizedPayrollRecord {
                     transactionId: raw?.transactionId ?? null,
                     remarks: raw?.remarks ?? null,
                     source: 'LEGACY',
+                    status: legacyAmountPaid >= finalNetSalary ? 'PAID' : (legacyAmountPaid > 0 ? 'PARTIAL' : 'PENDING'),
+                    remainingBefore: finalNetSalary,
+                    remainingAfter: Math.max(-legacyAmountPaid, finalNetSalary - legacyAmountPaid),
                 },
             ];
         }
