@@ -162,9 +162,11 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                             </button>
                         )}
 
-                        {signatureUrl && signatureLoaded && (
-                            <Draggable bounds="parent"
-                                onStart={(e) => e.preventDefault()}
+                        {signatureUrl && signatureLoaded && (() => {
+                            const DraggableComponent = Draggable as any;
+                            return (
+                            <DraggableComponent bounds="parent"
+                                onStart={(e: any) => e.preventDefault()}
                                 onStop={handleDragStop}>
                                 <img
                                     src={signatureUrl}
@@ -178,8 +180,9 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                                         cursor: 'move'
                                     }}
                                 />
-                            </Draggable>
-                        )}
+                            </DraggableComponent>
+                            );
+                        })()}
                     </Document>
                 </div>
             </DialogContent>
