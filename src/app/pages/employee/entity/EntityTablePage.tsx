@@ -23,7 +23,7 @@ import {
   rejectConfirmation,
   successConfirmation,
 } from "@utils/modal";
-import LeadFormModal from "@pages/employee/leads/lead/LeadFormModal";
+import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -1941,7 +1941,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       />
 
       {formValues && (
-        <LeadFormModal
+        <LeadWizardModal
           key={formValues?.id || "new-lead-modal"}
           leadTemplateId={formValues?.leadTemplateId}
           open={true}

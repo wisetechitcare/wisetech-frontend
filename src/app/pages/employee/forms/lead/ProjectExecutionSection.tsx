@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Grid, Typography, Switch, FormControlLabel, Chip } from "@mui/material";
-import {
-  Engineering,
-  PlayCircleOutline,
-  AttachMoney,
-  Tune,
-} from "@mui/icons-material";
+import { Grid, Typography, Switch, FormControlLabel } from "@mui/material";
 import { useFormikContext } from "formik";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -40,14 +34,20 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
     color: s.color,
   }));
 
+  // Employees in this app expose `employeeId` + `employeeName` (same shape the
+  // working "Assigned to" dropdown uses). Fall back to nested user / name fields.
   const employeeOptions = (employees || []).map((e: any) => ({
-    value: e.id || e.employeeId,
-    label: `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.name || "Unknown",
+    value: e.employeeId || e.id,
+    label:
+      e.employeeName ||
+      `${e.users?.firstName || ""} ${e.users?.lastName || ""}`.trim() ||
+      e.name ||
+      "Unknown",
   }));
 
   const teamOptions = (teams || []).map((t: any) => ({
     value: t.id,
-    label: t.name,
+    label: t.name || t.teamName || "Unnamed Team",
   }));
 
   const accessOptions = [
@@ -58,42 +58,11 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
   const meta = values.projectMeta || {};
 
   return (
-    <div
-      style={{
-        borderTop: "3px solid #1976d2",
-        marginTop: "32px",
-        paddingTop: "24px",
-        animation: "fadeSlideIn 0.35s ease",
-      }}
-    >
-      <style>{`
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(-12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div className="d-flex align-items-center gap-3 mb-6">
-        <Chip
-          label="PROJECT MODE"
-          color="primary"
-          size="small"
-          icon={<PlayCircleOutline />}
-          sx={{ fontWeight: 700, letterSpacing: "0.5px" }}
-        />
-        <Typography variant="h6" sx={{ fontWeight: 700, color: "#1976d2", fontFamily: "Barlow, sans-serif" }}>
-          Project Execution Details
-        </Typography>
-      </div>
-
+    <div>
       {/* ── Execution Info ─────────────────────────────────────────────── */}
-      <div className="card shadow-sm border p-5 bg-white mb-5">
-        <div className="d-flex align-items-center gap-2 mb-4">
-          <Engineering fontSize="small" color="primary" />
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, fontFamily: "Barlow, sans-serif" }}>
-            Execution Info
-          </Typography>
+      <div className="wt-section-card">
+        <div className="wt-section-heading">
+          Execution Info
         </div>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
@@ -156,12 +125,9 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
       </div>
 
       {/* ── Timeline ───────────────────────────────────────────────────── */}
-      <div className="card shadow-sm border p-5 bg-white mb-5">
-        <div className="d-flex align-items-center gap-2 mb-4">
-          <Tune fontSize="small" color="primary" />
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, fontFamily: "Barlow, sans-serif" }}>
-            Timeline
-          </Typography>
+      <div className="wt-section-card" style={{ marginTop: "1.5rem" }}>
+        <div className="wt-section-heading">
+          Timeline
         </div>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
@@ -195,12 +161,9 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
       </div>
 
       {/* ── Contract Financials ────────────────────────────────────────── */}
-      <div className="card shadow-sm border p-5 bg-white mb-5">
-        <div className="d-flex align-items-center gap-2 mb-4">
-          <AttachMoney fontSize="small" color="primary" />
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, fontFamily: "Barlow, sans-serif" }}>
-            Contract Financials
-          </Typography>
+      <div className="wt-section-card" style={{ marginTop: "1.5rem" }}>
+        <div className="wt-section-heading">
+          Contract Financials
         </div>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
@@ -221,7 +184,7 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
           </Grid>
           <Grid item xs={12} md={4}>
             <TextInput
-              formikField="additionalDetails.poNumber"
+              formikField="projectMeta.poNumber"
               label="PO Number"
               isRequired={false}
             />
@@ -229,8 +192,11 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
         </Grid>
       </div>
 
-      {/* ── Location QC ───────────────────────────────────────────────── */}
-      <div className="card shadow-sm border p-5 bg-white mb-5">
+      {/* ── Location Verification ─────────────────────────────────────── */}
+      <div className="wt-section-card" style={{ marginTop: "1.5rem" }}>
+        <div className="wt-section-heading">
+          Location Verification
+        </div>
         <Grid container spacing={3}>
           <Grid item xs={12} md={3}>
             <FormControlLabel

@@ -21,7 +21,7 @@ import { Typography } from "@mui/material";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
-import LeadFormModal from "../../lead/LeadFormModal";
+import LeadWizardModal from "../../lead/LeadWizardModal";
 
 export type ToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs, endDate: Dayjs) => void;
@@ -378,7 +378,7 @@ const LeadsOverviewToggle = ({
 
       
 
-      <LeadFormModal
+      <LeadWizardModal
         key={formValues ? `new-${formValues.leadTemplateId}` : "new-lead-modal"}
         open={!!formValues}
         onClose={() => setFormValues(null)}

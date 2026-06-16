@@ -270,7 +270,10 @@ export const TeamDetailsSection: React.FC<LeadSectionsProps> = (props) => {
 // 4. File Location Section
 export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <div className="wt-section-card">
+      <div className="wt-section-heading">
+        File Location
+      </div>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput
@@ -306,7 +309,10 @@ export const ReferralSection: React.FC<LeadSectionsProps> = (props) => {
   ];
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <div className="wt-section-card">
+      <div className="wt-section-heading">
+        Referral Details
+      </div>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput formikField="leadSourceType" inputLabel="Lead Source Type" options={sourceTypes} isRequired={false} />
@@ -325,71 +331,74 @@ export const ReferralSection: React.FC<LeadSectionsProps> = (props) => {
 
         {values.leadSourceType === "REFERRAL" && (
           <Grid item xs={12}>
-            <Typography className="fs-6 fw-bold text-gray-800 mb-3">Referral Connections</Typography>
-            <FieldArray name="referrals">
-              {({ push, remove }) => (
-                <div className="d-flex flex-column gap-4">
-                  {(values.referrals || []).map((ref: any, index: number) => (
-                    <div key={index} className="p-4 border rounded bg-light position-relative">
-                      <IconButton
-                        onClick={() => remove(index)}
-                        sx={{ position: "absolute", top: 8, right: 8, color: "red" }}
-                        size="small"
-                      >
-                        <Close fontSize="small" />
-                      </IconButton>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                          <DropDownInput
-            isRequired={false}
-                            formikField={`referrals.${index}.referralType`}
-                            inputLabel="Referral Type"
-                            options={(props.referralTypes || []).map(x => ({ value: x.id, label: x.name }))}
-                          />
-                        </Grid>
-                        {ref.referralType === "INTERNAL" ? (
-                          <Grid item xs={12} md={8}>
+            <div style={{ marginTop: "1rem" }}>
+              <FieldArray name="referrals">
+                {({ push, remove }) => (
+                  <div className="d-flex flex-column gap-3">
+                    {(values.referrals || []).map((ref: any, index: number) => (
+                      <div key={index} className="wt-entry-card">
+                        <button
+                          type="button"
+                          className="wt-entry-card-remove"
+                          onClick={() => remove(index)}
+                          aria-label="Remove referral"
+                        >
+                          <Close fontSize="small" />
+                        </button>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={4}>
                             <DropDownInput
-            isRequired={false}
-                              formikField={`referrals.${index}.referredByEmployeeId`}
-                              inputLabel="Referring Employee"
-                              options={employeeOptions}
+              isRequired={false}
+                              formikField={`referrals.${index}.referralType`}
+                              inputLabel="Referral Type"
+                              options={(props.referralTypes || []).map(x => ({ value: x.id, label: x.name }))}
                             />
                           </Grid>
-                        ) : (
-                          <>
-                            <Grid item xs={12} md={4}>
+                          {ref.referralType === "INTERNAL" ? (
+                            <Grid item xs={12} md={8}>
                               <DropDownInput
-            isRequired={false}
-                                formikField={`referrals.${index}.referringCompanyType`}
-                                inputLabel="Referring Company Type"
-                                options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
+              isRequired={false}
+                                formikField={`referrals.${index}.referredByEmployeeId`}
+                                inputLabel="Referring Employee"
+                                options={employeeOptions}
                               />
                             </Grid>
-                            <Grid item xs={12} md={4}>
-                              <DropDownInput
-            isRequired={false}
-                                formikField={`referrals.${index}.referringCompany`}
-                                inputLabel="Referring Company"
-                                options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
-                              />
-                            </Grid>
-                          </>
-                        )}
-                      </Grid>
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "" })}
-                    className="align-self-start fw-bold mt-2"
-                  >
-                    + Add Referral Source
-                  </Button>
-                </div>
-              )}
-            </FieldArray>
+                          ) : (
+                            <>
+                              <Grid item xs={12} md={4}>
+                                <DropDownInput
+              isRequired={false}
+                                  formikField={`referrals.${index}.referringCompanyType`}
+                                  inputLabel="Referring Company Type"
+                                  options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <DropDownInput
+              isRequired={false}
+                                  formikField={`referrals.${index}.referringCompany`}
+                                  inputLabel="Referring Company"
+                                  options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
+                                />
+                              </Grid>
+                            </>
+                          )}
+                        </Grid>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      type="button"
+                      onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "" })}
+                      className="align-self-start fw-bold mt-1"
+                    >
+                      + Add Referral Source
+                    </Button>
+                  </div>
+                )}
+              </FieldArray>
+            </div>
           </Grid>
         )}
       </Grid>
@@ -508,69 +517,55 @@ export const AdditionalDetailsSection: React.FC = () => {
 //
 // Writes: Lead Status → statusId, Project Status → projectStatusId
 export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
-  const { values, setFieldValue } = useFormikContext<any>();
+  const { setFieldValue } = useFormikContext<any>();
   const isReceived = props.isReceivedStatus ?? false;
 
   const leadStatuses = props.leadStatuses || [];
   const leadProjectStatuses = props.leadProjectStatuses || [];
 
-  const handleLeadStatusChange = (selectedId: string) => {
-    setFieldValue('statusId', selectedId);
-    const selected = leadStatuses.find((x: any) => x.id === selectedId);
-    if (!selected?.isProjectTrigger) {
-      // Leaving Received — project no longer active, clear project status
-      setFieldValue('projectStatusId', '');
-    }
-  };
-
-  const handleProjectStatusChange = (selectedId: string) => {
-    setFieldValue('projectStatusId', selectedId);
-  };
-
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
-        {/* Lead Status — always visible */}
+        {/* Lead Status — always visible (same DropDownInput flow as the classic form) */}
         <Grid item xs={12} md={isReceived ? 6 : 12}>
-          <div className="d-flex flex-column gap-1">
-            <label className="form-label fs-6 fw-semibold required">
-              Lead Status
-            </label>
-            <select
-              className="form-select form-select-solid"
-              value={values.statusId || ''}
-              onChange={e => handleLeadStatusChange(e.target.value)}
-            >
-              <option value="">Select lead status…</option>
-              {leadStatuses.map((x: any) => (
-                <option key={x.id} value={x.id}>{x.name}</option>
-              ))}
-            </select>
-          </div>
+          <DropDownInput
+            formikField="statusId"
+            inputLabel="Lead Status"
+            isRequired={true}
+            showColor={true}
+            placeholder="Select lead status…"
+            options={leadStatuses.map((x: any) => ({ value: x.id, label: x.name, color: x.color }))}
+            onChange={(opt: any) => {
+              const selectedId = opt?.value || "";
+              setFieldValue("statusId", selectedId);
+              const selected = leadStatuses.find((x: any) => x.id === selectedId);
+              if (!selected?.isProjectTrigger) {
+                // Leaving a project-trigger status — clear the project status too
+                setFieldValue("projectStatusId", "");
+              }
+            }}
+          />
         </Grid>
 
-        {/* Project Status — only when Lead is Received (isProjectTrigger=true) */}
+        {/* Project Status — only when Lead status is project-trigger (Received).
+            No onChange → self-binds to projectStatusId via Formik, exactly like the
+            classic form, so edits persist through handleSubmit's projectDelta. */}
         {isReceived && (
           <Grid item xs={12} md={6}>
-            <div className="d-flex flex-column gap-1">
-              <label className="form-label fs-6 fw-semibold">
-                Project Status
-                <span className="badge badge-light-success ms-3 fs-8 fw-normal">Project Active</span>
-              </label>
-              <select
-                className="form-select form-select-solid"
-                value={values.projectStatusId || ''}
-                onChange={e => handleProjectStatusChange(e.target.value)}
-              >
-                <option value="">Select project status…</option>
-                {leadProjectStatuses.map((x: any) => (
-                  <option key={x.id} value={x.id}>{x.name}</option>
-                ))}
-              </select>
-              {leadProjectStatuses.length === 0 && (
-                <span className="text-muted fs-8">Loading project statuses…</span>
-              )}
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span className="badge badge-light-success fs-8 fw-normal">Project Active</span>
             </div>
+            <DropDownInput
+              formikField="projectStatusId"
+              inputLabel="Project Status"
+              isRequired={false}
+              showColor={true}
+              placeholder="Select project status…"
+              options={leadProjectStatuses.map((x: any) => ({ value: x.id, label: x.name, color: x.color }))}
+            />
+            {leadProjectStatuses.length === 0 && (
+              <span className="text-muted fs-8">Loading project statuses…</span>
+            )}
           </Grid>
         )}
       </Grid>

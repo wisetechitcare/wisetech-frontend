@@ -13,7 +13,7 @@ import { useAuth } from '@app/modules/auth';
 
 import LeadOverview from '@pages/employee/leads/lead/components/LeadOverview';
 import LeadFiles from '@pages/employee/leads/lead/components/LeadFiles';
-import LeadFormModal from '@pages/employee/leads/lead/LeadFormModal';
+import LeadWizardModal from '@pages/employee/leads/lead/LeadWizardModal';
 import ProposalTemplatePage from '@pages/employee/leads/lead/components/ProposalTemplatePage';
 import { DMSProvider } from '@pages/employee/leads/lead/components/dms/store/DmsContext';
 import TasksMainTable from '@pages/employee/tasks/tasks/TasksMainTable';
@@ -382,7 +382,7 @@ const EntityDetailPage: React.FC = () => {
             </div>
 
             {formValues && (
-                <LeadFormModal
+                <LeadWizardModal
                     key={formValues?.id || "edit-lead-modal"}
                     leadTemplateId={formValues?.leadTemplateId}
                     open={true}

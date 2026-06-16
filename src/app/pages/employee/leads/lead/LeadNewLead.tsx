@@ -29,7 +29,7 @@ import {
   rejectConfirmation,
   successConfirmation,
 } from "@utils/modal";
-import LeadFormModal from "./LeadFormModal";
+import LeadWizardModal from "./LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -1725,7 +1725,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         Datas={templateData}
       />
       {formValues && (
-        <LeadFormModal
+        <LeadWizardModal
           key={formValues?.id || "new-lead-modal"}
           leadTemplateId={formValues?.leadTemplateId}
           open={true}

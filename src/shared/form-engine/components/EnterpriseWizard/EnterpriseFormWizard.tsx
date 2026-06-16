@@ -243,6 +243,28 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
               {actions.isSavingDraft ? 'Saving…' : '💾 Save Draft'}
             </button>
           )}
+
+          {/* Persistent Save — lets the user submit from any step (not only the
+              final/review step). Hidden on the save step to avoid a duplicate. */}
+          {actions.onFinalSave && !isSaveStep && (
+            <button
+              type="button"
+              className="wt-btn wt-btn-primary"
+              disabled={actions.isSubmitting || actions.submitDisabled}
+              onClick={async () => {
+                const errors = await validateForm();
+                if (Object.keys(errors).length > 0) {
+                  toast.error("Please fill in all required fields before submitting.");
+                  Object.keys(errors).forEach((key) => setFieldTouched(key, true));
+                  return;
+                }
+                actions.onFinalSave && actions.onFinalSave();
+              }}
+              title="Save changes now"
+            >
+              {actions.isSubmitting ? "Saving…" : (actions.submitText || "Save")}
+            </button>
+          )}
         </div>
 
         <div className="wizard-footer-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

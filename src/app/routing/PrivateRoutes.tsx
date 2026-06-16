@@ -42,6 +42,8 @@ const LoanDetails = lazy(() => import('@pages/employee/loans/personal/views/Loan
 const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/EmployeesLoanMain'))
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
+// Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
+const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
 const CompaniesMain = lazy(() => import('@pages/employee/companies/CompaniesMain'))
 const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companies/components/AllCompaniesToggle'))
@@ -439,6 +441,21 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <LeadsMain />
+            </SuspensedView>}
+        />
+        {/* Opt-in beta: migrated EnterpriseForm wizard UI (classic flow stays default) */}
+        <Route
+          path='/qc/leads/wizard-beta'
+          element={
+            <SuspensedView>
+              <LeadWizardBetaPage />
+            </SuspensedView>}
+        />
+        <Route
+          path='/qc/leads/wizard-beta/:id'
+          element={
+            <SuspensedView>
+              <LeadWizardBetaPage />
             </SuspensedView>}
         />
         <Route
