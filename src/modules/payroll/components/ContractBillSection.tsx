@@ -42,6 +42,18 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const generateInvoiceNumber = (salaryId: string, month: number, year: number): string => {
+    // Create a simple numeric sequence from salaryId hash
+    let hash = 0;
+    for (let i = 0; i < salaryId.length; i++) {
+      hash = ((hash << 5) - hash) + salaryId.charCodeAt(i);
+      hash = hash & hash;
+    }
+    const sequence = Math.abs(hash) % 1000;
+    const monthStr = String(month).padStart(2, '0');
+    return `${monthStr}${year}${String(sequence).padStart(3, '0')}`;
+  };
+
   const handleDownloadContractBill = async () => {
     if (!salaryId) {
       alert('No contract bill data available for PDF generation');
@@ -53,18 +65,24 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
     setDropdownOpen(false);
 
     try {
-      const blob = await payrollService.downloadContractBill(salaryId);
+      const [blob, salaryRecord] = await Promise.all([
+        payrollService.downloadContractBill(salaryId),
+        payrollService.getSalaryById(salaryId)
+      ]);
+
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      const empName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim();
-      const monthYear = new Date().toLocaleDateString('en-IN', {
-        month: 'short',
-        year: 'numeric'
-      });
+
+      const firstName = (employee?.users?.firstName || '').replace(/\s+/g, '_');
+      const lastName = (employee?.users?.lastName || '').replace(/\s+/g, '_');
+      const month = salaryRecord?.month || new Date().getMonth() + 1;
+      const year = salaryRecord?.year || new Date().getFullYear();
+      const invoiceNumber = generateInvoiceNumber(salaryId, month, year);
+
       link.setAttribute(
         'download',
-        `Contract_Bill_${empName}_${monthYear}.pdf`.trim()
+        `${firstName}_${lastName}_Invoice_${invoiceNumber}.pdf`.trim()
       );
       document.body.appendChild(link);
       link.click();
