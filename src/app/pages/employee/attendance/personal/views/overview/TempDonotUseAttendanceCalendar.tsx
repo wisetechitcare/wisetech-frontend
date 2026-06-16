@@ -334,7 +334,7 @@ function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDat
         if( attendanceRequests?.length === 0){
             setlimitMessage(false);
         }
-        else if(attendanceRequests?.length >= maxAttendanceRequestLimit) {
+        else if(attendanceRequests?.length >= (maxAttendanceRequestLimit ?? Infinity)) {
             setlimitMessage(true);
             setDisableRaiseRequest(true);
         }
@@ -612,7 +612,9 @@ function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDat
                     ) : (
                         <Formik initialValues={attendanceData[selectedDate] || initialState} onSubmit={handleSubmit} validationSchema={faqSchema}>
                             {(formikProps) => (
-                                <Form className='d-flex flex-column' noValidate placeholder={''}>
+                                <Form className='d-flex flex-column' noValidate 
+                                // placeholder={''}
+                                >
                                     {requestType === 'checkin' && (
                                         <div className="col-lg">
                                             <TimePickerInput

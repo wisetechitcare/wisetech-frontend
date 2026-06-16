@@ -1,144 +1,88 @@
+import React from 'react';
+import { Box, Paper, Typography } from '@mui/material';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
-
-import { RootState } from '@redux/store';
-import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { customLeaves } from '@utils/statistics';
-import { fetchAllPublicHolidays, fetchCompanyOverview } from '@services/company';
-import { fetchAllEmployeeSalaryAllTimeDateRage, fetchAllSalaryDataForDateRangeYearly, fetchEmployeeLeaves } from '@services/employee';
-import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
-import AllTimeIncrements from './AllTimeIncrements';
-import YearlyOverViewCard from './YearlyOverViewCard';
-import { generateFiscalYearFromGivenYear } from '@utils/file';
-
-const AllTime = ({ fromAdmin = false, showSensitiveData, year }: { fromAdmin?: boolean, showSensitiveData: boolean, year: any }) => {
-    const dispatch = useDispatch();
-    const employeeId = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee.id : state.employee.currentEmployee.id);
-    const employee = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee);
-    const toggleChange = useSelector((state: RootState) => state.attendanceStats?.toggleChange);
-
-    const [allTimeSalaryData, setAllTimeSalaryData] = useState<any[]>([]);
-    const [ctcGraphData, setCtcGraphData] = useState<any[]>([]);
-    const [yearOverview, setYearOverview] = useState<any>([]);
-    const [startDate, setStartDate] = useState<string>('');
-    const [endDate, setEndDate] = useState<string>('');
-
-    // Loading states
-    const [isLoadingOverview, setIsLoadingOverview] = useState<boolean>(true);
-    const [isLoadingSalaryData, setIsLoadingSalaryData] = useState<boolean>(true);
-
-    // compute fiscal start/end from year prop
-    useEffect(() => {
-        if (!year) return;
-        (async () => {
-            const { startDate: s, endDate: e } = await generateFiscalYearFromGivenYear(year);
-            setStartDate(s);
-            setEndDate(e);
-        })();
-    }, [year]);
-
-    useEffect(() => {
-        const fetchCTC = async () => {
-            try {
-                setIsLoadingSalaryData(true);
-                const response = await fetchAllEmployeeSalaryAllTimeDateRage(employeeId);
-                const history = response?.message?.employeeIncrementHistory || [];
-                const formatted = history.map((item: any) => {
-                    const monthlyCTC = Number(item.ctcInLpa) / 12;
-                    const date = new Date(item.effectiveFrom);
-                    const monthName = date.toLocaleString("en-US", { month: "long" });
-                    const yearNum = date.getFullYear();
-                    return {
-                        month: monthName,
-                        year: yearNum,
-                        monthlyCTC
-                    };
-                });
-
-                setCtcGraphData(formatted);
-                setAllTimeSalaryData(response?.message?.salaryData || []);
-            } catch (error) {
-                console.log("CTC fetch error:", error);
-            } finally {
-                setIsLoadingSalaryData(false);
-            }
-        };
-
-        if (employeeId) fetchCTC();
-    }, [employeeId, toggleChange]);
-
-    // useEffect(() => {
-    //     const fetchSalaryDataForDateRangeAllTime = async () => {
-    //         try {
-    //             // const response = await fetchAllEmployeeSalaryAllTimeDateRage(employeeId);
-    //             // you can setAllTimeSalaryData here if needed
-    //         } catch (error) {
-    //             console.error('Error in fetchAllSalaryDataForDateRangeYearly:', error);
-    //         }
-    //     };
-
-    //     if (employeeId) fetchSalaryDataForDateRangeAllTime();
-    // }, [employeeId]);
-
-    useEffect(() => {
-        if (!allTimeSalaryData || allTimeSalaryData.length === 0) {
-            setIsLoadingOverview(true);
-            setYearOverview({
-                startDate,
-                endDate,
-                totalPayableDays: 0,
-                totalPaidAmount: 0,
-                totalDueAmount: 0,
-                totalNetAmount: 0,
-                totalMonths: 0
-            });
-            return;
-        }
-
-        setIsLoadingOverview(true);
-
-        const cleanNumber = (value: any) => {
-            if (value == null) return 0;
-            if (typeof value === 'number') return value;
-            return parseFloat(String(value).replace(/[₹,]/g, '')) || 0;
-        };
-
-        let totalPaidAmount = 0;
-        let totalDueAmount = 0;
-        let totalNetAmount = 0;
-        let totalPayableDays = 0;
-
-        allTimeSalaryData.forEach((item: any) => {
-            totalPaidAmount += cleanNumber(item.paidAmount ?? item.amountPaid ?? item.paid_amount);
-            totalDueAmount += cleanNumber(item.due);
-            totalNetAmount += cleanNumber(item.netAmount ?? item.net_amount ?? item.netPayable);
-            // If you have payableHours, convert to days (same logic as Yearly)
-            if (item.payableHours) {
-                const [hh = 0, mm = 0, ss = 0] = String(item.payableHours).split(':').map(Number);
-                const hours = hh + (mm || 0) / 60 + (ss || 0) / 3600;
-                totalPayableDays += hours / 8;
-            }
-        });
-
-        setYearOverview({
-            startDate,
-            endDate,
-            totalPayableDays: Number(totalPayableDays.toFixed(2)),
-            totalPaidAmount,
-            totalDueAmount,
-            totalNetAmount,
-            totalMonths: allTimeSalaryData.length
-        });
-
-        setIsLoadingOverview(false);
-    }, [allTimeSalaryData, startDate, endDate]);
+const AllTime = ({
+    fromAdmin = false,
+    showSensitiveData,
+    year,
+}: {
+    fromAdmin?: boolean;
+    showSensitiveData: boolean;
+    year: any;
+}) => {
+    const isHidden = !showSensitiveData;
+    const label = fromAdmin ? 'All Time Salary Insights' : 'All Time Salary Insights';
 
     return (
-        <>
-            {/* <YearlyOverViewCard overview={yearOverview} loading={isLoadingOverview} /> */}
-            <AllTimeIncrements salaryData={allTimeSalaryData} SalaryDataCtc={ctcGraphData} loading={isLoadingSalaryData} />
-            {/* <h1>welcome to pages</h1> */}
-        </>
+        <Paper
+            elevation={0}
+            sx={{
+                mt: 3,
+                p: { xs: 2.5, md: 3 },
+                borderRadius: '20px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
+            }}
+        >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                <Box
+                    sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: '12px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        backgroundColor: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid #dbeafe',
+                        flexShrink: 0,
+                    }}
+                >
+                    <TrendingUpIcon fontSize="small" />
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                        {label}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        Increment graph will be added in a future release
+                    </Typography>
+                </Box>
+            </Box>
+
+            <Box
+                sx={{
+                    minHeight: { xs: 180, md: 240 },
+                    borderRadius: '16px',
+                    border: '1px dashed #cbd5e1',
+                    background: 'linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    px: 3,
+                }}
+            >
+                <Box>
+                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', mb: 0.5 }}>
+                        Coming Soon
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        We&apos;re preparing the all-time increment timeline for a future update.
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.8rem', color: '#94a3b8', mt: 1 }}>
+                        {year ? `Selected year: ${year.format ? year.format('YYYY') : year}` : ''}
+                    </Typography>
+                    {isHidden && (
+                        <Typography sx={{ fontSize: '0.8rem', color: '#94a3b8', mt: 0.5 }}>
+                            Sensitive data is hidden
+                        </Typography>
+                    )}
+                </Box>
+            </Box>
+        </Paper>
     );
 };
 

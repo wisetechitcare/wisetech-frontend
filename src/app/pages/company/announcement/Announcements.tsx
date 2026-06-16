@@ -1,4 +1,4 @@
-import { PageLink, PageTitle } from "@metronic/layout/core";
+﻿import { PageLink, PageTitle } from "@metronic/layout/core";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -512,7 +512,7 @@ function Announcements() {
                                 className="d-flex flex-column"
                                 noValidate
                                 id="employee_reimbursement_form"
-                                placeholder={undefined}
+                               
                             >
                                 <div className="row d-flex flex-direction-column">
                                     <label className="col-lg-4 col-form-label  fs-6 small">

@@ -8,16 +8,20 @@ import { Suspense, useEffect, useState } from 'react'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac'
-import { fetchCurrentEmployeeByEmpId } from '@services/employee'
+import { can } from '@utils/can'
+import { fetchCurrentEmployeeByEmpId, fetchPendingApprovals } from '@services/employee'
+import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
 
 export function AsideMenuMain() {
   const intl = useIntl()
   const dispatch = useDispatch();
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser?.isAdmin);
   const [showAppSettings, setShowAppSettings] = useState(false);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
+  // Subscribe to capabilities so can() re-evaluates whenever they load or refresh.
+  useSelector((state: RootState) => (state as any).authz?.capabilities);
 
   async function fetchEmployeeAppVisibility(employeeId: string) {
     const response = await fetchCurrentEmployeeByEmpId(employeeId);
@@ -33,6 +37,19 @@ export function AsideMenuMain() {
     if (!employeeId) return;
     fetchEmployeeAppVisibility(employeeId)
   }, [employeeId])
+
+  useEffect(() => {
+    if (!can('approvals.approve.team')) {
+      setPendingApprovalsCount(0);
+      return;
+    }
+    fetchPendingApprovals()
+      .then((res: any) => {
+        const records = res?.data ?? res ?? [];
+        setPendingApprovalsCount(Array.isArray(records) ? records.length : 0);
+      })
+      .catch(() => setPendingApprovalsCount(0));
+  }, [])
 
   return (
     <>
@@ -69,7 +86,26 @@ export function AsideMenuMain() {
       {((hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers))) && <AsideMenuItemWithSub to='' icon={sidePanelIcons.attendance} title='Attendance & Leaves' fontIcon='bi-layers'>
         {hasPermission(uiControlResourceNameMapWithCamelCase.personalUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/employee/attendance-and-leaves' title='Personal' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/employees/attendance-and-leaves' title='Employees' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        {!NEW_MY_TEAM_IA && can('approvals.view.team') && <AsideMenuItem to='/approvals/my-team' title='My Team' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        {!NEW_MY_TEAM_IA && can('approvals.approve.team') && <AsideMenuItem to='/approvals/inbox' title='Approval Inbox' badgeCount={pendingApprovalsCount} icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        {!NEW_MY_TEAM_IA && can('approvals.manage.all') && <AsideMenuItem to='/approvals/delegations' title='Delegations' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
       </AsideMenuItemWithSub>}
+
+      {NEW_MY_TEAM_IA && (can('approvals.view.team') || can('approvals.approve.team') || can('approvals.manage.all')) && (
+        <AsideMenuItemWithSub to='/my-team' icon={sidePanelIcons.people} title='My Team' fontIcon='bi-layers'>
+          <AsideMenuItem to='/my-team/overview' title='Overview' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/members' title='Members' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/attendance' title='Attendance' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/leaves' title='Leaves' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/conveyance' title='Conveyance' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/salary' title='Salary' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/tasks' title='Tasks' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/projects' title='Projects' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/my-team/leads' title='Leads' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          {can('approvals.approve.team') && <AsideMenuItem to='/my-team/approvals' title='Approvals' badgeCount={pendingApprovalsCount} icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+          {can('approvals.manage.all') && <AsideMenuItem to='/my-team/delegations' title='Delegations' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        </AsideMenuItemWithSub>
+      )}
 
       {/* {showAppSettings &&
         <>
@@ -109,11 +145,12 @@ export function AsideMenuMain() {
         <AsideMenuItem to='/employees' title='Employees' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
         {hasPermission(uiControlResourceNameMapWithCamelCase.documentsUnderPeople, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/employee/documents' title='Documents' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
       </AsideMenuItemWithSub>
-      {(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)) && <AsideMenuItemWithSub to='/company' icon={sidePanelIcons.company} title='Company' fontIcon='bi-layers'>
-        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/organisation-profile' title='Organisation Profile' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+      {(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.onboardingDocumentUnderCompany, permissionConstToUseWithHasPermission.readOthers)) && <AsideMenuItemWithSub to='/company' icon={sidePanelIcons.company} title='Organization' fontIcon='bi-layers'>
+        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/organisation-profile' title='Organization Profile' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
        {/* {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/organisation-info' title='Organisation Info' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/announcements' title='Announcements' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
-        {hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/branches' title='Branches' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />}
+        {/* Branches are now managed from within an organization's profile (Organizations → open an org → Branches). */}
+        {/* {hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/branches' title='Branches' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {/* {hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/departments' title='Departments' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {/* {hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/company/designations' title='Designations' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />} */}
         {/* <AsideMenuItem to='/company/employee-types' title='Masters' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers'/> */}
@@ -132,7 +169,8 @@ export function AsideMenuMain() {
         {hasPermission(uiControlResourceNameMapWithCamelCase.loanUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/loans' title='Loans' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='price-tag' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/bills' title='Reimbursements' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='price-tag' />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.salaryUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/salary' title='Salary' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='dollar' />}
-        <AsideMenuItem to='/payroll/ledger' title='Payroll Ledger' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bank' />
+        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <AsideMenuItem to='/finance/increment' title='Increment' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='dollar' />}
+       
       </AsideMenuItemWithSub>
     </>
   )
@@ -181,7 +219,7 @@ export function AsideMenuMain() {
       <AsideMenuItemWithSub to='/company' icon='home' title='Company' fontIcon='bi-layers'>
         <AsideMenuItem to='/company/public-holiday' title='Holidays' icon='calendar-remove' fontIcon='bi-layers' />
         <AsideMenuItem to='/company/overview' title='Overview' icon='setting-4' fontIcon='bi-layers' />
-        <AsideMenuItem to='/company/branches' title='Branches' icon='geolocation-home' fontIcon='bi-layers' />
+        {/* Branches are now managed from an organization's profile page */}
         <AsideMenuItem to='/company/departments' title='Departments' icon='abstract-29' fontIcon='bi-layers' />
       </AsideMenuItemWithSub>
       <AsideMenuItem to='#' icon='data' title='Rules' fontIcon='bi-layers' />

@@ -1,195 +1,400 @@
+import React from 'react';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
+} from '@mui/material';
+
 interface DetailedReportsProps {
     data: any[];
     loading?: boolean;
 }
 
 const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
-    console.log("Detailed Reports Data:", data);
+    const fiscalMonths = [
+        'April', 'May', 'June', 'July', 'August', 'September',
+        'October', 'November', 'December', 'January', 'February', 'March',
+    ];
 
-    // Skeleton loader component
-    const SkeletonLoader = ({ width = "100%", height = "20px" }: { width?: string; height?: string }) => (
-        <div style={{
-            width,
-            height,
-            backgroundColor: "#e0e0e0",
-            borderRadius: "4px",
-            animation: "pulse 1.5s ease-in-out infinite"
-        }} />
-    );
+    const alignedData = fiscalMonths.map((monthName) => {
+        const record = data?.find(
+            (item: any) => String(item?.month || '').toLowerCase() === monthName.toLowerCase()
+        );
 
-    // Add keyframe animation
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        if (record) {
+            return {
+                ...record,
+                isPlaceholder: false,
+            };
         }
-    `;
-    if (!document.querySelector('style[data-skeleton-animation]')) {
-        styleElement.setAttribute('data-skeleton-animation', 'true');
-        document.head.appendChild(styleElement);
-    }
 
-    const getStatusColor = (status: string) => {
+        return {
+            month: monthName,
+            isPlaceholder: true,
+            basicSalary: '-',
+            payableHours: '-',
+            workingHours: '-',
+            overTime: '-',
+            remainingTime: '-',
+            totalGrossPayAmount: '-',
+            totalDeductedAmount: '-',
+            netAmount: '-',
+            amountPaid: '-',
+            due: '-',
+            status: 'Pending',
+            presentDays: 0,
+            absentDays: 0,
+            leavesDays: 0,
+            lateCheckinDays: 0,
+            workingdays: 0,
+            extraDaysWorked: 0,
+            grossPayBreakdown: null,
+            deductionBreakdown: null,
+            paymentHistory: [],
+        };
+    });
+
+    const getStatusBadge = (status: string) => {
+        let bgColor = '#f4f4f4';
+        let textColor = '#5e6278';
+
         switch (status) {
             case 'Full Paid':
-                return '#309e27';
+            case 'Fully Paid':
+                bgColor = '#E8F5E9';
+                textColor = '#2E7D32';
+                break;
             case 'Partially Paid':
-                return '#4234d8';
+                bgColor = '#E8EAF6';
+                textColor = '#3F51B5';
+                break;
             case 'Pending':
-                return '#b0b0b0';
-            default:
-                return '#000';
+                bgColor = '#FFF3E0';
+                textColor = '#E65100';
+                break;
         }
+
+        return (
+            <span
+                style={{
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    backgroundColor: bgColor,
+                    color: textColor,
+                    display: 'inline-block',
+                }}
+            >
+                {status}
+            </span>
+        );
     };
+
+    const formatCurrencyDecimal = (val: any) => {
+        if (val === null || val === undefined || val === '-') return '-';
+        const cleaned = String(val).trim().replace(/[₹,]/g, '');
+        const num = Number(cleaned);
+        if (!Number.isFinite(num)) return String(val);
+        return num.toLocaleString('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    };
+
+    const formatCurrencyRounded = (val: any) => {
+        if (val === null || val === undefined || val === '-') return '-';
+        const cleaned = String(val).trim().replace(/[₹,]/g, '');
+        const num = Number(cleaned);
+        if (!Number.isFinite(num)) return String(val);
+        const truncated = Math.trunc(num * 100) / 100;
+        return truncated.toLocaleString('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    };
+
+    const getAttendanceDeductionAmount = (row: any): number => {
+        if (row.isPlaceholder) return 0;
+        return Number(
+            row.deductionBreakdown?.variable?.['Late Checkins']?.earned ||
+            row.deductionBreakdown?.variable?.['Late Attendance']?.earned ||
+            0
+        );
+    };
+
+    const getSalaryAfterAttendance = (row: any) => {
+        if (row.isPlaceholder) return '-';
+
+        const grossAmt = typeof row.totalGrossPayAmountInNumber === 'number'
+            ? row.totalGrossPayAmountInNumber
+            : (Number(String(row.totalGrossPayAmount ?? row.totalGrossPay ?? '0').replace(/[₹,]/g, '')) || 0);
+
+        const lateCheckinDeduction = getAttendanceDeductionAmount(row);
+        return grossAmt - lateCheckinDeduction;
+    };
+
+    const renderAttendanceDeduction = (row: any) => {
+        if (row.isPlaceholder) return '-';
+
+        const amt = getAttendanceDeductionAmount(row);
+        if (amt <= 0) return <span style={{ color: '#718096', fontSize: '12px' }}>-</span>;
+
+        return (
+            <span
+                style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#D84315',
+                    backgroundColor: '#D8431512',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    whiteSpace: 'nowrap',
+                    border: '1px solid #D8431525',
+                    display: 'inline-block',
+                }}
+            >
+                Late: {formatCurrencyDecimal(amt)}
+            </span>
+        );
+    };
+
+    const renderGovtPayrollDeduction = (row: any) => {
+        if (row.isPlaceholder) return '-';
+
+        const cuts: { label: string; amount: number; color: string }[] = [];
+
+        if (row.deductionBreakdown?.fixed) {
+            Object.entries(row.deductionBreakdown.fixed).forEach(([key, item]: [string, any]) => {
+                if (item.isActive !== false && Number(item.earned || 0) > 0) {
+                    let label = key;
+                    let color = '#C62828';
+                    if (key.toLowerCase().includes('provident fund')) {
+                        label = 'PF';
+                        color = '#1565C0';
+                    } else if (key.toLowerCase().includes('professional tax')) {
+                        label = 'Tax';
+                        color = '#E65100';
+                    } else if (key.toLowerCase().includes('professional fees')) {
+                        label = 'Fees';
+                        color = '#6A1B9A';
+                    }
+                    cuts.push({ label, amount: Number(item.earned), color });
+                }
+            });
+        }
+
+        if (cuts.length === 0) {
+            return <span style={{ color: '#718096', fontSize: '12px' }}>-</span>;
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '6px', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                {cuts.map((cut, idx) => (
+                    <span
+                        key={idx}
+                        style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: cut.color,
+                            backgroundColor: `${cut.color}12`,
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                            border: `1px solid ${cut.color}25`,
+                        }}
+                    >
+                        {cut.label}: {formatCurrencyDecimal(cut.amount)}
+                    </span>
+                ))}
+            </div>
+        );
+    };
+
+    const SkeletonLoader = ({ width = '100%', height = '20px' }: { width?: string; height?: string }) => (
+        <div
+            style={{
+                width,
+                height,
+                backgroundColor: '#e0e0e0',
+                borderRadius: '4px',
+                animation: 'pulse 1.5s ease-in-out infinite',
+            }}
+        />
+    );
 
     if (loading) {
         return (
-            <div className="card p-4 mb-5" style={{
-                boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-                borderRadius: '12px',
-                backgroundColor: '#fff'
-            }}>
+            <div
+                className="card p-4 mb-5"
+                style={{
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                    borderRadius: '12px',
+                    backgroundColor: '#fff',
+                }}
+            >
                 <SkeletonLoader width="180px" height="24px" />
-                <div style={{ marginTop: '24px', overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead>
-                            <tr>
-                                {[...Array(12)].map((_, i) => (
-                                    <th key={i} style={{ padding: '12px', textAlign: 'left' }}>
+                <TableContainer
+                    component={Paper}
+                    sx={{ marginTop: '24px', boxShadow: 'none', border: '1px solid #edf2f7', borderRadius: '8px', overflowX: 'auto' }}
+                >
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                {[...Array(15)].map((_, i) => (
+                                    <TableCell key={i} style={{ padding: '6px 12px' }}>
                                         <SkeletonLoader width="100px" height="16px" />
-                                    </th>
+                                    </TableCell>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
                             {[...Array(5)].map((_, rowIndex) => (
-                                <tr key={rowIndex} style={{ borderTop: rowIndex > 0 ? '1px solid #f0f0f0' : 'none' }}>
-                                    {[...Array(12)].map((_, colIndex) => (
-                                        <td key={colIndex} style={{ padding: '12px' }}>
+                                <TableRow key={rowIndex}>
+                                    {[...Array(15)].map((_, colIndex) => (
+                                        <TableCell key={colIndex} style={{ padding: '6px 12px' }}>
                                             <SkeletonLoader width="90%" height="16px" />
-                                        </td>
+                                        </TableCell>
                                     ))}
-                                </tr>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </TableBody>
+                    </Table>
+                </TableContainer>
             </div>
         );
     }
 
     return (
-        <div className="card p-4 mb-5" style={{
-            boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-            borderRadius: '12px',
-            backgroundColor: '#fff'
-        }}>
-            <h4 className="mb-4" style={{
-                fontSize: '20px',
-                fontWeight: 600,
-                letterSpacing: '0.2px',
-                color: '#000'
-            }}>
-                Detailed Reports
-            </h4>
+        <div
+            className="card p-4 mb-5"
+            style={{
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                borderRadius: '12px',
+                backgroundColor: '#fff',
+            }}
+        >
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h4
+                    className="mb-0"
+                    style={{
+                        fontSize: '20px',
+                        fontWeight: 600,
+                        color: '#2d3748',
+                    }}
+                >
+                    Detailed Reports (April - March)
+                </h4>
+            </div>
 
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{
-                    width: '100%',
-                    borderCollapse: 'separate',
-                    borderSpacing: 0
-                }}>
-                    <thead>
-                        <tr style={{
-                            backgroundColor: '#fff',
-                            fontSize: '14px',
+            <TableContainer
+                component={Paper}
+                sx={{ boxShadow: 'none', border: '1px solid #e2e8f0', borderRadius: '8px', overflowX: 'auto' }}
+            >
+                <Table sx={{ minWidth: '1600px' }}>
+                    <TableHead>
+                        <TableRow
+                            style={{
+                                backgroundColor: '#f8fafc',
+                                fontSize: '13px',
+                                fontFamily: 'Inter, sans-serif',
+                                color: '#4a5568',
+                            }}
+                        >
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '100px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Month</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '110px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Basic Salary</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '110px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Payable Hours</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '110px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Working Hours</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '90px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Overtime</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '90px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Remaining</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '130px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>TOTAL GROSS PAY</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '160px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Attendance Deductions</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '220px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Total Salary After Attendance Adjustments</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '180px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Govt & Payroll Deductions</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '140px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>TOTAL DEDUCTIONS</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '120px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Net Pay</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '120px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Paid Amount</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, minWidth: '120px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Due Amount</TableCell>
+                            <TableCell style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 600, minWidth: '120px', fontSize: '13px', color: '#4a5568', whiteSpace: 'nowrap' }}>Status</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody
+                        style={{
+                            fontSize: '13.5px',
                             fontFamily: 'Inter, sans-serif',
-                            color: '#7a8597'
-                        }}>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '108px' }}>Month</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Basic Salary</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Payable Hours</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Working Hours</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Overtime</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Remaining time</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '160px' }}>Total Gross Pay Amount</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '160px' }}>Total Deducted Amount</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Net Amount</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Paid Amount</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '112px' }}>Due</th>
-                            <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '104px' }}>Status</th>
-                            {/* <th style={{ padding: '12px', textAlign: 'left', fontWeight: 400, minWidth: '114px' }}>Action</th> */}
-                        </tr>
-                    </thead>
-                    <tbody style={{
-                        fontSize: '14px',
-                        fontFamily: 'Inter, sans-serif',
-                        color: '#000'
-                    }}>
-                        {data.map((row, index) => {
-                            const isPending = row.status === 'Pending';
+                            color: '#2d3748',
+                        }}
+                    >
+                        {alignedData.map((row, index) => {
+                            const overtimeVal = row.overTimeRuleDisplay ?? row.overTime ?? row.overtime ?? '-';
+                            const paidAmtVal = row.amountPaid ?? row.paidAmount ?? '-';
+
                             return (
-                                <tr key={index} style={{
-                                    backgroundColor: '#fff',
-                                    borderTop: index > 0 ? '1px solid #f0f0f0' : 'none'
-                                }}>
-                                    <td style={{ padding: '12px' }}>{row.month}</td>
-                                    <td style={{ padding: '12px' }}>
-                                        {row.basicSalary ? `${row.basicSalary.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td style={{ padding: '12px' }}>{row.payableHours || '-'}</td>
-                                    <td style={{ padding: '12px' }}>{row.workingHours || '-'}</td>
-                                    <td style={{ padding: '12px', color: row.overtime ? '#309e27' : '#000' }}>
-                                        {row.overtime || '-'}
-                                    </td>
-                                    <td style={{ padding: '12px', color: row.remainingTime ? '#d43535' : '#000' }}>
+                                <TableRow
+                                    key={index}
+                                    style={{
+                                        borderTop: '1px solid #edf2f7',
+                                    }}
+                                >
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 500, fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
+                                        {row.month}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyDecimal(row.basicSalary)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
+                                        {row.payableHours || '-'}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
+                                        {row.workingHours || '-'}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: overtimeVal !== '-' ? '#2E7D32' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {overtimeVal}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: row.remainingTime && row.remainingTime !== '-' ? '#C62828' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
                                         {row.remainingTime || '-'}
-                                    </td>
-                                    <td style={{ padding: '12px', color: row.totalGrossPayAmount ? '#309e27' : '#000' }}>
-                                        {row.totalGrossPayAmount ? `${row.totalGrossPayAmount.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td style={{ padding: '12px', color: row.totalDeductedAmount ? '#d43535' : '#000' }}>
-                                        {row.totalDeductedAmount ? `${row.totalDeductedAmount.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        {row.netAmount ? `${row.netAmount.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        {row.paidAmount ? `${row.paidAmount.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        {row.due ? `${row.due.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td style={{ padding: '12px', color: getStatusColor(row.status) }}>
-                                        {row.status}
-                                    </td>
-                                    {/* <td style={{ padding: '12px' }}>
-                                        <div style={{
-                                            display: 'flex',
-                                            gap: '12px',
-                                            color: isPending ? '#b0b0b0' : '#9d4141'
-                                        }}>
-                                            <span style={{
-                                                cursor: isPending ? 'not-allowed' : 'pointer',
-                                                textDecoration: isPending ? 'none' : 'none'
-                                            }}>
-                                                Download
-                                            </span>
-                                            <span style={{
-                                                cursor: isPending ? 'not-allowed' : 'pointer',
-                                                textDecoration: isPending ? 'none' : 'none'
-                                            }}>
-                                                Email
-                                            </span>
-                                        </div>
-                                    </td> */}
-                                </tr>
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: '#2E7D32', fontWeight: 500, fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyDecimal(row.totalGrossPayAmount ?? row.totalGrossPay)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {renderAttendanceDeduction(row)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600, color: '#1565C0', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyDecimal(getSalaryAfterAttendance(row))}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {renderGovtPayrollDeduction(row)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: '#C62828', fontWeight: 500, fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyDecimal(row.totalDeductedAmount ?? row.totalDeducted)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600, fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyRounded(row.netAmount)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', fontSize: '13.5px', color: '#2d3748', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyRounded(paidAmtVal)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'left', color: row.due && parseFloat(String(row.due).replace(/[₹,]/g, '')) > 0 ? '#C62828' : '#2d3748', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {formatCurrencyRounded(row.due)}
+                                    </TableCell>
+                                    <TableCell style={{ padding: '6px 12px', textAlign: 'center', fontSize: '13.5px', whiteSpace: 'nowrap' }}>
+                                        {getStatusBadge(row.status)}
+                                    </TableCell>
+                                </TableRow>
                             );
                         })}
-                    </tbody>
-                </table>
-            </div>
+                    </TableBody>
+                </Table>
+            </TableContainer>
         </div>
     );
 };

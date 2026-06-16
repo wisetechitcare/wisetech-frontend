@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import * as Yup from 'yup';
@@ -29,7 +29,6 @@ interface OtherSettingsValues {
   enableLunchDeduction: string;
   onSiteHolidayWeekendSettings: string;
   allowedDistance: string;
-  attendanceRequestLimit: string;
   restrictAttendanceRequestDays: string;
   showDataUpToToday: string;
   monthlyAnnualLeaveLimit: string;
@@ -84,9 +83,6 @@ const OtherSettings: React.FC = () => {
     allowedDistance: Yup.number()
       .min(0, 'Distance must be 0 or greater')
       .required('Allowed distance is required'),
-    attendanceRequestLimit: Yup.number()
-      .min(1, 'Limit must be 1 or greater')
-      .required('Attendance request limit is required'),
     restrictAttendanceRequestDays: Yup.number()
       .min(1, 'Minimum required value is 1')
       .max(365, 'Value cannot exceed 365 days')
@@ -101,7 +97,6 @@ const OtherSettings: React.FC = () => {
     enableLunchDeduction: 'off',
     onSiteHolidayWeekendSettings: 'off',
     allowedDistance: '100',
-    attendanceRequestLimit: '2',
     restrictAttendanceRequestDays: '7',
     showDataUpToToday: 'off',
     monthlyAnnualLeaveLimit: '2',
@@ -165,9 +160,8 @@ const OtherSettings: React.FC = () => {
       const allowedDistance = appSettings?.distanceAllowedInMeters || 12;
       setAppSettingsId(appSettings?.id || '');
 
-      // Get company overview (attendance request limit)
+      // Get company overview
       const companyOverview = companyOverviewRes?.data?.companyOverview?.[0];
-      const attendanceLimit = companyOverview?.attendanceRequestRaiseLimit || 2;
       setCompanyId(companyOverview?.id || '');
 
       // Set initial values (use manually parsed lunchEnabled, not hook value)
@@ -175,7 +169,6 @@ const OtherSettings: React.FC = () => {
         enableLunchDeduction: lunchEnabled ? 'on' : 'off',
         onSiteHolidayWeekendSettings: onSiteEnabled ? 'on' : 'off',
         allowedDistance: allowedDistance.toString(),
-        attendanceRequestLimit: attendanceLimit.toString(),
         restrictAttendanceRequestDays: restrictDays.toString(),
         showDataUpToToday: dateSettingsEnabled ? 'on' : 'off',
         monthlyAnnualLeaveLimit: monthlyAnnualLeaveLimit.toString(),
@@ -255,14 +248,7 @@ const OtherSettings: React.FC = () => {
         );
       }
 
-      // 4. Save attendance request limit (CompanyOverview)
-      if (companyId) {
-        await updateCompanyOverview(companyId, {
-          attendanceRequestRaiseLimit: values.attendanceRequestLimit,
-        });
-      }
-
-      // 5. Save restrict attendance days
+      // 4. Save restrict attendance days
       const restrictDays = Number(values.restrictAttendanceRequestDays);
       const restrictPayload = { restrictAttendanceTo7Days: restrictDays };
       if (restrictConfigId) {
@@ -323,7 +309,7 @@ const OtherSettings: React.FC = () => {
       onSubmit={handleSubmit}
     >
       {({ values }) => (
-        <FormikForm placeholder={''}>
+        <FormikForm>
           <div style={{ padding: '24px 20px' }}>
             <Card style={{ borderRadius: '12px', border: 'none' }}>
               <Card.Body style={{ padding: '20px 25px' }}>
@@ -425,28 +411,6 @@ const OtherSettings: React.FC = () => {
                     </Col>
                   </Row>
 
-                  {/* Attendance Request Raise Limit */}
-                  <Row className="align-items-center gy-2">
-                    <Col xs={12} sm={12} md={8} lg={9}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}>
-                        Attendance Request Raise Limit
-                      </span>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={3} className="d-flex justify-content-md-end">
-                      <div style={{ width: '100%', maxWidth: '137px' }}>
-                        <TextInput
-                          formikField="attendanceRequestLimit"
-                          isRequired={true}
-                          placeholder="2"
-                          inputValidation="numbers"
-                        />
-                      </div>
-                    </Col>
-                  </Row>
 
                   {/* Number of Annual Leaves allowed per month */}
                   <Row className="align-items-center gy-2">

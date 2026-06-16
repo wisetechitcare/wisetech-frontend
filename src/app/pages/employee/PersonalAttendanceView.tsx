@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import OverviewView from './attendance/personal/OverviewView';
@@ -16,7 +17,9 @@ import { AppDispatch } from '@redux/store';
 
 const PersonalAttendanceView = () => {
     const dispatch = useDispatch();
-    const [activeTab, setActiveTab] = useState(0); 
+    const [searchParams] = useSearchParams();
+    const initialTab = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 4);
+    const [activeTab, setActiveTab] = useState(initialTab);
     const resourseAndView = [
         {
             resource: resourceNameMapWithCamelCase.attendanceRequest,

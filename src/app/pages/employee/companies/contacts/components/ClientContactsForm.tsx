@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Row, Col, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import {
@@ -11,6 +12,7 @@ import {
   getAllContactRoleTypes,
   getClientContactById,
   getAllContactStatuses,
+  getAllClientContacts,
 } from "@services/companies";
 import {
   getAllClientBranches,
@@ -110,6 +112,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [branchWarning, setBranchWarning] = useState('');
+  const [existingContacts, setExistingContacts] = useState<any[]>([]);
   const [hasSelectedCompany, setHasSelectedCompany] = useState(false);
   const employeeIdCurrent = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
@@ -328,6 +331,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       setCountries(countriesData);
       setBranches(branchesData?.leadBranches || []);
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
+      const contactsData = await getAllClientContacts();
+      setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
     } catch (error) {
       console.error("Error loading initial data:", error);
@@ -423,13 +428,18 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       let profilePhotoUrl: string | null = null;
       if (formValues.profilePhoto && formValues.profilePhoto instanceof File) {
-        const formData = new FormData();
-        formData.append("file", formValues.profilePhoto);
-        const uploadResult = await uploadCompanyAsset(formData);
-        const {
-          data: { path },
-        } = uploadResult;
-        profilePhotoUrl = path;
+        try {
+          const formData = new FormData();
+          formData.append("file", formValues.profilePhoto);
+          const uploadResult = await uploadCompanyAsset(formData);
+          const {
+            data: { path },
+          } = uploadResult;
+          profilePhotoUrl = path;
+        } catch (uploadError) {
+          console.error("Error uploading profile photo:", uploadError);
+          errorConfirmation("Image upload failed, but contact will still be saved.");
+        }
       }
 
       // Get country, state, city names from their IDs
@@ -613,7 +623,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                 }, [values.companyId, companies]);
 
                 return (
-                  <FormikForm placeholder="">
+                  <FormikForm>
                     {/* Profile Photo */}
                     <div className="mb-3 text-start">
                       <div className="d-flex align-items-start justify-content-start">
@@ -1087,21 +1097,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <Row className="">
                             <Col md={4}>
-                              <TextInput
+                              <PhoneNumberInput
                                 label="Phone"
                                 placeholder="Enter phone"
                                 isRequired={false}
                                 formikField="phone"
-                                inputValidation="numbers"
                               />
                             </Col>
                             <Col md={4}>
-                              <TextInput
+                              <PhoneNumberInput
                                 label="Phone 2"
                                 placeholder="Enter phone 2"
                                 formikField="phone2"
                                 isRequired={false}
-                                inputValidation="numbers"
                               />
                             </Col>
                             <Col md={4}>
@@ -1312,7 +1320,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   placeholder="Enter latitude"
                                   formikField="latitude"
                                   isRequired={false}
-                                  inputValidation="decimal"
+                                  inputValidation="signed-decimal"
                                 />
                               </Col>
                               <Col md={3}>
@@ -1321,7 +1329,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   placeholder="Enter longitude"
                                   formikField="longitude"
                                   isRequired={false}
-                                  inputValidation="decimal"
+                                  inputValidation="signed-decimal"
                                 />
                               </Col>
                               <div

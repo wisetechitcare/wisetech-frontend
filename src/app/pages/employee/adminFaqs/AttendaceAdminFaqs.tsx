@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { IFaqs } from '@models/company';
 import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, updateFaqById } from '@services/company';
 import { useEffect, useState, useCallback } from 'react';
@@ -50,8 +51,6 @@ const AttendanceAdminFaqs = () => {
                 companyId: faq.companyId,
                 type: faq.type || ""
             };
-            console.log('Edit mode - FAQ type:', faq.type);
-            console.log('Edit mode - Initial values:', editValues);
             setInitialValues(editValues);
         } else {
             setEditMode(false);
@@ -95,7 +94,7 @@ const AttendanceAdminFaqs = () => {
             }
 
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             const payload = {
                 ...values,
                 companyId
@@ -116,10 +115,9 @@ const AttendanceAdminFaqs = () => {
     const fetchFaqs = useCallback(async () => {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             // Fetch all FAQ types by not passing the type parameter
             const response = await fetchAllFaqs(companyId);
-            console.log('FAQ API Response:', response);
 
             // API returns sections, organize FAQs by section type
             const sections = response?.data?.sections || [];
@@ -138,14 +136,11 @@ const AttendanceAdminFaqs = () => {
                         ...faq,
                         type: faq.type || sectionId
                     }));
-                    // Sort FAQs alphabetically by question
                     groupedFaqs[sectionId] = sectionFaqs.sort((a: IFaqs, b: IFaqs) =>
                         a.question.localeCompare(b.question)
                     );
                 }
             });
-
-            console.log('Grouped FAQ Data:', groupedFaqs);
             setFaqsBySection(groupedFaqs);
         } catch (error) {
             console.log('Error fetching FAQs:', error);

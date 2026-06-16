@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { resolveActiveOrgId } from '@utils/activeOrg';
+﻿import { useEffect, useMemo, useState } from "react";
 import { Form, Formik, FormikValues } from "formik";
 import { Modal } from "react-bootstrap";
 import { MRT_ColumnDef } from "material-react-table";
@@ -58,7 +59,7 @@ function OnBoardingDocs() {
                     let currCompanyId = documents[0]?.companyId || "";
                     if (!currCompanyId) {
                         const { data: { companyOverview } } = await fetchCompanyOverview();
-                        currCompanyId = companyOverview[0]?.id || "";
+                        currCompanyId = (resolveActiveOrgId(companyOverview) ?? '') || "";
                     }
                     setCompanyId(currCompanyId);
                 }
@@ -214,7 +215,7 @@ function OnBoardingDocs() {
                         onSubmit={editMode ? handleUpdate : handleSubmit}
                     >
                         {(formikProps) => (
-                            <Form placeholder="">
+                            <Form>
                                 <div className="row">
                                     <div className="col-lg-12">
                                         <TextInput

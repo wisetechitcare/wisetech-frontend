@@ -1,3 +1,4 @@
+import { resolveActiveOrg } from '@utils/activeOrg';
 import { saveCurrentCompanyInfo } from "@redux/slices/company";
 import { ICustomColorCode, setCustomColors } from "@redux/slices/customColors";
 import { store } from "@redux/store";
@@ -57,7 +58,7 @@ export async function generateFiscalYearFromGivenYear(year: dayjs.Dayjs, fromAdm
         const { data: { companyOverview } } = await fetchCompanyOverview();
         companyDetails = companyOverview.filter((el: any) => el.id == currEmplyeeCompanyId)[0];
         if (!companyDetails) {
-            companyDetails = companyOverview[0];
+            companyDetails = resolveActiveOrg(companyOverview);
         }
         store.dispatch(saveCurrentCompanyInfo({
             id: companyDetails?.id,

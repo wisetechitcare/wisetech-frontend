@@ -1,6 +1,7 @@
 //
 // Buttons Theme
 //
+@use 'sass:color';
 
 // Outline dashed basic style
 .btn.btn-outline.btn-outline-dashed {
@@ -299,10 +300,10 @@
 			$icon-color: $gray-800-dark, 
 			$border-color: null, 
 			$bg-color: $gray-400-dark,
-			$color-active: lighten($gray-800-dark, 3%), 
-			$icon-color-active: lighten($gray-800-dark, 3%), 
-			$border-color-active: null, 
-			$bg-color-active: lighten($gray-400-dark, 3%),
+			$color-active: color.adjust($gray-800-dark, $lightness: 3%),
+			$icon-color-active: color.adjust($gray-800-dark, $lightness: 3%),
+			$border-color-active: null,
+			$bg-color-active: color.adjust($gray-400-dark, $lightness: 3%),
 		);
 	}
 }

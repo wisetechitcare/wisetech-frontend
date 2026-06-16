@@ -5,7 +5,8 @@ export const AUTH = {
     LOGOUT: "api/auth/logout",
     RESET_PASSWORD: "api/auth/resetPassword/:resetToken",
     CHANGE_PASSWORD: "api/auth/changePassword",
-    FORGOT_PASSWORD: "api/auth/forgotPassword"
+    FORGOT_PASSWORD: "api/auth/forgotPassword",
+    CAPABILITIES: "api/auth/capabilities",
 }
 
 export const USERS = {
@@ -16,6 +17,8 @@ export const USERS = {
     GET_ALL_USERS: "api/users",
     SAVE_USER_TABLE_PREFERENCES: '/api/users/table-preferences',
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
+    SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
+    GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
 }
 
 export const COMPANY = {
@@ -26,6 +29,7 @@ export const COMPANY = {
     GET_ALL_BRANCHES: "api/company/branches",
     GET_BRANCH_BY_ID: "api/company/branch/:branchId",
     UPDATE_BRANCH_BY_ID: "api/company/branch/:branchId",
+    DELETE_BRANCH_BY_ID: "api/company/branches/:id",
     CREATE_DEPARTMENTS: "api/company/departments",
     GET_ALL_DEPARTMENTS: "api/company/departments",
     GET_DEPARTMENT_BY_ID: "api/company/department/:departmentId",
@@ -43,6 +47,11 @@ export const COMPANY = {
     CREATE_OVERVIEW: "api/company/overview",
     GET_OVERVIEW: "api/company/overview",
     UPDATE_OVERVIEW: "api/company/overview",
+    GET_OVERVIEW_BY_ID: "api/company/overview/:id",
+    PROMOTE_BRANCH_TO_SUBORG: "api/company/branches/:id/promote",
+    GET_ORGANIZATION_TREE: "api/company/overview/tree",
+    GET_ORGANIZATION_STATS: "api/company/overview/stats",
+    DELETE_OVERVIEW_BY_ID: "api/company/overview/:id",
     GET_CONFIGURATION: "api/feature/config",
 
     GET_ALL_FAQS: "api/company/faqs",
@@ -82,13 +91,9 @@ export const COMPANY = {
 export const EMPLOYEE = {
     CREATE_EMPLOYEE: "api/employee",
     GET_ALL_EMPLOYEE: "api/employee/all",
+    GET_EMPLOYEES_BY_BRANCH: "api/employee/by-branch",
     GET_ALL_EMPLOYEE_SELECTED_DATA: "api/employee/all-employees-selected-data",
-    GET_EMPLOYEE_DISCRETIONARY_BALANCE: "api/employee/discretionary-balance/:id",
     GET_ALL_LEAVES: "api/employee/employee-on-leaves",
-    EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/email/attendance-request-limit-reset",
-    GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS: "api/employee/attendance-request-limit-reset/requests",
-    APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/attendance-request-limit-reset/approve",
-    REJECT_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/attendance-request-limit-reset/reject",
     UPDATE_EMPLOYEE_BY_ID: "api/employee",
     GET_EMPLOYEE_BY_ID: "api/employee",
     CREATE_EMERGENCY_CONTACTS: "api/employee/emergencyContacts",
@@ -105,6 +110,8 @@ export const EMPLOYEE = {
     CREATE_EDUCATIONAL_DETAILS: "api/employee/educational-details",
     GET_EDUCATIONAL_DETAILS: "api/employee/educational-details?employeeId=",
     UPDATE_EDUCATIONAL_DETAILS_BY_ID: "api/employee/educational-details",
+    GET_QUALIFICATION_MASTER: "api/employee/qualification-master",
+    CREATE_QUALIFICATION_MASTER: "api/employee/qualification-master",
     CREATE_REJOIN_HISTORY: "api/employee/rejoin-history",
     FETCH_REJOIN_HISTORY: "api/employee/rejoin-history?employeeId=",
     UPDATE_REJOIN_HISTORY_BY_ID: "api/employee/rejoin-history",
@@ -143,6 +150,12 @@ export const EMPLOYEE = {
     DELETE_REIMBURSEMENT: "api/employee/reimbursement",
     UPDATE_REIMBURSEMENT_BY_ID: "api/employee/reimbursement",
     APPROVE_MULTIPLE_REIMBURSEMENTS: "api/employee/reimbursements/approve-multiple",
+    GET_REIMBURSEMENTS_BY_PROJECT_ID: "api/employee/reimbursements/by-project",
+    GET_EMPLOYEE_DISCRETIONARY_BALANCE: "api/employee/discretionary-balance/:id",
+    EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/email/attendance-request-limit-reset",
+    GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS: "api/employee/attendance-request-limit-reset/requests",
+    APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/attendance-request-limit-reset/approve",
+    REJECT_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/attendance-request-limit-reset/reject",
     GROSS_PAY_DEDUCTIONS: "api/company/gross-pay-deductions",
     GROSS_PAY_CONFIG: "api/company/employee/gross-pay-config",
     GROSS_PAY_CONFIG_BY_ID: "api/company/employee/:employeeId/gross-pay-config",
@@ -169,10 +182,10 @@ export const EMPLOYEE = {
     GET_PAID_SALARY_RECORDS: "api/company/salary/records",
     GET_Total_salary_By_Year: "api/company/get-total-salaryByYear",
     GET_TOTAL_MONTHLY_SALARY: "api/company/get-total-monthly-salary",
-    CREATE_TODOS: "api/employee/todo",
-    UPDATE_TODOS: "api/employee/todo",
-    GET_TODOS: "api/employee/todo",
-    DELETE_TODOS: "api/employee/todo",
+    CREATE_TODOS: "api/employee/todos",
+    UPDATE_TODOS: "api/employee/todos",
+    GET_TODOS: "api/employee/todos",
+    DELETE_TODOS: "api/employee/todos",
     CREATE_MEETINGS: "api/employee/meetings",
     GET_MEETINGS: "api/employee/meetings",
     UPDATE_MEETING: "/api/employee/meetings",
@@ -187,6 +200,7 @@ export const EMPLOYEE = {
     GET_ALL_NOTIFICATIONS: "api/employee/allnotification",
     MARK_ALL_AS_READ: "api/employee/mark-all-read",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
+    EMAIL_CONTRACT_BILL: "api/employee/email-contract-bill",
     GET_LOAN_BY_EMPLOYEE_ID: "api/employee/loans/employee",
     CREATE_LOAN: "api/employee/loan",
     GET_INSTALLMENT_BY_LOAN_ID: "api/employee/loan/installment",
@@ -310,6 +324,8 @@ export const ROLES = {
     CREATE_PERMISSION_FOR_ROLE: "api/roles/:id/permissions",
     UPDATE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
+    ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
+    REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
 }
 
 export const DAY_WISE_SHIFT = {
@@ -353,6 +369,7 @@ export const LEAD_PROJECT_COMPANY = {
     CREATE_MULTIPLE_TEAMS_MEMBERS: 'api/lead-project-companies/many',
 
     GET_ALL_PROJECTS: 'api/lead-project-companies/projects',
+    GET_PROJECT_MAP_POINTS: 'api/lead-project-companies/projects/map-points',
     GET_PROJECT_COUNT_FOR_PREFIX: "api/lead-project-companies/projects/count-for-prefix",
     GET_PROJECT_BY_ID: 'api/lead-project-companies/projects/:id',
     CREATE_PROJECT: 'api/lead-project-companies/projects',
@@ -582,4 +599,9 @@ export const EMPLOYEE_CONFIGURATION = {
     GET_BY_TYPE: '/api/employee-configurations/type/:type',
     UPDATE: '/api/employee-configurations/:id',
     DELETE: '/api/employee-configurations/:id',
+};
+export const DRAFT = {
+    SAVE: 'api/draft/save',
+    GET: 'api/draft/:entityType/:entityId',
+    DELETE: 'api/draft/:entityType/:entityId',
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
@@ -142,7 +142,7 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
           enableReinitialize
         >
           {({ values, setFieldValue }) => (
-            <FormikForm placeholder={""}>
+            <FormikForm>
               <Modal.Body style={{ paddingTop: "16px" }}>
                 {error && <div className="alert alert-danger mb-3">{error}</div>}
 

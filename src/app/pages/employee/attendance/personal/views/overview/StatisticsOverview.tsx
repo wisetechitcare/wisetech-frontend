@@ -4,6 +4,7 @@ import { Card, Row, Col } from 'react-bootstrap';
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactApexChart from 'react-apexcharts';
 import dayjs from 'dayjs';
+import DateSelector from '@components/DateSelector';
 import { StreakIndicator } from '@app/modules/common/components/Graphs';
 import { Attendance } from '@models/employee';
 import { toAbsoluteUrl } from '@metronic/helpers';
@@ -137,19 +138,12 @@ const OverviewProgessBar: React.FC = React.memo(() => {
                 <Card className="shadow-sm" style={{ height: '300px' }}>
                     <Card.Body className="d-flex flex-column justify-content-between align-items-center">
                         <h5 className="mb-3">Working Time</h5>
-                        <div>
-                            <button className="btn btn-sm" onClick={(e) => {
-                                handleDatesChange('decrement', 'day', setDay);
-                            }}>
-                                <img src={toAbsoluteUrl('media/svg/misc/back.svg')} />
-                            </button>
-                            <span className="mx-2 my-5">{day.format('DD MMM, YYYY')}</span>
-                            <button className="btn btn-sm" onClick={(e) => {
-                                handleDatesChange('increment', 'day', setDay);
-                            }}>
-                                <img src={toAbsoluteUrl('media/svg/misc/next.svg')} />
-                            </button>
-                        </div>
+                        <DateSelector
+                            onPrevious={() => handleDatesChange('decrement', 'day', setDay)}
+                            onNext={() => handleDatesChange('increment', 'day', setDay)}
+                            displayValue={day.format('DD MMM YYYY')}
+                            className="mb-4"
+                        />
                         <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
                             <ReactApexChart
                                 options={progessBarOptions}
@@ -303,15 +297,12 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
                     <Card.Body className="d-flex flex-column justify-content-between align-items-center">
                         <h6 className="text-center">Yearly Stats</h6>
 
-                        <div>
-                            <button className="btn btn-sm" onClick={() => handleYearChange('decrement')}>
-                                <img src={toAbsoluteUrl('media/svg/misc/back.svg')} />
-                            </button>
-                            <span className="mx-2 my-5">{year}</span>
-                            <button className="btn btn-sm" onClick={() => handleYearChange('increment')}>
-                                <img src={toAbsoluteUrl('media/svg/misc/next.svg')} />
-                            </button>
-                        </div>
+                        <DateSelector
+                            onPrevious={() => handleYearChange('decrement')}
+                            onNext={() => handleYearChange('increment')}
+                            displayValue={year}
+                            className="mb-4 mt-2"
+                        />
                         
                         <div className="text-center mt-2 mb-2">
                             <small className="text-muted">

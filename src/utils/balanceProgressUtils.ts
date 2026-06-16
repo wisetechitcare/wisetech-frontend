@@ -1,7 +1,37 @@
 import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES, Status, UNPAID_LEAVES } from "@constants/statistics";
 import dayjs from "dayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { calculateFiscalMonth } from "@utils/fiscalYearHelper";
 import { useState } from "react";
+
+/**
+ * Cumulative paid-leave days allowed up to (and including) a given fiscal month.
+ *
+ * Uses Math.floor so the result is always conservative, strictly monotone, and reaches
+ * exactly totalAnnualLeaves at month 12 (when total is divisible by 12) or is off by at
+ * most 1 otherwise — corrected in the final month.
+ *
+ * Why Math.floor instead of Math.round:
+ *   Math.round creates double-increment jumps for non-divisible totals (e.g. 13 leaves
+ *   jumps from 5 to 7 at fiscal month 6). Math.floor is uniformly conservative and avoids
+ *   that surprise. The backend uses the same formula via leaveUtils.getCumulativeAllowedLeaves.
+ *
+ * @param totalAnnualLeaves - Total paid leave allocation for the fiscal year
+ * @param fiscalMonthIndex  - Target month (1=April … 12=March)
+ */
+export function getCumulativeAllowedLeaves(totalAnnualLeaves: number, fiscalMonthIndex: number): number {
+    return Math.floor((totalAnnualLeaves / 12) * fiscalMonthIndex);
+}
+
+/**
+ * Returns the fiscal month index for today's date.
+ * @param fiscalStartMonth - Calendar month the fiscal year starts on (1=Jan … 12=Dec).
+ *                           Defaults to 4 (April) for backwards compatibility.
+ */
+export function getCurrentFiscalMonthIndex(fiscalStartMonth: number = 4): number {
+    const month = new Date().getMonth() + 1; // 1-based
+    return calculateFiscalMonth(month, fiscalStartMonth);
+}
 
 /**
  * Returns the leave type name as stored in the DB.
@@ -106,25 +136,28 @@ export const calculateLeaveDays = (
 export const calculateLeavesTakenByType = (
     fiscalYearFilteredLeaves: any[],
     publicHolidays: string[] = [],
-    workingAndOffDays: Record<string, string> = {}
+    workingAndOffDays: Record<string, string> = {},
+    includePending: boolean = false
 ): Record<string, number> => {
+    const filterStatus = includePending ? [Status.Approved, Status.ApprovalNeeded] : [Status.Approved];
+
     const casualLeavesTaken = fiscalYearFilteredLeaves.filter(
-        (leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && leave.status === Status.Approved
+        (leave: any) => leave.leaveOptions.leaveType === CASUAL_LEAVES && filterStatus.includes(leave.status)
     );
     const annualLeavesTaken = fiscalYearFilteredLeaves.filter(
-        (leave: any) => leave.leaveOptions.leaveType === ANNUAL_LEAVES && leave.status === Status.Approved
+        (leave: any) => leave.leaveOptions.leaveType === ANNUAL_LEAVES && filterStatus.includes(leave.status)
     );
     const maternalLeavesTaken = fiscalYearFilteredLeaves.filter(
-        (leave: any) => leave.leaveOptions.leaveType === MATERNAL_LEAVES && leave.status === Status.Approved
+        (leave: any) => leave.leaveOptions.leaveType === MATERNAL_LEAVES && filterStatus.includes(leave.status)
     );
     const sickLeavesTaken = fiscalYearFilteredLeaves.filter(
-        (leave: any) => leave.leaveOptions.leaveType === SICK_LEAVES && leave.status === Status.Approved
+        (leave: any) => leave.leaveOptions.leaveType === SICK_LEAVES && filterStatus.includes(leave.status)
     );
     const floaterLeavesTaken = fiscalYearFilteredLeaves.filter(
-        (leave: any) => leave.leaveOptions.leaveType === FLOATER_LEAVES && leave.status === Status.Approved
+        (leave: any) => leave.leaveOptions.leaveType === FLOATER_LEAVES && filterStatus.includes(leave.status)
     );
     const unpaidLeavesTaken = fiscalYearFilteredLeaves.filter(
-        (leave: any) => leave.leaveOptions.leaveType === UNPAID_LEAVES && leave.status === Status.Approved
+        (leave: any) => leave.leaveOptions.leaveType === UNPAID_LEAVES && filterStatus.includes(leave.status)
     );
 
     // Calculate total days for each leave type (not just count of records)
@@ -240,7 +273,6 @@ export const calculateLeaveBalances = (
     addonLeaveAllowanceCount: number,
     proRatedMonths: number,
     hasPendingOrApprovedTransfer: boolean,
-    allowedPerMonth: number = 1,
     tenureMonths: number = 1
 ): { balances: Record<string, number>; proRated: Record<string, number> } => {
     const monthsInYear = 12;
@@ -257,19 +289,14 @@ export const calculateLeaveBalances = (
         if (leaveType === CASUAL_LEAVES) {
             const monthlyLeave = totalYearlyDays / monthsInYear;
             // B7: Use direct floor — multiply/divide by 10 introduces floating-point errors
-            let proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
-            // Apply allowedPerMonth cap
-            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
+            const proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
 
             proRated[leaveType] = proRatedLeaves + transferred;
             balances[leaveType] = totalYearlyDays + transferred;
         } else if (leaveType === ANNUAL_LEAVES) {
             // FIX: Use backend-provided `totalYearlyDays` with pro-rating rather than hardcoding with tenureMonths
             const monthlyLeave = totalYearlyDays / monthsInYear;
-            let proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
-
-            // Apply allowedPerMonth cap
-            proRatedLeaves = Math.min(proRatedLeaves, allowedPerMonth * proRatedMonths);
+            const proRatedLeaves = Math.floor(monthlyLeave * proRatedMonths);
 
             // Add addon leave allowance (experience-based leaves) and transferred leaves
             const totalWithAddon = proRatedLeaves + addonLeaveAllowanceCount;
@@ -362,8 +389,7 @@ export const calculateLeaveBalances = (
 export const buildLeaveData = (
     leavesTakenCount: Record<string, number>,
     proRatedBalances: Record<string, number>,
-    leaveBalances: Record<string, number>,
-    allowedPerMonth: number = 1
+    leaveBalances: Record<string, number>
 ) => {
     const allPaidLeaves = [
         {
@@ -371,8 +397,7 @@ export const buildLeaveData = (
             used: leavesTakenCount[ANNUAL_LEAVES] || 0,
             total: proRatedBalances[ANNUAL_LEAVES] || leaveBalances[ANNUAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth,
-            showAllowedPerMonth: true
+            showAllowedPerMonth: false
         },
         {
             label: SICK_LEAVES,
@@ -394,16 +419,14 @@ export const buildLeaveData = (
             used: leavesTakenCount[CASUAL_LEAVES] || 0,
             total: proRatedBalances[CASUAL_LEAVES] || leaveBalances[CASUAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth,
-            showAllowedPerMonth: true
+            showAllowedPerMonth: false
         },
         {
             label: MATERNAL_LEAVES,
             used: leavesTakenCount[MATERNAL_LEAVES] || 0,
             total: proRatedBalances[MATERNAL_LEAVES] || leaveBalances[MATERNAL_LEAVES] || 0,
             color: '#9D4141',
-            allowedPerMonth,
-            showAllowedPerMonth: true
+            showAllowedPerMonth: false
         },
     ];
 
@@ -448,6 +471,44 @@ export const buildLeaveData = (
         totalUnpaidAssigned: derivedUnpaidAssigned,
         grandTotalUsed: totalPaidUsed + totalUnpaidUsed,
         grandTotalAssigned: TOTAL_YEAR_DAYS,  // Always 365 — never paid+unpaid sum
+    };
+};
+
+/**
+ * Centrally calculates the Cumulative Leave Allowance summary.
+ * Used by both BalanceProgress (Dashboard) and LeaveRequestForm (Modal).
+ *
+ * @param totalPaidAllocated     - Full annual allocation for pro-ratable paid leave types
+ *                                 (Annual + Casual + Sick + Floater). Must NOT include
+ *                                 Maternal or Unpaid leaves.
+ * @param leavesTakenIncludingPending - Days taken (approved + pending) keyed by leave type.
+ * @param fiscalStartMonth        - Calendar month the fiscal year starts (1–12). Defaults to 4 (April).
+ */
+export const calculateCumulativeSummary = (
+    totalPaidAllocated: number,
+    leavesTakenIncludingPending: Record<string, number>,
+    fiscalStartMonth: number = 4
+) => {
+    const fiscalMonthIdx = getCurrentFiscalMonthIndex(fiscalStartMonth);
+    const allowedTillNow = getCumulativeAllowedLeaves(totalPaidAllocated, fiscalMonthIdx);
+
+    // Maternal leaves are excluded: they carry full allocation from day 1 and are not
+    // subject to monthly pacing. Including them would falsely trigger "Limit Reached"
+    // for any employee who has taken maternity leave.
+    const paidUsed =
+        (leavesTakenIncludingPending[CASUAL_LEAVES] || 0) +
+        (leavesTakenIncludingPending[ANNUAL_LEAVES] || 0) +
+        (leavesTakenIncludingPending[SICK_LEAVES] || 0) +
+        (leavesTakenIncludingPending[FLOATER_LEAVES] || 0);
+
+    const used = Math.round(paidUsed);
+    const remaining = Math.max(0, allowedTillNow - used);
+
+    return {
+        total: totalPaidAllocated,
+        used,
+        allowedTillNow,
+        remaining
     };
 };
 

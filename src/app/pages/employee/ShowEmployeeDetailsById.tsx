@@ -12,6 +12,7 @@ import { fetchEmployeeTypes } from "@services/options";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import AppSettingsModal from "./components/AppSettingsModal";
+import { getEducationAcademicLabel, getEducationDetailValue } from "../../../utils/educationUtils";
 
 const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
   const allemployees = useSelector((state: RootState) => state.allEmployees);
@@ -79,7 +80,6 @@ const ShowEmployeeDetailsById = ({ employeeId }: { employeeId: string }) => {
     allowOverTime,
     isActive,
     anniversary,
-    attendanceRequestRaiseLimit,
     method,
     aadharNumber,
     panNumber,
@@ -913,43 +913,39 @@ Location: ${branches?.address || 'N/A'}`;
                       scrollbarColor: "#e6eaf1 transparent"
                     }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                        {EmployeeEducationalDetails.map((edu: any, index: any) => (
-                          <div key={index}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Institute</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.instituteName || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Degree</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.degree || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Specialization</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.specialization || "-NA-"}</div>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>From Date</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                                  {edu.fromDate
-                                    ? `${formatDate(edu.fromDate)}`
-                                    : "-NA-"}
+                        {EmployeeEducationalDetails.map((edu: any, index: any) => {
+                          const academicLabel = getEducationAcademicLabel(edu);
+                          const detailValue = getEducationDetailValue(edu) || "-NA-";
+                          const academicValue = academicLabel === "Passing Year"
+                            ? (edu.passingYear || "-NA-")
+                            : [edu.fromDate && formatDate(edu.fromDate), edu.toDate && formatDate(edu.toDate)].filter(Boolean).join(" - ") || "-NA-";
+
+                          return (
+                            <div key={index}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Institute</div>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.instituteName || "-NA-"}</div>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Qualification</div>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{edu.qualificationName || edu.degree || "-NA-"}</div>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>Detail</div>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{detailValue}</div>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "500" }}>{academicLabel}</div>
+                                  <div style={{ fontFamily: "Inter", fontWeight: "400" }}>{academicValue}</div>
                                 </div>
                               </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", color: "black" }}>
-                                <div style={{ fontFamily: "Inter", fontWeight: "500" }}>To Date</div>
-                                <div style={{ fontFamily: "Inter", fontWeight: "400" }}>
-                                  {edu.toDate
-                                    ? `${formatDate(edu.toDate)}`
-                                    : "-NA-"}
-                                </div>
-                              </div>
+                              {index < EmployeeEducationalDetails.length - 1 && (
+                                <div style={{ height: "0px", borderTop: "1px solid #e6eaf0", margin: "16px 0" }}></div>
+                              )}
                             </div>
-                            {index < EmployeeEducationalDetails.length - 1 && (
-                              <div style={{ height: "0px", borderTop: "1px solid #e6eaf0", margin: "16px 0" }}></div>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (

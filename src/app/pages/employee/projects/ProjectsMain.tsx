@@ -12,7 +12,7 @@ import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { PageTitle } from "@metronic/layout/core";
 import Maps from "../companies/companyOverview/components/Map";
-import { getAllProjects } from "@services/projects";
+import { getProjectMapPoints } from "@services/projects";
 import { worldIcons } from "@metronic/assets/sidepanelicons";
  
 const ProjectsMain = () => {
@@ -29,10 +29,11 @@ const ProjectsMain = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    getAllProjects().then((res) => { 
+    // Map loads EVERY coordinated project (no 500-row pagination) via the slim endpoint.
+    getProjectMapPoints().then((res) => {
       setProjectData(res?.data?.projects);
       const allCoordinates = res?.data?.projects
-        ?.filter((item: any) => item.latitude && item.longitude) 
+        ?.filter((item: any) => item.latitude && item.longitude)
         ?.map((item: any) => ({
           lat: parseFloat(item.latitude),
           lng: parseFloat(item.longitude),

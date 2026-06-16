@@ -1,6 +1,6 @@
 import { store } from "@redux/store";
 import { getDynamicRolesObject } from "./dynamicRoles";
-import { json } from "stream/consumers";
+import { can } from "./can";
 
 let dynamicRoles: Record<string, any> = {};
 
@@ -23,15 +23,100 @@ export async function loadDynamicRoles() {
  * @param action - the action name (e.g. "view", "create", "update", "delete")
  * @param data - (optional) any extra data required for the permission check
  */
+// Maps ABAC resource names to RBAC module names.
+// ABAC uses fine-grained strings ("attendancerequest"); RBAC uses module-level names ("attendance").
+const resourceToRbacModule: Record<string, string> = {
+  attendancerequest: 'attendance',
+  attendancereport: 'attendance',
+  leave: 'leaves',
+  leavecashtransfer: 'leaves',
+  reimbursement: 'finance',
+  employee: 'users',
+  salary: 'finance',
+  salaryconfig: 'finance',
+  salaryconfiguration: 'finance',
+  loan: 'finance',
+  loaninstallment: 'finance',
+  kpi: 'kpi',
+  department: 'settings',
+  designation: 'settings',
+  branch: 'settings',
+  holiday: 'settings',
+  onboardingdocument: 'settings',
+  announcement: 'settings',
+  attendanceconfig: 'settings',
+  organisationprofile: 'settings',
+};
+
+// Maps uiControlResourceNameMapWithCamelCase values to their full RBAC permission key.
+// These represent navigation-level access controls for sidebar/route visibility.
+const uiControlToPermissionKey: Record<string, string> = {
+  'calendar': 'attendance.view.self',
+  'attendanceAndLeaves->personal': 'attendance.view.self',
+  'attendanceAndLeaves->employees': 'attendance.view.all',
+  'people->employees': 'users.view.team',
+  'people->documents': 'users.view.team',
+  'company->organisationProfile': 'settings.manage.all',
+  'company->announcements': 'settings.manage.all',
+  'company->branches': 'settings.manage.all',
+  'company->departments': 'settings.manage.all',
+  'company->designation': 'settings.manage.all',
+  'company->media': 'settings.manage.all',
+  'company->onboardingDocument': 'settings.manage.all',
+  'reports->holidays': 'reports.view.team',
+  'finance->reimbursements': 'finance.view.team',
+  'finance->salary': 'finance.view.team',
+  'reports->kpi': 'kpi.view.team',
+  'finance-loan': 'finance.view.team',
+  'lead-project->companiesContact': 'crm.companies.view.team',
+};
+
 export function hasPermission(
   resource: string,
   action: string,
   data?: any
 ): boolean {
+  const actionMap: Record<string, { action: string; scope: string }> = {
+    readOthers: { action: "view", scope: "team" },
+    readOwn: { action: "view", scope: "self" },
+    create: { action: "create", scope: "self" },
+    updateOthers: { action: "update", scope: "team" },
+    updateOwn: { action: "update", scope: "self" },
+    deleteOthers: { action: "delete", scope: "team" },
+    deleteOwn: { action: "delete", scope: "self" },
+    editOthers: { action: "update", scope: "team" },
+    editOwn: { action: "update", scope: "self" },
+  };
 
-  const dynamicRoles = JSON.parse(store.getState().rolesAndPermissions.rap);
-  const emp = JSON.parse(store.getState().rolesAndPermissions.emp || "{}");
+  // UI control paths (e.g. "finance->salary") map directly to a full RBAC key.
+  const directKey = uiControlToPermissionKey[resource];
+  if (directKey && can(directKey)) return true;
+
+  const mapped = actionMap[action];
+  if (mapped) {
+    // Resolve ABAC resource name to RBAC module, falling back to the resource as-is.
+    const rbacModule = resourceToRbacModule[resource.toLowerCase()] ?? resource;
+    const canonicalKey = `${rbacModule}.${mapped.action}.${mapped.scope}`;
+    if (can(canonicalKey)) return true;
+  }
+
+  let dynamicRoles: Record<string, any> = {};
+  let emp: any = {};
   
+  try {
+    const rapState = store.getState().rolesAndPermissions.rap;
+    dynamicRoles = rapState ? JSON.parse(rapState) : {};
+    
+    const empState = store.getState().rolesAndPermissions.emp;
+    emp = empState ? JSON.parse(empState) : {};
+  } catch (e) {
+    console.error("Error parsing roles and permissions state:", e);
+  }
+  
+  if (!emp || !Array.isArray(emp.roles)) {
+    return false;
+  }
+
   return emp.roles.some((role: any) => {
     // Convert the role to lowercase to match your dynamic roles keys.
     const roleKey = role?.name?.toLowerCase();

@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useState, lazy, Suspense } from "react";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
@@ -13,8 +14,9 @@ import AttendanceCalendar from "./views/overview/AttendanceCalendar";
 import MarkAttendance from "./views/overview/MarkAttendance";
 const AttendanceGraphicalOverview = lazy(() => import("./views/overview/AttendanceGraphicalOverview"));
 import { customLeaves, filterLeavesPublicHolidays } from "@utils/statistics";
-import { saveFilteredLeaves, saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from "@redux/slices/attendanceStats";
+import { saveFilteredLeaves, saveFilteredPublicHolidays, saveLeaves, savePublicHolidays, saveToggleChange } from "@redux/slices/attendanceStats";
 import { fetchAllPublicHolidays, fetchCompanyOverview } from "@services/company";
+import { getSocket } from "@utils/socketClient";
 
 
 export interface FormattedDate {
@@ -110,8 +112,10 @@ export const transformAttendance = (dates: FormattedDate[], attendance: Attendan
         const formattedCheckOut = formatTime(convertToTimeZone(checkOut, mumbaiTz));        
         const isWeekend = Object.keys(workingAndOffDays).includes(weekDay.toLowerCase()) && workingAndOffDays[weekDay.toLowerCase()]==="0";
 
-        // Prioritize leave status if the employee is on leave for this day
-        if (isOnLeave) {
+        // Attendance overrides leave for historical overlap data.
+        // Backend check-in removes the attended date from leave records, but this keeps
+        // calendar/table display correct if old data still has both leave and check-in.
+        if (isOnLeave && !checkIn) {
             return {
                 id: attendanceRecord?.id,
                 date: transformedDate,
@@ -215,6 +219,7 @@ export const transformLeaves = (leaves: LeaveResponse[]): ILeaves[] => {
             updatedAt: leave.updatedAt,
             approvedByName: leave.approvedByEmployee?.users ? `${leave.approvedByEmployee.users.firstName || ''} ${leave.approvedByEmployee.users.lastName || ''}`.trim() : '',
             rejectedByName: leave.rejectedByEmployee?.users ? `${leave.rejectedByEmployee.users.firstName || ''} ${leave.rejectedByEmployee.users.lastName || ''}`.trim() : '',
+            hasApprovalInstance: (leave as any).hasApprovalInstance ?? false,
         }
     });
 
@@ -251,7 +256,7 @@ function OverviewView() {
                     fetchAttendanceDetails(employeeId, month, year)
                 ]);
                 
-                const companyId = companyOverview[0].id;
+                const companyId = (resolveActiveOrgId(companyOverview) ?? '');
                 const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);
                 dispatch(savePublicHolidays(publicHolidays));
                 const personalLeaves = transformLeaves(leaves);
@@ -311,6 +316,19 @@ function OverviewView() {
         }
     }, []);
 
+    // When an approval completes (admin approves via Approval Inbox), the backend
+    // emits 'approval:updated' to the requester's socket room. Re-fetch attendance
+    // so the calendar and report tables reflect the newly written attendance record.
+    useEffect(() => {
+        const socket = getSocket();
+        const handler = () => {
+            setActiveStartDate(prev => new Date(prev.getTime()));
+            dispatch(saveToggleChange(!store.getState().attendanceStats.toggleChange));
+        };
+        socket.on('approval:updated', handler);
+        return () => { socket.off('approval:updated', handler); };
+    }, []);
+
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);
     const startDate = dayjs(activeStartDate).startOf('year').format('YYYY-MM-DD');
     const endDate = dayjs(activeStartDate).endOf('year').format('YYYY-MM-DD');
@@ -319,7 +337,7 @@ function OverviewView() {
         async function fetchLeavesPublicHolidays() {
             try {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                const companyId = companyOverview[0].id;
+                const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
                 const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
                 const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyId);

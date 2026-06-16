@@ -1,4 +1,4 @@
-
+﻿
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../../../_metronic/helpers'
 import {ChatInner, Dropdown1} from '../../../../../_metronic/partials'
@@ -61,7 +61,7 @@ const Private: FC = () => {
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
                     <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/avatars/300-1.jpg')} />
+                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/001-boy.svg')} />
                     </div>
 
                     <div className='ms-5'>
@@ -82,7 +82,7 @@ const Private: FC = () => {
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
                     <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/avatars/300-5.jpg')} />
+                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/014-girl-7.svg')} />
                     </div>
 
                     <div className='ms-5'>
@@ -104,7 +104,7 @@ const Private: FC = () => {
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
                     <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/avatars/300-25.jpg')} />
+                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/029-boy-11.svg')} />
                     </div>
 
                     <div className='ms-5'>
@@ -148,7 +148,7 @@ const Private: FC = () => {
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
                     <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/avatars/300-9.jpg')} />
+                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/029-boy-11.svg')} />
                     </div>
 
                     <div className='ms-5'>
@@ -218,7 +218,7 @@ const Private: FC = () => {
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
                     <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/avatars/300-23.jpg')} />
+                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/020-girl-11.svg')} />
                     </div>
 
                     <div className='ms-5'>

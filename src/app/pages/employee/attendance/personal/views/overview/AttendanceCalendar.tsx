@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { resolveActiveOrgId } from '@utils/activeOrg';
+﻿import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
@@ -16,7 +17,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import TimePickerInput from "@app/modules/common/inputs/TimeInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { handleSendEmailForResetAttendanceRequestLimit, isValidTime } from '@utils/statistics';
+import { isValidTime } from '@utils/statistics';
 import { fetchCompanyOverview, fetchHolidays, fetchAllPublicHolidays } from "@services/company";
 import { fetchWorkingMethods } from "@services/options";
 import { fetchEmployeeLeaves } from "@services/employee";
@@ -171,7 +172,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
         try {
             // Get company info first
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0]?.id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
             const observedIn = 'India'; // Default to India
             if (!companyId) {
                 console.error('Company ID not found');
@@ -270,9 +271,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
             ? JSON.parse(state.employee.currentEmployee.branches.workingAndOffDays)
             : null
     );
-    const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
-    const maxAttendanceRequestLimit = useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
-    const [requestLimitResetLoading, setRequestLimitResetLoading] = useState(false)
     const reportsToId = useSelector((state: RootState) => state.employee.currentEmployee.reportsToId);
 
     const isWeekendFromConfig = (date: Date): boolean => {
@@ -510,36 +508,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
         setShowAdminRequestModal(true); // Open admin modal
     }
 
-    useEffect(() => {
-        if (!employeeId || !selectedDate) return;
-
-        const fetchEmployeeRequestRaise = async () => {
-            let parsedDate;
-
-            if (selectedDate.includes('/')) {
-                parsedDate = dayjs(selectedDate, 'DD/MM/YYYY', true);
-            } else {
-                parsedDate = dayjs(selectedDate);
-            }
-
-            if (!parsedDate.isValid()) {
-                console.error("Invalid date parsing:", selectedDate);
-                return;
-            }
-            const startDate = parsedDate.startOf('month').format('YYYY-MM-DD');
-            const endDate = parsedDate.endOf('month').format('YYYY-MM-DD');
-
-            const { data: { attendanceRequests } } = await getAttendanceRequest(employeeId, startDate, endDate);
-            if (attendanceRequests?.length === 0) {
-                setlimitMessage(false);
-            }
-            else if (attendanceRequests?.length >= maxAttendanceRequestLimit) {
-                setlimitMessage(true);
-                setDisableRaiseRequest(true);
-            }
-        };
-        fetchEmployeeRequestRaise();
-    }, [selectedDate, employeeId, maxAttendanceRequestLimit]);
 
 
     // Fetch restriction data when employeeId is available and restriction is enabled
@@ -576,7 +544,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
     const handleSubmit = async (values: FormValues, actions: FormikHelpers<FormValues>) => {
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const currentCompanyId = companyOverview[0].id;
+            const currentCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
 
             const formattedDate = selectedDate;
 
@@ -867,7 +835,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                     ) : (
                         <Formik initialValues={attendanceData[selectedDate] || initialState} enableReinitialize onSubmit={handleSubmit} validationSchema={faqSchema}>
                             {(formikProps) => (
-                                <Form className='d-flex flex-column' noValidate placeholder={''}>
+                                <Form className='d-flex flex-column' noValidate>
                                     {requestType === 'checkin' && <div className="col-lg">
                                         {isIOSMobile ? (
                                             <BootstrapForm.Group controlId="CheckIn" className="mb-3">
@@ -965,7 +933,6 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
                                             <i className='bi bi-arrow-left me-2 text-white'></i>
                                             Back
                                         </button>
-                                        {disableRaiseRequest && <button type='button' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={requestLimitResetLoading} onClick={async () => await handleSendEmailForResetAttendanceRequestLimit(employeeId, setRequestLimitResetLoading, reportsToId || undefined)}>{requestLimitResetLoading ? "Please Wait..." : "Request Limit Reset"}</button>}
                                         <button type='submit' className='btn btn-primary my-2' style={{ backgroundColor: '#9D4141', borderColor: '#9D4141' }} disabled={loading || limitMessage || !canSubmitRequest || isValidating}>
                                             {isValidating ? 'Validating...' : (!loading ? 'Save Changes' : 'Please wait...')}
                                             {loading && (

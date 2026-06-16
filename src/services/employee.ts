@@ -45,6 +45,16 @@ export const fetchAllEmployees = async (isActive?: boolean) => {
     }
 }
 
+export const fetchEmployeesByBranch = async (branchId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEES_BY_BRANCH}?branchId=${branchId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
 export const fetchAllEmployeesSelectedData = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_EMPLOYEE_SELECTED_DATA}`;
@@ -55,17 +65,6 @@ export const fetchAllEmployeesSelectedData = async () => {
         throw error;
     }
 }
-
-export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (error) {
-        throw error;
-    }
-};
-
 
 export const createTodo = async (payload: any) => {
     try {
@@ -180,6 +179,27 @@ export const fetchCurrentEmployeeByUserId = async (userId: string) => {
     }
 }
 
+export const fetchCurrentEmployeeByEmpId = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_BY_ID}?employeeId=${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const fetchEmployeeDiscretionaryBalanceById = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_DISCRETIONARY_BALANCE.replace(':id', employeeId)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
 export const sendAttendanceRequestResetLimit = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET}`;
@@ -191,10 +211,32 @@ export const sendAttendanceRequestResetLimit = async (payload: any) => {
     }
 }
 
-export const fetchCurrentEmployeeByEmpId = async (employeeId: string) => {
+export const getAttendanceRequestLimitResetRequests = async (companyId: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_EMPLOYEE_BY_ID}?employeeId=${employeeId}`;
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS}?companyId=${companyId}`;
         const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const approveAttendanceRequestLimitReset = async (requestId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, { requestId });
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.REJECT_ATTENDANCE_REQUEST_LIMIT_RESET}`;
+        const { data } = await axios.post(endpoint, { requestId });
         return data;
     }
     catch (err) {
@@ -448,6 +490,28 @@ export const updateEducationalDetails = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EDUCATIONAL_DETAILS_BY_ID}?id=${id}`;
         const { data } = await axios.put(endpoint, payload);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const fetchQualificationMasters = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_QUALIFICATION_MASTER}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const createQualificationMaster = async (payload: { name: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_QUALIFICATION_MASTER}`;
+        const { data } = await axios.post(endpoint, payload);
         return data;
     }
     catch (err) {
@@ -868,6 +932,16 @@ export const deleteEmployeeReimbursement = async (reimbursementId: string) => {
     }
 }
 
+export const fetchReimbursementsByProjectId = async (projectId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENTS_BY_PROJECT_ID}/${projectId}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 export const fetchGrossPayDeductions = async (employeeId: string, month?: string, year?: string) => {
     try {
         if (!employeeId) {
@@ -940,9 +1014,9 @@ export const fetchAllEmployeeSalaryAllTimeDateRage = async (employeeId: string) 
     }
 }
 // GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE
-export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string) => {
+export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string, status: 'active' | 'inactive' | 'all' = 'active') => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}&status=${status}`;
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -951,16 +1025,6 @@ export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endD
     }
 }
 
-// Fetch salary totals for all active employees in date range
-export const fetchSalaryRecordsForAllActiveEmployees = async (startDate: string, endDate: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_RECORDS_ALL_ACTIVE_EMPLOYEES}?startDate=${startDate}&endDate=${endDate}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
 export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, startYear: string, endYear: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_Total_salary_By_Year}?companyId=${companyId}&startYear=${startYear}&endYear=${endYear}`;
@@ -1005,16 +1069,6 @@ export const updatePaymentById = async (paymentId: string, payload: IPayment) =>
     }
 }
 
-export const recordSalaryPayment = async (payload: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment`;
-        const { data } = await axios.post(endpoint, payload);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
 export const recordGovernmentPayment = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/company/salary/government-payment`;
@@ -1031,17 +1085,6 @@ export const getPaymentHistory = async (salaryId: string) => {
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
-        throw err;
-    }
-}
-
-export const deletePaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.SALARY}/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
         throw err;
     }
 }
@@ -1214,6 +1257,110 @@ export const updateEmployeeRolesById = async (employeeId: string, roles: any) =>
     }
 }
 
+export const fetchApprovalWorkflowConfigs = async (employeeId: string, workflowType?: string) => {
+    try {
+        let endpoint = `${API_BASE_URL}/api/approvals/config/${employeeId}`;
+        if (workflowType) {
+            endpoint += `?workflowType=${encodeURIComponent(workflowType)}`;
+        }
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const saveApprovalWorkflowChain = async (
+    employeeId: string,
+    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'conveyance',
+    levels: Array<{ level: number; approverId?: string | null }>,
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/approvals/config/${employeeId}/${workflowType}`;
+        const { data } = await axios.put(endpoint, { levels });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteApprovalWorkflowConfig = async (configId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/api/approvals/config/${configId}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const fetchPendingApprovals = async () => {
+    const endpoint = `${API_BASE_URL}/api/approvals/pending`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const processApprovalAction = async (instanceId: string, action: 'approve' | 'reject', comments?: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/process`;
+    const { data } = await axios.post(endpoint, { action, comments });
+    return data;
+}
+
+export const fetchApprovalTimeline = async (instanceId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/timeline`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchApprovalStatus = async (instanceId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/status`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchApprovalAudit = async (instanceId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/instance/${instanceId}/audit`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchApprovalInstanceByRequest = async (requestModel: string, requestId: string) => {
+    const endpoint = `${API_BASE_URL}/api/approvals/request/${requestModel}/${requestId}`;
+    const { data } = await axios.get(endpoint);
+    return data;
+}
+
+export const fetchMyApprovees = async () => {
+    const { data } = await axios.get(`${API_BASE_URL}/api/approvals/my-approvees`);
+    return data;
+}
+
+export const fetchAllApprovalInstances = async (tab: 'pending' | 'awaiting' | 'completed') => {
+    const { data } = await axios.get(`${API_BASE_URL}/api/approvals/all-instances?tab=${tab}`);
+    return data;
+}
+
+export const fetchDelegations = async () => {
+    const { data } = await axios.get(`${API_BASE_URL}/api/approvals/delegations`);
+    return data;
+}
+
+export const createApprovalDelegation = async (payload: {
+    originalApproverId: string;
+    delegateToId: string;
+    startDate: string;
+    endDate: string;
+    reason?: string;
+}) => {
+    const { data } = await axios.post(`${API_BASE_URL}/api/approvals/delegations`, payload);
+    return data;
+}
+
+export const cancelApprovalDelegation = async (id: string) => {
+    const { data } = await axios.patch(`${API_BASE_URL}/api/approvals/delegations/${id}/cancel`);
+    return data;
+}
+
 /**
  * Creates a new permission for a specific employee by their ID.
  * @param employeeId - The ID of the employee.
@@ -1269,9 +1416,20 @@ export const deleteEmployeePermissionById = async (employeeId: string, permissio
     }
 }
 
-export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string }) => {
+export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string, salaryData?: any }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_SALARY_SLIP}`;
+        const { data } = await axios.post(endpoint, details);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const sendContractBillToEmployee = async (details: { path: string, employeeId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_CONTRACT_BILL}`;
         const { data } = await axios.post(endpoint, details);
         return data;
     }
@@ -1444,10 +1602,31 @@ export const fetchEmpKpiScoresAllTime = async (employeeId: string) => {
     }
 };
 
-export const getAllKpiFactors = async () => {
+
+export const getAllKpiFactors = async (includeInactive = false) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_KPI_FACTORS}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, {
+            params: includeInactive ? { includeInactive: 'true' } : undefined,
+        });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const createKpiFactor = async (payload: {
+    name: string;
+    moduleId: string;
+    calculationFrom: string;
+    weightage: number;
+    unit: string;
+    type: string;
+    isActive?: boolean;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_KPI_FACTOR}`;
+        const { data } = await axios.post(endpoint, payload);
         return data;
     } catch (error) {
         throw error;
@@ -1564,36 +1743,6 @@ export const getAllEmployeeWithMonthDailyHourlySalary = async (id?: string, date
         const url = params.toString() ? `${endpoint}?${params.toString()}` : endpoint;
 
         const { data } = await axios.get(url);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const getAttendanceRequestLimitResetRequests = async (companyId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS}?companyId=${companyId}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const approveAttendanceRequestLimitReset = async (requestId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, { requestId });
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
-
-export const rejectAttendanceRequestLimitReset = async (requestId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.REJECT_ATTENDANCE_REQUEST_LIMIT_RESET}`;
-        const { data } = await axios.post(endpoint, { requestId });
         return data;
     } catch (err) {
         throw err;
@@ -2071,8 +2220,8 @@ export const validateDeductionConfigurationJson = (configJson: Record<string, Dy
             return { isValid: false, error: `Field "${key}" must have a valid name` };
         }
 
-        if (typeof value.value !== 'number' || value.value < 0) {
-            return { isValid: false, error: `Field "${key}" must have a valid value >= 0` };
+        if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
+            return { isValid: false, error: `Field "${key}" must have a valid numeric value` };
         }
 
         if (!value.type || !['percentage', 'number'].includes(value.type)) {
@@ -2122,5 +2271,31 @@ export const fetchKpiLeaderboardOverall = async (startDate: string, endDate: str
         console.error("Leaderboard API error:", error);
         throw error;
     }
+};
+
+export const saveEmployeeAccessSettings = async (
+    employeeId: string,
+    userId: string,
+    employeePayload: any,
+    roleId: string | null,
+    isAdmin: boolean,
+    oldRoleId?: string | null,
+    oldIsAdmin?: boolean
+) => {
+    // Step 1: Update employee fields (PUT /api/employee)
+    const employeeRes = await updateEmployee(employeeId, employeePayload);
+
+    // Step 2: If role changed: PUT /api/employee/:id/roles
+    if (roleId && roleId !== oldRoleId) {
+        await updateEmployeeRolesById(employeeId, { roleIds: [roleId] });
+    }
+
+    // Step 3: If admin status changed: update users.isAdmin
+    if (isAdmin !== oldIsAdmin) {
+        const { updateUser } = await import("./users");
+        await updateUser(userId, { isAdmin });
+    }
+
+    return employeeRes;
 };
 

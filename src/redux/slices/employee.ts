@@ -58,9 +58,24 @@ export interface Employee {
     departments: Department,
     roles: any[],
     hourlySalary?: number,
-    attendanceRequestRaiseLimit: number,
-    allowedPerMonth?: number,
     allowOverTime: boolean,
+    professionalFeesEnabled?: boolean | null,
+    professionalFeesType?: string | null,
+    professionalFeesAmount?: number | null,
+    professionalFeesPercentage?: number | null,
+    EmployeeRejoinHistory?: Array<{
+        id: string;
+        employeeId: string;
+        dateOfReJoining: string | null;
+        dateOfReExit: string | null;
+        reason: string | null;
+        createdAt: string;
+        updatedAt: string;
+    }>;
+    attendanceRequestRaiseLimit?: number | null;
+    allowedPerMonth?: number | null;
+    discretionaryLeaveBalance?: number | null;
+    discretionaryLeaveBoolean?: boolean | null;
 }
 
 interface EmployeeState {
@@ -118,7 +133,6 @@ const initialState: EmployeeState = {
         },
         roles: [],
         hourlySalary: 0,
-        attendanceRequestRaiseLimit: 0
     },
     selectedEmployee:
     {
@@ -168,7 +182,6 @@ const initialState: EmployeeState = {
         },
         roles: [],
         hourlySalary: 0,
-        attendanceRequestRaiseLimit: 0
     }
 }
 

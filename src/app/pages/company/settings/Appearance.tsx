@@ -28,8 +28,8 @@ let initialValues = {
   },
   workingPattern: {
     totalWorkingDaysColor: '#3498DB',
-    checkInColor:'#2ECC71',
-    checkoutColor:'#E67E22',
+    checkInColor: '#2ECC71',
+    checkoutColor: '#E67E22',
     earlyCheckinColor: '#1ABC9C',
     lateCheckinColor: '#E74C3C',
     earlyCheckoutColor: '#F39C12',
@@ -41,7 +41,7 @@ let initialValues = {
     onSiteColor: '#E67E22',
     remoteColor: '#9B59B6',
   },
-  momentsThatMatter:{
+  momentsThatMatter: {
     birthdaysColor: '#E91E63',
     anniversariesColor: '#9C27B0',
   },
@@ -201,170 +201,170 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
 
 
         <div className='card-body pt-8'>
-        <form onSubmit={formik.handleSubmit} noValidate>
-          <div className='accordion' id='colorAccordion'>
+          <form onSubmit={formik.handleSubmit} noValidate>
+            <div className='accordion' id='colorAccordion'>
 
-            {/* Attendance Calendar */}
-            <div className='accordion-item border rounded mb-3'>
-              <h2 className='accordion-header'>
-                <button
-                  className={`accordion-button fw-bold fs-5 ${!openSections.includes('calendar') ? 'collapsed' : ''}`}
-                  type='button'
-                  onClick={() => toggleSection('calendar')}
-                >
-                  Attendance Calendar Colors
-                </button>
-              </h2>
-              <div className={`accordion-collapse collapse ${openSections.includes('calendar') ? 'show' : ''}`}>
-                <div className='accordion-body'>
-                  <div className='row'>
-                    <ColorField label='Today' fieldName='attendanceCalendar.todayColor' formik={formik} />
-                    <ColorField label='Present' fieldName='attendanceCalendar.presentColor' formik={formik} />
-                    <ColorField label='Absent' fieldName='attendanceCalendar.absentColor' formik={formik} />
-                    <ColorField label='On Leave' fieldName='attendanceCalendar.onLeaveColor' formik={formik} />
-                    <ColorField label='Weekend' fieldName='attendanceCalendar.weekendColor' formik={formik} />
-                    <ColorField label='Working Weekend' fieldName='attendanceCalendar.workingWeekendColor' formik={formik} />
-                    <ColorField label='Marked Present Via Request' fieldName='attendanceCalendar.markedPresentViaRequestRaisedColor' formik={formik} />
+              {/* Attendance Calendar */}
+              <div className='accordion-item border rounded mb-3'>
+                <h2 className='accordion-header'>
+                  <button
+                    className={`accordion-button fw-bold fs-5 ${!openSections.includes('calendar') ? 'collapsed' : ''}`}
+                    type='button'
+                    onClick={() => toggleSection('calendar')}
+                  >
+                    Attendance Calendar Colors
+                  </button>
+                </h2>
+                <div className={`accordion-collapse collapse ${openSections.includes('calendar') ? 'show' : ''}`}>
+                  <div className='accordion-body'>
+                    <div className='row'>
+                      <ColorField label='Today' fieldName='attendanceCalendar.todayColor' formik={formik} />
+                      <ColorField label='Present' fieldName='attendanceCalendar.presentColor' formik={formik} />
+                      <ColorField label='Absent' fieldName='attendanceCalendar.absentColor' formik={formik} />
+                      <ColorField label='On Leave' fieldName='attendanceCalendar.onLeaveColor' formik={formik} />
+                      <ColorField label='Weekend' fieldName='attendanceCalendar.weekendColor' formik={formik} />
+                      <ColorField label='Working Weekend' fieldName='attendanceCalendar.workingWeekendColor' formik={formik} />
+                      <ColorField label='Marked Present Via Request' fieldName='attendanceCalendar.markedPresentViaRequestRaisedColor' formik={formik} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Attendance Overview */}
-            <div className='accordion-item border rounded mb-3'>
-              <h2 className='accordion-header'>
-                <button
-                  className={`accordion-button fw-bold fs-5 ${!openSections.includes('overview') ? 'collapsed' : ''}`}
-                  type='button'
-                  onClick={() => toggleSection('overview')}
-                >
-                  Attendance Overview Colors
-                </button>
-              </h2>
-              <div className={`accordion-collapse collapse ${openSections.includes('overview') ? 'show' : ''}`}>
-                <div className='accordion-body'>
-                  <div className='row'>
-                    <ColorField label='Present' fieldName='attendanceOverview.presentColor' formik={formik} />
-                    <ColorField label='Absent' fieldName='attendanceOverview.absentColor' formik={formik} />
-                    <ColorField label='On Leave' fieldName='attendanceOverview.onLeaveColor' formik={formik} />
-                    <ColorField label='Holiday' fieldName='attendanceOverview.holidayColor' formik={formik} />
-                    <ColorField label='Extra Day' fieldName='attendanceOverview.extraDayColor' formik={formik} />
+              {/* Attendance Overview */}
+              <div className='accordion-item border rounded mb-3'>
+                <h2 className='accordion-header'>
+                  <button
+                    className={`accordion-button fw-bold fs-5 ${!openSections.includes('overview') ? 'collapsed' : ''}`}
+                    type='button'
+                    onClick={() => toggleSection('overview')}
+                  >
+                    Attendance Overview Colors
+                  </button>
+                </h2>
+                <div className={`accordion-collapse collapse ${openSections.includes('overview') ? 'show' : ''}`}>
+                  <div className='accordion-body'>
+                    <div className='row'>
+                      <ColorField label='Present' fieldName='attendanceOverview.presentColor' formik={formik} />
+                      <ColorField label='Absent' fieldName='attendanceOverview.absentColor' formik={formik} />
+                      <ColorField label='On Leave' fieldName='attendanceOverview.onLeaveColor' formik={formik} />
+                      <ColorField label='Holiday' fieldName='attendanceOverview.holidayColor' formik={formik} />
+                      <ColorField label='Extra Day' fieldName='attendanceOverview.extraDayColor' formik={formik} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Working Pattern */}
-            <div className='accordion-item border rounded mb-3'>
-              <h2 className='accordion-header'>
-                <button
-                  className={`accordion-button fw-bold fs-5 ${!openSections.includes('pattern') ? 'collapsed' : ''}`}
-                  type='button'
-                  onClick={() => toggleSection('pattern')}
-                >
-                  Working Pattern Colors
-                </button>
-              </h2>
-              <div className={`accordion-collapse collapse ${openSections.includes('pattern') ? 'show' : ''}`}>
-                <div className='accordion-body'>
-                  <div className='row'>
-                    <ColorField label='Total Working Days' fieldName='workingPattern.totalWorkingDaysColor' formik={formik} />
-                    <ColorField label='Check In' fieldName='workingPattern.checkInColor' formik={formik} />
-                    <ColorField label='Check Out' fieldName='workingPattern.checkoutColor' formik={formik} />
-                    <ColorField label='Early Check-in' fieldName='workingPattern.earlyCheckinColor' formik={formik} />
-                    <ColorField label='Late Check-in' fieldName='workingPattern.lateCheckinColor' formik={formik} />
-                    <ColorField label='Early Checkout' fieldName='workingPattern.earlyCheckoutColor' formik={formik} />
-                    <ColorField label='Late Checkout' fieldName='workingPattern.lateCheckoutColor' formik={formik} />
-                    <ColorField label='Missing Checkout' fieldName='workingPattern.missingCheckoutColor' formik={formik} />
+              {/* Working Pattern */}
+              <div className='accordion-item border rounded mb-3'>
+                <h2 className='accordion-header'>
+                  <button
+                    className={`accordion-button fw-bold fs-5 ${!openSections.includes('pattern') ? 'collapsed' : ''}`}
+                    type='button'
+                    onClick={() => toggleSection('pattern')}
+                  >
+                    Working Pattern Colors
+                  </button>
+                </h2>
+                <div className={`accordion-collapse collapse ${openSections.includes('pattern') ? 'show' : ''}`}>
+                  <div className='accordion-body'>
+                    <div className='row'>
+                      <ColorField label='Total Working Days' fieldName='workingPattern.totalWorkingDaysColor' formik={formik} />
+                      <ColorField label='Check In' fieldName='workingPattern.checkInColor' formik={formik} />
+                      <ColorField label='Check Out' fieldName='workingPattern.checkoutColor' formik={formik} />
+                      <ColorField label='Early Check-in' fieldName='workingPattern.earlyCheckinColor' formik={formik} />
+                      <ColorField label='Late Check-in' fieldName='workingPattern.lateCheckinColor' formik={formik} />
+                      <ColorField label='Early CheckOut' fieldName='workingPattern.earlyCheckoutColor' formik={formik} />
+                      <ColorField label='Late Checkout' fieldName='workingPattern.lateCheckoutColor' formik={formik} />
+                      <ColorField label='Missing Checkout' fieldName='workingPattern.missingCheckoutColor' formik={formik} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Work Locations */}
-            <div className='accordion-item border rounded mb-3'>
-              <h2 className='accordion-header'>
-                <button
-                  className={`accordion-button fw-bold fs-5 ${!openSections.includes('location') ? 'collapsed' : ''}`}
-                  type='button'
-                  onClick={() => toggleSection('location')}
-                >
-                  Work Location Colors
-                </button>
-              </h2>
-              <div className={`accordion-collapse collapse ${openSections.includes('location') ? 'show' : ''}`}>
-                <div className='accordion-body'>
-                  <div className='row'>
-                    <ColorField label='Office' fieldName='workingLocation.officeColor' formik={formik} />
-                    <ColorField label='On Site' fieldName='workingLocation.onSiteColor' formik={formik} />
-                    <ColorField label='Remote' fieldName='workingLocation.remoteColor' formik={formik} />
+              {/* Work Locations */}
+              <div className='accordion-item border rounded mb-3'>
+                <h2 className='accordion-header'>
+                  <button
+                    className={`accordion-button fw-bold fs-5 ${!openSections.includes('location') ? 'collapsed' : ''}`}
+                    type='button'
+                    onClick={() => toggleSection('location')}
+                  >
+                    Work Location Colors
+                  </button>
+                </h2>
+                <div className={`accordion-collapse collapse ${openSections.includes('location') ? 'show' : ''}`}>
+                  <div className='accordion-body'>
+                    <div className='row'>
+                      <ColorField label='Office' fieldName='workingLocation.officeColor' formik={formik} />
+                      <ColorField label='On Site' fieldName='workingLocation.onSiteColor' formik={formik} />
+                      <ColorField label='Remote' fieldName='workingLocation.remoteColor' formik={formik} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Moments That Matter */}
-            <div className='accordion-item border rounded mb-3'>
-              <h2 className='accordion-header'>
-                <button
-                  className={`accordion-button fw-bold fs-5 ${!openSections.includes('moments') ? 'collapsed' : ''}`}
-                  type='button'
-                  onClick={() => toggleSection('moments')}
-                >
-                  Moments That Matter Colors
-                </button>
-              </h2>
-              <div className={`accordion-collapse collapse ${openSections.includes('moments') ? 'show' : ''}`}>
-                <div className='accordion-body'>
-                  <div className='row'>
-                    <ColorField label='Birthdays' fieldName='momentsThatMatter.birthdaysColor' formik={formik} />
-                    <ColorField label='Work Anniversaries' fieldName='momentsThatMatter.anniversariesColor' formik={formik} />
+              {/* Moments That Matter */}
+              <div className='accordion-item border rounded mb-3'>
+                <h2 className='accordion-header'>
+                  <button
+                    className={`accordion-button fw-bold fs-5 ${!openSections.includes('moments') ? 'collapsed' : ''}`}
+                    type='button'
+                    onClick={() => toggleSection('moments')}
+                  >
+                    Moments That Matter Colors
+                  </button>
+                </h2>
+                <div className={`accordion-collapse collapse ${openSections.includes('moments') ? 'show' : ''}`}>
+                  <div className='accordion-body'>
+                    <div className='row'>
+                      <ColorField label='Birthdays' fieldName='momentsThatMatter.birthdaysColor' formik={formik} />
+                      <ColorField label='Work Anniversaries' fieldName='momentsThatMatter.anniversariesColor' formik={formik} />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Leave Types */}
-            <div className='accordion-item border rounded mb-3'>
-              <h2 className='accordion-header'>
-                <button
-                  className={`accordion-button fw-bold fs-5 ${!openSections.includes('leaves') ? 'collapsed' : ''}`}
-                  type='button'
-                  onClick={() => toggleSection('leaves')}
-                >
-                  Leave Types Colors
-                </button>
-              </h2>
-              <div className={`accordion-collapse collapse ${openSections.includes('leaves') ? 'show' : ''}`}>
-                <div className='accordion-body'>
-                  <div className='row'>
-                    <ColorField label='Sick Leaves' fieldName='leaveTypes.sickLeaveColor' formik={formik} />
-                    <ColorField label='Casual Leaves' fieldName='leaveTypes.casualLeaveColor' formik={formik} />
-                    <ColorField label='Annual Leaves' fieldName='leaveTypes.annualLeaveColor' formik={formik} />
-                    <ColorField label='Maternal Leaves' fieldName='leaveTypes.maternalLeaveColor' formik={formik} />
-                    <ColorField label='Floater Leaves' fieldName='leaveTypes.floaterLeaveColor' formik={formik} />
-                    <ColorField label='Unpaid Leaves' fieldName='leaveTypes.unpaidLeaveColor' formik={formik} />
+              {/* Leave Types */}
+              <div className='accordion-item border rounded mb-3'>
+                <h2 className='accordion-header'>
+                  <button
+                    className={`accordion-button fw-bold fs-5 ${!openSections.includes('leaves') ? 'collapsed' : ''}`}
+                    type='button'
+                    onClick={() => toggleSection('leaves')}
+                  >
+                    Leave Types Colors
+                  </button>
+                </h2>
+                <div className={`accordion-collapse collapse ${openSections.includes('leaves') ? 'show' : ''}`}>
+                  <div className='accordion-body'>
+                    <div className='row'>
+                      <ColorField label='Sick Leaves' fieldName='leaveTypes.sickLeaveColor' formik={formik} />
+                      <ColorField label='Casual Leaves' fieldName='leaveTypes.casualLeaveColor' formik={formik} />
+                      <ColorField label='Annual Leaves' fieldName='leaveTypes.annualLeaveColor' formik={formik} />
+                      <ColorField label='Maternal Leaves' fieldName='leaveTypes.maternalLeaveColor' formik={formik} />
+                      <ColorField label='Floater Leaves' fieldName='leaveTypes.floaterLeaveColor' formik={formik} />
+                      <ColorField label='Unpaid Leaves' fieldName='leaveTypes.unpaidLeaveColor' formik={formik} />
+                    </div>
                   </div>
                 </div>
               </div>
+
             </div>
 
-          </div>
-
-          <div className='d-flex justify-content-start pt-6 mt-4'>
-            <button type='submit' className='btn btn-primary btn-lg' disabled={loading || !formik.isValid}>
-              {!loading && 'Save Changes'}
-              {loading && (
-                <span className='indicator-progress' style={{ display: 'block' }}>
-                  Please wait...{' '}
-                  <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                </span>
-              )}
-            </button>
-          </div>
-        </form>
+            <div className='d-flex justify-content-start pt-6 mt-4'>
+              <button type='submit' className='btn btn-primary btn-lg' disabled={loading || !formik.isValid}>
+                {!loading && 'Save Changes'}
+                {loading && (
+                  <span className='indicator-progress' style={{ display: 'block' }}>
+                    Please wait...{' '}
+                    <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
+                  </span>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
     </div>
   )
 }

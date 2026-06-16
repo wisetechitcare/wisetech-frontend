@@ -1,6 +1,7 @@
 //
 // Scroll
 //
+@use 'sass:map';
 
 
 // Customize native scrollbars only for desktop mode
@@ -80,7 +81,7 @@
 }
 
 // Utilities
-@each $breakpoint in map-keys($grid-breakpoints) {
+@each $breakpoint in map.keys($grid-breakpoints) {
     @include media-breakpoint-up($breakpoint) {
         $infix: breakpoint-infix($breakpoint, $grid-breakpoints);
 

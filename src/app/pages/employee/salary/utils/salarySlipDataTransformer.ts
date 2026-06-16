@@ -4,6 +4,18 @@ import { ISalaryData } from "@redux/slices/salaryData";
 // Use the existing ISalaryData interface
 export type ApiSalaryData = ISalaryData;
 
+export interface PaymentRecord {
+  id?: string;
+  amount: number;
+  paidAt: string;
+  paymentMethod?: string;
+  transactionId?: string | null;
+  referenceNumber?: string | null;
+  remarks?: string | null;
+  createdAt?: string;
+  createdBy?: string | null;
+}
+
 export interface SalarySlipProps {
   grossPayVariable: { name: string; value?: string; earned: string }[];
   grossPayFixed: { name: string; value?: string; earned: string }[];
@@ -27,6 +39,17 @@ export interface SalarySlipProps {
     variableDeductions: { name: string; earned: string }[];
     fixedDeductions: { name: string; earned: string }[];
   };
+  hourlySalary?: number;
+  presentDays?: number;
+  monthStartDate?: string;
+  monthEndDate?: string;
+  baseMonthlySalary?: number;
+  paymentHistory?: {
+    salaryPayments: PaymentRecord[];
+    netPayable: number;
+    amountPaid: number;
+  } | null;
+  salaryId?: string;
 }
 
 /**
@@ -76,8 +99,10 @@ function validateApiSalaryData(apiData: ApiSalaryData | null): boolean {
 }
 
 export function transformApiDataToSalarySlipProps(
-  apiData: ApiSalaryData | null, 
-  employee: Employee
+  apiData: ApiSalaryData | null,
+  employee: Employee,
+  paymentHistory?: any | null,
+  salaryId?: string
 ): SalarySlipProps {
   // Validate API data comprehensively
   if (!validateApiSalaryData(apiData)) {
@@ -87,11 +112,15 @@ export function transformApiDataToSalarySlipProps(
   // TypeScript now knows apiData is not null due to validation
   const validApiData = apiData as ApiSalaryData;
 
-  // Format currency helper - removes currency symbol and formats as string
-  const formatCurrency = (value: number | string): string => {
-    const numValue = typeof value === 'string' ? 
-      parseFloat(value.replace(/[₹,]/g, '')) : value;
-    
+  // Format currency helper - removes currency symbol and formats as string.
+  // Null/undefined/NaN values (e.g. an unset salary component) fall back to 0
+  // instead of throwing "Cannot read property 'toFixed' of null".
+  const formatCurrency = (value: number | string | null | undefined): string => {
+    const parsed = typeof value === 'string'
+      ? parseFloat(value.replace(/[₹,]/g, ''))
+      : value;
+    const numValue = (parsed === null || parsed === undefined || Number.isNaN(parsed)) ? 0 : parsed;
+
     // Return formatted number with commas but without currency symbol
     return numValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
@@ -133,14 +162,39 @@ export function transformApiDataToSalarySlipProps(
       earned: formatCurrency(data.earned)
     }));
 
-  // Transform deductions (from API's deductionBreakdown.variable)
-  // These will show as "Variables" in the deductions column
-  const deductions = Object.entries(validApiData.deductionBreakdown?.variable || {})
-    .map(([name, data]) => ({
-      name,
-      value: formatValue(data.value, data.type),
-      earned: formatCurrency(data.earned)
-    }));
+  // Transform deductions (attendance adjustments — always show 5 fixed rows)
+  // Map API key "Late Attendance" → display "Late Checkins"
+  const ATTENDANCE_DISPLAY_MAP: Record<string, string> = {
+    'Late Attendance': 'Late Checkins',
+    'Late Checkin':    'Late Checkins',
+    'Late Checkins':   'Late Checkins',
+    'Early Checkout':  'Early Checkout',
+    'Unpaid Leave':    'Unpaid Leave',
+    'Half Day':        'Half Day',
+    'Missed Punch':    'Missed Punch',
+  };
+  const STANDARD_ATTENDANCE_ROWS = [
+    'Late Checkins',
+    'Early Checkout',
+    'Unpaid Leave',
+    'Half Day',
+    'Missed Punch',
+  ];
+  // Build a lookup from display name → API data
+  const attendanceByDisplay: Record<string, any> = {};
+  Object.entries(validApiData.deductionBreakdown?.variable || {}).forEach(([key, data]) => {
+    const displayName = ATTENDANCE_DISPLAY_MAP[key] || key;
+    attendanceByDisplay[displayName] = data;
+  });
+  // Always emit all 5 rows — fill with zeros if not present
+  const deductions = STANDARD_ATTENDANCE_ROWS.map(rowName => {
+    const data = attendanceByDisplay[rowName];
+    return {
+      name: rowName,
+      value: data ? formatValue(data.value, data.type) : '-',
+      earned: data ? formatCurrency(data.earned) : '0.00',
+    };
+  });
 
   // Transform taxes (from API's deductionBreakdown.fixed)
   // These will show as "Fixed" in the deductions column (not as "TAX")
@@ -207,8 +261,8 @@ export function transformApiDataToSalarySlipProps(
   return {
     grossPayVariable,
     grossPayFixed,
-    deductions, // These map to "Variable" section in deductions column (from deductionBreakdown.fixed)
-    taxes,      // These map to "Fixed" section in deductions column (from deductionBreakdown.variable)
+    deductions,
+    taxes,
     totalGrossPayEarned: parseAmount(validApiData.totalGrossPayAmount),
     totalDeductionsEarned: parseAmount(validApiData.totalDeductedAmount),
     finalAmount: parseAmount(validApiData.netAmount),
@@ -226,6 +280,13 @@ export function transformApiDataToSalarySlipProps(
       variableDeductions: formatLineItems(validApiData.deductionBreakdown?.variable),
       fixedDeductions: formatLineItems(validApiData.deductionBreakdown?.fixed),
     },
+    hourlySalary: (validApiData as any).hourlySalary ?? undefined,
+    presentDays: (validApiData as any).presentDays ?? (validApiData as any).extraData?.presentDays ?? undefined,
+    monthStartDate: validApiData.monthStartDate ?? undefined,
+    monthEndDate: validApiData.monthEndDate ?? undefined,
+    baseMonthlySalary: (validApiData as any).employeeCardDeatils?.monthlySalary ?? undefined,
+    paymentHistory: paymentHistory ?? null,
+    salaryId: salaryId ?? undefined,
   };
 }
 

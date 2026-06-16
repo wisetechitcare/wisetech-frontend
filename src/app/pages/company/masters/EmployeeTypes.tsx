@@ -1,4 +1,5 @@
-import React from 'react'
+import { resolveActiveOrgId } from '@utils/activeOrg';
+﻿import React from 'react'
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
@@ -65,7 +66,7 @@ function EmployeeTypes() {
 
               if (!currCompanyId) {
                   const { data: { companyOverview } } = await fetchCompanyOverview();
-                  currCompanyId = companyOverview[0]?.id;
+                  currCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
                   // console.log("currCompanyId", currCompanyId);     
               }
               setCompanyId(currCompanyId);
@@ -186,7 +187,7 @@ function EmployeeTypes() {
                 <Modal.Body>
                     <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={employeeTypeSchema}>
                         {(formikProps) => (
-                            <Form className='des-flex flex-column' placeholder={''}>
+                            <Form className='des-flex flex-column'>
                                 <div className="row">
                                     <div className="col-lg-12">
                                         <TextInput

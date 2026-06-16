@@ -1,21 +1,19 @@
 import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason } from "@services/lead";
-import PrefixSettingsForm, { PrefixSetting, PrefixSettingsFormValues } from "@app/modules/common/components/PrefixSettingsForm";
+import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
 import { fetchAllPrefixSettings, createPrefixSetting, updatePrefixSetting } from "@services/options";
 
 import { getAllProjectServices, deleteProjectService } from "@services/projects";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
+import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
-import { Container } from "react-bootstrap";
 import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason } from "@models/leads";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "../../../../../hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
-import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import ProjectConfigForm from "../../projects/configure/components/ProjectConfigForm";
 import {
   getAllProjectCategories,
@@ -23,341 +21,467 @@ import {
   deleteProjectCategory,
   deleteProjectSubcategory,
 } from "@services/projects";
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from '@app/modules/configuration';
+import type { ConfigTab } from '@app/modules/configuration';
 
-// Common button styles
-const buttonStyles = {
-  base: {
-    border: "1px solid #9D4141",
-    fontWeight: 500,
-    color: "#9D4141",
-    backgroundColor: "transparent",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "all 0.3s ease-in-out",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    height: "40px",
-  },
-  hover: {
-    color: "white",
-    backgroundColor: "#9D4141",
-  },
+// ─── ColorChip ────────────────────────────────────────────────────────────────
+
+interface ColorChipProps {
+  name: string;
+  color: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
+        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
+        borderRadius: RADIUS.lg,
+        padding: '9px 12px 9px 16px',
+        transition: 'all 0.15s ease',
+        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'default',
+      }}
+    >
+      {/* Left color accent */}
+      <div style={{
+        position: 'absolute',
+        top: 0, bottom: 0, left: 0,
+        width: '3px',
+        backgroundColor: color || '#ccc',
+        borderRadius: '3px 0 0 3px',
+        opacity: 0.8,
+      }} />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+        <div style={{
+          width: '10px', height: '10px',
+          borderRadius: '50%',
+          backgroundColor: color || '#ccc',
+          flexShrink: 0,
+          boxShadow: `0 0 0 2px ${color ? color + '30' : '#ccc'}`,
+        }} />
+        <span style={{
+          fontFamily: FONT.body,
+          fontWeight: 500,
+          fontSize: '13px',
+          color: C.textPrimary,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {name}
+        </span>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        flexShrink: 0,
+        opacity: hov ? 1 : 0.35,
+        transition: 'opacity 0.15s ease',
+      }}>
+        <button
+          onClick={onEdit}
+          style={{
+            background: hov ? '#eff6ff' : 'transparent',
+            border: 'none',
+            borderRadius: RADIUS.sm,
+            padding: '4px 7px',
+            cursor: 'pointer',
+            color: '#4f82c4',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background 0.15s ease',
+          }}
+        >
+          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+        </button>
+        <button
+          onClick={onDelete}
+          style={{
+            background: hov ? '#fff5f8' : 'transparent',
+            border: 'none',
+            borderRadius: RADIUS.sm,
+            padding: '4px 7px',
+            cursor: 'pointer',
+            color: C.danger,
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background 0.15s ease',
+          }}
+        >
+          <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+        </button>
+      </div>
+    </div>
+  );
 };
 
-// Utility function to sort items alphabetically by name
-const sortItemsAlphabetically = <T extends { name: string }>(items: T[]): T[] => {
-  return [...items].sort((a, b) => a.name.localeCompare(b.name));
+// ─── ChipGrid ─────────────────────────────────────────────────────────────────
+
+const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: SP.sm,
+    marginTop: SP.md,
+  }}>
+    {children}
+  </div>
+);
+
+// ─── EmptyState ───────────────────────────────────────────────────────────────
+
+const EmptyState: React.FC<{ label: string }> = ({ label }) => (
+  <div style={{
+    textAlign: 'center',
+    padding: '28px 16px',
+    color: C.textMuted,
+    fontFamily: FONT.body,
+    fontSize: '13px',
+  }}>
+    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    No {label} configured yet
+  </div>
+);
+
+// ─── SubChip (inline subcategory row) ────────────────────────────────────────
+
+const SubChip: React.FC<{ sub: ProjectItem; onEdit: () => void; onDelete: () => void }> = ({ sub, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '6px 10px', borderRadius: RADIUS.md,
+        backgroundColor: hov ? '#f7f8fa' : 'transparent',
+        transition: 'background 0.15s ease', cursor: 'default',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: sub.color || '#ccc', flexShrink: 0 }} />
+        <span style={{ fontFamily: FONT.body, fontWeight: 400, fontSize: '12.5px', color: C.textPrimary }}>{sub.name}</span>
+      </div>
+      <div style={{ display: 'flex', gap: '4px', opacity: hov ? 1 : 0, transition: 'opacity 0.15s ease' }}>
+        <button onClick={onEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4f82c4', padding: '2px 5px', borderRadius: RADIUS.sm, display: 'flex', alignItems: 'center' }}>
+          <i className="bi bi-pencil" style={{ fontSize: '10px' }} />
+        </button>
+        <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, padding: '2px 5px', borderRadius: RADIUS.sm, display: 'flex', alignItems: 'center' }}>
+          <i className="bi bi-trash" style={{ fontSize: '10px' }} />
+        </button>
+      </div>
+    </div>
+  );
 };
 
-// Utility function to sort cancellation reasons by 'reason' field
-const sortCancellationReasonsAlphabetically = (reasons: any[]) => {
-  return [...reasons].sort((a, b) => a.reason.localeCompare(b.reason));
+// ─── CategoryTreeItem ─────────────────────────────────────────────────────────
+
+interface CategoryTreeItemProps {
+  category: ProjectItem;
+  subcategories: ProjectItem[];
+  onCategoryEdit: () => void;
+  onCategoryDelete: () => void;
+  onSubcategoryEdit: (sub: ProjectItem) => void;
+  onSubcategoryDelete: (id: string) => void;
+  onAddSubcategory: () => void;
+  // spans both grid columns when expanded
+  gridColumn?: string;
+}
+
+const CategoryTreeItem: React.FC<CategoryTreeItemProps> = ({
+  category, subcategories,
+  onCategoryEdit, onCategoryDelete,
+  onSubcategoryEdit, onSubcategoryDelete, onAddSubcategory,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const [hovCat, setHovCat] = useState(false);
+
+  return (
+    <div style={{
+      border: `1px solid ${hovCat ? '#d1d5e0' : '#eaecf0'}`,
+      borderRadius: RADIUS.md, overflow: 'hidden',
+      transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+      boxShadow: hovCat ? '0 2px 8px rgba(24,28,50,0.07)' : 'none',
+      position: 'relative',
+      // span both columns when expanded so subcategories can use full width
+      gridColumn: expanded ? '1 / -1' : undefined,
+    }}>
+      {/* Left color accent */}
+      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', backgroundColor: category.color || '#ccc' }} />
+
+      {/* Category header row — compact */}
+      <div
+        onMouseEnter={() => setHovCat(true)}
+        onMouseLeave={() => setHovCat(false)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '7px 10px 7px 16px',
+          backgroundColor: expanded ? '#f8f9fb' : '#fff',
+          cursor: 'default',
+        }}
+      >
+        <button
+          onClick={() => setExpanded(e => !e)}
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '1px 3px', borderRadius: RADIUS.sm, display: 'flex', alignItems: 'center', color: C.textMuted, flexShrink: 0 }}
+        >
+          <i className={`bi bi-chevron-${expanded ? 'down' : 'right'}`} style={{ fontSize: '10px' }} />
+        </button>
+
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: category.color || '#ccc', flexShrink: 0 }} />
+
+        <span style={{ fontFamily: FONT.body, fontWeight: 500, fontSize: '12.5px', color: C.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {category.name}
+        </span>
+
+        {subcategories.length > 0 && (
+          <span style={{
+            fontFamily: FONT.body, fontWeight: 600, fontSize: '10px',
+            backgroundColor: category.color ? category.color + '18' : '#f0f2f5',
+            color: category.color || C.textMuted,
+            borderRadius: RADIUS.full, padding: '1px 7px', whiteSpace: 'nowrap', flexShrink: 0,
+          }}>
+            {subcategories.length}
+          </span>
+        )}
+
+        <div style={{ display: 'flex', gap: '2px', flexShrink: 0, opacity: hovCat ? 1 : 0, transition: 'opacity 0.15s ease' }}>
+          <button onClick={onAddSubcategory} title="Add subcategory"
+            style={{ background: 'none', border: 'none', borderRadius: RADIUS.sm, padding: '2px 5px', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center' }}>
+            <i className="bi bi-plus-lg" style={{ fontSize: '10px' }} />
+          </button>
+          <button onClick={onCategoryEdit}
+            style={{ background: 'none', border: 'none', borderRadius: RADIUS.sm, padding: '2px 5px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center' }}>
+            <i className="bi bi-pencil" style={{ fontSize: '10px' }} />
+          </button>
+          <button onClick={onCategoryDelete}
+            style={{ background: 'none', border: 'none', borderRadius: RADIUS.sm, padding: '2px 5px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center' }}>
+            <i className="bi bi-trash" style={{ fontSize: '10px' }} />
+          </button>
+        </div>
+      </div>
+
+      {/* Subcategories panel */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid #f0f2f6', backgroundColor: '#fff', padding: '4px 10px 6px 36px' }}>
+          {subcategories.length === 0
+            ? (
+              <div style={{ padding: '6px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <i className="bi bi-dash" style={{ opacity: 0.4 }} />
+                No subcategories —
+                <button onClick={onAddSubcategory}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, fontFamily: FONT.body, fontSize: '11.5px', fontWeight: 500, padding: 0 }}>
+                  Add one
+                </button>
+              </div>
+            )
+            : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '2px' }}>
+                {subcategories.map(sub => (
+                  <SubChip
+                    key={sub.id} sub={sub}
+                    onEdit={() => onSubcategoryEdit(sub)}
+                    onDelete={() => onSubcategoryDelete(sub.id)}
+                  />
+                ))}
+              </div>
+            )
+          }
+        </div>
+      )}
+    </div>
+  );
 };
 
+// ─── CategoryTree (2-column grid wrapper) ─────────────────────────────────────
+
+interface CategoryTreeProps {
+  categories: ProjectItem[];
+  subcategories: ProjectItem[];
+  onCategoryEdit: (cat: ProjectItem) => void;
+  onCategoryDelete: (id: string) => void;
+  onSubcategoryEdit: (sub: ProjectItem) => void;
+  onSubcategoryDelete: (id: string) => void;
+  onAddSubcategory: () => void;
+}
+
+const CategoryTree: React.FC<CategoryTreeProps> = ({
+  categories, subcategories,
+  onCategoryEdit, onCategoryDelete,
+  onSubcategoryEdit, onSubcategoryDelete, onAddSubcategory,
+}) => (
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '4px',
+    marginTop: SP.md,
+    alignItems: 'start',
+  }}>
+    {categories.map(cat => {
+      const subs = sortItemsAlphabetically(subcategories.filter(s => s.categoryId === cat.id));
+      return (
+        <CategoryTreeItem
+          key={cat.id}
+          category={cat}
+          subcategories={subs}
+          onCategoryEdit={() => onCategoryEdit(cat)}
+          onCategoryDelete={() => onCategoryDelete(cat.id)}
+          onSubcategoryEdit={onSubcategoryEdit}
+          onSubcategoryDelete={onSubcategoryDelete}
+          onAddSubcategory={onAddSubcategory}
+        />
+      );
+    })}
+  </div>
+);
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+const sortItemsAlphabetically = <T extends { name: string }>(items: T[]): T[] =>
+  [...items].sort((a, b) => a.name.localeCompare(b.name));
+
+const sortCancellationReasonsAlphabetically = (reasons: any[]) =>
+  [...reasons].sort((a, b) => a.reason.localeCompare(b.reason));
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+
+const TABS: ConfigTab[] = [
+  { id: 'lead', label: 'Lead Settings', icon: 'bi-funnel' },
+  { id: 'project', label: 'Project Settings', icon: 'bi-kanban' },
+  { id: 'templates', label: 'Templates', icon: 'bi-file-earmark-text' },
+];
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const LeadsConfigurationMain = () => {
+  const [activeTab, setActiveTab] = useState('lead');
   const [loading, setLoading] = useState(false);
+
+  // Lead states
   const [leadStatus, setLeadStatus] = useState<LeadStatus[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingStatus, setEditingStatus] = useState<LeadStatus | null>(null);
+
+  const [leadReferralType, setLeadReferralType] = useState<LeadReferralType[]>([]);
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [editingReferralType, setEditingReferralType] = useState<LeadReferralType | null>(null);
-  const [leadReferralType, setLeadReferralType] = useState<LeadReferralType[]>([]);
+
   const [leadDirectSource, setLeadDirectSource] = useState<LeadDirectSource[]>([]);
   const [showDirectSourceModal, setShowDirectSourceModal] = useState(false);
   const [editingDirectSource, setEditingDirectSource] = useState<LeadDirectSource | null>(null);
+
   const [leadCancellationReasons, setLeadCancellationReasons] = useState<LeadCancellationReason[]>([]);
   const [showCancellationReasonModal, setShowCancellationReasonModal] = useState(false);
   const [editingCancellationReason, setEditingCancellationReason] = useState<LeadCancellationReason | null>(null);
-  // Project Services state
+
+  // Project states
   const [projectServices, setProjectServices] = useState<ProjectItem[]>([]);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [editingService, setEditingService] = useState<ProjectItem | null>(null);
-  // Project Categories
+
   const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ProjectItem | null>(null);
 
-  // Project Subcategories
   const [projectSubcategories, setProjectSubcategories] = useState<ProjectItem[]>([]);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
 
+  // ── Handlers ────────────────────────────────────────────────────────────────
 
-  // Modal Handlers
+  const handleModalClose = () => { setShowModal(false); setEditingStatus(null); };
+  const handleModalOpen = () => setShowModal(true);
+  const handleEdit = (status: LeadStatus) => { setEditingStatus(status); setShowModal(true); };
+
+  const handleReferralTypeModalOpen = () => setShowReferralTypeModal(true);
+  const handleReferralTypeModalClose = () => { setShowReferralTypeModal(false); setEditingReferralType(null); };
+  const handleReferralTypeEdit = (r: LeadReferralType) => { setEditingReferralType(r); setShowReferralTypeModal(true); };
+
+  const handleDirectSourceModalOpen = () => setShowDirectSourceModal(true);
+  const handleDirectSourceModalClose = () => { setShowDirectSourceModal(false); setEditingDirectSource(null); };
+  const handleDirectSourceEdit = (s: LeadDirectSource) => { setEditingDirectSource(s); setShowDirectSourceModal(true); };
+
+  const handleCancellationReasonModalOpen = () => setShowCancellationReasonModal(true);
+  const handleCancellationReasonModalClose = () => { setShowCancellationReasonModal(false); setEditingCancellationReason(null); };
+  const handleCancellationReasonEdit = (r: LeadCancellationReason) => { setEditingCancellationReason(r); setShowCancellationReasonModal(true); };
+
+  const handleServiceModalOpen = () => setShowServiceModal(true);
+  const handleServiceModalClose = () => { setShowServiceModal(false); setEditingService(null); };
+  const handleServiceEdit = (s: ProjectItem) => { setEditingService(s); setShowServiceModal(true); };
+
   const handleCategoryModalOpen = () => setShowCategoryModal(true);
   const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
+  const handleCategoryEdit = (c: ProjectItem) => { setEditingCategory(c); setShowCategoryModal(true); };
+  const handleSubcategoryEdit = (s: ProjectItem) => { setEditingSubcategory(s); setShowSubcategoryModal(true); };
 
-  // Edit Handlers
-  const handleCategoryEdit = (category: ProjectItem) => {
-    setEditingCategory(category);
-    setShowCategoryModal(true);
-  };
+  // ── Fetch functions ─────────────────────────────────────────────────────────
 
-  const handleSubcategoryEdit = (subcategory: ProjectItem) => {
-    setEditingSubcategory(subcategory);
-    setShowSubcategoryModal(true);
-  };
-
-  const handleModalClose = () => {
-    setShowModal(false);
-    setEditingStatus(null);
-  };
-
-  const handleModalOpen = () => {
-    setShowModal(true);
-  };
-
-  const handleReferralTypeModalOpen = () => {
-    setShowReferralTypeModal(true);
-  };
-
-  const handleReferralTypeModalClose = () => {
-    setShowReferralTypeModal(false);
-    setEditingReferralType(null);
-  };
-
-  const handleEdit = (status: LeadStatus) => {
-    setEditingStatus(status);
-    setShowModal(true);
-  };
-
-  const handleReferralTypeEdit = (status: LeadReferralType) => {
-    setEditingReferralType(status);
-    setShowReferralTypeModal(true);
-  };
-
-  const handleDirectSourceEdit = (source: LeadDirectSource) => {
-    setEditingDirectSource(source);
-    setShowDirectSourceModal(true);
-  };
-
-  const handleDirectSourceModalClose = () => {
-    setShowDirectSourceModal(false);
-    setEditingDirectSource(null);
-  };
-
-  const handleDirectSourceModalOpen = () => {
-    setShowDirectSourceModal(true);
-  };
-
-  const handleCancellationReasonModalOpen = () => {
-    setShowCancellationReasonModal(true);
-  };
-
-  const handleCancellationReasonModalClose = () => {
-    setShowCancellationReasonModal(false);
-    setEditingCancellationReason(null);
-  };
-
-  const handleCancellationReasonEdit = (reason: LeadCancellationReason) => {
-    setEditingCancellationReason(reason);
-    setShowCancellationReasonModal(true);
-  };
-
-  // Project Services handlers
-  const handleServiceModalOpen = () => setShowServiceModal(true);
-  const handleServiceModalClose = () => {
-    setShowServiceModal(false);
-    setEditingService(null);
-  };
-  const handleServiceEdit = (service: ProjectItem) => {
-    setEditingService(service);
-    setShowServiceModal(true);
-  };
-
-  // fetch lead statuses
   const fetchLeadStatuses = async () => {
     try {
       setLoading(true);
       const response = await getAllLeadStatus();
-      if (response && response.leadStatuses) {
-        const sorted = [...response.leadStatuses].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      if (response?.leadStatuses) {
+        const sorted = [...response.leadStatuses].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setLeadStatus(sorted);
       }
     } catch (error) {
-      console.error("Error fetching lead statuses:", error);
+      console.error('Error fetching lead statuses:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // fetch project category
-  const fetchProjectCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllProjectCategories();
-      if (response?.projectCategories) {
-        setProjectCategories(response.projectCategories);
-      }
-    } catch (error) {
-      console.error("Error fetching project categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // fetch project sub category
-  const fetchProjectSubcategories = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllProjectSubcategories();
-      if (response?.projectSubCategories) {
-        setProjectSubcategories(response.projectSubCategories);
-      }
-    } catch (error) {
-      console.error("Error fetching project subcategories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProjectCategories();
-    fetchProjectSubcategories();
-  }, []);
-
-
-
-
-  useEventBus(EVENT_KEYS.leadStatusCreated, () => {
-    fetchLeadStatuses();
-  });
-
-  useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
-  useEventBus(EVENT_KEYS.projectCategoryUpdated, fetchProjectCategories);
-
-  useEventBus(EVENT_KEYS.projectSubcategoryCreated, () => {
-    fetchProjectSubcategories();
-    fetchProjectCategories();
-  });
-  useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => {
-    fetchProjectSubcategories();
-    fetchProjectCategories();
-  });
-
-
-  // Delete confirmation hook for Project Services
-  const serviceDeleteConfirmation = useDeleteConfirmation({
-    deleteFunction: async (itemId: string, targetId?: string) => {
-      await deleteProjectService(itemId, targetId);
-    },
-    defaultConfig: {
-      entityName: 'Project Service',
-      entityDisplayName: '',
-      showTransferOption: true,
-      transferDescription: 'All projects and leads using this service will be transferred to the selected service.'
-    },
-    onSuccess: () => {
-      console.log('Project service deleted successfully');
-      fetchProjectServices();
-    },
-    onError: (error: any) => {
-      console.error('Failed to delete project service:', error);
-      alert('Failed to delete project service');
-    }
-  });
-
-  useEffect(() => {
-    fetchLeadStatuses();
-  }, []);
-
-  // fetch lead referral types
   const fetchLeadReferralTypes = async () => {
     try {
       setLoading(true);
       const response = await getAllLeadReferralType();
-      if (response && response.leadReferralTypes) {
-        const sorted = [...response.leadReferralTypes].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      if (response?.leadReferralTypes) {
+        const sorted = [...response.leadReferralTypes].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setLeadReferralType(sorted);
       }
     } catch (error) {
-      console.error("Error fetching lead referral types:", error);
+      console.error('Error fetching lead referral types:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCategoryDelete = async (id: string) => {
-    try {
-      const category = projectCategories.find((c) => c.id === id);
-      if (category && category.subCategories && category.subCategories > 0) {
-        const Swal = (await import("sweetalert2")).default;
-        await Swal.fire({
-          icon: "warning",
-          title: "Cannot Delete",
-          text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
-          confirmButtonColor: "#9D4141",
-        });
-        return;
-      }
-
-      const confirmed = await deleteConfirmation("Category deleted successfully");
-      if (!confirmed) return;
-
-      await deleteProjectCategory(id);
-      fetchProjectCategories();
-    } catch (error) {
-      console.error("Error deleting category:", error);
-    }
-  };
-
-  const handleSubcategoryDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Subcategory deleted successfully");
-      if (!confirmed) return;
-
-      await deleteProjectSubcategory(id);
-      // Refresh BOTH lists: subcategories (to remove item) AND categories
-      // (to update the subCategories count so the "Cannot Delete" guard is accurate)
-      await Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
-    } catch (error) {
-      console.error("Error deleting subcategory:", error);
-    }
-  };
-
-
-  useEventBus(EVENT_KEYS.leadReferralTypeCreated, () => {
-    fetchLeadReferralTypes();
-  });
-
-  useEffect(() => {
-    fetchLeadReferralTypes();
-  }, []);
-
-
-  // fetch lead direct sources
   const fetchLeadDirectSources = async () => {
     try {
       setLoading(true);
       const response = await getAllLeadDirectSource();
-      if (response && response.leadDirectSources) {
-        const sorted = [...response.leadDirectSources].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      if (response?.leadDirectSources) {
+        const sorted = [...response.leadDirectSources].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setLeadDirectSource(sorted);
       }
     } catch (error) {
-      console.error("Error fetching lead direct sources:", error);
+      console.error('Error fetching lead direct sources:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch project services
-  const fetchProjectServices = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllProjectServices();
-      if (response?.services) {
-        setProjectServices(response.services);
-      }
-    } catch (error) {
-      console.error("Error fetching project services:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch lead cancellation reasons
   const fetchLeadCancellationReasons = async () => {
     try {
       setLoading(true);
@@ -366,808 +490,527 @@ const LeadsConfigurationMain = () => {
         setLeadCancellationReasons(response.data.leadCancellationReasons);
       }
     } catch (error) {
-      console.error("Error fetching lead cancellation reasons:", error);
+      console.error('Error fetching lead cancellation reasons:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancellationReasonDelete = async (id: string) => {
+  const fetchProjectServices = async () => {
     try {
-      const confirmed = await deleteConfirmation("Cancellation reason deleted successfully");
-      if (!confirmed) return;
-
-      await deleteLeadCancellationReason(id);
-      fetchLeadCancellationReasons();
+      setLoading(true);
+      const response = await getAllProjectServices();
+      if (response?.services) setProjectServices(response.services);
     } catch (error) {
-      console.error("Error deleting cancellation reason:", error);
+      console.error('Error fetching project services:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEventBus(EVENT_KEYS.leadDirectSourceCreated, () => {
-    fetchLeadDirectSources();
-  });
+  const fetchProjectCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectCategories();
+      if (response?.projectCategories) setProjectCategories(response.projectCategories);
+    } catch (error) {
+      console.error('Error fetching project categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    fetchLeadDirectSources();
-  }, []);
+  const fetchProjectSubcategories = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectSubcategories();
+      if (response?.projectSubCategories) setProjectSubcategories(response.projectSubCategories);
+    } catch (error) {
+      console.error('Error fetching project subcategories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // lead cancellation reasons event bus and initial fetch
-  useEventBus(EVENT_KEYS.leadCancellationReasonCreated, () => {
-    fetchLeadCancellationReasons();
-  });
-  useEventBus(EVENT_KEYS.leadCancellationReasonUpdated, () => {
-    fetchLeadCancellationReasons();
-  });
+  // ── Delete handlers ─────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetchLeadCancellationReasons();
-  }, []);
+  const handleDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Lead status deleted successfully');
+      if (confirmed) { await deleteLeadStatus(id); fetchLeadStatuses(); }
+    } catch (error) {
+      console.error('Error deleting lead status:', error);
+    }
+  };
 
-  // project services event bus and initial fetch
-  useEventBus(EVENT_KEYS.projectServiceCreated, fetchProjectServices);
-  useEventBus(EVENT_KEYS.projectServiceUpdated, fetchProjectServices);
-  useEffect(() => {
-    fetchProjectServices();
-  }, []);
+  const handleReferralTypeDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Lead referral type deleted successfully');
+      if (confirmed) { await deleteLeadReferralType(id); fetchLeadReferralTypes(); }
+    } catch (error) {
+      console.error('Error deleting lead referral type:', error);
+    }
+  };
 
-  // Delete confirmation hook for Lead Direct Source
+  const handleCancellationReasonDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Cancellation reason deleted successfully');
+      if (!confirmed) return;
+      await deleteLeadCancellationReason(id);
+      fetchLeadCancellationReasons();
+    } catch (error) {
+      console.error('Error deleting cancellation reason:', error);
+    }
+  };
+
+  const handleCategoryDelete = async (id: string) => {
+    try {
+      const category = projectCategories.find((c) => c.id === id);
+      if (category && category.subCategories && category.subCategories > 0) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Cannot Delete',
+          text: `This category has ${category.subCategories} subcategory(s) and cannot be deleted. Please remove all subcategories first.`,
+          confirmButtonColor: '#9D4141',
+        });
+        return;
+      }
+      const confirmed = await deleteConfirmation('Category deleted successfully');
+      if (!confirmed) return;
+      await deleteProjectCategory(id);
+      fetchProjectCategories();
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    }
+  };
+
+  const handleSubcategoryDelete = async (id: string) => {
+    try {
+      const confirmed = await deleteConfirmation('Subcategory deleted successfully');
+      if (!confirmed) return;
+      await deleteProjectSubcategory(id);
+      await Promise.all([fetchProjectSubcategories(), fetchProjectCategories()]);
+    } catch (error) {
+      console.error('Error deleting subcategory:', error);
+    }
+  };
+
+  // ── Delete confirmation hooks ────────────────────────────────────────────────
+
   const directSourceDeleteConfirmation = useDeleteConfirmation({
     deleteFunction: async (itemId: string, targetId?: string) => {
-      // Call the delete service with optional targetId for data transfer
       await deleteLeadDirectSource(itemId, targetId);
     },
     defaultConfig: {
       entityName: 'Lead Direct Source',
       entityDisplayName: '',
       showTransferOption: true,
-      transferDescription: 'All leads using this direct source will be transferred to the selected source.'
+      transferDescription: 'All leads using this direct source will be transferred to the selected source.',
     },
-    onSuccess: () => {
-      console.log('Lead direct source deleted successfully');
-      fetchLeadDirectSources(); // Refresh the list
-    },
+    onSuccess: () => { fetchLeadDirectSources(); },
     onError: (error) => {
       console.error('Failed to delete lead direct source:', error);
       alert('Failed to delete lead direct source');
-    }
+    },
   });
 
-  // delete lead status
-  const handleDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Lead status deleted successfully");
-      if (confirmed) {
-        await deleteLeadStatus(id);
-        fetchLeadStatuses();
-      }
-    } catch (error) {
-      console.error("Error deleting lead status:", error);
-    }
-  };
-
-  const handleReferralTypeDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Lead referral type deleted successfully");
-      if (confirmed) {
-        await deleteLeadReferralType(id);
-        fetchLeadReferralTypes();
-      }
-    } catch (error) {
-      console.error("Error deleting lead referral type:", error);
-    }
-  };
+  const serviceDeleteConfirmation = useDeleteConfirmation({
+    deleteFunction: async (itemId: string, targetId?: string) => {
+      await deleteProjectService(itemId, targetId);
+    },
+    defaultConfig: {
+      entityName: 'Project Service',
+      entityDisplayName: '',
+      showTransferOption: true,
+      transferDescription: 'All projects and leads using this service will be transferred to the selected service.',
+    },
+    onSuccess: () => { fetchProjectServices(); },
+    onError: (error: any) => {
+      console.error('Failed to delete project service:', error);
+      alert('Failed to delete project service');
+    },
+  });
 
   const handleDirectSourceDelete = (id: string) => {
-    // Find the source being deleted to get its name
-    const sourceToDelete = leadDirectSource.find(source => source.id === id);
-    const sourceName = sourceToDelete?.name || 'Unknown Source';
-    // Create dropdown options from other lead direct sources (excluding the one being deleted)
+    const sourceToDelete = leadDirectSource.find(s => s.id === id);
     const dropdownOptions: DropdownOption[] = leadDirectSource
-      .filter(source => source.id !== id && source.id && source.name)
-      .map(source => ({
-        key: source.id!,
-        value: source.name
-      }));
-    // Show the delete confirmation modal
-    directSourceDeleteConfirmation.showDeleteModal(id, sourceName, {
+      .filter(s => s.id !== id && s.id && s.name)
+      .map(s => ({ key: s.id!, value: s.name }));
+    directSourceDeleteConfirmation.showDeleteModal(id, sourceToDelete?.name || 'Unknown Source', {
       dropdownOptions,
       showTransferOption: dropdownOptions.length > 0,
       transferDescription: dropdownOptions.length > 0
         ? 'All leads using this direct source will be transferred to the selected source.'
-        : 'This is the last direct source and cannot be transferred.'
+        : 'This is the last direct source and cannot be transferred.',
     });
   };
 
-  // New delete handler specifically for project services using the modal
   const handleServiceDelete = (id: string) => {
-    // Find the service being deleted to get its name
-    const serviceToDelete = projectServices.find(service => service.id === id);
-    const serviceName = serviceToDelete?.name || 'Unknown Service';
-
-    // Create dropdown options from other project services (excluding the one being deleted)
+    const serviceToDelete = projectServices.find(s => s.id === id);
     const dropdownOptions: DropdownOption[] = projectServices
-      .filter(service => service.id !== id && service.id && service.name)
-      .map(service => ({
-        key: service.id!,
-        value: service.name
-      }));
-
-    // Show the delete confirmation modal
-    serviceDeleteConfirmation.showDeleteModal(id, serviceName, {
+      .filter(s => s.id !== id && s.id && s.name)
+      .map(s => ({ key: s.id!, value: s.name }));
+    serviceDeleteConfirmation.showDeleteModal(id, serviceToDelete?.name || 'Unknown Service', {
       dropdownOptions,
       showTransferOption: dropdownOptions.length > 0,
       transferDescription: dropdownOptions.length > 0
         ? 'All projects and leads using this service will be transferred to the selected service.'
-        : 'This is the last service and cannot be transferred.'
+        : 'This is the last service and cannot be transferred.',
     });
   };
 
-  if (loading) {
-    return (
-      <Container fluid className="my-4 w-100 px-0 d-flex justify-content-center align-items-center" style={{ minHeight: "300px" }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </Container>
-    );
-  }
+  // ── Effects ─────────────────────────────────────────────────────────────────
+
+  useEffect(() => { fetchLeadStatuses(); }, []);
+  useEffect(() => { fetchLeadReferralTypes(); }, []);
+  useEffect(() => { fetchLeadDirectSources(); }, []);
+  useEffect(() => { fetchLeadCancellationReasons(); }, []);
+  useEffect(() => { fetchProjectServices(); }, []);
+  useEffect(() => { fetchProjectCategories(); fetchProjectSubcategories(); }, []);
+
+  useEventBus(EVENT_KEYS.leadStatusCreated, fetchLeadStatuses);
+  useEventBus(EVENT_KEYS.leadReferralTypeCreated, fetchLeadReferralTypes);
+  useEventBus(EVENT_KEYS.leadDirectSourceCreated, fetchLeadDirectSources);
+  useEventBus(EVENT_KEYS.leadCancellationReasonCreated, fetchLeadCancellationReasons);
+  useEventBus(EVENT_KEYS.leadCancellationReasonUpdated, fetchLeadCancellationReasons);
+  useEventBus(EVENT_KEYS.projectServiceCreated, fetchProjectServices);
+  useEventBus(EVENT_KEYS.projectServiceUpdated, fetchProjectServices);
+  useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
+  useEventBus(EVENT_KEYS.projectCategoryUpdated, fetchProjectCategories);
+  useEventBus(EVENT_KEYS.projectSubcategoryCreated, () => { fetchProjectSubcategories(); fetchProjectCategories(); });
+  useEventBus(EVENT_KEYS.projectSubcategoryUpdated, () => { fetchProjectSubcategories(); fetchProjectCategories(); });
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div>
+    <>
+      <style>{KEYFRAMES}</style>
+      <ConfigPageLayout
+        title="Lead Configuration"
+        subtitle="Manage lead statuses, sources, referrals, and project settings"
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {/* ── Lead Settings Tab ───────────────────────────────────────────────── */}
+        {activeTab === 'lead' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-      {/* Configure Heading */}
-      <div className="d-flex pb-4" style={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: "600" }}>Configure</div>
-
-      {/* Proposal Template Export Settings Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <div>
-              <h5 className="card-title mb-1" style={{ fontWeight: 600, fontSize: "16px" }}>Proposal Template Export Builder</h5>
-              <p className="text-muted small mb-0">Manage .docx templates, payment stages, and area-based rules.</p>
-            </div>
-            <div className="d-flex gap-3 mt-3 mt-md-0">
-              <Link
-                to="/qc/leads/documentation-builder"
-                className="btn"
-                style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', display: 'flex', alignItems: 'center', textDecoration: 'none', borderColor: '#6366f1', color: '#6366f1' }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#6366f1'; e.currentTarget.style.color = 'white'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6366f1'; }}
-              >
-                <i className="fa fa-book me-2"></i> Documentation & Validation
-              </Link>
-              <Link
-                to="/qc/leads/configuration"
-                className="btn"
-                style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', display: 'flex', alignItems: 'center', textDecoration: 'none' }}
-                onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-                onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-              >
-                <i className="fa fa-cog me-2"></i> Open Template Builder
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Cancellation Reasons Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Lead Cancellation Reasons</h5>
-            <button
-              onClick={handleCancellationReasonModalOpen}
-              className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
+            {/* Lead Status */}
+            <ConfigSectionCard
+              title="Lead Status"
+              description="Define the stages a lead moves through during the sales process."
+              icon="bi-flag"
+              iconColor="primary"
+              primaryAction={{
+                label: 'New Status',
+                icon: 'bi-plus-lg',
+                onClick: handleModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
             >
-              New Cancellation Reason
-            </button>
-          </div>
-          <div className="row mt-4">
-            {leadCancellationReasons.map((reason: any) => (
-              <div key={reason.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: reason.color,
-                      }}
+              {leadStatus.length === 0
+                ? <EmptyState label="statuses" />
+                : (
+                  <ChipGrid>
+                    {leadStatus.map((s) => (
+                      <ColorChip
+                        key={s.id}
+                        name={s.name}
+                        color={s.color}
+                        onEdit={() => handleEdit(s)}
+                        onDelete={() => handleDelete(s.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
 
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer",
-                    }}>{reason.reason}</div>
+            {/* Lead Cancellation Reasons */}
+            <ConfigSectionCard
+              title="Lead Cancellation Reasons"
+              description="Specify why a lead may be cancelled to improve reporting and insights."
+              icon="bi-x-circle"
+              iconColor="danger"
+              primaryAction={{
+                label: 'New Reason',
+                icon: 'bi-plus-lg',
+                onClick: handleCancellationReasonModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {leadCancellationReasons.length === 0
+                ? <EmptyState label="cancellation reasons" />
+                : (
+                  <ChipGrid>
+                    {sortCancellationReasonsAlphabetically(leadCancellationReasons).map((r: LeadCancellationReason) => (
+                      <ColorChip
+                        key={r.id}
+                        name={r.reason}
+                        color={r.color}
+                        onEdit={() => handleCancellationReasonEdit(r)}
+                        onDelete={() => handleCancellationReasonDelete(r.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* Lead Direct Source */}
+            <ConfigSectionCard
+              title="Lead Direct Source"
+              description="Track where leads are originating from to measure channel effectiveness."
+              icon="bi-broadcast"
+              iconColor="teal"
+              primaryAction={{
+                label: 'New Source',
+                icon: 'bi-plus-lg',
+                onClick: handleDirectSourceModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {leadDirectSource.length === 0
+                ? <EmptyState label="direct sources" />
+                : (
+                  <ChipGrid>
+                    {leadDirectSource.map((s) => (
+                      <ColorChip
+                        key={s.id}
+                        name={s.name}
+                        color={s.color}
+                        onEdit={() => handleDirectSourceEdit(s)}
+                        onDelete={() => handleDirectSourceDelete(s.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* Lead Referral Type */}
+            <ConfigSectionCard
+              title="Lead Referral Type"
+              description="Categorize the type of referral that brought in a lead."
+              icon="bi-people"
+              iconColor="green"
+              primaryAction={{
+                label: 'New Referral Type',
+                icon: 'bi-plus-lg',
+                onClick: handleReferralTypeModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {leadReferralType.length === 0
+                ? <EmptyState label="referral types" />
+                : (
+                  <ChipGrid>
+                    {sortItemsAlphabetically(leadReferralType).map((r) => (
+                      <ColorChip
+                        key={r.id}
+                        name={r.name}
+                        color={r.color}
+                        onEdit={() => handleReferralTypeEdit(r)}
+                        onDelete={() => handleReferralTypeDelete(r.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* Lead Prefix Settings */}
+            <ConfigSectionCard
+              title="Lead Prefix Settings"
+              description="Configure the auto-generated prefix format for new lead IDs."
+              icon="bi-hash"
+              iconColor="amber"
+              loading={loading}
+            >
+              <PrefixSettingsForm
+                typeLabel="Lead"
+                typeValue="LEAD"
+              />
+            </ConfigSectionCard>
+          </div>
+        )}
+
+        {/* ── Project Settings Tab ────────────────────────────────────────────── */}
+        {activeTab === 'project' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
+
+            {/* Project Services */}
+            <ConfigSectionCard
+              title="Project Services"
+              description="Define the service types that can be assigned to projects and leads."
+              icon="bi-gear"
+              iconColor="blue"
+              primaryAction={{
+                label: 'New Service',
+                icon: 'bi-plus-lg',
+                onClick: handleServiceModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {projectServices.length === 0
+                ? <EmptyState label="project services" />
+                : (
+                  <ChipGrid>
+                    {sortItemsAlphabetically(projectServices).map((s) => (
+                      <ColorChip
+                        key={s.id}
+                        name={s.name}
+                        color={s.color}
+                        onEdit={() => handleServiceEdit(s)}
+                        onDelete={() => handleServiceDelete(s.id!)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
+
+            {/* Project Categories & Subcategories — tree view */}
+            <ConfigSectionCard
+              title="Project Categories & Subcategories"
+              description="Each category expands to show its subcategories inline."
+              icon="bi-diagram-3"
+              iconColor="purple"
+              secondaryActions={[{
+                label: 'New Subcategory',
+                icon: 'bi-plus-lg',
+                onClick: handleSubcategoryModalOpen,
+                variant: 'secondary',
+              }]}
+              primaryAction={{
+                label: 'New Category',
+                icon: 'bi-plus-lg',
+                onClick: handleCategoryModalOpen,
+                variant: 'primary',
+              }}
+              loading={loading}
+            >
+              {projectCategories.length === 0
+                ? <EmptyState label="categories" />
+                : (
+                  <CategoryTree
+                    categories={sortItemsAlphabetically(projectCategories)}
+                    subcategories={projectSubcategories}
+                    onCategoryEdit={handleCategoryEdit}
+                    onCategoryDelete={handleCategoryDelete}
+                    onSubcategoryEdit={handleSubcategoryEdit}
+                    onSubcategoryDelete={handleSubcategoryDelete}
+                    onAddSubcategory={handleSubcategoryModalOpen}
+                  />
+                )
+              }
+            </ConfigSectionCard>
+          </div>
+        )}
+
+        {/* ── Templates Tab ───────────────────────────────────────────────────── */}
+        {activeTab === 'templates' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
+            <ConfigSectionCard
+              title="Proposal Template Export Builder"
+              description="Manage .docx templates, payment stages, and area-based rules for proposal generation."
+              icon="bi-file-earmark-text"
+              iconColor="purple"
+            >
+              <div style={{
+                background: 'linear-gradient(135deg, #fafbfd 0%, #f3f4f9 100%)',
+                borderRadius: RADIUS.lg,
+                padding: SP.lg,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: SP.md,
+                flexWrap: 'wrap',
+              }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: RADIUS.lg,
+                  background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <i className="bi bi-file-earmark-word" style={{ fontSize: '22px', color: '#7c3aed' }} />
+                </div>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <div style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary, marginBottom: '4px' }}>
+                    Template Builder
                   </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCancellationReasonEdit(reason)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCancellationReasonDelete(reason.id!)}
-                    ></i>
+                  <div style={{ fontFamily: FONT.body, fontWeight: 400, fontSize: '12.5px', color: C.textMuted, lineHeight: 1.5 }}>
+                    Create and manage Word (.docx) proposal templates with dynamic fields, payment stages, and area-based pricing rules. Templates are used when exporting proposals from leads.
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Direct Source Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Lead Direct Source</h5>
-            <button
-              onClick={handleDirectSourceModalOpen}
-              className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Direct Source
-            </button>
-          </div>
-          <div className="row mt-4">
-            {leadDirectSource.map((source: any) => (
-              <div key={source.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between "
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: source.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                    }}>{source.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleDirectSourceEdit(source)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDirectSourceDelete(source.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Prefix Settings Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <h5 className="card-title mb-4" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "16px" }}>Lead Prefix Settings</h5>
-          <PrefixSettingsForm
-            typeLabel="Lead"
-            typeValue="LEAD"
-          />
-        </div>
-      </div>
-
-      {/* Lead Referral Type Card */}
-      <div className="card responsive-card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Lead Referral Type</h5>
-            <button
-              onClick={handleReferralTypeModalOpen}
-              className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Referral Type
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {sortItemsAlphabetically(leadReferralType).map((status: any) => (
-              <div key={status.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: status.color,
-                      }}
-                    ></div>
-                    <div
-                      style={{
-                        fontFamily: 'Inter, sans-serif',
-                        fontWeight: 400,
-                        fontStyle: 'normal',
-                        fontSize: '14px',
-                        lineHeight: '100%',
-                        letterSpacing: '0',
-                      }}
-                    >
-                      {status.name}
-                    </div>
-
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleReferralTypeEdit(status)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleReferralTypeDelete(status.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Status Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title " style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Lead Status</h5>
-            <button
-              onClick={handleModalOpen}
-              className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Status
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {sortItemsAlphabetically(leadDirectSource).map((source: any) => (
-              <div key={source.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between "
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: source.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                    }}>{source.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleDirectSourceEdit(source)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDirectSourceDelete(source.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        {/* Project Services */}
-        <div
-          className="card mt-5"
-          style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-        >
-          <div className="card-body">
-            <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-              <h5
-                className="card-title"
-                style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontWeight: 600,
-                  fontStyle: "normal",
-                  fontSize: "16px",
-                  lineHeight: "100%",
-                  letterSpacing: "0",
-                }}
-              >
-                Project Services
-              </h5>
-              <button
-                onClick={handleServiceModalOpen}
-                className="btn"
-                style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)' }}
-                onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-                onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-              >
-                New Service
-              </button>
-            </div>
-
-            <div className="row mt-4">
-              {sortItemsAlphabetically(projectServices).map((service) => (
-                <div key={service.id} className="col-12 col-md-3 mb-3">
-                  <div
-                    className="d-flex align-items-center justify-content-between"
+                <div style={{ display: 'flex', gap: SP.sm, flexShrink: 0 }}>
+                  <Link
+                    to="/qc/leads/documentation-builder"
                     style={{
-                      backgroundColor: "#F2F5F8",
-                      padding: "0 15px",
-                      height: "40px",
-                      borderRadius: "5px",
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: RADIUS.md,
+                      border: `1px solid ${C.border}`,
+                      backgroundColor: '#fff',
+                      color: C.textPrimary,
+                      fontFamily: FONT.body,
+                      fontWeight: 500,
+                      fontSize: '13px',
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
                     }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d1d5e0'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(24,28,50,0.06)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = 'none'; }}
                   >
-                    <div className="d-flex align-items-center gap-2">
-                      <div
-                        className="rounded-circle"
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          backgroundColor: service.color,
-                        }}
-                      ></div>
-                      <div
-                        style={{
-                          fontFamily: "Inter, sans-serif",
-                          fontWeight: 400,
-                          fontStyle: "normal",
-                          fontSize: "14px",
-                          lineHeight: "100%",
-                          letterSpacing: "0",
-                          cursor: "pointer",
-                        }}
-                        title={service.name}
-                      >
-                        {service.name.length > 10
-                          ? `${service.name.slice(0, 14)}...`
-                          : service.name}
-                      </div>
-                    </div>
-                    <div className="ms-4 d-flex gap-3">
-                      <i
-                        className="fa fa-pencil cursor-pointer"
-                        onClick={() => handleServiceEdit(service)}
-                      ></i>
-                      <i
-                        className="fa fa-trash cursor-pointer"
-                        onClick={() => handleServiceDelete(service.id!)}
-                      ></i>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Cancellation Reasons Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Lead Cancellation Reasons</h5>
-            <button
-              onClick={handleCancellationReasonModalOpen}
-              className="btn"
-              style={{ ...buttonStyles.base, whiteSpace: "nowrap", fontSize: 'clamp(12px, 2vw, 16px)', }}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Cancellation Reason
-            </button>
-          </div>
-          <div className="row mt-4">
-            {sortCancellationReasonsAlphabetically(leadCancellationReasons).map((reason: LeadCancellationReason) => (
-              <div key={reason.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: reason.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={reason.reason}>{reason.reason.length > 10 ? `${reason.reason.slice(0, 15)}...` : reason.reason}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCancellationReasonEdit(reason)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCancellationReasonDelete(reason.id!)}
-                    ></i>
-                  </div>
+                    <i className="bi bi-book" style={{ fontSize: '13px' }} />
+                    Docs & Validation
+                  </Link>
+                  <Link
+                    to="/qc/leads/configuration"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: RADIUS.md,
+                      border: 'none',
+                      backgroundColor: C.primary,
+                      color: '#fff',
+                      fontFamily: FONT.body,
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
+                      boxShadow: `0 4px 12px ${C.primaryShadow}`,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`; }}
+                  >
+                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '13px' }} />
+                    Open Builder
+                  </Link>
                 </div>
               </div>
-            ))}
+            </ConfigSectionCard>
           </div>
-        </div>
-      </div>
+        )}
+      </ConfigPageLayout>
 
-      {/* Category Card */}
-      <div
-        className="card mb-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Project Categories and Project Subcategories</h5>
-            <button
-              onClick={handleCategoryModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Category
-            </button>
-          </div>
+      {/* ── Modals ──────────────────────────────────────────────────────────────── */}
 
-          <div className="row mt-4">
-            {sortItemsAlphabetically(projectCategories).map((category) => (
-              <div key={category.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: category.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={category.name}>{category.name.length > 10 ? `${category.name.slice(0, 14)}...` : category.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCategoryEdit(category)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCategoryDelete(category.id)}
-
-
-                    ></i>
-                    {category.subCategories}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Project Services */}
-      <div
-        className="card mb-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Project Subcategories</h5>
-            <button
-              onClick={handleSubcategoryModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Subcategory
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {sortItemsAlphabetically(projectSubcategories).map((subcategory) => (
-              <div key={subcategory.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: subcategory.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={subcategory.name}>{subcategory.name.length > 10 ? `${subcategory.name.slice(0, 14)}...` : subcategory.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleSubcategoryEdit(subcategory)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() =>
-                        handleSubcategoryDelete(subcategory.id)
-                      }
-                    ></i>
-                    {/* {subcategory.subCategories} */}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Modals */}
       <LeadsConfigForm
         show={showModal}
         onClose={handleModalClose}
@@ -1202,13 +1045,12 @@ const LeadsConfigurationMain = () => {
         initialData={editingCancellationReason ? {
           ...editingCancellationReason,
           name: editingCancellationReason.reason,
-          color: editingCancellationReason.color
+          color: editingCancellationReason.color,
         } : null}
         isEditing={!!editingCancellationReason}
         type="cancellation-reason"
         title="Cancellation Reason"
       />
-      {/* Service Modal */}
       <ProjectConfigForm
         show={showServiceModal}
         onClose={handleServiceModalClose}
@@ -1218,51 +1060,28 @@ const LeadsConfigurationMain = () => {
         isEditing={!!editingService}
         initialData={editingService}
       />
-
-      {/* Category Modal */}
       <ProjectConfigForm
         show={showCategoryModal}
-        onClose={() => {
-          setShowCategoryModal(false);
-          setEditingCategory(null);
-        }}
+        onClose={() => { setShowCategoryModal(false); setEditingCategory(null); }}
         onSuccess={fetchProjectCategories}
         type="category"
         title="Category"
         isEditing={!!editingCategory}
         initialData={editingCategory}
       />
-
-      {/* Subcategory Modal */}
       <ProjectConfigForm
         show={showSubcategoryModal}
-        onClose={() => {
-          setShowSubcategoryModal(false);
-          setEditingSubcategory(null);
-        }}
-        onSuccess={() => {
-          fetchProjectSubcategories();
-          fetchProjectCategories();
-        }}
+        onClose={() => { setShowSubcategoryModal(false); setEditingSubcategory(null); }}
+        onSuccess={() => { fetchProjectSubcategories(); fetchProjectCategories(); }}
         type="subcategory"
         title="Subcategory"
         isEditing={!!editingSubcategory}
         initialData={editingSubcategory}
       />
 
-
-      {/* Delete Confirmation Modal */}
       {directSourceDeleteConfirmation.DeleteModal}
-      {/* Delete Confirmation Modal for Project Services */}
       {serviceDeleteConfirmation.DeleteModal}
-      {/* Chart Settings - Moved to LeadNewLead.tsx for modal access */}
-      {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">  
-          <LeadsProjectCompanyChartSettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD}/>
-        </div>
-      </div> */}
-
-    </div>
+    </>
   );
 };
 

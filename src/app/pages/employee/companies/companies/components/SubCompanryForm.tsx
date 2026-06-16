@@ -1,4 +1,4 @@
-import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
+﻿import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
 import {
   fetchAllCities,
@@ -9,6 +9,7 @@ import {
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { useEffect, useState } from "react";
@@ -638,7 +639,7 @@ const SubCompanyForm: React.FC<Props> = ({
               }, [values.latitude, values.longitude, setFieldValue, values.googleMapsLink]);
 
               return (
-              <FormikForm placeholder={""}>
+              <FormikForm>
                 <Modal.Body style={{ maxHeight: "80vh", overflowY: "auto" }}>
                   {isDataLoading ? (
                     <div className="text-center p-4">
@@ -886,19 +887,19 @@ const SubCompanyForm: React.FC<Props> = ({
                         <div className="card-body card responsive-card p-md-10 p-3">
                           <div className="row g-3">
                             <div className="col-md-4">
-                              <TextInput
+                              <PhoneNumberInput
                                 formikField="phone"
                                 label="Phone"
                                 isRequired={false}
-                                inputValidation="numbers"
+                                placeholder="Enter phone"
                               />
                             </div>
                             <div className="col-md-4">
-                              <TextInput
+                              <PhoneNumberInput
                                 formikField="phone2"
                                 label="Phone 2"
                                 isRequired={false}
-                                inputValidation="numbers"
+                                placeholder="Enter phone 2"
                               />
                             </div>
                             <div className="col-md-4">
@@ -1100,7 +1101,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                       formikField="latitude"
                                       label="Latitude"
                                       isRequired={false}
-                                      inputValidation="decimal"
+                                      inputValidation="signed-decimal"
                                     />
                                   </div>
                                   <div className="col-md-3">
@@ -1108,7 +1109,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                       formikField="longitude"
                                       label="Longitude"
                                       isRequired={false}
-                                      inputValidation="decimal"
+                                      inputValidation="signed-decimal"
                                     />
                                   </div>
                                 </div>

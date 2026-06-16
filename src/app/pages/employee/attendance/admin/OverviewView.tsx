@@ -1,7 +1,9 @@
 import { fetchAllEmployees, fetchLeaveRequest } from "@services/employee";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { useEffect, useState, lazy, Suspense, useCallback } from "react";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
+import { usePermission } from "@hooks/usePermission";
 import { saveLeaveRequests } from "@redux/slices/attendance";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
@@ -26,26 +28,14 @@ import { calculateTotalDuration } from "@utils/calculateTotalDuration";
 import LazySection from "@app/modules/common/components/LazySection";
 import Loader from "@app/modules/common/utils/Loader";
 
+import DailyAttendance from "./views/overview/DailyAttendance";
 // Lazy load heavy components
-const DailyAttendance = lazy(() => import("./views/overview/DailyAttendance"));
 const OpenAttendanceRequests = lazy(
   () => import("./views/overview/OpenAttendanceRequests"),
 );
-const OpenLeaveRequests = lazy(
-  () => import("./views/overview/OpenLeaveRequests"),
-);
 const AllLeaveRequest = lazy(() => import("./views/overview/AllLeaveRequest"));
-const AttendanceRequestLimitReset = lazy(
-  () => import("./views/overview/AttendanceRequestLimitReset"),
-);
 const LeaveManagementRequests = lazy(
   () => import("./views/overview/LeaveManagementRequests"),
-);
-const HRPendingLeaveRequests = lazy(
-  () => import("./views/overview/HRPendingLeaveRequests"),
-);
-const HRPendingAttendanceRequests = lazy(
-  () => import("./views/overview/HRPendingAttendanceRequests"),
 );
 
 interface LeaveRequestResponse {
@@ -138,6 +128,7 @@ export const transformLeaveRequests = (
         ? `${leave.rejectedByEmployee.users.firstName || ""} ${leave.rejectedByEmployee.users.lastName || ""}`.trim()
         : "",
       updatedAt: leave.updatedAt,
+      hasApprovalInstance: (leave as any).hasApprovalInstance ?? false,
     };
   });
 
@@ -145,6 +136,7 @@ export const transformLeaveRequests = (
 };
 
 function OverviewView() {
+  const { filterIds } = useTeamFilter();
   const dispatch = useDispatch();
   const [date, setDate] = useState(dayjs()); // Centralized date state
   const employeesPresentAttendance = useSelector(
@@ -170,20 +162,7 @@ function OverviewView() {
     (state: RootState) => state.employee.selectedEmployee?.id,
   );
 
-  // Role-based access: determine if current user is HR/admin to show HR approval queue
-  const isAdminUser = useSelector(
-    (state: RootState) => state.auth.currentUser?.isAdmin,
-  );
-  const currentEmployeeRoles: any[] = useSelector(
-    (state: RootState) => state.employee.currentEmployee.roles || [],
-  );
-  const userIsHROrAdmin =
-    isAdminUser ||
-    currentEmployeeRoles.some((r: any) =>
-      ["hr", "admin", "super_admin", "superadmin"].includes(
-        (r?.name || r?.role || "").toLowerCase(),
-      ),
-    );
+  const userIsHROrAdmin = usePermission('approvals.approve.team');
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange,
   );
@@ -212,7 +191,10 @@ function OverviewView() {
         );
 
         // Process employees
-        const employees = employeesRes.data.employees;
+        const allFetched = employeesRes.data.employees;
+        const employees = filterIds
+          ? allFetched.filter((e: any) => filterIds.includes(e.id))
+          : allFetched;
         setUsers(
           employees.map(
             (employee: any) =>
@@ -331,12 +313,6 @@ function OverviewView() {
 
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>
-          <AttendanceRequestLimitReset />
-        </Suspense>
-      </LazySection>
-
-      <LazySection minHeight="400px" rootMargin="300px">
-        <Suspense fallback={<Loader />}>
           <LeaveManagementRequests />
         </Suspense>
       </LazySection>
@@ -346,28 +322,6 @@ function OverviewView() {
           <OpenAttendanceRequests />
         </Suspense>
       </LazySection>
-
-      {userIsHROrAdmin && (
-        <LazySection minHeight="400px" rootMargin="300px">
-          <Suspense fallback={<Loader />}>
-            <HRPendingAttendanceRequests />
-          </Suspense>
-        </LazySection>
-      )}
-
-      <LazySection minHeight="400px" rootMargin="300px">
-        <Suspense fallback={<Loader />}>
-          <OpenLeaveRequests />
-        </Suspense>
-      </LazySection>
-
-      {userIsHROrAdmin && (
-        <LazySection minHeight="400px" rootMargin="300px">
-          <Suspense fallback={<Loader />}>
-            <HRPendingLeaveRequests />
-          </Suspense>
-        </LazySection>
-      )}
 
       <LazySection minHeight="400px" rootMargin="300px">
         <Suspense fallback={<Loader />}>

@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import ExportButton from "@app/modules/common/components/ExportButton";
 import { MaterialReactTable } from "material-react-table";
 import {
   Container,
@@ -17,7 +18,7 @@ import { saveAs } from "file-saver";
 import { KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption } from "@metronic/helpers";
 import SelectInput from "@app/modules/common/inputs/SelectInput";
 import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission } from "@constants/statistics";
+import { permissionConstToUseWithHasPermission, Status } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
 import {
   HighlightMatch,
@@ -76,14 +77,22 @@ interface MaterialTableProps {
   paginationState?: { pageIndex: number; pageSize: number };
   isLoading?: boolean;
   layoutMode?: "grid" | "grid-no-grow" | "semantic";
+  enableRowVirtualization?: boolean;
   muiTableContainerProps?: any;
   renderDetailPanel?: (props: { row: any; table: any }) => React.ReactNode;
+  enableStatusColorCoding?: boolean;
+  renderTopToolbarRightActions?: () => React.ReactNode;
+  /** Replaces the bottom-left "Select Export File + Export" UI with custom content */
+  renderExportActions?: () => React.ReactNode;
+  /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
+  showColumnFooter?: boolean;
+  defaultSorting?: Array<{ id: string; desc: boolean }>;
 }
 
 const defaultColumnSizes = {
-  size: 100,
-  minSize: 100,
-  maxSize: 150,
+  size: 150,
+  minSize: 80,
+  maxSize: 1000,
 };
 
 function MaterialTable({
@@ -119,9 +128,15 @@ function MaterialTable({
   onPaginationChange,
   paginationState,
   isLoading = false,
-  layoutMode = "grid",
+  layoutMode = "semantic",
+  enableRowVirtualization = false,
   muiTableContainerProps: customMuiTableContainerProps,
   renderDetailPanel,
+  enableStatusColorCoding = true,
+  renderTopToolbarRightActions,
+  renderExportActions,
+  showColumnFooter = false,
+  defaultSorting,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -228,10 +243,14 @@ function MaterialTable({
       processedData = data;
     }
 
-    return processedData;
+    // Both viewOthers and checkOwnWithOthers filter from the same source array,
+    // so a row that passes both permission checks gets appended twice. Deduplicate
+    // by object reference before returning.
+    return Array.from(new Set(processedData));
   }, [data, resource, viewOthers, viewOwn, checkOwnWithOthers]);
 
-  const mode = "light";
+  const { mode: metronicMode } = useThemeMode();
+  const mode = metronicMode === "system" ? "light" : metronicMode;
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-generate searchable columns from columns prop (only when search is enabled)
@@ -242,7 +261,7 @@ function MaterialTable({
 
     const excludedColumns = ["avatar", "actions"]; // Columns to exclude from search
 
-    return finalColumns
+    return columns
       .filter(
         (col: any) =>
           col.accessorKey &&
@@ -253,8 +272,9 @@ function MaterialTable({
         value: col.accessorKey,
         label: col.header,
         accessorKey: col.accessorKey,
+        accessorFn: col.accessorFn,
       }));
-  }, [finalColumns, enableColumnSpecificSearch]);
+  }, [columns, enableColumnSpecificSearch]);
 
   // Use auto-generated searchable columns
   const effectiveSearchableColumns = useMemo(() => {
@@ -276,7 +296,7 @@ function MaterialTable({
     updateExpanded,
     updateExportType,
     resetPreferences,
-  } = useTablePreferences(tableName, finalColumns, employeeId);
+  } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,
@@ -353,38 +373,47 @@ function MaterialTable({
           let score = 0;
           let isMatch = false;
 
-          // Collect all string values for this row to check cross-column matches
-          const allRowText = Object.values(row)
+          // Collect all string values for this row to check cross-column matches based on columns
+          const rowSearchableValues: any[] = [];
+          effectiveSearchableColumns.forEach((col: any) => {
+            const val = col.accessorFn ? col.accessorFn(row) : row[col.accessorKey];
+            if (val != null) {
+              rowSearchableValues.push(val);
+            }
+          });
+
+          const allRowText = rowSearchableValues
             .filter((v) => typeof v === "string" || typeof v === "number")
             .join(" ")
             .toLowerCase();
 
           if (columnToSearch === "all") {
-            isMatch = intelligentSearchFilterFn(
-              { original: row },
-              "",
-              searchValue,
-            );
-            if (isMatch) {
-              // 1. Calculate individual field scores
-              Object.values(row).forEach((val) => {
-                if (typeof val === "string" || typeof val === "number") {
-                  score += calculateMatchScore(String(val), queryInfo);
-                }
-              });
-
-              // 2. Bonus: If ALL keywords are present across the entire row
-              if (keywords.every((k) => allRowText.includes(k))) {
-                score += 50; // High bonus for row-wide AND match
+            // Calculate individual field scores
+            rowSearchableValues.forEach((val) => {
+              if (typeof val === "string" || typeof val === "number") {
+                score += calculateMatchScore(String(val), queryInfo);
               }
+            });
+
+            // Require either a decent score (>0) OR all keywords matching row-wide for it to be a match
+            // This prevents single characters like 'a' from returning 6000 results if score threshold is adjusted.
+            // Also, AND logic across the row is preferred.
+            if (keywords.every((k) => allRowText.includes(k))) {
+              score += 50; // High bonus for row-wide AND match
+              isMatch = true;
+            } else if (score >= 10) { 
+               // Require at least 10 score to be considered a match to filter out noise
+               isMatch = true;
             }
           } else {
-            const columnValue = row[columnToSearch];
+            const colDef = effectiveSearchableColumns.find((c: any) => c.accessorKey === columnToSearch);
+            const columnValue = colDef ? (colDef.accessorFn ? colDef.accessorFn(row) : row[colDef.accessorKey]) : row[columnToSearch];
+            
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
               isMatch =
-                score > 0 ||
+                score >= 10 ||
                 keywords.every((k) => valStr.toLowerCase().includes(k));
             }
           }
@@ -400,7 +429,7 @@ function MaterialTable({
 
       setFilteredData(sortedResults);
     },
-    [finalData],
+    [finalData, effectiveSearchableColumns],
   );
 
   // Handle column selector change
@@ -472,6 +501,24 @@ function MaterialTable({
       { label: "Excel", value: "excel" },
     ],
     [],
+  );
+
+  // Auto-build ExportButton columns from the table's column definitions
+  const autoExportCols = useMemo(() =>
+    columns
+      .filter((col: any) => col.accessorKey && col.accessorKey !== 'actions')
+      .map((col: any) => ({
+        key: col.accessorKey as string,
+        header: col.header as string,
+        type: 'text' as const,
+      })),
+    [columns],
+  );
+
+  // Human-readable title from tableName (e.g. "MonthlySalary" → "Monthly Salary")
+  const autoExportTitle = useMemo(
+    () => tableName.replace(/([A-Z])/g, ' $1').trim(),
+    [tableName],
   );
 
   const tableTheme = useMemo(
@@ -593,25 +640,129 @@ function MaterialTable({
     enableColumnSpecificSearch,
     filteredData,
     finalData,
-    selectedSearchColumn,
-    globalFilterValue,
   ]);
 
-  if (preferencesLoading) {
+  if (preferencesLoading || !isInitialized) {
     return (
       <div
-        className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
-        style={{ minHeight: "300px" }}
+        style={{
+          padding: "0",
+          borderRadius: "12px",
+          overflow: "hidden",
+          border: "1px solid #EAECF0",
+          backgroundColor: "#fff",
+        }}
       >
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
+        {/* Skeleton header row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0",
+            height: "48px",
+            backgroundColor: "#FAFBFC",
+            borderBottom: "2px solid #EAECF0",
+            padding: "0 16px",
+          }}
+        >
+          {[22, 16, 18, 14, 20, 12].map((w, i) => (
+            <div
+              key={i}
+              style={{
+                flex: `0 0 ${w}%`,
+                padding: "0 16px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <div
+                className="et-skeleton-pulse"
+                style={{
+                  height: "12px",
+                  width: `${60 + Math.random() * 30}%`,
+                  borderRadius: "4px",
+                  backgroundColor: "#E5E7EB",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        {/* Skeleton body rows */}
+        {[1, 0.85, 0.7, 0.6, 0.5].map((opacity, rowIdx) => (
+          <div
+            key={rowIdx}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              height: "52px",
+              borderBottom: "1px solid #F3F4F6",
+              opacity,
+            }}
+          >
+            {[22, 16, 18, 14, 20, 12].map((w, colIdx) => (
+              <div
+                key={colIdx}
+                style={{
+                  flex: `0 0 ${w}%`,
+                  padding: "0 16px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  className="et-skeleton-pulse"
+                  style={{
+                    height: colIdx === 4 ? "22px" : "13px",
+                    width: colIdx === 4 ? "64px" : `${50 + (colIdx * 7) % 40}%`,
+                    borderRadius: colIdx === 4 ? "20px" : "4px",
+                    backgroundColor: "#F3F4F6",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+        {/* Skeleton toolbar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 20px",
+            borderTop: "1px solid #F3F4F6",
+          }}
+        >
+          <div style={{ display: "flex", gap: "8px" }}>
+            {[80, 52, 70].map((w, i) => (
+              <div
+                key={i}
+                className="et-skeleton-pulse"
+                style={{
+                  height: "34px",
+                  width: `${w}px`,
+                  borderRadius: "8px",
+                  backgroundColor: "#F3F4F6",
+                }}
+              />
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "6px" }}>
+            {[34, 34, 34, 34, 34, 34, 34].map((_, i) => (
+              <div
+                key={i}
+                className="et-skeleton-pulse"
+                style={{
+                  height: "34px",
+                  width: "34px",
+                  borderRadius: "8px",
+                  backgroundColor: "#F3F4F6",
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     );
-  }
-
-  if (!isInitialized) {
-    return <div>Initializing table preferences...</div>;
   }
 
   return (
@@ -629,31 +780,31 @@ function MaterialTable({
                   display: "flex",
                   justifyContent: "flex-start",
                   padding: "8px 16px",
-                  borderBottom: "1px solid #E1E8F0",
+                  borderBottom: "1px solid #F3F4F6",
                 }}
               >
                 <div
                   onClick={toggleMobileSearch}
                   style={{
                     cursor: "pointer",
-                    padding: "12px 16px",
-                    borderRadius: "8px",
-                    backgroundColor: isMobileSearchVisible
-                      ? "#f0f0f0"
-                      : "transparent",
-                    border: "1px solid #E1E8F0",
+                    padding: "10px 16px",
+                    borderRadius: "10px",
+                    backgroundColor: isMobileSearchVisible ? "#FEF2F2" : "#FAFAFA",
+                    border: `1px solid ${isMobileSearchVisible ? "#FECACA" : "#E5E7EB"}`,
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
                     width: "100%",
                     justifyContent: "center",
                     transition: "all 0.2s ease",
+                    color: isMobileSearchVisible ? "#AA393D" : "#6B7280",
                   }}
                 >
-                  <KTIcon iconName="magnifier" className="fs-4" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                  <KTIcon iconName="magnifier" className="fs-5" />
+                  <span style={{ fontSize: "13px", fontWeight: 600 }}>
                     {isMobileSearchVisible ? "Hide Search" : "Search Table"}
                   </span>
+                  <KTIcon iconName={isMobileSearchVisible ? "up" : "down"} className="fs-6" />
                 </div>
               </div>
 
@@ -661,12 +812,12 @@ function MaterialTable({
               {isMobileSearchVisible && (
                 <div
                   style={{
-                    backgroundColor: "#f9f9f9",
-                    borderRadius: "0 0 8px 8px",
+                    backgroundColor: "#FAFAFA",
+                    borderRadius: "0 0 12px 12px",
                     padding: "20px",
-                    borderLeft: "1px solid #E1E8F0",
-                    borderRight: "1px solid #E1E8F0",
-                    borderBottom: "1px solid #E1E8F0",
+                    borderLeft: "1px solid #E5E7EB",
+                    borderRight: "1px solid #E5E7EB",
+                    borderBottom: "1px solid #E5E7EB",
                     marginBottom: "8px",
                   }}
                 >
@@ -674,14 +825,16 @@ function MaterialTable({
                   <div style={{ marginBottom: "16px" }}>
                     <label
                       style={{
-                        fontSize: "13px",
+                        fontSize: "12px",
                         fontWeight: 600,
-                        color: "#7A8597",
+                        color: "#6B7280",
                         marginBottom: "8px",
                         display: "block",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
                       }}
                     >
-                      Search in Column:
+                      Search in Column
                     </label>
                     <div style={{ position: "relative", zIndex: 1001 }}>
                       <SelectInput
@@ -724,93 +877,139 @@ function MaterialTable({
                   <div style={{ marginBottom: "16px" }}>
                     <label
                       style={{
-                        fontSize: "13px",
+                        fontSize: "12px",
                         fontWeight: 600,
-                        color: "#7A8597",
+                        color: "#6B7280",
                         marginBottom: "8px",
                         display: "block",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
                       }}
                     >
-                      Search Term:
+                      Search Term
                     </label>
-                    <input
-                      type="text"
-                      placeholder={`Search in ${(() => {
-                        const columnSelectOptions = [
-                          { label: "All Columns", value: "all" },
-                          ...effectiveSearchableColumns
-                            .filter((col: any) => col.value !== "all")
-                            .map((col: any) => ({
-                              label: col.label,
-                              value: col.value,
-                            })),
-                        ];
-                        return (
-                          columnSelectOptions.find(
-                            (opt) => opt.value === selectedSearchColumn,
-                          )?.label || "All Columns"
-                        );
-                      })()}...`}
-                      value={globalFilterValue}
-                      onChange={(e) => handleGlobalFilterChange(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        fontSize: "14px",
-                        border: "1px solid #E1E8F0",
-                        borderRadius: "8px",
-                        outline: "none",
-                        backgroundColor: "white",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                      }}
-                    />
+                    <div style={{ position: "relative" }}>
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: "11px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          display: "flex",
+                          alignItems: "center",
+                          pointerEvents: "none",
+                          color: "#9CA3AF",
+                        }}
+                      >
+                        <KTIcon iconName="magnifier" className="fs-5" />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder={`Search in ${(() => {
+                          const columnSelectOptions = [
+                            { label: "All Columns", value: "all" },
+                            ...effectiveSearchableColumns
+                              .filter((col: any) => col.value !== "all")
+                              .map((col: any) => ({
+                                label: col.label,
+                                value: col.value,
+                              })),
+                          ];
+                          return (
+                            columnSelectOptions.find(
+                              (opt) => opt.value === selectedSearchColumn,
+                            )?.label || "All Columns"
+                          );
+                        })()}…`}
+                        value={globalFilterValue}
+                        onChange={(e) => handleGlobalFilterChange(e.target.value)}
+                        className="et-search-input"
+                        style={{
+                          width: "100%",
+                          paddingLeft: "36px",
+                          paddingRight: globalFilterValue ? "36px" : "14px",
+                          paddingTop: "11px",
+                          paddingBottom: "11px",
+                          fontSize: "14px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "10px",
+                          outline: "none",
+                          backgroundColor: "white",
+                          color: "#374151",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                        }}
+                      />
+                      {globalFilterValue && (
+                        <button
+                          onClick={() => handleGlobalFilterChange("")}
+                          style={{
+                            position: "absolute",
+                            right: "10px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "20px",
+                            height: "20px",
+                            borderRadius: "50%",
+                            border: "none",
+                            backgroundColor: "#D1D5DB",
+                            cursor: "pointer",
+                            padding: 0,
+                            color: "#6B7280",
+                            fontSize: "10px",
+                            lineHeight: 1,
+                          }}
+                          title="Clear search"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Status indicator */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: "8px",
-                      fontSize: "13px",
-                      color: "#7A8597",
-                      padding: "12px 16px",
-                      backgroundColor: "white",
-                      borderRadius: "6px",
-                      border: "1px solid #E1E8F0",
-                    }}
-                  >
-                    {/* <div> */}
-                    <span>Searching in: </span>
-                    <strong style={{ color: "#333" }}>
-                      {(() => {
-                        const columnSelectOptions = [
-                          { label: "All Columns", value: "all" },
-                          ...effectiveSearchableColumns
-                            .filter((col: any) => col.value !== "all")
-                            .map((col: any) => ({
-                              label: col.label,
-                              value: col.value,
-                            })),
-                        ];
-                        return (
-                          columnSelectOptions.find(
-                            (opt) => opt.value === selectedSearchColumn,
-                          )?.label || "All Columns"
-                        );
-                      })()}
-                    </strong>
-                    {/* </div> */}
-                    {globalFilterValue && (
-                      <div>
-                        <span> • Found: </span>
-                        <strong style={{ color: "#AA393D" }}>
-                          {filteredData.length} results
-                        </strong>
-                      </div>
-                    )}
-                  </div>
+                  {globalFilterValue && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        fontSize: "13px",
+                        color: "#6B7280",
+                        padding: "10px 14px",
+                        backgroundColor: "#FEF2F2",
+                        borderRadius: "8px",
+                        border: "1px solid #FECACA",
+                      }}
+                    >
+                      <span>Found</span>
+                      <strong style={{ color: "#AA393D", fontSize: "14px" }}>
+                        {filteredData.length}
+                      </strong>
+                      <span>result{filteredData.length !== 1 ? "s" : ""} in</span>
+                      <strong style={{ color: "#374151" }}>
+                        {(() => {
+                          const columnSelectOptions = [
+                            { label: "All Columns", value: "all" },
+                            ...effectiveSearchableColumns
+                              .filter((col: any) => col.value !== "all")
+                              .map((col: any) => ({
+                                label: col.label,
+                                value: col.value,
+                              })),
+                          ];
+                          return (
+                            columnSelectOptions.find(
+                              (opt) => opt.value === selectedSearchColumn,
+                            )?.label || "All Columns"
+                          );
+                        })()}
+                      </strong>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -818,6 +1017,7 @@ function MaterialTable({
 
         <MaterialReactTable
           key={`${tableName}-${employeeId}-${isInitialized}-${selectedSearchColumn}`}
+          getRowId={(row: any, index: number) => row.id ? String(row.id) : String(index)}
           renderDetailPanel={renderDetailPanel}
           state={{
             columnVisibility: preferences.columnVisibility,
@@ -828,7 +1028,7 @@ function MaterialTable({
             pagination: paginationState || preferences.pagination,
             density: preferences.density,
             expanded: preferences.expanded,
-            globalFilter: debouncedFilterValue,
+            globalFilter: enableColumnSpecificSearch ? undefined : debouncedFilterValue,
             isLoading: isLoading,
             showProgressBars: isLoading,
           }}
@@ -848,7 +1048,7 @@ function MaterialTable({
           enableGrouping={enableGrouping ?? true}
           enableSorting={enableSorting ?? true}
           enableExpandAll={enableExpandAll ?? true}
-          enableRowVirtualization
+          enableRowVirtualization={enableRowVirtualization}
           enableStickyHeader
           enableBottomToolbar={enableBottomToolbar ?? true}
           enableTableHead={enableTableHead ?? true}
@@ -864,40 +1064,84 @@ function MaterialTable({
               backgroundColor: "#FAFBFC",
               color: "#667085",
               fontWeight: 600,
-              fontSize: "13px",
+              fontSize: "12px",
+              letterSpacing: "0.03em",
+              textTransform: "uppercase",
 
-              padding: "14px 16px",
-              height: "56px",
+              padding: "0 16px",
+              height: "48px",
 
-              borderBottom: "1px solid #EAECF0",
+              borderBottom: "2px solid #EAECF0",
               borderRight: "1px solid #F2F4F7",
 
               whiteSpace: "nowrap",
-
-              width: "fit-content",
-              minWidth: "max-content",
-
               verticalAlign: "middle",
+              boxSizing: "border-box",
+              userSelect: "none",
 
               "& .Mui-TableHeadCell-Content": {
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
+                gap: "6px",
                 width: "100%",
+                height: "100%",
+              },
+
+              "& .Mui-TableHeadCell-Content-Labels": {
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                overflow: "hidden",
+              },
+
+              "& .Mui-TableHeadCell-Content-Wrapper": {
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               },
 
               "& .MuiTableSortLabel-root": {
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
+                flexShrink: 0,
               },
 
               "&:last-child": {
                 borderRight: "none",
               },
 
+              "&:hover": {
+                backgroundColor: "#F3F4F6",
+                color: "#4B5563",
+              },
+
+              "& .Mui-TableHeadCell-Content-Actions": {
+                opacity: 0,
+                transition: "opacity 0.15s ease",
+              },
+
+              "&:hover .Mui-TableHeadCell-Content-Actions": {
+                opacity: 1,
+              },
+
               ...muiTableHeadCellStyle,
+            },
+          }}
+          muiTableBodyCellProps={{
+            sx: {
+              padding: "0 16px",
+              height: "52px",
+              fontSize: "13px",
+              color: "#374151",
+              borderBottom: "1px solid #F3F4F6",
+              borderRight: "1px solid #F9FAFB",
+              verticalAlign: "middle",
+              boxSizing: "border-box",
+              transition: "background-color 0.15s ease",
+              "&:last-child": {
+                borderRight: "none",
+              },
             },
           }}
           muiTableContainerProps={{
@@ -910,7 +1154,80 @@ function MaterialTable({
           }}
           layoutMode={layoutMode}
           {...muiTableProps}
-          muiTableBodyRowProps={muiTableProps?.muiTableBodyRowProps || {}}
+          muiTableBodyRowProps={
+            muiTableProps?.muiTableBodyRowProps
+              ? muiTableProps.muiTableBodyRowProps
+              : ({ row }: any) => {
+                  // Status-based row color coding
+                  let rowStatus: 'approved' | 'rejected' | 'pending' | null = null;
+                  if (enableStatusColorCoding) {
+                    const sn = row.original?.statusNumber;
+                    const statusStr = String(row.original?.status || '').toLowerCase();
+                    if (sn !== undefined && sn !== null) {
+                      if (sn === Status.Approved) rowStatus = 'approved';
+                      else if (sn === Status.Rejected) rowStatus = 'rejected';
+                      else if (sn === Status.ApprovalNeeded) rowStatus = 'pending';
+                    } else if (statusStr) {
+                      if (statusStr === 'approved' || statusStr === 'active') rowStatus = 'approved';
+                      else if (statusStr === 'rejected' || statusStr === 'declined' || statusStr === 'inactive') rowStatus = 'rejected';
+                      else if (statusStr === 'pending' || statusStr === 'waiting' || statusStr === 'under review') rowStatus = 'pending';
+                    }
+                  }
+
+                  const colorMap = {
+                    approved: { bg: 'rgba(16, 185, 129, 0.04)', border: '#10b981', hover: 'rgba(16, 185, 129, 0.08)' },
+                    rejected: { bg: 'rgba(239, 68, 68, 0.04)', border: '#ef4444', hover: 'rgba(239, 68, 68, 0.08)' },
+                    pending:  { bg: 'rgba(245, 158, 11, 0.04)', border: '#f59e0b', hover: 'rgba(245, 158, 11, 0.08)' },
+                  };
+                  const c = rowStatus ? colorMap[rowStatus] : null;
+
+                  return {
+                    sx: {
+                      backgroundColor: c ? c.bg : undefined,
+                      '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                      transition: 'background-color 0.12s ease',
+                      '&:hover td': {
+                        backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
+                      },
+                    },
+                  };
+                }
+          }
+          renderEmptyRowsFallback={() => (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "56px 24px",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "16px",
+                  backgroundColor: "#F9FAFB",
+                  border: "1px solid #E5E7EB",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <KTIcon iconName="search-list" className="fs-1 text-gray-400" />
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ fontSize: "14px", fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>
+                  No records found
+                </p>
+                <p style={{ fontSize: "13px", color: "#9CA3AF", margin: 0 }}>
+                  Try adjusting your search or filters
+                </p>
+              </div>
+            </div>
+          )}
           enableDensityToggle={false}
           initialState={{
             density: "comfortable",
@@ -918,9 +1235,19 @@ function MaterialTable({
           data={tableData}
           columns={finalColumns}
           muiTableFooterProps={{
-            sx: {
-              display: "none",
-            },
+            sx: showColumnFooter
+              ? {
+                  "& .MuiTableCell-footer": {
+                    backgroundColor: "#f8fafc",
+                    color: "#0f172a",
+                    fontWeight: 700,
+                    borderTop: "2px solid #e2e8f0",
+                    fontSize: "0.8rem",
+                  },
+                }
+              : {
+                  display: "none",
+                },
           }}
           muiTopToolbarProps={{
             sx: {
@@ -961,16 +1288,18 @@ function MaterialTable({
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 2,
-                  padding: "8px 16px",
+                  gap: "10px",
+                  padding: "10px 16px",
                   flexWrap: "wrap",
                   position: "relative",
                   zIndex: 1000,
                 }}
               >
+                {/* Column selector */}
                 <Box
                   sx={{
                     minWidth: "150px",
+                    maxWidth: "200px",
                     position: "relative",
                     zIndex: 1001,
                   }}
@@ -983,37 +1312,103 @@ function MaterialTable({
                     passData={handleSearchColumnChange}
                   />
                 </Box>
-                <Box sx={{ minWidth: "200px" }}>
+
+                {/* Search input with icon */}
+                <Box sx={{ position: "relative", minWidth: "220px", maxWidth: "320px" }}>
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: "10px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      pointerEvents: "none",
+                      color: "#9CA3AF",
+                    }}
+                  >
+                    <KTIcon iconName="magnifier" className="fs-5" />
+                  </span>
                   <input
                     type="text"
-                    placeholder={`Search in ${currentValue?.label || "All Columns"}...`}
+                    placeholder={`Search in ${currentValue?.label || "All Columns"}…`}
                     value={globalFilterValue}
                     onChange={(e) => handleGlobalFilterChange(e.target.value)}
+                    className="et-search-input"
                     style={{
                       width: "100%",
-                      padding: "8px 12px",
-                      fontSize: "14px",
-                      border: "1px solid #E1E8F0",
-                      borderRadius: "6px",
+                      paddingLeft: "34px",
+                      paddingRight: globalFilterValue ? "32px" : "12px",
+                      paddingTop: "8px",
+                      paddingBottom: "8px",
+                      fontSize: "13px",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "8px",
                       outline: "none",
+                      backgroundColor: "#FAFAFA",
+                      color: "#374151",
+                      transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                     }}
                   />
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    fontSize: "14px",
-                    color: "#7A8597",
-                  }}
-                >
-                  <span>Searching in: </span>
-                  <strong>{currentValue?.label || "All Columns"}</strong>
                   {globalFilterValue && (
-                    <span> • {filteredData.length} results</span>
+                    <button
+                      onClick={() => handleGlobalFilterChange("")}
+                      style={{
+                        position: "absolute",
+                        right: "8px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "18px",
+                        height: "18px",
+                        borderRadius: "50%",
+                        border: "none",
+                        backgroundColor: "#D1D5DB",
+                        cursor: "pointer",
+                        padding: 0,
+                        color: "#6B7280",
+                        fontSize: "10px",
+                        lineHeight: 1,
+                        transition: "background-color 0.15s ease",
+                      }}
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
                   )}
                 </Box>
+
+                {renderTopToolbarRightActions?.()}
+
+                {/* Result count pill */}
+                {globalFilterValue && (
+                  <Box
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      padding: "4px 10px",
+                      borderRadius: "20px",
+                      backgroundColor: "#FEF2F2",
+                      border: "1px solid #FECACA",
+                    }}
+                  >
+                    <span style={{ fontSize: "12px", color: "#6B7280" }}>
+                      in <strong style={{ color: "#374151" }}>{currentValue?.label || "All Columns"}</strong>
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        color: "#AA393D",
+                      }}
+                    >
+                      {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+                    </span>
+                  </Box>
+                )}
               </Box>
             );
           }}
@@ -1111,58 +1506,34 @@ function MaterialTable({
                       width: { xs: "100%", lg: "auto" },
                     }}
                   >
-                    {!hideExportCenter && (
-                      <>
-                        <Box
-                          sx={{
-                            minWidth: { xs: "100px", sm: "auto" },
-                            flex: { xs: "0 0 auto", sm: "0 1 auto" },
-                          }}
-                        >
-                          <SelectInput
-                            options={exportOptions}
-                            placeholder="Select Export File"
-                            value={
-                              exportTypeSelected
-                                ? exportOptions.find(
-                                    (opt) => opt.value === exportTypeSelected,
-                                  )
-                                : null
-                            }
-                            dropdown="export_select"
-                            passData={handleExportChange}
-                          />
-                        </Box>
-                        <button
-                          className="btn btn-sm btn-outline"
-                          disabled={!exportTypeSelected}
-                          onClick={exportTable}
-                          style={{
-                            whiteSpace: "nowrap",
-                            padding: isMobile ? "8px" : "8px",
-                            fontSize: isMobile ? "12px" : "14px",
-                          }}
-                        >
-                          Export
-                        </button>
-                      </>
-                    )}
+                    {renderExportActions ? (
+                      renderExportActions()
+                    ) : !hideExportCenter ? (
+                      <ExportButton
+                        data={tableData}
+                        columns={autoExportCols}
+                        filename={tableName}
+                        title={autoExportTitle}
+                        sheetName={tableName.slice(0, 31)}
+                        disabled={tableData.length === 0}
+                      />
+                    ) : null}
 
                     {/* Rows per page */}
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: { xs: "4px", md: "8px" },
+                        gap: { xs: "6px", md: "8px" },
                         ml: { xs: 0, lg: 1 },
                         flexShrink: 0,
                       }}
                     >
                       <span
                         style={{
-                          fontSize: isMobile ? "11px" : "13px",
-                          fontWeight: 400,
-                          color: "#1a1a1a",
+                          fontSize: "13px",
+                          fontWeight: 500,
+                          color: "#6B7280",
                           whiteSpace: "nowrap",
                         }}
                       >
@@ -1178,11 +1549,15 @@ function MaterialTable({
                         }}
                         style={{
                           padding: isMobile ? "4px 8px" : "5px 10px",
-                          fontSize: isMobile ? "11px" : "13px",
-                          border: "1px solid #E1E8F0",
-                          borderRadius: "6px",
+                          fontSize: "13px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "8px",
                           cursor: "pointer",
                           backgroundColor: "#fff",
+                          color: "#374151",
+                          fontWeight: 500,
+                          appearance: "auto",
+                          outline: "none",
                         }}
                       >
                         {PAGE_SIZE_OPTIONS.map((size) => (
@@ -1195,14 +1570,14 @@ function MaterialTable({
                         <span
                           style={{
                             fontSize: "13px",
-                            color: "#7A8597",
+                            color: "#9CA3AF",
                             whiteSpace: "nowrap",
-                            marginLeft: "8px",
+                            marginLeft: "4px",
                           }}
                         >
-                          {pageIndex * pageSize + 1}–
-                          {Math.min((pageIndex + 1) * pageSize, totalRows)} of{" "}
-                          {totalRows}
+                          {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, totalRows)}
+                          {" "}of{" "}
+                          <strong style={{ color: "#374151" }}>{totalRows}</strong>
                         </span>
                       )}
                     </Box>
@@ -1253,88 +1628,112 @@ function MaterialTable({
                         <span
                           style={{
                             fontSize: "13px",
-                            color: "#7A8597",
-                            marginRight: "8px",
+                            color: "#9CA3AF",
+                            marginRight: "4px",
                             fontWeight: 500,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          Page {pageIndex + 1} of {totalPages}
+                          Page <strong style={{ color: "#374151" }}>{pageIndex + 1}</strong> of <strong style={{ color: "#374151" }}>{totalPages}</strong>
                         </span>
                       )}
 
+                      {/* First page */}
                       <button
                         onClick={() => table.setPageIndex(0)}
                         disabled={pageIndex === 0}
-                        className="pagination-btn"
+                        className="et-page-nav-btn"
+                        title="First page"
                         style={{
-                          padding: isMobile ? "6px 10px" : "8px 16px",
-                          border: "1px solid #E1E8F0",
-                          borderRadius: "6px",
-                          backgroundColor: pageIndex === 0 ? "#f5f5f5" : "#fff",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: isMobile ? "30px" : "34px",
+                          height: isMobile ? "30px" : "34px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "8px",
+                          backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
                           cursor: pageIndex === 0 ? "not-allowed" : "pointer",
-                          opacity: pageIndex === 0 ? 0.6 : 1,
-                          fontSize: isMobile ? "12px" : "14px",
-                          fontWeight: 500,
+                          opacity: pageIndex === 0 ? 0.45 : 1,
+                          transition: "all 0.15s ease",
+                          padding: 0,
+                          flexShrink: 0,
                         }}
                       >
-                        {isMobile ? "⏮" : "⏮"}
+                        <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
                       </button>
 
+                      {/* Previous page */}
                       <button
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
-                        className="pagination-btn"
+                        className="et-page-nav-btn"
+                        title="Previous page"
                         style={{
-                          padding: isMobile ? "6px 10px" : "8px 16px",
-                          border: "1px solid #E1E8F0",
-                          borderRadius: "6px",
-                          backgroundColor: !table.getCanPreviousPage()
-                            ? "#f5f5f5"
-                            : "#fff",
-                          cursor: !table.getCanPreviousPage()
-                            ? "not-allowed"
-                            : "pointer",
-                          opacity: !table.getCanPreviousPage() ? 0.6 : 1,
-                          fontSize: isMobile ? "12px" : "14px",
-                          fontWeight: 500,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: isMobile ? "30px" : "34px",
+                          height: isMobile ? "30px" : "34px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "8px",
+                          backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
+                          cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
+                          opacity: !table.getCanPreviousPage() ? 0.45 : 1,
+                          transition: "all 0.15s ease",
+                          padding: 0,
+                          flexShrink: 0,
                         }}
                       >
-                        {isMobile ? "◀" : "◀"}
+                        <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
                       </button>
 
+                      {/* Page number buttons */}
                       {getPageNumbers().map((page, idx) => {
                         if (page < 0) {
                           return (
                             <span
                               key={`ellipsis-${idx}`}
                               style={{
-                                padding: "0 8px",
-                                color: "#7A8597",
-                                fontSize: isMobile ? "14px" : "16px",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: isMobile ? "30px" : "34px",
+                                height: isMobile ? "30px" : "34px",
+                                color: "#9CA3AF",
+                                fontSize: "13px",
                                 fontWeight: 600,
+                                letterSpacing: "0.05em",
                               }}
                             >
-                              ...
+                              ···
                             </span>
                           );
                         }
 
+                        const isActive = pageIndex === page;
                         return (
                           <button
                             key={page}
                             onClick={() => table.setPageIndex(page)}
-                            className="pagination-btn"
+                            className="et-page-num-btn"
                             style={{
-                              padding: isMobile ? "6px 10px" : "8px 16px",
-                              border: "1px solid #E1E8F0",
-                              borderRadius: "6px",
-                              backgroundColor:
-                                pageIndex === page ? "#AA393D" : "#fff",
-                              color: pageIndex === page ? "#fff" : "#000",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: isMobile ? "30px" : "34px",
+                              height: isMobile ? "30px" : "34px",
+                              border: isActive ? "1.5px solid #AA393D" : "1px solid #E5E7EB",
+                              borderRadius: "8px",
+                              backgroundColor: isActive ? "#AA393D" : "#fff",
+                              color: isActive ? "#fff" : "#374151",
                               cursor: "pointer",
-                              fontSize: isMobile ? "12px" : "14px",
-                              fontWeight: pageIndex === page ? 600 : 500,
-                              minWidth: isMobile ? "32px" : "40px",
+                              fontSize: isMobile ? "12px" : "13px",
+                              fontWeight: isActive ? 700 : 500,
+                              transition: "all 0.15s ease",
+                              padding: 0,
+                              flexShrink: 0,
+                              boxShadow: isActive ? "0 2px 6px rgba(170,57,61,0.30)" : "none",
                             }}
                           >
                             {page + 1}
@@ -1342,48 +1741,54 @@ function MaterialTable({
                         );
                       })}
 
+                      {/* Next page */}
                       <button
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
-                        className="pagination-btn"
+                        className="et-page-nav-btn"
+                        title="Next page"
                         style={{
-                          padding: isMobile ? "6px 10px" : "8px 16px",
-                          border: "1px solid #E1E8F0",
-                          borderRadius: "6px",
-                          backgroundColor: !table.getCanNextPage()
-                            ? "#f5f5f5"
-                            : "#fff",
-                          cursor: !table.getCanNextPage()
-                            ? "not-allowed"
-                            : "pointer",
-                          opacity: !table.getCanNextPage() ? 0.6 : 1,
-                          fontSize: isMobile ? "12px" : "14px",
-                          fontWeight: 500,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: isMobile ? "30px" : "34px",
+                          height: isMobile ? "30px" : "34px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "8px",
+                          backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
+                          cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
+                          opacity: !table.getCanNextPage() ? 0.45 : 1,
+                          transition: "all 0.15s ease",
+                          padding: 0,
+                          flexShrink: 0,
                         }}
                       >
-                        {isMobile ? "▶" : "▶"}
+                        <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
                       </button>
 
+                      {/* Last page */}
                       <button
                         onClick={() => table.setPageIndex(totalPages - 1)}
                         disabled={pageIndex === totalPages - 1}
-                        className="pagination-btn"
+                        className="et-page-nav-btn"
+                        title="Last page"
                         style={{
-                          padding: isMobile ? "6px 10px" : "8px 16px",
-                          border: "1px solid #E1E8F0",
-                          borderRadius: "6px",
-                          backgroundColor:
-                            pageIndex === totalPages - 1 ? "#f5f5f5" : "#fff",
-                          cursor:
-                            pageIndex === totalPages - 1
-                              ? "not-allowed"
-                              : "pointer",
-                          opacity: pageIndex === totalPages - 1 ? 0.6 : 1,
-                          fontSize: isMobile ? "12px" : "14px",
-                          fontWeight: 500,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: isMobile ? "30px" : "34px",
+                          height: isMobile ? "30px" : "34px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "8px",
+                          backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
+                          cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
+                          opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
+                          transition: "all 0.15s ease",
+                          padding: 0,
+                          flexShrink: 0,
                         }}
                       >
-                        {isMobile ? "⏭" : "⏭"}
+                        <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
                       </button>
 
                       {/* Page jump input - only on desktop when many pages */}

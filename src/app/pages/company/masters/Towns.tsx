@@ -1,4 +1,4 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+﻿import MaterialTable from '@app/modules/common/components/MaterialTable';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { KTIcon } from '@metronic/helpers';
 import { RootState } from '@redux/store';
@@ -162,7 +162,7 @@ function Towns() {
                 <Modal.Body>
                     <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={townSchema}>
                         {(formikProps) => (
-                            <Form className='des-flex flex-column' placeholder={''}>
+                            <Form className='des-flex flex-column'>
                                 <div className="row">
                                     <div className="col-lg-12">
                                         <TextInput

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Row, Col, Card, Modal } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import DailyShiftTime from './component/DailyShiftTime';
 import OtherSettings from './component/OtherSettings';
@@ -9,7 +9,7 @@ import Appearance from './component/Appearance';
 import AddonLeavesAllowanceCard from '@app/modules/common/components/AddonLeavesAllowanceCard';
 import {
   fetchConfiguration,
-  fetchCompanyOverview
+  fetchCompanyOverview,
 } from '@services/company';
 import { fetchCompanySettings } from '@services/options';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
@@ -17,238 +17,312 @@ import {
   DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
   RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
   DATE_SETTINGS_KEY,
-  LEAVE_MANAGEMENT
+  LEAVE_MANAGEMENT,
+  ENFORCE_ONSITE_DEADLINE_KEY,
 } from '@constants/configurations-key';
 import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics';
 import Loader from '@app/modules/common/utils/Loader';
 import Rules from '../personal/views/information/Rules';
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  ConfigSettingsRow,
+  C,
+  SP,
+  RADIUS,
+  FONT,
+  KEYFRAMES,
+} from '@app/modules/configuration';
+import type { ConfigTab } from '@app/modules/configuration';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface OtherSettingsData {
   enableLunchDeduction: boolean;
   onSiteHolidayWeekendSettings: boolean;
   allowedDistance: number;
-  attendanceRequestLimit: number;
   restrictAttendanceRequestDays: number;
   showDataUpToToday: boolean;
   monthlyAnnualLeaveLimit: number;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TABS: ConfigTab[] = [
+  { id: 'attendance', label: 'Attendance',    icon: 'bi-clock'      },
+  { id: 'leaves',     label: 'Leaves',        icon: 'bi-calendar2-x' },
+  { id: 'appearance', label: 'Appearance',    icon: 'bi-palette'     },
+];
+
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+const parseToMinutes = (time: string): number => {
+  const is12Hour = time.toUpperCase().includes('AM') || time.toUpperCase().includes('PM');
+  const [hoursStr, rest] = time.split(':');
+  let minutesStr = rest;
+  let ampm = '';
+  if (is12Hour) {
+    const parts = rest.trim().split(' ');
+    minutesStr = parts[0];
+    ampm = parts[1]?.toUpperCase();
+  }
+  let hours = parseInt(hoursStr, 10);
+  const minutes = parseInt(minutesStr, 10) || 0;
+  if (is12Hour) {
+    if (ampm === 'PM' && hours !== 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+  }
+  return hours * 60 + minutes;
+};
+
+const calcShiftDuration = (checkIn: string, checkOut: string): string => {
+  if (!checkIn || !checkOut) return '–';
+  let diff = parseToMinutes(checkOut) - parseToMinutes(checkIn);
+  if (diff < 0) diff += 24 * 60;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
+// ─── Sub-component: ShiftRow ──────────────────────────────────────────────────
+
+const ShiftRow: React.FC<{
+  day: string;
+  checkIn: string;
+  checkOut: string;
+  total: string;
+  isHoliday: boolean;
+}> = ({ day, checkIn, checkOut, total, isHoliday }) => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '9px 0',
+    borderBottom: `1px solid #f1f3f7`,
+  }}>
+    <span style={{
+      fontFamily: FONT.body,
+      fontSize: '13px',
+      fontWeight: isHoliday ? 400 : 500,
+      color: isHoliday ? C.textMuted : C.textPrimary,
+      width: '90px',
+      letterSpacing: '0.01em',
+    }}>
+      {day}
+    </span>
+    {isHoliday ? (
+      <span style={{
+        fontFamily: FONT.body,
+        fontSize: '10.5px',
+        fontWeight: 500,
+        color: '#9ca3af',
+        backgroundColor: '#f3f4f6',
+        border: '1px solid #e5e7eb',
+        borderRadius: RADIUS.full,
+        padding: '2px 10px',
+        letterSpacing: '0.02em',
+      }}>
+        Off
+      </span>
+    ) : (
+      <div style={{ display: 'flex', gap: '24px', flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+        <span style={{
+          fontFamily: FONT.body, fontSize: '13px', fontWeight: 500,
+          color: C.textSecondary, minWidth: '72px', textAlign: 'center',
+        }}>
+          {checkIn}
+        </span>
+        <span style={{
+          fontFamily: FONT.body, fontSize: '13px', fontWeight: 500,
+          color: C.textSecondary, minWidth: '72px', textAlign: 'center',
+        }}>
+          {checkOut}
+        </span>
+        <span style={{
+          fontFamily: FONT.body, fontSize: '11.5px', fontWeight: 700,
+          color: '#0369a1',
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: RADIUS.full,
+          padding: '3px 11px',
+          minWidth: '58px',
+          textAlign: 'center',
+          letterSpacing: '0.02em',
+        }}>
+          {total}
+        </span>
+      </div>
+    )}
+  </div>
+);
+
+// ─── Sub-component: SettingToggleRow ─────────────────────────────────────────
+
+const SettingToggleRow: React.FC<{
+  label: string;
+  value: string | number;
+  enabled?: boolean;
+}> = ({ label, value, enabled }) => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '11px 0',
+    borderBottom: '1px solid #f1f3f7',
+  }}>
+    <span style={{
+      fontFamily: FONT.body,
+      fontSize: '13px',
+      fontWeight: 500,
+      color: '#374151',
+      flex: 1,
+      paddingRight: SP.md,
+      lineHeight: 1.4,
+    }}>
+      {label}
+    </span>
+    {enabled !== undefined ? (
+      <span style={{
+        fontFamily: FONT.body,
+        fontSize: '11px',
+        fontWeight: 700,
+        color: enabled ? '#15803d' : '#9ca3af',
+        backgroundColor: enabled ? '#f0fdf4' : '#f9fafb',
+        border: `1px solid ${enabled ? '#bbf7d0' : '#e5e7eb'}`,
+        borderRadius: RADIUS.full,
+        padding: '3px 11px',
+        letterSpacing: '0.02em',
+      }}>
+        {enabled ? 'Enabled' : 'Disabled'}
+      </span>
+    ) : (
+      <span style={{
+        fontFamily: FONT.body,
+        fontSize: '12.5px',
+        fontWeight: 700,
+        color: C.primary,
+        backgroundColor: C.primaryLight,
+        border: `1px solid rgba(157,65,65,0.15)`,
+        borderRadius: RADIUS.md,
+        padding: '3px 11px',
+        letterSpacing: '0.01em',
+      }}>
+        {value}
+      </span>
+    )}
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 const AttendanceConfig: React.FC = () => {
-  const [showDailyShiftModal, setShowDailyShiftModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('attendance');
+
+  // Modal visibility
+  const [showDailyShiftModal,   setShowDailyShiftModal]   = useState(false);
   const [showOtherSettingsModal, setShowOtherSettingsModal] = useState(false);
-  const [showSandwichLeaveModal, setShowSandwichLeaveModal] = useState(false);
-  const [showAppearanceModal, setShowAppearanceModal] = useState(false);
-  const [showAddonLeavesModal, setShowAddonLeavesModal] = useState(false);
-  const [showLeaveTypesModal, setShowLeaveTypesModal] = useState(false);
+  const [showSandwichModal,      setShowSandwichModal]      = useState(false);
+  const [showAppearanceModal,    setShowAppearanceModal]    = useState(false);
+  const [showAddonLeavesModal,   setShowAddonLeavesModal]   = useState(false);
+  const [showLeaveTypesModal,    setShowLeaveTypesModal]    = useState(false);
+
+  // Remount keys for modals
+  const [shiftKey,        setShiftKey]        = useState(0);
+  const [otherSettingsKey, setOtherSettingsKey] = useState(0);
+
+  // Data
   const [isLoading, setIsLoading] = useState(true);
-  const [otherSettingsKey, setOtherSettingsKey] = useState(0); // Key to force remount
-  const [dailyShiftKey, setDailyShiftKey] = useState(0); // Key to force remount for daily shift
   const [otherSettingsData, setOtherSettingsData] = useState<OtherSettingsData>({
     enableLunchDeduction: false,
     onSiteHolidayWeekendSettings: false,
     allowedDistance: 12,
-    attendanceRequestLimit: 2,
     restrictAttendanceRequestDays: 7,
     showDataUpToToday: false,
     monthlyAnnualLeaveLimit: 2,
   });
-  const [dailyShiftData, setDailyShiftData] = useState<any[]>([]);
-  const [lunchTime, setLunchTime] = useState<string>('12:30 pm - 1:30 pm');
-  const [deductionTime, setDeductionTime] = useState<string>('1:00 Hrs');
-  const [graceTimeOffice, setGraceTimeOffice] = useState<string>('00:30');
-  const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('00:30');
+  const [dailyShiftData,        setDailyShiftData]        = useState<any[]>([]);
+  const [lunchTime,             setLunchTime]             = useState('12:30 PM - 1:30 PM');
+  const [deductionTime,         setDeductionTime]         = useState('1:00 Hrs');
+  const [graceTimeOffice,       setGraceTimeOffice]       = useState('00:30');
+  const [graceTimeOnSite,       setGraceTimeOnSite]       = useState('00:30');
+  const [enforceOnsiteDeadline, setEnforceOnsiteDeadline] = useState(true);
 
-  const handleOpenDailyShiftModal = () => {
-    setDailyShiftKey(prev => prev + 1); // Force remount and reload data
-    setShowDailyShiftModal(true);
-  };
-
-  const handleCloseDailyShiftModal = () => {
-    setShowDailyShiftModal(false);
-    // Reload data after closing modal to get updated values
-    loadDailyShiftData();
-  };
-
-  const handleOpenOtherSettingsModal = () => {
-    setOtherSettingsKey(prev => prev + 1); // Increment key to force remount and reload data
-    setShowOtherSettingsModal(true);
-  };
-
-  const handleCloseOtherSettingsModal = () => {
-    setShowOtherSettingsModal(false);
-    // Reload data after closing modal to get updated values
-    loadOtherSettingsData();
-  };
-
-  // Helper function to convert 24h time to 12h format
-  const formatTime12h = (time24: string | null): string => {
-    if (!time24 || time24 === null) return '';
-    const [hours, minutes] = time24.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
-
-  // Helper function to calculate shift duration in hours
-const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
-  if (!checkIn || !checkOut) return '00:00';
-
-  // Helper to parse both "14:30" and "02:30 PM"
-  const parseToMinutes = (time: string): number => {
-    const is12HourFormat = time.toUpperCase().includes('AM') || time.toUpperCase().includes('PM');
-
-    let [hoursStr, rest] = time.split(':');
-    let minutesStr = rest;
-    let ampm = '';
-
-    if (is12HourFormat) {
-      // Example: "02:30 PM" → hoursStr="02", rest="30 PM"
-      const parts = rest.trim().split(' ');
-      minutesStr = parts[0];
-      ampm = parts[1]?.toUpperCase();
-    }
-
-    let hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10) || 0;
-
-    if (is12HourFormat) {
-      if (ampm === 'PM' && hours !== 12) hours += 12;
-      if (ampm === 'AM' && hours === 12) hours = 0;
-    }
-
-    return hours * 60 + minutes;
-  };
-
-  const inTotalMinutes = parseToMinutes(checkIn);
-  const outTotalMinutes = parseToMinutes(checkOut);
-
-  let durationMinutes = outTotalMinutes - inTotalMinutes;
-  if (durationMinutes < 0) durationMinutes += 24 * 60; // Handle overnight shifts
-
-  const hours = Math.floor(durationMinutes / 60);
-  const minutes = durationMinutes % 60;
-
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-};
-
+  // ── Loaders ────────────────────────────────────────────────────────────────
 
   const loadDailyShiftData = useCallback(async () => {
     try {
       const [dayWiseShiftsRes, leaveManagementRes] = await Promise.all([
         fetchDayWiseShifts(),
-        fetchConfiguration(LEAVE_MANAGEMENT)
+        fetchConfiguration(LEAVE_MANAGEMENT),
       ]);
 
-      // Parse day-wise shifts
       const shifts = dayWiseShiftsRes?.data || [];
       const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-      // Sort shifts by day order and format for display
-      const sortedShifts = daysOrder.map(day => {
+      const sorted = daysOrder.map((day) => {
         const shift = shifts.find((s: any) => s.day.toLowerCase() === day.toLowerCase());
-        if (shift && shift.isActive) {
-          return {
-            day,
-            checkIn: (shift.checkIn),
-            checkOut: (shift.checkOut),
-            total: calculateShiftDuration(shift.checkIn, shift.checkOut),
-            isHoliday: false
-          };
+        if (shift?.isActive) {
+          return { day, checkIn: shift.checkIn, checkOut: shift.checkOut, total: calcShiftDuration(shift.checkIn, shift.checkOut), isHoliday: false };
         }
-        return {
-          day,
-          checkIn: '',
-          checkOut: '',
-          total: '',
-          isHoliday: true
-        };
+        return { day, checkIn: '', checkOut: '', total: '', isHoliday: true };
       });
+      setDailyShiftData(sorted);
 
-      setDailyShiftData(sortedShifts);
-
-      // Parse LEAVE_MANAGEMENT config for lunch and grace times
       const leaveConfig = JSON.parse(leaveManagementRes?.data?.configuration?.configuration || '{}');
-      const lunchTimeStr = leaveConfig?.['Lunch Time'] || '12:30 PM - 1:30 PM';
-      const deductionTimeStr = leaveConfig?.['Deduction Time'] || '1:00 Hrs';
-      const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30';
-      const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:30';
+      setLunchTime(leaveConfig?.['Lunch Time'] || '12:30 PM - 1:30 PM');
+      setDeductionTime(leaveConfig?.['Deduction Time'] || '1:00 Hrs');
+      setGraceTimeOffice(leaveConfig?.['Grace Time'] || '00:30');
 
-      setLunchTime(lunchTimeStr);
-      setDeductionTime(deductionTimeStr);
-      setGraceTimeOffice(graceTimeOfficeStr);
-      setGraceTimeOnSite(graceTimeOnSiteStr);
+      const onsiteGrace = leaveConfig?.['Grace Time - On Site'];
+      setGraceTimeOnSite(onsiteGrace !== undefined && String(onsiteGrace).trim() !== '' ? String(onsiteGrace) : '11:00');
 
-    } catch (error) {
-      console.error('Error loading daily shift data:', error);
+      const enforceRaw = leaveConfig?.[ENFORCE_ONSITE_DEADLINE_KEY];
+      let enforce = true;
+      if (typeof enforceRaw === 'boolean') enforce = enforceRaw;
+      else if (enforceRaw !== undefined && enforceRaw !== null) {
+        const l = String(enforceRaw).trim().toLowerCase();
+        enforce = !(l === 'false' || l === '0' || l === 'no');
+      }
+      setEnforceOnsiteDeadline(enforce);
+    } catch (e) {
+      console.error('Error loading shift data:', e);
     }
   }, []);
 
   const loadOtherSettingsData = useCallback(async () => {
     try {
       setIsLoading(true);
-
-      const [
-        lunchConfigRes,
-        leaveManagementConfigRes,
-        restrictConfigRes,
-        dateConfigRes,
-        companySettingsRes,
-        companyOverviewRes
-      ] = await Promise.all([
+      const [lunchRes, leaveRes, restrictRes, dateRes, settingsRes] = await Promise.all([
         fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
         fetchConfiguration(LEAVE_MANAGEMENT),
         fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY),
         fetchConfiguration(DATE_SETTINGS_KEY),
         fetchCompanySettings(),
-        fetchCompanyOverview()
       ]);
 
-      // Parse lunch deduction config
-      const lunchConfig = JSON.parse(lunchConfigRes?.data?.configuration?.configuration || '{}');
-      const lunchEnabled = lunchConfig?.disableLaunchDeductionTime ?? false;
+      const lunchConfig    = JSON.parse(lunchRes?.data?.configuration?.configuration || '{}');
+      const leaveConfig    = JSON.parse(leaveRes?.data?.configuration?.configuration || '{}');
+      const restrictConfig = JSON.parse(restrictRes?.data?.configuration?.configuration || '{}');
+      const dateConfig     = JSON.parse(dateRes?.data?.configuration?.configuration || '{}');
+      const appSettings    = settingsRes?.data?.appSettings;
 
-      // Parse leave management config for on-site/holiday/weekend setting and monthly annual leave limit
-      const leaveManagementConfig = JSON.parse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
-      const onSiteValue = leaveManagementConfig?.[onSiteAndHolidayWeekendSettingsOnOffName];
-      const onSiteEnabled = onSiteValue === '1' || onSiteValue === 1;
-      const monthlyAnnualLeaveLimit = leaveManagementConfig?.['Number of Annual Leaves allowed per month'] || '2';
-
-      // Parse restrict attendance days config
-      const restrictConfig = JSON.parse(restrictConfigRes?.data?.configuration?.configuration || '{}');
       let restrictDays = restrictConfig?.restrictAttendanceTo7Days;
-      // Handle migration from boolean to number
-      if (typeof restrictDays === 'boolean') {
-        restrictDays = restrictDays ? 7 : 1;
-      } else if (typeof restrictDays !== 'number' || restrictDays < 1) {
-        restrictDays = 7;
-      }
+      if (typeof restrictDays === 'boolean') restrictDays = restrictDays ? 7 : 1;
+      else if (typeof restrictDays !== 'number' || restrictDays < 1) restrictDays = 7;
 
-      // Parse date settings config
-      const dateConfig = JSON.parse(dateConfigRes?.data?.configuration?.configuration || '{}');
-      const dateSettingsEnabled = dateConfig?.useDateSettings ?? false;
+      const onSiteVal = leaveConfig?.[onSiteAndHolidayWeekendSettingsOnOffName];
 
-      // Get app settings (distance)
-      const appSettings = companySettingsRes?.data?.appSettings;
-      const allowedDistance = appSettings?.distanceAllowedInMeters || 12;
-
-      // Get company overview (attendance request limit)
-      const companyOverview = companyOverviewRes?.data?.companyOverview?.[0];
-      const attendanceLimit = companyOverview?.attendanceRequestRaiseLimit || 2;
-
-      // Update state
       setOtherSettingsData({
-        enableLunchDeduction: lunchEnabled,
-        onSiteHolidayWeekendSettings: onSiteEnabled,
-        allowedDistance: allowedDistance,
-        attendanceRequestLimit: attendanceLimit,
+        enableLunchDeduction:         lunchConfig?.disableLaunchDeductionTime ?? false,
+        onSiteHolidayWeekendSettings: onSiteVal === '1' || onSiteVal === 1,
+        allowedDistance:              appSettings?.distanceAllowedInMeters || 12,
         restrictAttendanceRequestDays: restrictDays,
-        showDataUpToToday: dateSettingsEnabled,
-        monthlyAnnualLeaveLimit: Number(monthlyAnnualLeaveLimit),
+        showDataUpToToday:            dateConfig?.useDateSettings ?? false,
+        monthlyAnnualLeaveLimit:      Number(leaveConfig?.['Number of Annual Leaves allowed per month'] || 2),
       });
-
-    } catch (error) {
-      console.error('Error loading other settings:', error);
+    } catch (e) {
+      console.error('Error loading other settings:', e);
     } finally {
       setIsLoading(false);
     }
@@ -259,502 +333,333 @@ const calculateShiftDuration = (checkIn: string, checkOut: string): string => {
     loadDailyShiftData();
   }, [loadOtherSettingsData, loadDailyShiftData]);
 
-  const handleOpenSandwichLeaveModal = () => {
-    setShowSandwichLeaveModal(true);
-  };
+  if (isLoading) return <Loader />;
 
-  const handleCloseSandwichLeaveModal = (visible: boolean) => {
-    setShowSandwichLeaveModal(visible);
-  };
-
-  const handleOpenAppearanceModal = () => {
-    setShowAppearanceModal(true);
-  };
-
-  const handleCloseAppearanceModal = (visible: boolean) => {
-    setShowAppearanceModal(visible);
-  };
-
-  const handleOpenAddonLeavesModal = () => {
-    setShowAddonLeavesModal(true);
-  };
-
-  const handleCloseAddonLeavesModal = () => {
-    setShowAddonLeavesModal(false);
-  };
-
-  const handleOpenLeaveTypesModal = () => {
-    setShowLeaveTypesModal(true);
-  };
-
-  const handleCloseLeaveTypesModal = () => {
-    setShowLeaveTypesModal(false);
-  };
-
-  if (isLoading) {
-    return <Loader />;
-  }
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <div style={{ backgroundColor: '#f7f9fc', padding: '16px 20px' }}>
-        <h4 style={{
-          fontFamily: 'Barlow, sans-serif',
-          fontWeight: 600,
-          fontSize: '24px',
-          letterSpacing: '0.24px',
-          marginBottom: '16px'
-        }}>
-          Configuration
-        </h4>
-        <h3 style={{
-          fontFamily: 'Barlow, sans-serif',
-          fontWeight: 600,
-          fontSize: '22px',
-          letterSpacing: '0.24px',
-          marginBottom: '16px'
-        }}>
-          Attendance
-        </h3>
+      <style>{KEYFRAMES}</style>
 
-        {/* First Row - Daily Shift Time & Other Settings */}
-        <Row className="mb-3 g-3">
-          {/* Daily Shift Time Card */}
-          <Col xs={12} md={6}>
-            <Card style={{
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)'
-            }}>
-              <Card.Body style={{ padding: '24px' }}>
-                {/* Header with Configure Button */}
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '50%',
-                      backgroundColor: '#e9f1fd',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <KTIcon iconName="calendar" className="fs-2 text-primary" />
-                    </div>
-                    <span style={{
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      fontFamily: 'Inter, sans-serif'
-                    }}>
-                      Daily Shift Time
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleOpenDailyShiftModal}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid #9d4141',
-                      color: '#9d4141',
-                      borderRadius: '6px',
-                      padding: '8px 20px',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      fontFamily: 'Inter, sans-serif'
+      <div
+        className="container-fluid py-6 px-0 cfg-fade-in"
+        style={{ maxWidth: '100%', backgroundColor: C.bgPage }}
+      >
+        <ConfigPageLayout
+          title="Attendance Configuration"
+          subtitle="Configure shift timings, grace periods, leave policies, and attendance rules"
+          tabs={TABS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        >
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* TAB: Attendance */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {activeTab === 'attendance' && (
+            <div key="attendance" className="cfg-fade-in">
+
+              {/* Section heading */}
+              <div style={{ marginBottom: SP.lg, paddingBottom: SP.md, borderBottom: `1px solid #f0f2f7` }}>
+                <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                  Shift &amp; Timing Settings
+                </h2>
+                <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
+                  Configure daily work schedules, lunch breaks, and grace periods.
+                </p>
+              </div>
+
+              <div className="row g-4">
+                {/* ── Daily Shift Time card ────────────────────── */}
+                <div className="col-12 col-lg-7">
+                  <ConfigSectionCard
+                    title="Daily Shift Time"
+                    description="Manage check-in, check-out, and total shift hours per day"
+                    icon="bi-calendar-week"
+                    iconColor="blue"
+                    primaryAction={{
+                      label: 'Configure',
+                      icon: 'bi-pencil',
+                      variant: 'outline',
+                      onClick: () => { setShiftKey((k) => k + 1); setShowDailyShiftModal(true); },
                     }}
                   >
-                    Configure
-                  </button>
-                </div>
-
-                {/* Days Table */}
-                <div className="mb-3">
-                  <div className="d-none d-md-flex justify-content-between mb-2">
-                    <span style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>Day</span>
-                    <div className="d-flex justify-content-between" style={{ width: '257px' }}>
-                      <span style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>Check-in</span>
-                      <span style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>Check-out</span>
-                      <span style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>Total Shift Time</span>
-                    </div>
-                  </div>
-
-                  {/* Days */}
-                  {dailyShiftData.map((item) => (
-                    <div key={item.day}>
-                      {/* Desktop View */}
-                      <div className="d-none d-md-flex justify-content-between align-items-center mb-2">
-                        <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>{item.day}</span>
-                        {item.isHoliday ? (
-                          <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif', width: '95px', textAlign: 'right' }}>Holiday</span>
-                        ) : (
-                          <div className="d-flex justify-content-between" style={{ width: '257px' }}>
-                            <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif', width: '112px' }}>{item.checkIn}</span>
-                            <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif', width: '106px' }}>{item.checkOut}</span>
-                            <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif', textAlign: 'right' }}>{item.total}</span>
-                          </div>
-                        )}
-                      </div>
-                      {/* Mobile View */}
-                      <div className="d-md-none mb-3" style={{ borderBottom: '1px solid #e4e6ef', paddingBottom: '8px' }}>
-                        <div className="d-flex justify-content-between align-items-center mb-1">
-                          <span style={{ fontSize: '14px', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{item.day}</span>
-                          {item.isHoliday && <span style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>Holiday</span>}
-                        </div>
-                        {!item.isHoliday && (
-                          <div style={{ fontSize: '12px', fontFamily: 'Inter, sans-serif', color: '#8696ad' }}>
-                            <div className="d-flex justify-content-between mb-1">
-                              <span>Check-in:</span>
-                              <span style={{ color: '#000' }}>{item.checkIn}</span>
-                            </div>
-                            <div className="d-flex justify-content-between mb-1">
-                              <span>Check-out:</span>
-                              <span style={{ color: '#000' }}>{item.checkOut}</span>
-                            </div>
-                            <div className="d-flex justify-content-between">
-                              <span>Total:</span>
-                              <span style={{ color: '#000' }}>{item.total}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Lunch, Deduction & Grace Times */}
-                <div>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>Lunch time</span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{lunchTime}</span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>Deduction Time</span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{deductionTime}</span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>Grace Time - Office</span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{graceTimeOffice}</span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>Grace Time - On Site</span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{graceTimeOnSite}</span>
-                  </div>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-
-          {/* Other Settings Card */}
-          <Col xs={12} md={6}>
-            <Card style={{
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-              height: '100%'
-            }}>
-              <Card.Body style={{ padding: '20px 16px' }}>
-                {/* Header with Configure Button */}
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <div className="d-flex align-items-center gap-2">
+                    {/* Column headers */}
                     <div style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '50%',
-                      backgroundColor: '#e9f1fd',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'space-between',
+                      padding: '0 0 10px 0',
+                      marginBottom: '2px',
                     }}>
-                      <KTIcon iconName="setting-2" className="fs-2 text-primary" />
+                      <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', width: '90px' }}>Day</span>
+                      <div style={{ display: 'flex', gap: '24px', flex: 1, justifyContent: 'flex-end' }}>
+                        <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '72px', textAlign: 'center' }}>In</span>
+                        <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '72px', textAlign: 'center' }}>Out</span>
+                        <span style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', minWidth: '58px', textAlign: 'center' }}>Total</span>
+                      </div>
                     </div>
-                    <span style={{
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      fontFamily: 'Inter, sans-serif'
-                    }}>
-                      Other Settings
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleOpenOtherSettingsModal}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid #9d4141',
-                      color: '#9d4141',
-                      borderRadius: '6px',
-                      padding: '8px 20px',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      fontFamily: 'Inter, sans-serif'
+
+                    {dailyShiftData.map((item) => (
+                      <ShiftRow key={item.day} {...item} />
+                    ))}
+
+                    {/* Lunch / Grace info tiles */}
+                    <div style={{ marginTop: SP.md, paddingTop: SP.md, borderTop: '1px dashed #e5e7eb' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {[
+                          { label: 'Lunch Time',     val: lunchTime,          icon: 'bi-cup-hot' },
+                          { label: 'Deduction',      val: deductionTime,      icon: 'bi-dash-circle' },
+                          { label: 'Grace – Office', val: graceTimeOffice,    icon: 'bi-building' },
+                          { label: 'Grace – Site',   val: enforceOnsiteDeadline ? graceTimeOnSite : 'Disabled', icon: 'bi-geo-alt' },
+                        ].map(({ label, val, icon }) => (
+                          <div key={label} style={{
+                            background: 'linear-gradient(135deg, #fafbfd 0%, #f4f6fb 100%)',
+                            border: '1px solid #eaecf3',
+                            borderRadius: RADIUS.lg,
+                            padding: '12px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                          }}>
+                            <div style={{
+                              width: '30px', height: '30px',
+                              borderRadius: RADIUS.md,
+                              backgroundColor: '#fff',
+                              border: '1px solid #e5e7eb',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0,
+                            }}>
+                              <i className={`bi ${icon}`} style={{ fontSize: '13px', color: '#6b7280' }} />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontFamily: FONT.body, fontSize: '10.5px', fontWeight: 500, color: '#9ca3af', marginBottom: '1px' }}>{label}</div>
+                              <div style={{ fontFamily: FONT.body, fontSize: '13.5px', fontWeight: 700, color: C.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </ConfigSectionCard>
+                </div>
+
+                {/* ── Other Settings card ──────────────────────── */}
+                <div className="col-12 col-lg-5">
+                  <ConfigSectionCard
+                    title="Attendance Settings"
+                    description="Control policies, distance limits, and request windows"
+                    icon="bi-sliders2"
+                    iconColor="primary"
+                    primaryAction={{
+                      label: 'Configure',
+                      icon: 'bi-pencil',
+                      variant: 'outline',
+                      onClick: () => { setOtherSettingsKey((k) => k + 1); setShowOtherSettingsModal(true); },
                     }}
                   >
-                    Configure
-                  </button>
+                    <SettingToggleRow
+                      label="Show Data Up to Today"
+                      value=""
+                      enabled={otherSettingsData.showDataUpToToday}
+                    />
+                    <SettingToggleRow
+                      label="Enable Lunch Deduction Time"
+                      value=""
+                      enabled={otherSettingsData.enableLunchDeduction}
+                    />
+                    <SettingToggleRow
+                      label="On-site, Holiday & Weekend Late Settings"
+                      value=""
+                      enabled={otherSettingsData.onSiteHolidayWeekendSettings}
+                    />
+                    <SettingToggleRow
+                      label="Check-in Distance (meters)"
+                      value={`${otherSettingsData.allowedDistance} m`}
+                    />
+                    <SettingToggleRow
+                      label="Restrict Attendance Requests"
+                      value={`${otherSettingsData.restrictAttendanceRequestDays} days`}
+                    />
+                    <SettingToggleRow
+                      label="Annual Leaves per Month"
+                      value={otherSettingsData.monthlyAnnualLeaveLimit}
+                    />
+                  </ConfigSectionCard>
                 </div>
+              </div>
 
-                {/* Settings List */}
-                <div className="d-flex flex-column gap-3">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Show Data Up to Today
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.showDataUpToToday ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Enable Lunch Deduction Time
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.enableLunchDeduction ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      On-site, Holiday & Weekend Settings for late attendance
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.onSiteHolidayWeekendSettings ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Allowed distance in meters from office for checkin
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.allowedDistance} meters
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Restrict Attendance Requests (Days)
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.restrictAttendanceRequestDays} days
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Attendance Request Raise Limit
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.attendanceRequestLimit}
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <span style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', flex: 1 }}>
-                      Number of Annual Leaves allowed per month
-                    </span>
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
-                      {otherSettingsData.monthlyAnnualLeaveLimit}
-                    </span>
-                  </div>
+              {/* Default Shift Rules */}
+              <div style={{ marginTop: SP.xl }}>
+                <div style={{ marginBottom: SP.md, paddingBottom: SP.md, borderBottom: '1px solid #f0f2f7' }}>
+                  <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                    Default Shift Rules
+                  </h2>
+                  <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
+                    Rules applied to all employees unless individually overridden.
+                  </p>
                 </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+                <div style={{
+                  backgroundColor: '#fff',
+                  borderRadius: RADIUS.xl,
+                  border: `1px solid ${C.border}`,
+                  boxShadow: '0 2px 12px rgba(24,28,50,0.05)',
+                  padding: SP.lg,
+                }}>
+                  <Rules fromAdmin={true} title="Default Shift Rules" hideGeneralSettings={true} />
+                </div>
+              </div>
+            </div>
+          )}
 
-        <div className='mb-4'>
-          <Rules fromAdmin={true}  title={'Default Shift Rules'} hideGeneralSettings={true}/>
-        </div>
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* TAB: Leaves */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {activeTab === 'leaves' && (
+            <div key="leaves" className="cfg-fade-in">
+              <div style={{ marginBottom: SP.lg, paddingBottom: SP.md, borderBottom: '1px solid #f0f2f7' }}>
+                <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '17px', color: C.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                  Leave Policies
+                </h2>
+                <p style={{ fontFamily: FONT.body, fontSize: '12.5px', color: C.textMuted, margin: '4px 0 0 0', fontWeight: 400 }}>
+                  Manage leave types, sandwich rules, carry-forward, and addon leave allowances.
+                </p>
+              </div>
 
-        <h3 style={{
-          fontFamily: 'Barlow, sans-serif',
-          fontWeight: 600,
-          fontSize: '22px',
-          letterSpacing: '0.24px',
-          marginBottom: '16px'
-        }}>
-          Leaves
-        </h3>
+              <div className="row g-4">
+                <div className="col-12 col-md-6">
+                  <ConfigSettingsRow
+                    label="Leave Types & Balance"
+                    description="Configure leave types and their balance for each branch"
+                    icon="bi-calendar2-check"
+                    iconColor="green"
+                    actionLabel="Configure"
+                    actionIcon="bi-arrow-right"
+                    onAction={() => setShowLeaveTypesModal(true)}
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <ConfigSettingsRow
+                    label="Sandwich Leave Rules"
+                    description="Configure sandwich leave scenarios for payroll deductions"
+                    icon="bi-layers"
+                    iconColor="amber"
+                    actionLabel="Configure"
+                    actionIcon="bi-arrow-right"
+                    onAction={() => setShowSandwichModal(true)}
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <ConfigSettingsRow
+                    label="Addon Leaves Allowance"
+                    description="Extra leave days based on employee tenure and experience"
+                    icon="bi-plus-square"
+                    iconColor="purple"
+                    actionLabel="Configure"
+                    actionIcon="bi-arrow-right"
+                    onAction={() => setShowAddonLeavesModal(true)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-        {/* Second Row - Other Configuration Cards */}
-        <Row className="mb-3 g-3">
-          <Col xs={12} md={6}>
-            <Card
-              onClick={handleOpenSandwichLeaveModal}
-              style={{
-                borderRadius: '12px',
-                border: 'none',
-                boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-                cursor: 'pointer'
-              }}>
-              <Card.Body className="d-flex justify-content-between align-items-center" style={{ padding: '20px 16px' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', marginBottom: '4px' }}>
-                    Sandwich Rules
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>
-                    Configure sandwich leave scenarios for payroll
-                  </div>
-                </div>
-                <KTIcon iconName="right" className="fs-3 text-danger" />
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card
-              onClick={handleOpenAppearanceModal}
-              style={{
-                borderRadius: '12px',
-                border: 'none',
-                boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-                cursor: 'pointer'
-              }}>
-              <Card.Body className="d-flex justify-content-between align-items-center" style={{ padding: '20px 16px' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', marginBottom: '4px' }}>
-                    Appearance Settings
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>
-                    Customize colors for attendance, leaves, and charts
-                  </div>
-                </div>
-                <KTIcon iconName="right" className="fs-3 text-danger" />
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Third Row - Leave Types and Addon Leaves */}
-        <Row className="g-3">
-          <Col xs={12} md={6}>
-            <Card
-              onClick={handleOpenLeaveTypesModal}
-              style={{
-                borderRadius: '12px',
-                border: 'none',
-                boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-                cursor: 'pointer'
-              }}>
-              <Card.Body className="d-flex justify-content-between align-items-center" style={{ padding: '20px 16px' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', marginBottom: '4px' }}>
-                    Leave Types and Balance
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>
-                    Configure leave types and their balance for each branch
-                  </div>
-                </div>
-                <KTIcon iconName="right" className="fs-3 text-danger" />
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card
-              onClick={handleOpenAddonLeavesModal}
-              style={{
-                borderRadius: '12px',
-                border: 'none',
-                boxShadow: '8px 8px 16px 0px rgba(0, 0, 0, 0.04)',
-                cursor: 'pointer'
-              }}>
-              <Card.Body className="d-flex justify-content-between align-items-center" style={{ padding: '20px 16px' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, fontFamily: 'Inter, sans-serif', marginBottom: '4px' }}>
-                    Addon Leaves Allowance
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#8696ad', fontFamily: 'Inter, sans-serif' }}>
-                    Configure additional leave days based on employee experience
-                  </div>
-                </div>
-                <KTIcon iconName="right" className="fs-3 text-danger" />
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* TAB: Appearance */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {activeTab === 'appearance' && (
+            <div key="appearance" className="cfg-fade-in">
+              <div style={{ marginBottom: SP.lg }}>
+                <h2 style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '20px', color: C.textPrimary, margin: 0 }}>
+                  Appearance Settings
+                </h2>
+                <p style={{ fontFamily: FONT.body, fontSize: '13px', color: C.textMuted, margin: '4px 0 0 0' }}>
+                  Customize colors for attendance status, leave types, and charts.
+                </p>
+              </div>
+              <div
+                style={{
+                  backgroundColor: C.bgCard,
+                  borderRadius: RADIUS.xl,
+                  border: `1px solid ${C.border}`,
+                  boxShadow: C.shadowCard,
+                  overflow: 'hidden',
+                }}
+              >
+                <Appearance />
+              </div>
+            </div>
+          )}
+        </ConfigPageLayout>
       </div>
 
-      {/* Daily Shift Time Modal */}
-      <Modal
-        show={showDailyShiftModal}
-        onHide={handleCloseDailyShiftModal}
-        size="xl"
-        centered
-      >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>Daily Shift Time</Modal.Title>
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+
+      {/* Daily Shift Time */}
+      <Modal show={showDailyShiftModal} onHide={() => { setShowDailyShiftModal(false); loadDailyShiftData(); }} size="xl" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Daily Shift Time
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: '0', backgroundColor: '#f7f9fc' }}>
-          {/* Add key prop to force remount when modal opens, ensuring fresh data is loaded */}
-          <DailyShiftTime key={dailyShiftKey} />
+        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
+          <DailyShiftTime key={shiftKey} />
         </Modal.Body>
       </Modal>
 
-      {/* Other Settings Modal */}
-      <Modal
-        show={showOtherSettingsModal}
-        onHide={handleCloseOtherSettingsModal}
-        size="xl"
-        centered
-      >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>Other Attendance and Leaves Settings</Modal.Title>
+      {/* Other Settings */}
+      <Modal show={showOtherSettingsModal} onHide={() => { setShowOtherSettingsModal(false); loadOtherSettingsData(); }} size="xl" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Attendance Settings
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: '0', backgroundColor: '#f7f9fc' }}>
-          {/* Add key prop to force remount when modal opens, ensuring fresh data is loaded */}
+        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
           <OtherSettings key={otherSettingsKey} />
         </Modal.Body>
       </Modal>
 
-      {/* Sandwich Leave Modal */}
-      {/* originalSandwich */}
-      <Modal
-        show={showSandwichLeaveModal}
-        onHide={() => handleCloseSandwichLeaveModal(false)}
-        size="xl"
-        centered
-      >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>Sandwich Leave Settings</Modal.Title>
+      {/* Sandwich Leave */}
+      <Modal show={showSandwichModal} onHide={() => setShowSandwichModal(false)} size="xl" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Sandwich Leave Rules
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: '0', backgroundColor: '#f7f9fc' }}>
-          <SandwichLeave showSandWhichLeaveModal={handleCloseSandwichLeaveModal} />
+        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
+          <SandwichLeave showSandWhichLeaveModal={(v: boolean) => setShowSandwichModal(v)} />
         </Modal.Body>
       </Modal>
 
-      {/* Appearance Settings Modal */}
-      <Modal
-        show={showAppearanceModal}
-        onHide={() => handleCloseAppearanceModal(false)}
-        size="xl"
-        centered
-      >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>Appearance Settings</Modal.Title>
+      {/* Appearance */}
+      <Modal show={showAppearanceModal} onHide={() => setShowAppearanceModal(false)} size="xl" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Appearance Settings
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: '0', backgroundColor: '#f7f9fc' }}>
+        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
           <Appearance />
         </Modal.Body>
       </Modal>
 
-      {/* Addon Leaves Allowance Modal */}
-      <Modal
-        show={showAddonLeavesModal}
-        onHide={handleCloseAddonLeavesModal}
-        size="xl"
-        centered
-      >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>Addon Leaves Allowance</Modal.Title>
+      {/* Addon Leaves */}
+      <Modal show={showAddonLeavesModal} onHide={() => setShowAddonLeavesModal(false)} size="xl" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Addon Leaves Allowance
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: '20px', backgroundColor: '#f7f9fc' }}>
+        <Modal.Body style={{ padding: '24px', backgroundColor: C.bgPage }}>
           <AddonLeavesAllowanceCard />
         </Modal.Body>
       </Modal>
 
-      {/* Leave Types and Balance Modal */}
-      <Modal
-        show={showLeaveTypesModal}
-        onHide={handleCloseLeaveTypesModal}
-        size="xl"
-        centered
-      >
-        <Modal.Header style={{ padding: '20px', backgroundColor: '#f7f9fc', border: 'none' }} closeButton>
-          <Modal.Title style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Barlow, sans-serif', letterSpacing: '0.24px' }}>Leave Types and Balance</Modal.Title>
+      {/* Leave Types */}
+      <Modal show={showLeaveTypesModal} onHide={() => setShowLeaveTypesModal(false)} size="xl" centered>
+        <Modal.Header closeButton style={{ padding: '20px 28px', backgroundColor: C.bgPage, border: 'none' }}>
+          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: '22px', color: C.textPrimary }}>
+            Leave Types & Balance
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ padding: '0', backgroundColor: '#f7f9fc' }}>
+        <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
           <LeaveTypesBalance />
         </Modal.Body>
       </Modal>

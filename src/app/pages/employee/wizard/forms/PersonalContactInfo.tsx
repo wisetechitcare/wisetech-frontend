@@ -1,11 +1,10 @@
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
 
 function PersonalContactInfo({ formikProps }: { formikProps: any }) {
   return (
     <>
-      {/* Row 1: Email + Country Code */}
+      {/* Row 1: Email + Personal Phone Number */}
       <div className="row mb-4">
         <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
           <TextInput
@@ -17,53 +16,26 @@ function PersonalContactInfo({ formikProps }: { formikProps: any }) {
         </div>
 
         <div className="col-lg-6 col-md-6 col-sm-12">
-          <label className="d-flex align-items-center fs-6 form-label mb-2">
-            <span>Country Code</span>
-          </label>
-          <PhoneInput
-            country={"in"}
-            value={formikProps.values.personalPhoneNumberExtension}
-            onChange={(phone) =>
-              formikProps.setFieldValue("personalPhoneNumberExtension", phone)
-            }
-            inputStyle={{
-              width: "100%",
-              fontSize: "14px",
-              height: "48px",
-              paddingLeft: "50px",
-              borderRadius: "8px",
-              border: "1px solid #dee2e6",
-              backgroundColor: "#fff",
-            }}
-            buttonStyle={{
-              border: "1px solid #dee2e6",
-              borderRadius: "8px 0 0 8px",
-              backgroundColor: "#f8f9fa",
-            }}
-            containerStyle={{
-              width: "100%",
-            }}
+          <PhoneNumberInput
+            label="Personal Phone Number"
+            isRequired={true}
+            formikField="personalPhoneNumber"
+            formikProps={formikProps}
+            extensionField="personalPhoneNumberExtension"
+            placeholder="Phone number"
           />
         </div>
       </div>
 
-      {/* Row 2: Phone Numbers */}
+      {/* Row 2: Alternate Phone Number */}
       <div className="row mb-4">
-        <div className="col-lg-6 col-md-6 col-sm-12 mb-3 mb-lg-0">
-          <TextInput
-            isRequired={true}
-            label="Personal Phone Number"
-            formikField="personalPhoneNumber"
-            margin="mb-0"
-          />
-        </div>
-
         <div className="col-lg-6 col-md-6 col-sm-12">
-          <TextInput
-            isRequired={false}
+          <PhoneNumberInput
             label="Alternate Phone Number"
+            isRequired={false}
             formikField="alternatePhoneNumber"
-            margin="mb-0"
+            formikProps={formikProps}
+            placeholder="Phone number"
           />
         </div>
       </div>

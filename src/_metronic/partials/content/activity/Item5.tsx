@@ -1,4 +1,4 @@
-
+﻿
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 
@@ -27,7 +27,7 @@ const Item5: FC = () => {
               data-bs-placement='top'
               title='Marcus Dotson'
             >
-              <img src={toAbsoluteUrl('media/avatars/300-2.jpg')} alt='img' />
+              <img src={toAbsoluteUrl('media/svg/avatars/004-boy-1.svg')} alt='img' />
             </div>
           </div>
         </div>

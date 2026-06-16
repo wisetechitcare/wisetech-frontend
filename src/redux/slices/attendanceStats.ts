@@ -20,7 +20,6 @@ interface AttendanceStats {
     publicHolidays: IPublicHoliday[],
     filteredPublicHolidays: IPublicHoliday[],
     toggleChange: boolean,
-    attendanceRequestRaiseLimit: number
 }
 
 const initialState: AttendanceStats = {
@@ -41,7 +40,6 @@ const initialState: AttendanceStats = {
     publicHolidays: [],
     filteredPublicHolidays: [],
     toggleChange: false,
-    attendanceRequestRaiseLimit: 0
 }
 
 export const attendanceStatsSlice = createSlice({
@@ -98,9 +96,6 @@ export const attendanceStatsSlice = createSlice({
         },
         saveToggleChange: (state, action: PayloadAction<any>) => {
             state.toggleChange = action.payload;
-        },
-        saveAttendanceRequestRaiseLimit: (state, action: PayloadAction<any>) => {
-            state.attendanceRequestRaiseLimit = action.payload;
         }
     }
 });
@@ -108,7 +103,7 @@ export const attendanceStatsSlice = createSlice({
 export const { saveDailyStatistics, saveWeeklyStatistics, saveMonthlyStatistics, saveYearlyStatistics,
     saveDailyTable, saveWeeklyTable, saveMonthlyTable, saveYearlyTable, saveLeaves, saveFilteredLeaves,
     savePublicHolidays, saveFilteredPublicHolidays, saveToggleChange, saveDailyRequestTable, saveWeeklyRequestTable,
-    saveMonthlyRequestTable, saveYearlyRequestTable, saveAttendanceRequestRaiseLimit
+    saveMonthlyRequestTable, saveYearlyRequestTable
 } = attendanceStatsSlice.actions;
 
 export default attendanceStatsSlice.reducer;

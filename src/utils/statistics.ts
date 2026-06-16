@@ -1,5 +1,5 @@
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
-import { attendanceStatsSlice, saveAttendanceRequestRaiseLimit, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
+import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
 import { fetchAllReimbursementsForAllEmployees, fetchAllReimbursementsForEmployee, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchLoanById, fetchReimbursementsForAllEmployees, fetchReimbursementsForEmployee, getAttendanceRequest, updateReimbursementById, sendAttendanceRequestResetLimit } from "@services/employee";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
@@ -335,9 +335,9 @@ export function convertMinutesIntoHrMinFormats(minutes: number): string {
         if (workingTimeMinutes !== null && startMin !== null && endMin !== null) {
             const calculatedLunchMinutes = endMin - startMin;
 
-            // Threshold = (half of working time) + lunch duration
-            // const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
-            const threshold = (workingTimeMinutes / 2);
+            // Threshold = (half of working time) + lunch duration — matches backend salary and KPI.
+            // e.g. 8h day + 1h lunch: threshold = 4h + 1h = 5h (300 min).
+            const threshold = (workingTimeMinutes / 2) + calculatedLunchMinutes;
 
             if (minutes >= threshold) {
                 lunchMinutes = calculatedLunchMinutes;
@@ -1033,10 +1033,39 @@ export function donutaDataLabel(
 ): Map<string, number> {
 
     const statMap = new Map<string, number>();
+    const toDateKey = (value: any) => {
+        if (!value || value === '-NA-' || value === '-') return '';
+
+        if (typeof value === 'string' && value.includes('/')) {
+            const [day, month, year] = value.split('/');
+            return day && month && year ? `${year}-${month}-${day}` : '';
+        }
+
+        const parsedDate = dayjs(value);
+        return parsedDate.isValid() ? parsedDate.format('YYYY-MM-DD') : '';
+    };
+
+    const attendanceDateKeys = new Set(
+        stats
+            .filter((stat: any) => {
+                const hasValidId = stat.id && stat.id !== undefined && stat.id !== '-' && stat.id !== '';
+                const hasCheckIn = stat.checkIn && stat.checkIn !== '' && stat.checkIn !== null && stat.checkIn !== "-NA-" && stat.checkIn !== "-";
+                return hasValidId && hasCheckIn;
+            })
+            .map((stat: any) => toDateKey(stat.formattedDate || stat.date || stat.checkIn))
+            .filter(Boolean)
+    );
+
+    // Defensive fallback for historical overlaps: if a day has both a leave and
+    // a real check-in, attendance wins and that leave day is not counted here.
+    const effectiveFilteredLeaves = filteredLeaves.filter((leave) => {
+        const leaveDateKey = toDateKey(leave.date);
+        return !attendanceDateKeys.has(leaveDateKey);
+    });
 
     statMap.set(PRESENT, 0);
     statMap.set(ABSENT, 0);
-    statMap.set(ON_LEAVE, filteredLeaves.length);
+    statMap.set(ON_LEAVE, effectiveFilteredLeaves.length);
     statMap.set(EXTRA_DAYS, 0);
     statMap.set(CHECK_OUT_MISSING, 0);
 
@@ -1103,7 +1132,7 @@ export function donutaDataLabel(
             }
         }
 
-        const isLeaveDay = filteredLeaves.some((leave) => {
+        const isLeaveDay = effectiveFilteredLeaves.some((leave) => {
             return dayjs(leave.date).format('YYYY-MM-DD') === statDateFormatted;
         });
 
@@ -1188,6 +1217,7 @@ function convertTo24HourFormat(time: string) {
 }
 
 let companyTimings = {
+    companyRawCheckIn: '',
     companyCheckIn: '',
     companyCheckOut: '',
     checkInTimeForOnSite: '',
@@ -1237,12 +1267,14 @@ async function fetchCompanyTimings() {
             onSiteGraceDuration = dayjs.duration(0);
         }
 
-        // Parse the check-in time and add grace duration
+        // Keep raw shift start and grace-adjusted check-in as separate values.
+        // Early CheckIn must use the raw start time; Late CheckIn must use start + grace.
         const checkInTime = dayjs(companyCheckIn, "h:mm A");
         const lateCheckIn = checkInTime.add(graceDuration);
         const lateCheckInForOnSite = lateCheckIn;
         const graceTimeNewOnSite = checkInTime.add(onSiteGraceDuration);
         // Convert to 24-hour format and then to UTC
+        const rawCheckInUtcTime = dayjs(`1970-01-01T${checkInTime.format("HH:mm")}:00`).utc().format("HH:mm");
         const checkInUtcTime = dayjs(`1970-01-01T${lateCheckIn.format("HH:mm")}:00`).utc().format("HH:mm");
         const checkOutUtcTime = dayjs(`1970-01-01T${convertTo24HourFormat(companyCheckOut)}:00`).utc().format("HH:mm");
         const checkInTimeForOnSiteUTC = dayjs(`1970-01-01T${lateCheckInForOnSite.format("HH:mm")}:00`).utc().format("HH:mm");
@@ -1250,6 +1282,7 @@ async function fetchCompanyTimings() {
 
         companyTimings = {
             ...companyTimings,
+            companyRawCheckIn: rawCheckInUtcTime !== 'Invalid Date' ? rawCheckInUtcTime : '',
             companyCheckIn: checkInUtcTime !== 'Invalid Date' ? checkInUtcTime : '',
             companyCheckOut: checkOutUtcTime !== 'Invalid Date' ? checkOutUtcTime : '',
             checkInTimeForOnSite: checkInTimeForOnSiteUTC !== 'Invalid Date' ? checkInTimeForOnSiteUTC : '',
@@ -1395,7 +1428,7 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
 
     const graceTimeAllowance = leaveConfigurations[onSiteAndHolidayWeekendSettingsOnOffName];
     const onSiteSettingsOn = Number(graceTimeAllowance) > 0 ? true : false;
-    const { companyCheckIn, companyCheckOut, checkInTimeForOnSite, checkinTimeNewForOnSite } = companyTimings;
+    const { companyRawCheckIn, companyCheckIn, companyCheckOut, checkInTimeForOnSite } = companyTimings;
     // console.log("checkinTimeNewForOnSite ==============>",checkinTimeNewForOnSite)
 
     const statMap = new Map<string, number>();
@@ -1463,7 +1496,8 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
             actualCheckOutTime = customTime(isDaywiseConfig.check_out)
         }
 
-        // Apply grace time to actualCheckInTime if it's from custom source (holiday or day-wise shift)
+        // Late CheckIn threshold: shift start + grace.
+        // This intentionally stays grace-adjusted so late attendance is only counted after the allowed window.
         const { graceDuration } = companyTimings;
         let finalTime
         if (workingHolidayOnThisDate || isDaywiseConfig) {
@@ -1475,18 +1509,14 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
         else {
             finalTime = isWorkMethodOnSite ? (checkInTimeForOnSite != '' ? checkInTimeForOnSite : checkInTime) : (companyCheckIn != '' ? companyCheckIn : checkInTime)
         }
-        // Early check-in threshold with grace time based on working method
-        // For Office: Check-in time + Grace Time (e.g., 9:30 AM + 40 min = 10:10 AM)
-        // For On-Site: Check-in time + Grace Time - On Site (e.g., 9:30 AM + 15 min = 9:45 AM)
+        // Early CheckIn threshold: raw shift start, not shift start + grace.
+        // Example: for a 9:30 AM shift, only check-ins before 9:30 AM are early.
+        // This mirrors backend KPI logic in kpiservice.ts, where early_checkin compares firstCheckIn < officeTime.
         let earlyCheckInThreshold;
         if (workingHolidayOnThisDate || isDaywiseConfig) {
-            // For holidays or day-wise shifts, use the custom time with grace
-            earlyCheckInThreshold = finalTime;
+            earlyCheckInThreshold = actualCheckInTime;
         } else {
-            // For regular days, use grace time based on working method
-            earlyCheckInThreshold = isWorkMethodOnSite
-                ? (checkinTimeNewForOnSite != '' ? checkinTimeNewForOnSite : checkInTime)  // On-site: check-in + on-site grace
-                : (companyCheckIn != '' ? companyCheckIn : checkInTime);  // Office: check-in + default grace
+            earlyCheckInThreshold = companyRawCheckIn != '' ? companyRawCheckIn : checkInTime;
         }
 
         // console.log("companyCheckIn:: ", companyCheckIn);
@@ -2840,7 +2870,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
             status: status,
             checkInLocation: attendanceRecord?.checkInLocation || '-NA-',
             checkOutLocation: attendanceRecord?.checkOutLocation || '-NA-',
-            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || null,
+            checkoutWokringMethod: attendanceRecord?.checkoutWorkingMethod?.type || undefined,
         };
     });
 
@@ -2887,6 +2917,7 @@ export function transformAttendanceRequest(attendance: AttendanceRequest[]): IAt
             rejectedById: attendanceRequest.rejectById,
             approvedOrRejectedDate: attendanceRequest.updatedAt,
             reportsToId: attendanceRequest?.employee?.reportsToId ?? null,
+            hasApprovalInstance: attendanceRequest.hasApprovalInstance ?? false,
         }
 
         result.push(request);
@@ -2945,6 +2976,9 @@ export async function fetchEmpMonthlyReimbursements(month: Dayjs, empId = store.
     const startDate = month.startOf('month').format('YYYY-MM-DD');
     const endDate = month.endOf('month').format('YYYY-MM-DD');
     const { data: { reimbursements: empMonthlyReimbursements } } = await fetchReimbursementsForEmployee(empId, startDate, endDate);
+    empMonthlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empMonthlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -2973,6 +3007,9 @@ export async function fetchEmpYearlyReimbursements(year: Dayjs, empId = store.ge
 
     const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForEmployee(empId, startDate, endDate);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -2999,6 +3036,9 @@ export async function fetchMonthlyReimbursementsOfAllEmp(month: Dayjs) {
     const startDate = month.startOf('month').format('YYYY-MM-DD');
     const endDate = month.endOf('month').format('YYYY-MM-DD');
     const { data: { reimbursements: allEmpMonthlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
+    allEmpMonthlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = allEmpMonthlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3027,6 +3067,9 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
     const startDate = (year.startOf('year').format('YYYY-MM-DD'));
     const endDate = (year.endOf('year').format('YYYY-MM-DD'));
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchReimbursementsForAllEmployees(startDate, endDate);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3052,6 +3095,9 @@ export async function fetchYearlyReimbursementsOfAllEmp(year: Dayjs) {
 
 export async function fetchAllTimeReimbursementsOfAllEmp() {
     const { data: { reimbursements: allEmpAllTimeReimbursements } } = await fetchAllReimbursementsForAllEmployees();
+    allEmpAllTimeReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = allEmpAllTimeReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3088,6 +3134,9 @@ export async function approveEmpReimbursementRequestById(reimbursementId: string
 
 export async function fetchEmpAlltimeReimbursements(empId = store.getState().employee.currentEmployee.id) {
     const { data: { reimbursements: empYearlyReimbursements } } = await fetchAllReimbursementsForEmployee(empId);
+    empYearlyReimbursements.sort((a: IReimbursementsFetch, b: IReimbursementsFetch) =>
+        new Date(b.expenseDate as string).getTime() - new Date(a.expenseDate as string).getTime()
+    );
     const result: IReimbursementsFetch[] = empYearlyReimbursements.map((data: IReimbursementsFetch) => {
         const date = new Date(data.expenseDate as string);
 
@@ -3232,7 +3281,6 @@ export function salaryCalculationsForDays(totalDaysOfMonthOrYearForEmployee: num
 
 export async function fetchAllCompanySettings() {
     const { data } = await fetchCompanySettings();
-    store.dispatch(saveAttendanceRequestRaiseLimit(data?.appSettings?.attendanceRequestRaiseLimit));
     return data?.appSettings;
 }
 
@@ -3265,7 +3313,25 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
         console.error("error: ", error)
     }
 }
-//🔥 Irfan Change Start
+// 🔥 KPI API SAFETY: Exponential backoff retry helper
+const fetchWithRetry = async <T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delay = 1200
+): Promise<T> => {
+  try {
+    return await fn();
+  } catch (error: any) {
+    const isCancel = error?.name === 'AbortError' || error?.name === 'CanceledError' || axios.isCancel(error);
+    if (retries > 0 && !isCancel) {
+      console.warn(`[KPI-RETRY] Request failed, retrying in ${delay}ms... (${retries} attempts left)`);
+      await new Promise(r => setTimeout(r, delay));
+      return fetchWithRetry(fn, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+};
+
 export const fetchLeaderboard = async (
     startDate: string,
     endDate: string,
@@ -3313,12 +3379,15 @@ export async function fetchEmpDailyKpiStatistics(day: Dayjs, fromAdmin = false, 
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching daily statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching daily statistics:", error);
+        }
         throw error;
     }
 }
 
+//🔥 Irfan Change Start
 //🔥 Irfan Change Start
 const fetchKpiBase = async (
     employeeId: string,
@@ -3414,8 +3483,10 @@ export async function fetchEmpWeeklyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching weekly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching weekly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3459,8 +3530,10 @@ export async function fetchEmpMonthlyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching monthly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching monthly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3514,8 +3587,10 @@ export async function fetchEmpYearlyKpiStatistics(
             remark: data.remark,
             maxTotal: data.maxTotal,
         };
-    } catch (error) {
-        console.error("Error fetching yearly statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching yearly statistics:", error);
+        }
         throw error;
     }
 }
@@ -3528,27 +3603,32 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
         if (!employeeId) throw new Error("Employee ID not found");
         const result = await fetchEmpKpiScoresAllTime(employeeId, signal);
         return result;
-    } catch (error) {
-        console.error("Error fetching All time statistics:", error);
+    } catch (error: any) {
+        if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error("Error fetching All time statistics:", error);
+        }
         throw error;
     }
 }
 
 // ================================================================================
-// format number to currency in INR, 
+// format number to currency in INR
 export const formatNumber = (number: number | string) => {
-    return Intl.NumberFormat('en-IN', {
+    // Truncate to prevent rounding up for "perfect no rounding off" requirement
+    const num = typeof number === 'string' ? parseFloat(number) : number;
+    const truncated = isNaN(num) ? 0 : Math.trunc(num);
+    return new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
-    }).format(Number(number));
-}
+        maximumFractionDigits: 0
+    }).format(truncated);
+};
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {
     const num = parseFloat(str.toString().replace(/[^0-9.-]+/g, '')); // removes ₹, commas, etc.
-    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 // get total weekends in a month
@@ -3768,20 +3848,6 @@ export const formatDateFromISTString = (dateString: string | undefined | null): 
     }
 };
 
-export const handleSendEmailForResetAttendanceRequestLimit = async (employeeId: string, setRequestLimitResetLoading: React.Dispatch<React.SetStateAction<boolean>>, reportsToId?: string) => {
-    setRequestLimitResetLoading(true);
-    const res = await sendAttendanceRequestResetLimit({ employeeId: employeeId, reportsToId: reportsToId });
-
-    if (!res.hasError) {
-        successConfirmation('Request sent successfully');
-    }
-    else {
-        errorConfirmation('Request failed. Try again later.');
-    }
-    setRequestLimitResetLoading(false);
-};
-
-
 
 // export const markWeekendOrHoliday = ( attendance: any[], allWeekends: any, allHolidays: any[]): (any & { isWeekendOrHoliday: boolean })[] => {
 //     // Prepare holiday date strings in "YYYY-MM-DD"
@@ -3836,12 +3902,15 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty):
+    // JSON.parse(null) and JSON.parse("null") both yield null, and indexing it by the
+    // weekday would crash the whole page ("Cannot read properties of null").
+    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3870,12 +3939,13 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
+        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty).
+    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3925,4 +3995,19 @@ export const calculateProjectTotalTime = (timesheets: any = []) => {
     const mins = Math.floor((totalMs / (1000 * 60)) % 60);
     const secs = Math.floor((totalMs / 1000) % 60);
     return `${hrs}h ${mins}m ${secs}s`;
+};
+
+export const handleSendEmailForResetAttendanceRequestLimit = async (
+    employeeId: string,
+    setLoading: (v: boolean) => void,
+    reportsToId?: string
+): Promise<void> => {
+    setLoading(true);
+    try {
+        await sendAttendanceRequestResetLimit({ employeeId, reportsToId });
+    } catch (err) {
+        console.error('Failed to send attendance reset limit request', err);
+    } finally {
+        setLoading(false);
+    }
 };

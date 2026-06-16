@@ -33,7 +33,9 @@ export function calculateTotalDuration(entries: any | any[]): string {
     return "0H 0M"; // invalid input
   }
 
-  let totalMinutes = 0;
+  // Accumulate in ms and truncate once at the end — eliminates the per-entry second loss
+  // that caused 2-3 minute drift vs the KPI's ms-based monthly total.
+  let totalMs = 0;
 
   const leaveManagement = store.getState().featureConfiguration?.leaveManagement;
   const disableLunchTimeDeduction = store.getState().featureConfiguration?.disableLaunchDeductionTime;
@@ -51,6 +53,10 @@ export function calculateTotalDuration(entries: any | any[]): string {
     }
   }
 
+  const lunchMs = lunchMinutesToDeduct * 60_000;
+  // Threshold = (half working hours) + lunch duration — matches backend salary and KPI formula.
+  const halfDayThresholdMs = ((appSettingWorkingHours || 0) / 2) * 3_600_000 + lunchMs;
+
   for (const entry of entryArray) {
     if (!entry || !entry.checkIn || !entry.checkOut) continue;
 
@@ -59,24 +65,19 @@ export function calculateTotalDuration(entries: any | any[]): string {
 
     if (!checkInTime.isValid() || !checkOutTime.isValid()) continue;
 
-    let diffMinutes = checkOutTime.diff(checkInTime, "minute");
+    let diffMs = checkOutTime.diff(checkInTime, "millisecond");
 
-    // Deduct lunch if enabled
-    if (
-      disableLunchTimeDeduction === true &&
-      lunchMinutesToDeduct > 0 &&
-      // diffMinutes > lunchMinutesToDeduct + 60
-      diffMinutes > (((appSettingWorkingHours || 0)/2)*60 + (lunchMinutesToDeduct|| 0))
-      
-    ) {
-      diffMinutes -= lunchMinutesToDeduct;
+    if (diffMs <= 0) continue;
+
+    // Deduct lunch if enabled and session exceeds threshold
+    if (disableLunchTimeDeduction === true && lunchMs > 0 && diffMs > halfDayThresholdMs) {
+      diffMs -= lunchMs;
     }
 
-    if (diffMinutes > 0) {
-      totalMinutes += diffMinutes;
-    }
+    totalMs += diffMs;
   }
 
+  const totalMinutes = Math.floor(totalMs / 60_000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `${hours}H ${minutes}M`;

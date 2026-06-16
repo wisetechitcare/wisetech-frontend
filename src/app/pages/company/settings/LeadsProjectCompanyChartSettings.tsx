@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { Formik, Form } from "formik";
@@ -179,7 +179,7 @@ const LeadsProjectCompanyChartSettings: React.FC<leadProjectCompanyCHartSettings
         onSubmit={handleSubmit}
       >
         {({ handleSubmit, isSubmitting }) => (
-          <Form placeholder={''}>
+          <Form>
             {(type && type == PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD) && renderSection(
               "Leads Charts",
               CONFIG_ITEMS.filter((item) => item.section === "Leads")

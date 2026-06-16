@@ -1,6 +1,7 @@
 //
 // Menu Base
 //
+@use 'sass:map';
 
 // Menu group
 .menu-group {
@@ -147,7 +148,7 @@
 
 // Responsive 
 @each $direction in (up, down) {
-    @each $breakpoint in map-keys($grid-breakpoints) {
+    @each $breakpoint in map.keys($grid-breakpoints) {
         $infix: breakpoint-infix($breakpoint, $grid-breakpoints);
 
         @if $infix and $direction == down {

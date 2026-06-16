@@ -1,4 +1,4 @@
-import { FilterDropdown } from "@pages/employee/projects/commonComponents/FilterDropdown";
+﻿import { FilterDropdown } from "@pages/employee/projects/commonComponents/FilterDropdown";
 import React, { useMemo, useState } from "react";
 import ReactApexChart from "react-apexcharts";
 import Chart from "react-apexcharts";
@@ -180,7 +180,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
 
   const options: ApexCharts.ApexOptions = {
     chart: {
-      type: chartType,
+      type: chartType === "histogram" ? "bar" : chartType,
       width: '100%',
       height: '100%',
       events: {
@@ -242,7 +242,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
         width: 12,
         height: 12,
         radius: 6,
-      },
+      } as any,
       itemMargin: {
         horizontal: 10,
         vertical: 5
@@ -540,7 +540,7 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                 <ReactApexChart
                   options={{ ...options, legend: { show: false } }}
                   series={series}
-                  type={chartType}
+                  type={chartType === "histogram" ? "bar" : chartType}
                   width={width}
                   height={height}
                 />

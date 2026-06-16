@@ -42,6 +42,36 @@ export interface PayrollSummary {
     governmentPending: number;
     totalCompanyPayout: number;
     activeGovType: string;
+    hasTDS?: boolean;
+    hasPTax?: boolean;
+    // Arrear fields — present when pending arrears exist for this payroll month
+    totalPendingArrears?: number;
+    arrearCount?: number;
+}
+
+export interface PayrollArrear {
+    id: string;
+    employeeId: string;
+    triggerType: string;
+    affectedMonth: number;
+    affectedYear: number;
+    originalNetSalary: number;
+    revisedNetSalary: number;
+    arrearAmount: number;
+    arrearDirection: 'POSITIVE' | 'NEGATIVE';
+    status: 'PENDING' | 'APPROVED' | 'INCLUDED_IN_PAYROLL' | 'PROCESSED' | 'VOIDED';
+    notes?: string;
+    employee?: { id: string; nickName: string; companyEmailId: string };
+}
+
+export type SalaryStatus = 'DRAFT' | 'APPROVED' | 'LOCKED';
+
+export interface SalaryLockInfo {
+    salaryStatus: SalaryStatus;
+    lockedAt?: string;
+    lockedBy?: string;
+    snapshotCtcInLpa?: number;
+    snapshotTakenAt?: string;
 }
 
 export type PayrollTableRow = IMonthlyApiResponse['salaryData'][0] & {
@@ -63,6 +93,9 @@ export interface DeductionBreakdownProps {
     deductionBreakdown: IBreakdownData;
     grossPay: number;
     showSensitiveData: boolean;
+    dailySalary?: number;
+    resolveName?: (name: string) => string;
+    resolveComponent?: (name: string) => import('../hooks/useSalaryComponentNames').ResolvedComponent | null;
 }
 
 export interface NetAmountPayableProps {
@@ -71,6 +104,7 @@ export interface NetAmountPayableProps {
     fallbackNetAmount: number;
     showSensitiveData: boolean;
     isApiDataLoaded: boolean;
+    payrollTotalDeductions?: number;
 }
 
 export interface BreakdownTableProps {
@@ -78,6 +112,10 @@ export interface BreakdownTableProps {
     type: 'gross' | 'deduction';
     title: string;
     showSensitiveData: boolean;
+    hourlySalary?: number;
+    dailySalary?: number;
+    resolveName?: (name: string) => string;
+    resolveComponent?: (name: string) => import('../hooks/useSalaryComponentNames').ResolvedComponent | null;
 }
 
 export interface GrossDistributionData {

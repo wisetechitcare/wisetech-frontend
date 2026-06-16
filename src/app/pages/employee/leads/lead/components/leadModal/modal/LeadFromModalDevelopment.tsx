@@ -1,4 +1,4 @@
-import { Dialog, IconButton, Box, Typography, Grid, Button, Modal } from '@mui/material';
+﻿import { Dialog, IconButton, Box, Typography, Grid, Button, Modal } from '@mui/material';
 import { Close, Add } from '@mui/icons-material';
 import { useState } from 'react';
 import { Formik, Form as FormikForm } from "formik";
@@ -105,7 +105,7 @@ const LeadFormModalDevelopment = (
               onSubmit={onSubmit}
             >
               {({ isSubmitting, values, setFieldValue }) => (
-                <FormikForm placeholder={""}>
+                <FormikForm>
                   {/* Project Details Section */}
                   <Box sx={{ mb: 4 }}>
                     <fieldset style={{ borderTop: '1px solid #70829A', padding: '16px', margin: 0 }}>

@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { Button, Card, ListGroup, Modal } from "react-bootstrap";
@@ -193,9 +193,31 @@ function CustomRules() {
   ];
 
   return (
-    <div className="mb-10 mt-10 bg-white p-8" style={{ borderRadius: "15px" }}>
-      <div>
-        <h2>Custom Rules</h2>
+    <div className="mb-10 sc-container" style={{ padding: '28px', backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        marginBottom: '20px',
+      }}>
+        <div style={{
+          width: '34px', height: '34px', borderRadius: '9px',
+          background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+        }}>
+          <i className="bi bi-sliders" style={{ fontSize: '15px', color: '#fff' }} />
+        </div>
+        <div>
+          <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+            Custom Rules
+          </h2>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+            Configure custom salary deduction rules and periods
+          </p>
+        </div>
       </div>
       <MaterialTable
         columns={columnsCustomRules}
@@ -236,12 +258,34 @@ function CustomRules() {
       </div>}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            Edit {oldValue.name || "Custom Rule"}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+        <Modal.Body className="sc-modal-body" style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '28px 32px',
+        }}>
+          <div className="d-flex justify-content-between align-items-center mb-5">
+            <div className="sc-modal-title" style={{
+              fontFamily: 'Barlow, sans-serif',
+              fontWeight: 700,
+              fontSize: '20px',
+              color: '#181C32',
+              letterSpacing: '-0.4px',
+            }}>
+              Edit {oldValue.name || "Custom Rule"}
+            </div>
+            <button 
+              onClick={handleClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                color: '#A1A5B7',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
           <Formik
             initialValues={initialState}
             onSubmit={handleSubmit}
@@ -253,7 +297,7 @@ function CustomRules() {
                 className="d-flex flex-column"
                 noValidate
                 id="custom_rules_form"
-                placeholder={undefined}
+               
               >
                 <div className="row">
                   <div className="col-lg-12">
@@ -277,21 +321,55 @@ function CustomRules() {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-4">
+                <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E1E3EA',
+                      borderRadius: '8px',
+                      color: '#3F4254',
+                      height: '44px',
+                      padding: '0 24px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: 'pointer',
+                      marginRight: '12px',
+                    }}
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
-                    className="btn btn-primary"
                     disabled={loading || !formikProps.isValid}
+                    style={{
+                      backgroundColor: '#9d4141',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      height: '44px',
+                      padding: '0 28px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
+                      opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
+                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseOver={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseOut={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
-                    {!loading && "Submit"}
+                    {!loading && "Save Rule"}
                     {loading && (
-                      <span
-                        className="indicator-progress"
-                        style={{ display: "block" }}
-                      >
-                        Please wait...{" "}
-                        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                      </span>
+                      <>
+                        Saving... <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+                      </>
                     )}
                   </button>
                 </div>

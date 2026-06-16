@@ -3,7 +3,7 @@ import { Button, Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { PayrollTableRow } from '../../types/payroll.types';
-import { formatINR2 } from '../../utils/payrollFormatters';
+import { formatINRRounded } from '../../utils/payrollFormatters';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -26,7 +26,10 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 
     const getStatusBadge = (status: string) => {
         const s = status.toLowerCase().trim();
-        
+
+        if (s === 'paid extra') {
+            return <Badge bg="light-info" className="text-info fw-bold px-4 py-2">Paid Extra</Badge>;
+        }
         if (s === 'full paid' || s === 'paid') {
             return <Badge bg="light-success" className="text-success fw-bold px-4 py-2">Full Paid</Badge>;
         }
@@ -47,7 +50,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 
     return (
         <div className="card shadow-sm mb-8 overflow-hidden border-0">
-            <div className="card-header border-0 pt-6 pb-2 d-flex justify-content-between align-items-center bg-white">
+            <div className="card-header border-0 pt-5 pb-2 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 bg-white">
                 <div className="card-title align-items-start flex-column">
                     <h3 className="card-label fw-bold text-gray-800 fs-3 mb-1">Monthly Payment History</h3>
                     <span className="text-muted fw-semibold fs-7">Detailed log of salary payouts and deductions</span>
@@ -70,13 +73,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                     <table className="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4">
                         <thead>
                             <tr className="fw-bold text-muted bg-light">
-                                <th className="ps-4 min-w-125px rounded-start">Payout Date</th>
-                                <th className="text-center min-w-100px">Method</th>
-                                <th className="text-end min-w-125px">Net Payable</th>
-                                <th className="text-end min-w-100px">Paid</th>
-                                <th className="text-center min-w-100px">Status</th>
-                                <th className="text-center min-w-150px">Ref / Notes</th>
-                                <th className="text-center min-w-100px rounded-end">Actions</th>
+                                <th className="ps-4 rounded-start">Payout Date</th>
+                                <th className="text-center">Method</th>
+                                <th className="text-end">Net Payable</th>
+                                <th className="text-end">Paid</th>
+                                <th className="text-end">Remaining</th>
+                                <th className="text-center">Status</th>
+                                <th className="text-center">Ref / Notes</th>
+                                <th className="text-center rounded-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -106,11 +110,22 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                                 ? dayjs(row.displayDate).format('DD MMM YYYY') 
                                                                 : '--'}
                                                         </span>
-                                                        <Badge bg={row.paymentType === 'GOVERNMENT' ? 'light-primary' : 'light-info'} className={`${row.paymentType === 'GOVERNMENT' ? 'text-primary' : 'text-info'} fs-9 py-1 px-2`}>
-                                                            {row.paymentType}
-                                                        </Badge>
+                                                        {row.paymentType !== 'GOVERNMENT' && (
+                                                            <Badge bg="light-info" className="text-info fs-9 py-1 px-2">
+                                                                {row.paymentType}
+                                                            </Badge>
+                                                        )}
+                                                        {row.paymentType === 'GOVERNMENT' && (row as any).deductionType && (
+                                                            <Badge bg="light-warning" className="text-warning fs-9 py-1 px-2">
+                                                                {(['tds', 'professional fees', 'professional fee'].some((k: string) => String((row as any).deductionType).toLowerCase().includes(k))) ? 'TDS'
+                                                                : (['professional tax', 'ptax', 'prof. tax'].some((k: string) => String((row as any).deductionType).toLowerCase().includes(k))) ? 'PTAX'
+                                                                : (row as any).deductionType}
+                                                            </Badge>
+                                                        )}
                                                     </div>
-                                                    <span className="text-muted fw-semibold fs-7">{row.month} {row.year}</span>
+                                                    <span className="text-muted fw-semibold fs-7">
+                                                        {row.month ? dayjs(`${row.year}-${String(row.month).padStart(2, '0')}-01`).format('MMM YYYY') : '--'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
@@ -120,14 +135,25 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             </Badge>
                                         </td>
                                         <td className="text-end">
-                                            <span className={`text-primary fw-bolder fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedNetSalary)}
+                                            <span className={`fw-bolder fs-6 ${sensitiveCls} ${row.calculatedNetSalary < 0 ? 'text-info' : 'text-primary'}`}>
+                                                {formatINRRounded(row.calculatedNetSalary)}
                                             </span>
                                         </td>
                                         <td className="text-end">
                                             <span className={`text-success fw-bold fs-6 ${sensitiveCls}`}>
-                                                {formatINR2(row.calculatedPaidAmount)}
+                                                {formatINRRounded(row.calculatedPaidAmount)}
                                             </span>
+                                        </td>
+                                        <td className="text-end">
+                                            {(row.calculatedRemainingAmount || 0) < 0 ? (
+                                                <span className={`fw-bold fs-6 ${sensitiveCls} text-info`}>
+                                                    {formatINRRounded(Math.abs(row.calculatedRemainingAmount || 0))} <span className="fs-8 fw-semibold">extra</span>
+                                                </span>
+                                            ) : (
+                                                <span className={`fw-bold fs-6 ${sensitiveCls} ${(row.calculatedRemainingAmount || 0) === 0 ? 'text-success' : 'text-danger'}`}>
+                                                    {formatINRRounded(row.calculatedRemainingAmount)}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="text-center">
                                             {getStatusBadge(row.calculatedStatus)}
@@ -135,7 +161,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                         <td className="text-center">
                                             <div className="d-flex flex-column align-items-center">
                                                 <span className="text-gray-800 fw-bold fs-7">{row.transactionId || '--'}</span>
-                                                {row.remarks && (
+                                                {row.remarks && !['pt', 'tds', 'pf', 'ptax', 'esi'].includes(row.remarks.toLowerCase().trim()) && !row.remarks.toLowerCase().startsWith('gov payment:') && (
                                                     <span className="text-muted fs-8 text-truncate ms-2" style={{ maxWidth: '120px' }} title={row.remarks}>
                                                         {row.remarks}
                                                     </span>
@@ -149,14 +175,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                         <Button 
                                                             variant="light-primary" 
                                                             className="btn-icon btn-sm"
-                                                            onClick={() => onEditPayment(row.item)}
+                                                            onClick={() => onEditPayment(row)}
                                                         >
                                                             <KTIcon iconName="pencil" className="fs-3" />
                                                         </Button>
                                                         <Button 
                                                             variant="light-danger" 
                                                             className="btn-icon btn-sm"
-                                                            onClick={() => onDeletePayment(row.item)}
+                                                            onClick={() => onDeletePayment(row)}
                                                         >
                                                             <KTIcon iconName="trash" className="fs-3" />
                                                         </Button>

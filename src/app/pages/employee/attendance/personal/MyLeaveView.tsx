@@ -7,10 +7,19 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { handleDatesChange } from '@utils/statistics';
+import DateSelector from '@components/DateSelector';
 import { Modal } from 'react-bootstrap';
 import MyLeaveManagementRequests from './views/my-leaves/MyLeaveManagementRequests';
+import SmartInsightsPanel from './views/my-leaves/SmartInsightsPanel';
+import { generateUserInsights } from './views/my-leaves/utils/insightGenerator';
+import { generateMonthlySuggestions } from './views/my-leaves/utils/suggestionEngine';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
+// import LeaveUsageGraph from './views/my-leaves/LeaveUsageGraph';
+// import MonthlyHeatmap from './views/my-leaves/MonthlyHeatmap';
 
 const PersonalLeaveView = () => {
     const [open, setOpen] = useState(false);
@@ -23,11 +32,33 @@ const PersonalLeaveView = () => {
     useEffect(() => {
         (async () => {
             const { startDate, endDate } = await generateFiscalYearFromGivenYear(year)
-            setFiscalYear(`${startDate} to ${endDate}`);
+            setFiscalYear(`${dayjs(startDate).format('MMM YYYY')} - ${dayjs(endDate).format('MMM YYYY')}`);
             setStartDateNew(startDate);
             setEndDateNew(endDate);
         })()
     }, [year])
+
+    // Fetch personal leaves from Redux to generate insights
+    const personalLeaves = useSelector((state: RootState) => state.leaves.personalLeaves) || [];
+    const publicHolidaysRaw = useSelector((state: RootState) => state.attendanceStats?.publicHolidays) || [];
+
+    // Generate insights
+    const [insights, setInsights] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!startDateNew || !endDateNew) return;
+
+        const holidays = new Set<string>(
+            publicHolidaysRaw.map((h: any) => dayjs(h?.date).format('YYYY-MM-DD')).filter(Boolean)
+        );
+
+        // Generate future suggestions based on current month
+        const maxLeaves = 5; // Default assumption for suggestion generation
+        const suggestions = generateMonthlySuggestions(new Date(), holidays, maxLeaves);
+
+        const generatedInsights = generateUserInsights(personalLeaves, suggestions, holidays);
+        setInsights(generatedInsights);
+    }, [personalLeaves, publicHolidaysRaw, startDateNew, endDateNew]);
 
 
     const handleClickOpen = () => {
@@ -79,15 +110,35 @@ const PersonalLeaveView = () => {
                 </div>
             </div>
             <h3 className='fw-bold font-barlow mb-0'>Leaves</h3>
-            <Modal show={open} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>Leave Requests!</Modal.Title>
+            <Modal
+                show={open}
+                onHide={handleClose}
+                centered
+                size="lg"
+                scrollable
+                dialogClassName="lrc-leave-modal"
+                contentClassName="lrc-leave-modal__content"
+            >
+                <Modal.Header closeButton className="lrc-leave-modal__header">
+                    <Modal.Title>Leave Request</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="lrc-leave-modal__body">
                     <LeaveRequestForm onClose={handleClose} startDateNew={startDateNew} endDateNew={endDateNew} />
                 </Modal.Body>
             </Modal>
-                <BalanceProgress resource={resourceNameMapWithCamelCase.leave} fromAdmin={false} viewOwn={true} viewOthers={false} startDateNew={startDateNew} endDateNew={endDateNew} />
+            
+            <SmartInsightsPanel insights={insights} />
+            
+            {/* <div className="row g-4 mb-5">
+                <div className="col-12 col-xl-6">
+                    <MonthlyHeatmap leaves={personalLeaves} holidays={new Set()} />
+                </div>
+                <div className="col-12 col-xl-6">
+                    <LeaveUsageGraph leaves={personalLeaves} holidays={new Set()} />
+                </div>
+            </div> */}
+            
+            <BalanceProgress resource={resourceNameMapWithCamelCase.leave} fromAdmin={false} viewOwn={true} viewOthers={false} startDateNew={startDateNew} endDateNew={endDateNew} />
             
                 <Leaves resource={resourceNameMapWithCamelCase.leave} viewOwn={true} startDateNew={startDateNew} endDateNew={endDateNew} />
                 <MyLeaveManagementRequests startDateNew={startDateNew} endDateNew={endDateNew} />
@@ -99,13 +150,9 @@ const PersonalLeaveView = () => {
 export default PersonalLeaveView
 
 export const DateNavigation = ({ fiscalYear, setYear }: { fiscalYear: string, setYear: (date: any) => void }) => (
-    <div className="d-flex align-items-center justify-content-center">
-        <button className="btn btn-sm p-0" onClick={() => handleDatesChange('decrement', 'year', setYear)}>
-            <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous" />
-        </button>
-        <span className="mx-2 my-5">{fiscalYear}</span>
-        <button className="btn btn-sm p-0" onClick={() => handleDatesChange('increment', 'year', setYear)}>
-            <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next" />
-        </button>
-    </div>
+    <DateSelector
+        onPrevious={() => handleDatesChange('decrement', 'year', setYear)}
+        onNext={() => handleDatesChange('increment', 'year', setYear)}
+        displayValue={formatFiscalYearLabel(fiscalYear)}
+    />
 );

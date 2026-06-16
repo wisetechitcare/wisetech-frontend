@@ -1,9 +1,14 @@
+// ── Node.js polyfills — must be first, before any library that needs Buffer ──
+import { Buffer } from 'buffer'
+if (typeof globalThis.Buffer === 'undefined') {
+  globalThis.Buffer = Buffer
+}
+
 import { createRoot } from 'react-dom/client'
 // Axios
 import axios from 'axios'
 import { Chart, registerables } from 'chart.js'
-import { QueryClient, QueryClientProvider } from 'react-query'
-import { ReactQueryDevtools } from 'react-query/devtools'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider } from 'react-redux'
 import { store } from '@redux/store'
 import "./main.css"
@@ -45,7 +50,18 @@ import { jwtDecode } from "jwt-decode"
 setupAxios(axios)
 Chart.register(...registerables)
 
-const queryClient = new QueryClient()
+// Sensible defaults so React Query caches/dedupes instead of refetching on every mount
+// or window focus (the previous default of staleTime:0 made cached data instantly stale).
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,        // treat data fresh for 5 min
+      gcTime: 60 * 60 * 1000,          // keep in cache 1 hour
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 const ls = localStorage.getItem("wise_tech_login")
 const parsedLs = ls ? JSON.parse(ls) : null
@@ -62,6 +78,20 @@ if (currentUser?.token) {
   }
 }
 
+const renderApp = () => {
+  if (!container) return
+  createRoot(container).render(
+    <QueryClientProvider client={queryClient}>
+      <MetronicI18nProvider>
+        <Provider store={store}>
+          <AppRoutes />
+        </Provider>
+      </MetronicI18nProvider>
+      <ToastContainer position="top-right" theme="light" />
+    </QueryClientProvider>
+  )
+}
+
 if (parsedLs?.token && parsedLs?.id && !isTokenExpired) {
   store
     .dispatch(fetchRolesAndPermissions())
@@ -69,46 +99,14 @@ if (parsedLs?.token && parsedLs?.id && !isTokenExpired) {
     .then(async () => {
       const { data: { user } } = await fetchCurrentUser(parsedLs.id)
       store.dispatch(saveCurrentUser({ ...user }))
-      if (container) {
-        createRoot(container).render(
-          <QueryClientProvider client={queryClient}>
-            <MetronicI18nProvider>
-              <Provider store={store}>
-                <AppRoutes />
-              </Provider>
-            </MetronicI18nProvider>
-            <ToastContainer position="top-right" theme="light" />
-            {/* <ReactQueryDevtools initialIsOpen={false} /> */}
-            {/* <Notification
-              open={true}
-              onClose={() => { return false }}
-              title="Task Deleted"
-              message="Task deleted successfully!"
-              icon={<PauseCircleIcon sx={{ color: "green", fontSize: 48, mr: 1 }} />}
-            /> */}
-          </QueryClientProvider>
-        )
-      }
+      renderApp()
     })
     .catch((error) => {
-      console.error("Failed to load roles and permissions:", error);
+      console.error("Failed to load roles and permissions:", error)
       localStorage.removeItem("wise_tech_login")
-      window.location.reload();
-    });
-}
-else {
+      window.location.reload()
+    })
+} else {
   localStorage.removeItem("wise_tech_login")
-  if (container) {
-    createRoot(container).render(
-      <QueryClientProvider client={queryClient}>
-        <MetronicI18nProvider>
-          <Provider store={store}>
-            <AppRoutes />
-          </Provider>
-        </MetronicI18nProvider>
-        <ToastContainer position="top-right" theme="light" />
-        {/* <ReactQueryDevtools initialIsOpen={false} /> */}
-      </QueryClientProvider>
-    )
-  }
+  renderApp()
 }

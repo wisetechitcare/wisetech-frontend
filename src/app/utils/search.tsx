@@ -62,8 +62,14 @@ export const HighlightMatch: React.FC<{ text: string; query: string }> = ({ text
   
   // Patterns for phrase vs tokens
   const phrasePattern = escapeRegExp(fullPhrase);
-  const tokenPatterns = tokens.map(escapeRegExp);
-  const uniqueTokens = Array.from(new Set(tokenPatterns)).filter(p => p !== phrasePattern);
+  const tokenPatterns = tokens.map(token => {
+    const escaped = escapeRegExp(token);
+    if (token.length <= 2) {
+      return `\\b${escaped}`;
+    }
+    return escaped;
+  });
+  const uniqueTokens = Array.from(new Set(tokenPatterns)).filter(p => p !== phrasePattern && p !== `\\b${phrasePattern}`);
   
   const allPatterns = [phrasePattern, ...uniqueTokens];
   const regex = new RegExp(`(${allPatterns.join('|')})`, 'gi');
@@ -228,7 +234,13 @@ export const calculateMatchScore = (fieldValue: string, queryInfo: ReturnType<ty
   if (queryInfo.tokens.every(token => val.includes(token))) return 30;
 
   // 5. PARTIAL WORD MATCH (+10 per word)
-  const matchedTokens = queryInfo.tokens.filter(token => val.includes(token));
+  const matchedTokens = queryInfo.tokens.filter(token => {
+    if (token.length <= 2) {
+      // For very short tokens, require word boundary match (e.g. start of word)
+      return new RegExp(`\\b${token}`).test(val);
+    }
+    return val.includes(token);
+  });
   if (matchedTokens.length > 0) return 10 * matchedTokens.length;
 
   return 0;
@@ -250,7 +262,7 @@ const FIELD_WEIGHTS: Record<string, number> = {
 
 import axios from 'axios';
 
-export const performGlobalSearch = async (query: string): Promise<UnifiedSearchResult[]> => {
+export const performGlobalSearch = async (query: string, signal?: AbortSignal): Promise<UnifiedSearchResult[]> => {
   if (!query || query.trim().length < 2) return [];
 
   try {
@@ -262,8 +274,10 @@ export const performGlobalSearch = async (query: string): Promise<UnifiedSearchR
     const [backendRes] = await Promise.all([
       axios.get(`${API_BASE_URL}/api/search/global-search`, {
         params: { q: query, limit: 50 },
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        signal,
       }).catch((err) => {
+        if (axios.isCancel(err)) return { data: { results: {} } };
         console.error('Backend Search Failed:', err);
         return { data: { results: {} } };
       })
@@ -308,10 +322,10 @@ export const performGlobalSearch = async (query: string): Promise<UnifiedSearchR
       });
     };
 
-    if (backendData.projects) backendData.projects.forEach((p: any) => mapResult(p, 'Project', '/qc/projects', 'element-11'));
+    if (backendData.projects) backendData.projects.forEach((p: any) => mapResult(p, 'Project', '/projects', 'element-11'));
     if (backendData.leads) backendData.leads.forEach((l: any) => mapResult(l, 'Lead', '/employee/lead', 'graph-3'));
-    if (backendData.companies) backendData.companies.forEach((c: any) => mapResult(c, 'Company', '/qc/companies', 'briefcase'));
-    if (backendData.contacts) backendData.contacts.forEach((c: any) => mapResult(c, 'Contact', '/qc/contacts', 'profile-circle'));
+    if (backendData.companies) backendData.companies.forEach((c: any) => mapResult(c, 'Company', '/companies', 'briefcase'));
+    if (backendData.contacts) backendData.contacts.forEach((c: any) => mapResult(c, 'Contact', '/contacts', 'profile-circle'));
     if (backendData.employees) backendData.employees.forEach((e: any) => mapResult(e, 'Employee', '/employees', 'profile-user'));
     if (backendData.pages) backendData.pages.forEach((pg: any) => mapResult(pg, 'Navigation', '', 'explore'));
 

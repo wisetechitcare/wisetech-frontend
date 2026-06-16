@@ -5,6 +5,7 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { handleDatesChange } from "@utils/statistics";
 import InstallmentPayments from "./InstallmentPayments";
 import { fetchEmpMonthlyInstallmentsStatistics } from "@services/company";
+import DateSelector from "@components/DateSelector";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 
 const Installments: React.FC = () => {
@@ -47,34 +48,20 @@ const Installments: React.FC = () => {
                     </h2>
 
         {alignment === "monthly" && (
-          <div className="mb-2">
-            <button
-              className="btn btn-sm me-2 p-0"
-              onClick={() => {
-                const newMonth = month.subtract(1, "month");
-                handleDatesChange("decrement", "month", setMonth);
-                toggleItemsActions.monthly(newMonth);
-              }}
-            >
-              <img
-                src={toAbsoluteUrl("media/svg/misc/back.svg")}
-                alt="Previous"
-              />
-            </button>
-
-            <span className="mx-2 mt-3">{month.format("MMM, YYYY")}</span>
-
-            <button
-              className="btn btn-sm ms-2 p-0"
-              onClick={() => {
-                const newMonth = month.add(1, "month");
-                handleDatesChange("increment", "month", setMonth);
-                toggleItemsActions.monthly(newMonth);
-              }}
-            >
-              <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-            </button>
-          </div>
+          <DateSelector
+            onPrevious={() => {
+              const newMonth = month.subtract(1, "month");
+              handleDatesChange("decrement", "month", setMonth);
+              toggleItemsActions.monthly(newMonth);
+            }}
+            onNext={() => {
+              const newMonth = month.add(1, "month");
+              handleDatesChange("increment", "month", setMonth);
+              toggleItemsActions.monthly(newMonth);
+            }}
+            displayValue={month.format("MMM YYYY")}
+            className="mb-2"
+          />
         )}
       </div>
       <CommonCard>

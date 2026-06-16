@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
 import { Modal } from "react-bootstrap";
@@ -250,9 +250,53 @@ const GrossPayDistribution = () => {
   ];
 
   return (
-    <div className="mb-10 bg-white p-8" style={{ borderRadius: "15px" }}>
-      <div>
-        <h2>Gross Pay Distribution</h2>
+    <div className="mb-10 sc-container" style={{ padding: '28px', backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', gap: '12px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        marginBottom: '20px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '34px', height: '34px', borderRadius: '9px',
+            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          }}>
+            <i className="bi bi-cash-stack" style={{ fontSize: '15px', color: '#fff' }} />
+          </div>
+          <div>
+            <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+              Gross Pay Distribution
+            </h2>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+              Define how gross pay splits across salary components
+            </p>
+          </div>
+        </div>
+
+        {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              className="btn btn-sm d-flex align-items-center gap-2"
+              onClick={() => handleNew()}
+              style={{
+                backgroundColor: '#9d4141', color: '#fff', border: 'none',
+                borderRadius: '9px', padding: '9px 18px',
+                fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px',
+                boxShadow: '0 3px 10px rgba(157,65,65,0.2)', transition: 'all 0.15s ease',
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(157,65,65,0.28)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(157,65,65,0.2)'; }}
+            >
+              <i className="bi bi-plus-lg"></i> Add New Category
+            </button>
+          </div>
+        )}
       </div>
       <MaterialTable
         columns={columnsGrossPay}
@@ -282,31 +326,52 @@ const GrossPayDistribution = () => {
         tableName="Gross Pay Distribution"
       />
       {grossPayDataError && (
-        <p className="text-danger my-4">
-          Total value is more than 100% please verify and rebalance
-        </p>
+        <div style={{
+          backgroundColor: '#fff5f8',
+          border: '1px dashed #f1416c',
+          borderRadius: '8px',
+          padding: '16px',
+          marginTop: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <i className="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
+          <p className="text-danger mb-0 fw-bold" style={{ fontFamily: 'Inter, sans-serif' }}>
+            Total value is more than 100% please verify and rebalance
+          </p>
+        </div>
       )}
-      {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && <div
-        className="py-1 rounded-3 my-4 d-flex justify-content-end align-items-start"
-        style={{ paddingRight: "1.25rem" }}
-      > 
-        <button
-          className="d-flex justify-content-between align-items-start bg-primary  btn btn-lg btn-primary fs-5 w-auto"
-          onClick={() => handleNew()}
-        >
-          Add New
-        </button>
-      </div>}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            {editMode
-              ? "Edit Gross Pay Distribution Category"
-              : "New Gross Pay Distribution Category"}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+        <Modal.Body className="sc-modal-body" style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '28px 32px',
+        }}>
+          <div className="d-flex justify-content-between align-items-center mb-5">
+            <div style={{
+              fontFamily: 'Barlow, sans-serif',
+              fontWeight: 700,
+              fontSize: '22px',
+              color: '#181C32',
+              letterSpacing: '-0.5px',
+            }}>
+              {editMode ? "Edit Distribution Category" : "New Distribution Category"}
+            </div>
+            <button 
+              onClick={handleClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                color: '#A1A5B7',
+                cursor: 'pointer'
+              }}
+            >
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
           <Formik
             initialValues={initialState}
             onSubmit={handleSubmit}
@@ -317,29 +382,29 @@ const GrossPayDistribution = () => {
                 className="d-flex flex-column"
                 noValidate
                 id="gross_pay_distribution_form"
-                placeholder={undefined}
+               
               >
-                <div className="row">
-                  <div className="col-lg-6">
+                <div className="row g-3">
+                  <div className="col-12 col-sm-6">
                     <TextInput
                       isRequired={true}
                       label="Enter Name"
-                      margin="mb-7"
+                      margin="mb-3"
                       formikField="name"
                       readonly={isBasicSalaryRow}
                     />
                   </div>
 
-                  <div className="col-lg-6">
+                  <div className="col-12 col-sm-6">
                     <TextInput
                       isRequired={true}
                       label="Enter value"
-                      margin="mb-7"
+                      margin="mb-3"
                       formikField="value"
                     />
                   </div>
 
-                  <div className="col-lg-12">
+                  <div className="col-12">
                     <DropDownInput
                       isRequired={true}
                       formikField="type"
@@ -348,21 +413,55 @@ const GrossPayDistribution = () => {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-4">
+                <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E1E3EA',
+                      borderRadius: '8px',
+                      color: '#3F4254',
+                      height: '44px',
+                      padding: '0 24px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: 'pointer',
+                      marginRight: '12px',
+                    }}
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
-                    className="btn btn-primary"
                     disabled={loading || !formikProps.isValid}
+                    style={{
+                      backgroundColor: '#9d4141',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      height: '44px',
+                      padding: '0 28px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '15px',
+                      cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
+                      opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
+                      boxShadow: '0 4px 12px rgba(157, 65, 65, 0.2)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseOver={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseOut={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
-                    {!loading && "Submit"}
+                    {!loading && "Save Category"}
                     {loading && (
-                      <span
-                        className="indicator-progress"
-                        style={{ display: "block" }}
-                      >
-                        Please wait...{" "}
-                        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                      </span>
+                      <>
+                        Saving... <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
+                      </>
                     )}
                   </button>
                 </div>

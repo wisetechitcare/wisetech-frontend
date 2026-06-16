@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { MRT_ColumnDef } from "material-react-table";
@@ -13,6 +14,7 @@ import {
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { usePermission } from "@hooks/usePermission";
 import { KTIcon } from "@metronic/helpers";
 import {
   errorConfirmation,
@@ -56,9 +58,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
   const dispatch = useDispatch();
 
   // Redux selectors
-  const isAdmin = useSelector(
-    (state: RootState) => state.auth.currentUser.isAdmin
-  );
+  const isAdmin = usePermission('settings.manage.all');
 
   const employeeIdCurrent = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
 
@@ -119,7 +119,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
       const {
         data: { companyOverview },
       } = await fetchCompanyOverview();
-      const companyId = companyOverview[0]?.id;
+      const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
       if (!companyId) {
         throw new Error("Company ID not found");
@@ -222,7 +222,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
       } = await fetchCompanyOverview();
       const {
         data: { holidays },
-      } = await fetchHolidays(companyOverview[0].id);
+      } = await fetchHolidays((resolveActiveOrgId(companyOverview) ?? ''));
       const transformedRes = holidays.map((holiday: RawHolidayData) => ({
         label: holiday.name,
         value: holiday.id,

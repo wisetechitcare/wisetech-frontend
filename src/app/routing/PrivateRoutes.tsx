@@ -7,84 +7,84 @@ import { MenuTestPage } from '../pages/MenuTestPage'
 import { getCSSVariableValue } from '../../_metronic/assets/ts/_utils'
 import { WithChildren } from '../../_metronic/helpers'
 import BuilderPageWrapper from '../pages/layout-builder/BuilderPageWrapper'
-import PublicHoliday from '@pages/company/PublicHoliday'
-import CustomCalendar from '@pages/employee/CustomCalendar'
-import Overview from '@pages/company/Overview'
-import NewEmployeeWizard from '@pages/employee/wizard/NewEmployeeWizard'
-import Branches from '@pages/company/Branches'
-import Departments from '@pages/company/Departments'
-import Document from '@pages/employee/Document'
-import OrganisationProfileForm from '@pages/company/organisation/OrganisationProfileForm'
-import Branding from '@pages/company/organisation/Branding'
-import Designations from '@pages/company/Designation'
-import OnBoardingDocs from '@pages/company/OnboardingDocs'
-import PersonalAttendanceView from '@pages/employee/PersonalAttendanceView'
-import EmployeesAttendanceView from '@pages/employee/EmployeesAttendanceView'
-import AdminAndEmployeeReimbursementViewer from '@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'
-import Salary from '@pages/employee/salary/Salary'
-import Media from '@pages/company/Media'
-import EmployeeDocumentTable from '@app/modules/accounts/components/documents/EmployeeDocumentTable'
-import Settings from '@pages/company/Settings'
-import Calendar from '@pages/employee/calendar/Calendar'
-import Announcements from '@pages/company/announcement/Announcements'
-import Notifications from "@pages/employee/notifications/Notifications"
 import { hasPermission } from '@utils/authAbac'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics'
 import { RootState, store } from '@redux/store'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
-import PersonalLoan from '@pages/employee/loans/personal/PersonalLoanMain'
-import PersonalLoanMain from '@pages/employee/loans/personal/PersonalLoanMain'
-import LoanDetails from '@pages/employee/loans/personal/views/LoanDetails'
-import EmployeesLoanMain from '@pages/employee/loans/admin/EmployeesLoanMain'
-import PersonalKpiMain from '@pages/employee/kpis/personal/PersonalKpiMain'
-import { useSelector } from 'react-redux'
-import EmployeeTypes from '@pages/company/masters/EmployeeTypes'
-import Masters from '@pages/company/masters/Masters'
-import LeadsMain from '@pages/employee/leads/LeadsMain'
-import ProjectsMain from '@pages/employee/projects/ProjectsMain'
-import CompaniesMain from '@pages/employee/companies/CompaniesMain'
-import AllCompaniesToggle from '@pages/employee/companies/companies/components/AllCompaniesToggle'
-import AllProjectMainToggle from '@pages/employee/projects/project/components/AllProjectMainToggle'
-import ShowEmployeeDetailsById from '@pages/employee/ShowEmployeeDetailsById'
-import LeadDetails from '@pages/employee/leads/lead/LeadDetails'
-import OrganisationProfileMain from '@pages/company/organisation/OrganisationProfileMain'
-import ContactMainToggle from '@pages/employee/companies/contacts/components/ContactMainToggle'
-import TasksMain from '@pages/employee/tasks/TasksMain'
-import MyTimeSheetMain from '@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'
-import EmployeeTimeSheetMain from '@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'
+import { fetchAuthzCapabilities } from '@redux/slices/authz'
 import { fetchCurrentEmployeeByEmpId } from '@services/employee'
-import TimeSheetByIdOverview from '@pages/employee/timesheet/mytimesheet/component/TimeSheetByIdOverview'
-import ShowEmployeeDetailsToggle from '@pages/employee/ShowEmployeeDetailsToggle'
-import TaskDetails from '@pages/employee/tasks/tasks/components/TaskDetails'
-import TasksMainCalenderPage from '@pages/employee/tasks/calender/TasksMainCalenderPage'
-import EmployeeTeamLevelMain from '@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'
-import ClientContactsMain from '@pages/employee/companies/contacts/ClientContactsMain'
-import ContactsNavbar from '@pages/employee/companies/contacts/contactsNavbar'
-import OrganisationInfoProfileMain from '@pages/company/organisationInfo/OrganisationInfoProfileMain'
-import SearchResultsPage from '@pages/employee/search/SearchResultsPage'
-import ProposalConfigurationPage from '@pages/employee/leads/lead/components/ProposalConfigurationPage'
-import TemplateDocumentationBuilderPage from '@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'
+import { useSelector } from 'react-redux'
+import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 
+const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
+const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
+const Overview = lazy(() => import('@pages/company/Overview'))
+const NewEmployeeWizard = lazy(() => import('@pages/employee/wizard/NewEmployeeWizard'))
+const Branches = lazy(() => import('@pages/company/Branches'))
+const Departments = lazy(() => import('@pages/company/Departments'))
+const Document = lazy(() => import('@pages/employee/Document'))
+const Branding = lazy(() => import('@pages/company/organisation/Branding'))
+const Designations = lazy(() => import('@pages/company/Designation'))
+const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
+const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
+const EmployeesAttendanceView = lazy(() => import('@pages/employee/EmployeesAttendanceView'))
+const AdminAndEmployeeReimbursementViewer = lazy(() => import('@pages/employee/reimbursement/AdminAndEmployeeReimbursementViewer'))
+const Salary = lazy(() => import('@pages/employee/salary/Salary'))
+const Increment = lazy(() => import('@pages/employee/increment/Increment'))
+const Media = lazy(() => import('@pages/company/Media'))
+const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
+const Settings = lazy(() => import('@pages/company/Settings'))
+const Calendar = lazy(() => import('@pages/employee/calendar/Calendar'))
+const Announcements = lazy(() => import('@pages/company/announcement/Announcements'))
+const Notifications = lazy(() => import('@pages/employee/notifications/Notifications'))
+const PersonalLoanMain = lazy(() => import('@pages/employee/loans/personal/PersonalLoanMain'))
+const LoanDetails = lazy(() => import('@pages/employee/loans/personal/views/LoanDetails'))
+const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/EmployeesLoanMain'))
+const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
+const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
+const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
+const CompaniesMain = lazy(() => import('@pages/employee/companies/CompaniesMain'))
+const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companies/components/AllCompaniesToggle'))
+const AllProjectMainToggle = lazy(() => import('@pages/employee/projects/project/components/AllProjectMainToggle'))
+const LeadDetails = lazy(() => import('@pages/employee/leads/lead/LeadDetails'))
+const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
+const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
+const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
+const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
+const MyTimeSheetMain = lazy(() => import('@pages/employee/timesheet/mytimesheet/MyTimeSheetMain'))
+const EmployeeTimeSheetMain = lazy(() => import('@pages/employee/timesheet/employeetimesheet/EmployeeTimeSheetMain'))
+const TimeSheetByIdOverview = lazy(() => import('@pages/employee/timesheet/mytimesheet/component/TimeSheetByIdOverview'))
+const ShowEmployeeDetailsToggle = lazy(() => import('@pages/employee/ShowEmployeeDetailsToggle'))
+const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/TaskDetails'))
+const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
+const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
+const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
+const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
+const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
+const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
+const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
+const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
+const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
+const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
+const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
+const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
+const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
+const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
+const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
+const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
+const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
+const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
 const PrivateRoutes = () => {
-  const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
-  const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
-  const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
-  const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
-  const ChatPage = lazy(() => import('../modules/apps/chat/ChatPage'))
-  const UsersPage = lazy(() => import('../modules/apps/user-management/UsersPage'))
-  const EmployeesList = lazy(() => import('@pages/employee/EmployeesList'))
-  const Reimbursement = lazy(() => import('@pages/employee/reimbursement/Reimbursement'))
-  const PayrollLedger = lazy(() => import('../../modules/payroll/pages/PayrollLedger'))
-  const PayrollDetails = lazy(() => import('../../modules/payroll/pages/PayrollDetails'))
   const [isStored, setIsStored] = useState(false)
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser?.isAdmin)
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
   const [showAppSettings, setShowAppSettings] = useState(false);
   useEffect(() => {
     async function fetchAndStore() {
-      store.dispatch(fetchRolesAndPermissions()).then(() => setIsStored(true))
+      await store.dispatch(fetchRolesAndPermissions());
+      await store.dispatch(fetchAuthzCapabilities());
+      setIsStored(true);
     }
     fetchAndStore()
   }, [])
@@ -109,6 +109,30 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
+          <Route index element={<Navigate to='/my-team/overview' replace />} />
+          <Route path='overview' element={<MyTeamOverview />} />
+          <Route path='members' element={<Navigate to='/employees' replace />} />
+          <Route path='attendance' element={<Navigate to='/my-team/overview' replace />} />
+          <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
+          <Route path='conveyance' element={<Navigate to='/finance/bills' replace />} />
+          <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
+          <Route path='tasks' element={<Navigate to='/tasks/employee-level-teams' replace />} />
+          <Route path='projects' element={<Navigate to='/qc/projects' replace />} />
+          <Route path='leads' element={<Navigate to='/qc/leads' replace />} />
+          <Route path='approvals' element={<MyTeamApprovals />} />
+          <Route path='delegations' element={<MyTeamDelegations />} />
+        </Route>}
+
+        {NEW_MY_TEAM_IA && <Route path='approvals/inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='approvals/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='approvals/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/my-team/*' element={<Navigate to='/my-team/overview' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/approval-inbox/*' element={<Navigate to='/my-team/approvals' replace />} />}
+        {NEW_MY_TEAM_IA && <Route path='attendance-leaves/delegations/*' element={<Navigate to='/my-team/delegations' replace />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
+        {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
         <Route path='builder' element={<BuilderPageWrapper />} />
         <Route path='menu-test' element={<MenuTestPage />} />
         <Route
@@ -158,20 +182,13 @@ const PrivateRoutes = () => {
               <Salary />
             </SuspensedView>}
         />}
-        <Route
-          path='/payroll/ledger'
+        {hasPermission(uiControlResourceNameMapWithCamelCase.incrementUnderFinance, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/finance/increment'
           element={
             <SuspensedView>
-              <PayrollLedger />
+              <Increment />
             </SuspensedView>}
-        />
-        <Route
-          path='/payroll/ledger/:id'
-          element={
-            <SuspensedView>
-              <PayrollDetails />
-            </SuspensedView>}
-        />
+        />}
         <Route
           path='/finance/loans'
           element={
@@ -314,6 +331,13 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <OrganisationProfileMain />
+            </SuspensedView>}
+        />}
+        {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route
+          path='/company/organisation-profile/:orgId'
+          element={
+            <SuspensedView>
+              <OrganizationProfilePage />
             </SuspensedView>}
         />}
         {hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) && <Route

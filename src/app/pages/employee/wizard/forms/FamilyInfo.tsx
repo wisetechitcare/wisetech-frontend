@@ -1,7 +1,8 @@
+import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 
-function FamilyInfo({ index, formikProps }: any) {
+function FamilyInfo({ index, formikProps, canRemove, onRemove }: any) {
   const element = `familyInfo[${index}]`;
 
   return (
@@ -20,9 +21,18 @@ function FamilyInfo({ index, formikProps }: any) {
         >
           Relative {index + 1}
         </p>
-        <div style={{ width: "20px", height: "20px", cursor: "pointer" }}>
-          {/* Add delete icon here if needed */}
-        </div>
+        {canRemove ? (
+          <button
+            type="button"
+            className="btn btn-sm btn-icon btn-light-danger"
+            aria-label={`Remove relative ${index + 1}`}
+            onClick={onRemove}
+          >
+            X
+          </button>
+        ) : (
+          <div style={{ width: "20px", height: "20px" }} />
+        )}
       </div>
 
       <div className="d-flex flex-column gap-4">
@@ -50,11 +60,12 @@ function FamilyInfo({ index, formikProps }: any) {
         {/* Row 2: Phone, Date of Birth */}
         <div className="row g-3">
           <div className="col-lg-6 col-md-6 col-sm-12">
-            <TextInput
-              isRequired={false}
+            <PhoneNumberInput
               label="Phone"
-              margin="mb-0"
+              isRequired={false}
               formikField={`${element}.mobileNumber`}
+              formikProps={formikProps}
+              placeholder="Phone number"
             />
           </div>
 

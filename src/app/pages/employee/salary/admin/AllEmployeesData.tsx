@@ -1,6 +1,6 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -8,10 +8,10 @@ import { fetchAllEmployees, fetchEmpAttendanceStatistics } from "@services/emplo
 import { fetchCompanyOverview } from "@services/company";
 import { fetchAllEmployeeTotalSalaryOfYear, fetchAllEmployeeMonthlySalary } from "@services/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
+import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { PageTitle } from "@metronic/layout/core";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
-import { toAbsoluteUrl } from "@metronic/helpers";
 import { KTIcon } from "@metronic/helpers";
 import ReactApexChart from "react-apexcharts";
 import { MONTH } from '@constants/statistics';
@@ -23,6 +23,7 @@ import { saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from '@red
 import { fetchAllPublicHolidays } from '@services/company';
 import { customLeaves, filterLeavesPublicHolidays, formatNumber } from "@utils/statistics";
 import { Card, Container } from "react-bootstrap";
+import SalaryPeriodToolbar from "../components/SalaryPeriodToolbar";
 
 // Breadcrumbs
 const employeesBreadCrumb = [
@@ -56,6 +57,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
   const [totalNetPayable, setTotalNetPayable] = useState(0);
   const [totalTdsPayable, setTotalTdsPayable] = useState(0);
   const [totalTdsPaid, setTotalTdsPaid] = useState(0);
+  const [hasProfessionalFeesData, setHasProfessionalFeesData] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -156,6 +158,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         let salaryPaidSum = 0;
         let tdsPayableSum = 0;
         let tdsPaidSum = 0;
+        let hasProfessionalFees = false;
     
         if (salaryResponse.data && Array.isArray(salaryResponse.data)) {
           salaryResponse.data.forEach((item: any) => {
@@ -188,8 +191,11 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
               breakdown = null;
             }
 
-            const profFees = Number(breakdown?.deductionBreakdown?.fixed?.['Professional Fees']?.earned || 
-                                   breakdown?.deductionBreakdown?.fixed?.['Professional Fees'] || 0);
+            const professionalFeesItem = breakdown?.deductionBreakdown?.fixed?.['Professional Fees'];
+            const profFees = Number(professionalFeesItem?.earned ?? professionalFeesItem?.value ?? professionalFeesItem ?? 0);
+            if (professionalFeesItem?.isActive !== false && profFees > 0) {
+              hasProfessionalFees = true;
+            }
             tdsPayableSum += profFees;
           });
         }
@@ -198,6 +204,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         setTotalNetPayable(netPayableSum);
         setTotalTdsPayable(tdsPayableSum);
         setTotalTdsPaid(tdsPaidSum);
+        setHasProfessionalFeesData(hasProfessionalFees);
 
         // Fetch Employees
         const response = await fetchAllEmployees();
@@ -372,12 +379,12 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
       
       // Fetch additional employee data (leaves, holidays)
       const { data: { companyOverview } } = await fetchCompanyOverview();
-      if (!companyOverview || !companyOverview[0]?.id) {
+      if (!companyOverview || !(resolveActiveOrgId(companyOverview) ?? '')) {
         throw new Error("Company overview data not available");
       }
       
       const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
-      const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', companyOverview[0].id);
+      const { data: { publicHolidays } } = await fetchAllPublicHolidays('India', (resolveActiveOrgId(companyOverview) ?? ''));
       
       const totalLeaves = await customLeaves(leaves);
       // const filteredLeaves = filterLeavesPublicHolidays(dateRanges.startDate, dateRanges.endDate);
@@ -404,29 +411,34 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
 
   // Memoized table columns to prevent unnecessary re-renders
   const columns = useMemo(() => [
-    { accessorKey: "users", header: "Name", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A" },
+    { accessorKey: "users", header: "Name", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A", Footer: "Total" },
     { accessorKey: "designations", header: "Designation", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A" },
     { accessorKey: "departments", header: "Department", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A" },
-    { accessorKey: "amountPaid", header: "Total Salary", Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue || 0)},
-    { 
-      accessorKey: "details", 
-      header: "Details", 
+    {
+      accessorKey: "amountPaid",
+      header: "Total Salary",
+      Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue || 0),
+      Footer: () => formatNumber(totalAmountPaid)
+    },
+    {
+      accessorKey: "details",
+      header: "Details",
       Cell: ({row}: any) => (
-        <button 
-          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' 
+        <button
+          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
           onClick={() => handleShowDetails(row.original.id)}
           disabled={isLoading}
         >
           <KTIcon iconName='eye' className='fs-3' />
         </button>
       )
-    }, 
+    },
     ...(isAdmin ? [{
       accessorKey: "actions",
       header: "Actions",
       Cell: ({ row }: any) => (
-        <button 
-          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' 
+        <button
+          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
           onClick={() => handleEditClick(row.original.id)}
           disabled={isLoading}
         >
@@ -434,7 +446,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         </button>
       ),
     }] : []),
-  ], [handleEditClick, handleShowDetails, isAdmin, isLoading]);
+  ], [handleEditClick, handleShowDetails, isAdmin, isLoading, totalAmountPaid]);
 
 
 
@@ -507,80 +519,19 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
       <h3 className="fw-bold fs-1 mb-5 font-barlow">Employees List</h3>
 
       {/* Toggle and Date Selection */}
-      <div className="d-flex flex-md-row justify-content-lg-between flex-column align-items-lg-center mb-8 gap-5 gap-lg-0">
-        <ToggleButtonGroup 
-          value={alignment} 
-          exclusive 
-          onChange={handleToggleChange} 
-          aria-label="View Selection"
-          sx={{
-            '& .MuiToggleButton-root': { 
-              borderRadius: '20px', 
-              borderColor: '#B0BEC5 !important', 
-              color: '#000 !important', 
-              // margin: '0 8px', 
-              padding: '6px 16px', 
-              borderWidth: '2px', 
-              fontWeight: '600', 
-              marginRight:"10px"
-              
-            },
-            '& .Mui-selected': { 
-              borderColor: '#9D4141 !important', 
-              color: '#9D4141 !important' 
-            },
-            '& .MuiToggleButton-root:hover': { 
-              borderColor: '#9D4141 !important', 
-              color: '#9D4141 !important' 
-            },
-          }}
-        >
-          <ToggleButton value="monthly">Monthly</ToggleButton>
-          <ToggleButton value="yearly">Yearly</ToggleButton>
-        </ToggleButtonGroup>
-    
-        {/* Month Selector */}
-        {alignment === 'monthly' && (
-          <div className="d-flex align-items-center">
-            <button 
-              className="btn btn-sm p-0" 
-              onClick={handlePrevMonth}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous Month" />
-            </button>
-            <span className="mx-2 my-5">{month.format('MMM, YYYY')}</span>
-            <button 
-              className="btn btn-sm p-0" 
-              onClick={handleNextMonth}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next Month" />
-            </button>
-          </div>
-        )}
-
-        {/* Yearly Selector */}
-        {alignment === 'yearly' && (
-          <div className="d-flex align-items-center">
-            <button 
-              className="btn btn-sm p-0" 
-              onClick={handlePrevYear}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/back.svg')} alt="Previous Year" />
-            </button>
-            <span className="mx-2 my-5">{fiscalYear}</span>
-            <button 
-              className="btn btn-sm p-0" 
-              onClick={handleNextYear}
-              disabled={isLoading}
-            >
-              <img src={toAbsoluteUrl('media/svg/misc/next.svg')} alt="Next Year" />
-            </button>
-          </div>
-        )}
-      </div>
+      <SalaryPeriodToolbar
+        alignment={alignment}
+        options={[
+          { label: 'Monthly', value: 'monthly' },
+          { label: 'Yearly', value: 'yearly' },
+        ]}
+        onAlignmentChange={(value) => setAlignment(value as "monthly" | "yearly")}
+        periodLabel={alignment === 'monthly' ? month.format('MMM YYYY') : formatFiscalYearLabel(fiscalYear)}
+        onPrevious={alignment === 'monthly' ? handlePrevMonth : handlePrevYear}
+        onNext={alignment === 'monthly' ? handleNextMonth : handleNextYear}
+        disablePrevious={isLoading}
+        disableNext={isLoading}
+      />
 
       {/* Summary Cards */}
       <div className="row g-5 mb-8">
@@ -629,42 +580,46 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
           </Card>
         </div>
 
-        {/* TDS / Professional Fees Section */}
-        <div className="col-xl-6 col-md-6">
-          <Card className="shadow-sm border-0" style={{ backgroundColor: '#f8f9fa', borderLeft: '5px solid #007bff' }}>
-            <div className="card-body p-5">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">TDS Payable (Professional Fees)</h5>
-                  <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPayable)}</span>
-                </div>
-                <div className="symbol symbol-50px">
-                  <div className="symbol-label bg-light-primary">
-                    <KTIcon iconName="percentage" className="fs-1 text-primary" />
+        {hasProfessionalFeesData && (
+          <>
+            {/* Professional Fees Section */}
+            <div className="col-xl-6 col-md-6">
+              <Card className="shadow-sm border-0" style={{ backgroundColor: '#f8f9fa', borderLeft: '5px solid #007bff' }}>
+                <div className="card-body p-5">
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div>
+                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Tax Deducted at Source (TDS) Payable</h5>
+                      <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPayable)}</span>
+                    </div>
+                    <div className="symbol symbol-50px">
+                      <div className="symbol-label bg-light-primary">
+                        <KTIcon iconName="percentage" className="fs-1 text-primary" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
-          </Card>
-        </div>
 
-        <div className="col-xl-6 col-md-6">
-          <Card className="shadow-sm border-0" style={{ backgroundColor: '#f8f9fa', borderLeft: '5px solid #28a745' }}>
-            <div className="card-body p-5">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">TDS Paid</h5>
-                  <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPaid)}</span>
-                </div>
-                <div className="symbol symbol-50px">
-                  <div className="symbol-label bg-light-success">
-                    <KTIcon iconName="check-circle" className="fs-1 text-success" />
+            <div className="col-xl-6 col-md-6">
+              <Card className="shadow-sm border-0" style={{ backgroundColor: '#f8f9fa', borderLeft: '5px solid #28a745' }}>
+                <div className="card-body p-5">
+                  <div className="d-flex align-items-center justify-content-between">
+                    <div>
+                      <h5 className="text-muted mb-1 fs-7 fw-bold text-uppercase">Tax Deducted at Source (TDS) Paid</h5>
+                      <span className="fs-1 fw-bold text-dark">{formatNumber(totalTdsPaid)}</span>
+                    </div>
+                    <div className="symbol symbol-50px">
+                      <div className="symbol-label bg-light-success">
+                        <KTIcon iconName="check-circle" className="fs-1 text-success" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
-          </Card>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Error Display */}
@@ -677,11 +632,12 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
       <PageHeadingTitle />
       
       
-        <MaterialTable 
-          columns={columns} 
-          data={employees} 
+        <MaterialTable
+          columns={columns}
+          data={employees}
           employeeId={employeeIdCurrent}
-          tableName="Employees" 
+          tableName="Employees"
+          showColumnFooter={true}
         />
 
       {/* ApexChart for Yearly and Monthly View */}

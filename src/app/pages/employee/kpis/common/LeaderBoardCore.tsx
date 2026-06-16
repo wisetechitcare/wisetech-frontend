@@ -19,7 +19,7 @@ import { formatHours } from "./kpiUtils";
 import CommonCard from "@app/modules/common/components/CommonCard";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
-import { getKpiBehavior, getKpiColorState, KpiBehavior } from "@utils/kpiBehavior";
+import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
 import Skeleton from "@components/loaders/Skeleton";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
@@ -124,6 +124,36 @@ const safeNumber = (value: any): number => {
 
 const safeString = (value: any): string =>
   typeof value === "string" ? value : String(value ?? "");
+
+// ==============================
+// FACTOR COLOR RULE â€” single source of truth for the leaderboard.
+// Driven by the factor's BEHAVIOR (getKpiBehavior), so each kind colors right:
+//   â€¢ MANDATORY  (Working Days, Total Working Hour, On Time Attendance)
+//                  â†’ green when the target is met/exceeded (score â‰¥ maxScore).
+//   â€¢ ACHIEVEMENT (Early CheckIn, Overtime, Extra Days)
+//                  â†’ green if ANY value was earned (score > 0), else red.
+//   â€¢ NEGATIVE / LEAVE (Late, Absent, Request, paid & unpaid leaves)
+//                  â†’ green only at 0 (no violation), else red.
+// `displayScore` must already be sign-normalized. The score NUMBER reuses this
+// same state, so a red row always has a red number.
+// ==============================
+const resolveFactorColorState = (
+  displayScore: number,
+  maxScore: number | null,
+  factorType?: string,
+  factorName?: string
+): "success" | "danger" => {
+  const behavior = getKpiBehavior(factorName ?? "", factorType);
+  const ms = safeNumber(maxScore);
+  switch (behavior) {
+    case KpiBehavior.NEGATIVE:
+      return Math.abs(displayScore) < 0.005 ? "success" : "danger";
+    case KpiBehavior.MANDATORY:
+      return ms > 0 && displayScore >= ms - 0.005 ? "success" : "danger";
+    default: // ACHIEVEMENT â€” any earned value is green
+      return Math.abs(displayScore) > 0.005 ? "success" : "danger";
+  }
+};
 
 // ==============================
 // IS-COMPLETED HELPER
@@ -327,12 +357,17 @@ const ScoreDisplay = React.memo(
   }) => {
     const scoreVal = safeNumber(score);
     const ms = safeNumber(maxScore);
+    // Re-sign by live factor type for display/color (positive never shows "-").
+    // Overall/module previews pass no factorType and keep their raw total.
+    const displayScoreVal = factorType ? normalizeScoreSign(scoreVal, factorType) : scoreVal;
 
-    // Resolve color state if not overridden
+    // Resolve color state if not overridden. Uses the same factor rule as the
+    // modal rows so the inline preview and "View All" never disagree.
     let resolvedColor = customScoreColor;
     if (!resolvedColor) {
-      const behavior = getKpiBehavior(factorName || "Overall", factorType);
-      const state = getKpiColorState(scoreVal, ms, behavior);
+      const state = factorType
+        ? resolveFactorColorState(displayScoreVal, ms, factorType, factorName)
+        : "success";
       resolvedColor = STATE[state].text;
     }
 
@@ -352,7 +387,7 @@ const ScoreDisplay = React.memo(
         )}
         <span style={{ fontSize: isModule ? "14px" : "13px", fontWeight: "bold", color }}>
           {isModule ? "" : "Score: "}
-          {scoreVal.toFixed(2)}
+          {displayScoreVal.toFixed(2)}
         </span>
       </div>
     );
@@ -482,11 +517,20 @@ const RankingRow = React.memo(({ data }: { data: RankingRowData }) => {
     factorType,
   } = data;
 
-  // PERFORMANCE COLOR LOGIC: Success (Green) if >= 50% of maxScore, Danger (Red) otherwise.
-  // This is a presentation-only status interpretation.
+  // â”€â”€ PERFORMANCE COLOR LOGIC (behavior-driven; see resolveFactorColorState) â”€â”€
+  // Re-sign the score for display so a positive factor never shows "-" (and a
+  // negative/leave factor always shows a penalty). Overall (Top Performers) rows
+  // have no factor type and keep their raw total, which can legitimately be
+  // negative; they retain the "â‰¥ 50% of total" interpretation.
   const ms = safeNumber(maxScore);
-  const minQualifying = ms * 0.5;
-  const colorState = score >= minQualifying ? "success" : "danger";
+  const displayScore = factorType ? normalizeScoreSign(score, factorType) : score;
+  const colorState: "success" | "danger" = factorType
+    ? resolveFactorColorState(displayScore, maxScore, factorType, factorName)
+    : ms > 0
+      ? displayScore >= ms * 0.5
+        ? "success"
+        : "danger"
+      : "success";
   const theme = STATE[colorState];
 
   const medal = MEDAL[rank] ?? null;
@@ -605,7 +649,7 @@ const RankingRow = React.memo(({ data }: { data: RankingRowData }) => {
         }}
       >
         <div style={{ fontSize: "17px", fontWeight: 800, color: theme.text, lineHeight: 1.1 }}>
-          {score.toFixed(2)}
+          {displayScore.toFixed(2)}
         </div>
         <div
           style={{
@@ -669,7 +713,10 @@ const FactorLeaderboardCard = React.memo(
   }) => {
     if (!loading && (!rankings || rankings.length === 0)) return null;
 
-    const isNegative = factor.type === "NEGATIVE";
+    const factorType = (factor.type as string)?.toUpperCase();
+    // Theme follows the live config type only: NEGATIVE/LEAVE use the red theme,
+    // POSITIVE uses green. No name-based overrides.
+    const isNegative = factorType === "NEGATIVE" || factorType === "LEAVE";
     const theme = isNegative ? COLORS.negative : COLORS.positive;
     const valueLabel = getMetricLabel(factor);
 
@@ -754,6 +801,7 @@ function LeaderBoardCore({
   const reduxModCache    = useSelector((state: RootState) => state.leaderboardCache.moduleChampions);
   const reduxFactorCache = useSelector((state: RootState) => state.leaderboardCache.factorRankings);
   const reduxKpiFactors  = useSelector((state: RootState) => state.leaderboardCache.kpiFactors);
+  const reduxKpiFactorsToggle = useSelector((state: RootState) => state.leaderboardCache.kpiFactorsToggle);
 
   const [showFactorModal, setShowFactorModal] = useState(false);
   const [selectedFactor, setSelectedFactor] = useState<any>(null);
@@ -832,23 +880,26 @@ function LeaderBoardCore({
     []
   );
 
-  // â”€â”€ 1. KPI Factors (cached indefinitely in Redux) â”€â”€
-  // Reads Redux on mount; skips the API entirely on second+ component mounts.
+  // â”€â”€ 1. KPI Factors (cached in Redux per toggle generation) â”€â”€
+  // Hydrates from Redux when the cached factors belong to the CURRENT toggle
+  // generation. When an admin edits KPI config (KpiSettings), toggleChange is
+  // bumped â€” the cached toggle no longer matches, so we refetch the definitions
+  // and type / weightage / active changes reflect instantly without a reload.
   useEffect(() => {
-    if (reduxKpiFactors) {
-      // Redux hit â€” hydrate local state instantly, no network request
+    if (reduxKpiFactors && reduxKpiFactorsToggle === toggleChange) {
+      // Redux hit for this toggle generation â€” hydrate instantly, no request
       setAllKPIFactors(reduxKpiFactors);
       return;
     }
     getAllKpiFactors()
       .then((res) => {
         const factors = res?.data?.factors || [];
-        dispatch(cacheKpiFactors(factors)); // persist to Redux for future mounts
+        dispatch(cacheKpiFactors({ factors, toggle: toggleChange })); // persist for this generation
         setAllKPIFactors(factors);
       })
       .catch((e) => console.error("KPI Factors fetch failed:", e));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount; reduxKpiFactors is read from closure, not as a dep
+  }, [toggleChange]); // refetch when admin edits bump the toggle; redux read from closure
 
   // â”€â”€ 2. Leaderboard (top 5 + full list) â”€â”€
   useEffect(() => {
@@ -1305,16 +1356,11 @@ function LeaderBoardCore({
               </Modal.Title>
               <span className="text-muted fs-7 fw-bold">Rankings for current period</span>
             </div>
-            {overallRankingRows.length > 0 && (
+            {overallRankingRows.length > 0 && Number(overallRankingRows[0].maxScore) > 0 && (
               <div className="d-flex gap-4">
                 <div className="bg-light-success rounded-pill px-5 py-2 border border-success border-dashed">
                   <span className="text-success fw-bolder fs-7">
                     Max Score: {overallRankingRows[0].maxScore}
-                  </span>
-                </div>
-                <div className="bg-light-danger rounded-pill px-5 py-2 border border-danger border-dashed">
-                  <span className="text-danger fw-bolder fs-7">
-                    Min. Qualifying: {Number(overallRankingRows[0].maxScore || 0) * 0.5}
                   </span>
                 </div>
               </div>
@@ -1357,10 +1403,11 @@ function LeaderBoardCore({
                       width: "10px",
                       height: "10px",
                       borderRadius: "50%",
-                      backgroundColor:
-                        (selectedFactor.type as string)?.toUpperCase() === "NEGATIVE"
-                          ? COLORS.negative.accent
-                          : COLORS.positive.accent,
+                      backgroundColor: ["NEGATIVE", "LEAVE"].includes(
+                        (selectedFactor.type as string)?.toUpperCase()
+                      )
+                        ? COLORS.negative.accent
+                        : COLORS.positive.accent,
                       flexShrink: 0,
                     }}
                   />
@@ -1371,16 +1418,13 @@ function LeaderBoardCore({
               </div>
               <span className="text-muted fs-7 fw-bold ps-5">Factor specific results</span>
             </div>
-            {factorRankingRows.length > 0 && factorRankingRows[0].maxScore && (
+            {/* Use a boolean guard (not the raw maxScore) so a 0/empty maxScore
+                never leaks a stray "0" into the header via `0 && â€¦`. */}
+            {factorRankingRows.length > 0 && Number(factorRankingRows[0].maxScore) > 0 && (
               <div className="d-flex gap-4">
                 <div className="bg-light-success rounded-pill px-5 py-2 border border-success border-dashed">
                   <span className="text-success fw-bolder fs-7">
                     Max: {factorRankingRows[0].maxScore}
-                  </span>
-                </div>
-                <div className="bg-light-danger rounded-pill px-5 py-2 border border-danger border-dashed">
-                  <span className="text-danger fw-bolder fs-7">
-                    Qualifying: {Number(factorRankingRows[0].maxScore) * 0.5}
                   </span>
                 </div>
               </div>

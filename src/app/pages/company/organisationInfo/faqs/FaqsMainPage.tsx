@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useState, useRef, useEffect } from 'react';
 import { FAQItem, FAQItemEdit, FAQSectionCard, AddFAQModal } from './components';
 import { FAQSection, FAQ, FAQType } from './types';
@@ -39,8 +40,6 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
   const fetchFAQs = async (compId: string) => {
     try {
       const response = await fetchAllFaqs(compId);
-      console.log("response=======================>response", response);
-      console.log('FAQs API Response:', response);
 
       if (response?.data?.sections && Array.isArray(response.data.sections)) {
         const transformedSections = response.data.sections.map((section: any) => ({
@@ -57,7 +56,6 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
           transformedSections.push({ id: 'general_rules', title: 'General Rules', faqs: [] });
         }
 
-        console.log('Transformed FAQ Sections ================>:', transformedSections);
         setFaqSections(transformedSections);
       } else {
         const defaultSections: FAQSection[] = [
@@ -68,7 +66,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
           { id: 'general_rules', title: 'General Rules', faqs: [] },
         ];
         setFaqSections(defaultSections);
-        console.log('No FAQs found, using default empty sections');
+;
       }
     } catch (error) {
       console.error('Error fetching FAQs:', error);
@@ -90,7 +88,7 @@ const FaqsMainPage = ({hideEditButton}: {hideEditButton?: boolean}) => {
       try {
         setIsLoading(true);
         const { data: { companyOverview } } = await fetchCompanyOverview();
-        const fetchedCompanyId = companyOverview[0]?.id;
+        const fetchedCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
         setCompanyId(fetchedCompanyId);
 
         if (fetchedCompanyId) {

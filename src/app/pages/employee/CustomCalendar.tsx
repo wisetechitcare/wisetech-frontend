@@ -75,7 +75,6 @@ function CustomCalendar() {
 
 
     const anniversaryDate = useSelector((state: RootState) => state.employee.currentEmployee.anniversary);
-    const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
     const [holidays, setHolidays] = useState<any[]>([]);
     // console.log("hodlidays","holidays =>",holidays)
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
@@ -590,7 +589,7 @@ function CustomCalendar() {
                                                     </span>
                                                 </span>
                                             </label>
-                                            {isAdmin && hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && <label
+                                            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && <label
                                                 className='btn btn-outline btn-outline-dashed btn-outline-default p-3 d-flex align-items-center mb-3'
                                                 onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }}
                                             >

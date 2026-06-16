@@ -15,7 +15,7 @@ const Tabs: React.FC = () => {
             }
             to='/company/organisation-profile'
           >
-            Organisation Profile
+            Organization Profile
           </Link>
         </li>
         <li className='nav-item'>

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { resolveActiveOrgId } from '@utils/activeOrg';
+﻿import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
 import { Modal } from "react-bootstrap";
@@ -219,14 +220,14 @@ function Departments() {
 
                                 async function fetchCompany() {
                                     const { data: { companyOverview } } = await fetchCompanyOverview();
-                                    formikProps.setFieldValue("companyId", companyOverview[0].id, true);
+                                    formikProps.setFieldValue("companyId", (resolveActiveOrgId(companyOverview) ?? ''), true);
                                 }
 
                                 fetchCompany();
                             }, []);
 
                             return (
-                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form' placeholder={undefined}>
+                                <Form className='d-flex flex-column' noValidate id='employee_onboarding_form'>
                                     <div className="row">
                                         <div className="col-lg-6">
                                             <TextInput

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import ReactApexChart from "react-apexcharts";
 import { Card } from "react-bootstrap";
 
@@ -93,7 +93,7 @@ const TaskCustomChart: React.FC<TaskCustomChartProps> = ({
         width: 12,
         height: 12,
         radius: 6,
-      },
+      } as any,
       itemMargin: {
         horizontal: 10,
         vertical: 5

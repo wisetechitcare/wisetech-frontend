@@ -67,7 +67,6 @@ export interface Employee {
     aadharCardPath: string;
     panNumber: string;
     panCardPath: string;
-    attendanceRequestRaiseLimit: number;
     anniversary: string | null;
     levelId: string | null;
     createdById: string | null;

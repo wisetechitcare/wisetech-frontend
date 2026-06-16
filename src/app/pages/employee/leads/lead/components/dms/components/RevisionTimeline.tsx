@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useDMS } from '../store/DmsContext';
 import { formatBytes, formatDate, getStatusConfig } from '../utils/dmsUtils';
 import { KTIcon } from '@metronic/helpers';
-import * as dmsService from '../services/dmsService';
+import { downloadDocument } from '../services/dmsService';
 
 export const RevisionTimeline: React.FC = () => {
   const { state } = useDMS();
@@ -137,7 +137,7 @@ export const RevisionTimeline: React.FC = () => {
                     </div>
 
                     <button 
-                      onClick={() => dmsService.downloadDocument(file.s3Url || '', file.name)}
+                      onClick={() => downloadDocument(file.s3Url || '', file.name)}
                       style={{
                         background: 'transparent', border: 'none', borderRadius: '6px',
                         padding: '4px', cursor: 'pointer', color: '#9d4141', 

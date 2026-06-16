@@ -1,4 +1,5 @@
-import { fetchCompanyOverview } from '@services/company';
+import { resolveActiveOrgId } from '@utils/activeOrg';
+﻿import { fetchCompanyOverview } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { Form, Formik } from 'formik';
 import React, { useEffect, useState } from 'react'
@@ -47,7 +48,7 @@ function CommonModal({ show, setShow, functionToCallOnModalSubmit, fieldName, fu
         async function fetchData() {
             if (show && !companyId) {
                 const { data: { companyOverview } } = await fetchCompanyOverview();
-                setCompanyId(companyOverview[0]?.id);
+                setCompanyId((resolveActiveOrgId(companyOverview) ?? ''));
             }
         }
         fetchData();
@@ -76,7 +77,7 @@ function CommonModal({ show, setShow, functionToCallOnModalSubmit, fieldName, fu
                             className="d-flex flex-column"
                             noValidate
                             id="common_input_form"
-                            placeholder={undefined}
+                           
                         >
                             <div className="row">
                                 <div className="col-lg-12">

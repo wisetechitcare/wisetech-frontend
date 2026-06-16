@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import ReactApexChart from "react-apexcharts";
 import { Col, Card } from "react-bootstrap";
 import { ChartDialogModal } from "../../leads/overview/components/ChartDialogModal";
@@ -194,7 +194,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
         width: 12,
         height: 12,
         radius: 12,
-      },
+      } as any,
       itemMargin: {
         horizontal: 10, // Space between legend items
       }

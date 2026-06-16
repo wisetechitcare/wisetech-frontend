@@ -1,0 +1,70 @@
+.attendance-check-cell {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.attendance-check-cell__time {
+  font-weight: 600;
+  color: #212529;
+  white-space: nowrap;
+}
+
+.attendance-check-cell__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  color: #6c757d;
+  min-width: 0;
+}
+
+.attendance-check-cell__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.attendance-check-cell__method {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.attendance-check-cell__sep {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.attendance-check-cell__location {
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-check-cell__location--interactive {
+  color: #0d6efd;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s ease;
+}
+
+.attendance-check-cell__location--interactive:hover,
+.attendance-check-cell__location--interactive:focus-visible {
+  border-bottom-color: #0d6efd;
+  outline: none;
+}
+
+.attendance-check-cell__icon {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: #0d6efd;
+}
+
+@media (max-width: 767.98px) {
+  .attendance-check-cell__location {
+    max-width: 120px;
+  }
+}

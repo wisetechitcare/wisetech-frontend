@@ -1,0 +1,186 @@
+import React, { useState } from 'react';
+import { C, FONT, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
+
+export interface ConfigSettingsRowProps {
+  label: string;
+  description?: string;
+  icon?: string;
+  iconColor?: 'primary' | 'blue' | 'green' | 'purple' | 'amber' | 'teal' | 'danger' | 'warning';
+  value?: React.ReactNode;
+  actionLabel?: string;
+  actionIcon?: string;
+  onAction?: () => void;
+  rightContent?: React.ReactNode;
+  active?: boolean;
+  disabled?: boolean;
+  compact?: boolean;
+  loading?: boolean;
+}
+
+const Shimmer: React.FC<{ width?: string; height?: string; radius?: string }> = ({
+  width = '120px', height = '14px', radius = RADIUS.sm,
+}) => (
+  <div style={{
+    width, height, borderRadius: radius,
+    backgroundColor: '#eef0f5',
+    animation: 'cfgPulse 1.5s ease-in-out infinite',
+  }} />
+);
+
+const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
+  label, description, icon, iconColor = 'primary',
+  value, actionLabel, actionIcon, onAction, rightContent,
+  active = false, disabled = false, compact = false, loading = false,
+}) => {
+  const [hov, setHov] = useState(false);
+  const [btnHov, setBtnHov] = useState(false);
+
+  const scheme = ICON_COLORS[iconColor] ?? ICON_COLORS.primary;
+
+  return (
+    <div
+      className="cfg-settings-row"
+      onMouseEnter={() => !disabled && setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: compact ? '14px 20px' : '18px 22px',
+        backgroundColor: active ? C.primaryLight : '#fff',
+        border: `1px solid ${hov ? '#d1d5e0' : C.border}`,
+        borderRadius: RADIUS.xl,
+        boxShadow: hov
+          ? '0 6px 24px rgba(24,28,50,0.09)'
+          : '0 1px 6px rgba(24,28,50,0.04)',
+        transition: 'all 0.18s ease',
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? 'not-allowed' : 'default',
+        gap: SP.md,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Left accent line on hover */}
+      <div style={{
+        position: 'absolute',
+        top: 0, bottom: 0, left: 0,
+        width: '3px',
+        backgroundColor: hov ? scheme.color : 'transparent',
+        opacity: 0.6,
+        transition: 'background-color 0.18s ease',
+      }} />
+
+      {/* Icon + label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
+        {icon && (
+          <div style={{
+            width: '40px', height: '40px',
+            borderRadius: RADIUS.lg,
+            backgroundColor: scheme.bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+            boxShadow: `0 2px 8px ${scheme.color}1a`,
+            transition: 'transform 0.18s ease',
+            transform: hov ? 'scale(1.06)' : 'scale(1)',
+          }}>
+            <i className={`bi ${icon}`} style={{ fontSize: '17px', color: scheme.color }} />
+          </div>
+        )}
+
+        <div style={{ minWidth: 0 }}>
+          {loading ? (
+            <>
+              <Shimmer width="160px" height="14px" />
+              {description && <div style={{ marginTop: '6px' }}><Shimmer width="220px" height="11px" /></div>}
+            </>
+          ) : (
+            <>
+              <div className="cfg-row-label" style={{
+                fontFamily: FONT.body,
+                fontWeight: 600,
+                fontSize: compact ? '13px' : '14px',
+                color: C.textPrimary,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                letterSpacing: '0.01em',
+              }}>
+                {label}
+              </div>
+              {description && (
+                <div className="cfg-row-desc" style={{
+                  fontFamily: FONT.body,
+                  fontWeight: 400,
+                  fontSize: '12px',
+                  color: C.textMuted,
+                  marginTop: '3px',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  lineHeight: 1.4,
+                }}>
+                  {description}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Right: value + action */}
+      <div className="cfg-row-right" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        {loading ? (
+          <Shimmer width="80px" height="32px" radius={RADIUS.md} />
+        ) : (
+          <>
+            {value !== undefined && (
+              <div style={{
+                fontFamily: FONT.body,
+                fontWeight: 700,
+                fontSize: '13px',
+                color: C.primary,
+                backgroundColor: C.primaryLight,
+                border: `1px solid rgba(157,65,65,0.12)`,
+                borderRadius: RADIUS.md,
+                padding: '5px 13px',
+                minWidth: '40px',
+                textAlign: 'center',
+              }}>
+                {value}
+              </div>
+            )}
+
+            {rightContent}
+
+            {actionLabel && onAction && (
+              <button
+                onClick={onAction}
+                disabled={disabled}
+                onMouseEnter={() => setBtnHov(true)}
+                onMouseLeave={() => setBtnHov(false)}
+                style={{
+                  fontFamily: FONT.body,
+                  fontWeight: 500,
+                  fontSize: '13px',
+                  color: btnHov ? C.primary : C.textSecondary,
+                  backgroundColor: btnHov ? C.primaryLight : '#fff',
+                  border: `1px solid ${btnHov ? 'rgba(157,65,65,0.25)' : C.border}`,
+                  borderRadius: RADIUS.md,
+                  padding: '7px 16px',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {actionIcon && <i className={`bi ${actionIcon}`} style={{ fontSize: '12px' }} />}
+                {actionLabel}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ConfigSettingsRow;

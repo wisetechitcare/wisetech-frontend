@@ -1,4 +1,4 @@
-
+﻿
 import { FC } from 'react'
 import {toAbsoluteUrl} from '../../../helpers'
 
@@ -47,7 +47,7 @@ const MixedWidget5: FC<Props> = ({className, time, image, title, description}) =
             data-bs-toggle='tooltip'
             title='Ana Stone'
           >
-            <img src={toAbsoluteUrl('media/avatars/300-6.jpg')} alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/018-girl-9.svg')} alt='' />
           </a>
 
           <a
@@ -56,7 +56,7 @@ const MixedWidget5: FC<Props> = ({className, time, image, title, description}) =
             data-bs-toggle='tooltip'
             title='Mark Larson'
           >
-            <img src={toAbsoluteUrl('media/avatars/300-5.jpg')} alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/014-girl-7.svg')} alt='' />
           </a>
 
           <a
@@ -65,7 +65,7 @@ const MixedWidget5: FC<Props> = ({className, time, image, title, description}) =
             data-bs-toggle='tooltip'
             title='Sam Harris'
           >
-            <img src={toAbsoluteUrl('media/avatars/300-9.jpg')} alt='' />
+            <img src={toAbsoluteUrl('media/svg/avatars/029-boy-11.svg')} alt='' />
           </a>
         </div>
         {/* end::Team */}

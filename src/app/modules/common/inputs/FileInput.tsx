@@ -1,4 +1,5 @@
 import { ChangeEvent, useRef } from "react";
+import ObFileUpload from "@pages/employee/wizard/components/ObFileUpload";
 
 interface FileInputProps {
     placeholder: string;
@@ -10,9 +11,22 @@ interface FileInputProps {
     fieldName?: string;
     disabled?: boolean;
     onDisabledClick?: () => void;
+    /** Use onboarding wizard upload styling */
+    onboardingStyle?: boolean;
 }
 
-function FileInput({ placeholder, documentId, setFile, hidden, path, existingDocument, fieldName, disabled = false, onDisabledClick }: FileInputProps) {
+function FileInput({
+    placeholder,
+    documentId,
+    setFile,
+    hidden,
+    path,
+    existingDocument,
+    fieldName,
+    disabled = false,
+    onDisabledClick,
+    onboardingStyle = false,
+}: FileInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -35,6 +49,35 @@ function FileInput({ placeholder, documentId, setFile, hidden, path, existingDoc
         }
     }
 
+    if (hidden) {
+        return (
+            <img
+                className='rounded-circle object-fit-contain image-input-wrapper w-125px h-125px position-relative'
+                src={path}
+                onClick={handleFileClick}
+                alt={placeholder}
+            />
+        );
+    }
+
+    if (onboardingStyle) {
+        return (
+            <div className="ob-file-upload-wrap">
+                <ObFileUpload
+                    disabled={disabled}
+                    accept=".pdf"
+                    hint="PDF only — max 10MB"
+                    existingFileName={existingDocument?.fileName || existingDocument?.path?.split("/").pop()}
+                    existingFileUrl={existingDocument?.path}
+                    onDisabledClick={onDisabledClick}
+                    onChange={(file) => {
+                        if (file) setFile(documentId, file);
+                    }}
+                />
+            </div>
+        );
+    }
+
     return (
         <>
             <div
@@ -55,8 +98,7 @@ function FileInput({ placeholder, documentId, setFile, hidden, path, existingDoc
                         title={disabled ? "Please save user details first" : ""}
                     />
 
-                    {/* Show View button if document exists */}
-                    {existingDocument && existingDocument.path && !hidden && (
+                    {existingDocument && existingDocument.path && (
                         <button
                             type="button"
                             className="btn btn-sm btn-primary"
@@ -68,10 +110,6 @@ function FileInput({ placeholder, documentId, setFile, hidden, path, existingDoc
                     )}
                 </div>
             </div>
-            {hidden && <img
-                className='rounded-circle object-fit-contain image-input-wrapper w-125px h-125px position-relative'
-                src={path}
-                onClick={handleFileClick} />}
         </>
     );
 }

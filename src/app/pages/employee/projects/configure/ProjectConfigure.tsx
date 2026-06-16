@@ -10,217 +10,266 @@ import {
   getAllStakeholders,
   deleteStakeholderService,
 } from "@services/projects";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
-import { Container } from "react-bootstrap";
-import Loader from "@app/modules/common/utils/Loader";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
-import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
 import ProjectButtonSettings from "./ProjectButtonSettingUI";
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from '@app/modules/configuration';
+import type { ConfigTab } from '@app/modules/configuration';
 
+// ─── ColorChip ────────────────────────────────────────────────────────────────
 
-// Common button styles
-const buttonStyles = {
-  base: {
-    border: "1px solid #9D4141",
-    fontWeight: 500,
-    color: "#9D4141",
-    backgroundColor: "transparent",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "all 0.3s ease-in-out",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    height: "40px",
-  },
-  hover: {
-    color: "white",
-    backgroundColor: "#9D4141",
-  },
+interface ColorChipProps {
+  name: string;
+  color: string;
+  onEdit: () => void;
+  onDelete?: () => void;
+}
+
+const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: hov ? '#ffffff' : '#f7f8fa',
+        border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
+        borderRadius: RADIUS.lg,
+        padding: '9px 12px 9px 16px',
+        transition: 'all 0.15s ease',
+        boxShadow: hov ? '0 4px 14px rgba(24,28,50,0.09)' : '0 1px 3px rgba(24,28,50,0.04)',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'default',
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: 0, bottom: 0, left: 0,
+        width: '3px', backgroundColor: color || '#ccc',
+        borderRadius: '3px 0 0 3px', opacity: 0.8,
+      }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+        <div style={{
+          width: '10px', height: '10px', borderRadius: '50%',
+          backgroundColor: color || '#ccc', flexShrink: 0,
+          boxShadow: `0 0 0 2px ${color ? color + '30' : '#ccc'}`,
+        }} />
+        <span style={{
+          fontFamily: FONT.body, fontWeight: 500, fontSize: '13px',
+          color: C.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {name}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
+        <button
+          onClick={onEdit}
+          style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
+        >
+          <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
+        </button>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
+          >
+            <i className="bi bi-trash" style={{ fontSize: '11px' }} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 };
 
+const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: SP.sm, marginTop: SP.md }}>
+    {children}
+  </div>
+);
 
+const EmptyState: React.FC<{ label: string }> = ({ label }) => (
+  <div style={{ textAlign: 'center', padding: '28px 16px', color: C.textMuted, fontFamily: FONT.body, fontSize: '13px' }}>
+    <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
+    No {label} configured yet
+  </div>
+);
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+
+const TABS: ConfigTab[] = [
+  { id: 'settings', label: 'Project Settings', icon: 'bi-kanban' },
+  { id: 'buttons', label: 'Button Settings', icon: 'bi-toggles' },
+];
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const ProjectConfiguration = () => {
+  const [activeTab, setActiveTab] = useState('settings');
   const [loading, setLoading] = useState(false);
 
-  // Project Categories
-  const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<ProjectItem | null>(
-    null
-  );
-
-  // Project Subcategories
-  const [projectSubcategories, setProjectSubcategories] = useState<
-    ProjectItem[]
-  >([]);
-  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
-  const [editingSubcategory, setEditingSubcategory] =
-    useState<ProjectItem | null>(null);
-
-  // Project Services
-  const [projectServices, setProjectServices] = useState<ProjectItem[]>([]);
-  const [showServiceModal, setShowServiceModal] = useState(false);
-  const [editingService, setEditingService] = useState<ProjectItem | null>(
-    null
-  );
-
-  // Project Statuses
   const [projectStatuses, setProjectStatuses] = useState<ProjectItem[]>([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [editingStatus, setEditingStatus] = useState<ProjectItem | null>(null);
 
-  // Stakeholders
   const [stakeholders, setStakeholders] = useState<ProjectItem[]>([]);
   const [showStakeholderModal, setShowStakeholderModal] = useState(false);
-  const [editingStakeholder, setEditingStakeholder] =
-    useState<ProjectItem | null>(null);
-  // Modal open handlers
-  const handleCategoryModalOpen = () => setShowCategoryModal(true);
-  const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
-  const handleServiceModalOpen = () => setShowServiceModal(true);
+  const [editingStakeholder, setEditingStakeholder] = useState<ProjectItem | null>(null);
+
+  const [projectServices, setProjectServices] = useState<ProjectItem[]>([]);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [editingService, setEditingService] = useState<ProjectItem | null>(null);
+
+  const [projectCategories, setProjectCategories] = useState<ProjectItem[]>([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ProjectItem | null>(null);
+
+  const [projectSubcategories, setProjectSubcategories] = useState<ProjectItem[]>([]);
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+  const [editingSubcategory, setEditingSubcategory] = useState<ProjectItem | null>(null);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
   const handleStatusModalOpen = () => setShowStatusModal(true);
+  const handleStatusModalClose = () => { setShowStatusModal(false); setEditingStatus(null); };
+  const handleStatusEdit = (s: ProjectItem) => { setEditingStatus(s); setShowStatusModal(true); };
+
   const handleStakeholderModalOpen = () => setShowStakeholderModal(true);
+  const handleStakeholderModalClose = () => { setShowStakeholderModal(false); setEditingStakeholder(null); };
+  const handleStakeholderEdit = (s: ProjectItem) => { setEditingStakeholder(s); setShowStakeholderModal(true); };
 
-  // Modal close handlers
-  const handleCategoryModalClose = () => {
-    setShowCategoryModal(false);
-    setEditingCategory(null);
-  };
+  const handleServiceModalOpen = () => setShowServiceModal(true);
+  const handleServiceModalClose = () => { setShowServiceModal(false); setEditingService(null); };
+  const handleServiceEdit = (s: ProjectItem) => { setEditingService(s); setShowServiceModal(true); };
 
-  const handleSubcategoryModalClose = () => {
-    setShowSubcategoryModal(false);
-    setEditingSubcategory(null);
-  };
+  const handleCategoryModalOpen = () => setShowCategoryModal(true);
+  const handleCategoryModalClose = () => { setShowCategoryModal(false); setEditingCategory(null); };
+  const handleCategoryEdit = (c: ProjectItem) => { setEditingCategory(c); setShowCategoryModal(true); };
 
-  const handleServiceModalClose = () => {
-    setShowServiceModal(false);
-    setEditingService(null);
-  };
+  const handleSubcategoryModalOpen = () => setShowSubcategoryModal(true);
+  const handleSubcategoryModalClose = () => { setShowSubcategoryModal(false); setEditingSubcategory(null); };
+  const handleSubcategoryEdit = (s: ProjectItem) => { setEditingSubcategory(s); setShowSubcategoryModal(true); };
 
-  const handleStatusModalClose = () => {
-    setShowStatusModal(false);
-    setEditingStatus(null);
-  };
+  // ── Fetch functions ─────────────────────────────────────────────────────────
 
-  const handleStakeholderModalClose = () => {
-    setShowStakeholderModal(false);
-    setEditingStakeholder(null);
-  };
-
-  // Edit handlers
-  const handleCategoryEdit = (category: ProjectItem) => {
-    setEditingCategory(category);
-    setShowCategoryModal(true);
-  };
-
-  const handleSubcategoryEdit = (subcategory: ProjectItem) => {
-    setEditingSubcategory(subcategory);
-    setShowSubcategoryModal(true);
-  };
-
-  const handleServiceEdit = (service: ProjectItem) => {
-    setEditingService(service);
-    setShowServiceModal(true);
-  };
-
-  const handleStatusEdit = (status: ProjectItem) => {
-    setEditingStatus(status);
-    setShowStatusModal(true);
-  };
-
-  const handleStakeholderEdit = (stakeholder: ProjectItem) => {
-    setEditingStakeholder(stakeholder);
-    setShowStakeholderModal(true);
-  };
-
-  // Fetch project categories
-  const fetchProjectCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllProjectCategories();
-      if (response?.projectCategories) {
-        setProjectCategories(response.projectCategories);
-      }
-    } catch (error) {
-      console.error("Error fetching project categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch project subcategories
-  const fetchProjectSubcategories = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllProjectSubcategories();
-      if (response?.projectSubCategories) {
-        setProjectSubcategories(response.projectSubCategories);
-      }
-    } catch (error) {
-      console.error("Error fetching project subcategories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch project services
-  const fetchProjectServices = async () => {
-    try {
-      setLoading(true);
-      const response = await getAllProjectServices();
-      if (response?.services) {
-        const sorted = [...response.services].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
-        setProjectServices(sorted);
-      }
-    } catch (error) {
-      console.error("Error fetching project services:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch project statuses
   const fetchProjectStatuses = async () => {
     try {
       setLoading(true);
       const response = await getAllProjectStatuses();
       if (response?.projectStatuses) {
-        const sorted = [...response.projectStatuses].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        const sorted = [...response.projectStatuses].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setProjectStatuses(sorted);
       }
-    } catch (error) {
-      console.error("Error fetching project statuses:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error('Error fetching project statuses:', error); }
+    finally { setLoading(false); }
   };
 
-  // Fetch stakeholders
   const fetchStakeholders = async () => {
     try {
       setLoading(true);
       const response = await getAllStakeholders();
       if (response?.stakeholderServices) {
-        const sorted = [...response.stakeholderServices].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+        const sorted = [...response.stakeholderServices].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         setStakeholders(sorted);
       }
-    } catch (error) {
-      console.error("Error fetching stakeholders:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error('Error fetching stakeholders:', error); }
+    finally { setLoading(false); }
   };
 
-  // Event bus listeners
+  const fetchProjectServices = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectServices();
+      if (response?.services) {
+        const sorted = [...response.services].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        setProjectServices(sorted);
+      }
+    } catch (error) { console.error('Error fetching project services:', error); }
+    finally { setLoading(false); }
+  };
+
+  const fetchProjectCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectCategories();
+      if (response?.projectCategories) setProjectCategories(response.projectCategories);
+    } catch (error) { console.error('Error fetching project categories:', error); }
+    finally { setLoading(false); }
+  };
+
+  const fetchProjectSubcategories = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllProjectSubcategories();
+      if (response?.projectSubCategories) setProjectSubcategories(response.projectSubCategories);
+    } catch (error) { console.error('Error fetching project subcategories:', error); }
+    finally { setLoading(false); }
+  };
+
+  // ── Delete handlers ─────────────────────────────────────────────────────────
+
+  const handleDelete = async (id: string, type: 'category' | 'subcategory' | 'service' | 'status' | 'stakeholder') => {
+    try {
+      const confirmed = await deleteConfirmation(`Successfully deleted ${type}`);
+      if (!confirmed) return;
+      switch (type) {
+        case 'category': await deleteProjectCategory(id); fetchProjectCategories(); break;
+        case 'subcategory': await deleteProjectSubcategory(id); fetchProjectSubcategories(); break;
+        case 'service': await deleteProjectService(id); fetchProjectServices(); break;
+        case 'status': await deleteProjectStatus(id); fetchProjectStatuses(); break;
+        case 'stakeholder': await deleteStakeholderService(id); fetchStakeholders(); break;
+      }
+    } catch (error) { console.error(`Error deleting ${type}:`, error); }
+  };
+
+  const serviceDeleteConfirmation = useDeleteConfirmation({
+    deleteFunction: async (itemId: string, targetId?: string) => { await deleteProjectService(itemId, targetId); },
+    defaultConfig: { entityName: 'Project Service', entityDisplayName: '', showTransferOption: true, transferDescription: 'All projects and leads using this service will be transferred to the selected service.' },
+    onSuccess: () => { fetchProjectServices(); },
+    onError: (error: any) => { console.error('Failed to delete project service:', error); alert('Failed to delete project service'); },
+  });
+
+  const handleServiceDelete = (id: string) => {
+    const serviceToDelete = projectServices.find(s => s.id === id);
+    const dropdownOptions: DropdownOption[] = projectServices
+      .filter(s => s.id !== id && s.id && s.name)
+      .map(s => ({ key: s.id!, value: s.name }));
+    serviceDeleteConfirmation.showDeleteModal(id, serviceToDelete?.name || 'Unknown Service', {
+      dropdownOptions,
+      showTransferOption: dropdownOptions.length > 0,
+      transferDescription: dropdownOptions.length > 0
+        ? 'All projects and leads using this service will be transferred to the selected service.'
+        : 'This is the last service and cannot be transferred.',
+    });
+  };
+
+  // ── Effects ─────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchProjectStatuses();
+    fetchStakeholders();
+    fetchProjectServices();
+    fetchProjectCategories();
+    fetchProjectSubcategories();
+  }, []);
+
   useEventBus(EVENT_KEYS.projectCategoryCreated, fetchProjectCategories);
   useEventBus(EVENT_KEYS.projectSubcategoryCreated, fetchProjectSubcategories);
   useEventBus(EVENT_KEYS.projectServiceCreated, fetchProjectServices);
@@ -231,458 +280,129 @@ const ProjectConfiguration = () => {
   useEventBus(EVENT_KEYS.projectStatusUpdated, fetchProjectStatuses);
   useEventBus(EVENT_KEYS.stakeholderCreated, fetchStakeholders);
   useEventBus(EVENT_KEYS.stakeholderUpdated, fetchStakeholders);
-  useEffect(() => {
-    fetchProjectCategories();
-    fetchProjectSubcategories();
-    fetchProjectServices();
-    fetchProjectStatuses();
-    fetchStakeholders();
-  }, []);
 
-  // Delete confirmation hook for Project Services
-  const serviceDeleteConfirmation = useDeleteConfirmation({
-    deleteFunction: async (itemId: string, targetId?: string) => {
-      // Call the delete service with optional targetId for data transfer
-      await deleteProjectService(itemId, targetId);
-    },
-    defaultConfig: {
-      entityName: 'Project Service',
-      entityDisplayName: '',
-      showTransferOption: true,
-      transferDescription: 'All projects and leads using this service will be transferred to the selected service.'
-    },
-    onSuccess: () => {
-      fetchProjectServices(); // Refresh the list
-    },
-    onError: (error:any) => {
-      console.error('Failed to delete project service:', error);
-      alert('Failed to delete project service');
-    }
-  });
-
-  // New delete handler specifically for project services using the modal
-  const handleServiceDelete = (id: string) => {
-    // Find the service being deleted to get its name
-    const serviceToDelete = projectServices.find(service => service.id === id);
-    const serviceName = serviceToDelete?.name || 'Unknown Service';
-    
-    // Create dropdown options from other project services (excluding the one being deleted)
-    const dropdownOptions: DropdownOption[] = projectServices
-      .filter(service => service.id !== id && service.id && service.name)
-      .map(service => ({
-        key: service.id!,
-        value: service.name
-      }));
-    
-    // Show the delete confirmation modal
-    serviceDeleteConfirmation.showDeleteModal(id, serviceName, {
-      dropdownOptions,
-      showTransferOption: dropdownOptions.length > 0,
-      transferDescription: dropdownOptions.length > 0 
-        ? 'All projects and leads using this service will be transferred to the selected service.'
-        : 'This is the last service and cannot be transferred.'
-    });
-  };
-
-  // Unified delete handler for all project configuration types
-  const handleDelete = async (
-    id: string,
-    type: "category" | "subcategory" | "service" | "status" | "stakeholder"
-  ) => {
-    try {
-      const confirmed = await deleteConfirmation(
-        `Successfully deleted ${type}`
-      );
-      if (!confirmed) return;
-
-      switch (type) {
-        case "category":
-          await deleteProjectCategory(id);
-          fetchProjectCategories();
-          break;
-        case "subcategory":
-          await deleteProjectSubcategory(id);
-          fetchProjectSubcategories();
-          break;
-        case "service":
-          await deleteProjectService(id);
-          fetchProjectServices();
-          break;
-        case "status":
-          await deleteProjectStatus(id);
-          fetchProjectStatuses();
-          break;
-        case "stakeholder":
-          await deleteStakeholderService(id);
-          fetchStakeholders();
-          break;
-      }
-    } catch (error) {
-      console.error(`Error deleting ${type}:`, error);
-    }
-  };
-
-
-  if (loading) {
-    return <Loader />;
-  }
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div>
-      {/* Configure Heading */}
-
-      <div
-        className="d-flex pb-4"
-        style={{ fontFamily: "Barlow", fontSize: "24px", fontWeight: "600" }}
+    <>
+      <style>{KEYFRAMES}</style>
+      <ConfigPageLayout
+        title="Project Configuration"
+        subtitle="Manage project statuses, stakeholders, prefix, and UI settings"
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       >
-        Configure
-      </div>
-      <div className="card mb-5">
-        <ProjectButtonSettings/>
-      </div>
+        {/* ── Project Settings Tab ─────────────────────────────────────────────── */}
+        {activeTab === 'settings' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
 
-      {/* Prefix Settings Card */}
-      <div className="card mb-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <h5 className="card-title mb-4" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "16px" }}>Project Prefix Settings</h5>
-          <PrefixSettingsForm
-            typeLabel="Project"
-            typeValue="PROJECT"
-          />
-        </div>
-      </div>
-
-      {/* Stakeholders services */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-           <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Stakeholders Services</h5>
-            <button
-              onClick={handleStakeholderModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
+            {/* Project Status */}
+            <ConfigSectionCard
+              title="Project Status"
+              description="Define the lifecycle stages a project moves through."
+              icon="bi-flag"
+              iconColor="primary"
+              primaryAction={{ label: 'New Status', icon: 'bi-plus-lg', onClick: handleStatusModalOpen, variant: 'primary' }}
+              loading={loading}
             >
-              New Stakeholder
-            </button>
-          </div>
-          <div className="row mt-4">
-            {stakeholders.map((stakeholder) => (
-              <div key={stakeholder.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: stakeholder.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={stakeholder.name}>{stakeholder.name.length > 10 ? `${stakeholder.name.slice(0, 14)}...` : stakeholder.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleStakeholderEdit(stakeholder)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() =>
-                        handleDelete(stakeholder.id, "stakeholder")
-                      }
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+              {projectStatuses.length === 0
+                ? <EmptyState label="project statuses" />
+                : (
+                  <ChipGrid>
+                    {projectStatuses.map((s) => (
+                      <ColorChip
+                        key={s.id} name={s.name} color={s.color}
+                        onEdit={() => handleStatusEdit(s)}
+                        onDelete={() => handleDelete(s.id, 'status')}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
 
-      {/* Project Services */}
-      {/* <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Project Services</h5>
-            <button
-              onClick={handleServiceModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
+            {/* Stakeholders Services */}
+            <ConfigSectionCard
+              title="Stakeholders Services"
+              description="Configure stakeholder service types for project assignments."
+              icon="bi-person-badge"
+              iconColor="blue"
+              primaryAction={{ label: 'New Stakeholder', icon: 'bi-plus-lg', onClick: handleStakeholderModalOpen, variant: 'primary' }}
+              loading={loading}
             >
-              New Service
-            </button>
-          </div>
-          <div className="row mt-4">
-            {projectServices.map((service) => (
-              <div key={service.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: service.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={service.name}>{service.name.length > 10 ? `${service.name.slice(0, 14)}...` : service.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleServiceEdit(service)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleServiceDelete(service.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div> */}
+              {stakeholders.length === 0
+                ? <EmptyState label="stakeholders" />
+                : (
+                  <ChipGrid>
+                    {stakeholders.map((s) => (
+                      <ColorChip
+                        key={s.id} name={s.name} color={s.color}
+                        onEdit={() => handleStakeholderEdit(s)}
+                      />
+                    ))}
+                  </ChipGrid>
+                )
+              }
+            </ConfigSectionCard>
 
-      {/* Project Status Section */}
-      <div
-        className="card mb-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-           <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Project Status</h5>
-            <button
-              onClick={handleStatusModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
+            {/* Project Prefix Settings */}
+            <ConfigSectionCard
+              title="Project Prefix Settings"
+              description="Configure the auto-generated prefix format for new project IDs."
+              icon="bi-hash"
+              iconColor="amber"
+              loading={loading}
             >
-              New Status
-            </button>
+              <PrefixSettingsForm typeLabel="Project" typeValue="PROJECT" />
+            </ConfigSectionCard>
           </div>
-          <div className="row mt-4">
-            {projectStatuses.map((status) => (
-              <div key={status.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: status.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={status.name}>{status.name.length > 10 ? `${status.name.slice(0, 14)}...` : status.name}</div>
-                    { /* when need a deafult mark */ }
-                    {/* {(status as any).isDefault && (
-                      <span style={{
-                        fontSize: '10px',
-                        backgroundColor: '#8B4444',
-                        color: 'white',
-                        borderRadius: '4px',
-                        padding: '1px 6px',
-                        marginLeft: '4px',
-                        fontWeight: 500,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        Default
-                      </span>
-                    )} */}
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    {/* {!["completed"].includes(status.name.toLowerCase()) && (   */}
-                      <i
-                        className="fa fa-pencil cursor-pointer"
-                        onClick={() => handleStatusEdit(status)}
-                      ></i>
-                    {/* )} */}
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(status.id, "status")}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+        )}
 
-      {/* Stakeholders services */}
-      <div
-        className="card mb-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-           <div  className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Stakeholders Services</h5>
-            <button
-              onClick={handleStakeholderModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
+        {/* ── Button Settings Tab ──────────────────────────────────────────────── */}
+        {activeTab === 'buttons' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
+            <ConfigSectionCard
+              title="Project Button Visibility"
+              description="Control which action buttons are visible on the project workspace."
+              icon="bi-toggles"
+              iconColor="purple"
             >
-              New Stakeholder
-            </button>
+              <ProjectButtonSettings />
+            </ConfigSectionCard>
           </div>
-          <div className="row mt-4">
-            {stakeholders.map((stakeholder) => (
-              <div key={stakeholder.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: stakeholder.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: "pointer"
-                    }} title={stakeholder.name}>{stakeholder.name.length > 10 ? `${stakeholder.name.slice(0, 14)}...` : stakeholder.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleStakeholderEdit(stakeholder)}
-                    ></i>
-                    {/* <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() =>
-                        handleDelete(stakeholder.id, "stakeholder")
-                      }
-                    ></i> */}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+        )}
+      </ConfigPageLayout>
 
-      {/* Modals */}
-      {/* Category Modal */}
+      {/* ── Modals ──────────────────────────────────────────────────────────────── */}
+
+      <ProjectConfigForm
+        show={showStatusModal}
+        onClose={handleStatusModalClose}
+        onSuccess={fetchProjectStatuses}
+        type="status"
+        title="Status"
+        isEditing={!!editingStatus}
+        initialData={editingStatus}
+      />
+      <ProjectConfigForm
+        show={showStakeholderModal}
+        onClose={handleStakeholderModalClose}
+        onSuccess={fetchStakeholders}
+        type="stakeholder"
+        title="Stakeholder"
+        isEditing={!!editingStakeholder}
+        initialData={editingStakeholder}
+      />
+      <ProjectConfigForm
+        show={showServiceModal}
+        onClose={handleServiceModalClose}
+        onSuccess={fetchProjectServices}
+        type="service"
+        title="Service"
+        isEditing={!!editingService}
+        initialData={editingService}
+      />
       <ProjectConfigForm
         show={showCategoryModal}
         onClose={handleCategoryModalClose}
@@ -692,8 +412,6 @@ const ProjectConfiguration = () => {
         type="category"
         title="Category"
       />
-
-      {/* Subcategory Modal */}
       <ProjectConfigForm
         show={showSubcategoryModal}
         onClose={handleSubcategoryModalClose}
@@ -704,47 +422,8 @@ const ProjectConfiguration = () => {
         title="Subcategory"
       />
 
-      {/* Service Modal */}
-      <ProjectConfigForm
-        show={showServiceModal}
-        onClose={handleServiceModalClose}
-        onSuccess={fetchProjectServices}
-        type="service"
-        title="Service"
-        isEditing={!!editingService}
-        initialData={editingService}
-      />
-
-      {/* Status Modal */}
-      <ProjectConfigForm
-        show={showStatusModal}
-        onClose={handleStatusModalClose}
-        onSuccess={fetchProjectStatuses}
-        type="status"
-        title="Status"
-        isEditing={!!editingStatus}
-        initialData={editingStatus}
-      />
-
-      {/* Stakeholder Modal */}
-      <ProjectConfigForm
-        show={showStakeholderModal}
-        onClose={handleStakeholderModalClose}
-        onSuccess={fetchStakeholders}
-        type="stakeholder"
-        title="Stakeholder"
-        isEditing={!!editingStakeholder}
-        initialData={editingStakeholder}
-      />
-      
-      {/* Delete Confirmation Modal for Project Services */}
       {serviceDeleteConfirmation.DeleteModal}
-      {/* <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">  
-          <LeadsProjectCompanyChartSettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.PROJECT}/>
-        </div>
-      </div> */}
-    </div>
+    </>
   );
 };
 

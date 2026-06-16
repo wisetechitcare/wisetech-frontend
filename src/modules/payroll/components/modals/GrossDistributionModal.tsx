@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
@@ -47,7 +47,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                     enableReinitialize
                 >
                     {(formikProps) => (
-                        <Form placeholder={undefined}>
+                        <Form>
                             <div className="mb-4 d-flex justify-content-between align-items-center">
                                 <h6 className="fw-bold mb-0">Earnings Components</h6>
                                 <Button 

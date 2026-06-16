@@ -1,3 +1,4 @@
+import { resolveActiveOrgId } from '@utils/activeOrg';
 import { KTIcon } from "@metronic/helpers";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
@@ -192,7 +193,7 @@ useEffect(() => {
         setPreviousWorkingDay("");
         try {
             const { data: { companyOverview } } = await fetchCompanyOverview();
-            const companyId = companyOverview[0].id;
+            const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
             // Get leaves and holidays data
             const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);
@@ -516,7 +517,7 @@ useEffect(() => {
 //     async function checkPreviousAttendanceAndSetState() {
 //         try {
 //             const { data: { companyOverview } } = await fetchCompanyOverview();
-//             const companyId = companyOverview[0].id;
+//             const companyId = (resolveActiveOrgId(companyOverview) ?? '');
 
 //             // Get leaves and holidays data
 //             const { data: { leaves } } = await fetchEmployeeLeaves(employeeId);

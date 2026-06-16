@@ -1,6 +1,6 @@
 import { styled, SvgIconProps, Tab, Tabs } from '@mui/material';
 import zIndex from '@mui/material/styles/zIndex';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export type TabItem = {
     title: string;
@@ -59,11 +59,17 @@ const CustomizedTabs = styled(Tabs)({
     },
 });
 
-const MaterialHeaderTab = ({ tabItems, onTabChange }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab }: MaterialTabProps) => {
     const [value, setValue] = useState(0);
+    useEffect(() => {
+        if (typeof activeTab === 'number') {
+            setValue(activeTab);
+        }
+    }, [activeTab]);
 
     const handleChange = (event: React.SyntheticEvent, newValue: number) => {
         setValue(newValue);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         if (onTabChange) {
             onTabChange(newValue);
         }

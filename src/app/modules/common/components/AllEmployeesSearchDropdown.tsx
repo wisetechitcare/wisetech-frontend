@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Container, Row, Col, Form } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
+import { useTeamFilter } from '@/contexts/TeamFilterContext';
 
 type EmployeeStatus = 'all' | 'active' | 'inactive';
 
@@ -37,6 +38,7 @@ const AllEmployeesSearchDropdown = () => {
     (state: RootState) => state.employee.currentEmployee
   );
 
+  const { filterIds } = useTeamFilter();
   const [selectedDropdownEmployee, setSelectedDropdownEmployee] =
     useState<Employee>(loggedInEmployee);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
@@ -73,7 +75,8 @@ const AllEmployeesSearchDropdown = () => {
       }
 
       const { data } = await fetchAllEmployees(isActive);
-      setAllEmployees(data.employees);
+      const employees: Employee[] = data.employees;
+      setAllEmployees(filterIds ? employees.filter((e) => filterIds.includes(e.id)) : employees);
 
       // Only set logged-in employee on initial load (when statusFilter is 'all')
       // For other filters or filter changes, show placeholder
@@ -120,13 +123,18 @@ const AllEmployeesSearchDropdown = () => {
     <>
       <Container
         fluid
-        className="p-3"
-        style={{ backgroundColor: "#e9f0f7", borderRadius: "8px" }}
+        className="p-4"
+        style={{ 
+          backgroundColor: "#ffffff", 
+          borderRadius: "12px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
+          border: "1px solid #f1f5f9"
+        }}
       >
         {/* Desktop Layout */}
         <Row className="align-items-center d-none d-md-flex g-3">
-          <Col md={4} className="d-flex flex-column">
-            <Form.Label className="fw-bold mb-2">Filter</Form.Label>
+          <Col md={6} className="d-flex flex-column">
+            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2">Filter</Form.Label>
             <TextField
               select
               value={statusFilter}
@@ -213,128 +221,8 @@ const AllEmployeesSearchDropdown = () => {
               </MenuItem>
             </TextField>
           </Col>
-          <Col md={4} className="d-flex flex-column">
-            <Form.Label className="fw-bold mb-2">Select Employee</Form.Label>
-            <TextField
-              select
-              value={
-                selectedDropdownEmployee.id !== "" &&
-                sortedEmployees.some(emp => emp.id === selectedDropdownEmployee.id)
-                  ? selectedDropdownEmployee.id
-                  : ""
-              }
-              onChange={handleSelect}
-              variant="outlined"
-              fullWidth
-              InputProps={{
-                style: {
-                  borderRadius: "8px",
-                  padding: "2px 2px",
-                  height: "45px",
-                  backgroundColor: "white",
-                },
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "#9D4141",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#9D4141",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#9D4141",
-                  },
-                },
-                "& .MuiSelect-icon": {
-                  color: "gray",
-                },
-              }}
-              SelectProps={{
-                displayEmpty: true,
-                renderValue: (selected) => {
-                  if (!selected || !sortedEmployees.length) {
-                    return <span style={{ color: "#999" }}>Select an employee</span>;
-                  }
-                  const employee = sortedEmployees.find(emp => emp.id === selected);
-                  if (!employee) {
-                    return <span style={{ color: "#999" }}>Select an employee</span>;
-                  }
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                      <span style={{ flex: 1 }}>
-                        {employee.users.firstName + " " + employee.users.lastName}
-                      </span>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          backgroundColor: employee.isActive ? "#3ECD45" : "#8A8A8A",
-                          marginLeft: 8,
-                        }}
-                      />
-                    </div>
-                  );
-                }
-              }}
-            >
-              {sortedEmployees.length === 0 ? (
-                <MenuItem disabled>
-                  <span style={{ color: "#999" }}>No employees found</span>
-                </MenuItem>
-              ) : (
-                sortedEmployees.map((employee, index) => (
-                <MenuItem key={index} value={employee.id}>
-                  <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                    <img
-                      src={
-                        employee.avatar ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          employee.users.firstName + " " + employee.users.lastName
-                        )}`
-                      }
-                      alt={employee.users.firstName + " avatar"}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                        marginRight: 8,
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://ui-avatars.com/api/?name=" +
-                          encodeURIComponent(
-                            employee.users.firstName +
-                              " " +
-                              employee.users.lastName
-                          );
-                      }}
-                    />
-                    <span style={{
-                      color: employee.isActive ? "inherit" : "#999",
-                      flex: 1
-                    }}>
-                      {employee.users.firstName + " " + employee.users.lastName}
-                    </span>
-                    <span
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        backgroundColor: employee.isActive ? "#3ECD45" : "#8A8A8A",
-                        marginLeft: 8,
-                      }}
-                    />
-                  </div>
-                </MenuItem>
-              )))}
-            </TextField>
-          </Col>
-
-          <Col md={4} className="d-flex flex-column" ref={autoCompleteRef}>
-            <Form.Label className="fw-bold mb-2">
+          <Col md={6} className="d-flex flex-column" ref={autoCompleteRef}>
+            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2">
               Search by Name or ID
             </Form.Label>
             <Autocomplete
@@ -416,18 +304,22 @@ const AllEmployeesSearchDropdown = () => {
                   }}
                   inputProps={{
                     ...params.inputProps,
-                    style: { textAlign: "center" },
+                    style: { textAlign: "left" },
                   }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
+                      transition: "all 0.2s ease-in-out",
                       "& fieldset": {
-                        borderColor: "#9D4141",
+                        borderColor: "#e2e8f0",
+                        borderWidth: "1.5px",
                       },
                       "&:hover fieldset": {
-                        borderColor: "#9D4141",
+                        borderColor: "#cbd5e1",
                       },
                       "&.Mui-focused fieldset": {
                         borderColor: "#9D4141",
+                        borderWidth: "1.5px",
+                        boxShadow: "0 0 0 4px rgba(157, 65, 65, 0.1)"
                       },
                     },
                   }}
@@ -440,7 +332,7 @@ const AllEmployeesSearchDropdown = () => {
         {/* Mobile Layout */}
         <Row className="d-md-none">
           <Col xs={12} className="mb-3">
-            <Form.Label className="fw-bold mb-2 d-block">Filter</Form.Label>
+            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2 d-block">Filter</Form.Label>
             <TextField
               select
               value={statusFilter}
@@ -457,14 +349,18 @@ const AllEmployeesSearchDropdown = () => {
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
+                  transition: "all 0.2s ease-in-out",
                   "& fieldset": {
-                    borderColor: "#9D4141",
+                    borderColor: "#e2e8f0",
+                    borderWidth: "1.5px",
                   },
                   "&:hover fieldset": {
-                    borderColor: "#9D4141",
+                    borderColor: "#cbd5e1",
                   },
                   "&.Mui-focused fieldset": {
                     borderColor: "#9D4141",
+                    borderWidth: "1.5px",
+                    boxShadow: "0 0 0 4px rgba(157, 65, 65, 0.1)"
                   },
                 },
               }}
@@ -528,134 +424,10 @@ const AllEmployeesSearchDropdown = () => {
             </TextField>
           </Col>
 
-          <Col xs={12} className="mb-3">
-            <Form.Label className="fw-bold mb-2 d-block">
-              Select Employee
-            </Form.Label>
-            <TextField
-              select
-              value={
-                selectedDropdownEmployee.id !== "" &&
-                sortedEmployees.some(emp => emp.id === selectedDropdownEmployee.id)
-                  ? selectedDropdownEmployee.id
-                  : ""
-              }
-              onChange={handleSelect}
-              variant="outlined"
-              fullWidth
-              InputProps={{
-                style: {
-                  borderRadius: "8px",
-                  padding: "2px 2px",
-                  height: "45px",
-                  backgroundColor: "white",
-                },
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "#9D4141",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#9D4141",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#9D4141",
-                  },
-                },
-                "& .MuiSelect-icon": {
-                  color: "gray",
-                },
-              }}
-              SelectProps={{
-                displayEmpty: true,
-                renderValue: (selected) => {
-                  if (!selected || !sortedEmployees.length) {
-                    return <span style={{ color: "#999" }}>Select an employee</span>;
-                  }
-                  const employee = sortedEmployees.find(emp => emp.id === selected);
-                  if (!employee) {
-                    return <span style={{ color: "#999" }}>Select an employee</span>;
-                  }
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                      <span style={{ flex: 1 }}>
-                        {employee.users.firstName + " " + employee.users.lastName}
-                      </span>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          backgroundColor: employee.isActive ? "#3ECD45" : "#8A8A8A",
-                          marginLeft: 8,
-                        }}
-                      />
-                    </div>
-                  );
-                }
-              }}
-            >
-              {sortedEmployees.length === 0 ? (
-                <MenuItem disabled>
-                  <span style={{ color: "#999" }}>No employees found</span>
-                </MenuItem>
-              ) : (
-                sortedEmployees.map((employee, index) => (
-                <MenuItem key={index} value={employee.id}>
-                  <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                    <img
-                      src={
-                        employee.avatar ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          employee.users.firstName + " " + employee.users.lastName
-                        )}`
-                      }
-                      alt={employee.users.firstName + " avatar"}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                        marginRight: 8,
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          "https://ui-avatars.com/api/?name=" +
-                          encodeURIComponent(
-                            employee.users.firstName +
-                              " " +
-                              employee.users.lastName
-                          );
-                      }}
-                    />
-                    <span style={{
-                      color: employee.isActive ? "inherit" : "#999",
-                      flex: 1
-                    }}>
-                      {employee.users.firstName + " " + employee.users.lastName}
-                    </span>
-                    <span
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        backgroundColor: employee.isActive ? "#3ECD45" : "#8A8A8A",
-                        marginLeft: 8,
-                      }}
-                    />
-                  </div>
-                </MenuItem>
-              )))}
-            </TextField>
-          </Col>
 
-          <Col xs={12} className="text-center text-muted mb-3">
-            - OR -
-          </Col>
 
           <Col xs={12}>
-            <Form.Label className="fw-bold mb-2 d-block">
+            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2 d-block">
               Search by Name or ID
             </Form.Label>
             <Autocomplete
@@ -737,18 +509,22 @@ const AllEmployeesSearchDropdown = () => {
                   }}
                   inputProps={{
                     ...params.inputProps,
-                    style: { textAlign: "center" },
+                    style: { textAlign: "left" },
                   }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
+                      transition: "all 0.2s ease-in-out",
                       "& fieldset": {
-                        borderColor: "#9D4141",
+                        borderColor: "#e2e8f0",
+                        borderWidth: "1.5px",
                       },
                       "&:hover fieldset": {
-                        borderColor: "#9D4141",
+                        borderColor: "#cbd5e1",
                       },
                       "&.Mui-focused fieldset": {
                         borderColor: "#9D4141",
+                        borderWidth: "1.5px",
+                        boxShadow: "0 0 0 4px rgba(157, 65, 65, 0.1)"
                       },
                     },
                   }}

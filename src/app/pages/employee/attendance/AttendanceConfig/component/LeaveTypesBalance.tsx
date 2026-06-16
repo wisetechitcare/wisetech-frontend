@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import Loader from '@app/modules/common/utils/Loader';
+import eventBus from '@utils/EventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 const LeaveTypesBalance: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -114,6 +116,9 @@ const LeaveTypesBalance: React.FC = () => {
 
       successConfirmation('Leave settings updated successfully!');
 
+      // Notify all subscribers (BalanceProgress, CurrentYearOverview, Balances, etc.) to re-fetch balances.
+      eventBus.emit(EVENT_KEYS.leaveOptionsUpdated, {});
+
       // Refresh displayed values so the admin immediately sees the saved totals without a page reload.
       // This also ensures the Formik initial values are in sync with the DB after save.
       try {
@@ -161,7 +166,7 @@ const LeaveTypesBalance: React.FC = () => {
         }, [leaveOptionInitialValues]);
 
         return (
-          <FormikForm placeholder={''}>
+          <FormikForm>
             <div style={{ padding: '24px 20px', backgroundColor: '#f7f9fc' }}>
               {/* Branch Specific Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>

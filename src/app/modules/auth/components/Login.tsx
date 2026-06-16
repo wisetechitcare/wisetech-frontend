@@ -65,7 +65,7 @@ function LoginForm() {
         localStorage.setItem("redirectToDashboard", "true");
         setLoading(false);
       } catch (error: any) {
-        setStatus(error?.response.data.detail);
+        setStatus(error?.response?.data?.detail);
         setSubmitting(false);
         setLoading(false);
       }
@@ -189,10 +189,10 @@ export default function Login() {
   const [logoSrc, setLogoSrc] = useState(defaultLogo);
   useEffect(() => {
     async function getCompanyLogo() {
-      const {
-        data: { logo: logoSrc },
-      } = await fetchCompanyLogo();
-      setLogoSrc(logoSrc);
+      try {
+        const { data: { logo } } = await fetchCompanyLogo();
+        if (logo) setLogoSrc(logo); // keep default if no logo is set
+      } catch { /* keep default logo */ }
     }
 
     getCompanyLogo();
@@ -244,7 +244,7 @@ export default function Login() {
       <div className="d-flex flex-column flex-lg-row flex-column-fluid login__page">
         <div className="d-flex flex-lg-row-fluid">
           <div className="d-flex flex-column flex-center pb-lg-10 p-5 w-100">
-            <img className="mx-auto w-200px" src={logoSrc} />
+            <img className="mx-auto w-200px" src={logoSrc} alt="Logo" onError={(e) => { if (e.currentTarget.src !== defaultLogo) e.currentTarget.src = defaultLogo; }} />
             <img
               className="mx-auto w-150px w-lg-500px w-l-300px"
               src={toAbsoluteUrl("media/login/WTgif.gif")}
