@@ -119,7 +119,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         present: rawTotals.presentDays ?? 0,
         absent: (rawTotals?.absentDays < 0 ? 0 : rawTotals?.absentDays) ?? 0,
         late: rawTotals.lateCheckinDays ?? 0,
-        leaves: rawTotals.leavesDays ?? 0,
+        paidLeave: rawTotals.leavesDays ?? 0,
+        unpaidLeave: rawTotals.unpaidLeaveDays ?? 0,
         extraDay: rawTotals.extraDaysWorked ?? 0,
       };
     });
@@ -199,7 +200,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'present',         header: 'Present',             type: 'number'   as const },
     { key: 'absent',          header: 'Absent',              type: 'number'   as const },
     { key: 'late',            header: 'Late',                type: 'number'   as const },
-    { key: 'leaves',          header: 'Leaves',              type: 'number'   as const },
+    { key: 'paidLeave',       header: 'Paid Leave',          type: 'number'   as const },
+    { key: 'unpaidLeave',     header: 'Unpaid Leave',        type: 'number'   as const },
     { key: 'extraDay',        header: 'Extra Day',           type: 'number'   as const },
   ], [tds1Name, tds2Name]);
 
@@ -401,8 +403,13 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {
-              accessorKey: "leaves",
-              header: "Leaves",
+              accessorKey: "paidLeave",
+              header: "Paid Leave",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+            },
+            {
+              accessorKey: "unpaidLeave",
+              header: "Unpaid Leave",
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {
