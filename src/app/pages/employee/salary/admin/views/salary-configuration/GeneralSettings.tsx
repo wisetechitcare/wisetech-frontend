@@ -385,7 +385,7 @@ function GeneralSettings() {
             General Settings
           </h2>
           <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
-            Core payroll settings applied across all employees.
+            Payroll settings applied across all employees.
           </p>
         </div>
       </div>
