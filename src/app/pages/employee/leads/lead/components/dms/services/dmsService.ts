@@ -50,17 +50,11 @@ export const previewDocument = async (url: string, fileName: string) => {
       responseType: 'blob',
     });
     
-<<<<<<< HEAD
     const contentType = response.headers['content-type'];
     const mimeType = typeof contentType === 'string' ? contentType : undefined;
     const blob = new Blob([response.data], { type: mimeType });
     // Use File object to preserve name in some browsers
     const file = new File([blob], fileName, { type: mimeType });
-=======
-    const blob = new Blob([response.data], { type: response.headers['content-type'] as string | undefined });
-    // Use File object to preserve name in some browsers
-    const file = new File([blob], fileName, { type: response.headers['content-type'] as string | undefined });
->>>>>>> cb9bfaf4909dd512555e1cc16bffcdbb32d242e8
     const previewUrl = URL.createObjectURL(file);
     
     window.open(previewUrl, '_blank');

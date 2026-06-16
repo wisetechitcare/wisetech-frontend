@@ -44,7 +44,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     };
 
     const totalVariable = variableEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
-    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + getEffectiveEarned(item), 0);
+    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + Math.round(getEffectiveEarned(item)), 0);
     const intermediateSalary = Math.max(0, grossPay - totalVariable);
     const grandTotalDeductions = totalVariable + totalFixed;
 
@@ -309,7 +309,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                             <td className="text-end">
                                                 <div className="d-flex flex-column align-items-end">
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                        -{formatINRDecimal(earnedAmount)}
+                                                        -{formatINRDecimal(Math.round(earnedAmount))}
                                                     </span>
                                                     {!isInactiveWithExtra && extraAmount !== 0 && calculatedAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">
