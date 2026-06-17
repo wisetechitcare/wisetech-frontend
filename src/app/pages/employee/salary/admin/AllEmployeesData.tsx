@@ -411,29 +411,34 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
 
   // Memoized table columns to prevent unnecessary re-renders
   const columns = useMemo(() => [
-    { accessorKey: "users", header: "Name", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A" },
+    { accessorKey: "users", header: "Name", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A", Footer: "Total" },
     { accessorKey: "designations", header: "Designation", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A" },
     { accessorKey: "departments", header: "Department", Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A" },
-    { accessorKey: "amountPaid", header: "Total Salary", Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue || 0)},
-    { 
-      accessorKey: "details", 
-      header: "Details", 
+    {
+      accessorKey: "amountPaid",
+      header: "Total Salary",
+      Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue || 0),
+      Footer: () => formatNumber(totalAmountPaid)
+    },
+    {
+      accessorKey: "details",
+      header: "Details",
       Cell: ({row}: any) => (
-        <button 
-          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' 
+        <button
+          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
           onClick={() => handleShowDetails(row.original.id)}
           disabled={isLoading}
         >
           <KTIcon iconName='eye' className='fs-3' />
         </button>
       )
-    }, 
+    },
     ...(isAdmin ? [{
       accessorKey: "actions",
       header: "Actions",
       Cell: ({ row }: any) => (
-        <button 
-          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' 
+        <button
+          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
           onClick={() => handleEditClick(row.original.id)}
           disabled={isLoading}
         >
@@ -441,7 +446,7 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         </button>
       ),
     }] : []),
-  ], [handleEditClick, handleShowDetails, isAdmin, isLoading]);
+  ], [handleEditClick, handleShowDetails, isAdmin, isLoading, totalAmountPaid]);
 
 
 
@@ -627,11 +632,12 @@ const AllEmployeesData = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
       <PageHeadingTitle />
       
       
-        <MaterialTable 
-          columns={columns} 
-          data={employees} 
+        <MaterialTable
+          columns={columns}
+          data={employees}
           employeeId={employeeIdCurrent}
-          tableName="Employees" 
+          tableName="Employees"
+          showColumnFooter={true}
         />
 
       {/* ApexChart for Yearly and Monthly View */}

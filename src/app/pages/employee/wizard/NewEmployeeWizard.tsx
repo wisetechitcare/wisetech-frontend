@@ -312,6 +312,8 @@ const newEmployeeWizardSchema = [
       accountNumber: optionalString().label("Account Number")
         .min(8, "Account Number must be at least 8 characters").max(20, "Account Number must be at most 20 characters")
         .matches(employeeOnBardingFormRegexes["bankInfo.accountNumber"], "Account Number can only contain numeric characters"),
+      bankName: optionalString().label("Bank Name")
+        .min(2, "Bank Name must be at least 2 characters").max(100, "Bank Name must be at most 100 characters"),
       ifscCode: optionalString().label("IFSC Code"),
       filePath: optionalString().label("Upload Bank Proof"),
     }).required(),
@@ -409,7 +411,7 @@ const initialState = {
   educationalInfo: [createDefaultEducationInfo()],
   familyInfo: [createDefaultFamilyInfo()],
   emergencyDetails: { bloodGroup: "", allergies: "", emergencyContactName: "", emergencyContactNumber: "" },
-  bankInfo: { accountName: "", accountNumber: "", ifscCode: "", filePath: "" },
+  bankInfo: { accountName: "", accountNumber: "", bankName: "", ifscCode: "", filePath: "" },
   addressInfo: {
     permanentAddressLine1: "", permanentAddressLine2: "", permanentCountry: "",
     permanentState: "", permanentCity: "", permanentPostalCode: "",
@@ -596,7 +598,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
       }))),
       () => createEducationalDetails(filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId)).filter(Boolean)),
       () => createAddressDetails({ ...addressInfo, employeeId, ...(isSameAddress && { presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }) }),
-      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
+      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
       () => createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }),
       () => createDocumentsDetails(documents.map((el: any) => ({ ...el, employeeId }))),
     ];
@@ -1014,7 +1016,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     reqPromise.push(() => bankInfo?.id
       ? updateBankDetails(bankInfo.id, bankInfo)
-      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }));
+      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }));
 
     reqPromise.push(() => emergencyDetails?.id
       ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)

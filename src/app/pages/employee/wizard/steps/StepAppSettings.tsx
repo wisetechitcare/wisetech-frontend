@@ -8,6 +8,7 @@ import RadioInput from "@app/modules/common/inputs/RadioInput";
 // import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import AppSettings from "../forms/AppSettings";
 import WizardSectionLayout from "./WizardSectionLayout";
+import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 import "./Step2.css";
 
 // ── 1. Reporting Config ───────────────────────────────────────────────────────
@@ -42,6 +43,12 @@ function ReportingConfig() {
 
 // ── 2. Financial Config ───────────────────────────────────────────────────────
 function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode: boolean }) {
+    const { resolveComponent } = useSalaryMaster();
+    const tds1Comp = resolveComponent('Professional Fees');
+    const tds2Comp = resolveComponent('TDS 2');
+    const tds1Name = tds1Comp?.shortCode ? tds1Comp.shortCode : tds1Comp?.displayName ? tds1Comp.displayName : 'Tax Deducted at Source (TDS)';
+    const tds2Name = tds2Comp?.shortCode ? tds2Comp.shortCode : tds2Comp?.displayName ? tds2Comp.displayName : 'TDS 2';
+
     const formatINNumber = (val: any) => {
         if (!val) return "";
         return Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(val));
@@ -121,13 +128,13 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 {pfType === "PERCENTAGE" ? (
                                     <TextInput
                                         isRequired={false}
-                                        label="Tax Deducted at Source (TDS) %"
+                                        label={`${tds1Name} %`}
                                         formikField="professionalFeesPercentage"
                                     />
                                 ) : (
                                     <TextInput
                                         isRequired={false}
-                                        label="Tax Deducted at Source (TDS) Amount"
+                                        label={`${tds1Name} Amount`}
                                         formikField="professionalFeesAmount"
                                         formatter={formatINNumber}
                                         parser={parseINNumber}
@@ -144,7 +151,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                     <RadioInput
                         formikField="tds2Enabled"
-                        inputLabel="TDS 2 (Additional)"
+                        inputLabel={`${tds2Name} (Additional)`}
                         radioBtns={[
                             { label: "Enabled", value: "true" },
                             { label: "Disabled", value: "false" },
@@ -158,7 +165,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                             <RadioInput
                                 formikField="tds2Type"
-                                inputLabel="TDS 2 Type"
+                                inputLabel={`${tds2Name} Type`}
                                 radioBtns={[
                                     { label: "Fixed", value: "FIXED" },
                                     { label: "Percentage", value: "PERCENTAGE" },
@@ -170,13 +177,13 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                             {tds2Type === "PERCENTAGE" ? (
                                 <TextInput
                                     isRequired={false}
-                                    label="TDS 2 %"
+                                    label={`${tds2Name} %`}
                                     formikField="tds2Percentage"
                                 />
                             ) : (
                                 <TextInput
                                     isRequired={false}
-                                    label="TDS 2 Amount"
+                                    label={`${tds2Name} Amount`}
                                     formikField="tds2Amount"
                                     formatter={formatINNumber}
                                     parser={parseINNumber}

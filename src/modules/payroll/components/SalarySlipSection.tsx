@@ -16,6 +16,7 @@ interface SalarySlipSectionProps {
     salaryId: string;
     loading: boolean;
     setLoading: (loading: boolean) => void;
+    employee?: any;
 }
 
 const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
@@ -24,10 +25,42 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
     employeeId,
     salaryId,
     loading,
-    setLoading
+    setLoading,
+    employee
 }) => {
     const [isDownloading, setIsDownloading] = React.useState(false);
     const [isSending, setIsSending] = React.useState(false);
+    const [isDownloadingBill, setIsDownloadingBill] = React.useState(false);
+
+    const isContractEmployee = !!employee?.professionalFeesEnabled;
+
+    const handleDownloadContractBill = async () => {
+        if (!salaryId) return;
+        setLoading(true);
+        setIsDownloadingBill(true);
+        try {
+            const blob = await payrollService.downloadContractBill(salaryId);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            const empName = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim();
+            const monthYear = new Date().toLocaleDateString('en-IN', {
+                month: 'short',
+                year: 'numeric'
+            });
+            link.setAttribute('download', `Contract_Bill_${empName}_${monthYear}.pdf`.trim());
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+        } catch (e) {
+            console.error(e);
+            errorConfirmation('Failed to download contract bill PDF');
+        } finally {
+            setLoading(false);
+            setIsDownloadingBill(false);
+        }
+    };
+
     const handleEmailSalarySlip = async () => {
         if (!salarySlipProps || !salaryId) {
             alert('No salary data available for PDF generation');
@@ -92,8 +125,8 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
         // ancestor carries the `sensitive-data-hidden` class (eye closed) which sets
         // pointer-events:none. Slip download/email are not sensitive data, so they stay accessible.
         <div
-            className="d-flex flex-wrap justify-content-end align-items-center mb-4 gap-3"
-            style={{ pointerEvents: 'auto', filter: 'none' }}
+            className="d-flex flex-wrap justify-content-end align-items-center mb-4"
+            style={{ pointerEvents: 'auto', filter: 'none', gap: '8px' }}
         >
             {salarySlipProps && salaryId ? (
                 <button
@@ -121,27 +154,59 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 22px',
-                        border: '1.5px solid #AA393D',
-                        borderRadius: '8px',
-                        background: 'transparent',
-                        color: '#AA393D',
-                        fontWeight: 600,
-                        fontSize: '14px',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        padding: '7px 14px',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: '#f8fafc',
+                        color: '#475569',
+                        fontWeight: 500,
+                        fontSize: '12px',
                         cursor: loading ? 'not-allowed' : 'pointer',
                         opacity: loading ? 0.6 : 1,
-                        transition: 'all 0.2s',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#AA393D'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; } }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#AA393D'; }}
+                    onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; } }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
                 >
-                    <KTIcon iconName="file-down" className="fs-4" />
-                    {isDownloading ? 'Generating…' : 'Download Salary Slip'}
+                    <KTIcon iconName="file-down" className="fs-6" />
+                    <span>{isDownloading ? 'Generating…' : 'Download Slip'}</span>
                 </button>
             ) : (
-                <button disabled style={{ padding: '10px 22px', border: '1.5px solid #e2e8f0', borderRadius: '8px', background: '#f8fafc', color: '#94a3b8', fontWeight: 600, fontSize: '14px', cursor: 'not-allowed' }}>
-                    No PDF Data
+                <button disabled style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', border: '1.5px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#94a3b8', fontWeight: 500, fontSize: '12px', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                    <KTIcon iconName="file-down" className="fs-6" />
+                    <span>No PDF Data</span>
+                </button>
+            )}
+
+            {isContractEmployee && salaryId && (
+                <button
+                    onClick={handleDownloadContractBill}
+                    disabled={loading}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        padding: '7px 14px',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: '#f8fafc',
+                        color: '#475569',
+                        fontWeight: 500,
+                        fontSize: '12px',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        opacity: loading ? 0.6 : 1,
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; } }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
+                >
+                    <KTIcon iconName="file-down" className="fs-6" />
+                    <span>{isDownloadingBill ? 'Downloading...' : 'Download Bill'}</span>
                 </button>
             )}
 
@@ -152,23 +217,25 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 22px',
-                        border: '1.5px solid transparent',
-                        borderRadius: '8px',
-                        background: loading ? '#c8797b' : '#AA393D',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        padding: '7px 14px',
+                        border: 'none',
+                        borderRadius: '6px',
+                        background: loading ? '#d32f2f' : '#d32f2f',
                         color: '#fff',
-                        fontWeight: 600,
-                        fontSize: '14px',
+                        fontWeight: 500,
+                        fontSize: '12px',
                         cursor: loading ? 'not-allowed' : 'pointer',
-                        boxShadow: '0 2px 8px rgba(170,57,61,0.25)',
-                        transition: 'all 0.2s',
+                        boxShadow: '0 2px 6px rgba(211,47,47,0.2)',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#8e2d30'; }}
-                    onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#AA393D'; }}
+                    onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#b71c1c'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(211,47,47,0.3)'; } }}
+                    onMouseLeave={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#d32f2f'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(211,47,47,0.2)'; } }}
                 >
-                    <KTIcon iconName="sms" className="fs-4" />
-                    {isSending ? 'Sending…' : 'Email Salary Slip'}
+                    <KTIcon iconName="sms" className="fs-6" />
+                    <span>{isSending ? 'Sending…' : 'Email Slip'}</span>
                 </button>
             )}
         </div>

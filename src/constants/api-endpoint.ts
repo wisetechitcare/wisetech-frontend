@@ -201,6 +201,7 @@ export const EMPLOYEE = {
     GET_ALL_NOTIFICATIONS: "api/employee/allnotification",
     MARK_ALL_AS_READ: "api/employee/mark-all-read",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
+    EMAIL_CONTRACT_BILL: "api/employee/email-contract-bill",
     GET_LOAN_BY_EMPLOYEE_ID: "api/employee/loans/employee",
     CREATE_LOAN: "api/employee/loan",
     GET_INSTALLMENT_BY_LOAN_ID: "api/employee/loan/installment",

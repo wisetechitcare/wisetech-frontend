@@ -37,30 +37,56 @@ export const useSalaryReport = () => {
         setShowPaymentModal(true);
     };
 
-    const handleDeletePayment = async (payment: any) => {
+    const handleDeletePayment = async (payment: any, onRefreshCallback?: () => void) => {
         try {
             if (!payment?.id) {
                 throw new Error('Missing payment id');
             }
-            // Legacy synthetic IDs cannot be deleted via API (no DB record)
-            if (String(payment.id).includes('-legacy-')) {
-                toast.warning('Legacy payment records cannot be deleted individually. Edit the salary record instead.', { position: 'bottom-right', autoClose: 5000 });
-                return;
+            const idStr = String(payment.id);
+
+            // A row is a government payment when its paymentType says so, or when its id
+            // carries a government marker. Real govt payments are a plain UUID from the
+            // governmentPayments table; synthetic rows use "<masterId>-GOVERNMENT-<date>"
+            // or "<masterId>-legacy-gov". Salary payments are "payment_*" / "-SALARY-" / "-legacy-salary".
+            const isGovernment =
+                payment?.paymentType === 'GOVERNMENT' ||
+                /-(?:legacy-gov|GOVERNMENT)\b/.test(idStr);
+
+            // Resolve the id the backend can actually delete:
+            //  - Real history payments:  "payment_<ts>_<rand>"  → removed from paymentHistoryJson
+            //  - Real government payments: a plain UUID          → removed from governmentPayments
+            //  - Derived/legacy rows:    "<masterId>-legacy-salary" | "<masterId>-legacy-gov"
+            //                            | "<masterId>-SALARY-<date>" | "<masterId>-GOVERNMENT-<date>"
+            //    These have no standalone DB row, so strip the suffix and reset the salary master.
+            let deleteId = idStr;
+            if (!idStr.startsWith('payment_')) {
+                const derived = idStr.match(/^(.+?)-(?:legacy-(?:salary|gov)|SALARY|GOVERNMENT)\b/);
+                if (derived) deleteId = derived[1];
             }
-            await payrollService.deletePayment(payment.id);
+
+            // Route to the matching endpoint. Government payments live in the
+            // governmentPayments table, NOT in paymentHistoryJson — sending them to the
+            // salary delete route returns 404 ("Payment not found").
+            console.log('🗑️ [DeletePayment] row id:', idStr, '→ backend id:', deleteId, '| government:', isGovernment);
+            const response = isGovernment
+                ? await payrollService.deleteGovernmentPayment(deleteId)
+                : await payrollService.deletePayment(deleteId);
+            console.log('🗑️ [DeletePayment] API response:', response);
+
             successConfirmation('Payment deleted successfully');
-            handleRefresh();
+            handleRefresh(onRefreshCallback);
         } catch (error) {
+            console.error('❌ [DeletePayment] failed:', error);
             errorConfirmation('Failed to delete payment');
         }
     };
 
     const handlePaymentSubmit = async (
-        values: any, 
-        salaryId: string | undefined, 
-        employeeId: string, 
-        month: string | number, 
-        year: string | number, 
+        values: any,
+        salaryId: string | undefined,
+        employeeId: string,
+        month: string | number,
+        year: string | number,
         companyId: string | undefined,
         onSuccess?: () => void
     ) => {
@@ -68,8 +94,26 @@ export const useSalaryReport = () => {
             setLoading(true);
             const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks, _netSalary, _salaryPaid, sendEmail } = values;
 
+            const editingId = values.id ? String(values.id) : '';
+            // Real salary payments live inside paymentHistoryJson with "payment_*" ids.
+            // The backend appends on record (it never replaces by id), so to EDIT one we
+            // delete the original transaction first and then re-record the new values.
+            const isHistoryPayment = editingId.startsWith('payment_');
+            if (editMode && isHistoryPayment) {
+                try {
+                    console.log('✏️ [PaymentSubmit] replacing history payment, removing original:', editingId);
+                    await payrollService.deletePayment(editingId);
+                } catch (e) {
+                    console.warn('⚠️ [PaymentSubmit] failed to remove original before edit:', e);
+                }
+            }
+
+            // History edits are re-created as a fresh entry (new payment_ id).
+            // Government payments (real UUID) keep their id so the backend updates in place.
+            const paymentId = isHistoryPayment ? undefined : (values.id || undefined);
+
             const basePayload = {
-                id: values.id || undefined,
+                id: paymentId || undefined,
                 salaryId,
                 employeeId,
                 month: Number(month),

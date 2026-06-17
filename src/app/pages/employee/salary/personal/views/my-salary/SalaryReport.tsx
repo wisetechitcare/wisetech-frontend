@@ -11,7 +11,7 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { saveLeaves, saveToggleChange } from '@redux/slices/attendanceStats';
 import { Employee, saveHourlySalaryOfCurrentEmployee, saveHourlySalaryOfSelectedEmployee } from '@redux/slices/employee';
 import { RootState, store } from '@redux/store';
-import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetchSalaryHistory, updateConfigurationById } from '@services/company';
+import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetchSalaryHistory, updateConfigurationById, fetchSalaryPaymentHistory } from '@services/company';
 // import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { createNewPayment, createUpdateGrossPayDeductions, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
@@ -2039,21 +2039,35 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     //                         />
     // console.log("SalarySlippaidLeaves:: ",paidLeaves);
 
+    // Fetch payment history
+    const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
+    const salaryId = (apiSalaryData as any)?.salaryId;
+
+    useEffect(() => {
+        if (!salaryId) return;
+        fetchSalaryPaymentHistory(salaryId)
+            .then((history: any) => setPaymentHistory(history))
+            .catch((err: any) => {
+                console.warn('Failed to fetch payment history:', err);
+                setPaymentHistory(null);
+            });
+    }, [salaryId]);
+
     // Transform API data to SalarySlipTemplate props format
     const salarySlipProps = useMemo((): SalarySlipProps | null => {
         if (!isApiDataLoaded || !apiSalaryData) {
             console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
             return null;
         }
-        
+
         console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
         try {
-            return transformApiDataToSalarySlipProps(apiSalaryData, employee);
+            return transformApiDataToSalarySlipProps(apiSalaryData, employee, paymentHistory, salaryId);
         } catch (error) {
             console.error('📊 [SalaryReport] Error transforming API data:', error);
             return null;
         }
-    }, [isApiDataLoaded, apiSalaryData, employee]);
+    }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
 
     return (
         <>
