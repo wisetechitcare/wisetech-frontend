@@ -9,6 +9,7 @@ import type { RootState } from "@redux/store";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import NewCompanyForm from "@pages/employee/companies/companies/components/NewCompanyForm";
 import { getAllTimeSheetWithCostByProjectId } from "@services/tasks";
+import { getProjectProjectPoints, type ProjectPointValue } from "@services/projectPoints";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 
@@ -27,6 +28,16 @@ const ProjectOverviewById = ({
   const [billableFilter, setBillableFilter] = useState<null | string>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Dynamic Project Points (replaces the hardcoded Other Point 1/2/3 display).
+  const [projectPoints, setProjectPoints] = useState<ProjectPointValue[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (!projectId) { setProjectPoints([]); return; }
+    getProjectProjectPoints(projectId)
+      .then((res) => { if (active) setProjectPoints(res?.points ?? []); })
+      .catch((e) => { console.error("Error loading project points:", e); if (active) setProjectPoints([]); });
+    return () => { active = false; };
+  }, [projectId]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -1265,31 +1276,15 @@ const ProjectOverviewById = ({
                   <div style={{ fontWeight: "500" }}>Building Details</div>
                   <div style={{ fontWeight: "400" }}>{projectData?.buildingDetail || '-'}</div>
                 </div>
-                {/* Other Points — only show when they have data */}
-                {(projectData?.otherPoint1Heading || projectData?.otherPoint1Description) && (
-                  <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontWeight: "500" }}>Other Point - 1</div>
-                    <div style={{ fontWeight: "400" }}>
-                      {[projectData.otherPoint1Heading, projectData.otherPoint1Description].filter(Boolean).join(' : ')}
+                {/* Project Points — dynamic; heading is the label, description the value */}
+                {projectPoints
+                  .filter((p) => p.heading || p.description)
+                  .map((p, idx) => (
+                    <div key={p.id || idx} className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
+                      <div style={{ fontWeight: "500" }}>{p.heading || `Point ${idx + 1}`}</div>
+                      <div style={{ fontWeight: "400" }}>{p.description || '-'}</div>
                     </div>
-                  </div>
-                )}
-                {(projectData?.otherPoint2Heading || projectData?.otherPoint2Description) && (
-                  <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontWeight: "500" }}>Other Point - 2</div>
-                    <div style={{ fontWeight: "400" }}>
-                      {[projectData.otherPoint2Heading, projectData.otherPoint2Description].filter(Boolean).join(' : ')}
-                    </div>
-                  </div>
-                )}
-                {(projectData?.otherPoint3Heading || projectData?.otherPoint3Description) && (
-                  <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: "Inter", fontSize: "14px", color: "black" }}>
-                    <div style={{ fontWeight: "500" }}>Other Point - 3</div>
-                    <div style={{ fontWeight: "400" }}>
-                      {[projectData.otherPoint3Heading, projectData.otherPoint3Description].filter(Boolean).join(' : ')}
-                    </div>
-                  </div>
-                )}
+                  ))}
               </div>
             </div>
           </div>

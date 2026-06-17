@@ -2,6 +2,7 @@ import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { DeductionBreakdownProps } from '../../types/payroll.types';
 import { formatINRDecimal, formatINRDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     deductionBreakdown,
@@ -57,13 +58,13 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
             const percent    = Number(item?.ratePercent ?? item?.configuredValue ?? item?.deductionPercent ?? 50);
             const countLimit = Number(item?.meta?.countLimit ?? item?.countLimit ?? 4);
             const perBucket  = dailySalary * (percent / 100);
-            return `${formatINRDecimalTruncated(perBucket)} / ${countLimit} late`;
+            return `${formatCurrencyDecimal(perBucket)} / ${countLimit} late`;
         }
 
         const explicitRate = item?.rateDisplay || item?.rateLabel;
         if (explicitRate) return explicitRate;
 
-        return dailySalary ? `${formatINRDecimalTruncated(dailySalary)} / Day` : '-';
+        return dailySalary ? `${formatCurrencyDecimal(dailySalary)} / Day` : '-';
     };
     const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
         const sign = extraAmount < 0 ? '-' : '+';
