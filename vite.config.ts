@@ -6,6 +6,25 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), tsconfigPaths()],
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:9000',
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:9000',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:9000',
+        changeOrigin: true,
+      },
+    },
+  },
   define: {
     // Make Node globals available in browser — required by @react-pdf/renderer
     global: 'globalThis',

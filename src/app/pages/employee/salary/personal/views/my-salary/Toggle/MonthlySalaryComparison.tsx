@@ -29,7 +29,7 @@ const getDeduction = (row: any, matcher: (k: string) => boolean): number =>
 
 // ── Color palette ──────────────────────────────────────────────────────────
 const COLOR_BASIC  = '#FBD678'; // warm gold  — Basic Salary
-const COLOR_NET    = '#58C25D'; // soft green — Net Take-Home
+const COLOR_NET    = '#58C25D'; // soft green — Net Payable
 const COLOR_PF     = '#3B82F6'; // bright blue    — PF
 const COLOR_PTAX   = '#8B5CF6'; // vivid purple   — PTax
 const COLOR_TDS    = '#EF4444'; // vivid red       — TDS
@@ -98,39 +98,41 @@ const MonthlySalaryComparison = ({
                 else if (item.netAmount && item.netAmount !== '-')  basic = parseAmount(item.netAmount);
                 else if (item.annualCTC) basic = parseAmount(item.annualCTC / 12);
 
-                // Gross net (before deductions stacking)
-                let grossNet = 0;
-                if (item.netAmount && item.netAmount !== '-') grossNet = parseAmount(item.netAmount);
-                else if (item.amountPaid && item.amountPaid !== '-') grossNet = parseAmount(item.amountPaid);
-                else if (item.basicSalary && item.basicSalary !== '-') grossNet = parseAmount(item.basicSalary);
+                // Net salary (payable / take-home). item.netAmount is ALREADY net of all
+                // deductions — it equals "intermediate salary − fixed deductions" and matches
+                // the PAYABLE SALARY summary card exactly.
+                let netSalary = 0;
+                if (item.netAmount && item.netAmount !== '-') netSalary = parseAmount(item.netAmount);
+                else if (item.amountPaid && item.amountPaid !== '-') netSalary = parseAmount(item.amountPaid);
+                else if (item.basicSalary && item.basicSalary !== '-') netSalary = parseAmount(item.basicSalary);
 
-                // Deductions from breakdown
+                // Deductions from breakdown — stacked ON TOP of the net bar, so the full
+                // stacked column reconstructs the gross (net salary + deductions = total).
                 const pf   = getDeduction(item, isPfKey);
                 const ptax = getDeduction(item, isPtaxKey);
                 const tds  = getDeduction(item, isTdsKey);
                 const tds2 = getDeduction(item, isTds2Key);
-                const totalDed = pf + ptax + tds + tds2;
 
-                // Net take-home = grossNet minus deductions that exist in breakdown
-                // If breakdown deductions sum > 0, subtract them from grossNet
-                const netTakeHome = totalDed > 0 ? Math.max(0, grossNet - totalDed) : grossNet;
+                // Green bar shows the true net salary itself. Do NOT subtract deductions here:
+                // netAmount is already net, so subtracting would double-count TDS/PF/PTax.
+                const netTakeHome = netSalary;
 
                 if (pf   > 0) _pf   = true;
                 if (ptax > 0) _ptax = true;
                 if (tds  > 0) _tds  = true;
                 if (tds2 > 0) _tds2 = true;
 
-                const avg = (basic + grossNet) / 2;
+                const avg = (basic + netSalary) / 2;
 
                 stats[idx] = {
                     month: standardMonths[idx],
-                    basicSalary: basic   > 0 ? basic       : null,
-                    netTakeHome: grossNet > 0 ? netTakeHome : null,
+                    basicSalary: basic     > 0 ? basic       : null,
+                    netTakeHome: netSalary > 0 ? netTakeHome : null,
                     pf:   pf   > 0 ? pf   : null,
                     ptax: ptax > 0 ? ptax : null,
                     tds:  tds  > 0 ? tds  : null,
                     tds2: tds2 > 0 ? tds2 : null,
-                    average: grossNet > 0 ? avg : null,
+                    average: netSalary > 0 ? avg : null,
                 };
             });
         }
@@ -146,12 +148,12 @@ const MonthlySalaryComparison = ({
 
     const series: any[] = [
         { name: 'Basic Salary', type: 'column', data: get('basicSalary'), group: 'basic' },
-        { name: 'Net Take-Home', type: 'column', data: get('netTakeHome'), group: 'salary' },
+        { name: 'Net Payable', type: 'column', data: get('netTakeHome'), group: 'salary' },
         ...(hasPf   ? [{ name: 'PF',   type: 'column', data: get('pf'),   group: 'salary' }] : []),
         ...(hasPtax ? [{ name: 'PTax', type: 'column', data: get('ptax'), group: 'salary' }] : []),
         ...(hasTds  ? [{ name: 'TDS',  type: 'column', data: get('tds'),  group: 'salary' }] : []),
         ...(hasTds2 ? [{ name: 'TDS2', type: 'column', data: get('tds2'), group: 'salary' }] : []),
-        { name: 'Average', type: 'line', data: get('average') },
+        { name: 'Average', type: 'line', data: get('average'), dataLabels: { enabled: false } },
     ];
 
     const stackedSeriesCount = 1 + (hasPf ? 1 : 0) + (hasPtax ? 1 : 0) + (hasTds ? 1 : 0) + (hasTds2 ? 1 : 0);
@@ -172,8 +174,8 @@ const MonthlySalaryComparison = ({
     const strokeColors = Array.from({ length: totalSeriesCount - 1 }, () => 'transparent');
     strokeColors.push(COLOR_LINE);
 
-    // dataLabels only on Net Take-Home (index 1) — shows total net inside green bar
-    const labelsEnabledOn = [1]; // only Net Take-Home
+    // dataLabels on Basic Salary (0) and Net Payable (1)
+    const labelsEnabledOn = [0, 1];
 
     function getFullMonthName(s: string) {
         const m: Record<string, string> = {
@@ -206,7 +208,7 @@ const MonthlySalaryComparison = ({
                 columnWidth: '55%',
                 borderRadius: 4,
                 borderRadiusApplication: 'around' as const,
-                borderRadiusWhenStacked: 'last' as const,
+                borderRadiusWhenStacked: 'all' as const,
                 dataLabels: {
                     position: 'center',
                     orientation: 'vertical' as const,
@@ -217,7 +219,22 @@ const MonthlySalaryComparison = ({
         dataLabels: {
             enabled: true,
             enabledOnSeries: labelsEnabledOn,
-            formatter: (val: number) => (!val || val === 0 ? '' : '₹' + (val / 1000).toFixed(0) + 'k'),
+            formatter: (val: number, opts: any) => {
+                if (!val || val === 0) return '';
+                let displayVal = val;
+                if (opts?.seriesIndex === 1 && opts?.w?.config?.series) {
+                    const series = opts.w.config.series;
+                    const dpi = opts.dataPointIndex;
+                    let total = 0;
+                    for (let i = 1; i < series.length; i++) {
+                        if (series[i].group === 'salary') {
+                            total += (series[i].data[dpi] || 0);
+                        }
+                    }
+                    if (total > 0) displayVal = total;
+                }
+                return '₹' + (displayVal / 1000).toFixed(0) + 'k';
+            },
             offsetY: 0,
             style: {
                 fontSize: compact ? '9px' : '11px',
@@ -288,7 +305,7 @@ const MonthlySalaryComparison = ({
                         <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:8px;">${getFullMonthName(month)}</div>
                         ${row(COLOR_BASIC, 'Basic Salary', basic)}
                         <div style="border-top:1px solid #f1f5f9;margin:6px 0;"></div>
-                        ${row(COLOR_NET,   'Net Take-Home', net)}
+                        ${row(COLOR_NET,   'Net Payable', net)}
                         ${row(COLOR_PF,    'PF', pfVal)}
                         ${row(COLOR_PTAX,  'PTax', ptaxVal)}
                         ${row(COLOR_TDS,   'TDS', tdsVal)}
@@ -343,7 +360,7 @@ const MonthlySalaryComparison = ({
     // ── Legend items ─────────────────────────────────────────────────────────
     const legendItems: { color: string; label: string; line?: boolean }[] = [
         { color: COLOR_BASIC, label: 'Basic Salary' },
-        { color: COLOR_NET,   label: 'Net Take-Home' },
+        { color: COLOR_NET,   label: 'Net Payable' },
         ...(hasPf   ? [{ color: COLOR_PF,   label: 'PF' }]   : []),
         ...(hasPtax ? [{ color: COLOR_PTAX, label: 'PTax' }] : []),
         ...(hasTds  ? [{ color: COLOR_TDS,  label: 'TDS' }]  : []),
@@ -410,7 +427,7 @@ const MonthlySalaryComparison = ({
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                     </svg>
-                    Stacked bar = Net Take-Home + applicable deductions (PF, TDS, PTax…)
+                    Stacked bar = Net Payable + applicable deductions (PF, TDS, PTax…)
                 </div>
                 <div>All amounts in ₹ (Indian Rupees)</div>
             </div>
