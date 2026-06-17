@@ -70,8 +70,6 @@ export interface SalaryLockInfo {
     salaryStatus: SalaryStatus;
     lockedAt?: string;
     lockedBy?: string;
-    snapshotCtcInLpa?: number;
-    snapshotTakenAt?: string;
 }
 
 export type PayrollTableRow = IMonthlyApiResponse['salaryData'][0] & {

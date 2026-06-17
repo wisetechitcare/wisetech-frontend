@@ -104,6 +104,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         branch: summary.branch || 'N/A',
         basicSalary: rawTotals.basicSalary ?? '-',
         overTimeAmount: rawTotals?.overTimeAmount ?? '-',
+        totalSalaryAfterAttendance: (rawTotals.basicSalary ?? 0) + (rawTotals?.overTimeAmount ?? 0),
         netAmount: rawTotals.netAmount ?? '-',
         amountPaid: rawTotals.amountPaid ?? '-',
         dueAmount: rawTotals.dueAmount ?? '-',
@@ -118,13 +119,14 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         present: rawTotals.presentDays ?? 0,
         absent: (rawTotals?.absentDays < 0 ? 0 : rawTotals?.absentDays) ?? 0,
         late: rawTotals.lateCheckinDays ?? 0,
-        leaves: rawTotals.leavesDays ?? 0,
+        paidLeave: rawTotals.leavesDays ?? 0,
+        unpaidLeave: rawTotals.unpaidLeaveDays ?? 0,
         extraDay: rawTotals.extraDaysWorked ?? 0,
       };
     });
 
     const dataScore = (r: any) => {
-      const numFields = ['basicSalary', 'overTimeAmount', 'netAmount', 'amountPaid',
+      const numFields = ['basicSalary', 'overTimeAmount', 'totalSalaryAfterAttendance', 'netAmount', 'amountPaid',
         'professionalFees', 'tds2', 'professionalTax', 'totalDays', 'present'];
       return numFields.reduce((s, k) => {
         const v = Number(r[k]);
@@ -153,17 +155,18 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     return tableData.reduce(
       (acc: any, r: any) => {
-        acc.basicSalary      += num(r.basicSalary);
-        acc.overTimeAmount   += num(r.overTimeAmount);
-        acc.professionalFees += num(r.professionalFees);
-        acc.tds2             += num(r.tds2);
-        acc.professionalTax  += num(r.professionalTax);
-        acc.netAmount        += num(r.netAmount);
-        acc.amountPaid       += num(r.amountPaid);
-        acc.dueAmount        += num(r.dueAmount);
+        acc.basicSalary             += num(r.basicSalary);
+        acc.overTimeAmount          += num(r.overTimeAmount);
+        acc.totalSalaryAfterAttendance += num(r.totalSalaryAfterAttendance);
+        acc.professionalFees        += num(r.professionalFees);
+        acc.tds2                    += num(r.tds2);
+        acc.professionalTax         += num(r.professionalTax);
+        acc.netAmount               += num(r.netAmount);
+        acc.amountPaid              += num(r.amountPaid);
+        acc.dueAmount               += num(r.dueAmount);
         return acc;
       },
-      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
+      { basicSalary: 0, overTimeAmount: 0, totalSalaryAfterAttendance: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
     );
   }, [tableData]);
 
@@ -175,6 +178,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'branch',          header: 'Branch',              type: 'text'     as const },
     { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
     { key: 'overTimeAmount',  header: 'Over Time Amount',    type: 'currency' as const, showTotal: true },
+    { key: 'totalSalaryAfterAttendance', header: 'Total Salary After Attendance Adjustments', type: 'currency' as const, showTotal: true },
     { key: 'professionalFees',header: tds1Name,              type: 'currency' as const, showTotal: true },
     { key: 'tds2',            header: tds2Name,              type: 'currency' as const, showTotal: true },
     { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
@@ -196,7 +200,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'present',         header: 'Present',             type: 'number'   as const },
     { key: 'absent',          header: 'Absent',              type: 'number'   as const },
     { key: 'late',            header: 'Late',                type: 'number'   as const },
-    { key: 'leaves',          header: 'Leaves',              type: 'number'   as const },
+    { key: 'paidLeave',       header: 'Paid Leave',          type: 'number'   as const },
+    { key: 'unpaidLeave',     header: 'Unpaid Leave',        type: 'number'   as const },
     { key: 'extraDay',        header: 'Extra Day',           type: 'number'   as const },
   ], [tds1Name, tds2Name]);
 
@@ -279,7 +284,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               },
               Footer: () => fmtINR(columnTotals.overTimeAmount),
             },
-                        {
+            {
+              accessorKey: "totalSalaryAfterAttendance",
+              header: "Total Salary After Attendance Adjustments",
+              Cell: ({ renderedCellValue }: any) => {
+                if (renderedCellValue === "-" || !renderedCellValue) return "-";
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              },
+              Footer: () => fmtINR(columnTotals.totalSalaryAfterAttendance),
+            },
+            {
               accessorKey: "professionalFees",
               header: tds1Name,
               Cell: ({ renderedCellValue }: any) => {
@@ -389,8 +403,13 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {
-              accessorKey: "leaves",
-              header: "Leaves",
+              accessorKey: "paidLeave",
+              header: "Paid Leave",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+            },
+            {
+              accessorKey: "unpaidLeave",
+              header: "Unpaid Leave",
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {

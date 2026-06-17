@@ -49,6 +49,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
             presentDays: 0,
             absentDays: 0,
             leavesDays: 0,
+            unpaidLeaveDays: 0,
             lateCheckinDays: 0,
             workingdays: 0,
             extraDaysWorked: 0,

@@ -140,6 +140,14 @@ export const payrollService = {
   },
 
   /**
+   * Fetch salary record details
+   */
+  getSalaryById: async (salaryId: string) => {
+    const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}`);
+    return response.data?.data?.salary || null;
+  },
+
+  /**
    * Download Contract Bill PDF
    */
   downloadContractBill: async (salaryId: string) => {
