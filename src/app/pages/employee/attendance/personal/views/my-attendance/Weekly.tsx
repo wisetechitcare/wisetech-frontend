@@ -2,12 +2,12 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
-import { weekDays, HOLIDAYS, EXTRA_DAYS } from '@constants/statistics';
+import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, weekDays } from '@constants/statistics';
 import { resourseAndView } from '@models/company';
 import { saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { RootState, store } from '@redux/store';
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from '@services/company';
-import { fetchEmployeeLeaves } from '@services/employee';
+import { fetchAttendanceClassification, fetchEmployeeLeaves } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { errorConfirmation } from '@utils/modal';
 import { shouldShowBranchSetupGuide } from '@utils/shouldShowBranchSetupGuide';
@@ -15,7 +15,6 @@ import {
     barWeeklyData,
     dumbellSeriesWeeklyData,
     fetchEmpWeeklyStatistics,
-    multipleRadialBarData,
     pieAreaData,
     pieAreaLabels,
     donutaDataLabel,
@@ -66,6 +65,17 @@ const Weekly = ({
     const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
+    // Resolve the viewed employee's org/branch so the display's per-day shifts match what
+    // payroll uses (branch override → org → global). No scoped shift = global (unchanged).
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
+
     const dispatch = useDispatch();
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
@@ -75,6 +85,9 @@ const Weekly = ({
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
+    const [classificationData, setClassificationData] = useState<Map<string, number>>(
+        new Map([[TOTAL_WORKING_DAYS, 0], [EARLY_CHECKIN, 0], [LATE_CHECKIN, 0], [EARLY_CHECKOUT, 0], [LATE_CHECKOUT, 0], [MISSING_CHECKOUT, 0]])
+    );
 
     // Use custom pagination hook
     // const { pagination, setPagination, resetPagination } = usePagination(10);
@@ -250,7 +263,7 @@ const Weekly = ({
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -258,7 +271,24 @@ const Weekly = ({
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
+
+    // Fetch backend attendance classification (scoped config — matches salary deductions).
+    useEffect(() => {
+        if (!selectedEmployeeId) return;
+        fetchAttendanceClassification(selectedEmployeeId, startWeek.format('YYYY-MM-DD'), endWeek.format('YYYY-MM-DD'))
+            .then(({ data: c }) => {
+                setClassificationData(new Map([
+                    [TOTAL_WORKING_DAYS, c.totalWorkingDays],
+                    [EARLY_CHECKIN, c.earlyCheckins],
+                    [LATE_CHECKIN, c.lateCheckins],
+                    [EARLY_CHECKOUT, c.earlyCheckouts],
+                    [LATE_CHECKOUT, c.lateCheckouts],
+                    [MISSING_CHECKOUT, c.missingCheckouts],
+                ]));
+            })
+            .catch(console.error);
+    }, [selectedEmployeeId, startWeek, endWeek]);
 
      // Memoize totalWeekend count (computed value)
         const totalWeekendCount = useMemo(() => {
@@ -292,20 +322,8 @@ const Weekly = ({
     const donutLabels = useMemo(() => Array.from(donutData.keys()), [donutData]);
     const donutSeries = useMemo(() => Array.from(donutData.values()), [donutData]);
 
-    const multiRadialBarData = useMemo(() =>
-        multipleRadialBarData(filteredWeeklyStats, dayWiseShifts),
-        [filteredWeeklyStats, dayWiseShifts]
-    );
-    
-    const multipleRadialBarLabels = useMemo(() => 
-        Array.from(multiRadialBarData.keys()), 
-        [multiRadialBarData]
-    );
-    
-    const multipleRadialBarSeries = useMemo(() => 
-        Array.from(multiRadialBarData.values()), 
-        [multiRadialBarData]
-    );
+    const multipleRadialBarLabels = useMemo(() => Array.from(classificationData.keys()), [classificationData]);
+    const multipleRadialBarSeries = useMemo(() => Array.from(classificationData.values()), [classificationData]);
 
     const polarLabels = useMemo(() => 
         pieAreaLabels(filteredWeeklyStats), 

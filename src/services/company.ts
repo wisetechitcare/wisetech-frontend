@@ -1,6 +1,7 @@
 import axios from "axios";
 import { COMPANY, OPTIONS } from "@constants/api-endpoint";
 import { IAnnouncement, IAnnouncementCreate, ICompanyBranch, ICompanyBranchUpdate, ICompanyDepartment, ICompanyOverview, IConfiguration, IFaqs, IHoliday, IPublicHoliday } from "@models/company";
+import { store } from "@redux/store";
 import dayjs, { Dayjs } from "dayjs";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -323,15 +324,37 @@ export const updateDepartmentById = async (departmentId: string, payload: ICompa
     }
 }
 
-export const fetchConfiguration = async (module: string, startDate?: string, endDate?: string) => {
+export const fetchConfiguration = async (
+    module: string,
+    startDate?: string,
+    endDate?: string,
+    scope?: { companyId?: string; branchId?: string },
+) => {
     try {
         let endpoint = `${API_BASE_URL}/${COMPANY.GET_CONFIGURATION}?module=${module}`;
-        
+
         // Add date parameters if both are provided
         if (startDate && endDate) {
             endpoint += `&startDate=${startDate}&endDate=${endDate}`;
         }
-        
+
+        // The shift/attendance config ("leave management") is per-organization. When a caller
+        // doesn't pass an explicit scope, default to the logged-in user's org so EVERY reader
+        // (display totals, grace, lunch, late-marking) resolves the same per-org row the admin
+        // edits — instead of the legacy global row. The backend resolves branch → org → global,
+        // so when no scoped row exists this is identical to before. Only "leave management" is
+        // defaulted; all other config modules are untouched.
+        let effectiveScope = scope;
+        if (!effectiveScope && module === 'leave management') {
+            effectiveScope = {
+                companyId: store.getState().employee?.currentEmployee?.companyId,
+                branchId: store.getState().employee?.currentEmployee?.branchId,
+            };
+        }
+        // Scope the config to an organization (default) or a specific branch override.
+        if (effectiveScope?.companyId) endpoint += `&companyId=${effectiveScope.companyId}`;
+        if (effectiveScope?.branchId) endpoint += `&branchId=${effectiveScope.branchId}`;
+
         const { data } = await axios.get(endpoint);
         return data;
     }

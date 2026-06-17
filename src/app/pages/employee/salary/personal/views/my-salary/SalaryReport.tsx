@@ -392,6 +392,9 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const [employeeReimbursements, setEmployeeReimbursements] = useState([]);
     const userId = employee.userId;
     const employeeId = employee?.id;
+    // Scope the display's per-day shifts to the viewed employee so they match payroll
+    // (branch override → org → global). No scoped shift = global (unchanged).
+    const shiftScope = { companyId: (employee as any)?.companyId, branchId: (employee as any)?.branchId };
     const dateOfJoining = dayjs(new Date(employee.dateOfJoining));
     const [startDateForDaysCount, setStartDateForDaysCount] = useState<Dayjs>()
     const [endDateOdDaysCount, setEndDateOdDaysCount] = useState<Dayjs>()
@@ -775,7 +778,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -783,7 +786,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     // const publicHolidays = donutaDataLabel(stats);
     // const publicHolidays = useSelector((state:RootState)=>state.attendanceStats.filteredPublicHolidays)

@@ -814,6 +814,22 @@ export const fetchEmpAttendanceStatistics = async (employeeId: string, startDate
     }
 }
 
+export const fetchAttendanceClassification = async (employeeId: string, startDate: string, endDate: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CLASSIFICATION}`, {
+        params: { employeeId, startDate, endDate },
+    });
+    return data as {
+        data: {
+            totalWorkingDays: number;
+            earlyCheckins: number;
+            lateCheckins: number;
+            earlyCheckouts: number;
+            lateCheckouts: number;
+            missingCheckouts: number;
+        };
+    };
+};
+
 export const fetchEmpAttendanceAllTimeRecords = async (employeeId: string, observedIn: string, companyId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_RECORDS}?employeeId=${employeeId}&observedIn=${observedIn}&companyId=${companyId}`;

@@ -29,7 +29,7 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 export async function fetchEmpDailyStatistics(day: Dayjs, fromAdmin: boolean = false) {
     // Load company timings first so multipleRadialBarData has the data
-    await fetchCompanyTimings();
+    await fetchCompanyTimings(resolveTimingScope(fromAdmin));
 
     const employeeId = fromAdmin ? store.getState().employee.selectedEmployee?.id : store.getState().employee.currentEmployee.id;
 
@@ -49,7 +49,7 @@ export async function fetchEmpDailyStatistics(day: Dayjs, fromAdmin: boolean = f
 export const fetchEmpWeeklyStatistics = async (startWeek: Dayjs, endWeek: Dayjs, fromAdmin: boolean = false) => {
     try {
         // Load company timings first so multipleRadialBarData has the data
-        await fetchCompanyTimings();
+        await fetchCompanyTimings(resolveTimingScope(fromAdmin));
 
         const employeeId = fromAdmin
             ? store.getState().employee.selectedEmployee?.id
@@ -98,7 +98,7 @@ export async function fetchEmpMonthlyStatistics(
 ) {
     try {
         // Load company timings first so multipleRadialBarData has the data
-        await fetchCompanyTimings();
+        await fetchCompanyTimings(resolveTimingScope(fromAdmin));
 
         const employeeId = fromAdmin
             ? store.getState().employee.selectedEmployee?.id
@@ -156,7 +156,7 @@ export async function fetchEmpYearlyStatistics(
 ) {
     try {
         // Load company timings first so multipleRadialBarData has the data
-        await fetchCompanyTimings();
+        await fetchCompanyTimings(resolveTimingScope(fromAdmin));
 
         const employeeId = fromAdmin
             ? store.getState().employee.selectedEmployee?.id
@@ -1228,9 +1228,21 @@ let companyTimings = {
 let leaveConfigurations: any = {
 }
 
-async function fetchCompanyTimings() {
+// Resolve the scope (org/branch) whose shift config the attendance display should use.
+// fromAdmin → the employee being viewed (selectedEmployee); otherwise the logged-in user.
+// Passing the scope makes fetchConfiguration return the branch-override → org → global
+// config that the per-org Daily Shift screen actually edits, instead of the global one.
+function resolveTimingScope(fromAdmin: boolean = false) {
+    const emp = fromAdmin
+        ? store.getState().employee.selectedEmployee
+        : store.getState().employee.currentEmployee;
+    return { companyId: emp?.companyId, branchId: emp?.branchId };
+}
+
+async function fetchCompanyTimings(scope?: { companyId?: string; branchId?: string }) {
     try {
-        const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
+        const resolvedScope = scope ?? resolveTimingScope(false);
+        const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, resolvedScope);
         const jsonObject = JSON.parse(configuration.configuration.configuration);
 
         leaveConfigurations = jsonObject;

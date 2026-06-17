@@ -66,7 +66,7 @@ export const SECTION_OF_FIELD: Record<string, string> = {
 };
 
 /* All sections including meal for navigation */
-const ALL_SECTION_IDS = [
+export const ALL_SECTION_IDS = [
   'personal-info',
   'contact-info',
   'education',

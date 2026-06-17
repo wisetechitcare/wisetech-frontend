@@ -34,7 +34,7 @@ import { getRatingByCompanyId } from "@services/projects";
 import SubCompanyForm from "./SubCompanryForm";
 import { fetchAllEmployees } from "@services/employee";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
-import { transformToOptions, createNewCompanyService } from "@app/modules/common/components/InlineCreateHelpers";
+import { transformToOptions, createNewCompanyService, createNewCompanyType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
 
 // Type definitions
@@ -58,7 +58,7 @@ interface City {
 }
 interface FormValues {
   companyName: string;
-  companyType: string;
+  companyTypes: string[];
   status: string;
   phone: string;
   phone2: string;
@@ -102,7 +102,7 @@ interface Props {
 // Validation
 const validationSchema = Yup.object().shape({
   companyName: Yup.string().required("Company name is required"),
-  companyType: Yup.string(),
+  companyTypes: Yup.array().of(Yup.string()),
   status: Yup.string(),
   email: Yup.string().email("Invalid email format"),
   phone: Yup.string(),
@@ -140,7 +140,7 @@ const NewCompanyForm: React.FC<Props> = ({
   const [subCompanies, setSubCompanies] = useState<any[]>([]);
   const [initialValues, setInitialValues] = useState<FormValues>({
     companyName: "",
-    companyType: "",
+    companyTypes: [],
     status: "ACTIVE",
     phone: "",
     phone2: "",
@@ -352,7 +352,15 @@ const NewCompanyForm: React.FC<Props> = ({
             // Set initial values with proper mapping
             setInitialValues({
               companyName: company.companyName || "",
-              companyType: company.companyTypeId || "",
+              companyTypes: (() => {
+                // Prefer the full multi-type mapping; fall back to the legacy single type id.
+                if (Array.isArray(company.companyTypeMappings) && company.companyTypeMappings.length > 0) {
+                  return company.companyTypeMappings
+                    .map((m: any) => m.companyTypeId || m.companyType?.id)
+                    .filter((id: any) => id);
+                }
+                return company.companyTypeId ? [company.companyTypeId] : [];
+              })(),
               status: company.status || "ACTIVE",
               phone: company.phone || "",
               phone2: company.phone2 || "",
@@ -421,7 +429,7 @@ const NewCompanyForm: React.FC<Props> = ({
         // Reset form for new company
         setInitialValues({
           companyName: "",
-          companyType: "",
+          companyTypes: [],
           status: "ACTIVE",
           phone: "",
           phone2: "",
@@ -536,6 +544,15 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
+  const handleRefreshCompanyTypes = async () => {
+    try {
+      const types = await getAllCompanyTypes();
+      setCompanyTypes(types.companyTypes || []);
+    } catch (error) {
+      console.error('Error refreshing company types:', error);
+    }
+  };
+
   const totalWeightedRating = ratingFactors.reduce((total, factor) => {
     return total + (factor.rating || 0) * Number(factor.weight || 0);
   }, 0);
@@ -569,7 +586,9 @@ const NewCompanyForm: React.FC<Props> = ({
         logoUrl = logoPreview;
       }
 
-      const { addressLine1, ...rest } = values;
+      // Pull companyTypes out so it isn't spread into the payload as an unknown field — it's
+      // sent explicitly as `companyTypeIds` below.
+      const { addressLine1, companyTypes, ...rest } = values;
 
       // Process references
       const references = values.referenceType
@@ -635,7 +654,7 @@ const NewCompanyForm: React.FC<Props> = ({
       if (editingCompanyId) {
         await updateClientCompany(editingCompanyId, {
           ...finalCleanPayload,
-          companyType: values.companyType,
+          companyTypeIds: companyTypes,
           overallRating: weightedAverageRating ?? 0.0,
         });
         successConfirmation("Company updated successfully");
@@ -644,7 +663,7 @@ const NewCompanyForm: React.FC<Props> = ({
       } else {
         await createClientCompany({
           ...finalCleanPayload,
-          companyType: values.companyType,
+          companyTypeIds: companyTypes,
           overallRating: weightedAverageRating ?? 0.0,
         });
         successConfirmation("Company created successfully");
@@ -882,22 +901,19 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             <div className="col-md-4">
-                              <DropDownInput
-                                formikField="companyType"
+                              <MultiSelectWithInlineCreate
+                                formikField="companyTypes"
                                 inputLabel="Company type"
+                                options={transformToOptions(companyTypes)}
+                                placeholder="Select company type(s)..."
                                 isRequired={false}
-                                options={companyTypes.map((ct) => ({
-                                  label: ct.name,
-                                  value: ct.id,
-                                }))}
+                                onCreate={createNewCompanyType}
+                                onRefreshOptions={handleRefreshCompanyTypes}
+                                createModalTitle="Create New Company Type"
+                                createButtonText="Add New Company Type"
+                                createFieldLabel="Company Type Name"
+                                createFieldPlaceholder="Enter company type name..."
                               />
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowCompanyTypeModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Company Type
-                              </small>
                             </div>
                             <div className="col-md-4">
                               <MultiSelectWithInlineCreate

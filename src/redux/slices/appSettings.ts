@@ -36,8 +36,14 @@ export const fetchAppSettings = createAsyncThunk(
         let deductionTime: string = '';
         let graceTime: string = '';
         try {
-            const { data: { configuration } } = await fetchConfiguration('leave management');
-            const jsonObject = JSON.parse(configuration.configuration);            
+            // Scope this global singleton to the logged-in user's org so it matches the per-org
+            // shift config (branch override → org → global). Empty scope = global (unchanged).
+            const scope = {
+                companyId: store.getState().employee?.currentEmployee?.companyId,
+                branchId: store.getState().employee?.currentEmployee?.branchId,
+            };
+            const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, scope);
+            const jsonObject = JSON.parse(configuration.configuration);
             
             const workingTimeString = jsonObject["Working time"];
             deductionTime = jsonObject["Deduction Time"];            

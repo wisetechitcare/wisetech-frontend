@@ -1049,6 +1049,12 @@ export const StatisticsTable = ({
 
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
+    // Late-threshold scope = the VIEWED employee (selected when admin, else self), so the table's
+    // red/green matches that employee's shift — same scope the backend graph uses.
+    const curThresholdCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const curThresholdBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selThresholdCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selThresholdBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const leaveTypesColor = useSelector((state: RootState) => state?.customColors?.leaveTypes);
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
@@ -1376,10 +1382,14 @@ export const StatisticsTable = ({
         getWorkingMethods();
     }, []);
 
-    // fetch grace based thresholds
+    // fetch grace based thresholds — scoped to the VIEWED employee so coloring matches their shift
     useEffect(() => {
+        const thresholdScope = {
+            companyId: fromAdmin ? (selThresholdCompanyId || curThresholdCompanyId) : curThresholdCompanyId,
+            branchId: fromAdmin ? (selThresholdBranchId || curThresholdBranchId) : curThresholdBranchId,
+        };
         const initThresholds = async () => {
-            const thresholds = await getGraceBasedThresholds(attendance);
+            const thresholds = await getGraceBasedThresholds(attendance, thresholdScope);
 
             if (thresholds) {
                 setAllEmployeeThresholds(thresholds.employeesWithThresholds);
@@ -1389,7 +1399,7 @@ export const StatisticsTable = ({
         };
 
         initThresholds();
-    }, []);
+    }, [fromAdmin, selThresholdCompanyId, selThresholdBranchId, curThresholdCompanyId, curThresholdBranchId]);
 
     // if employee working on weekend/holiday then no late marking and early check out marking
 
@@ -2078,10 +2088,14 @@ export const ReportsTable = ({
     }, [toggleChange]);
 
 
-    // fetch grace based thresholds
+    // fetch grace based thresholds — scoped to the VIEWED employee (selected when admin, else self)
     useEffect(() => {
+        const thresholdScope = {
+            companyId: employeeDeatils?.companyId,
+            branchId: employeeDeatils?.branchId,
+        };
         const initThresholds = async () => {
-            const thresholds = await getGraceBasedThresholds(attendanceRequests);
+            const thresholds = await getGraceBasedThresholds(attendanceRequests, thresholdScope);
 
             if (thresholds) {
                 setEmployeeThresholds(thresholds.employeesWithThresholds);
@@ -2091,7 +2105,7 @@ export const ReportsTable = ({
         };
 
         initThresholds();
-    }, []);
+    }, [employeeDeatils?.companyId, employeeDeatils?.branchId]);
 
 
     const columns = [

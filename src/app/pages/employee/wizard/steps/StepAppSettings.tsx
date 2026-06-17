@@ -4,7 +4,8 @@ import { fetchAllEmployees } from "@services/employee";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
-import LeaveAllocationStep from "../forms/LeaveAllocationStep";
+// Leave Settings section removed — no longer needed
+// import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import AppSettings from "../forms/AppSettings";
 import WizardSectionLayout from "./WizardSectionLayout";
 import "./Step2.css";
@@ -231,22 +232,20 @@ function PrivacyControls() {
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProps: any; editMode: boolean; sidebarProfile?: any }) {
-    const [activeSection, setActiveSection] = useState("reporting");
-
+function StepAppSettings({ formikProps, editMode, sidebarProfile, activeSection, onSectionChange }: { formikProps: any; editMode: boolean; sidebarProfile?: any; activeSection: string; onSectionChange: (id: string) => void }) {
     useEffect(() => {
         if (!formikProps.submitCount) return;
         const errors = formikProps.errors || {};
         if (errors.reportsToId) {
-            setActiveSection("reporting");
+            onSectionChange("reporting");
             return;
         }
         if (errors.ctcInLpa || errors.professionalFeesPercentage || errors.professionalFeesAmount) {
-            setActiveSection("financial");
+            onSectionChange("financial");
             return;
         }
         if (errors.appRole) {
-            setActiveSection("access");
+            onSectionChange("access");
             return;
         }
     }, [formikProps.submitCount, formikProps.errors]);
@@ -254,7 +253,8 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
     const sections = [
         { id: "reporting", title: "Reporting Config", icon: "profile-user" },
         { id: "financial", title: "Financial Config", icon: "wallet" },
-        { id: "leaves", title: "Custom Leave Allocation (optional)", icon: "calendar" },
+        // Leave Settings section removed — no longer needed
+        // { id: "leaves", title: "Custom Leave Allocation (optional)", icon: "calendar" },
         { id: "access", title: "System Access Settings", icon: "setting-2" },
         { id: "privacy", title: "Privacy Controls", icon: "shield-tick" },
     ];
@@ -262,9 +262,10 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
     const sectionContent: Record<string, any> = {
         reporting: <ReportingConfig />,
         financial: <FinancialConfig formikProps={formikProps} editMode={editMode} />,
-        leaves: (
-            <LeaveAllocationStep />
-        ),
+        // Leave Settings section removed — no longer needed
+        // leaves: (
+        //     <LeaveAllocationStep />
+        // ),
         access: <AppSettings />,
         privacy: <PrivacyControls />,
     };
@@ -273,7 +274,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProp
         <WizardSectionLayout
             sections={sections}
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={onSectionChange}
             sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}
