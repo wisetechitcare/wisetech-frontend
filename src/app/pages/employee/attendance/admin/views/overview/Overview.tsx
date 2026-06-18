@@ -272,6 +272,11 @@ function Overview({ date }: OverviewProps) {
     const OVERVIEW_CARD_ORDER_KEY = 'attendanceOverviewCardOrder';
     const CARD_ORDER_PREF_NAME = 'attendanceOverviewCards';
     const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+    // Scope the org-wide overview's per-day shifts to the admin's own org so they match
+    // payroll (branch override → org → global). No scoped shift = global (unchanged).
+    const overviewShiftCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const overviewShiftBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const shiftScope = { companyId: overviewShiftCompanyId, branchId: overviewShiftBranchId };
     const [cardOrder, setCardOrder] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem(OVERVIEW_CARD_ORDER_KEY);
@@ -1302,7 +1307,7 @@ function Overview({ date }: OverviewProps) {
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -1310,13 +1315,13 @@ function Overview({ date }: OverviewProps) {
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     // Fetch grace time for office, on-site, lunch time and on-site settings
     useEffect(() => {
         async function fetchTimeConfiguration() {
             try {
-                const { data: { configuration } } = await fetchConfiguration('leave management');
+                const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, shiftScope);
                 const leaveConfig = JSON.parse(configuration.configuration || '{}');
                 const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
@@ -1335,7 +1340,7 @@ function Overview({ date }: OverviewProps) {
             }
         }
         fetchTimeConfiguration();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     const cardsData: StatCardConfig[] = [
         { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },

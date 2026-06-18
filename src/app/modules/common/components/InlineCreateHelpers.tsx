@@ -3,7 +3,7 @@ import {
   createProjectCategory,
   createProjectSubcategory
 } from '@services/projects';
-import { createCompanyService } from '@services/companies';
+import { createCompanyService, createCompanyType } from '@services/companies';
 import { Option } from './MultiSelectWithInlineCreate';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -221,5 +221,36 @@ export const createNewCompanyService = async (name: string): Promise<Option> => 
   } catch (error) {
     console.error('Error creating company service:', error);
     throw new Error('Failed to create company service. Please try again.');
+  }
+};
+
+/**
+ * Create a new company type (for the inline "+ Add" in the multi-select).
+ */
+export const createNewCompanyType = async (name: string): Promise<Option> => {
+  try {
+    const response = await createCompanyType({ name: name.trim(), isActive: true });
+    const ct =
+      response?.data?.companyType ??
+      response?.companyType ??
+      response?.data ??
+      response;
+
+    if (!ct?.id) {
+      console.error('Unexpected company type response structure:', response);
+      throw new Error('Invalid response structure');
+    }
+
+    const newOption: Option = {
+      value: ct.id,
+      label: ct.name || name,
+      color: ct.color || undefined,
+    };
+
+    eventBus.emit(EVENT_KEYS.companyTypeCreated, { id: newOption.value });
+    return newOption;
+  } catch (error) {
+    console.error('Error creating company type:', error);
+    throw new Error('Failed to create company type. Please try again.');
   }
 };

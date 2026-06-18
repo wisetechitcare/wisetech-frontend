@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { fetchDocumentsField } from "@services/employee";
 import Documents from "../forms/Documents";
 import WizardSectionLayout from "./WizardSectionLayout";
@@ -12,9 +12,8 @@ const createInitialDocumentInfo = (documentId: string) => ({
     fileName: "",
 });
 
-function Step4({ formikProps, setFile, sidebarProfile }: any) {
+function Step4({ formikProps, setFile, sidebarProfile, activeSection, onSectionChange }: any) {
     const { values: { documentFields, documentInfo: docInfo }, setFieldValue } = formikProps;
-    const [activeSection, setActiveSection] = useState("upload_docs");
 
     useEffect(() => {
         async function getAllDocFields() {
@@ -68,7 +67,7 @@ function Step4({ formikProps, setFile, sidebarProfile }: any) {
         <WizardSectionLayout
             sections={sections}
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={onSectionChange}
             sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}

@@ -6,7 +6,7 @@ import TimePickerInput from '@app/modules/common/inputs/TimeInput';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import RadioInput, { RadioButton } from '@app/modules/common/inputs/RadioInput';
 import { fetchDayWiseShifts, createDayWiseShift, updateDayWiseShiftById } from '@services/dayWiseShift';
-import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
+import { fetchConfiguration, createNewConfiguration } from '@services/company';
 import {
   LEAVE_MANAGEMENT,
   ENFORCE_ONSITE_DEADLINE_KEY,
@@ -14,6 +14,10 @@ import {
 } from '@constants/configurations-key';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import Loader from '@app/modules/common/utils/Loader';
+import dayjs, { Dayjs } from 'dayjs';
+import { MobileTimePicker } from '@mui/x-date-pickers/MobileTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 // Helper function to convert time string "HH:MM AM/PM" to minutes
 const timeToMinutes = (timeStr: string | null): number => {
@@ -92,14 +96,25 @@ interface DayWiseShiftData {
   checkIn: string | null;
   checkOut: string | null;
   isActive: boolean;
+  companyId?: string | null;
+  branchId?: string | null;
 }
 
-const DailyShiftTime: React.FC = () => {
+interface DailyShiftTimeProps {
+  // The entity being configured: org default (companyId = root org) or a branch override (branchId).
+  scope?: { companyId?: string; branchId?: string };
+}
+
+const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  const allDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [dayWiseShifts, setDayWiseShifts] = useState<DayWiseShiftData[]>([]);
   const [leaveManagementConfigId, setLeaveManagementConfigId] = useState<string | null>(null);
+  const [bulkCheckIn, setBulkCheckIn] = useState<Dayjs | null>(null);
+  const [bulkCheckOut, setBulkCheckOut] = useState<Dayjs | null>(null);
 
   const holidayOptions: RadioButton[] = [
     { label: 'No', value: 'no' },
@@ -174,26 +189,30 @@ const DailyShiftTime: React.FC = () => {
       try {
         setIsLoading(true);
 
-        // Load day-wise shifts
-        const shiftsResponse = await fetchDayWiseShifts();
+        // Load day-wise shifts for the selected scope (branch override → org → global).
+        const shiftsResponse = await fetchDayWiseShifts(scope);
         const shifts = shiftsResponse?.data || [];
         
         setDayWiseShifts(shifts);
 
         // Map API data to form initial values
         const updatedValues = { ...initialValues };
-        shifts.forEach((shift: DayWiseShiftData) => {
+        shifts.forEach((shift: any) => {
           const dayKey = shift.day.toLowerCase() as WeekdayKey;
+          // The API returns snake_case (check_in/check_out/is_active); accept camelCase too.
+          const checkIn = shift.check_in ?? shift.checkIn;
+          const checkOut = shift.check_out ?? shift.checkOut;
+          const isActive = shift.is_active ?? shift.isActive;
 
-          updatedValues[`${dayKey}_checkIn`] = to24HourFormat(shift.checkIn || '09:30');
-          updatedValues[`${dayKey}_checkOut`] = to24HourFormat(shift.checkOut || '18:30');
-          updatedValues[`${dayKey}_isHoliday`] = shift.isActive ? 'no' : 'yes';
+          updatedValues[`${dayKey}_checkIn`] = to24HourFormat(checkIn || '09:30');
+          updatedValues[`${dayKey}_checkOut`] = to24HourFormat(checkOut || '18:30');
+          updatedValues[`${dayKey}_isHoliday`] = isActive ? 'no' : 'yes';
       });
 
 
-        // Load LEAVE_MANAGEMENT configuration for lunch and grace times
+        // Load LEAVE_MANAGEMENT configuration for lunch and grace times (scoped).
         try {
-          const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT);
+          const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope);
           const leaveConfig = JSON.parse(leaveConfigResponse?.data?.configuration?.configuration || '{}');
           const configId = leaveConfigResponse?.data?.configuration?.id;
 
@@ -240,7 +259,8 @@ const DailyShiftTime: React.FC = () => {
     };
 
     loadAllData();
-  }, []);
+    // Reload whenever the configured entity (org/branch) changes.
+  }, [scope?.companyId, scope?.branchId]);
 
 const to12HourFormat = (time: string): string => {
   if (!time) return "";
@@ -292,8 +312,13 @@ const handleSubmit = async (values: ShiftValues) => {
       const formattedCheckIn = to12HourFormat(checkIn as string);
       const formattedCheckOut = to12HourFormat(checkOut as string);
 
+      // Only update a row that belongs to THIS exact scope; otherwise create a scoped row
+      // so an inherited/global row is never overwritten.
+      const sc = { companyId: scope?.companyId ?? null, branchId: scope?.branchId ?? null };
       const existingShift = dayWiseShifts.find(
         s => s.day.toLowerCase() === dayKey
+          && (s.companyId ?? null) === sc.companyId
+          && (s.branchId ?? null) === sc.branchId
       );
 
       const shiftData = {
@@ -301,6 +326,8 @@ const handleSubmit = async (values: ShiftValues) => {
         checkIn: formattedCheckIn || null,  // backend accepts null too
         checkOut: formattedCheckOut || null,
         isActive: !isHoliday,
+        companyId: sc.companyId,
+        branchId: sc.branchId,
       };
 
       if (existingShift?.id) {
@@ -312,12 +339,10 @@ const handleSubmit = async (values: ShiftValues) => {
 
     // Step 2: Save lunch & grace configuration (unchanged)
     try {
-      const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT);
+      const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope);
       const existingConfig = JSON.parse(
         leaveConfigResponse?.data?.configuration?.configuration || '{}'
       );
-      const configId =
-        leaveConfigResponse?.data?.configuration?.id || leaveManagementConfigId;
 
       // Convert lunch times from 24-hour to 12-hour format (without leading zero)
       const lunchStart24 = values.lunchTimeStart;
@@ -330,8 +355,27 @@ const handleSubmit = async (values: ShiftValues) => {
       const lunchDuration = lunchEndMinutes - lunchStartMinutes;
       const deductionTimeFormatted = minutesToTimeFormat(lunchDuration);
 
+      // Derive the representative "Check-in time" / "Check-out time" for the config from the
+      // grid (first non-holiday day). The day-wise table holds per-day overrides, but several
+      // consumers — the frontend attendance display (fetchCompanyTimings) and the salary
+      // baseline checkinTime — read these single config fields. Keeping them in sync with the
+      // grid is what makes a shift-time change actually reach attendance + payroll.
+      let repCheckIn: string | undefined;
+      let repCheckOut: string | undefined;
+      for (const day of days) {
+        const dk = day.toLowerCase() as WeekdayKey;
+        if (values[`${dk}_isHoliday`] === 'yes') continue;
+        const ci = values[`${dk}_checkIn`] as string;
+        const co = values[`${dk}_checkOut`] as string;
+        if (ci) repCheckIn = to12HourFormatNoLeadingZero(ci);
+        if (co) repCheckOut = to12HourFormatNoLeadingZero(co);
+        if (repCheckIn) break;
+      }
+
       const updatedConfig = {
         ...existingConfig,
+        ...(repCheckIn ? { 'Check-in time': repCheckIn } : {}),
+        ...(repCheckOut ? { 'Check-out time': repCheckOut } : {}),
         'Lunch Time': `${lunchStart} - ${lunchEnd}`,
         'Deduction Time': deductionTimeFormatted,
         'Grace Time': values.graceTimeOffice,
@@ -341,18 +385,16 @@ const handleSubmit = async (values: ShiftValues) => {
           : null,
       };
 
-      if (configId) {
-        await updateConfigurationById(configId, {
-          module: LEAVE_MANAGEMENT,
-          configuration: updatedConfig,
-        });
-      } else {
-        const response = await createNewConfiguration({
-          module: LEAVE_MANAGEMENT,
-          configuration: updatedConfig,
-        });
-        setLeaveManagementConfigId(response?.data?.configuration?.id || null);
-      }
+      // Upsert the config for THIS exact scope. The backend finds-or-creates the row for
+      // the given companyId/branchId — it NEVER edits an inherited/global row, so editing
+      // one org/branch can't change another's config.
+      const response = await createNewConfiguration({
+        module: LEAVE_MANAGEMENT,
+        configuration: updatedConfig,
+        companyId: scope?.companyId,
+        branchId: scope?.branchId,
+      } as any);
+      setLeaveManagementConfigId(response?.data?.configuration?.id || null);
     } catch (error) {
       console.error('[DailyShiftTime] Error saving LEAVE_MANAGEMENT config:', error);
     }
@@ -396,7 +438,7 @@ const handleSubmit = async (values: ShiftValues) => {
       validationSchema={validationSchema}
       onSubmit={handleSubmit}
     >
-      {({ values, setFieldValue }) => (
+      {({ values, setFieldValue, resetForm }) => (
         <FormikForm>
           <div style={{
             // backgroundColor: '#f7f9fc',
@@ -473,6 +515,102 @@ const handleSubmit = async (values: ShiftValues) => {
                         </span>
                       </Col>
                     </Row>
+                  </Col>
+                </Row>
+
+                {/* Bulk Apply Row — set check-in/out once and push to all weekdays or all 7 days */}
+                <Row className="mb-3 align-items-center" style={{ background: '#f7f9fc', borderRadius: 8, padding: '10px 4px', border: '1px dashed #d9dee6' }}>
+                  <Col lg={2}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#495057', fontFamily: 'Inter, sans-serif' }}>Apply to all</span>
+                  </Col>
+                  <Col lg={4}>
+                    <Row>
+                      <Col lg={6}>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <MobileTimePicker
+                            value={bulkCheckIn}
+                            onChange={(val) => setBulkCheckIn(val)}
+                            slotProps={{
+                              textField: {
+                                placeholder: 'Check-in',
+                                size: 'small',
+                                fullWidth: true,
+                                sx: {
+                                  '& .MuiOutlinedInput-root': {
+                                    borderRadius: '6px',
+                                    fontSize: '13px',
+                                    '& fieldset': { borderColor: '#d9dee6' },
+                                    '&:hover fieldset': { borderColor: '#9d4141' },
+                                    '&.Mui-focused fieldset': { borderColor: '#9d4141' },
+                                  },
+                                },
+                              },
+                            }}
+                          />
+                        </LocalizationProvider>
+                      </Col>
+                      <Col lg={6}>
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <MobileTimePicker
+                            value={bulkCheckOut}
+                            onChange={(val) => setBulkCheckOut(val)}
+                            slotProps={{
+                              textField: {
+                                placeholder: 'Check-out',
+                                size: 'small',
+                                fullWidth: true,
+                                sx: {
+                                  '& .MuiOutlinedInput-root': {
+                                    borderRadius: '6px',
+                                    fontSize: '13px',
+                                    '& fieldset': { borderColor: '#d9dee6' },
+                                    '&:hover fieldset': { borderColor: '#9d4141' },
+                                    '&.Mui-focused fieldset': { borderColor: '#9d4141' },
+                                  },
+                                },
+                              },
+                            }}
+                          />
+                        </LocalizationProvider>
+                      </Col>
+                    </Row>
+                  </Col>
+                  <Col lg={6} className="d-flex gap-2 mt-2 mt-lg-0 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ci = bulkCheckIn?.format('HH:mm');
+                        const co = bulkCheckOut?.format('HH:mm');
+                        weekdays.forEach(d => {
+                          if (ci)  setFieldValue(`${d}_checkIn`,  ci);
+                          if (co) setFieldValue(`${d}_checkOut`, co);
+                        });
+                      }}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #9d4141', background: '#fff', color: '#9d4141', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Weekdays (Mon–Fri)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ci = bulkCheckIn?.format('HH:mm');
+                        const co = bulkCheckOut?.format('HH:mm');
+                        allDays.forEach(d => {
+                          if (ci)  setFieldValue(`${d}_checkIn`,  ci);
+                          if (co) setFieldValue(`${d}_checkOut`, co);
+                        });
+                      }}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #6c757d', background: '#fff', color: '#6c757d', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      All days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetForm()}
+                      style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #198754', background: '#fff', color: '#198754', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Back to Default
+                    </button>
                   </Col>
                 </Row>
 

@@ -10,8 +10,10 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings from "@app/components/ApprovalSettings";
-import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
-import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
+import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
+// Leave Settings section removed — no longer needed
+// import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
+
 // ─── Professional fees helpers (mirror of NewEmployeeWizard) ─────────────────
 function readProfessionalFeesEnabled(raw: unknown): "true" | "false" {
     if (raw === null || raw === undefined) return "false";
@@ -75,11 +77,12 @@ function GeneralSettings() {
     );
 }
 
-function LeaveSection() {
-    return (
-        <LeaveAllocationStep />
-    );
-}
+// Leave Settings section removed — no longer needed
+// function LeaveSection() {
+//     return (
+//         <LeaveAllocationStep />
+//     );
+// }
 
 function ApprovalSection({ employeeId }: { employeeId: string }) {
     return <ApprovalSettings employeeId={employeeId} />;
@@ -262,7 +265,8 @@ function PrivacySection() {
 // ─── Section nav config ───────────────────────────────────────────────────────
 const SECTIONS = [
     { id: "general",   label: "General App Settings",              icon: "setting-3"   },
-    { id: "leaves",    label: "Leave Allocation",                  icon: "calendar"    },
+    // Leave Settings section removed — no longer needed
+    // { id: "leaves",    label: "Leave Allocation",                  icon: "calendar"    },
     { id: "approval",  label: "Approval Workflow",                 icon: "verify"      },
     { id: "reporting", label: "Reporting Config",                  icon: "profile-user" },
     { id: "financial", label: "Financial Config",                  icon: "wallet"      },
@@ -285,7 +289,8 @@ function ModalContent({
 
     const sectionContent: Record<string, React.ReactNode> = {
         general:   <GeneralSettings />,
-        leaves:    <LeaveSection />,
+        // Leave Settings section removed — no longer needed
+        // leaves:    <LeaveSection />,
         approval:  <ApprovalSection employeeId={employeeId} />,
         reporting: <ReportingSection managerOptions={managerOptions} />,
         financial: <FinancialSection />,
@@ -474,9 +479,10 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 ctcInLpa: values.ctcInLpa || null,
                 isActive: values.isEmployeeActive === "1",
                 isHiddenFromStaff: values.isHiddenFromStaff === true,
-                ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
-                    ? { leaveAllocations: values.leaveAllocations }
-                    : {}),
+                // Leave Settings section removed — no longer needed
+                // ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
+                //     ? { leaveAllocations: values.leaveAllocations }
+                //     : {}),
                 ...buildProfessionalFeesPayload(values),
                 ...buildTds2Payload(values),
             };
