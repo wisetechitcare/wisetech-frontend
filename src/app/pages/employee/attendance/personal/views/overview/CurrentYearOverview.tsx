@@ -36,8 +36,8 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
 
     const lunchTime = leaveManagement?.["Lunch Time"];
     const allWeekends = JSON.parse(weekends || "{}");  
-    const presentDay = donutaDataLabel(yearlyStats).get(PRESENT);
-    const extraDay = donutaDataLabel(yearlyStats).get(EXTRA_DAYS);
+    const presentDay = donutaDataLabel(yearlyStats, [], [], fromAdmin).get(PRESENT);
+    const extraDay = donutaDataLabel(yearlyStats, [], [], fromAdmin).get(EXTRA_DAYS);
     
     
     const totalWorkingDay = getWorkingDaysInRange(dayjs(startDate), dayjs(endDate), true, allWeekends, holidays );

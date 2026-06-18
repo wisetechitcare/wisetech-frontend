@@ -204,7 +204,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     useEffect(() => {
         const fetchWorkingHours = async () => {
             try {
-                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
+                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
                 const jsonObject = JSON.parse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];

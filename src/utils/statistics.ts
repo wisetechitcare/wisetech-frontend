@@ -1069,9 +1069,13 @@ export function donutaDataLabel(
     statMap.set(EXTRA_DAYS, 0);
     statMap.set(CHECK_OUT_MISSING, 0);
 
-    // Get weekend configuration
+    // Get weekend configuration — follow the VIEWED employee (selected when admin), not the
+    // logged-in user, so the Overview donut's Present/Extra-Day/Weekend split is the right person's.
     const allWeekends = JSON.parse(
-        store.getState().employee.currentEmployee.branches?.workingAndOffDays || "{}"
+        (fromAdmin
+            ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+                || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
+            : store.getState().employee.currentEmployee.branches?.workingAndOffDays) || "{}"
     );
 
     // Following heatmap logic:
