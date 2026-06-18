@@ -26,7 +26,11 @@ interface CurrentYearOverviewProps {
 const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, showLevesColumn, startDate, endDate, fiscalYearDisplay, fromAdmin }) => {
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);
     const holidays = useSelector((state: RootState) => state.attendanceStats.filteredPublicHolidays);  
-    const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
+    // Weekends/working days must follow the VIEWED employee (selected when admin), not the
+    // logged-in user — otherwise the working-days count uses the admin's branch weekoffs.
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const leaveManagement = store.getState().featureConfiguration?.leaveManagement;
     const disableLunchTimeDeduction = store.getState().featureConfiguration?.disableLaunchDeductionTime;
 

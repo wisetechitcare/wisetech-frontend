@@ -220,8 +220,8 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const donutLabels: string[] = Array.from(donutData.keys());
     const donutSeries: number[] = Array.from(donutData.values());
     
-    const multipleRadialBarLabels: string[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts).keys());
-    const multipleRadialBarSeries: number[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts).values());
+    const multipleRadialBarLabels: string[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts, fromAdmin).keys());
+    const multipleRadialBarSeries: number[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts, fromAdmin).values());
 
     const polarLabels: string[] = useMemo(() => pieAreaLabels(yearlyStats), [yearlyStats]);
     const polarSeries: number[] = useMemo(() => pieAreaData(yearlyStats), [yearlyStats]);

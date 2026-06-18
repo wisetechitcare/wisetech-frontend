@@ -42,12 +42,24 @@ import Tooltip from "react-bootstrap/Tooltip";
 import TimePickerInput from '../inputs/TimeInput';
 import { fetchAddressDetails } from '@services/location';
 import { getGraceBasedThresholds } from '@utils/getGraceBasedThresholds';
+import { fetchAttendanceClassification } from '@services/employee';
 import { convertTo12HourFormat } from '@utils/date';
 import { UAParser } from 'ua-parser-js';
 import { Form as BootstrapForm } from "react-bootstrap";
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
+
+// Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
+// so it can be matched against the backend's authoritative late-check-in dates.
+const ddmmyyyyToISO = (s: any): string | null => {
+    if (typeof s !== 'string') return null;
+    const m = s.split('/');
+    if (m.length !== 3) return null;
+    const [dd, mm, yyyy] = m;
+    if (!/^\d{1,2}$/.test(dd) || !/^\d{1,2}$/.test(mm) || !/^\d{4}$/.test(yyyy)) return null;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+};
 
 
 export const ProgessBar = ({ progessBarSeries, checkIn, checkOut, totalWorkingHours = "0h : 0m", totalAllowedHours = "0h : 0m" }: { progessBarSeries: any, checkIn?: string, checkOut?: string, totalWorkingHours?: string, totalAllowedHours?: string }) => {
@@ -976,7 +988,11 @@ export const StatisticsTable = ({
     const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
     const reportsToId = employeeDeatils.reportsToId;
 
-    const allWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // Weekend/holiday status must use the VIEWED employee's branch config (selected when admin,
+    // else self) — NOT the logged-in admin's. Otherwise an employee on a Mon-working branch shows
+    // Mondays as "Working on weekend" because the admin's branch has Monday off.
+    const curWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const allWeekends = employeeDeatils?.branches?.workingAndOffDays || curWeekends;
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
     const colorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
@@ -1055,6 +1071,12 @@ export const StatisticsTable = ({
     const curThresholdBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
     const selThresholdCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
     const selThresholdBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const selThresholdEmployeeId = useSelector((state: RootState) => state.employee?.selectedEmployee?.id);
+    // Authoritative late check-in dates from the backend (it resolves the VIEWED employee's own
+    // branch shift + grace — same engine as the graph/KPI/salary). The table colours from these so
+    // it can never disagree with the rest of the system due to a stale/empty Redux scope.
+    const [backendLateDates, setBackendLateDates] = useState<Set<string>>(new Set());
+    const [backendDatesReady, setBackendDatesReady] = useState(false);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const leaveTypesColor = useSelector((state: RootState) => state?.customColors?.leaveTypes);
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
@@ -1401,6 +1423,42 @@ export const StatisticsTable = ({
         initThresholds();
     }, [fromAdmin, selThresholdCompanyId, selThresholdBranchId, curThresholdCompanyId, curThresholdBranchId]);
 
+    // Derive STABLE primitives for the late-dates fetch. `attendance` is rebuilt with a new array
+    // reference every render, so depending on it directly would re-fetch on every render (an
+    // infinite loop that thrashes the table — e.g. resets pagination). These strings only change
+    // when the underlying data actually changes.
+    const lateFetchEmpId =
+        (attendance || []).map((r: any) => r?.employeeId).find((x: any) => x) ||
+        (fromAdmin ? (selThresholdEmployeeId || employeeId) : employeeId);
+    const lateFetchIsoDates = (attendance || [])
+        .map((r: any) => ddmmyyyyToISO(r?.formattedDate))
+        .filter((x: string | null): x is string => !!x)
+        .sort();
+    const lateFetchStart = lateFetchIsoDates[0] || '';
+    const lateFetchEnd = lateFetchIsoDates[lateFetchIsoDates.length - 1] || '';
+
+    // Pull the authoritative late check-in dates for the VIEWED employee from the backend.
+    useEffect(() => {
+        if (!lateFetchEmpId || !lateFetchStart || !lateFetchEnd) {
+            setBackendLateDates(new Set());
+            setBackendDatesReady(false);
+            return;
+        }
+        let cancelled = false;
+        fetchAttendanceClassification(lateFetchEmpId, lateFetchStart, lateFetchEnd)
+            .then(({ data }) => {
+                if (cancelled) return;
+                setBackendLateDates(new Set(data.lateCheckinDates || []));
+                setBackendDatesReady(true);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setBackendLateDates(new Set());
+                setBackendDatesReady(false);
+            });
+        return () => { cancelled = true; };
+    }, [lateFetchEmpId, lateFetchStart, lateFetchEnd]);
+
     // if employee working on weekend/holiday then no late marking and early check out marking
 
     const isWeekendOrHoliday = useMemo(() =>
@@ -1453,18 +1511,32 @@ export const StatisticsTable = ({
                 const employeeThreshold = allEmployeeThresholds?.find(
                     (emp: any) => emp.id === employee.id
                 );
-                const checkInColor = resolveCheckInColor({
+                const skipColoring = !shouldApplyCheckInColoring(
+                    employee.status,
+                    employee.isWeekendOrHoliday
+                );
+                let checkInColor = resolveCheckInColor({
                     checkIn,
                     workingMethod: employee.workingMethod,
                     date: employee.date,
                     lateCheckInThreshold:
                         employeeThreshold?.lateCheckInThreshold ?? lateCheckInThreshold,
                     leaveConfig: leaveConfiguration,
-                    skipColoring: !shouldApplyCheckInColoring(
-                        employee.status,
-                        employee.isWeekendOrHoliday
-                    ),
+                    skipColoring,
                 });
+
+                // Prefer the backend's authoritative late determination (resolves the viewed
+                // employee's own shift + grace). Only override real check-in rows (not weekend/
+                // missing) once the dates have loaded, so colouring matches the graph/KPI exactly.
+                if (backendDatesReady && !skipColoring && checkIn && checkIn !== '-NA-') {
+                    const istDate = ddmmyyyyToISO(employee.formattedDate);
+                    if (istDate) {
+                        const isLate = backendLateDates.has(istDate);
+                        checkInColor = isLate
+                            ? { tone: 'danger', color: '#DC3545', isLate: true, tooltip: 'Late check-in' }
+                            : { tone: 'success', color: '#28A745', isLate: false, tooltip: 'On time' };
+                    }
+                }
 
                 const coords = resolveAttendanceCoordinates(employee.id, location);
 
@@ -1710,7 +1782,7 @@ export const StatisticsTable = ({
                     </button > : 'Not Allowed'
             },
         }] : []),
-    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration]);
+    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
 
 
     // Detect if device is iOS mobile        
@@ -2005,7 +2077,12 @@ export const ReportsTable = ({
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const { longitude, latitude } = useSelector((state: RootState) => state.attendance.position);
-    const allWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // Weekend/holiday status must use the VIEWED employee's branch config (selected when admin,
+    // else self) — NOT the logged-in admin's. Otherwise an employee on a Mon-working branch shows
+    // Mondays as "Working on weekend" because the admin's branch has Monday off.
+    const curWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const selWeekends = useSelector((state: RootState) => state?.employee?.selectedEmployee?.branches?.workingAndOffDays);
+    const allWeekends = fromAdmin ? (selWeekends || curWeekends) : curWeekends;
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);

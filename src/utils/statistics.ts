@@ -42,7 +42,7 @@ export async function fetchEmpDailyStatistics(day: Dayjs, fromAdmin: boolean = f
     store.dispatch(saveDailyRequestTable(dailyRequestTable));
 
     const dates = generateDateRange(startEndDate, startEndDate);
-    const dailyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, dailyRequestTable);
+    const dailyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, dailyRequestTable, fromAdmin);
     store.dispatch(saveDailyTable(dailyTable));
 }
 
@@ -74,7 +74,7 @@ export const fetchEmpWeeklyStatistics = async (startWeek: Dayjs, endWeek: Dayjs,
         // Transform and dispatch
         const weeklyRequestTable = transformAttendanceRequest(attendanceRequests);
         const dates = generateDateRange(startDate, endDate);
-        const weeklyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, weeklyRequestTable); // Pass weeklyRequestTable
+        const weeklyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, weeklyRequestTable, fromAdmin); // Pass weeklyRequestTable
 
         // Dispatch updates
         store.dispatch(saveWeeklyRequestTable(weeklyRequestTable));
@@ -133,7 +133,7 @@ export async function fetchEmpMonthlyStatistics(
 
         const dates = generateDateRange(startDate, endDate);
 
-        const monthlyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, monthlyRequestTable); // Pass monthlyRequestTable
+        const monthlyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, monthlyRequestTable, fromAdmin); // Pass monthlyRequestTable
         // console.log("MonthlyTable:: ",monthlyTable);
         // console.log("empAttendanceStatistics:: ",empAttendanceStatistics);
 
@@ -210,7 +210,7 @@ export async function fetchEmpYearlyStatistics(
 
         // Generate date range and transform attendance data
         const dates = generateDateRange(startDate, endDate);
-        const yearlyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, yearlyRequestTable); // Pass yearlyRequestTable
+        const yearlyTable = transformAttendanceInUTC(dates, empAttendanceStatistics, yearlyRequestTable, fromAdmin); // Pass yearlyRequestTable
 
         store.dispatch(saveYearlyTable(yearlyTable));
 
@@ -1431,11 +1431,14 @@ function isDayWiseCheckInCheckOut(checkInDate: string, scheduleRows: ScheduleRow
 }
 
 
-export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]): Map<string, number> {
+export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[], fromAdmin?: boolean): Map<string, number> {
     fetchCompanyTimings();
     // public holidays and weekends..
     const publicHolidays = store.getState().attendanceStats.publicHolidays;
-    let allWeekendsInString = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays || JSON.stringify({})
+    let allWeekendsInString = (fromAdmin
+        ? (store.getState().employee?.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee?.currentEmployee?.branches?.workingAndOffDays)
+        : store.getState().employee?.currentEmployee?.branches?.workingAndOffDays) || JSON.stringify({})
     let allWeekends = JSON.parse(allWeekendsInString)
 
     const graceTimeAllowance = leaveConfigurations[onSiteAndHolidayWeekendSettingsOnOffName];
@@ -1975,7 +1978,10 @@ const generatingHeatMapSeries = (
     const today = dayjs();
 
     // Get weekend configuration
-    const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee.branches.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
 
     yearMap.forEach((value, key) => {
@@ -2181,7 +2187,10 @@ export const weekHeatMap = (
         : store.getState().employee.currentEmployee?.dateOfJoining;
     const doj = dateOfJoining ? dayjs(dateOfJoining, "YYYY-MM-DD") : null;
 
-    const weekends = store.getState().employee.currentEmployee?.branches?.workingAndOffDays;
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee?.branches?.workingAndOffDays)
+        : store.getState().employee.currentEmployee?.branches?.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
 
     const startDate = startWeek.format("YYYY-MM-DD");
@@ -2345,7 +2354,10 @@ export const generatingHeatMapSeriesForFiscalYear = (
     const today = dayjs();
 
     // Get weekend configuration
-    const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee.branches.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
 
     const fiscalMonths = [
@@ -2538,7 +2550,10 @@ export const customHeatMap = (stats: IAttendance[], startDate: string | Dayjs, e
     const rawDOJ = fromAdmin ? store.getState().employee.selectedEmployee.dateOfJoining : store.getState().employee?.currentEmployee?.dateOfJoining;
     const dateOfJoining = rawDOJ ? dayjs(rawDOJ) : null;
 
-    const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee.branches.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
 
     // Debug: Log weekend configuration
@@ -2765,12 +2780,18 @@ export function leavesBalance(leaves: CustomLeaves[]): Map<string, number> {
     return balanceLeavesMap;
 }
 
-export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Attendance[], requests?: any): IAttendance[] => {
+export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Attendance[], requests?: any, fromAdmin?: boolean): IAttendance[] => {
     const mumbaiTz = 'Asia/Kolkata';
 
     const getAllAttnedanceRequest = requests
 
-    const branches = store.getState().employee?.currentEmployee.branches?.workingAndOffDays;
+    // Weekend/weekoff status must follow the VIEWED employee (selected when an admin is viewing
+    // someone) — NOT the logged-in user. Otherwise an employee on a Monday-working branch gets
+    // "Working on weekend" because the admin's branch has Monday off.
+    const branches = fromAdmin
+        ? (store.getState().employee?.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee?.currentEmployee?.branches?.workingAndOffDays)
+        : store.getState().employee?.currentEmployee?.branches?.workingAndOffDays;
     const workingAndOffDays = JSON.parse(branches || "{}");
 
     const publicHolidays = store.getState().attendanceStats?.publicHolidays;

@@ -61,7 +61,10 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
-    const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);

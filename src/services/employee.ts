@@ -826,6 +826,8 @@ export const fetchAttendanceClassification = async (employeeId: string, startDat
             earlyCheckouts: number;
             lateCheckouts: number;
             missingCheckouts: number;
+            lateCheckinDates?: string[];
+            earlyCheckinDates?: string[];
         };
     };
 };
