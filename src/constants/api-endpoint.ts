@@ -418,6 +418,19 @@ export const LEAD_PROJECT_COMPANY = {
     UPDATE_PROJECT_SERVICE: "api/lead-project-companies/project-services/:id",
     DELETE_PROJECT_SERVICE: "api/lead-project-companies/project-services/:id",
 
+    // Project Points (dynamic master templates + per-lead/per-project values)
+    GET_ALL_PROJECT_POINT_MASTERS: "api/lead-project-companies/project-points",
+    GET_ACTIVE_PROJECT_POINT_MASTERS: "api/lead-project-companies/project-points/active",
+    GET_PROJECT_POINT_MASTER_BY_ID: "api/lead-project-companies/project-points/:id",
+    CREATE_PROJECT_POINT_MASTER: "api/lead-project-companies/project-points",
+    UPDATE_PROJECT_POINT_MASTER: "api/lead-project-companies/project-points/:id",
+    DELETE_PROJECT_POINT_MASTER: "api/lead-project-companies/project-points/:id",
+    REORDER_PROJECT_POINT_MASTERS: "api/lead-project-companies/project-points/reorder",
+    GET_LEAD_PROJECT_POINTS: "api/lead-project-companies/leads/:leadId/project-points",
+    SAVE_LEAD_PROJECT_POINTS: "api/lead-project-companies/leads/:leadId/project-points",
+    GET_PROJECT_PROJECT_POINTS: "api/lead-project-companies/projects/:projectId/project-points",
+    SAVE_PROJECT_PROJECT_POINTS: "api/lead-project-companies/projects/:projectId/project-points",
+
     GET_ALL_PROJECT_STATUSES: "api/lead-project-companies/project-statuses",
     GET_PROJECT_STATUS_BY_ID: "api/lead-project-companies/project-statuses/:id",
     CREATE_PROJECT_STATUS: "api/lead-project-companies/project-statuses",
