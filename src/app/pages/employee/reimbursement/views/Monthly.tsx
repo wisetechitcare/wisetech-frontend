@@ -213,98 +213,84 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
       {
         accessorKey: "expenseDate",
         header: "Date",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "day",
         header: "Day",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       ...(showIdCol ? [{
         accessorKey: "ID",
         header: "ID",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       }] : []),
       ...(showName ? [{
         accessorKey: "name",
         header: "Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       }] : []),
       {
         accessorKey: "description",
         header: "Note",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "type",
         header: "Type",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "clientTypeId",
         header: "Client Type",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
       },
       {
         accessorKey: "clientCompanyId",
         header: "Client Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
       },
       {
         accessorKey: "projectId",
         header: "Project Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveProject(row.original.projectId),
       },
       {
         accessorKey: "fromLocation",
         header: "From Location",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
       },
       {
         accessorKey: "amount",
         header: "Amount",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "status",
         header: "Status",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "paymentStatus",
         header: "Payment Status",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const status = row.original.status;
@@ -318,7 +304,6 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
       {
         accessorKey: "rejectionReason",
         header: "Reject Reason",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const status = row.original.status;

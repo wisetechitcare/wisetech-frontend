@@ -210,35 +210,30 @@ function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanc
     {
       accessorKey: 'expenseDate',
       header: 'Date',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
     },
     {
       accessorKey: 'day',
       header: 'Day',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => row.original.expenseDate ? dayjs(row.original.expenseDate).format('dddd') : '—',
     },
     {
       accessorKey: 'description',
       header: 'Note',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ renderedCellValue }: any) => renderedCellValue || '—',
     },
     {
       accessorKey: 'type',
       header: 'Type',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => row.original.reimbursementType?.type || '—',
     },
     {
       accessorKey: 'clientType',
       header: 'Client Type',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => {
         const r = row.original;
@@ -249,35 +244,30 @@ function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanc
     {
       accessorKey: 'client',
       header: 'Client Name',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => row.original.clientCompany?.companyName || '—',
     },
     {
       accessorKey: 'project',
       header: 'Project Name',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => row.original.project?.title || '—',
     },
     {
       accessorKey: 'fromLocation',
       header: 'From Location',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
     },
     {
       accessorKey: 'toLocation',
       header: 'To Location',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
     },
     {
       accessorKey: 'amount',
       header: 'Amount',
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => `₹${fmtAmount(row.original.amount)}`,
     },
@@ -708,7 +698,6 @@ const [rejectTarget, setRejectTarget] = useState<BatchRow | null>(null);
       accessorKey: 'rejectionReason',
       header: 'Reject Reason',
       size: 220,
-      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => {
         const reason = row.original.rejectionReason;

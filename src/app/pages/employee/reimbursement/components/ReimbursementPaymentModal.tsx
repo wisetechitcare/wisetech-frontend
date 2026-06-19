@@ -240,12 +240,12 @@ const ReimbursementPaymentModal: React.FC<ReimbursementPaymentModalProps> = ({
                                                     />
                                                 </div>
 
-                                                <TextInput
+                                                {/* <TextInput
                                                     label="Internal Notes"
                                                     formikField="remarks"
                                                     isRequired={false}
                                                     placeholder="Note for audit..."
-                                                />
+                                                /> */}
                                             </div>
                                         </Col>
 
