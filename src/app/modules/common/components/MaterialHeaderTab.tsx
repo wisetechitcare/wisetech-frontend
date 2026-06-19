@@ -11,7 +11,8 @@ export type TabItem = {
 interface MaterialTabProps {
     tabItems: TabItem[];
     activeTab?: number;
-    onTabChange?: (index: number) => void; 
+    onTabChange?: (index: number) => void;
+    aboveContent?: React.ReactNode;
 }
 
 const CustomizedTabs = styled(Tabs)({
@@ -59,7 +60,7 @@ const CustomizedTabs = styled(Tabs)({
     },
 });
 
-const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent }: MaterialTabProps) => {
     const [value, setValue] = useState(0);
     useEffect(() => {
         if (typeof activeTab === 'number') {
@@ -100,7 +101,10 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab }: MaterialTabProp
                 })}
             </CustomizedTabs>
 
-            <div className="row mt-7"></div>
+            {aboveContent
+              ? <div className="px-lg-9 px-5 pt-5 pb-5">{aboveContent}</div>
+              : <div className="row mt-7"></div>
+            }
 
             {tabItems.map((tabItem, index) => {
                 return (

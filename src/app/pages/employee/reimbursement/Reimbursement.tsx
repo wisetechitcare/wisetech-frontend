@@ -33,7 +33,7 @@ import DateInput from "@app/modules/common/inputs/DateInput";
 import { createNewTowns, fetchAllReimbursementTypes, fetchAllTowns } from "@services/options";
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { uploadUserAsset } from "@services/uploader";
-import { createEmployeeReimbursement, updateReimbursementById } from "@services/employee";
+import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById } from "@services/employee";
 import ReimbursementOverview from "./views/common/ReimbursementOverview";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
@@ -385,11 +385,9 @@ function Reimbursement() {
         description: filteredValues.description,
       } as IReimbursementsCreate;
 
-      await createEmployeeReimbursement(payload);
+      await createPendingReimbursementDraft(payload);
       setLoading(false);
-      successConfirmation("Reimbursement created successfully");
-      eventBus.emit("reimbursementRecords", { records: [] });
-      setStatsRefreshKey((prev) => prev + 1);
+      successConfirmation("Reimbursement saved to Pending Requests. Go to 'Pending Requests' to submit for approval.");
       setShow(false);
     } catch (err) {
       setLoading(false);
@@ -516,23 +514,6 @@ function Reimbursement() {
         isLoading={overviewLoading}
       />
 
-      <div
-        className="py-1 rounded-3 my-4 d-flex justify-content-end align-items-center"
-        style={{ paddingRight: "1.25rem" }}
-      >
-        {hasPermission(
-          resourceNameMapWithCamelCase.reimbursement,
-          permissionConstToUseWithHasPermission.create
-        ) && (
-          <button
-            className="d-flex justify-content-between align-items-center bg-primary  btn btn-lg btn-primary fs-5 w-auto"
-            onClick={() => handleNew()}
-          >
-            <div className="d-flex justify-content-center invisible"></div>
-            <div>Request Reimbursement</div>
-          </button>
-        )}
-      </div>
       <div className="my-6">
         <h2>My Reimbursement Records</h2>
       </div>
@@ -540,7 +521,7 @@ function Reimbursement() {
         toggleItemsActions={toggleItemsActions}
         onPeriodChange={handlePeriodChange}
         onEdit={handleEdit}
-        showEditDeleteOption={showEditDeleteOption}
+        showEditDeleteOption={false}
         resource={resourceNameMapWithCamelCase.reimbursement}
         viewOwn={true}
         viewOthers={false}
@@ -777,7 +758,7 @@ function Reimbursement() {
                         loading || !formikProps.isValid || formikProps.isSubmitting
                       }
                     >
-                      {!loading && "Save Changes"}
+                      {!loading && (editMode ? "Save Changes" : "Save to Pending Requests")}
                       {loading && (
                         <span
                           className="indicator-progress"

@@ -1,5 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { KTIcon } from "@metronic/helpers";
+import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { IReimbursementEmployeeLimit } from "@models/employee";
 import { fetchReimbursementEmployeeLimits } from "@services/options";
 import { updateEmployee } from "@services/employee";
@@ -140,34 +140,32 @@ function ReimbursementEmployeeLimit() {
 
           if (isEditing) {
             return (
-              <div className="d-flex align-items-center gap-2">
+              <div className="flex items-center justify-center space-x-4">
                 <button
                   type="button"
-                  className="btn btn-icon btn-sm"
+                  className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
                   title="Save"
                   onClick={() => handleSave(rowData)}
                   disabled={isSaving}
                 >
                   {isSaving ? (
                     <span
-                      className="spinner-border spinner-border-sm text-success"
+                      className="spinner-border spinner-border-sm"
                       role="status"
+                      aria-hidden="true"
                     />
                   ) : (
-                    <i className="ki-duotone ki-check fs-3 text-success" />
+                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="Save" />
                   )}
                 </button>
                 <button
                   type="button"
-                  className="btn btn-icon btn-sm"
+                  className="btn btn-icon btn-active-color-primary btn-sm w-4"
                   title="Cancel"
                   onClick={handleCancel}
                   disabled={isSaving}
                 >
-                  <i className="ki-duotone ki-cross fs-3 text-danger">
-                    <span className="path1" />
-                    <span className="path2" />
-                  </i>
+                  <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="Cancel" />
                 </button>
               </div>
             );
@@ -191,10 +189,6 @@ function ReimbursementEmployeeLimit() {
 
   return (
     <>
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <h2>Reimbursement Employee Per Request Limit</h2>
-      </div>
-
       <MaterialTable
         columns={columns}
         data={employeeLimits}

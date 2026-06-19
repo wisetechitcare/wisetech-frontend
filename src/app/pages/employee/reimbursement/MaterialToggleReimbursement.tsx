@@ -27,55 +27,55 @@ interface MaterialToggleProps {
   toggleItemsActions?: ToggleItemsCallBackFunctions;
   /** Called on initial mount and whenever the active period type or date changes. */
   onPeriodChange?: (alignment: PeriodAlignment, date: Dayjs) => void;
-  showEditDeleteOption?:boolean,
-  showIdCol?:boolean,
-  showName?:boolean,
-  selectedEmployeeId?:string,
+  showEditDeleteOption?: boolean,
+  showIdCol?: boolean,
+  showName?: boolean,
+  selectedEmployeeId?: string,
   onEdit?: (row: IReimbursementsUpdate) => void,
-  resource:string,
-  viewOwn?:boolean,
-  viewOthers?:boolean,
-  checkOwnWithOthers?:boolean,
+  resource: string,
+  viewOwn?: boolean,
+  viewOthers?: boolean,
+  checkOwnWithOthers?: boolean,
 }
 
 const MaterialToggleReimbursement = ({
   toggleItemsActions,
   onPeriodChange,
-  showEditDeleteOption=false,
-  showIdCol=false,
-  showName=false,
+  showEditDeleteOption = false,
+  showIdCol = false,
+  showName = false,
   onEdit,
   selectedEmployeeId,
-  resource="",
-  viewOwn=false,
-  viewOthers=false,
-  checkOwnWithOthers=false,
+  resource = "",
+  viewOwn = false,
+  viewOthers = false,
+  checkOwnWithOthers = false,
 }: MaterialToggleProps) => {
 
   const dispatch = useDispatch();
   const [alignment, setAlignment] = useState<PeriodAlignment>("monthly");
   const [month, setMonth] = useState(dayjs());
   const [year, setYear] = useState(dayjs());
-  
+
   const [fiscalYear, setFiscalYear] = useState('');
 
-  useEffect(()=>{
-     if(!year) return;
-     async function getFiscalYear() {
-         const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
-         setFiscalYear(`${startDate} to ${endDate}`);
-      }
-      getFiscalYear();
-  },[year])
+  useEffect(() => {
+    if (!year) return;
+    async function getFiscalYear() {
+      const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
+      setFiscalYear(`${startDate} to ${endDate}`);
+    }
+    getFiscalYear();
+  }, [year])
 
-  useEffect(()=>{
+  useEffect(() => {
     dispatch(fetchRolesAndPermissions() as any);
-  },[])
+  }, [])
 
   // Fire once on mount so the parent can load initial overview stats
   useEffect(() => {
     onPeriodChange?.('monthly', dayjs());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (

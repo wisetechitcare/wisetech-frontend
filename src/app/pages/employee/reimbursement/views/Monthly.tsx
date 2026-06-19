@@ -302,6 +302,33 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
+        accessorKey: "paymentStatus",
+        header: "Payment Status",
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const status = row.original.status;
+          if (status === 'Rejected') return <span className="text-muted">N/A</span>;
+          if (status !== 'Approved') return <span className="text-muted">—</span>;
+          const ps = row.original.paymentStatus;
+          if (ps === 'PAID') return <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>;
+          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Unpaid</span>;
+        },
+      },
+      {
+        accessorKey: "rejectionReason",
+        header: "Reject Reason",
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const status = row.original.status;
+          const reason = row.original.rejectionReason;
+          if (status === 'Approved') return <span className="text-muted">N/A</span>;
+          if (status === 'Rejected' && reason) return <span className="text-danger">{reason}</span>;
+          return <span className="text-muted">—</span>;
+        },
+      },
+      {
         accessorKey: "document",
         header: "Document",
         enableSorting: false,

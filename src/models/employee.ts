@@ -356,6 +356,7 @@ export interface IReimbursementsFetch {
     }
   }
   status: string | number;
+  paymentStatus?: string;
   isExceedingLimit?: boolean;
   hasApprovalInstance?: boolean;
   clientTypeId?: string;
@@ -365,6 +366,7 @@ export interface IReimbursementsFetch {
   type?: string;
   name?: string;
   ID?: string;
+  rejectionReason?: string | null;
 }
 
 export interface IReimbursementEmployeeLimit {
@@ -378,6 +380,27 @@ export enum ReimbursementStatus {
   Pending = "Pending",
   Approved = "Approved",
   Rejected = "Rejected",
+}
+
+export interface IReimbursementPayment {
+  id: string;
+  employeeId: string;
+  totalAmount: number;
+  totalRequests: number;
+  amountPaid: number;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionId?: string;
+  remarks?: string;
+  status: string;
+  processedBy?: string;
+  processor?: {
+    employeeCode?: string;
+    users?: { firstName?: string; lastName?: string };
+  };
+  createdAt: string;
+  updatedAt: string;
+  reimbursements?: IReimbursementsFetch[];
 }
 
 export interface AttendanceRequest {
