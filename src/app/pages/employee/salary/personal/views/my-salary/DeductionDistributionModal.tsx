@@ -27,6 +27,7 @@ interface DynamicField {
     type: string;
     isNew: boolean;
     autoAmount?: number; // Added to store the auto-calculated amount for preview
+    section?: 'government' | 'attendance' | 'custom'; // Added to allow section selection
 }
 
 /**
@@ -88,14 +89,20 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         setAutoCalculatedDeductions({});
     };
 
-    const addNewField = () => {
+    const addNewField = (section: 'government' | 'attendance' | 'custom' = 'custom') => {
+        const sectionLabels = {
+            government: 'Deduction',
+            attendance: 'Attendance',
+            custom: 'Other'
+        };
         const newField: DynamicField = {
             id: `new_field_${Date.now()}`,
-            name: `Other ${fieldCounter}`,
+            name: `${sectionLabels[section]} ${fieldCounter}`,
             value: 0,
             type: "number",
             isNew: true,
-            autoAmount: 0
+            autoAmount: 0,
+            section: section
         };
         setDynamicFields([...dynamicFields, newField]);
         setFieldCounter(fieldCounter + 1);
@@ -232,8 +239,17 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                     if (masterKeys.has(key)) {
                         // Overlay saved value onto master item (keep _isFromMaster: true)
                         finalData[key] = { ...finalData[key], ...value, value: value.value || 0, type: 'number', _isFromMaster: true };
+                    } else {
+                        // Preserve non-master custom fields with their section information
+                        finalData[key] = {
+                            ...value,
+                            value: value.value || 0,
+                            type: 'number',
+                            isActive: true,
+                            _isFromMaster: false,
+                            _section: value._section || 'custom'
+                        };
                     }
-                    // Non-master saved items are intentionally dropped — only master items are shown
                 });
             }
 
@@ -283,7 +299,8 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                     name: field.name,
                     value: Number(values[field.id]),
                     type: "number",
-                    isActive: true
+                    isActive: true,
+                    _section: field.section || 'custom'  // Preserve section for persistence
                 };
             });
 
@@ -350,9 +367,18 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                             const SYS_ATTENDANCE = ['late checkins', 'late attendance', 'early checkout', 'unpaid leave', 'half day', 'missed punch'];
 
                             const getGroup = (field: any): 'government' | 'attendance' | 'other' => {
+                                // Check if field has explicit section (new fields or persisted custom fields)
+                                if (field.section === 'government') return 'government';
+                                if (field.section === 'attendance') return 'attendance';
+                                if (field._section === 'government') return 'government';
+                                if (field._section === 'attendance') return 'attendance';
+
+                                // For new fields without explicit section, default to custom
                                 if (field.isNew) return 'other';
+
                                 // Non-master items always go to Custom, never government/attendance
                                 if (!field._isFromMaster) return 'other';
+
                                 const cat = (field._masterCategory || '').toLowerCase();
                                 const name = (field.name || field.id || '').toLowerCase();
                                 if (cat.includes('attendance') || SYS_ATTENDANCE.some(s => name.includes(s))) return 'attendance';
@@ -363,15 +389,12 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                 return 'other';
                             };
 
-                            const govFields = existingFields.filter(f => getGroup(f) === 'government');
-                            const allAttFields = existingFields.filter(f => getGroup(f) === 'attendance');
+                            const allFieldsWithGrouping = [...existingFields, ...dynamicFields];
+                            const govFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'government');
+                            const allAttFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'attendance');
                             // Late Checkins is auto-calculated — read-only; the rest are editable adjustments
                             const lateCheckinFields = allAttFields.filter(f => (f.name || f.id) === 'Late Checkins');
                             const editableAttFields = allAttFields.filter(f => (f.name || f.id) !== 'Late Checkins');
-                            const otherFields = [
-                                ...existingFields.filter(f => getGroup(f) === 'other'),
-                                ...dynamicFields,
-                            ];
 
                             // Read-only row for attendance (same green style as Work Earnings in Gross modal)
                             const renderReadOnlyRow = (field: any) => {
@@ -481,6 +504,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                 fields: any[],
                                 showAdd = false,
                                 readOnly = false,
+                                sectionType?: 'government' | 'attendance' | 'custom'
                             ) => {
                                 if (fields.length === 0 && !showAdd) return null;
                                 return (
@@ -494,9 +518,9 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                 {readOnly && <span className="badge badge-light-success fs-9 py-1 px-2">Auto-Calculated</span>}
                                             </div>
                                             {showAdd && (
-                                                <button type="button" className="btn btn-sm btn-light-primary fw-bold py-1 px-3 fs-8" onClick={addNewField}>
+                                                <button type="button" className="btn btn-sm btn-light-primary fw-bold py-1 px-3 fs-8" onClick={() => addNewField(sectionType || 'custom')}>
                                                     <KTIcon iconName="plus" className="fs-8 me-1" />
-                                                    Add
+                                                    Add Component
                                                 </button>
                                             )}
                                         </div>
@@ -538,16 +562,15 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
 
                             return (
                                 <Form noValidate>
-                                    {renderSection('Government & Statutory', '#3e97ff', govFields)}
+                                    {renderSection('Government & Statutory', '#3e97ff', govFields, true, false, 'government')}
                                     {lateCheckinFields.length > 0 && renderSection('Late Checkins', '#50cd89', lateCheckinFields, false, true)}
-                                    {renderSection('Attendance Deductions', '#ffa621', editableAttFields)}
-                                    {renderSection('Custom Deductions', '#7239ea', otherFields, true)}
+                                    {renderSection('Attendance Deductions', '#ffa621', editableAttFields, true, false, 'attendance')}
 
                                     {allFields.length === 0 && (
                                         <div className="text-center py-14 bg-light rounded-4 border border-dashed border-gray-300 mb-4">
                                             <KTIcon iconName="document" className="fs-3x text-gray-400 mb-4" />
                                             <p className="text-gray-600 fw-bold mb-4 fs-7">No deduction adjustments configured.</p>
-                                            <button type="button" className="btn btn-primary btn-sm px-6" onClick={addNewField}>
+                                            <button type="button" className="btn btn-primary btn-sm px-6" onClick={() => addNewField('custom')}>
                                                 Add First Adjustment
                                             </button>
                                         </div>
