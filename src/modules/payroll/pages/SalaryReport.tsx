@@ -43,7 +43,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
 
     const payrollData = usePayrollData(employee, year, month, isYearly, fromAdmin);
     const ui = useSalaryReport();
-    const grossDist = useGrossDistribution(employee, month, year, ui.handleRefresh);
+    const grossDist = useGrossDistribution(employee, month, year, ui.handleRefresh, monthlyApiData);
     const { resolveName, resolveComponent } = useSalaryMaster();
 
     const tableData = useSelector((state: RootState) => isYearly ? state.attendanceStats.yearlyTable : state.attendanceStats.monthlyTable);
@@ -224,6 +224,7 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                 initialValues={grossDist.initialValues}
                 validationSchema={grossDist.validationSchema}
                 grossDistributionData={grossDist.grossDistributionData}
+                workEarningsData={grossDist.workEarningsData}
                 dynamicFields={grossDist.dynamicFields}
                 deletedFields={grossDist.deletedFields}
                 onAddComment={grossDist.addNewField}
