@@ -70,6 +70,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent }: M
 
     const handleChange = (event: React.SyntheticEvent, newValue: number) => {
         setValue(newValue);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         if (onTabChange) {
             onTabChange(newValue);
         }

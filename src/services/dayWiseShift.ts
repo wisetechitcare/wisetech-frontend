@@ -9,9 +9,13 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
  * @throws Throws an error if the request fails.
  * @api "api/dayWiseShifts"
  */
-export const fetchDayWiseShifts = async () => {
+export const fetchDayWiseShifts = async (scope?: { companyId?: string; branchId?: string }) => {
     try {
-    const endpoint = `${API_BASE_URL}/${DAY_WISE_SHIFT.GET_ALL_DAY_WISE_SHIFTS}`;
+        let endpoint = `${API_BASE_URL}/${DAY_WISE_SHIFT.GET_ALL_DAY_WISE_SHIFTS}`;
+        const params: string[] = [];
+        if (scope?.companyId) params.push(`companyId=${scope.companyId}`);
+        if (scope?.branchId) params.push(`branchId=${scope.branchId}`);
+        if (params.length) endpoint += `?${params.join('&')}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (error) {

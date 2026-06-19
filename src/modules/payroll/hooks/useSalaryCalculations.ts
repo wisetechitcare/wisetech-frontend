@@ -121,7 +121,7 @@ export const useSalaryCalculations = (
             const professionalFees = getProfessionalFeesAmount(item.deductionBreakdown?.fixed);
             const professionalTax = getProfessionalTaxAmount(item.deductionBreakdown?.fixed);
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
-            const history = [...(item.salaryPayments || []), ...(item.govtPayments || []), ...(item.paymentHistory || [])];
+            const history = [...(item.govtPayments || []), ...(item.paymentHistory || [])];
             const uniqueHistory = Array.from(new Map(history.map((p: any) => [p.id || `${getPaymentAmount(p)}-${p.paymentDate}-${getPaymentType(p)}`, p])).values());
             const salaryPaidFromHistory = uniqueHistory.reduce((total: number, payment: any) => {
                 return getPaymentType(payment) === 'GOVERNMENT' ? total : total + getPaymentAmount(payment);
@@ -182,7 +182,7 @@ export const useSalaryCalculations = (
             const hasGovDeductions = profFeesAmt > 0 || profTaxAmt > 0;
             const totalGovDeductions = profFeesAmt + profTaxAmt;
             const net = Number(item.netAmountInNumber ?? parseCurrencyString(item.netAmount ?? item.netSalaryAmount));
-            const history = [...(item.salaryPayments || []), ...(item.govtPayments || []), ...(item.paymentHistory || [])];
+            const history = [...(item.govtPayments || []), ...(item.paymentHistory || [])];
 
             // Remove duplicates from history if any (by id or properties)
             const uniqueHistory = Array.from(new Map(history.map((p: any) => [p.id || `${getPaymentAmount(p)}-${getPaymentTimestamp(p)}-${getPaymentType(p)}`, p])).values());
@@ -318,12 +318,12 @@ export const useSalaryCalculations = (
                 if (isGov && matchedKey) {
                     // Remaining = typeTotal − all prior same-type payments − this payment
                     const cumPaid = cumulativePaidByKey.get(matchedKey) || 0;
-                    calculatedRemainingAmount = Math.round(currentNetPayable - cumPaid - paymentAmount) || 0;
+                    calculatedRemainingAmount = Math.floor(currentNetPayable - cumPaid - paymentAmount) || 0;
                 } else if (!isGov) {
                     // Remaining = full net − all prior salary payments − this payment
-                    calculatedRemainingAmount = Math.round(currentNetPayable - cumulativeSalaryPaid - paymentAmount) || 0;
+                    calculatedRemainingAmount = Math.floor(currentNetPayable - cumulativeSalaryPaid - paymentAmount) || 0;
                 } else {
-                    calculatedRemainingAmount = Math.round(currentNetPayable - paymentAmount) || 0;
+                    calculatedRemainingAmount = Math.floor(currentNetPayable - paymentAmount) || 0;
                 }
 
                 const calculatedStatus = calculatedRemainingAmount < 0 ? 'Paid Extra' : calculatedRemainingAmount === 0 ? 'Full Paid' : 'Partially Paid';

@@ -108,12 +108,24 @@ const ClientCompaniesMain = ({
             return acc + Number(mapping.project?.cost || 0);
           }, 0) || 0;
 
+        // Show ALL of the company's types (a company can have many). Fall back to the legacy
+        // single primary type, then to "N/A".
+        const allTypeNames = (() => {
+          const mappings = (company as any).companyTypeMappings;
+          if (Array.isArray(mappings) && mappings.length > 0) {
+            const names = mappings
+              .map((m: any) => m.companyType?.name || (m.companyTypeId && typesMap[m.companyTypeId]) || m.companyTypeId)
+              .filter(Boolean);
+            if (names.length > 0) return names.join(", ");
+          }
+          return company.companyTypeId && typesMap[company.companyTypeId]
+            ? typesMap[company.companyTypeId]
+            : company.companyTypeId || "N/A";
+        })();
+
         return {
           ...company,
-          companyTypeName:
-            company.companyTypeId && typesMap[company.companyTypeId]
-              ? typesMap[company.companyTypeId]
-              : company.companyTypeId || "N/A",
+          companyTypeName: allTypeNames,
           referenceType: referenceTypes,
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
@@ -152,7 +164,7 @@ const ClientCompaniesMain = ({
     () => [
       {
         accessorKey: "prefix",
-        header: "Inquiry Id",
+        header: "Company Id",
         size: 80,
         enableEditing: false,
         Cell: ({ row }: { row: any }) => {
@@ -405,11 +417,24 @@ const ClientCompaniesMain = ({
     return true;
   });
 
+  // All type ids a company belongs to (multi-type aware). Falls back to the legacy single type.
+  const getCompanyTypeIds = (item: any): string[] => {
+    const mappings = item.companyTypeMappings;
+    if (Array.isArray(mappings) && mappings.length > 0) {
+      const ids = mappings.map((m: any) => m.companyTypeId || m.companyType?.id).filter(Boolean);
+      if (ids.length > 0) return ids;
+    }
+    return item.companyTypeId ? [item.companyTypeId] : [];
+  };
+
   const filteredData = dateFilteredData?.filter((item: any) => {
+    const typeIds = getCompanyTypeIds(item);
     if (isOthersView && top10Ids) {
-      if (top10Ids.includes(item.companyTypeId)) return false;
+      // "Others" = companies that have at least one type outside the top 10.
+      if (!typeIds.some((id) => !top10Ids.includes(id))) return false;
     } else {
-      if (companyTypeId && item.companyTypeId !== companyTypeId) return false;
+      // Match if ANY of the company's types is the selected type.
+      if (companyTypeId && !typeIds.includes(companyTypeId)) return false;
     }
 
     if (statusId && item.status !== statusId) return false;

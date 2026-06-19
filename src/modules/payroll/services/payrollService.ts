@@ -77,11 +77,22 @@ export const payrollService = {
   recordPayment: async (paymentData: {
     payrollId?: string;
     employeeId: string;
-    amountPaid: number;
+    amountPaid?: number;
+    amount?: number;           // legacy alias
     paymentDate: string;
     paymentMethod: string;
     transactionId?: string;
+    referenceNumber?: string;
     remarks?: string;
+    paymentType?: string;      // legacy alias for paymentCategory
+    paymentCategory?: string;
+    month?: number;
+    year?: number;
+    salaryId?: string;
+    netSalary?: number;
+    totalPaidBefore?: number;
+    skipEmail?: boolean;
+    id?: string;
   }) => {
     const response = await axios.post(`${API_URL}/payroll/payment`, paymentData);
     return response.data;
@@ -103,10 +114,44 @@ export const payrollService = {
   },
 
   /**
+   * Delete a salary or government payment by ID
+   */
+  deletePayment: async (id: string) => {
+    const response = await axios.delete(`${API_URL}/payroll/payment/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Delete a government payment by ID
+   */
+  deleteGovernmentPayment: async (id: string) => {
+    const response = await axios.delete(`${API_URL}/payroll/govt-payment/${id}`);
+    return response.data;
+  },
+
+  /**
    * Download Salary Slip PDF
    */
   downloadSalarySlip: async (salaryId: string) => {
     const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}/download-slip`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
+
+  /**
+   * Fetch salary record details
+   */
+  getSalaryById: async (salaryId: string) => {
+    const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}`);
+    return response.data?.data?.salary || null;
+  },
+
+  /**
+   * Download Contract Bill PDF
+   */
+  downloadContractBill: async (salaryId: string) => {
+    const response = await axios.get(`${API_URL}/payroll/salary/${salaryId}/download-contract-bill`, {
       responseType: 'blob'
     });
     return response.data;

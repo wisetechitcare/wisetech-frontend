@@ -2,6 +2,7 @@ import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { DeductionBreakdownProps } from '../../types/payroll.types';
 import { formatINRDecimal, formatINRDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     deductionBreakdown,
@@ -44,25 +45,26 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     };
 
     const totalVariable = variableEntries.reduce((acc, [, item]: [string, any]) => acc + Number(item?.earned || 0), 0);
-    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + getEffectiveEarned(item), 0);
+    const totalFixed = fixedEntries.reduce((acc, [, item]: [string, any]) => acc + Math.round(getEffectiveEarned(item)), 0);
     const intermediateSalary = Math.max(0, grossPay - totalVariable);
     const grandTotalDeductions = totalVariable + totalFixed;
 
     const sensitiveCls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
     const getVariableRateLabel = (key: string, item: any) => {
-        const isLateCheckin = /late\s*check/i.test(key) || /late\s*attendance/i.test(key);
-        
+        const isLateCheckin = /late\s*check/i.test(key) || /late\s*attendance/i.test(key)
+            || /late\s*check/i.test(item?.name || '') || /late\s*attendance/i.test(item?.name || '');
+
         if (isLateCheckin && dailySalary) {
-            const percent = Number(item?.ratePercent ?? item?.deductionPercent ?? 50); // Default to 50% if not provided
-            if (percent > 0) {
-                return `${formatINRDecimalTruncated(dailySalary * (percent / 100))} / Day`;
-            }
+            const percent    = Number(item?.ratePercent ?? item?.configuredValue ?? item?.deductionPercent ?? 50);
+            const countLimit = Number(item?.meta?.countLimit ?? item?.countLimit ?? 4);
+            const perBucket  = dailySalary * (percent / 100);
+            return `${formatCurrencyDecimal(perBucket)} / ${countLimit} late`;
         }
 
         const explicitRate = item?.rateDisplay || item?.rateLabel;
         if (explicitRate) return explicitRate;
 
-        return dailySalary ? `${formatINRDecimalTruncated(dailySalary)} / Day` : '-';
+        return dailySalary ? `${formatCurrencyDecimal(dailySalary)} / Day` : '-';
     };
     const formatAdjustmentFormula = (calculatedAmount: number, extraAmount: number) => {
         const sign = extraAmount < 0 ? '-' : '+';
@@ -139,7 +141,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                 <span className="text-gray-800 fw-bold fs-7">{itemName}</span>
                                             )}
                                             {meta?.shortCode && (
-                                                <span className="badge badge-light-danger fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                <span className="badge badge-light-danger fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
                                             )}
                                             </div>
                                         </td>
@@ -287,7 +289,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                     <span className="text-gray-800 fw-bold fs-7">{displayName}</span>
                                                 )}
                                                 {meta?.shortCode && (
-                                                    <span className="badge badge-light-warning fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                    <span className="badge badge-light-warning fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
                                                 )}
                                                 </div>
                                                 {isInactiveWithExtra && (
@@ -308,7 +310,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                             <td className="text-end">
                                                 <div className="d-flex flex-column align-items-end">
                                                     <span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>
-                                                        -{formatINRDecimal(earnedAmount)}
+                                                        -{formatINRDecimal(Math.round(earnedAmount))}
                                                     </span>
                                                     {!isInactiveWithExtra && extraAmount !== 0 && calculatedAmount !== 0 && (
                                                         <span className="text-muted fs-9 fw-bold">

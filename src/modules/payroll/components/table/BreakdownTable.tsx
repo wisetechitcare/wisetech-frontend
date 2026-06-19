@@ -2,6 +2,7 @@ import React from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { BreakdownTableProps } from '../../types/payroll.types';
 import { formatINRDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
+import { formatCurrencyDecimal } from '@utils/currency';
 
 const BreakdownTable: React.FC<BreakdownTableProps> = ({
     data,
@@ -97,7 +98,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                         : index < 2;
                                     const rateValue = isHourly ? hourlySalary : dailySalary;
                                     const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0
-                                        ? `${formatINRDecimal(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
+                                        ? `${formatCurrencyDecimal(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
                                         : '-';
                                     // If master says DAILY but backend sent HH:MM:SS, convert to days display
                                     let displayValue = item.value;
@@ -120,7 +121,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                                         <span className="text-gray-800 fw-bold fs-7">{displayLabel}</span>
                                                     )}
                                                     {meta?.shortCode && (
-                                                        <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                        <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
                                                     )}
                                                 </div>
                                             </td>

@@ -43,7 +43,7 @@ function BankInfo({ formikProps, userId }: any) {
     </div>
   </div>
 
-  {/* Row 2: IFSC Code, Attach Document */}
+  {/* Row 2: IFSC Code, Bank Name, Attach Document */}
   <div className="row g-3">
     <div className="col-lg-6 col-md-6 col-sm-12">
       <TextInput
@@ -54,6 +54,18 @@ function BankInfo({ formikProps, userId }: any) {
       />
     </div>
 
+    <div className="col-lg-6 col-md-6 col-sm-12">
+      <TextInput
+        isRequired={false}
+        label="Bank Name"
+        formikField="bankInfo.bankName"
+        margin="mb-0"
+      />
+    </div>
+  </div>
+
+  {/* Row 3: Attach Document */}
+  <div className="row g-3">
     <div className="col-lg-6 col-md-6 col-sm-12">
       <label className="d-flex align-items-center fs-6 form-label mb-2">
         <span>Attach Document</span>

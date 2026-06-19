@@ -8,12 +8,12 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD } from "./steps/Step2";
+import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
 import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
 import StepAppSettings from "./steps/StepAppSettings";
-import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, getQualificationConfig, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
+import { buildEducationPayload, createEducationRow, getActiveEducationRows, getEducationCompletionValues, hasStartedEducationInfo, normalizeEducationRows } from "../../../../utils/educationUtils";
 import "./steps/Step2.css";
 import { createNewUser, updateUser, archiveUser } from "@services/users";
 import {
@@ -234,41 +234,15 @@ const newEmployeeWizardSchema = [
           .nullable().transform((v, o) => o === "" ? null : v),
         filePath: optionalString().label("Upload Certificate"),
       })
-        .test("education-qualification", "Qualification is required", function (value) {
-          if (!hasStartedEducationInfo(value) || value?.qualificationName || value?.degree) return true;
-          return this.createError({ path: `${this.path}.qualificationMasterId`, message: "Qualification is required" });
-        })
-        .test("education-school-passing-year", "Passing Year is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesPassingYear || value?.passingYear) return true;
-          return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year is required" });
-        })
+        // NOTE: Onboarding may capture only partial education info — the admin
+        // often doesn't have every detail. So starting a row no longer forces
+        // the rest of the section to be filled. Only sanity checks below apply.
         .test("education-passing-year-format", "Passing Year must be a valid year", function (value) {
           if (!value?.passingYear) return true;
           const year = Number(value.passingYear);
           const currentYear = new Date().getFullYear();
           if (/^\d{4}$/.test(String(value.passingYear)) && year >= 1900 && year <= currentYear) return true;
           return this.createError({ path: `${this.path}.passingYear`, message: "Passing Year must be between 1900 and the current year" });
-        })
-        .test("education-hsc-stream", "Stream is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream) return true;
-          return this.createError({ path: `${this.path}.stream`, message: "Stream is required" });
-        })
-        .test("education-custom-stream", "Custom Stream Name is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || !config.usesStream || value?.stream !== "Others" || value?.customStream) return true;
-          return this.createError({ path: `${this.path}.customStream`, message: "Custom Stream Name is required" });
-        })
-        .test("education-from-date", "Date Started is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.fromDate) return true;
-          return this.createError({ path: `${this.path}.fromDate`, message: "Date Started is required" });
-        })
-        .test("education-to-date", "Date Completed is required", function (value) {
-          const config = getQualificationConfig(String(value?.qualificationName || value?.degree || ""));
-          if (!hasStartedEducationInfo(value) || config.usesPassingYear || value?.toDate) return true;
-          return this.createError({ path: `${this.path}.toDate`, message: "Date Completed is required" });
         })
         .test("education-date-order", "Date Completed cannot be before Date Started", function (value) {
           if (!value?.fromDate || !value?.toDate) return true;
@@ -317,24 +291,9 @@ const newEmployeeWizardSchema = [
           .min(10, "Phone Number must be at least 10 characters").max(20, "Phone Number must be at most 20 characters")
           .matches(employeeOnBardingFormRegexes["familyInfo.mobileNumber"], "Phone Number can only contain numeric characters"),
         dateOfBirth: optionalString().label("Date of Birth"),
-      })
-        // If a family row is started, its core fields become required so a
-        // half-filled member surfaces a clear error instead of silently submitting.
-        .test("family-name-required", "Family Member Name is required", function (value) {
-          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
-          if (!started || value?.name) return true;
-          return this.createError({ path: `${this.path}.name`, message: "Family Member Name is required" });
-        })
-        .test("family-relationship-required", "Member Relationship is required", function (value) {
-          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
-          if (!started || value?.relationship) return true;
-          return this.createError({ path: `${this.path}.relationship`, message: "Member Relationship is required" });
-        })
-        .test("family-mobile-required", "Member Phone Number is required", function (value) {
-          const started = Boolean(value?.name || value?.relationship || value?.mobileNumber || value?.dateOfBirth);
-          if (!started || value?.mobileNumber) return true;
-          return this.createError({ path: `${this.path}.mobileNumber`, message: "Member Phone Number is required" });
-        }),
+      }),
+      // Family info is fully optional during onboarding — a partially filled
+      // member is allowed. Only the per-field format rules above apply.
     ).required().label("Family info"),
     emergencyDetails: Yup.object({
       bloodGroup: optionalString().label("Blood Group"),
@@ -353,6 +312,8 @@ const newEmployeeWizardSchema = [
       accountNumber: optionalString().label("Account Number")
         .min(8, "Account Number must be at least 8 characters").max(20, "Account Number must be at most 20 characters")
         .matches(employeeOnBardingFormRegexes["bankInfo.accountNumber"], "Account Number can only contain numeric characters"),
+      bankName: optionalString().label("Bank Name")
+        .min(2, "Bank Name must be at least 2 characters").max(100, "Bank Name must be at most 100 characters"),
       ifscCode: optionalString().label("IFSC Code"),
       filePath: optionalString().label("Upload Bank Proof"),
     }).required(),
@@ -403,23 +364,9 @@ const newEmployeeWizardSchema = [
         jobTitle: optionalString().label("Job Title"),
         fromDate: optionalString().label("From Date"),
         toDate: optionalString().label("To Date"),
-      })
-        .test("work-company-name", "Company Name is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.companyName) return true;
-          return this.createError({ path: `${this.path}.companyName`, message: "Company Name is required" });
-        })
-        .test("work-job-title", "Job Title is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.jobTitle) return true;
-          return this.createError({ path: `${this.path}.jobTitle`, message: "Job Title is required" });
-        })
-        .test("work-from-date", "From Date is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.fromDate) return true;
-          return this.createError({ path: `${this.path}.fromDate`, message: "From Date is required" });
-        })
-        .test("work-to-date", "To Date is required", function (value) {
-          if (!hasWorkExpInfo(value) || value?.toDate) return true;
-          return this.createError({ path: `${this.path}.toDate`, message: "To Date is required" });
-        }),
+      }),
+      // Work experience is fully optional during onboarding — a partially
+      // filled entry is allowed, so starting one field no longer forces the rest.
     ),
   }),
   Yup.object({
@@ -464,7 +411,7 @@ const initialState = {
   educationalInfo: [createDefaultEducationInfo()],
   familyInfo: [createDefaultFamilyInfo()],
   emergencyDetails: { bloodGroup: "", allergies: "", emergencyContactName: "", emergencyContactNumber: "" },
-  bankInfo: { accountName: "", accountNumber: "", ifscCode: "", filePath: "" },
+  bankInfo: { accountName: "", accountNumber: "", bankName: "", ifscCode: "", filePath: "" },
   addressInfo: {
     permanentAddressLine1: "", permanentAddressLine2: "", permanentCountry: "",
     permanentState: "", permanentCity: "", permanentPostalCode: "",
@@ -604,7 +551,8 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
     ...(allowOverTime && { allowOverTime }),
-    ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
+    // Leave Settings section removed — no longer needed
+    // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
     ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
     isHiddenFromStaff: isHiddenFromStaff === true,
@@ -653,7 +601,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
       }))),
       () => createEducationalDetails(filledEducationalInfo.map((el: any) => buildEducationPayload(el, employeeId)).filter(Boolean)),
       () => createAddressDetails({ ...addressInfo, employeeId, ...(isSameAddress && { presentAddressLine1: undefined, presentAddressLine2: undefined, presentCountry: undefined, presentState: undefined, presentCity: undefined, presentPostalCode: undefined }) }),
-      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
+      () => createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }),
       () => createEmergencyDetails({ ...(emergencyDetails.bloodGroup && { bloodGroup: emergencyDetails.bloodGroup }), ...(emergencyDetails.allergies && { allergies: emergencyDetails.allergies }), ...(emergencyDetails.emergencyContactName && { emergencyContactName: emergencyDetails.emergencyContactName }), ...(emergencyDetails.emergencyContactNumber && { emergencyContactNumber: emergencyDetails.emergencyContactNumber }), employeeId }),
       () => createDocumentsDetails(documents.map((el: any) => ({ ...el, employeeId }))),
     ];
@@ -740,6 +688,24 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [defaultState, setDefaultState] = useState(initialState);
   const [activeSection, setActiveSection] = useState("personal-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ordered left-hand sections per top step. The floating "Continue" button walks the sections
+  // of WHATEVER step you're on (not only step 1) before advancing to the next step. Keep these
+  // in sync with each step component's own `sections` list.
+  const STEP_SECTIONS: Record<number, string[]> = {
+    1: ALL_SECTION_IDS,
+    2: ["employee_info", "contact_info", "hiring_info", "work_experience"],
+    3: ["reporting", "financial", "access", "privacy"],
+    4: ["upload_docs"],
+  };
+
+  // When the top step changes, snap to that step's FIRST section (unless we're already on a
+  // section that belongs to the new step), so every step opens at its start.
+  useEffect(() => {
+    const sections = STEP_SECTIONS[activeStepIndex] ?? ["personal-info"];
+    setActiveSection((prev) => (sections.includes(prev) ? prev : sections[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStepIndex]);
   const [mobileProfilePhotoPreview, setMobileProfilePhotoPreview] = useState("");
   const [sidebarProfileHasAppeared, setSidebarProfileHasAppeared] = useState(false);
   const [sidebarProfileShouldAnimate, setSidebarProfileShouldAnimate] = useState(false);
@@ -869,16 +835,17 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   const prevStep = () => {
     if (activeStepIndex <= 1) return;
+    let targetStep: number;
     if (stepper) {
       stepper.goPrev();
-      setActiveStepIndex(stepper.currentStepIndex);
-      setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+      targetStep = stepper.currentStepIndex;
     } else {
-      const prev = activeStepIndex - 1;
-      setActiveStepIndex(prev);
-      setCurrentSchema(newEmployeeWizardSchema[prev - 1]);
+      targetStep = activeStepIndex - 1;
     }
-    if (activeStepIndex === 2) setActiveSection("personal-info");
+    setActiveStepIndex(targetStep);
+    setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+    // Land on the target step's first section (shared activeSection across all steps).
+    setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
     scrollWizardToTop();
   };
 
@@ -1005,7 +972,8 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
       ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
-      ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
+      // Leave Settings section removed — no longer needed
+      // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
       ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
@@ -1053,7 +1021,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     reqPromise.push(() => bankInfo?.id
       ? updateBankDetails(bankInfo.id, bankInfo)
-      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }));
+      : createBankDetails({ ...(bankInfo.accountNumber && { accountNumber: bankInfo.accountNumber }), ...(bankInfo.accountName && { accountName: bankInfo.accountName }), ...(bankInfo.bankName && { bankName: bankInfo.bankName }), ...(bankInfo.ifscCode && { ifscCode: bankInfo.ifscCode }), ...(bankInfo.filePath && { filePath: bankInfo.filePath }), employeeId }));
 
     reqPromise.push(() => emergencyDetails?.id
       ? updateEmergencyDetails(emergencyDetails.id, emergencyDetails)
@@ -1103,16 +1071,17 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
 
     if (currentStepIndex !== totalStepsNumber) {
+      let targetStep: number;
       if (stepper) {
         stepper.goNext();
-        setActiveStepIndex(stepper.currentStepIndex);
-        setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+        targetStep = stepper.currentStepIndex;
       } else {
-        const next = currentStepIndex + 1;
-        setActiveStepIndex(next);
-        setCurrentSchema(newEmployeeWizardSchema[next - 1]);
+        targetStep = currentStepIndex + 1;
       }
-      setActiveSection("personal-info");
+      setActiveStepIndex(targetStep);
+      setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+      // Open the new step at its OWN first section (activeSection is shared across steps).
+      setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
       actions.setTouched({});
       scrollWizardToTop();
     } else {
@@ -1221,7 +1190,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           stepper.goto(targetStep);
           setActiveStepIndex(targetStep);
           setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-          if (targetStep === 1) setActiveSection("personal-info");
+          setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
           scrollWizardToTop(); return;
         }
         e.stopImmediatePropagation();
@@ -1510,9 +1479,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                           </div>
                         )}
 
-                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} />}
-                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} />}
-                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} />}
+                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
+                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
+                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
                       </div>
                     </main>
 
@@ -1532,71 +1501,104 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                         </button>
                       )}
 
-                      {/* Continue / Submit */}
-                      {activeStepIndex === 1 ? (
-                        <button
-                          type="button"
-                          className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
-                          disabled={isSubmitting}
-                          onClick={() => {
-                            formikProps.validateForm().then((errors) => {
-                              if (Object.keys(errors).length === 0) {
-                                if (stepper) {
-                                  stepper.goNext();
-                                  setActiveStepIndex(stepper.currentStepIndex);
-                                  setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
-                                } else {
-                                  setActiveStepIndex(2);
-                                  setCurrentSchema(newEmployeeWizardSchema[1]);
-                                }
-                                formikProps.setTouched({});
+                      {/* Continue / Submit — walks the current step's left-hand sections first,
+                          and only advances to the next top step from the LAST section. Applies to
+                          every step, so the button behaves consistently throughout the wizard. */}
+                      {(() => {
+                        const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
+                        const sectionIdx = stepSections.indexOf(activeSection);
+                        const isLastSection = sectionIdx < 0 || sectionIdx >= stepSections.length - 1;
+
+                        // Not on the last section of this step → just move to the next section.
+                        if (!isLastSection) {
+                          return (
+                            <button
+                              type="button"
+                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                setActiveSection(stepSections[sectionIdx + 1]);
                                 scrollWizardToTop();
-                              } else {
-                                formikProps.submitForm();
-                              }
-                            });
-                          }}
-                        >
-                          Continue
-                          <KTIcon iconName="arrow-right" className="fs-5" />
-                        </button>
-                      ) : isLastStep ? (
-                        <button
-                          type="submit"
-                          className="ob-float-submit-btn"
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <>
-                              Saving...
-                              <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                            </>
-                          ) : (
-                            <>
-                              Submit
-                              <KTIcon iconName="check" className="fs-5" />
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <button
-                          type="submit"
-                          className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <>
-                              Please wait...
-                              <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                            </>
-                          ) : (
-                            <>
+                              }}
+                            >
                               Continue
                               <KTIcon iconName="arrow-right" className="fs-5" />
-                            </>
-                          )}
-                        </button>
-                      )}
+                            </button>
+                          );
+                        }
+
+                        // Last section of step 1 → validate the step, then go to Company Details.
+                        if (activeStepIndex === 1) {
+                          return (
+                            <button
+                              type="button"
+                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                formikProps.validateForm().then((errors) => {
+                                  if (Object.keys(errors).length === 0) {
+                                    if (stepper) {
+                                      stepper.goNext();
+                                      setActiveStepIndex(stepper.currentStepIndex);
+                                      setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+                                    } else {
+                                      setActiveStepIndex(2);
+                                      setCurrentSchema(newEmployeeWizardSchema[1]);
+                                    }
+                                    formikProps.setTouched({});
+                                    scrollWizardToTop();
+                                  } else {
+                                    formikProps.submitForm();
+                                  }
+                                });
+                              }}
+                            >
+                              Continue to Company Details
+                              <KTIcon iconName="arrow-right" className="fs-5" />
+                            </button>
+                          );
+                        }
+
+                        // Last section of the final step → submit the whole form.
+                        if (isLastStep) {
+                          return (
+                            <button type="submit" className="ob-float-submit-btn" disabled={isSubmitting}>
+                              {isSubmitting ? (
+                                <>
+                                  Saving...
+                                  <span className="spinner-border spinner-border-sm align-middle ms-1" />
+                                </>
+                              ) : (
+                                <>
+                                  Submit
+                                  <KTIcon iconName="check" className="fs-5" />
+                                </>
+                              )}
+                            </button>
+                          );
+                        }
+
+                        // Last section of steps 2/3 → submit (the form's onSubmit advances the step).
+                        return (
+                          <button
+                            type="submit"
+                            className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? (
+                              <>
+                                Please wait...
+                                <span className="spinner-border spinner-border-sm align-middle ms-1" />
+                              </>
+                            ) : (
+                              <>
+                                Continue
+                                <KTIcon iconName="arrow-right" className="fs-5" />
+                              </>
+                            )}
+                          </button>
+                        );
+                      })()}
 
                       {/* <span className="ob-float-shortcut">Ctrl + Enter</span> */}
                     </div>

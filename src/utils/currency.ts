@@ -114,12 +114,20 @@ export const formatCurrency = (
     style: 'currency',
     currency: currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
     ...options,
   };
 
+  // Truncate the amount to avoid rounding up by Intl.NumberFormat
+  let valueToFormat = Number(amount);
+  if (defaultOptions.maximumFractionDigits !== undefined) {
+    const factor = Math.pow(10, defaultOptions.maximumFractionDigits);
+    // Use Math.trunc to simply chop off the extra decimals
+    valueToFormat = Math.trunc(valueToFormat * factor) / factor;
+  }
+
   try {
-    return new Intl.NumberFormat(locale, defaultOptions).format(Number(amount));
+    return new Intl.NumberFormat(locale, defaultOptions).format(valueToFormat);
   } catch (error) {
     console.error('Error formatting currency:', error);
     // Fallback to INR if there's an error
@@ -127,8 +135,8 @@ export const formatCurrency = (
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Number(amount));
+      maximumFractionDigits: 2,
+    }).format(valueToFormat);
   }
 };
 

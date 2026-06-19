@@ -10,7 +10,9 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings from "@app/components/ApprovalSettings";
-import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
+import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
+// Leave Settings section removed — no longer needed
+// import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
 
 // ─── Professional fees helpers (mirror of NewEmployeeWizard) ─────────────────
 function readProfessionalFeesEnabled(raw: unknown): "true" | "false" {
@@ -75,11 +77,12 @@ function GeneralSettings() {
     );
 }
 
-function LeaveSection() {
-    return (
-        <LeaveAllocationStep />
-    );
-}
+// Leave Settings section removed — no longer needed
+// function LeaveSection() {
+//     return (
+//         <LeaveAllocationStep />
+//     );
+// }
 
 function ApprovalSection({ employeeId }: { employeeId: string }) {
     return <ApprovalSettings employeeId={employeeId} />;
@@ -108,6 +111,14 @@ function FinancialSection() {
     const pfType = values.professionalFeesType === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
     const tds2Enabled = String(values.tds2Enabled) === "true";
     const tds2Type = values.tds2Type === "PERCENTAGE" ? "PERCENTAGE" : "FIXED";
+
+    const { resolveComponent } = useSalaryMaster();
+    const tds1Comp = resolveComponent('Professional Fees');
+    const tds2Comp = resolveComponent('TDS 2');
+
+    const tds1Label = tds1Comp ? (tds1Comp.shortCode ? `${tds1Comp.displayName} (${tds1Comp.shortCode})` : tds1Comp.displayName) : "Tax Deducted at Source (TDS)";
+    const tds2Label = tds2Comp ? tds2Comp.displayName : "TDS 2 (Additional)";
+    const tds2ShortLabel = tds2Comp ? (tds2Comp.shortCode || tds2Comp.displayName) : "TDS 2";
 
     return (
         <>
@@ -149,9 +160,9 @@ function FinancialSection() {
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {pfType === "PERCENTAGE" ? (
-                                <TextInput isRequired={false} label="Tax Deducted at Source (TDS) %" formikField="professionalFeesPercentage" />
+                                <TextInput isRequired={false} label={`${tds1Label} %`} formikField="professionalFeesPercentage" />
                             ) : (
-                                <TextInput isRequired={false} label="Tax Deducted at Source (TDS) Amount" formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
+                                <TextInput isRequired={false} label={`${tds1Label} Amount`} formikField="professionalFeesAmount" formatter={formatIN} parser={parseIN} />
                             )}
                         </div>
                     </>
@@ -164,7 +175,7 @@ function FinancialSection() {
                 <div className="col-sm-6 col-md-4">
                     <RadioInput
                         formikField="tds2Enabled"
-                        inputLabel="TDS 2 (Additional)"
+                        inputLabel={tds2Label}
                         radioBtns={[
                             { label: "Enabled", value: "true" },
                             { label: "Disabled", value: "false" },
@@ -177,7 +188,7 @@ function FinancialSection() {
                         <div className="col-sm-6 col-md-4">
                             <RadioInput
                                 formikField="tds2Type"
-                                inputLabel="TDS 2 Type"
+                                inputLabel={`${tds2ShortLabel} Type`}
                                 radioBtns={[
                                     { label: "Fixed", value: "FIXED" },
                                     { label: "Percentage", value: "PERCENTAGE" },
@@ -187,9 +198,9 @@ function FinancialSection() {
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {tds2Type === "PERCENTAGE" ? (
-                                <TextInput isRequired={false} label="TDS 2 %" formikField="tds2Percentage" />
+                                <TextInput isRequired={false} label={`${tds2ShortLabel} %`} formikField="tds2Percentage" />
                             ) : (
-                                <TextInput isRequired={false} label="TDS 2 Amount" formikField="tds2Amount" formatter={formatIN} parser={parseIN} />
+                                <TextInput isRequired={false} label={`${tds2ShortLabel} Amount`} formikField="tds2Amount" formatter={formatIN} parser={parseIN} />
                             )}
                         </div>
                     </>
@@ -267,14 +278,15 @@ function PrivacySection() {
 
 // ─── Section nav config ───────────────────────────────────────────────────────
 const SECTIONS = [
-    { id: "general",        label: "General App Settings",    icon: "setting-3"    },
-    { id: "leaves",         label: "Leave Allocation",        icon: "calendar"     },
-    { id: "approval",       label: "Approval Workflow",       icon: "verify"       },
-    { id: "reporting",      label: "Reporting Config",        icon: "profile-user" },
-    { id: "financial",      label: "Financial Config",        icon: "wallet"       },
+    { id: "general",   label: "General App Settings",              icon: "setting-3"   },
+    // Leave Settings section removed — no longer needed
+    // { id: "leaves",    label: "Leave Allocation",                  icon: "calendar"    },
+    { id: "approval",  label: "Approval Workflow",                 icon: "verify"      },
+    { id: "reporting", label: "Reporting Config",                  icon: "profile-user" },
+    { id: "financial", label: "Financial Config",                  icon: "wallet"      },
     { id: "reimbursement",  label: "Reimbursement Config",    icon: "dollar"       },
-    { id: "access",         label: "System Access",           icon: "setting-2"    },
-    { id: "privacy",        label: "Privacy Controls",        icon: "shield-tick"  },
+    { id: "access",    label: "System Access",                     icon: "setting-2"   },
+    { id: "privacy",   label: "Privacy Controls",                  icon: "shield-tick" },
 ];
 
 // ─── Inner modal content (inside Formik) ─────────────────────────────────────
@@ -291,14 +303,15 @@ function ModalContent({
     const [activeSection, setActiveSection] = useState("general");
 
     const sectionContent: Record<string, React.ReactNode> = {
-        general:        <GeneralSettings />,
-        leaves:         <LeaveSection />,
-        approval:       <ApprovalSection employeeId={employeeId} />,
-        reporting:      <ReportingSection managerOptions={managerOptions} />,
-        financial:      <FinancialSection />,
+        general:   <GeneralSettings />,
+        // Leave Settings section removed — no longer needed
+        // leaves:    <LeaveSection />,
+        approval:  <ApprovalSection employeeId={employeeId} />,
+        reporting: <ReportingSection managerOptions={managerOptions} />,
+        financial: <FinancialSection />,
         reimbursement:  <ReimbursementSection />,
-        access:         <AccessSection roleOptions={roleOptions} />,
-        privacy:        <PrivacySection />,
+        access:    <AccessSection roleOptions={roleOptions} />,
+        privacy:   <PrivacySection />,
     };
 
     const activeLabel = SECTIONS.find(s => s.id === activeSection)?.label ?? "";
@@ -494,6 +507,10 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
                 ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
                     ? { leaveAllocations: values.leaveAllocations }
                     : {}),
+                // Leave Settings section removed — no longer needed
+                // ...(Array.isArray(values.leaveAllocations) && values.leaveAllocations.length > 0
+                //     ? { leaveAllocations: values.leaveAllocations }
+                //     : {}),
                 ...buildProfessionalFeesPayload(values),
                 ...buildTds2Payload(values),
             };

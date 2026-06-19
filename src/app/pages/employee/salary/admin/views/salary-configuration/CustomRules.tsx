@@ -193,16 +193,31 @@ function CustomRules() {
   ];
 
   return (
-    <div className="mb-10 p-8" style={{ backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
-      <div className="d-flex justify-content-between align-items-center mb-6">
-        <h2 style={{
-          fontFamily: 'Barlow, sans-serif',
-          fontWeight: 700,
-          fontSize: '24px',
-          color: '#181C32',
-          letterSpacing: '-0.5px',
-          margin: 0
-        }}>Custom Rules</h2>
+    <div className="mb-10 sc-container" style={{ padding: '28px', backgroundColor: '#f8f9fa', borderRadius: '16px', border: '1px solid #E1E3EA' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        marginBottom: '20px',
+      }}>
+        <div style={{
+          width: '34px', height: '34px', borderRadius: '9px',
+          background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+        }}>
+          <i className="bi bi-sliders" style={{ fontSize: '15px', color: '#fff' }} />
+        </div>
+        <div>
+          <h2 style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '16px', color: '#181C32', margin: 0, letterSpacing: '-0.2px' }}>
+            Custom Rules
+          </h2>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#A1A5B7', margin: 0, fontWeight: 400 }}>
+            Configure custom salary deduction rules and periods
+          </p>
+        </div>
       </div>
       <MaterialTable
         columns={columnsCustomRules}
@@ -243,18 +258,18 @@ function CustomRules() {
       </div>}
 
       <Modal show={show} onHide={handleClose} centered>
-        <Modal.Body style={{
+        <Modal.Body className="sc-modal-body" style={{
           backgroundColor: '#ffffff',
           borderRadius: '16px',
-          padding: '32px 40px',
+          padding: '28px 32px',
         }}>
           <div className="d-flex justify-content-between align-items-center mb-5">
-            <div style={{
+            <div className="sc-modal-title" style={{
               fontFamily: 'Barlow, sans-serif',
               fontWeight: 700,
-              fontSize: '22px',
+              fontSize: '20px',
               color: '#181C32',
-              letterSpacing: '-0.5px',
+              letterSpacing: '-0.4px',
             }}>
               Edit {oldValue.name || "Custom Rule"}
             </div>
@@ -306,7 +321,7 @@ function CustomRules() {
                   </div>
                 </div>
 
-                <div className="d-flex justify-content-end mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
+                <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
                   <button
                     type="button"
                     onClick={handleClose}

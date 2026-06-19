@@ -15,6 +15,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import { fetchConfiguration } from "@services/company";
+import { getUserTablePreferences, upsertUserTablePreferences } from "@services/users";
 import { isCheckOutMissing } from "@app/modules/common/components/attendanceDurationUtils";
 import ReorderableGroup from "@app/modules/common/components/ReorderableGroup";
 import "./OverviewStatsGrid.css";
@@ -264,8 +265,18 @@ function Overview({ date }: OverviewProps) {
     const [lunchTime, setLunchTime] = useState<string>('');
     const [isOnSiteSettingsOn, setIsOnSiteSettingsOn] = useState<string>('0');
 
-    // User-customisable order of the overview stat cards (drag to reorder), persisted.
+    // User-customisable order of the overview stat cards (drag to reorder), persisted
+    // PER EMPLOYEE on the server (via the shared user-table-preferences store) so it
+    // survives restarts and follows the user across browsers/devices. localStorage is
+    // kept only as an instant cache to avoid a flash before the server value loads.
     const OVERVIEW_CARD_ORDER_KEY = 'attendanceOverviewCardOrder';
+    const CARD_ORDER_PREF_NAME = 'attendanceOverviewCards';
+    const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+    // Scope the org-wide overview's per-day shifts to the admin's own org so they match
+    // payroll (branch override → org → global). No scoped shift = global (unchanged).
+    const overviewShiftCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const overviewShiftBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const shiftScope = { companyId: overviewShiftCompanyId, branchId: overviewShiftBranchId };
     const [cardOrder, setCardOrder] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem(OVERVIEW_CARD_ORDER_KEY);
@@ -274,9 +285,32 @@ function Overview({ date }: OverviewProps) {
             return [];
         }
     });
+
+    // Load this employee's saved order from the server (the source of truth).
+    useEffect(() => {
+        if (!currentEmployeeId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await getUserTablePreferences(currentEmployeeId, CARD_ORDER_PREF_NAME);
+                const order = res?.data?.preferences?.order;
+                if (!cancelled && Array.isArray(order) && order.length) {
+                    setCardOrder(order);
+                    try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(order)); } catch { /* ignore */ }
+                }
+            } catch { /* keep localStorage/default order */ }
+        })();
+        return () => { cancelled = true; };
+    }, [currentEmployeeId]);
+
     const persistCardOrder = (types: string[]) => {
         setCardOrder(types);
         try { localStorage.setItem(OVERVIEW_CARD_ORDER_KEY, JSON.stringify(types)); } catch { /* ignore */ }
+        // Persist to the employee's account so the order is fixed for them everywhere.
+        if (currentEmployeeId) {
+            upsertUserTablePreferences(currentEmployeeId, CARD_ORDER_PREF_NAME, { order: types })
+                .catch((err) => console.error('Failed to save overview card order', err));
+        }
     };
 
     const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({
@@ -1273,7 +1307,7 @@ function Overview({ date }: OverviewProps) {
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -1281,13 +1315,13 @@ function Overview({ date }: OverviewProps) {
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     // Fetch grace time for office, on-site, lunch time and on-site settings
     useEffect(() => {
         async function fetchTimeConfiguration() {
             try {
-                const { data: { configuration } } = await fetchConfiguration('leave management');
+                const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, shiftScope);
                 const leaveConfig = JSON.parse(configuration.configuration || '{}');
                 const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
@@ -1306,7 +1340,7 @@ function Overview({ date }: OverviewProps) {
             }
         }
         fetchTimeConfiguration();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     const cardsData: StatCardConfig[] = [
         { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },

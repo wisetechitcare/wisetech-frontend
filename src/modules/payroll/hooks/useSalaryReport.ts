@@ -6,6 +6,7 @@ import { saveToggleChange } from '@redux/slices/attendanceStats';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
 import { PayrollService } from '../services/payroll.service';
+import { payrollService } from '../services/payrollService';
 import { parseCurrencyString } from '../utils/payrollFormatters';
 
 export const useSalaryReport = () => {
@@ -36,31 +37,56 @@ export const useSalaryReport = () => {
         setShowPaymentModal(true);
     };
 
-    const handleDeletePayment = async (payment: any) => {
+    const handleDeletePayment = async (payment: any, onRefreshCallback?: () => void) => {
         try {
             if (!payment?.id) {
                 throw new Error('Missing payment id');
             }
-            // Legacy synthetic IDs cannot be deleted via API (no DB record)
-            if (String(payment.id).includes('-legacy-')) {
-                toast.warning('Legacy payment records cannot be deleted individually. Edit the salary record instead.', { position: 'bottom-right', autoClose: 5000 });
-                return;
+            const idStr = String(payment.id);
+
+            // A row is a government payment when its paymentType says so, or when its id
+            // carries a government marker. Real govt payments are a plain UUID from the
+            // governmentPayments table; synthetic rows use "<masterId>-GOVERNMENT-<date>"
+            // or "<masterId>-legacy-gov". Salary payments are "payment_*" / "-SALARY-" / "-legacy-salary".
+            const isGovernment =
+                payment?.paymentType === 'GOVERNMENT' ||
+                /-(?:legacy-gov|GOVERNMENT)\b/.test(idStr);
+
+            // Resolve the id the backend can actually delete:
+            //  - Real history payments:  "payment_<ts>_<rand>"  → removed from paymentHistoryJson
+            //  - Real government payments: a plain UUID          → removed from governmentPayments
+            //  - Derived/legacy rows:    "<masterId>-legacy-salary" | "<masterId>-legacy-gov"
+            //                            | "<masterId>-SALARY-<date>" | "<masterId>-GOVERNMENT-<date>"
+            //    These have no standalone DB row, so strip the suffix and reset the salary master.
+            let deleteId = idStr;
+            if (!idStr.startsWith('payment_')) {
+                const derived = idStr.match(/^(.+?)-(?:legacy-(?:salary|gov)|SALARY|GOVERNMENT)\b/);
+                if (derived) deleteId = derived[1];
             }
-            // The backend now checks both tables, so always call salary payment delete
-            await PayrollService.deletePayment(payment.id);
+
+            // Route to the matching endpoint. Government payments live in the
+            // governmentPayments table, NOT in paymentHistoryJson — sending them to the
+            // salary delete route returns 404 ("Payment not found").
+            console.log('🗑️ [DeletePayment] row id:', idStr, '→ backend id:', deleteId, '| government:', isGovernment);
+            const response = isGovernment
+                ? await payrollService.deleteGovernmentPayment(deleteId)
+                : await payrollService.deletePayment(deleteId);
+            console.log('🗑️ [DeletePayment] API response:', response);
+
             successConfirmation('Payment deleted successfully');
-            handleRefresh();
+            handleRefresh(onRefreshCallback);
         } catch (error) {
+            console.error('❌ [DeletePayment] failed:', error);
             errorConfirmation('Failed to delete payment');
         }
     };
 
     const handlePaymentSubmit = async (
-        values: any, 
-        salaryId: string | undefined, 
-        employeeId: string, 
-        month: string | number, 
-        year: string | number, 
+        values: any,
+        salaryId: string | undefined,
+        employeeId: string,
+        month: string | number,
+        year: string | number,
         companyId: string | undefined,
         onSuccess?: () => void
     ) => {
@@ -68,8 +94,26 @@ export const useSalaryReport = () => {
             setLoading(true);
             const { paymentType, salaryAmount, govtDeductions, paidAt, paymentMethod, transactionId, remarks, _netSalary, _salaryPaid, sendEmail } = values;
 
+            const editingId = values.id ? String(values.id) : '';
+            // Real salary payments live inside paymentHistoryJson with "payment_*" ids.
+            // The backend appends on record (it never replaces by id), so to EDIT one we
+            // delete the original transaction first and then re-record the new values.
+            const isHistoryPayment = editingId.startsWith('payment_');
+            if (editMode && isHistoryPayment) {
+                try {
+                    console.log('✏️ [PaymentSubmit] replacing history payment, removing original:', editingId);
+                    await payrollService.deletePayment(editingId);
+                } catch (e) {
+                    console.warn('⚠️ [PaymentSubmit] failed to remove original before edit:', e);
+                }
+            }
+
+            // History edits are re-created as a fresh entry (new payment_ id).
+            // Government payments (real UUID) keep their id so the backend updates in place.
+            const paymentId = isHistoryPayment ? undefined : (values.id || undefined);
+
             const basePayload = {
-                id: values.id || undefined,
+                id: paymentId || undefined,
                 salaryId,
                 employeeId,
                 month: Number(month),
@@ -88,7 +132,7 @@ export const useSalaryReport = () => {
             if (paymentType === 'SALARY' || paymentType === 'COMBINED') {
                 const amount = typeof salaryAmount === 'string' ? parseCurrencyString(salaryAmount) : Number(salaryAmount);
                 if (amount > 0) {
-                    const res = await PayrollService.recordSalaryPayment({
+                    const res = await payrollService.recordPayment({
                         ...basePayload,
                         amount: amount,
                         paymentType: 'SALARY',
@@ -124,8 +168,8 @@ export const useSalaryReport = () => {
                     const uniqueEmails = Array.from(new Set(emailNotification.to.split(',').map(e => e.trim())));
                     toast.success(
                         React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
-                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Email Sent Successfully'),
-                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Salary slip delivered to:'),
+                            React.createElement('div', { style: { fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' } }, 'Payment Confirmation Sent'),
+                            React.createElement('div', { style: { fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' } }, 'Payment notification emailed to:'),
                             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
                                 uniqueEmails.map((email, i) => 
                                     React.createElement('div', { key: i, style: { display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' } },

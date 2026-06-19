@@ -241,7 +241,7 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
     },
     {
       resourceKey: resourceNameMapWithCamelCase.organisationProfile,
-      displayName: 'Organisation Profile',
+      displayName: 'Organization Profile',
       actions: [
         { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
         { action: permissionConstToUseWithHasPermission.readOwn, label: PermissionConts.readOwn, disabled: true },
@@ -592,7 +592,7 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
     },
     {
       resourceKey: uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany,
-      displayName: 'Company -> Organisation Profile',
+      displayName: 'Company -> Organization Profile',
       actions: [
         { action: permissionConstToUseWithHasPermission.readOthers, label: PermissionConts.readOthers, disabled: false },
       ]

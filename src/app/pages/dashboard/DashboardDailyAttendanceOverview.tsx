@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState, memo } from "react";
+﻿import { useCallback, useEffect, useState, useMemo, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employee";
@@ -16,6 +16,8 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { Image, Modal, Button, Form, Dropdown, OverlayTrigger, Tooltip, Row, Col, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
+import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
+import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 
 type SortOption = 'name-asc' | 'name-desc' | 'checkin-asc' | 'checkin-desc' | 'none';
@@ -218,6 +220,8 @@ interface EmployeeWithAttendance {
   designation?: string;
   avatar?: string | null;
   isActive?: boolean;
+  branchName?: string;
+  subOrgName?: string;
   attendance?: Attendance & {
     workingMethod?: {
       id?: string;
@@ -243,6 +247,9 @@ const DashboardDailyAttendanceOverview = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('none');
   const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const rootOrgNames = useRootOrgNames();
   const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
   const [graceTimeOffice, setGraceTimeOffice] = useState<string>('');
   const [lunchTime, setLunchTime] = useState<string>('');
@@ -275,6 +282,42 @@ const DashboardDailyAttendanceOverview = () => {
   const weekendConfig = currentEmployee?.branches?.workingAndOffDays
     ? JSON.parse(currentEmployee.branches.workingAndOffDays)
     : {};
+
+  // ── Branch / Sub-Organization filters ───────────────────────────────────────
+  // Options come from the FULL employee set; the root org is excluded from the
+  // sub-org list (employees directly under the root carry its name otherwise).
+  const branchOptions = useMemo(() => {
+    const names = new Set<string>();
+    allEmployees.forEach((e) => { if (e.branchName) names.add(e.branchName); });
+    return Array.from(names).sort();
+  }, [allEmployees]);
+
+  const subOrgOptions = useMemo(() => {
+    const names = new Set<string>();
+    allEmployees.forEach((e) => { if (e.subOrgName && !rootOrgNames.has(e.subOrgName)) names.add(e.subOrgName); });
+    return Array.from(names).sort();
+  }, [allEmployees, rootOrgNames]);
+
+  // Everything below the cards is computed from the VISIBLE (filtered) set so the
+  // counts, lists and modals all reflect the selected branch / sub-org.
+  const visibleEmployees = useMemo(() => allEmployees.filter((e) =>
+    (branchFilter === 'All' || e.branchName === branchFilter) &&
+    (subOrgFilter === 'All' || e.subOrgName === subOrgFilter)
+  ), [allEmployees, branchFilter, subOrgFilter]);
+
+  const visibleIds = useMemo(() => new Set(visibleEmployees.map((e) => e._id)), [visibleEmployees]);
+
+  const visibleAttendance = useMemo(
+    () => attendance.filter((a) => a.employeeId && visibleIds.has(a.employeeId)),
+    [attendance, visibleIds]
+  );
+
+  const visibleLeaveDatas = useMemo(() => employesLeaveDatas.filter((l: any) => {
+    const id = l?.employee?.id || l?.employeeId || l?.employee?._id;
+    return id ? visibleIds.has(id) : true;
+  }), [employesLeaveDatas, visibleIds]);
+
+  const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All';
 
   // Helper functions for dynamic shift-based calculations
   const getShiftForDate = (date: Date) => {
@@ -317,7 +360,7 @@ const DashboardDailyAttendanceOverview = () => {
   };
 
   // Calculate late check-in count: employees who checked in after (shift check-in time + grace time)
-  const lateCheckInsCount = attendance.filter(att => {
+  const lateCheckInsCount = visibleAttendance.filter(att => {
     if (!att.checkIn) return false;
 
     const attendanceDate = new Date(att.checkIn);
@@ -353,7 +396,7 @@ const DashboardDailyAttendanceOverview = () => {
   }).length;
 
   // Calculate early check-out count: employees who checked out before shift check-out time
-  const earlyCheckOutsCount = attendance.filter(att => {
+  const earlyCheckOutsCount = visibleAttendance.filter(att => {
     if (!att.checkOut) return false;
 
     const attendanceDate = new Date(att.checkOut);
@@ -385,7 +428,7 @@ const DashboardDailyAttendanceOverview = () => {
   // employeesOnLeave from the API is a NUMBER (count), not an array — .length on a number
   // returns undefined, silently making on-leave employees appear as absent.
   // Use employesLeaveDatas (the ARRAY of leave detail objects) for the correct count.
-  const absentCount = Math.max(0, (totalEmployee || 0) - (employesLeaveDatas?.length || 0) - (employeePresent || 0));
+  const absentCount = Math.max(0, visibleEmployees.length - (visibleLeaveDatas?.length || 0) - visibleAttendance.length);
 
   // Modal handlers
   const handleCardClick = (type: ModalType) => {
@@ -499,21 +542,21 @@ const DashboardDailyAttendanceOverview = () => {
 
   // Get FULL employees for each category (used by both cards and modals)
   const getAllWorkingEmployees = () => {
-    return allEmployees
-      .filter(emp => employeesPresentAttendance.some(a => a.employeeId === emp._id))
+    return visibleEmployees
+      .filter(emp => visibleAttendance.some(a => a.employeeId === emp._id))
       .map(emp => ({
         ...emp,
-        attendance: attendance.find(a => a.employeeId === emp._id)
+        attendance: visibleAttendance.find(a => a.employeeId === emp._id)
       }));
   };
 
   const getAllLeaveEmployees = () => {
-    return employesLeaveDatas;
+    return visibleLeaveDatas;
   };
 
   const getAllAbsentEmployees = () => {
     const presentEmployeeIds = new Set(
-      (employeesPresentAttendance || []).map(a => a.employeeId)
+      (visibleAttendance || []).map(a => a.employeeId)
     );
 
     const safeEmployeesOnLeave = Array.isArray(employeesOnLeave) ? employeesOnLeave : [];
@@ -523,14 +566,14 @@ const DashboardDailyAttendanceOverview = () => {
       }).filter(Boolean)
     );
 
-    employesLeaveDatas.forEach(leave => {
+    visibleLeaveDatas.forEach((leave: any) => {
       const empId = leave?.employee?.id || leave?.employeeId || leave?.employee?._id;
       if (empId) {
         onLeaveIds.add(empId);
       }
     });
 
-    return (allEmployees || [])
+    return (visibleEmployees || [])
       .filter(emp =>
         emp?._id &&
         !presentEmployeeIds.has(emp._id) &&
@@ -541,7 +584,7 @@ const DashboardDailyAttendanceOverview = () => {
   const getAllExtraDayEmployees = () => {
     // Get employees who worked on weekends or holidays
     // Must have BOTH checkIn AND checkOut to count as extra day (matching Overview.tsx logic)
-    return allEmployees
+    return visibleEmployees
       .filter(emp => {
         const empAttendance = attendance.find(a => a.employeeId === emp._id);
 
@@ -559,7 +602,7 @@ const DashboardDailyAttendanceOverview = () => {
   };
 
   const getAllLateCheckInEmployees = () => {
-    const lateEmployees = allEmployees.filter(emp => {
+    const lateEmployees = visibleEmployees.filter(emp => {
       const empAttendance = attendance.find(a => a.employeeId === emp._id);
 
       if (!empAttendance?.checkIn) return false;
@@ -603,7 +646,7 @@ const DashboardDailyAttendanceOverview = () => {
   };
 
   const getAllEarlyCheckOutEmployees = () => {
-    const earlyEmployees = allEmployees.filter(emp => {
+    const earlyEmployees = visibleEmployees.filter(emp => {
       const empAttendance = attendance.find(a => a.employeeId === emp._id);
 
       if (!empAttendance?.checkOut) return false;
@@ -1098,6 +1141,8 @@ const DashboardDailyAttendanceOverview = () => {
           designation: emp.designations?.role || 'No designation',
           avatar: emp.avatar || null,
           isActive: emp.isActive ?? true,  // Default to true if not specified
+          branchName: emp.branches?.name || '',
+          subOrgName: emp.companyOverview?.name || '',
         }));
 
         if (isMounted) {
@@ -1200,6 +1245,45 @@ const DashboardDailyAttendanceOverview = () => {
           </h5>
 
           <div className="d-flex align-items-center gap-3 flex-wrap">
+            {/* Branch / Sub-Organization filters — scope the day's attendance to a branch or sub-org */}
+            <ToolbarFilterSelect
+              label="Branch"
+              icon="bi-geo-alt"
+              value={branchFilter}
+              onChange={setBranchFilter}
+              minWidth={150}
+              theme={branchFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
+              options={[
+                { value: 'All', label: 'All Branches' },
+                ...branchOptions.map((name) => ({ value: name, label: name })),
+              ]}
+            />
+            <ToolbarFilterSelect
+              label="Sub Organization"
+              icon="bi-building"
+              value={subOrgFilter}
+              onChange={setSubOrgFilter}
+              minWidth={190}
+              theme={subOrgFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
+              options={[
+                { value: 'All', label: 'All Sub Organizations' },
+                ...subOrgOptions.map((name) => ({ value: name, label: name })),
+              ]}
+            />
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); }}
+                title="Reset filters"
+                style={{
+                  height: '38px', padding: '0 12px',
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  border: '1px dashed #fca5a5', borderRadius: '10px',
+                  backgroundColor: '#ffffff', color: '#dc2626', cursor: 'pointer',
+                }}
+              >
+                <i className="bi bi-x-lg" /> Reset
+              </button>
+            )}
             {hasPermission(resourceNameMapWithCamelCase.employee, (permissionConstToUseWithHasPermission.editOthers || permissionConstToUseWithHasPermission.readOthers)) &&
             <button
               type="button"
@@ -1239,8 +1323,8 @@ const DashboardDailyAttendanceOverview = () => {
           <div className="d-flex align-items-center gap-2">
             <i className="fa fa-users" style={{ fontSize: '20px', color: '#4a5568' }}></i>
             <div>
-              <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{employeePresent || 0}</span>
-              <span style={{ fontSize: '14px', color: '#a6b1c0', fontFamily: 'Inter' }}>/{totalEmployee || 0}</span>
+              <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{visibleAttendance.length}</span>
+              <span style={{ fontSize: '14px', color: '#a6b1c0', fontFamily: 'Inter' }}>/{visibleEmployees.length}</span>
             </div>
             <span style={{ fontSize: '14px', fontFamily: 'Inter', marginLeft: '8px' }}>Working Employees</span>
           </div>

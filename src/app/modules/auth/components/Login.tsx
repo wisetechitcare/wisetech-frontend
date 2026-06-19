@@ -65,7 +65,7 @@ function LoginForm() {
         localStorage.setItem("redirectToDashboard", "true");
         setLoading(false);
       } catch (error: any) {
-        setStatus(error?.response.data.detail);
+        setStatus(error?.response?.data?.detail);
         setSubmitting(false);
         setLoading(false);
       }

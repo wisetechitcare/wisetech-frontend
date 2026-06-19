@@ -814,6 +814,24 @@ export const fetchEmpAttendanceStatistics = async (employeeId: string, startDate
     }
 }
 
+export const fetchAttendanceClassification = async (employeeId: string, startDate: string, endDate: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CLASSIFICATION}`, {
+        params: { employeeId, startDate, endDate },
+    });
+    return data as {
+        data: {
+            totalWorkingDays: number;
+            earlyCheckins: number;
+            lateCheckins: number;
+            earlyCheckouts: number;
+            lateCheckouts: number;
+            missingCheckouts: number;
+            lateCheckinDates?: string[];
+            earlyCheckinDates?: string[];
+        };
+    };
+};
+
 export const fetchEmpAttendanceAllTimeRecords = async (employeeId: string, observedIn: string, companyId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_RECORDS}?employeeId=${employeeId}&observedIn=${observedIn}&companyId=${companyId}`;
@@ -1058,9 +1076,9 @@ export const fetchAllEmployeeSalaryAllTimeDateRage = async (employeeId: string) 
     }
 }
 // GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE
-export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string) => {
+export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endDate: string, status: 'active' | 'inactive' | 'all' = 'active') => {
     try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARAY_RECORDS_BASED_ON_DATE_RANGE}?startDate=${startDate}&endDate=${endDate}&status=${status}`;
         const { data } = await axios.get(endpoint);
         return data;
     }
@@ -1069,16 +1087,6 @@ export const fetchSalaryRecordsBasedOnDateRange = async (startDate: string, endD
     }
 }
 
-// Fetch salary totals for all active employees in date range
-export const fetchSalaryRecordsForAllActiveEmployees = async (startDate: string, endDate: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_SALARY_RECORDS_ALL_ACTIVE_EMPLOYEES}?startDate=${startDate}&endDate=${endDate}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
 export const fetchAllEmployeeTotalSalaryOfYear = async (companyId: string, startYear: string, endYear: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_Total_salary_By_Year}?companyId=${companyId}&startYear=${startYear}&endYear=${endYear}`;
@@ -1123,16 +1131,6 @@ export const updatePaymentById = async (paymentId: string, payload: IPayment) =>
     }
 }
 
-export const recordSalaryPayment = async (payload: any) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment`;
-        const { data } = await axios.post(endpoint, payload);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
-
 export const recordGovernmentPayment = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/api/company/salary/government-payment`;
@@ -1149,28 +1147,6 @@ export const getPaymentHistory = async (salaryId: string) => {
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
-        throw err;
-    }
-}
-
-export const deletePaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/payment/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
-export const deleteGovernmentPaymentById = async (paymentId: string) => {
-    try {
-        const endpoint = `${API_BASE_URL}/api/company/salary/government-payment/${paymentId}`;
-        const { data } = await axios.delete(endpoint);
-        return data;
-    }
-    catch (err) {
         throw err;
     }
 }
@@ -1505,6 +1481,17 @@ export const deleteEmployeePermissionById = async (employeeId: string, permissio
 export const sendSalarySlipToEmployee = async (details: { path: string, employeeId: string, salaryData?: any }) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_SALARY_SLIP}`;
+        const { data } = await axios.post(endpoint, details);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+export const sendContractBillToEmployee = async (details: { path: string, employeeId: string }) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMAIL_CONTRACT_BILL}`;
         const { data } = await axios.post(endpoint, details);
         return data;
     }

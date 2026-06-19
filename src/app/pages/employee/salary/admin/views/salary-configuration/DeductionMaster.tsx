@@ -9,7 +9,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import SeedIcon from '@mui/icons-material/AutoFixHigh';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import { deductionMasterService, PayrollComponent } from '@modules/payroll/services/payrollService';
-import { ConfigSectionCard } from '@app/modules/configuration';
 import { successConfirmation } from '@utils/modal';
 import Swal from 'sweetalert2';
 
@@ -471,21 +470,24 @@ function ComponentCard({
       <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
         <Box sx={{ width: 4, flexShrink: 0, background: accent }} />
 
-        <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1.5, flexShrink: 0, minWidth: 72 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', px: { xs: 1, sm: 2 }, py: 1.5, flexShrink: 0, minWidth: { xs: 50, sm: 72 } }}>
           <Box sx={{
             background: `${accent}15`, border: `1px solid ${accent}30`,
-            borderRadius: 1.5, px: 1.5, py: 0.5,
-            fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: accent, letterSpacing: '0.04em',
+            borderRadius: 1.5, px: { xs: 1, sm: 1.5 }, py: 0.5,
+            fontFamily: 'monospace', fontWeight: 700, fontSize: { xs: 10, sm: 11 }, color: accent, letterSpacing: '0.04em',
+            whiteSpace: 'nowrap',
           }}>
             {item.shortCode || item.key.slice(0, 4).toUpperCase()}
           </Box>
         </Box>
 
-        <Box sx={{ flex: 1, py: 1.5, pr: 1 }}>
-          <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap" mb={0.4}>
-            <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#111827' }}>
-              {item.displayName}
-            </Typography>
+        <Box sx={{ flex: 1, py: 1.25, pr: 1, minWidth: 0 }}>
+          {/* Title — always its own line */}
+          <Typography sx={{ fontWeight: 600, fontSize: { xs: 13, sm: 13.5 }, color: '#111827', lineHeight: 1.3, mb: 0.4 }}>
+            {item.displayName}
+          </Typography>
+          {/* Chips — separate row below title */}
+          <Stack direction="row" alignItems="center" gap={0.5} flexWrap="wrap" mb={item.description ? 0.3 : 0}>
             {item.isSystem && (
               <Chip label="System" size="small" sx={{ fontSize: 10, height: 17, bgcolor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }} />
             )}
@@ -497,46 +499,54 @@ function ComponentCard({
             <Chip
               label={dirInfo.label}
               size="small"
-              sx={{ fontSize: 10, height: 17, bgcolor: `${dirInfo.color}10`, color: dirInfo.color, border: `1px solid ${dirInfo.color}30` }}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' }, fontSize: 10, height: 17, bgcolor: `${dirInfo.color}10`, color: dirInfo.color, border: `1px solid ${dirInfo.color}30` }}
             />
             <Chip
               label={calcLabel}
               size="small"
-              sx={{ fontSize: 10, height: 17, bgcolor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' }, fontSize: 10, height: 17, bgcolor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
             />
             <Chip
               label={durLabel}
               size="small"
-              sx={{ fontSize: 10, height: 17, bgcolor: '#faf5ff', color: '#7e22ce', border: '1px solid #e9d5ff' }}
+              sx={{ display: { xs: 'none', sm: 'inline-flex' }, fontSize: 10, height: 17, bgcolor: '#faf5ff', color: '#7e22ce', border: '1px solid #e9d5ff' }}
             />
             {defaultLabel && (
               <Chip
                 label={`Default: ${defaultLabel}`}
                 size="small"
-                sx={{ fontSize: 10, height: 17, bgcolor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+                sx={{ display: { xs: 'none', sm: 'inline-flex' }, fontSize: 10, height: 17, bgcolor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
               />
             )}
             {effectiveLabel && (
               <Chip
                 label={effectiveLabel}
                 size="small"
-                sx={{ fontSize: 10, height: 17, bgcolor: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', fontWeight: 700 }}
+                sx={{ display: { xs: 'none', sm: 'inline-flex' }, fontSize: 10, height: 17, bgcolor: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74', fontWeight: 700 }}
               />
             )}
           </Stack>
+          {/* Description — 1 line on mobile, 2 on desktop */}
           {item.description && (
-            <Typography sx={{ fontSize: 11.5, color: '#6b7280', mt: 0.2 }}>
+            <Typography sx={{
+              fontSize: 11.5, color: '#6b7280', mt: 0.2, lineHeight: 1.4,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: { xs: 1, sm: 3 },
+              WebkitBoxOrient: 'vertical' as any,
+            }}>
               {item.description}
             </Typography>
           )}
         </Box>
 
-        <Stack direction="row" alignItems="center" gap={0.25} sx={{ pr: 1.5, flexShrink: 0 }}>
+        <Stack direction="row" alignItems="center" gap={{ xs: 0, sm: 0.25 }} sx={{ pr: { xs: 0.5, sm: 1.5 }, flexShrink: 0 }}>
           <Tooltip title={item.enableInOnboarding ? 'Remove from Onboarding' : 'Add to Onboarding'}>
             <IconButton
               size="small"
               onClick={onToggleOnboarding}
               sx={{
+                display: { xs: 'none', sm: 'inline-flex' },
                 color: item.enableInOnboarding ? '#059669' : '#d1d5db',
                 bgcolor: item.enableInOnboarding ? '#ecfdf5' : 'transparent',
                 border: item.enableInOnboarding ? '1px solid #6ee7b7' : '1px solid #e5e7eb',
@@ -568,7 +578,7 @@ function ComponentCard({
 
           {!item.isSystem && (
             <Tooltip title="Delete">
-              <IconButton size="small" onClick={onDelete} sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}>
+              <IconButton size="small" onClick={onDelete} sx={{ display: { xs: 'none', sm: 'inline-flex' }, color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}>
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -662,12 +672,12 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange }: ComponentPan
 
   const showGrouped = categoryFilter === 'All';
 
-  const addBtnColor = mode === 'earnings' ? '#16a34a' : '#8B4444';
+  const addBtnColor = '#9d4141';
 
   return (
     <>
-      <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} mb={3} alignItems="flex-start">
-        <Box sx={{ flex: 1, maxWidth: 320 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} mb={3} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+        <Box sx={{ flex: 1, maxWidth: { xs: '100%', sm: 320 } }}>
           <TextField
             size="small"
             placeholder="Search components…"
@@ -684,17 +694,19 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange }: ComponentPan
             fullWidth
           />
         </Box>
-        <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
+        <Box sx={{ flex: { xs: 1, sm: 'none' } }}>
           <ToggleButtonGroup
             value={categoryFilter}
             exclusive
             onChange={(_, v) => { if (v !== null) setCategoryFilter(v); }}
             size="small"
             sx={{
+              flexWrap: 'wrap',
+              gap: 0,
               '& .MuiToggleButton-root': {
                 fontSize: 11, px: 1.5, py: 0.5,
                 border: '1px solid #e5e7eb', borderRadius: '8px !important',
-                mx: 0.25, textTransform: 'none', fontWeight: 500,
+                mx: 0.25, my: 0.25, textTransform: 'none', fontWeight: 500,
               },
               '& .MuiToggleButton-root.Mui-selected': {
                 bgcolor: addBtnColor, color: '#fff', borderColor: addBtnColor,
@@ -704,13 +716,15 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange }: ComponentPan
             {TABS.map(c => <ToggleButton key={c} value={c}>{c}</ToggleButton>)}
           </ToggleButtonGroup>
         </Box>
-        <button
-          className="btn btn-sm rounded-3 d-flex align-items-center gap-1 text-white ms-auto"
-          style={{ background: addBtnColor, fontSize: 13, whiteSpace: 'nowrap' }}
-          onClick={() => { setEditItem(null); setModalOpen(true); }}
-        >
-          <i className="bi bi-plus-circle" /> Add Component
-        </button>
+        <Box sx={{ ml: { sm: 'auto' }, flexShrink: 0 }}>
+          <button
+            className="btn btn-sm rounded-3 d-flex align-items-center justify-content-center gap-1 text-white"
+            style={{ background: addBtnColor, fontSize: 13, whiteSpace: 'nowrap', width: '100%' }}
+            onClick={() => { setEditItem(null); setModalOpen(true); }}
+          >
+            <i className="bi bi-plus-circle" /> Add Component
+          </button>
+        </Box>
       </Stack>
 
       {loading ? (
@@ -731,9 +745,9 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange }: ComponentPan
             const breakdown = SALARY_BREAKDOWN_MAP[cat];
             return (
               <Box key={cat}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Box sx={{ width: 3, height: 16, borderRadius: 1, background: catStyle.color }} />
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: catStyle.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.25 }}>
+                  <Box sx={{ width: 3, height: 14, borderRadius: 1, background: catStyle.color, flexShrink: 0 }} />
+                  <Typography sx={{ fontSize: { xs: 11, sm: 12 }, fontWeight: 700, color: catStyle.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {cat}
                   </Typography>
                   <Chip
@@ -742,7 +756,7 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange }: ComponentPan
                     sx={{ fontSize: 10, height: 16, bgcolor: catStyle.bg, color: catStyle.color, border: `1px solid ${catStyle.border}` }}
                   />
                   {breakdown && (
-                    <Typography sx={{ fontSize: 11, color: '#9ca3af', ml: 0.5 }}>
+                    <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontSize: 11, color: '#9ca3af', ml: 0.5 }}>
                       → {breakdown}
                     </Typography>
                   )}
@@ -838,59 +852,137 @@ export default function DeductionMaster() {
   const deductionsCount = allItems.filter(i => DEDUCTION_CATEGORIES.includes(i.category)).length;
 
   return (
-    <ConfigSectionCard
-      title="Salary Master"
-      description="Full control over every component that appears in your employees' salary breakdowns. System components cannot be deleted but can be renamed, described, and toggled."
-      headerRight={
+    <Box>
+      {/* ── Gradient section header (matches General Settings pattern) ── */}
+      <Box sx={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: '10px',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #fdf3f4 0%, #fff8f8 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(157,65,65,0.1)',
+        mb: 3,
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Box sx={{
+            width: 34, height: 34, borderRadius: '9px',
+            background: 'linear-gradient(135deg, #9d4141 0%, #b85555 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(157,65,65,0.25)', flexShrink: 0,
+          }}>
+            <i className="bi bi-grid-3x3-gap-fill" style={{ fontSize: '14px', color: '#fff' }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: 16, color: '#181C32', letterSpacing: '-0.2px', lineHeight: 1.2, m: 0 }}>
+              Salary Master
+            </Typography>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#A1A5B7', fontWeight: 400, mt: '2px', m: 0 }}>
+              Manage earnings, allowances &amp; deduction components
+            </Typography>
+          </Box>
+        </Box>
         <button
-          className="btn btn-sm btn-light-secondary rounded-3 d-flex align-items-center gap-1"
           onClick={handleSeed}
           disabled={seeding}
-          style={{ fontSize: 13 }}
+          style={{
+            backgroundColor: '#fff',
+            border: '1px solid #E1E3EA',
+            borderRadius: '9px',
+            color: '#3F4254',
+            padding: '7px 16px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: seeding ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 1px 4px rgba(24,28,50,0.06)',
+            transition: 'all 0.15s ease',
+            opacity: seeding ? 0.7 : 1,
+          }}
+          onMouseEnter={(e) => { if (!seeding) { e.currentTarget.style.borderColor = '#9d4141'; e.currentTarget.style.color = '#9d4141'; e.currentTarget.style.backgroundColor = '#fdf3f4'; } }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#fff'; }}
         >
-          <SeedIcon style={{ fontSize: 16 }} />
+          <SeedIcon style={{ fontSize: 15 }} />
           {seeding ? 'Seeding…' : 'Seed Defaults'}
         </button>
-      }
-    >
+      </Box>
+
       {/* Sub-tabs */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 3, borderBottom: '2px solid #f3f4f6', pb: 0 }}>
+      <Box sx={{
+        display: 'flex',
+        gap: { xs: '4px', sm: '8px' },
+        mb: 3,
+        background: { xs: '#f1f3f8', sm: 'transparent' },
+        borderRadius: { xs: '10px', sm: '0' },
+        border: 'none',
+        borderBottom: { xs: 'none', sm: '2px solid #f3f4f6' },
+        padding: { xs: '4px', sm: '0' },
+      }}>
         {([
-          { key: 'earnings',   label: 'Earnings & Allowances', count: earningsCount,   color: '#16a34a', desc: 'Work Earnings · Allowances · Benefits' },
-          { key: 'deductions', label: 'Deductions',            count: deductionsCount, color: '#dc2626', desc: 'Attendance · Government · Custom' },
-        ] as const).map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              border: 'none', background: 'none', cursor: 'pointer',
-              padding: '10px 20px 12px',
-              borderBottom: activeTab === tab.key ? `3px solid ${tab.color}` : '3px solid transparent',
-              marginBottom: -2,
-              transition: 'all 0.2s',
-            }}
-          >
-            <Stack direction="row" alignItems="center" gap={1}>
-              <Typography sx={{
-                fontSize: 13.5, fontWeight: activeTab === tab.key ? 700 : 500,
-                color: activeTab === tab.key ? tab.color : '#6b7280',
-              }}>
-                {tab.label}
-              </Typography>
+          { key: 'earnings',   label: 'Earnings & Allowances', shortLabel: 'Earnings',   count: earningsCount,   color: '#9d4141', desc: 'Work Earnings · Allowances · Benefits' },
+          { key: 'deductions', label: 'Deductions',            shortLabel: 'Deductions', count: deductionsCount, color: '#9d4141', desc: 'Attendance · Government · Custom' },
+        ] as const).map(tab => {
+          const isActive = activeTab === tab.key;
+          return (
+            <Box
+              key={tab.key}
+              component="button"
+              onClick={() => setActiveTab(tab.key)}
+              sx={{
+                flex: { xs: 1, sm: 'none' },
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                p: 0,
+              }}
+            >
               <Box sx={{
-                px: 1, py: 0.25, borderRadius: 1,
-                bgcolor: activeTab === tab.key ? `${tab.color}15` : '#f3f4f6',
-                fontSize: 11, fontWeight: 700,
-                color: activeTab === tab.key ? tab.color : '#9ca3af',
+                borderRadius: { xs: '7px', sm: '0' },
+                background: {
+                  xs: isActive ? '#fff' : 'transparent',
+                  sm: 'transparent',
+                },
+                boxShadow: {
+                  xs: isActive ? '0 2px 8px rgba(24,28,50,0.10)' : 'none',
+                  sm: 'none',
+                },
+                borderBottom: {
+                  xs: 'none',
+                  sm: isActive ? `3px solid ${tab.color}` : '3px solid transparent',
+                },
+                mb: { xs: 0, sm: '-2px' },
+                padding: { xs: '8px 10px', sm: '10px 16px 12px' },
               }}>
-                {tab.count}
+                <Stack direction="row" alignItems="center" gap={0.75} flexWrap="nowrap">
+                  <Typography sx={{
+                    fontSize: { xs: 12, sm: 13.5 },
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? tab.color : '#6b7280',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{tab.label}</Box>
+                    <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{tab.shortLabel}</Box>
+                  </Typography>
+                  <Box sx={{
+                    px: 0.75, py: 0.25, borderRadius: 1, flexShrink: 0,
+                    bgcolor: isActive ? `${tab.color}15` : '#f3f4f6',
+                    fontSize: 11, fontWeight: 700,
+                    color: isActive ? tab.color : '#9ca3af',
+                  }}>
+                    {tab.count}
+                  </Box>
+                </Stack>
+                <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontSize: 10.5, color: '#9ca3af', mt: 0.25 }}>
+                  {tab.desc}
+                </Typography>
               </Box>
-            </Stack>
-            <Typography sx={{ fontSize: 10.5, color: '#9ca3af', textAlign: 'left', mt: 0.25 }}>
-              {tab.desc}
-            </Typography>
-          </button>
-        ))}
+            </Box>
+          );
+        })}
       </Box>
 
       <ComponentPanel
@@ -900,6 +992,6 @@ export default function DeductionMaster() {
         loading={loading}
         onItemsChange={setAllItems}
       />
-    </ConfigSectionCard>
+    </Box>
   );
 }

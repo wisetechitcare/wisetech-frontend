@@ -4,9 +4,11 @@ import { fetchAllEmployees } from "@services/employee";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import RadioInput from "@app/modules/common/inputs/RadioInput";
-import LeaveAllocationStep from "../forms/LeaveAllocationStep";
+// Leave Settings section removed — no longer needed
+// import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import AppSettings from "../forms/AppSettings";
 import WizardSectionLayout from "./WizardSectionLayout";
+import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 import "./Step2.css";
 
 // ── 1. Reporting Config ───────────────────────────────────────────────────────
@@ -41,6 +43,12 @@ function ReportingConfig() {
 
 // ── 2. Financial Config ───────────────────────────────────────────────────────
 function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode: boolean }) {
+    const { resolveComponent } = useSalaryMaster();
+    const tds1Comp = resolveComponent('Professional Fees');
+    const tds2Comp = resolveComponent('TDS 2');
+    const tds1Name = tds1Comp?.shortCode ? tds1Comp.shortCode : tds1Comp?.displayName ? tds1Comp.displayName : 'Tax Deducted at Source (TDS)';
+    const tds2Name = tds2Comp?.shortCode ? tds2Comp.shortCode : tds2Comp?.displayName ? tds2Comp.displayName : 'TDS 2';
+
     const formatINNumber = (val: any) => {
         if (!val) return "";
         return Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(val));
@@ -120,13 +128,13 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                                 {pfType === "PERCENTAGE" ? (
                                     <TextInput
                                         isRequired={false}
-                                        label="Tax Deducted at Source (TDS) %"
+                                        label={`${tds1Name} %`}
                                         formikField="professionalFeesPercentage"
                                     />
                                 ) : (
                                     <TextInput
                                         isRequired={false}
-                                        label="Tax Deducted at Source (TDS) Amount"
+                                        label={`${tds1Name} Amount`}
                                         formikField="professionalFeesAmount"
                                         formatter={formatINNumber}
                                         parser={parseINNumber}
@@ -143,7 +151,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                 <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                     <RadioInput
                         formikField="tds2Enabled"
-                        inputLabel="TDS 2 (Additional)"
+                        inputLabel={`${tds2Name} (Additional)`}
                         radioBtns={[
                             { label: "Enabled", value: "true" },
                             { label: "Disabled", value: "false" },
@@ -157,7 +165,7 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                         <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0">
                             <RadioInput
                                 formikField="tds2Type"
-                                inputLabel="TDS 2 Type"
+                                inputLabel={`${tds2Name} Type`}
                                 radioBtns={[
                                     { label: "Fixed", value: "FIXED" },
                                     { label: "Percentage", value: "PERCENTAGE" },
@@ -169,13 +177,13 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
                             {tds2Type === "PERCENTAGE" ? (
                                 <TextInput
                                     isRequired={false}
-                                    label="TDS 2 %"
+                                    label={`${tds2Name} %`}
                                     formikField="tds2Percentage"
                                 />
                             ) : (
                                 <TextInput
                                     isRequired={false}
-                                    label="TDS 2 Amount"
+                                    label={`${tds2Name} Amount`}
                                     formikField="tds2Amount"
                                     formatter={formatINNumber}
                                     parser={parseINNumber}
@@ -246,49 +254,51 @@ function PrivacyControls() {
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
-function StepAppSettings({ formikProps, editMode, sidebarProfile }: { formikProps: any; editMode: boolean; sidebarProfile?: any }) {
-    const [activeSection, setActiveSection] = useState("reporting");
-
+function StepAppSettings({ formikProps, editMode, sidebarProfile, activeSection, onSectionChange }: { formikProps: any; editMode: boolean; sidebarProfile?: any; activeSection: string; onSectionChange: (id: string) => void }) {
     useEffect(() => {
         if (!formikProps.submitCount) return;
         const errors = formikProps.errors || {};
         if (errors.reportsToId) {
-            setActiveSection("reporting");
+            onSectionChange("reporting");
             return;
         }
         if (errors.ctcInLpa || errors.professionalFeesPercentage || errors.professionalFeesAmount) {
-            setActiveSection("financial");
+            onSectionChange("financial");
             return;
         }
         if (errors.appRole) {
-            setActiveSection("access");
+            onSectionChange("access");
             return;
         }
     }, [formikProps.submitCount, formikProps.errors]);
 
     const sections = [
-        { id: "reporting",     title: "Reporting Config",                  icon: "profile-user" },
-        { id: "financial",     title: "Financial Config",                  icon: "wallet"       },
-        { id: "leaves",        title: "Custom Leave Allocation (optional)", icon: "calendar"     },
+        { id: "reporting", title: "Reporting Config", icon: "profile-user" },
+        { id: "financial", title: "Financial Config", icon: "wallet" },
+        // Leave Settings section removed — no longer needed
+        // { id: "leaves", title: "Custom Leave Allocation (optional)", icon: "calendar" },
         { id: "reimbursement", title: "Reimbursement Config",              icon: "dollar"       },
-        { id: "access",        title: "System Access Settings",            icon: "setting-2"    },
-        { id: "privacy",       title: "Privacy Controls",                  icon: "shield-tick"  },
+        { id: "access", title: "System Access Settings", icon: "setting-2" },
+        { id: "privacy", title: "Privacy Controls", icon: "shield-tick" },
     ];
 
     const sectionContent: Record<string, any> = {
-        reporting:     <ReportingConfig />,
-        financial:     <FinancialConfig formikProps={formikProps} editMode={editMode} />,
-        leaves:        <LeaveAllocationStep />,
+        reporting: <ReportingConfig />,
+        financial: <FinancialConfig formikProps={formikProps} editMode={editMode} />,
+        // Leave Settings section removed — no longer needed
+        // leaves: (
+        //     <LeaveAllocationStep />
+        // ),
         reimbursement: <ReimbursementConfig />,
-        access:        <AppSettings />,
-        privacy:       <PrivacyControls />,
+        access: <AppSettings />,
+        privacy: <PrivacyControls />,
     };
 
     return (
         <WizardSectionLayout
             sections={sections}
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={onSectionChange}
             sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}

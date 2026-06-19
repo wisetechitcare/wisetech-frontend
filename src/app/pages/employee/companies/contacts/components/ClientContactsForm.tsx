@@ -529,17 +529,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         }
       });
 
-      // Case-insensitive duplicate name check — excludes the contact currently being edited
-      const newName = formValues.fullName?.trim().toLowerCase();
-      const duplicate = existingContacts.find(
-        (c) => c.fullName?.trim().toLowerCase() === newName && c.id !== contactId
-      );
-      if (duplicate) {
-        errorConfirmation("A contact with this name already exists.");
-        setLoading(false);
-        return;
-      }
-
       if (contactId) {
         await updateClientContact(contactId, contactData);
         successConfirmation("Contact updated successfully!");

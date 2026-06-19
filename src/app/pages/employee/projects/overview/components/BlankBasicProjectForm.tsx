@@ -25,6 +25,15 @@ import {
   exportProjectDocx,
   exportProjectPdf
 } from "@services/projects";
+import { ProjectPointsSection } from "@app/modules/projectPoints";
+import {
+  getProjectProjectPoints,
+  getLeadProjectPoints,
+  getActiveProjectPointMasters,
+  saveProjectProjectPoints,
+  buildInitialPointRowsFromMasters,
+  type ProjectPointValue,
+} from "@services/projectPoints";
 import {
   getAllClientCompanies,
   getAllClientContacts,
@@ -345,12 +354,7 @@ const BlankBasicProjectForm: React.FC<BlankBasicProjectFormProps> = ({
         builtUpArea: Yup.string(),
         builtUpAreaUnit: Yup.string(),
         buildingDetail: Yup.string(),
-        otherPoint1Heading: Yup.string(),
-        otherPoint1Description: Yup.string(),
-        otherPoint2Heading: Yup.string(),
-        otherPoint2Description: Yup.string(),
-        otherPoint3Heading: Yup.string(),
-        otherPoint3Description: Yup.string(),
+        projectPoints: Yup.array(),
         zipcode: Yup.string(),
         projectAddress: Yup.string(),
         poNumber: Yup.string(),
@@ -1154,6 +1158,37 @@ const getInitialTeamDetails = useCallback(() => {
     return getInitialAddresses();
   }, [intitalDataForLeadToProjectConversion?.addresses, intitalDataForLeadToProjectConversion?.additionalDetails, getInitialAddresses]);
 
+  // ── Project Points (dynamic, replaces the hardcoded Other Point 1/2/3 fields) ──
+  // Edit project → load its saved points. Lead→project conversion → carry over the
+  // lead's points. New project → seed editable rows from the active master templates.
+  const [projectPoints, setProjectPoints] = useState<ProjectPointValue[]>([]);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        if (editingProjectId) {
+          const res = await getProjectProjectPoints(editingProjectId);
+          if (active) setProjectPoints(res?.points ?? []);
+        } else if (intitalDataForLeadToProjectConversion?.leadId) {
+          const res = await getLeadProjectPoints(intitalDataForLeadToProjectConversion.leadId);
+          if (active) setProjectPoints((res?.points ?? []).map((p: ProjectPointValue) => ({
+            pointMasterId: p.pointMasterId ?? null,
+            heading: p.heading,
+            description: p.description,
+            sortOrder: p.sortOrder,
+          })));
+        } else {
+          const res = await getActiveProjectPointMasters();
+          if (active) setProjectPoints(buildInitialPointRowsFromMasters(res?.points ?? []));
+        }
+      } catch (e) {
+        console.error("Error loading project points:", e);
+        if (active) setProjectPoints([]);
+      }
+    })();
+    return () => { active = false; };
+  }, [editingProjectId, intitalDataForLeadToProjectConversion?.leadId]);
+
   // Memoized initial values
   const initialValues = useMemo(
     () => {
@@ -1293,13 +1328,9 @@ const getInitialTeamDetails = useCallback(() => {
         builtUpArea: leadData?.additionalDetails?.builtUpArea || projectData?.builtUpArea || "",
         builtUpAreaUnit: leadData?.additionalDetails?.builtUpAreaUnit || projectData?.builtUpAreaUnit || "sqft",
         buildingDetail: leadData?.additionalDetails?.buildingDetail || projectData?.buildingDetail || "",
-        otherPoint1Heading: leadData?.additionalDetails?.otherPoint1Heading || projectData?.otherPoint1Heading || "",
-        otherPoint1Description: leadData?.additionalDetails?.otherPoint1Description || projectData?.otherPoint1Description || "",
-        otherPoint2Heading: leadData?.additionalDetails?.otherPoint2Heading || projectData?.otherPoint2Heading || "",
-        otherPoint2Description: leadData?.additionalDetails?.otherPoint2Description || projectData?.otherPoint2Description || "",
-        otherPoint3Heading: leadData?.additionalDetails?.otherPoint3Heading || projectData?.otherPoint3Heading || "",
-        otherPoint3Description: leadData?.additionalDetails?.otherPoint3Description || projectData?.otherPoint3Description || "",
-        
+        // Dynamic Project Points (replaces hardcoded Other Point 1/2/3); loaded via effect above.
+        projectPoints,
+
         // Arrays with lead data priority
         companies: getLeadConvertedCompanies(),
         projectCompanyMappings: getInitialRelationCompanies(),
@@ -1333,7 +1364,8 @@ const getInitialTeamDetails = useCallback(() => {
       getLeadConvertedAddresses,
       getInitialTeamDetails,
       intitalDataForLeadToProjectConversion,
-      createdById
+      createdById,
+      projectPoints,
     ]
   );
 
@@ -1487,6 +1519,7 @@ const handleSubmit = useCallback(
         "commercials",
         "teamDetails",
         "addresses",
+        "projectPoints", // persisted separately via saveProjectProjectPoints()
         "id",
         "createdAt",
         "updatedAt",
@@ -1549,9 +1582,6 @@ const handleSubmit = useCallback(
       // Fields that should be sent even when empty so the backend can clear them
       const clearableFields = [
         'plotArea', 'plotAreaUnit', 'builtUpArea', 'builtUpAreaUnit', 'buildingDetail',
-        'otherPoint1Heading', 'otherPoint1Description',
-        'otherPoint2Heading', 'otherPoint2Description',
-        'otherPoint3Heading', 'otherPoint3Description',
         'poNumber', 'poDate', 'poFile', 'description', 'title',
         'country', 'state', 'city', 'locality', 'zipcode', 'projectAddress',
         'mapLocation', 'latitude', 'longitude',
@@ -1624,10 +1654,17 @@ const handleSubmit = useCallback(
           cleanPayload.countAsRevision = true;
         }
         await updateProjectById(editingProjectId, cleanPayload);
+        try {
+          await saveProjectProjectPoints(editingProjectId, values.projectPoints || []);
+        } catch (ppErr) { console.error("Failed to save project points:", ppErr); }
         eventBus.emit(EVENT_KEYS.projectUpdated, { id: editingProjectId });
         successConfirmation("Project updated successfully!");
       } else {
-        await createProject(cleanPayload);
+        const created = await createProject(cleanPayload);
+        const newProjectId = created?.id || created?.project?.id || created?.data?.id;
+        try {
+          if (newProjectId) await saveProjectProjectPoints(newProjectId, values.projectPoints || []);
+        } catch (ppErr) { console.error("Failed to save project points:", ppErr); }
         eventBus.emit(EVENT_KEYS.projectCreated);
         successConfirmation("Project created successfully!");
       }
@@ -2152,112 +2189,12 @@ const handleSubmit = useCallback(
                             <TextInput formikField='buildingDetail' label='Building Detail' isRequired={false} />
                           </Grid>
 
-                          {/* Other Points header */}
+                          {/* Project Points — dynamic, replaces hardcoded Other Point 1/2/3 */}
                           <Grid item xs={12}>
-                            <div className="d-flex align-items-center" style={{ gap: '8px', marginBottom: '4px' }}>
-                              <div style={{ width: '110px', fontWeight: 500, fontSize: '13px', color: '#555', fontFamily: 'Inter' }}></div>
-                              <div style={{ flex: 1, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Heading</div>
-                              <div style={{ flex: 2, fontWeight: 600, fontSize: '13px', color: '#444', fontFamily: 'Inter' }}>Description</div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 1 */}
-                          <Grid item xs={12}>
-                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
-                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
-                                Other Point - 1
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint1Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint1Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 2 */}
-                          <Grid item xs={12}>
-                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
-                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
-                                Other Point - 2
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint2Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint2Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 3 */}
-                          <Grid item xs={12}>
-                            <div className="d-flex align-items-start" style={{ gap: '8px' }}>
-                              <div style={{ width: '110px', paddingTop: '10px', fontWeight: 500, fontSize: '14px', color: '#333', fontFamily: 'Inter', flexShrink: 0 }}>
-                                Other Point - 3
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint3Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint3Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
+                            <ProjectPointsSection
+                              value={values.projectPoints || []}
+                              onChange={(rows) => setFieldValue("projectPoints", rows)}
+                            />
                           </Grid>
                         </Grid>
                       </fieldset>

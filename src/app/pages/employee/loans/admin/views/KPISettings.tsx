@@ -9,7 +9,8 @@ import RadioInput from "@app/modules/common/inputs/RadioInput";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import { hasPermission } from "@utils/authAbac";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { saveToggleChange } from "@redux/slices/attendanceStats";
 import { sortKpiFactors } from "@utils/kpiSort";
 
 const tooltipDescriptions: Record<string, string> = {
@@ -167,6 +168,13 @@ export default function KpiSettings() {
   const [saving, setSaving] = useState(false);
 
   const employeeId = useSelector((state: any) => state.employee.currentEmployee?.id);
+  const dispatch = useDispatch();
+  const toggleChange = useSelector((state: any) => state.attendanceStats.toggleChange);
+
+  // Bumping toggleChange is the app-wide "KPI config changed" signal: it
+  // invalidates the leaderboard's cached factor definitions and rankings so the
+  // change reflects instantly on the KPI report without a manual page reload.
+  const signalKpiConfigChanged = () => dispatch(saveToggleChange(!toggleChange));
 
   const canEdit = hasPermission(
     resourseAndViewConfig[0].resource,
@@ -239,6 +247,7 @@ export default function KpiSettings() {
       setAllFactors((prev) =>
         prev.map((f) => (f.id === factorId ? { ...f, isActive: !currentlyActive } : f))
       );
+      signalKpiConfigChanged();
       successConfirmation(currentlyActive ? "Factor deactivated" : "Factor reactivated");
     } catch (e) {
       errorConfirmation((e as Error).message || "Failed to update factor");
@@ -547,6 +556,7 @@ export default function KpiSettings() {
                   )
                 );
                 setEditModal({ open: false, item: null, moduleName: "" });
+                signalKpiConfigChanged();
                 successConfirmation("KPI factor updated successfully");
               } catch (e) {
                 errorConfirmation((e as Error).message || "Failed to update KPI factor");
@@ -660,6 +670,7 @@ export default function KpiSettings() {
               }
               resetForm();
               setAddModal({ open: false, moduleId: "", moduleName: "" });
+              signalKpiConfigChanged();
               successConfirmation("KPI factor added successfully");
             } catch (e) {
               errorConfirmation((e as Error).message || "Failed to add KPI factor");

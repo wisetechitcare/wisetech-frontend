@@ -11,10 +11,10 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { saveLeaves, saveToggleChange } from '@redux/slices/attendanceStats';
 import { Employee, saveHourlySalaryOfCurrentEmployee, saveHourlySalaryOfSelectedEmployee } from '@redux/slices/employee';
 import { RootState, store } from '@redux/store';
-import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetchSalaryHistory, updateConfigurationById } from '@services/company';
+import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration, fetchSalaryHistory, updateConfigurationById, fetchSalaryPaymentHistory } from '@services/company';
 // import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { createNewPayment, createUpdateGrossPayDeductions, deletePaymentById, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
+import { createNewPayment, createUpdateGrossPayDeductions, fetchAllPayments, fetchEmpAttendanceStatistics, fetchEmployeeLeaves, fetchGrossPayDeductions, fetchReimbursementsForEmployee, sendSalarySlipToEmployee, updatePaymentById, getAllLeaveManagements } from '@services/employee';
 import { payrollService } from '@modules/payroll/services/payrollService';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -80,13 +80,13 @@ interface SalaryReportProps {
 }
 
 const formatINRDecimal = (n: number) =>
-    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
 
 const formatINRRounded = (n: number) =>
-    `₹${Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
+    `₹${Math.trunc(Number.isFinite(n) ? n : 0).toLocaleString('en-IN', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     })}`;
@@ -392,6 +392,9 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const [employeeReimbursements, setEmployeeReimbursements] = useState([]);
     const userId = employee.userId;
     const employeeId = employee?.id;
+    // Scope the display's per-day shifts to the viewed employee so they match payroll
+    // (branch override → org → global). No scoped shift = global (unchanged).
+    const shiftScope = { companyId: (employee as any)?.companyId, branchId: (employee as any)?.branchId };
     const dateOfJoining = dayjs(new Date(employee.dateOfJoining));
     const [startDateForDaysCount, setStartDateForDaysCount] = useState<Dayjs>()
     const [endDateOdDaysCount, setEndDateOdDaysCount] = useState<Dayjs>()
@@ -553,10 +556,11 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     {Object.entries(data.variable).map(([key, item], index) => {
                                         const isHourly = index < 2;
                                         const hourlySalaryVal = apiSalaryData?.hourlySalary;
-                                        const dailySalaryVal = hourlySalaryVal ? hourlySalaryVal * 8 : undefined;
+                                        const dailySalaryVal = apiSalaryData?.employeeCardDeatils?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
                                         const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
-                                        const rateLabel = rateValue && typeof rateValue === 'number' && rateValue > 0 
-                                            ? `${formatCurrency(rateValue)} / ${isHourly ? 'Hour' : 'Day'}`
+                                        const displayRateValue = rateValue ? Math.floor(rateValue * 100) / 100 : undefined;
+                                        const rateLabel = displayRateValue && typeof displayRateValue === 'number' && displayRateValue > 0 
+                                            ? `${formatCurrency(displayRateValue)} / ${isHourly ? 'Hour' : 'Day'}`
                                             : '-';
                                         
                                         return (
@@ -774,7 +778,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -782,7 +786,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     // const publicHolidays = donutaDataLabel(stats);
     // const publicHolidays = useSelector((state:RootState)=>state.attendanceStats.filteredPublicHolidays)
@@ -1484,7 +1488,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
     const handlePaymentDelete = async (payment: IPayment) => {
         try {
-            await deletePaymentById(payment.id);
+            await payrollService.deletePayment(payment.id);
             successConfirmation('Payment deleted successfully');
             fetchPayments();
             dispatch(saveToggleChange(!toggleChange));
@@ -2035,21 +2039,35 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     //                         />
     // console.log("SalarySlippaidLeaves:: ",paidLeaves);
 
+    // Fetch payment history
+    const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
+    const salaryId = (apiSalaryData as any)?.salaryId;
+
+    useEffect(() => {
+        if (!salaryId) return;
+        fetchSalaryPaymentHistory(salaryId)
+            .then((history: any) => setPaymentHistory(history))
+            .catch((err: any) => {
+                console.warn('Failed to fetch payment history:', err);
+                setPaymentHistory(null);
+            });
+    }, [salaryId]);
+
     // Transform API data to SalarySlipTemplate props format
     const salarySlipProps = useMemo((): SalarySlipProps | null => {
         if (!isApiDataLoaded || !apiSalaryData) {
             console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
             return null;
         }
-        
+
         console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
         try {
-            return transformApiDataToSalarySlipProps(apiSalaryData, employee);
+            return transformApiDataToSalarySlipProps(apiSalaryData, employee, paymentHistory, salaryId);
         } catch (error) {
             console.error('📊 [SalaryReport] Error transforming API data:', error);
             return null;
         }
-    }, [isApiDataLoaded, apiSalaryData, employee]);
+    }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
 
     return (
         <>

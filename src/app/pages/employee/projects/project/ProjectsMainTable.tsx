@@ -106,16 +106,22 @@ const ProjectsMainTable = ({
   const getAllProjectsData = async () => {
     try {
       setLoading(true);
-      const response = await getAllProjects();
-      const response2 = await getAllProjectCategories();
-      const response3 = await getAllProjectSubcategories();
-      const response4 = await getAllProjectStatuses();
-      const response5 = await getAllClientCompanies();
-      const response6 = await getAllClientContacts();
-      const response7 = await getAllClientBranches();
-      const response9 = await fetchAllCountries();
-      const response10 = await getAllCompanyTypes();
-      const response11 = await getAllTeams(1, 9999); // Get all teams for dropdown
+      // Fire all independent fetches in parallel instead of one-after-another.
+      const [
+        response, response2, response3, response4, response5,
+        response6, response7, response9, response10, response11,
+      ] = await Promise.all([
+        getAllProjects(),
+        getAllProjectCategories(),
+        getAllProjectSubcategories(),
+        getAllProjectStatuses(),
+        getAllClientCompanies(true),
+        getAllClientContacts({}, true),
+        getAllClientBranches(),
+        fetchAllCountries(),
+        getAllCompanyTypes(),
+        getAllTeams(1, 9999), // Get all teams for dropdown
+      ]);
       setAllProjects(response.data?.projects);
       setAllProjectCategories(response2?.projectCategories);
       setAllProjectSubcategories(response3?.projectSubCategories);

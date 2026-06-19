@@ -1,12 +1,12 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { Bar, Donut, HeatMap, MultipleRadialBar, Polar, ReportsTable, StokedCircle, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
-import { EXTRA_DAYS, HOLIDAYS, months } from '@constants/statistics';
+import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, months } from '@constants/statistics';
 import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { RootState, store } from '@redux/store';
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from '@services/company';
-import { fetchEmployeeLeaves } from '@services/employee';
+import { fetchAttendanceClassification, fetchEmployeeLeaves } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { barYearlyData, fetchEmpYearlyStatistics, multipleRadialBarData, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInYear, yearHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime } from '@utils/statistics';
+import { barYearlyData, fetchEmpYearlyStatistics, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInYear, yearHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { Container, Row } from 'react-bootstrap';
@@ -46,15 +46,32 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
+    // Resolve the viewed employee's org/branch so the display's per-day shifts match what
+    // payroll uses (branch override → org → global). No scoped shift = global (unchanged).
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
+
     const dispatch = useDispatch();
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
     const dateOfJoining = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.dateOfJoining : state.employee.currentEmployee?.dateOfJoining);
-    const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
+            || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const allWeekends = JSON.parse(weekends || "{}");
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
+    const [classificationData, setClassificationData] = useState<Map<string, number>>(
+        new Map([[TOTAL_WORKING_DAYS, 0], [EARLY_CHECKIN, 0], [LATE_CHECKIN, 0], [EARLY_CHECKOUT, 0], [LATE_CHECKOUT, 0], [MISSING_CHECKOUT, 0]])
+    );
 
     // Get the original data from Redux store and filter yearly stats according to DateOfJoining
     const yearlyStats = useSelector((state: RootState) => {
@@ -175,7 +192,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     useEffect(() => {
         const fetchWorkingHours = async () => {
             try {
-                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
+                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
                 const jsonObject = JSON.parse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
@@ -195,7 +212,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -203,7 +220,26 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
+
+    // Fetch backend attendance classification (scoped config — matches salary deductions).
+    useEffect(() => {
+        if (!selectedEmployeeId) return;
+        const start = year.startOf('year').format('YYYY-MM-DD');
+        const end = endDate.format('YYYY-MM-DD');
+        fetchAttendanceClassification(selectedEmployeeId, start, end)
+            .then(({ data: c }) => {
+                setClassificationData(new Map([
+                    [TOTAL_WORKING_DAYS, c.totalWorkingDays],
+                    [EARLY_CHECKIN, c.earlyCheckins],
+                    [LATE_CHECKIN, c.lateCheckins],
+                    [EARLY_CHECKOUT, c.earlyCheckouts],
+                    [LATE_CHECKOUT, c.lateCheckouts],
+                    [MISSING_CHECKOUT, c.missingCheckouts],
+                ]));
+            })
+            .catch(console.error);
+    }, [selectedEmployeeId, year, endDate]);
 
      // Memoize totalWeekend count (computed value)
         const totalWeekendCount = useMemo(() => {
@@ -222,8 +258,8 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const donutLabels: string[] = Array.from(donutData.keys());
     const donutSeries: number[] = Array.from(donutData.values());
     
-    const multipleRadialBarLabels: string[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts).keys());
-    const multipleRadialBarSeries: number[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts).values());
+    const multipleRadialBarLabels: string[] = useMemo(() => Array.from(classificationData.keys()), [classificationData]);
+    const multipleRadialBarSeries: number[] = useMemo(() => Array.from(classificationData.values()), [classificationData]);
 
     const polarLabels: string[] = useMemo(() => pieAreaLabels(filteredYearlyStats), [filteredYearlyStats]);
     const polarSeries: number[] = useMemo(() => pieAreaData(filteredYearlyStats), [filteredYearlyStats]);

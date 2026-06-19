@@ -49,6 +49,7 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
             presentDays: 0,
             absentDays: 0,
             leavesDays: 0,
+            unpaidLeaveDays: 0,
             lateCheckinDays: 0,
             workingdays: 0,
             extraDaysWorked: 0,
@@ -113,11 +114,12 @@ const DetailedReports = ({ data, loading = false }: DetailedReportsProps) => {
         const cleaned = String(val).trim().replace(/[₹,]/g, '');
         const num = Number(cleaned);
         if (!Number.isFinite(num)) return String(val);
-        return Math.round(num).toLocaleString('en-IN', {
+        const truncated = Math.trunc(num * 100) / 100;
+        return truncated.toLocaleString('en-IN', {
             style: 'currency',
             currency: 'INR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
         });
     };
 

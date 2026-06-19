@@ -246,7 +246,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                             fontWeight: "600",
                         }}
                     >
-                        Edit Organisation Profile
+                        Edit Organization Profile
                     </Typography>
                     <Modal.Header></Modal.Header>
                     <Modal.Body>
