@@ -1,6 +1,7 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { C, BTN, RADIUS, FONT } from "@app/modules/configuration";
 import {
   IReimbursementType,
   IReimbursementTypeCreate,
@@ -300,16 +301,14 @@ function Settings() {
 
   return (
     <>
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <h2>Reimbursement Categories</h2>
-        <div className="d-flex justify-content-end align-items-center pe-4">
-          <button
-            className="btn btn-lg btn-primary d-flex align-items-center fs-5"
-            onClick={handleNew}
-          >
-            Add New Category
-          </button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+        <button
+          style={{ ...BTN.primary, fontSize: '13.5px', padding: '9px 18px' }}
+          onClick={handleNew}
+        >
+          <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
+          Add New Category
+        </button>
       </div>
 
       <MaterialTable

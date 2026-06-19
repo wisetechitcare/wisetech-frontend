@@ -22,57 +22,71 @@ export type ToggleItemsCallBackFunctions = {
   allTime: (date: Dayjs) => void;
 };
 
+export type PeriodAlignment = 'monthly' | 'yearly' | 'allTime';
+
 interface MaterialToggleProps {
   toggleItemsActions?: ToggleItemsCallBackFunctions;
-  showEditDeleteOption?:boolean,
-  showIdCol?:boolean,
-  showName?:boolean,
-  selectedEmployeeId?:string,
+  /** Called on initial mount and whenever the active period type or date changes. */
+  onPeriodChange?: (alignment: PeriodAlignment, date: Dayjs) => void;
+  showEditDeleteOption?: boolean,
+  showIdCol?: boolean,
+  showName?: boolean,
+  selectedEmployeeId?: string,
   onEdit?: (row: IReimbursementsUpdate) => void,
-  resource:string,
-  viewOwn?:boolean,
-  viewOthers?:boolean,
-  checkOwnWithOthers?:boolean,
+  resource: string,
+  viewOwn?: boolean,
+  viewOthers?: boolean,
+  checkOwnWithOthers?: boolean,
 }
 
 const MaterialToggleReimbursement = ({
   toggleItemsActions,
-  showEditDeleteOption=false,
-  showIdCol=false,
-  showName=false,
+  onPeriodChange,
+  showEditDeleteOption = false,
+  showIdCol = false,
+  showName = false,
   onEdit,
   selectedEmployeeId,
-  resource="",
-  viewOwn=false,
-  viewOthers=false,
-  checkOwnWithOthers=false,
+  resource = "",
+  viewOwn = false,
+  viewOthers = false,
+  checkOwnWithOthers = false,
 }: MaterialToggleProps) => {
-  
+
   const dispatch = useDispatch();
-  const [alignment, setAlignment] = useState("monthly");
+  const [alignment, setAlignment] = useState<PeriodAlignment>("monthly");
   const [month, setMonth] = useState(dayjs());
   const [year, setYear] = useState(dayjs());
-  
+
   const [fiscalYear, setFiscalYear] = useState('');
 
-  useEffect(()=>{
-     if(!year) return;
-     async function getFiscalYear() {
-         const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
-         setFiscalYear(`${startDate} to ${endDate}`);
-      }
-      getFiscalYear();
-  },[year])
+  useEffect(() => {
+    if (!year) return;
+    async function getFiscalYear() {
+      const { startDate, endDate } = await generateFiscalYearFromGivenYear(year);
+      setFiscalYear(`${startDate} to ${endDate}`);
+    }
+    getFiscalYear();
+  }, [year])
 
-  useEffect(()=>{
+  useEffect(() => {
     dispatch(fetchRolesAndPermissions() as any);
-  },[])
+  }, [])
+
+  // Fire once on mount so the parent can load initial overview stats
+  useEffect(() => {
+    onPeriodChange?.('monthly', dayjs());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (
     event: React.MouseEvent<HTMLElement>,
-    newAlignment: string
+    newAlignment: PeriodAlignment | null
   ) => {
-    if (newAlignment !== null) setAlignment(newAlignment);
+    if (newAlignment === null) return;
+    setAlignment(newAlignment);
+    const date = newAlignment === 'yearly' ? year : month;
+    onPeriodChange?.(newAlignment, date);
   };
 
   const handleDatesChange = (
@@ -147,12 +161,16 @@ const MaterialToggleReimbursement = ({
         {alignment == "monthly" && (
           <DateSelector
             onPrevious={() => {
+              const newMonth = month.subtract(1, "month");
               handleDatesChange("decrement", "month", setMonth);
-              toggleItemsActions?.monthly(month.subtract(1, "month"));
+              toggleItemsActions?.monthly(newMonth);
+              onPeriodChange?.('monthly', newMonth);
             }}
             onNext={() => {
+              const newMonth = month.add(1, "month");
               handleDatesChange("increment", "month", setMonth);
-              toggleItemsActions?.monthly(month.add(1, "month"));
+              toggleItemsActions?.monthly(newMonth);
+              onPeriodChange?.('monthly', newMonth);
             }}
             displayValue={month.format("MMM YYYY")}
           />
@@ -161,12 +179,16 @@ const MaterialToggleReimbursement = ({
         {alignment == "yearly" && (
           <DateSelector
             onPrevious={() => {
+              const newYear = year.subtract(1, "year");
               handleDatesChange("decrement", "year", setYear);
-              toggleItemsActions?.yearly(year.subtract(1, "year"));
+              toggleItemsActions?.yearly(newYear);
+              onPeriodChange?.('yearly', newYear);
             }}
             onNext={() => {
+              const newYear = year.add(1, "year");
               handleDatesChange("increment", "year", setYear);
-              toggleItemsActions?.yearly(year.add(1, "year"));
+              toggleItemsActions?.yearly(newYear);
+              onPeriodChange?.('yearly', newYear);
             }}
             displayValue={formatFiscalYearLabel(fiscalYear)}
           />
