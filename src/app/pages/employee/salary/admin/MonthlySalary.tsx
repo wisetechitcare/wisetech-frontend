@@ -244,7 +244,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               accessorKey: "id",
               header: "ID",
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
-              Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+              Footer: () => <span style={{ fontWeight: 900, color: '#AA393D', fontSize: '1.05rem', letterSpacing: '0.08em' }}>TOTAL</span>,
             },
             {
               accessorKey: "name",
@@ -339,7 +339,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => <span style={{ color: '#1d4ed8' }}>{fmtINR(columnTotals.amountPaid)}</span>,
+              Footer: () => <span style={{ color: '#1d4ed8', fontWeight: 800 }}>{fmtINR(columnTotals.amountPaid)}</span>,
             },
             {
               accessorKey: "dueAmount",
@@ -358,7 +358,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Footer: () => {
                 const t = Math.round(columnTotals.dueAmount);
                 const color = t > 0 ? '#dc2626' : t < 0 ? '#0369a1' : '#16a34a';
-                return <span style={{ color }}>{fmtINR(t)}</span>;
+                return <span style={{ color, fontWeight: 800 }}>{fmtINR(t)}</span>;
               },
             },
             {

@@ -20,14 +20,63 @@ export interface PayrollComponent {
   defaultAmount?: number | null;
   defaultPercentage?: number | null;
   effectiveFrom?: string;
+  effectiveTo?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ComponentAuditEntry {
+  id: string;
+  componentId: string;
+  companyId: string;
+  eventType: string;
+  changedBy?: string | null;
+  changedAt: string;
+  oldValue?: Record<string, any> | null;
+  newValue?: Record<string, any> | null;
+  changeSummary?: string | null;
+  reason?: string | null;
+  ipAddress?: string | null;
+}
+
+export interface ComponentVersion {
+  id: string;
+  componentKey: string;
+  companyId: string;
+  masterId: string;
+  versionNumber: number;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  snapshot: Record<string, any>;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface ComponentDependency {
+  id: string;
+  componentId: string;
+  dependsOnKey: string;
+  companyId: string;
+  dependencyType: string;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Map of componentId → dependency, returned from GET /dependencies */
+export type DependencyMap = Record<string, ComponentDependency>;
 
 export const deductionMasterService = {
   getAll: async (): Promise<PayrollComponent[]> => {
     const res = await axios.get(`${API_URL}/salary-component-master`);
     return res.data?.data?.items || [];
+  },
+  getOne: async (id: string): Promise<{ item: PayrollComponent; versions: ComponentVersion[]; audits: ComponentAuditEntry[] }> => {
+    const res = await axios.get(`${API_URL}/salary-component-master/${id}`);
+    return res.data?.data;
   },
   seed: async (): Promise<PayrollComponent[]> => {
     const res = await axios.post(`${API_URL}/salary-component-master/seed`);
@@ -41,8 +90,42 @@ export const deductionMasterService = {
     const res = await axios.put(`${API_URL}/salary-component-master/${id}`, data);
     return res.data?.data?.item;
   },
-  delete: async (id: string): Promise<void> => {
-    await axios.delete(`${API_URL}/salary-component-master/${id}`);
+  delete: async (id: string, reason?: string): Promise<void> => {
+    await axios.delete(`${API_URL}/salary-component-master/${id}`, { data: { reason } });
+  },
+  restore: async (id: string): Promise<PayrollComponent> => {
+    const res = await axios.post(`${API_URL}/salary-component-master/${id}/restore`);
+    return res.data?.data?.item;
+  },
+  clone: async (id: string, newKey: string, newDisplayName: string): Promise<PayrollComponent> => {
+    const res = await axios.post(`${API_URL}/salary-component-master/${id}/clone`, { newKey, newDisplayName });
+    return res.data?.data?.item;
+  },
+  getAudit: async (id: string): Promise<ComponentAuditEntry[]> => {
+    const res = await axios.get(`${API_URL}/salary-component-master/${id}/audit`);
+    return res.data?.data?.audits || [];
+  },
+  getVersions: async (id: string): Promise<ComponentVersion[]> => {
+    const res = await axios.get(`${API_URL}/salary-component-master/${id}/versions`);
+    return res.data?.data?.versions || [];
+  },
+  getAllDependencies: async (): Promise<DependencyMap> => {
+    const res = await axios.get(`${API_URL}/salary-component-master/dependencies`);
+    return res.data?.data?.dependencies || {};
+  },
+  setDependency: async (
+    id: string,
+    dependsOnKey: string,
+    dependencyType = 'PERCENTAGE_OF',
+  ): Promise<ComponentDependency> => {
+    const res = await axios.put(`${API_URL}/salary-component-master/${id}/dependency`, {
+      dependsOnKey,
+      dependencyType,
+    });
+    return res.data?.data?.dependency;
+  },
+  removeDependency: async (id: string): Promise<void> => {
+    await axios.delete(`${API_URL}/salary-component-master/${id}/dependency`);
   },
 };
 
