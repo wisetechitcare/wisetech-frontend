@@ -1,0 +1,86 @@
+import React from 'react';
+import { DetailCard } from '@app/modules/detail-page/DetailPageComponents';
+import { EmptyState } from '../widgets';
+import { DASH } from '../entityViewModel';
+import type { EntityVM } from '../facets';
+
+const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ children, strong }) => (
+  <td style={{ padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: strong ? '#1E293B' : '#475569', fontWeight: strong ? 700 : 500, whiteSpace: 'nowrap' }}>
+    {children}
+  </td>
+);
+
+const DocLink: React.FC<{ href: string; icon: string; label: string }> = ({ href, icon, label }) => (
+  <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#9d4141', textDecoration: 'none', fontSize: 12, fontWeight: 600 }}>
+    <i className={icon} /> {label}
+  </a>
+);
+
+/**
+ * Documents tab — consolidates generated proposals AND the DMS file modules
+ * (passed as `children`) so "Files" is no longer a separate tab.
+ */
+const DocumentsSection: React.FC<{ vm: EntityVM; onExport?: () => void; children?: React.ReactNode }> = ({
+  vm,
+  onExport,
+  children,
+}) => {
+  const docs = vm.documents;
+  return (
+    <div className="d-flex flex-column gap-5">
+      <DetailCard
+        title="Generated Documents"
+        subtitle={`${docs.length} proposal${docs.length === 1 ? '' : 's'}`}
+        icon="bi bi-file-earmark-text"
+        accentColor="purple"
+        actions={
+          onExport ? (
+            <button type="button" onClick={onExport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#7239ea', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: 'Inter', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <i className="bi bi-plus-lg" /> Generate
+            </button>
+          ) : undefined
+        }
+      >
+        {docs.length === 0 ? (
+          <EmptyState icon="bi bi-file-earmark-text" title="No generated documents" message="Proposals exported for this record will be listed here with their revisions and download links." hint="Use Export to generate a proposal" />
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter' }}>
+              <thead>
+                <tr style={{ textAlign: 'left' }}>
+                  {['Document', 'Template', 'Rev.', 'Generated', 'By', 'Download'].map(h => (
+                    <th key={h} style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 12px', borderBottom: '1px solid #EEF2F6', whiteSpace: 'nowrap' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {docs.map((d, i) => (
+                  <tr key={i}>
+                    <Td strong>{d.name}</Td>
+                    <Td>{d.template || DASH}</Td>
+                    <Td>{d.revision ?? DASH}</Td>
+                    <Td>{d.date || DASH}</Td>
+                    <Td>{d.by || DASH}</Td>
+                    <Td>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        {d.pdf && <DocLink href={d.pdf} icon="bi bi-file-earmark-pdf" label="PDF" />}
+                        {d.docx && <DocLink href={d.docx} icon="bi bi-file-earmark-word" label="DOCX" />}
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DetailCard>
+
+      {/* DMS uploads (drawings / contracts / files) injected by the shell */}
+      {children}
+    </div>
+  );
+};
+
+export default DocumentsSection;

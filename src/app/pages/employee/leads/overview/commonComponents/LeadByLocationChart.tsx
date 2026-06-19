@@ -1,6 +1,5 @@
 // CompaniesByLocationAndStatus.tsx
 import React, { useMemo, useState } from "react";
-import ApexChart from "react-apexcharts";
 import {
   Box,
   FormControl,
@@ -8,12 +7,10 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
-  Typography,
 } from "@mui/material";
-import { Card } from "react-bootstrap";
 import { ChartDialogModal } from "../components/ChartDialogModal";
-import { fetchCountryName, fetchStateName, fetchAllCities } from "@services/options";
 import dayjs from "dayjs";
+import { AnalyticsCard, RankedBarChart, ChartDatum } from "@pages/dashboard/leadAnalytics";
 
 
 type Filters = {
@@ -248,85 +245,13 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
     }
   };
 
-  // Chart data
-  const categories = grouped.map((g) => g.name);
-  const seriesData = grouped.map((g) => Math.round(g.totalBudget));
-  const counts = grouped.map((g) => g.totalCount);
-
-  // Dynamic colors based on status colors when available, otherwise use palette
-  const barColors = grouped.map((g, idx) => {
-    if (g.color) return g.color;
-    const palette = [
-      '#5E60CE', '#48BFE3', '#64DFDF', '#80FFDB',
-      '#FF7B7B', '#FFB84D', '#FFD93D', '#90BE6D'
-    ];
-    return palette[idx % palette.length];
-  });
-
-  const chartOptions: any = {
-    chart: {
-      type: "bar",
-      height: 350,
-      toolbar: { show: false },
-      events: {
-        dataPointSelection: (event: any, chartContext: any, config: any) => {
-          const dataPointIndex = config.dataPointIndex;
-          const selectedLabel = categories[dataPointIndex]; // Use categories array instead
-
-          // console.log("selectedLabelINChart", selectedLabel);
-          // console.log("dataPointIndex", dataPointIndex);
-
-          if (selectedLabel) {
-            handleLocationChartClick(selectedLabel); // Use your existing function
-          }
-        },
-      },
-    },
-    plotOptions: {
-      bar: {
-        borderRadius: 6,
-        columnWidth: data.length === 1 ? '10%' : '80%',
-        dataLabels: { position: "top" }
-      }
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (val: number) => "₹" + val.toLocaleString(),
-      offsetY: -20,
-      style: { fontSize: "12px", colors: ["#000"] },
-    },
-    colors: barColors,
-    xaxis: {
-      categories,
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: {
-        rotate: -45,
-        maxHeight: 120,
-      }
-    },
-    yaxis: {
-      labels: {
-        formatter: (val: number) => "₹" + val.toLocaleString()
-      }
-    },
-    grid: { borderColor: "#f1f1f1" },
-    tooltip: {
-      custom: function({ series, seriesIndex, dataPointIndex, w }: any) {
-        const category = categories[dataPointIndex];
-        const budget = seriesData[dataPointIndex];
-        const count = counts[dataPointIndex];
-
-        return `
-          <div style="padding: 10px;">
-            <strong>${category}</strong><br/>
-            <span>Budget: ₹${budget.toLocaleString()}</span><br/>
-            <span>Count: ${count} lead${count > 1 ? 's' : ''}</span>
-          </div>
-        `;
-      }
-    }
-  };
+  // Map grouped data into the shared chart format (volume-ranked, ₹ in tooltip).
+  const locationChartData: ChartDatum[] = grouped.map((g) => ({
+    label: g.name,
+    value: g.totalCount,
+    totalCost: Math.round(g.totalBudget),
+    color: g.color,
+  }));
 
   const getChartTitle = () => {
     const level = groupBy.charAt(0).toUpperCase() + groupBy.slice(1);
@@ -335,10 +260,27 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
 
   return (
     <>
-      <Card className="shadow-sm h-100 w-100">
-        <Card.Body>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 20,
+          boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
+          padding: "22px 24px",
+        }}
+      >
+        <div>
           <div style={{ marginBottom: 12 }}>
-            <h2>{getChartTitle()}</h2>
+            <h2
+              style={{
+                fontFamily: "Barlow, sans-serif",
+                fontWeight: 600,
+                fontSize: 18,
+                margin: 0,
+                color: "#0F172A",
+              }}
+            >
+              {getChartTitle()}
+            </h2>
           </div>
           <Box sx={{ p: 3, borderRadius: 2 }}>
             <Box sx={{ display: "flex", mb: 3, gap: 2, flexWrap: "wrap" }}>
@@ -622,11 +564,11 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
 
             <Box sx={{ mt: 3, }}>
               {grouped.length > 0 ? (
-                <ApexChart
-                  options={chartOptions}
-                  series={[{ name: "Total Budget", data: seriesData }]}
-                  type="bar"
-                  height={380}
+                <RankedBarChart
+                  data={locationChartData}
+                  onSelect={handleLocationChartClick}
+                  showRevenue
+                  height={Math.max(320, locationChartData.length * 46)}
                 />
               ) : (
 
@@ -663,22 +605,24 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                 </div>
               )}
             </Box>
-            {
-              grouped.length > 0 ? (<Box sx={{ mt: 2, display: 'flex', gap: 3, justifyContent: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Total Leads:</strong> {filteredData.reduce((sum, item) => sum + item.count, 0)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Total Budget:</strong> ₹{filteredData.reduce((sum, item) => sum + item.budget, 0).toLocaleString()}
-                </Typography>
-          </Box>):(<></>)
-            }
-
-            {/* Summary Stats */}
-
+            {grouped.length > 0 && (
+              <Box
+                sx={{ mt: 2, display: "flex", gap: 3, justifyContent: "center" }}
+                style={{ fontFamily: "Inter, sans-serif", fontSize: 13, color: "#64748B" }}
+              >
+                <span>
+                  <strong>Total Leads:</strong>{" "}
+                  {filteredData.reduce((sum, item) => sum + item.count, 0)}
+                </span>
+                <span>
+                  <strong>Total Budget:</strong> ₹
+                  {filteredData.reduce((sum, item) => sum + item.budget, 0).toLocaleString()}
+                </span>
+              </Box>
+            )}
           </Box>
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
 
       {/* Location Modal */}
       <ChartDialogModal

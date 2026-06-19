@@ -16,6 +16,7 @@ import CustomPieCharts from "@pages/employee/leads/overview/commonComponents/Lea
 import Loader from "@app/modules/common/utils/Loader";
 import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
+import { LeadAnalyticsPanel } from "./leadAnalytics";
 
 
 interface DashboardGraphProps {
@@ -271,50 +272,17 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
       {/* Charts */}
       <div className="row g-3">
         {/* Lead Charts - Only for Admin */}
-       
-            {/* Lead By Status */}
-            <div className="col-12 col-md-6 col-lg-6">
-              <CustomPieCharts
-                data={chartData.statusData}
-                title="This Month Leads By Status"
-                height={250}
-                width={250}
-                chartType="pie"
-                showFilter={true}
-                filterOptions={chartData.statusData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.status || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("status", value)
-                }
-                onChartClick={handleStatusChartClick}
-                filterPlaceholder="All Status"
-                key="status-chart"
-              />
-            </div>
-
-            {/* Lead By Service */}
-            <div className="col-12 col-md-6 col-lg-6">
-              <CustomPieCharts
-                data={chartData.serviceData}
-                title="This Month Leads by Service"
-                height={250}
-                width={250}
-                chartType="donut"
-                showFilter={true}
-                filterOptions={chartData.serviceData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.service || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("service", value)
-                }
-                onChartClick={handleServiceChartClick}
-                filterPlaceholder="All Services"
-                key="service-chart"
-              />
-            </div>
+            {/* Lead By Status (funnel) + Lead By Service (treemap) — premium analytics */}
+            {isAdmin && (
+              <div className="col-12">
+                <LeadAnalyticsPanel
+                  statusData={chartData.statusData}
+                  serviceData={chartData.serviceData}
+                  onStatusSelect={handleStatusChartClick}
+                  onServiceSelect={handleServiceChartClick}
+                />
+              </div>
+            )}
 
             {/* Lead By Project Category */}
             <div className="col-12 col-md-6 col-lg-6">

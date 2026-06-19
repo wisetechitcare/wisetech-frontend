@@ -29,6 +29,12 @@ import {
 import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
 import MonthlyLeadsChart from "./charts/MonthlyLeadsChart";
+import {
+  LeadOverviewDashboard,
+  AnalyticsCard,
+  AnalyticsHeader,
+  RankedBarChart,
+} from "@pages/dashboard/leadAnalytics";
 
 interface Props {
   month: dayjs.Dayjs;
@@ -212,6 +218,19 @@ const Monthly = ({ month, endDate }: Props) => {
       setSubCategoryId(selectedLabel);
     }
     setOpenSubCategory(true);
+  };
+
+  // Sunburst emits either a category or a sub-category name — route to the
+  // matching drill-down modal.
+  const handleCategoryNodeClick = (selectedLabel: string) => {
+    let isSub = false;
+    subcategoryRes?.data?.forEach((cat: any) =>
+      (cat.subCategories || []).forEach((sc: any) => {
+        if (sc.name === selectedLabel) isSub = true;
+      })
+    );
+    if (isSub) handleSubCategoryChartClick(selectedLabel);
+    else handleCategoryChartClick(selectedLabel);
   };
 
   const handleCompanyTypeChartClick = (selectedLabel: string) => {
@@ -646,311 +665,167 @@ const Monthly = ({ month, endDate }: Props) => {
           />
         </div>
 
-        {/* Lead By Status */}
-        {/* Lead By Status */}
-        {settings?.showLeadsStatusChart && (
-          <div className="col-12 col-md-6">
-            <CustomPieCharts
-              data={chartData.statusData}
-              title="Lead By Status"
-              height={250}
-              width={250}
-              chartType="pie"
-              showFilter={true}
-              filterOptions={chartData.statusData
-                .map((item: any) => item.label)
-                .sort((a: string, b: string) => a.localeCompare(b))}
-              filterValue={filters.status || ""}
-              onFilterChange={(value: string) =>
-                handleFilterChange("status", value)
-              }
-              onChartClick={handleStatusChartClick}
-              filterPlaceholder="All Status"
-              key="status-chart"
-            />
-          </div>
-        )}
-
-        {/* Lead By Service */}
-        {settings?.showLeadsByServiceChart && (
-            <div className="col-12 col-md-6">
-              <CustomPieCharts
-                data={chartData.serviceData}
-                title="Lead By Service"
-                width={250}
-                height={250}
-                chartType="donut"
-                showFilter={true}
-                filterOptions={chartData.serviceData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.service || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("service", value)
-                }
-                filterPlaceholder="All Services"
-                key="service-chart"
-                onChartClick={handleServiceChartClick}
-              />
-            </div>
-          )}
-
-        {/* Lead By Project Category */}
-        {settings?.showLeadsByProjectCategory && (
-            <div className="col-12 col-md-6">
-              <CustomPieCharts
-                data={chartData.categoryData}
-                title="Lead By Project Category"
-                width={250}
-                height={250}
-                chartType="pie"
-                showFilter={true}
-                filterOptions={chartData.categoryData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.category || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("category", value)
-                }
-                filterPlaceholder="All Categories"
-                key="category-chart"
-                onChartClick={handleCategoryChartClick}
-              />
-            </div>
-          )}
-
-        {/* Lead By Source */}
-        {settings?.showLeadsBySource && (
-          <div className="col-12 col-md-6">
-            <CustomPieCharts
-              data={chartData.sourceData}
-              title="Lead By Source"
-              height={250}
-              width={250}
-              chartType="donut"
-              showFilter={true}
-              filterOptions={chartData.sourceData.map(
-                (item: any) => item.label
-              )}
-              filterValue={filters.source || ""}
-              onFilterChange={(value: string) => {
-                handleFilterChange("source", value);
-              }}
-              filterPlaceholder="All Source"
-              key={`source-chart-${filters.source || "all"}`}
-              onChartClick={handleSourceChartClick}
-            />
-          </div>
-        )}
-
-        {/* Lead By Referral Source */}
-        {settings?.showLeadsFromReferral && (
-            <div className="col-12 col-md-6">
-              <CustomPieCharts
-                data={chartData.referralSourceData}
-                title={"Lead By Referral Source"}
-                height={250}
-                width={250}
-                chartType="donut"
-                showFilter={true}
-                filterOptions={referralStatusFilterOptions}
-                filterValue={filters.referralStatus || ""}
-                onFilterChange={(value: string) => {
-                  handleFilterChange("referralStatus", value);
-                }}
-                filterPlaceholder="All Status"
-                // externalFilterValue={filters.referralStatus || ""}
-                key={`referral-source-chart-${filters.referralStatus || "all"}`}
-                filterMode="external"
-                onChartClick={handleReferralChartClick}
-              />
-            </div>
-          )}
-
-        {/* Lead By Direct Source */}
-        {settings?.showLeadsFromDirect && (
-          <div className="col-12 col-md-6">
-            <CustomPieCharts
-              data={chartData.directSourceData}
-              title={
-                filters.directSource &&
-                filters.directSource !== "" &&
-                filters.directSource !== "all"
-                  ? `Leads From ${filters.directSource}`
-                  : "Leads From Direct Sources"
-              }
-              width={250}
-              height={250}
-              chartType="donut"
-              showFilter={true}
-              filterOptions={directSourceFilterOptions}
-              filterValue={filters.directSource || ""}
-              onFilterChange={(value: string) => {
-                handleFilterChange("directSource", value);
-              }}
-              filterPlaceholder="All Status"
-              key={`direct-source-chart-${filters.directSource || "all"}`}
-              filterMode="external"
-            />
-          </div>
-        )}
- 
-        {/* Lead By Subcategory - Enhanced with Category Filtering */}
-        {settings?.showLeadsBySubCategory && (
-            <div className="col-12">
-              <CustomBarChart
-                data={chartData.subcategoryData}
-                title={
-                  filters.subcategoryCategory &&
-                  filters.subcategoryCategory !== "" &&
-                  filters.subcategoryCategory !== "all"
-                    ? `Projects By Subcategory - ${filters.subcategoryCategory}`
-                    : "Projects By Subcategory"
-                }
-                height={400}
-                showFilter={true}
-                filterKey="subcategoryCategory"
-                filterOptions={categoryFilterOptions.sort(
-                  (a: string, b: string) => a.localeCompare(b)
-                )}
-                filterValue={filters.subcategoryCategory || ""}
-                onFilterChange={(value: string) => {
-                  handleFilterChange("subcategoryCategory", value);
-                }}
-                filterPlaceholder="All Categories"
-                key={`subcategory-chart-${
-                  filters.subcategoryCategory || "all"
-                }`}
-                onChartClick={handleSubCategoryChartClick}
-              />
-            </div>
-          )}
+        {/* ── Premium executive analytics (status, service, acquisition, category) ── */}
+        <div className="col-12">
+          <LeadOverviewDashboard
+            statusData={chartData.statusData}
+            serviceData={chartData.serviceData}
+            categoryData={chartData.categoryData}
+            subcategoryRaw={subcategoryRes?.data || []}
+            sourceData={chartData.sourceData}
+            referralSourceData={chartData.referralSourceData}
+            directSourceData={chartData.directSourceData}
+            settings={settings}
+            onStatusSelect={handleStatusChartClick}
+            onServiceSelect={handleServiceChartClick}
+            onCategorySelect={handleCategoryNodeClick}
+            onSourceSelect={handleSourceChartClick}
+            onReferralSelect={handleReferralChartClick}
+          />
+        </div>
 
         {/* Lead By Company Type */}
         {settings?.showLeadsByCompanyType && (
-            <div className="col-12">
-              <CustomBarChart
-                data={chartData.companyTypeData}
-                title="Lead By Company Type"
-                width={250}
-                height={250}
-                showFilter={true}
-                filterOptions={companyTypeFilterOptions}
-                filterValue={filters.companyType || ""}
-                onFilterChange={(value: string) => {
-                  handleFilterChange("companyType", value);
-                }}
-                filterPlaceholder="All Status"
-                key={`company-type-chart`}
-                isThisProjectToolTip={false}
-                onChartClick={handleCompanyTypeChartClick}
-              />
+          <div className="col-12">
+            <AnalyticsHeader
+              title="Segment Analysis"
+              subtitle="Which client segments generate the most leads"
+              icon="bi-buildings"
+              accent="#EC4899"
+            />
+            <div className="mt-3">
+              <AnalyticsCard
+                title="Lead by Company Type"
+                subtitle="Ranked by lead volume · revenue in tooltip"
+                isEmpty={
+                  !chartData.companyTypeData?.length ||
+                  chartData.companyTypeData.every((d: any) => !d.value)
+                }
+                emptyHint="No company-type data for this period."
+                headerRight={
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ minWidth: 150 }}
+                    value={filters.companyType || ""}
+                    onChange={(e) => handleFilterChange("companyType", e.target.value)}
+                  >
+                    <option value="">All Status</option>
+                    {companyTypeFilterOptions.map((o: string) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                }
+              >
+                <RankedBarChart
+                  data={chartData.companyTypeData}
+                  onSelect={handleCompanyTypeChartClick}
+                  showRevenue
+                  height={320}
+                />
+              </AnalyticsCard>
             </div>
-          )}
+          </div>
+        )}
 
         {/* Top Leads - Fixed with Dynamic Filtering */}
         {settings?.showTopLeads && (
           <div className="col-12">
-            <div className="card pt-8">
-              <div className="card-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-                <h5 className="card-title mb-0">Top 10 Leads</h5>
-                <div className="d-flex gap-2 flex-column flex-md-row">
-                  {/* Main Type Filter */}
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsType || "source"}
-                    onChange={(e) =>
-                      handleTopLeadsFilterChange("topLeadsType", e.target.value)
-                    }
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="source">By Source</option>
-                    <option value="category">By Category</option>
-                    <option value="service">By Service</option>
-                  </select>
+            <AnalyticsHeader
+              title="Top Performers"
+              subtitle="Highest-volume lead groups for the period"
+              icon="bi-trophy"
+              accent="#F59E0B"
+            />
+            <div className="mt-3">
+              <AnalyticsCard
+                title="Top 10 Leads"
+                subtitle="Click a bar to drill into the underlying leads"
+                isEmpty={!chartData.topLeadsData?.length}
+                emptyHint="No lead data for this period."
+                headerRight={
+                  <>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filters.topLeadsType || "source"}
+                      onChange={(e) =>
+                        handleTopLeadsFilterChange("topLeadsType", e.target.value)
+                      }
+                      style={{ minWidth: "120px" }}
+                    >
+                      <option value="source">By Source</option>
+                      <option value="category">By Category</option>
+                      <option value="service">By Service</option>
+                    </select>
 
-                  {/* Status Filter */}
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsStatus || ""}
-                    onChange={(e) =>
-                      handleTopLeadsFilterChange(
-                        "topLeadsStatus",
-                        e.target.value
-                      )
-                    }
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="">All Status</option>
-                    {topLeadsFilterOptions.statusOptions.map(
-                      (status: string) => (
+                    <select
+                      className="form-select form-select-sm"
+                      value={filters.topLeadsStatus || ""}
+                      onChange={(e) =>
+                        handleTopLeadsFilterChange("topLeadsStatus", e.target.value)
+                      }
+                      style={{ minWidth: "120px" }}
+                    >
+                      <option value="">All Status</option>
+                      {topLeadsFilterOptions.statusOptions.map((status: string) => (
                         <option key={status} value={status}>
                           {status}
                         </option>
-                      )
-                    )}
-                  </select>
+                      ))}
+                    </select>
 
-                  {/* Conditional Referral Type Filter */}
-                  {topLeadsFilterOptions.referralTypeOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsReferralType || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange(
-                          "topLeadsReferralType",
-                          e.target.value
-                        )
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Referral Types</option>
-                      {topLeadsFilterOptions.referralTypeOptions.map(
-                        (type: string) => (
+                    {topLeadsFilterOptions.referralTypeOptions.length > 0 && (
+                      <select
+                        className="form-select form-select-sm"
+                        value={filters.topLeadsReferralType || ""}
+                        onChange={(e) =>
+                          handleTopLeadsFilterChange("topLeadsReferralType", e.target.value)
+                        }
+                        style={{ minWidth: "150px" }}
+                      >
+                        <option value="">All Referral Types</option>
+                        {topLeadsFilterOptions.referralTypeOptions.map((type: string) => (
                           <option key={type} value={type}>
                             {type}
                           </option>
-                        )
-                      )}
-                    </select>
-                  )}
+                        ))}
+                      </select>
+                    )}
 
-                  {/* Conditional Direct Source Filter */}
-                  {topLeadsFilterOptions.directSourceOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsDirectSource || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange(
-                          "topLeadsDirectSource",
-                          e.target.value
-                        )
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Direct Sources</option>
-                      {topLeadsFilterOptions.directSourceOptions.map(
-                        (source: string) => (
+                    {topLeadsFilterOptions.directSourceOptions.length > 0 && (
+                      <select
+                        className="form-select form-select-sm"
+                        value={filters.topLeadsDirectSource || ""}
+                        onChange={(e) =>
+                          handleTopLeadsFilterChange("topLeadsDirectSource", e.target.value)
+                        }
+                        style={{ minWidth: "150px" }}
+                      >
+                        <option value="">All Direct Sources</option>
+                        {topLeadsFilterOptions.directSourceOptions.map((source: string) => (
                           <option key={source} value={source}>
                             {source}
                           </option>
-                        )
-                      )}
-                    </select>
-                  )}
-                </div>
-                <div className="card-body !shadow-none w-100">
-                  <CustomBarChart
-                    data={chartData.topLeadsData}
-                    title=""
-                    height={400}
-                    showFilter={false}
-                    key={`top-leads-chart-${filters.topLeadsType}-${filters.topLeadsStatus}-${filters.topLeadsReferralType}-${filters.topLeadsDirectSource}`}
-                    isThisProjectToolTip={false}
-                    onChartClick={handleTopLeadsChartClick}
-                  />
-                </div>
-              </div>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                }
+              >
+                <RankedBarChart
+                  data={(chartData.topLeadsData || []).map((d: any) => ({
+                    label: d.label,
+                    value: d.value,
+                    color: d.color,
+                    totalCost: d.budget,
+                  }))}
+                  onSelect={handleTopLeadsChartClick}
+                  showRevenue
+                  limit={10}
+                  height={400}
+                />
+              </AnalyticsCard>
             </div>
           </div>
         )}
@@ -958,11 +833,19 @@ const Monthly = ({ month, endDate }: Props) => {
         {/* Lead By Location */}
         {settings?.showLeadsByLocation && (
           <div className="col-12">
-            <LeadByLocationAndStatus
-              data={locationRes || []}
-              startDate={month || undefined}
-              endDate={endDate || undefined}
+            <AnalyticsHeader
+              title="Geographic Distribution"
+              subtitle="Where your leads are located — drill down country → locality"
+              icon="bi-geo-alt"
+              accent="#14B8A6"
             />
+            <div className="mt-3">
+              <LeadByLocationAndStatus
+                data={locationRes || []}
+                startDate={month || undefined}
+                endDate={endDate || undefined}
+              />
+            </div>
           </div>
         )}
       </div>

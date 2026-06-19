@@ -19,7 +19,6 @@ import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
-import ProjectButtonSettings from "./ProjectButtonSettingUI";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -116,7 +115,6 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
 
 const TABS: ConfigTab[] = [
   { id: 'settings', label: 'Project Settings', icon: 'bi-kanban' },
-  { id: 'buttons', label: 'Button Settings', icon: 'bi-toggles' },
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -355,20 +353,6 @@ const ProjectConfiguration = () => {
               loading={loading}
             >
               <PrefixSettingsForm typeLabel="Project" typeValue="PROJECT" />
-            </ConfigSectionCard>
-          </div>
-        )}
-
-        {/* ── Button Settings Tab ──────────────────────────────────────────────── */}
-        {activeTab === 'buttons' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
-            <ConfigSectionCard
-              title="Project Button Visibility"
-              description="Control which action buttons are visible on the project workspace."
-              icon="bi-toggles"
-              iconColor="purple"
-            >
-              <ProjectButtonSettings />
             </ConfigSectionCard>
           </div>
         )}
