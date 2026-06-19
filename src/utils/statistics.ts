@@ -1419,7 +1419,7 @@ function isDayWiseCheckInCheckOut(checkInDate: string, scheduleRows: ScheduleRow
 }
 
 
-export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]): Map<string, number> {
+export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[], _fromAdmin?: boolean): Map<string, number> {
     fetchCompanyTimings();
     // public holidays and weekends..
     const publicHolidays = store.getState().attendanceStats.publicHolidays;
