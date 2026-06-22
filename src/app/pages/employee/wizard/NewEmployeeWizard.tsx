@@ -434,6 +434,7 @@ const initialState = {
   professionalFeesPercentage: "", professionalFeesType: "FIXED",
   tds2Enabled: "false", tds2Type: "FIXED", tds2Amount: "", tds2Percentage: "",
   isHiddenFromStaff: false,
+  reimbursementLimitPerRequest: "",
 };
 
 const newEmployeeWizardBreadcrumb: Array<PageLink> = [
@@ -493,6 +494,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
     tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
+    reimbursementLimitPerRequest: reimbLimitNew,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -554,10 +556,11 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
     ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
     isHiddenFromStaff: isHiddenFromStaff === true,
+    reimbursementLimitPerRequest: (reimbLimitNew !== "" && reimbLimitNew != null && !isNaN(Number(reimbLimitNew))) ? Number(reimbLimitNew) : null,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -909,6 +912,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
       roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
       tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
+      reimbursementLimitPerRequest: reimbLimitEdit,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -973,10 +977,11 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
       ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
+      reimbursementLimitPerRequest: (reimbLimitEdit !== "" && reimbLimitEdit != null && !isNaN(Number(reimbLimitEdit))) ? Number(reimbLimitEdit) : null,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1262,6 +1267,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         tds2Type: (wizardData as any)?.tds2Type || (wizardData as any)?.tds2_type || "FIXED",
         tds2Amount: (() => { const v = (wizardData as any)?.tds2Amount ?? (wizardData as any)?.tds2_amount; return v != null && v !== "" ? String(v) : ""; })(),
         tds2Percentage: (() => { const v = (wizardData as any)?.tds2Percentage ?? (wizardData as any)?.tds2_percentage; return v != null && v !== "" ? String(v) : ""; })(),
+        reimbursementLimitPerRequest: wizardData?.reimbursementLimitPerRequest != null ? String(wizardData.reimbursementLimitPerRequest) : "",
       };
       setDefaultState(newState);
     }

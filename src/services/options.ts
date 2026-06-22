@@ -280,6 +280,17 @@ export const fetchAllReimbursementTypes = async () => {
     }
 }
 
+export const fetchReimbursementEmployeeLimits = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}/${OPTIONS.GET_REIMBURSEMENT_EMPLOYEE_LIMITS}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 export const deleteReimbursementTypeById = async (id: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${OPTIONS.DELETE_REIMBURSEMENT_TYPES_BY_ID}?id=${id}`;

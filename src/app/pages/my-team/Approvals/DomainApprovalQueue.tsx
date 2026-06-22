@@ -410,26 +410,25 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
   return (
     <>
-      <div className='d-flex align-items-center justify-content-end pt-0 pb-4'>
+      {/* Tab strip + Refresh */}
+      <div className='d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2'>
+        <div className='d-flex gap-2 flex-wrap'>
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
+              onClick={() => setActiveTab(t.key)}
+            >
+              {t.label}
+              {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
+                <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
         <button className='btn btn-sm btn-light-primary d-flex align-items-center gap-2' onClick={() => load(activeTab)} disabled={loading}>
           <KTIcon iconName='arrows-circle' className='fs-5' />{loading ? 'Refreshing...' : 'Refresh'}
         </button>
-      </div>
-
-      {/* Tab strip */}
-      <div className='d-flex gap-2 mb-4'>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.label}
-            {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
-              <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
-            )}
-          </button>
-        ))}
       </div>
 
       <MaterialTable

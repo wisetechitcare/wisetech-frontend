@@ -197,6 +197,21 @@ function FinancialConfig({ formikProps, editMode }: { formikProps: any; editMode
         );
 }
 
+// ── 4. Reimbursement Config ───────────────────────────────────────────────────
+function ReimbursementConfig() {
+    return (
+        <div className="row">
+            <div className="col-lg-6 col-md-6 col-sm-12">
+                <TextInput
+                    isRequired={false}
+                    label="Reimbursement Limit Per Request"
+                    formikField="reimbursementLimitPerRequest"
+                />
+            </div>
+        </div>
+    );
+}
+
 // ── 5. Privacy Controls ───────────────────────────────────────────────────────
 function PrivacyControls() {
     const { values, setFieldValue } = useFormikContext<any>();
@@ -262,6 +277,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile, activeSection,
         { id: "financial", title: "Financial Config", icon: "wallet" },
         // Leave Settings section removed — no longer needed
         // { id: "leaves", title: "Custom Leave Allocation (optional)", icon: "calendar" },
+        { id: "reimbursement", title: "Reimbursement Config",              icon: "dollar"       },
         { id: "access", title: "System Access Settings", icon: "setting-2" },
         { id: "privacy", title: "Privacy Controls", icon: "shield-tick" },
     ];
@@ -273,6 +289,7 @@ function StepAppSettings({ formikProps, editMode, sidebarProfile, activeSection,
         // leaves: (
         //     <LeaveAllocationStep />
         // ),
+        reimbursement: <ReimbursementConfig />,
         access: <AppSettings />,
         privacy: <PrivacyControls />,
     };

@@ -203,93 +203,105 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
       {
         accessorKey: "expenseDate",
         header: "Date",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "day",
         header: "Day",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       ...(showIdCol ? [{
         accessorKey: "ID",
         header: "ID",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       }] : []),
       ...(showName ? [{
         accessorKey: "name",
         header: "Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       }] : []),
       {
         accessorKey: "description",
         header: "Note",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "type",
         header: "Type",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "clientTypeId",
         header: "Client Type",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
       },
       {
         accessorKey: "clientCompanyId",
         header: "Client Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
       },
       {
         accessorKey: "projectId",
         header: "Project Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveProject(row.original.projectId),
       },
       {
         accessorKey: "fromLocation",
         header: "From Location",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
       },
       {
         accessorKey: "amount",
         header: "Amount",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "status",
         header: "Status",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      },
+      {
+        accessorKey: "paymentStatus",
+        header: "Payment Status",
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const status = row.original.status;
+          if (status === 'Rejected') return <span className="text-muted">N/A</span>;
+          if (status !== 'Approved') return <span className="text-muted">—</span>;
+          const ps = row.original.paymentStatus;
+          if (ps === 'PAID') return <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>;
+          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Unpaid</span>;
+        },
+      },
+      {
+        accessorKey: "rejectionReason",
+        header: "Reject Reason",
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const status = row.original.status;
+          const reason = row.original.rejectionReason;
+          if (status === 'Approved') return <span className="text-muted">N/A</span>;
+          if (status === 'Rejected' && reason) return <span className="text-danger">{reason}</span>;
+          return <span className="text-muted">—</span>;
+        },
       },
       {
         accessorKey: "document",
@@ -393,6 +405,33 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
               borderBottom: "none",
               paddingY: "5px",
             },
+          },
+          muiTableBodyRowProps: ({ row }: any) => {
+            if (row.original?.isExceedingLimit) {
+              return {
+                sx: {
+                  backgroundColor: "rgba(239, 68, 68, 0.08)",
+                  "& td:first-of-type": { borderLeft: "4px solid #ef4444 !important" },
+                  transition: "background-color 0.12s ease",
+                  "&:hover td": { backgroundColor: "rgba(239, 68, 68, 0.14) !important" },
+                },
+              };
+            }
+            const statusStr = String(row.original?.status || "").toLowerCase();
+            const colorMap: Record<string, { bg: string; border: string; hover: string }> = {
+              approved: { bg: "rgba(16,185,129,0.04)", border: "#10b981", hover: "rgba(16,185,129,0.08)" },
+              rejected: { bg: "rgba(239,68,68,0.04)", border: "#ef4444", hover: "rgba(239,68,68,0.08)" },
+              pending:  { bg: "rgba(245,158,11,0.04)", border: "#f59e0b", hover: "rgba(245,158,11,0.08)" },
+            };
+            const c = colorMap[statusStr] ?? null;
+            return {
+              sx: {
+                backgroundColor: c ? c.bg : undefined,
+                "& td:first-of-type": c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                transition: "background-color 0.12s ease",
+                "&:hover td": { backgroundColor: c ? `${c.hover} !important` : "#F8FAFC" },
+              },
+            };
           },
         }}
         tableName="Yearly Reimbursements"

@@ -3,9 +3,7 @@ import { RootState } from "@redux/store";
 import {
   approveEmpReimbursementRequestById,
   fetchAllTimeReimbursementsOfAllEmp,
-  fetchEmpAlltimeReimbursements,
-  fetchEmpMonthlyReimbursements,
-  fetchEmpYearlyReimbursements,
+  fetchMonthlyReimbursementsOfAllEmp,
   fetchYearlyReimbursementsOfAllEmp,
   rejectEmpReimbursementRequestById,
 } from "@utils/statistics";
@@ -13,8 +11,9 @@ import dayjs, { Dayjs } from "dayjs";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import { useSelector } from "react-redux";
-import Overview from "../common/Overview";
+import ReimbursementOverview from "../common/ReimbursementOverview";
 import MaterialToggleReimbursement, {
+  PeriodAlignment,
   ToggleItemsCallBackFunctions,
 } from "../../MaterialToggleReimbursement";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -158,11 +157,12 @@ function AllEmployee() {
   const [approvedRequests, setApprovedRequests] = useState(0);
   const [rejectedRequests, setRejectedRequests] = useState(0);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [pendingRequestData, setPendingRequestData] = useState<IReimbursementsFetch[]>([]);
-  const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
   const [showIdCol] = useState(true);
   const [showName] = useState(true);
   const [fetchAgain, setFetchAgain] = useState(false);
+  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
   const [loading, setLoading] = useState(false);
   const [processingRowId, setProcessingRowId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<"approve" | "reject" | "approveAll" | null>(null);
@@ -179,45 +179,41 @@ function AllEmployee() {
     useReimbursementLookups(pendingRequestData);
 
   const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (month: Dayjs): void {
-      fetchEmpMonthlyReimbursements(month);
-    },
-    yearly: function (year: Dayjs): void {
-      fetchEmpYearlyReimbursements(year);
-    },
-    allTime: function (): void {
-      fetchEmpAlltimeReimbursements();
-    },
+    monthly: function (): void { /* handled by onPeriodChange */ },
+    yearly: function (): void { /* handled by onPeriodChange */ },
+    allTime: function (): void { /* handled by onPeriodChange */ },
   };
 
-  // ── Stats + yearly data ───────────────────────────────────────────────────
-  useEffect(() => {
-    const currentYear = dayjs().startOf("year");
-    fetchYearlyReimbursementsOfAllEmp(currentYear).then((data) => {
-      let totalAmount = 0,
-        totalRequest = 0,
-        approvedCount = 0,
-        rejectedCount = 0,
-        pendingCount = 0;
-
-      data.forEach((ele) => {
-        if (ele.id) {
-          totalAmount += parseInt(ele.amount ?? "0");
-          totalRequest += 1;
-          if (ele.status === "Pending") pendingCount += 1;
-          else if (ele.status === "Rejected") rejectedCount += 1;
-          else approvedCount += 1;
-        }
-      });
-
-      setApprovedRequests(approvedCount);
-      setPendingRequests(pendingCount);
-      setRejectedRequests(rejectedCount);
-      setTotalRequests(totalRequest);
-      setTotalRequestedAmount(totalAmount);
-      setReimbursementData(data);
+  // ── Shared stats calculator ────────────────────────────────────────────────
+  const applyStats = (data: IReimbursementsFetch[]) => {
+    let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
+    data.forEach((ele) => {
+      if (ele.id) {
+        totalAmount += parseInt(ele.amount ?? "0");
+        totalRequest++;
+        if (ele.status === "Pending") pendingCount++;
+        else if (ele.status === "Rejected") rejectedCount++;
+        else approvedCount++;
+      }
     });
-  }, [fetchAgain]);
+    setTotalRequestedAmount(totalAmount);
+    setTotalRequests(totalRequest);
+    setApprovedRequests(approvedCount);
+    setRejectedRequests(rejectedCount);
+    setPendingRequests(pendingCount);
+    setOverviewLoading(false);
+  };
+
+  // ── Stats: re-fetch on period change or after approve/reject actions ───────
+  useEffect(() => {
+    const { alignment, date } = currentPeriod;
+    const fetchPromise =
+      alignment === 'monthly' ? fetchMonthlyReimbursementsOfAllEmp(date) :
+      alignment === 'yearly'  ? fetchYearlyReimbursementsOfAllEmp(date)  :
+      fetchAllTimeReimbursementsOfAllEmp();
+    fetchPromise.then(applyStats);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPeriod, fetchAgain]);
 
   // ── Pending requests (all-time) ───────────────────────────────────────────
   useEffect(() => {
@@ -266,6 +262,11 @@ function AllEmployee() {
       setProcessingAction(null);
     }
   };
+
+  const handlePeriodChange = useCallback((alignment: PeriodAlignment, date: Dayjs) => {
+    setOverviewLoading(true);
+    setCurrentPeriod({ alignment, date });
+  }, []);
 
   /** Open the in-app preview modal instead of navigating away */
   const handleViewDocument = useCallback((documentUrl: string) => {
@@ -461,12 +462,13 @@ function AllEmployee() {
 
   return (
     <>
-      <Overview
+      <ReimbursementOverview
         totalRequestedAmount={totalRequestedAmount}
         totalRequests={totalRequests}
         approvedRequests={approvedRequests}
         rejectedRequests={rejectedRequests}
         pendingRequests={pendingRequests}
+        isLoading={overviewLoading}
       />
 
       <>
@@ -506,6 +508,7 @@ function AllEmployee() {
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
+        onPeriodChange={handlePeriodChange}
         showIdCol={showIdCol}
         showName={showName}
         resource={resourceNameMapWithCamelCase.reimbursement}
