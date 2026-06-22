@@ -24,6 +24,7 @@ export interface IReimbursementsUpdate {
   employeeId?: string;
   expenseDate?: string;
   fromLocation?: string;
+  toLocation?: string;
   id?: string;
   reimbursementTypeId?: string;
   reimbursementType?: {
@@ -38,6 +39,9 @@ export interface IReimbursementsUpdate {
     }
   }
   status?: string | number;
+  clientTypeId?: string;
+  clientCompanyId?: string;
+  projectId?: string;
 }
 
 export interface IEmployeesAttendance {
