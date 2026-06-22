@@ -57,7 +57,6 @@ const ProjectsMain = () => {
           : projectsIcons.projectsIcon.default,
     },
     {
-      // Project analytics = Received Leads Analytics (status.isProjectTrigger)
       title: "Overview",
       component: <ProjectOverview />,
       icon:

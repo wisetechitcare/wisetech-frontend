@@ -23,6 +23,12 @@ export interface LeadOverviewDashboardProps {
   directSourceData: ChartDatum[];
   /** Redux chartSettings — controls which sections are visible. */
   settings: any;
+  /**
+   * Render the Executive Overview KPI section. The Yearly dashboard supplies
+   * its own KPI strip (with YoY deltas + sparklines) and sets this to false to
+   * avoid a duplicate KPI row. Defaults to true (Monthly behaviour unchanged).
+   */
+  showKpis?: boolean;
   onStatusSelect?: (label: string) => void;
   onServiceSelect?: (label: string) => void;
   onCategorySelect?: (label: string) => void;
@@ -54,6 +60,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   referralSourceData,
   directSourceData,
   settings,
+  showKpis = true,
   onStatusSelect,
   onServiceSelect,
   onCategorySelect,
@@ -92,25 +99,27 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {/* ── Section 1: Executive Overview ──────────────────────────────── */}
-      <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <AnalyticsHeader
-          title="Executive Overview"
-          subtitle="Complete business snapshot for the selected period"
-          icon="bi-speedometer2"
-          accent="#6366F1"
-        />
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {kpiCards.map((c, i) => (
-            <KpiStatCard key={c.label} {...c} index={i} />
-          ))}
-        </div>
-      </section>
+      {showKpis && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <AnalyticsHeader
+            title="Executive Overview"
+            subtitle="Complete business snapshot for the selected period"
+            icon="bi-speedometer2"
+            accent="#6366F1"
+          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {kpiCards.map((c, i) => (
+              <KpiStatCard key={c.label} {...c} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Section 2: Pipeline Performance ────────────────────────────── */}
       {showStatus && (

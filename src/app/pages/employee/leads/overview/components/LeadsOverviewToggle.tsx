@@ -14,6 +14,7 @@ import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/componen
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
+import AllTime from "./AllTime";
 import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import { Modal } from "react-bootstrap";
@@ -154,6 +155,9 @@ const LeadsOverviewToggle = ({
           toggleItemsActions?.yearly(yearStart, yearEnd);
         }
         break;
+      case "alltime":
+        // All-time view doesn't need date parameters
+        break;
       case "custom":
         if (customStartDate && customEndDate) {
           toggleItemsActions?.custom(customStartDate, customEndDate);
@@ -275,7 +279,7 @@ const LeadsOverviewToggle = ({
             value={alignment}
             onChange={(e) => handleChange(e as any, e.target.value)}
             showCustom={true}
-            modes={["monthly", "yearly"]}
+            modes={["monthly", "yearly", "alltime"]}
             sx={{
               width: { xs: "100%", md: "200px" },
               borderRadius: "8px",
@@ -309,6 +313,12 @@ const LeadsOverviewToggle = ({
               onNext={() => navigateYear("next")}
               displayText={fiscalYearDisplay}
             />
+          )}
+
+          {alignment === "alltime" && (
+            <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px" }}>
+              All-Time Summary
+            </div>
           )}
 
           {alignment === "custom" && (
@@ -349,6 +359,9 @@ const LeadsOverviewToggle = ({
       )}
       {alignment === "yearly" && yearStart && yearEnd && (
         <Yearly startDate={yearStart} endDate={yearEnd} key={`yearly-${refreshTrigger}`} />
+      )}
+      {alignment === "alltime" && (
+        <AllTime key={`alltime-${refreshTrigger}`} />
       )}
       {alignment === "custom" ? (
         customStartDate && customEndDate ? (

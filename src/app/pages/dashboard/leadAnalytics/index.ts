@@ -10,4 +10,7 @@ export { default as PipelineHealthRing } from "./PipelineHealthRing";
 export { default as LeadServiceTreemap } from "./LeadServiceTreemap";
 export { default as RankedBarChart } from "./RankedBarChart";
 export { default as CategorySunburst } from "./CategorySunburst";
+export { default as YearlyGrowthChart } from "./YearlyGrowthChart";
+export { default as YearlyInsightsPanel } from "./YearlyInsightsPanel";
 export * from "./leadAnalyticsUtils";
+export * from "./yearlyAnalyticsUtils";

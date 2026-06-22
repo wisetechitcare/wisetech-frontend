@@ -6,11 +6,9 @@ import {
   getLeadsByDirectSourceAnalytics,
   getLeadsByReferralSourceAnalytics,
   getLeadsBySourceAnalytics,
-  getLeadsByCompanyTypeAnalytics,
   getMonthlyLeadAnalytics,
   getMonthlyLeadsByReferralSources,
   getMonthlyLeadsByDirectSources,
-  getMonthlyTopLeads,
   getLeadsByLocationAnalytics,
   getAllLeadStatus,
 } from "@services/lead";
@@ -23,17 +21,13 @@ import {
   convertToChartData,
   convertDirectSourceData,
   convertReferralSourceData,
-  convertCompanyTypeData,
   convertSubcategoryData,
   transformYearlyDataReferralSources,
   transformYearlyDataDirectSources,
-  transformTopLeadsDataAdvanced,
 } from "@utils/leadsProjectCompaniesStatistics";
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
-import LeadByLocationAndStatus from "../commonComponents/LeadByLocationChart";
+import LeadByLocationAndStatus from "@app/pages/employee/leads/overview/commonComponents/LeadByLocationChart";
 import { ChartDialogModal } from "./ChartDialogModal";
-import YearlyPerformanceAnalytics from "./charts/YearlyPerformanceAnalytics";
-import MonthlyBarWithTarget from "./charts/MonthlyBarWithTarget";
 import {
   LeadOverviewDashboard,
   AnalyticsCard,
@@ -53,7 +47,6 @@ interface Props {
   endDate: dayjs.Dayjs;
 }
 
-/** Aggregate the nested location analytics into ranked chart data by locality. */
 const aggregateLocations = (rows: any[]): ChartDatum[] => {
   const map = new Map<string, ChartDatum>();
   (Array.isArray(rows) ? rows : []).forEach((r) => {
@@ -75,10 +68,8 @@ const Yearly = ({ startDate, endDate }: Props) => {
     directSourceData: [],
     referralSourceData: [],
     sourceData: [],
-    companyTypeData: [],
     yearlyReferralSourceData: [],
     yearlyDirectSourceData: [],
-    topLeadsData: [],
     locationData: [],
   });
 
@@ -92,22 +83,15 @@ const Yearly = ({ startDate, endDate }: Props) => {
     subcategoryCategory: "",
     directSource: "",
     referralStatus: "",
-    companyType: "",
-    topLeadsType: "source", // source, category, service
-    topLeadsStatus: "",
-    topLeadsReferralType: "",
-    topLeadsDirectSource: "",
   });
 
   const [directSourceRes, setDirectSourceRes] = useState<any>(null);
   const [referralSourceRes, setReferralSourceRes] = useState<any>(null);
   const [sourceRes, setSourceRes] = useState<any>(null);
-  const [companyTypeRes, setCompanyTypeRes] = useState<any>(null);
   const [subcategoryRes, setSubcategoryRes] = useState<any>(null);
   const [monthlyLeadsRes, setMonthlyLeadsRes] = useState<any>(null);
   const [prevMonthlyLeadsRes, setPrevMonthlyLeadsRes] = useState<any>(null);
   const [locationRes, setLocationRes] = useState<any>(null);
-  const [monthlyTopLeadsRes, setMonthlyTopLeadsRes] = useState<any>(null);
   const [leadStatusesID, setLeadStatusesID] = useState<any>([]);
 
   const [open, setOpen] = useState(false);
@@ -124,29 +108,8 @@ const Yearly = ({ startDate, endDate }: Props) => {
   const [openSource, setOpenSource] = useState(false);
   const [subCategoryId, setSubCategoryId] = useState("");
   const [openSubCategory, setOpenSubCategory] = useState(false);
-  const [companyTypeId, setCompanyTypeId] = useState("");
-  const [openCompanyType, setOpenCompanyType] = useState(false);
-  const [topLeadsId, setTopLeadsId] = useState<string[] | null>(null);
-  const [openTopLeads, setOpenTopLeads] = useState(false);
 
   const settings = useSelector((state: any) => state.chartSettings);
-
-  const handleTopLeadsFilterChange = (filterType: string, value: string) => {
-    if (filterType === "topLeadsType") {
-      setFilters((prevFilters: any) => ({
-        ...prevFilters,
-        [filterType]: value,
-        topLeadsStatus: "",
-        topLeadsReferralType: "",
-        topLeadsDirectSource: "",
-      }));
-    } else {
-      setFilters((prevFilters: any) => ({
-        ...prevFilters,
-        [filterType]: value,
-      }));
-    }
-  };
 
   const handleFilterChange = (filterType: string, value: string) => {
     setFilters((prevFilters: any) => ({
@@ -212,7 +175,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
     setOpenSubCategory(true);
   };
 
-  // Sunburst emits either a category or a sub-category name — route accordingly.
   const handleCategoryNodeClick = (selectedLabel: string) => {
     let isSub = false;
     subcategoryRes?.data?.forEach((cat: any) =>
@@ -261,56 +223,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
     setOpenSource(true);
   };
 
-  const handleCompanyTypeChartClick = (selectedLabel: string) => {
-    let selectedCompanyType: any = null;
-    companyTypeRes?.data?.forEach((statusGroup: any) => {
-      if (statusGroup.allLeadsByAllCompanyType) {
-        const found = statusGroup.allLeadsByAllCompanyType.find(
-          (companyType: any) => companyType.name === selectedLabel
-        );
-        if (found) {
-          selectedCompanyType = found;
-        }
-      }
-    });
-
-    if (selectedCompanyType) {
-      setCompanyTypeId(selectedCompanyType.id);
-      handleFilterChange("companyType", selectedCompanyType.name);
-    } else {
-      setCompanyTypeId(selectedLabel);
-    }
-    setOpenCompanyType(true);
-  };
-
-  const handleTopLeadsChartClick = (selectedLabel?: string) => {
-    let ids: string[] = [];
-
-    monthlyTopLeadsRes?.data?.forEach((status: any) => {
-      Object.values(status.data).forEach((sections: any) => {
-        sections.forEach((entry: any) => {
-          if (entry.name === selectedLabel) {
-            entry.data.forEach((item: any) => {
-              if (item.lead?.id) {
-                ids.push(item.lead.id);
-              }
-            });
-          }
-        });
-      });
-    });
-
-    setTopLeadsId(ids);
-    setOpenTopLeads(true);
-    return ids;
-  };
-
-  const applyFilter = (data: ChartData[], filterKey: string) => {
-    const filterValue = filters[filterKey];
-    if (!filterValue || filterValue === "all") return data;
-    return data.filter((item) => item.label === filterValue);
-  };
-
   const startDates = startDate.startOf("month").format("YYYY-MM-DD");
   const endDates = endDate.endOf("month").format("YYYY-MM-DD");
   const prevStartDates = startDate
@@ -321,49 +233,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
     .subtract(1, "year")
     .endOf("month")
     .format("YYYY-MM-DD");
-
-  const getFilteredTopLeadsData = () => {
-    if (!monthlyTopLeadsRes?.data) return [];
-    const {
-      topLeadsType,
-      topLeadsStatus,
-      topLeadsReferralType,
-      topLeadsDirectSource,
-    } = filters;
-    return transformTopLeadsDataAdvanced(monthlyTopLeadsRes.data, {
-      groupBy: topLeadsType,
-      status: topLeadsStatus,
-      referralType: topLeadsReferralType,
-      directSource: topLeadsDirectSource,
-    });
-  };
-
-  const getTopLeadsFilterOptions = () => {
-    if (!monthlyTopLeadsRes?.data) {
-      return { statusOptions: [], referralTypeOptions: [], directSourceOptions: [] };
-    }
-
-    const statusOptions = monthlyTopLeadsRes.data.map((status: any) => status.name);
-    let referralTypeOptions: string[] = [];
-    let directSourceOptions: string[] = [];
-
-    monthlyTopLeadsRes.data.forEach((status: any) => {
-      if (status.data) {
-        if (status.data.referralType) {
-          status.data.referralType.forEach((ref: any) => {
-            if (!referralTypeOptions.includes(ref.name)) referralTypeOptions.push(ref.name);
-          });
-        }
-        if (status.data.directSource) {
-          status.data.directSource.forEach((direct: any) => {
-            if (!directSourceOptions.includes(direct.name)) directSourceOptions.push(direct.name);
-          });
-        }
-      }
-    });
-
-    return { statusOptions, referralTypeOptions, directSourceOptions };
-  };
 
   useEffect(() => {
     const fetchLeadStatuses = async () => {
@@ -395,43 +264,38 @@ const Yearly = ({ startDate, endDate }: Props) => {
           directSourceApiRes,
           referralSourceApiRes,
           sourceApiRes,
-          companyTypeApiRes,
           monthlyLeadsApiRes,
           prevMonthlyLeadsApiRes,
           yearlyReferralSourceRes,
           yearlyDirectSourceRes,
-          monthlyTopLeadsApiRes,
           locationApiRes,
         ] = await Promise.all([
-          getLeadsByStatusAnalytics(startDates, endDates),
-          getLeadsByServiceAnalytics(startDates, endDates),
+          getLeadsByStatusAnalytics(startDates, endDates, true), // receivedOnly
+          getLeadsByServiceAnalytics(startDates, endDates, true), // receivedOnly
           getLeadsByProjectCategoryAnalytics(
             startDates,
             endDates,
-            filters.category === "All" ? "" : filters.category
+            filters.category === "All" ? "" : filters.category,
+            true // receivedOnly
           ),
-          getLeadsBySubcategoryAnalytics(startDates, endDates),
-          getLeadsByDirectSourceAnalytics(startDates, endDates),
-          getLeadsByReferralSourceAnalytics(startDates, endDates),
-          getLeadsBySourceAnalytics(startDates, endDates),
-          getLeadsByCompanyTypeAnalytics(startDates, endDates),
-          getMonthlyLeadAnalytics(startDates, endDates),
-          getMonthlyLeadAnalytics(prevStartDates, prevEndDates),
-          getMonthlyLeadsByReferralSources(startDates, endDates),
-          getMonthlyLeadsByDirectSources(startDates, endDates),
-          getMonthlyTopLeads(startDates, endDates, filters.topLeadsType),
-          getLeadsByLocationAnalytics(startDates, endDates),
+          getLeadsBySubcategoryAnalytics(startDates, endDates, true), // receivedOnly
+          getLeadsByDirectSourceAnalytics(startDates, endDates, true), // receivedOnly
+          getLeadsByReferralSourceAnalytics(startDates, endDates, true), // receivedOnly
+          getLeadsBySourceAnalytics(startDates, endDates, true), // receivedOnly
+          getMonthlyLeadAnalytics(startDates, endDates, true), // receivedOnly
+          getMonthlyLeadAnalytics(prevStartDates, prevEndDates, true), // receivedOnly
+          getMonthlyLeadsByReferralSources(startDates, endDates, true), // receivedOnly
+          getMonthlyLeadsByDirectSources(startDates, endDates, true), // receivedOnly
+          getLeadsByLocationAnalytics(startDates, endDates, true), // receivedOnly
         ]);
 
         setDirectSourceRes(directSourceApiRes);
         setReferralSourceRes(referralSourceApiRes);
         setSourceRes(sourceApiRes);
-        setCompanyTypeRes(companyTypeApiRes);
         setSubcategoryRes(subcategoryApiRes);
         setMonthlyLeadsRes(monthlyLeadsApiRes);
         setPrevMonthlyLeadsRes(prevMonthlyLeadsApiRes);
         setLocationRes(locationApiRes);
-        setMonthlyTopLeadsRes(monthlyTopLeadsApiRes);
         setCategoryData(categoryRes?.data || []);
         setServiceData(serviceRes?.data || []);
 
@@ -461,21 +325,12 @@ const Yearly = ({ startDate, endDate }: Props) => {
             "budget"
           ),
           sourceData: convertToChartData(sourceApiRes?.data || [], "count", "source", "budget"),
-          companyTypeData: convertToChartData(
-            (companyTypeApiRes?.data || []).flatMap(
-              (source: any) => source.allLeadsByAllCompanyType || []
-            ),
-            "count",
-            "name",
-            "budget"
-          ),
           yearlyReferralSourceData: transformYearlyDataReferralSources(
             yearlyReferralSourceRes?.data || []
           ),
           yearlyDirectSourceData: transformYearlyDataDirectSources(
             yearlyDirectSourceRes?.data || []
           ),
-          topLeadsData: getFilteredTopLeadsData(),
         });
       } catch (error) {
         console.error("Error fetching chart data:", error);
@@ -486,23 +341,8 @@ const Yearly = ({ startDate, endDate }: Props) => {
     };
 
     fetchData();
-  }, [startDate, endDate, filters.topLeadsType]);
+  }, [startDate, endDate]);
 
-  useEffect(() => {
-    if (monthlyTopLeadsRes?.data) {
-      setChartData((prevData: any) => ({
-        ...prevData,
-        topLeadsData: getFilteredTopLeadsData(),
-      }));
-    }
-  }, [
-    filters.topLeadsStatus,
-    filters.topLeadsReferralType,
-    filters.topLeadsDirectSource,
-    monthlyTopLeadsRes,
-  ]);
-
-  // Keep distribution charts in sync with their dependent filters.
   useEffect(() => {
     if (subcategoryRes?.data) {
       setChartData((prevData: any) => ({
@@ -539,16 +379,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
     }
   }, [filters.referralStatus, referralSourceRes]);
 
-  useEffect(() => {
-    if (companyTypeRes?.data) {
-      setChartData((prevData: any) => ({
-        ...prevData,
-        companyTypeData: convertCompanyTypeData(companyTypeRes?.data, filters.companyType),
-      }));
-    }
-  }, [filters.companyType, companyTypeRes]);
-
-  // ── Derived yearly analytics ─────────────────────────────────────────────
+  // ── Derived yearly analytics
   const currentSeries = useMemo(
     () => buildYearlySeries(monthlyLeadsRes?.data || []),
     [monthlyLeadsRes]
@@ -601,12 +432,8 @@ const Yearly = ({ startDate, endDate }: Props) => {
     );
   }
 
-  const companyTypeFilterOptions =
-    companyTypeRes?.data?.map((item: any) => item.name) || [];
-  const topLeadsFilterOptions = getTopLeadsFilterOptions();
-
   return (
-    <div className="">
+    <div>
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
         {/* ── Section 1: Executive Overview (KPIs with YoY + sparklines) ─── */}
         <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -629,40 +456,21 @@ const Yearly = ({ startDate, endDate }: Props) => {
           </div>
         </section>
 
-        {/* ── Section 2: Yearly Lead Growth (hero trend) ─────────────────── */}
+        {/* ── Section 2: Yearly Project Growth (hero trend) ─────────────────── */}
         <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <AnalyticsHeader
-            title="Yearly Lead Growth"
-            subtitle="How lead creation and conversion moved month by month"
+            title="Yearly Project Growth"
+            subtitle="How project creation and conversion moved month by month"
             icon="bi-graph-up"
             accent="#22C55E"
           />
           <YearlyGrowthChart series={currentSeries} periodLabel={fiscalLabel} />
         </section>
 
-        {/* ── Section 3: Revenue Intelligence & Forecast ─────────────────── */}
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Revenue Intelligence & Forecast"
-            subtitle="Cumulative value vs target, smart forecast and monthly value performance"
-            icon="bi-cash-coin"
-            accent="#8B5CF6"
-          />
-          <div className="row g-3">
-            <div className="col-12 col-xl-6">
-              <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
-            </div>
-            <div className="col-12 col-xl-6">
-              <MonthlyBarWithTarget startDate={startDates} endDate={endDates} />
-            </div>
-          </div>
-        </section>
-
-        {/* ── Section 4: Executive Insights ──────────────────────────────── */}
+        {/* ── Section 3: Executive Insights ──────────────────────────────── */}
         <YearlyInsightsPanel insights={yearlyInsights} />
 
-        {/* ── Sections 5-8: Pipeline / Service / Acquisition / Category ──── */}
-        {/* Reuses the shared dashboard for full consistency with Monthly.    */}
+        {/* ── Sections 4-7: Pipeline / Service / Acquisition / Category ──── */}
         <LeadOverviewDashboard
           statusData={chartData.statusData}
           serviceData={chartData.serviceData}
@@ -680,50 +488,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
           onReferralSelect={handleReferralChartClick}
         />
 
-        {/* ── Section 9: Segment Analysis (company type) ─────────────────── */}
-        {settings?.showLeadsByCompanyType && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Segment Analysis"
-              subtitle="Which client segments generated the most leads this year"
-              icon="bi-buildings"
-              accent="#EC4899"
-            />
-            <AnalyticsCard
-              title="Lead by Company Type"
-              subtitle="Ranked by lead volume · revenue in tooltip"
-              isEmpty={
-                !chartData.companyTypeData?.length ||
-                chartData.companyTypeData.every((d: any) => !d.value)
-              }
-              emptyHint="No company-type data for this year."
-              headerRight={
-                <select
-                  className="form-select form-select-sm"
-                  style={{ minWidth: 150 }}
-                  value={filters.companyType || ""}
-                  onChange={(e) => handleFilterChange("companyType", e.target.value)}
-                >
-                  <option value="">All Status</option>
-                  {companyTypeFilterOptions.map((o: string) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              }
-            >
-              <RankedBarChart
-                data={chartData.companyTypeData}
-                onSelect={handleCompanyTypeChartClick}
-                showRevenue
-                height={320}
-              />
-            </AnalyticsCard>
-          </section>
-        )}
-
-        {/* ── Section 10: Source Trends Over Time (yearly time-series) ────── */}
+        {/* ── Section 8: Source Trends Over Time (yearly time-series) ────── */}
         {(settings?.showLeadsByYearlyReferralSource || settings?.showLeadsFromReferral) &&
           chartData.yearlyReferralSourceData?.length > 0 && (
             <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -760,107 +525,12 @@ const Yearly = ({ startDate, endDate }: Props) => {
             </section>
           )}
 
-        {/* ── Section 11: Top Performers ─────────────────────────────────── */}
-        {settings?.showTopLeads && (
-          <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <AnalyticsHeader
-              title="Top Performers"
-              subtitle="Highest-volume lead groups for the year"
-              icon="bi-trophy"
-              accent="#F59E0B"
-            />
-            <AnalyticsCard
-              title="Top 10 Leads"
-              subtitle="Click a bar to drill into the underlying leads"
-              isEmpty={!chartData.topLeadsData?.length}
-              emptyHint="No lead data for this year."
-              headerRight={
-                <>
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsType || "source"}
-                    onChange={(e) => handleTopLeadsFilterChange("topLeadsType", e.target.value)}
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="source">By Source</option>
-                    <option value="category">By Category</option>
-                    <option value="service">By Service</option>
-                  </select>
-
-                  <select
-                    className="form-select form-select-sm"
-                    value={filters.topLeadsStatus || ""}
-                    onChange={(e) => handleTopLeadsFilterChange("topLeadsStatus", e.target.value)}
-                    style={{ minWidth: "120px" }}
-                  >
-                    <option value="">All Status</option>
-                    {topLeadsFilterOptions.statusOptions.map((status: string) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-
-                  {topLeadsFilterOptions.referralTypeOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsReferralType || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange("topLeadsReferralType", e.target.value)
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Referral Types</option>
-                      {topLeadsFilterOptions.referralTypeOptions.map((type: string) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  {topLeadsFilterOptions.directSourceOptions.length > 0 && (
-                    <select
-                      className="form-select form-select-sm"
-                      value={filters.topLeadsDirectSource || ""}
-                      onChange={(e) =>
-                        handleTopLeadsFilterChange("topLeadsDirectSource", e.target.value)
-                      }
-                      style={{ minWidth: "150px" }}
-                    >
-                      <option value="">All Direct Sources</option>
-                      {topLeadsFilterOptions.directSourceOptions.map((source: string) => (
-                        <option key={source} value={source}>
-                          {source}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </>
-              }
-            >
-              <RankedBarChart
-                data={(chartData.topLeadsData || []).map((d: any) => ({
-                  label: d.label,
-                  value: d.value,
-                  color: d.color,
-                  totalCost: d.budget,
-                }))}
-                onSelect={handleTopLeadsChartClick}
-                showRevenue
-                limit={10}
-                height={400}
-              />
-            </AnalyticsCard>
-          </section>
-        )}
-
-        {/* ── Section 12: Geographic Distribution ────────────────────────── */}
+        {/* ── Section 9: Geographic Distribution ────────────────────────── */}
         {settings?.showLeadsByLocation && (
           <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <AnalyticsHeader
               title="Geographic Distribution"
-              subtitle="Where leads came from this year — drill down country → locality"
+              subtitle="Where projects came from this year — drill down country → locality"
               icon="bi-geo-alt"
               accent="#14B8A6"
             />
@@ -880,6 +550,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         statusId={statusId || undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        receivedOnly={true}
       />
       <ChartDialogModal
         open={openService}
@@ -887,6 +558,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         serviceId={serviceId || undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        receivedOnly={true}
       />
       <ChartDialogModal
         open={openCategory}
@@ -894,6 +566,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         categoryId={categoryId || undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        receivedOnly={true}
       />
       <ChartDialogModal
         open={openReferral}
@@ -901,6 +574,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         referralId={referralId || undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        receivedOnly={true}
       />
       <ChartDialogModal
         open={openSource}
@@ -908,6 +582,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         sourceId={sourceId || undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
+        receivedOnly={true}
       />
       <ChartDialogModal
         open={openSubCategory}
@@ -915,20 +590,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         subCategoryId={subCategoryId || undefined}
         startDate={startDate || undefined}
         endDate={endDate || undefined}
-      />
-      <ChartDialogModal
-        open={openCompanyType}
-        onClose={() => setOpenCompanyType(false)}
-        companyTypeId={companyTypeId || undefined}
-        startDate={startDate || undefined}
-        endDate={endDate || undefined}
-      />
-      <ChartDialogModal
-        open={openTopLeads}
-        onClose={() => setOpenTopLeads(false)}
-        topLeadsId={topLeadsId || undefined}
-        startDate={startDate || undefined}
-        endDate={endDate || undefined}
+        receivedOnly={true}
       />
     </div>
   );
