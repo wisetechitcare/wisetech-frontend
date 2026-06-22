@@ -89,14 +89,14 @@ function ReimbursementEmployeeLimit() {
       {
         accessorKey: "name",
         header: "Employee",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "reimbursementLimitPerRequest",
         header: "Amount Limit Per Request",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const rowData = row.original as IReimbursementEmployeeLimit;

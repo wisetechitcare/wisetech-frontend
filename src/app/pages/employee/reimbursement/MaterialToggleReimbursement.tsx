@@ -4,6 +4,7 @@ import AllTime from "@pages/employee/reimbursement/views/AllTime";
 import Daily from "@pages/employee/reimbursement/views/AllTime";
 import Monthly from "@pages/employee/reimbursement/views/Monthly";
 import Yearly from "@pages/employee/reimbursement/views/Yearly";
+import SubmissionsTable from "@pages/employee/reimbursement/views/SubmissionsTable";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import React, { useEffect, useState } from "react";
 import DateSelector from "@components/DateSelector";
@@ -37,6 +38,8 @@ interface MaterialToggleProps {
   viewOwn?: boolean,
   viewOthers?: boolean,
   checkOwnWithOthers?: boolean,
+  /** When 'submissions', renders a batch/submission-level table instead of request-level rows. */
+  viewMode?: 'requests' | 'submissions',
 }
 
 const MaterialToggleReimbursement = ({
@@ -51,6 +54,7 @@ const MaterialToggleReimbursement = ({
   viewOwn = false,
   viewOthers = false,
   checkOwnWithOthers = false,
+  viewMode = 'requests',
 }: MaterialToggleProps) => {
 
   const dispatch = useDispatch();
@@ -110,7 +114,6 @@ const MaterialToggleReimbursement = ({
     <>
       <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0">
         <ToggleButtonGroup
-          className="flex flex-wrap gap-5"
           value={alignment}
           exclusive
           onChange={(event: React.MouseEvent<HTMLElement>, value: any) =>
@@ -118,38 +121,44 @@ const MaterialToggleReimbursement = ({
           }
           aria-label="view selection"
           sx={{
-            '& .MuiToggleButton-root': {
-              borderRadius: '20px',
-              borderColor: '#A0B4D2 !important',
-              color: '#000000 !important',
-              paddingX: {
-                xs: "0px",
-                md: "20px"
-              },
-              borderWidth: '2px',
-              fontWeight: '600',
-              width: 'auto',
-              minWidth: {
-                xs: '65px',
-                sm: '75px'
-              },
-              fontSize: {
-                xs: '10px',
-                sm: '12px'
-              },
-              height: { xs: "30px", sm: '36px' },
-              fontFamily: 'Inter',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0,
+            height: 30,
+            p: '2px',
+            borderRadius: '5px',
+            backgroundColor: '#f1f5f9',
+            border: '1px solid #eef2f7',
+            width: 'fit-content',
+            maxWidth: '100%',
+            overflowX: 'auto',
+            '& .MuiToggleButtonGroup-grouped': {
+              border: 0,
+              borderRadius: '4px !important',
+              minWidth: 0,
+              minHeight: 24,
+              px: 1.6,
+              py: 0,
+              color: '#475569',
+              fontSize: 12,
+              fontWeight: 500,
+              lineHeight: '24px',
               textTransform: 'none',
+              whiteSpace: 'nowrap',
+              letterSpacing: 0,
             },
-
-            "& .Mui-selected": {
-              borderColor: "#9D4141 !important",
-              fontStyle: "#9D4141 !important",
-              color: "#9D4141 !important",
+            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+              marginLeft: 0,
+              borderLeft: 0,
             },
-            "& .MuiToggleButton-root:hover": {
-              borderColor: "#9D4141 !important",
-              color: "#9D4141 !important",
+            '& .MuiToggleButton-root:hover': {
+              backgroundColor: '#e8eef6',
+            },
+            '& .Mui-selected': {
+              backgroundColor: '#ffffff !important',
+              color: '#aa393d !important',
+              fontWeight: 700,
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
             },
           }}
         >
@@ -195,11 +204,27 @@ const MaterialToggleReimbursement = ({
         )}
       </div>
 
-      {alignment == "monthly" && <Monthly month={month} onEdit={onEdit || (() => { })} selectedEmployeeId={selectedEmployeeId} showEditDeleteOption={showEditDeleteOption} showIdCol={showIdCol} showName={showName} resource={resource} viewOwn={viewOwn} viewOthers={viewOthers} checkOwnWithOthers={checkOwnWithOthers} />}
+      {viewMode === 'submissions' ? (
+        <SubmissionsTable
+          period={alignment}
+          date={alignment === 'yearly' ? year : month}
+          selectedEmployeeId={selectedEmployeeId}
+          onEdit={onEdit}
+          showEditDeleteOption={showEditDeleteOption}
+          resource={resource}
+          viewOwn={viewOwn}
+          viewOthers={viewOthers}
+          checkOwnWithOthers={checkOwnWithOthers}
+        />
+      ) : (
+        <>
+          {alignment == "monthly" && <Monthly month={month} onEdit={onEdit || (() => { })} selectedEmployeeId={selectedEmployeeId} showEditDeleteOption={showEditDeleteOption} showIdCol={showIdCol} showName={showName} resource={resource} viewOwn={viewOwn} viewOthers={viewOthers} checkOwnWithOthers={checkOwnWithOthers} />}
 
-      {alignment == "yearly" && <Yearly year={year} onEdit={onEdit || (() => { })} selectedEmployeeId={selectedEmployeeId} showEditDeleteOption={showEditDeleteOption} showIdCol={showIdCol} showName={showName} resource={resource} viewOwn={viewOwn} viewOthers={viewOthers} checkOwnWithOthers={checkOwnWithOthers} />}
+          {alignment == "yearly" && <Yearly year={year} onEdit={onEdit || (() => { })} selectedEmployeeId={selectedEmployeeId} showEditDeleteOption={showEditDeleteOption} showIdCol={showIdCol} showName={showName} resource={resource} viewOwn={viewOwn} viewOthers={viewOthers} checkOwnWithOthers={checkOwnWithOthers} />}
 
-      {alignment == "allTime" && <AllTime resource={resource} viewOwn={viewOwn} viewOthers={viewOthers} checkOwnWithOthers={checkOwnWithOthers} onEdit={onEdit || (() => { })} selectedEmployeeId={selectedEmployeeId} showEditDeleteOption={showEditDeleteOption} showIdCol={showIdCol} showName={showName} />}
+          {alignment == "allTime" && <AllTime resource={resource} viewOwn={viewOwn} viewOthers={viewOthers} checkOwnWithOthers={checkOwnWithOthers} onEdit={onEdit || (() => { })} selectedEmployeeId={selectedEmployeeId} showEditDeleteOption={showEditDeleteOption} showIdCol={showIdCol} showName={showName} />}
+        </>
+      )}
     </>
   );
 };

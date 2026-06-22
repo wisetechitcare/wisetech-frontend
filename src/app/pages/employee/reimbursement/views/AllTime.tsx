@@ -18,6 +18,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
+import { Tooltip } from "@mui/material";
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -292,7 +293,11 @@ function AllTime({
         accessorKey: "amount",
         header: "Amount",
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        Cell: ({ row, renderedCellValue }: any) => (
+          <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
+            {renderedCellValue}
+          </span>
+        ),
       },
       {
         accessorKey: "status",
@@ -307,10 +312,11 @@ function AllTime({
         Cell: ({ row }: any) => {
           const status = row.original.status;
           if (status === 'Rejected') return <span className="text-muted">N/A</span>;
-          if (status !== 'Approved') return <span className="text-muted">—</span>;
+          if (status !== 'Approved') return <span className="text-muted">N/A</span>;
           const ps = row.original.paymentStatus;
           if (ps === 'PAID') return <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>;
-          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Unpaid</span>;
+          if (ps === 'PARTIAL') return <span className="badge badge-light-info text-info fw-bold px-3 py-2">Partially Paid</span>;
+          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Pending</span>;
         },
       },
       {
@@ -322,7 +328,7 @@ function AllTime({
           const reason = row.original.rejectionReason;
           if (status === 'Approved') return <span className="text-muted">N/A</span>;
           if (status === 'Rejected' && reason) return <span className="text-danger">{reason}</span>;
-          return <span className="text-muted">—</span>;
+          return <span className="text-muted">N/A</span>;
         },
       },
       {
@@ -349,13 +355,18 @@ function AllTime({
         enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => {
-          const isApproved = row.original.status === 'Approved';
           const isPending = row.original.status === 'Pending';
-          const resEdit = !isApproved && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
-          const resDelete = !isApproved && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
+          const resEdit = isPending && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
+          const resDelete = isPending && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
 
-          if (isApproved) {
-            return <span className="text-muted">No actions available</span>;
+          if (!isPending) {
+            return (
+              <Tooltip title="This reimbursement has already been processed and cannot be modified." arrow placement="top">
+                <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
+                  No Action Available
+                </span>
+              </Tooltip>
+            );
           }
 
           return (
@@ -385,7 +396,7 @@ function AllTime({
                   <KTIcon iconName="map" className="fs-3" />
                 </button>
               )}
-              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && "Not Allowed"}
+              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && <span className="text-muted fs-7">—</span>}
             </div>
           );
         },
