@@ -327,11 +327,13 @@ export interface IReimbursementTypeFetch {
   id: string,
   type: string,
   icon?: string,
-  isActive?: boolean
+  isActive?: boolean,
+  amountLimit?: number | null,
 }
 export interface IReimbursementTypeCreate {
   type: string,
   icon?: string,
+  amountLimit?: number | null,
 }
 
 export interface IReimbursementsFetch {

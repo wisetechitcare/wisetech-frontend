@@ -1,526 +1,526 @@
-import { IReimbursements, IReimbursementsFetch } from "@models/employee";
-import { RootState } from "@redux/store";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import dayjs, { Dayjs } from 'dayjs';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
 import {
-  approveEmpReimbursementRequestById,
-  fetchAllTimeReimbursementsOfAllEmp,
   fetchMonthlyReimbursementsOfAllEmp,
   fetchYearlyReimbursementsOfAllEmp,
-  rejectEmpReimbursementRequestById,
-} from "@utils/statistics";
-import dayjs, { Dayjs } from "dayjs";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import ReactDOM from "react-dom";
-import { useSelector } from "react-redux";
-import ReimbursementOverview from "../common/ReimbursementOverview";
-import MaterialToggleReimbursement, {
-  PeriodAlignment,
-  ToggleItemsCallBackFunctions,
-} from "../../MaterialToggleReimbursement";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { MRT_ColumnDef } from "material-react-table";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { deleteConfirmation, errorConfirmation, successConfirmation } from "@utils/modal";
-import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import { approveMultipleReimbursements } from "@services/employee";
-import { toast } from "react-toastify";
-import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
+  fetchAllTimeReimbursementsOfAllEmp,
+} from '@utils/statistics';
+import { fetchAllEmployees } from '@services/employee';
+import { IReimbursementsFetch } from '@models/employee';
+import MaterialTable from '@app/modules/common/components/MaterialTable';
+import ExportButton from '@app/modules/common/components/ExportButton';
+import SalaryPeriodToolbar from '@pages/employee/salary/components/SalaryPeriodToolbar';
+import { ToolbarFilterSelect } from '@pages/employee/salary/admin/SalaryTableFilters';
+import { useRootOrgNames } from '@hooks/useRootOrgNames';
+import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
+import { Box } from '@mui/material';
+import ReimbursementSummaryCard from './ReimbursementSummaryCard';
 
-// ---------------------------------------------------------------------------
-// DocumentPreviewModal
-// ---------------------------------------------------------------------------
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-interface DocumentPreviewModalProps {
-  url: string;
-  onClose: () => void;
+type PeriodAlignment = 'monthly' | 'yearly' | 'allTime';
+type StatusFilter = 'Active' | 'Deactive' | 'All';
+
+interface EmployeeDetail {
+  subOrganization: string;
+  department: string;
+  branch: string;
+  isActive: boolean;
+  employeeCode: string;
+  name: string;
 }
 
-function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
-  const cleanUrl = url.split("?")[0].toLowerCase();
-  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(cleanUrl);
-  const isPdf = cleanUrl.endsWith(".pdf");
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  const modalContent = (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.65)",
-      }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Document preview"
-    >
-      <div
-        className="d-flex flex-column bg-white rounded shadow overflow-hidden"
-        style={{ width: "min(75vw, 900px)", height: "min(78vh, 710px)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header bar */}
-        <div className="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0">
-          <div className="d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate">
-            <KTIcon iconName="document" className="fs-4 text-primary" />
-            <span className="text-truncate" style={{ maxWidth: 560 }}>
-              {url.split("/").pop()?.split("?")[0] ?? "Document"}
-            </span>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 flex-shrink-0">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1"
-              title="Open in new tab"
-            >
-              <KTIcon iconName="exit-right-corner" className="fs-5" />
-              <span className="d-none d-sm-inline">Open in tab</span>
-            </a>
-
-            <button
-              className="btn btn-sm btn-icon btn-light btn-active-light-danger"
-              onClick={onClose}
-              title="Close preview (Esc)"
-            >
-              <KTIcon iconName="cross" className="fs-2" />
-            </button>
-          </div>
-        </div>
-
-        {/* Viewer */}
-        <div
-          className="flex-grow-1 overflow-hidden bg-light d-flex align-items-center justify-content-center"
-          style={{ minHeight: 0 }}
-        >
-          {isImage ? (
-            <img
-              src={url}
-              alt="Document preview"
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: "1rem", userSelect: "none" }}
-            />
-          ) : isPdf ? (
-            <iframe
-              src={url}
-              title="PDF preview"
-              style={{ width: "100%", height: "100%", border: "none" }}
-              allow="fullscreen"
-            />
-          ) : (
-            <div className="d-flex flex-column align-items-center gap-3 p-5 text-center w-100 h-100">
-              <iframe
-                src={url}
-                title="Document preview"
-                style={{ width: "100%", flex: 1, border: "none", borderRadius: 8, minHeight: 0 }}
-                allow="fullscreen"
-              />
-              <p className="text-muted fs-7 mb-0">
-                If the document does not display,{" "}
-                <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
-                  open it in a new tab
-                </a>.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  return ReactDOM.createPortal(modalContent, document.body);
+interface EmployeeSummary {
+  employeeId: string;
+  employeeCode: string;
+  name: string;
+  subOrganization: string;
+  department: string;
+  branch: string;
+  isActive: boolean;
+  totalRequestAmount: number;
+  totalApprovedAmount: number;
+  totalPendingAmount: number;
+  totalRejectedAmount: number;
+  totalRequests: number;
+  approvedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// AllEmployee
-// ---------------------------------------------------------------------------
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const fmtINR = (n: number) =>
+  `₹${Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
-  const [totalRequestedAmount, setTotalRequestedAmount] = useState(0);
-  const [totalRequests, setTotalRequests] = useState(0);
-  const [approvedRequests, setApprovedRequests] = useState(0);
-  const [rejectedRequests, setRejectedRequests] = useState(0);
-  const [pendingRequests, setPendingRequests] = useState(0);
-  const [overviewLoading, setOverviewLoading] = useState(true);
-  const [pendingRequestData, setPendingRequestData] = useState<IReimbursementsFetch[]>([]);
-  const [showIdCol] = useState(true);
-  const [showName] = useState(true);
-  const [fetchAgain, setFetchAgain] = useState(false);
-  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
-  const [loading, setLoading] = useState(false);
-  const [processingRowId, setProcessingRowId] = useState<string | null>(null);
-  const [processingAction, setProcessingAction] = useState<"approve" | "reject" | "approveAll" | null>(null);
-  const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
+  const [month, setMonth] = useState<Dayjs>(dayjs());
+  const [year, setYear] = useState<Dayjs>(dayjs());
+  const [fiscalYear, setFiscalYear] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [reimbursements, setReimbursements] = useState<IReimbursementsFetch[]>([]);
+  const [employeeDetailMap, setEmployeeDetailMap] = useState<Map<string, EmployeeDetail>>(new Map());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
+  const [subOrgFilter, setSubOrgFilter] = useState('All');
 
-  /** URL of the document currently being previewed; null = modal closed */
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
+  const rootOrgNames = useRootOrgNames();
 
-  const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
+  // ── Fiscal year ───────────────────────────────────────────────────────────
 
-  // Resolvers for the pending requests table (uses pendingRequestData for project prefetch)
-  const { resolveClientType, resolveClientCompany, resolveProject } =
-    useReimbursementLookups(pendingRequestData);
+  useEffect(() => {
+    if (!year) return;
+    generateFiscalYearFromGivenYear(year).then(({ startDate, endDate }) => {
+      setFiscalYear(`${startDate} to ${endDate}`);
+    }).catch(() => undefined);
+  }, [year]);
 
-  const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (): void { /* handled by onPeriodChange */ },
-    yearly: function (): void { /* handled by onPeriodChange */ },
-    allTime: function (): void { /* handled by onPeriodChange */ },
-  };
+  // ── Fetch employee details (sub-org / dept / branch) once on mount ────────
 
-  // ── Shared stats calculator ────────────────────────────────────────────────
-  const applyStats = (data: IReimbursementsFetch[]) => {
-    let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
-    data.forEach((ele) => {
-      if (ele.id) {
-        totalAmount += parseInt(ele.amount ?? "0");
-        totalRequest++;
-        if (ele.status === "Pending") pendingCount++;
-        else if (ele.status === "Rejected") rejectedCount++;
-        else approvedCount++;
+  useEffect(() => {
+    fetchAllEmployees().then((res: any) => {
+      const map = new Map<string, EmployeeDetail>();
+      (res?.data?.employees ?? []).forEach((emp: any) => {
+        map.set(emp.id, {
+          subOrganization: emp.companyOverview?.name || 'N/A',
+          department: emp.departments?.name || 'N/A',
+          branch: emp.branches?.name || 'N/A',
+          isActive: emp.isActive !== false,
+          employeeCode: emp.employeeCode || '',
+          name: emp.users
+            ? `${emp.users.firstName || ''} ${emp.users.lastName || ''}`.trim()
+            : 'N/A',
+        });
+      });
+      setEmployeeDetailMap(map);
+    }).catch(() => undefined);
+  }, []);
+
+  // ── Fetch reimbursements when period changes ──────────────────────────────
+
+  const fetchReimbursements = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      let data: IReimbursementsFetch[];
+      if (alignment === 'monthly') {
+        data = await fetchMonthlyReimbursementsOfAllEmp(month);
+      } else if (alignment === 'yearly') {
+        data = await fetchYearlyReimbursementsOfAllEmp(year);
+      } else {
+        data = await fetchAllTimeReimbursementsOfAllEmp();
+      }
+      setReimbursements(data);
+    } catch {
+      setReimbursements([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [alignment, month, year]);
+
+  useEffect(() => {
+    fetchReimbursements();
+  }, [fetchReimbursements]);
+
+  // ── Navigation handlers ───────────────────────────────────────────────────
+
+  const handlePrevMonth = useCallback(() => setMonth(m => m.subtract(1, 'month')), []);
+  const handleNextMonth = useCallback(() => setMonth(m => m.add(1, 'month')), []);
+  const handlePrevYear = useCallback(() => setYear(y => y.subtract(1, 'year')), []);
+  const handleNextYear = useCallback(() => setYear(y => y.add(1, 'year')), []);
+
+  // ── Aggregate reimbursements by employee ──────────────────────────────────
+
+  const employeeSummaries = useMemo<EmployeeSummary[]>(() => {
+    const map = new Map<string, EmployeeSummary>();
+
+    for (const r of reimbursements) {
+      const empId = r.employeeId || '';
+      if (!empId) continue;
+
+      if (!map.has(empId)) {
+        const details = employeeDetailMap.get(empId);
+        map.set(empId, {
+          employeeId: empId,
+          employeeCode: (r as any).ID || details?.employeeCode || '',
+          name: (r as any).name || details?.name || 'N/A',
+          subOrganization: details?.subOrganization || 'N/A',
+          department: details?.department || 'N/A',
+          branch: details?.branch || 'N/A',
+          isActive: details?.isActive ?? true,
+          totalRequestAmount: 0,
+          totalApprovedAmount: 0,
+          totalPendingAmount: 0,
+          totalRejectedAmount: 0,
+          totalRequests: 0,
+          approvedCount: 0,
+          pendingCount: 0,
+          rejectedCount: 0,
+        });
+      }
+
+      const emp = map.get(empId)!;
+      const amount = Number(r.amount || 0);
+      emp.totalRequests += 1;
+      emp.totalRequestAmount += amount;
+
+      if (r.status === 'Approved' || r.status === 1) {
+        emp.totalApprovedAmount += amount;
+        emp.approvedCount += 1;
+      } else if (r.status === 'Pending' || r.status === 0) {
+        emp.totalPendingAmount += amount;
+        emp.pendingCount += 1;
+      } else if (r.status === 'Rejected' || r.status === 2) {
+        emp.totalRejectedAmount += amount;
+        emp.rejectedCount += 1;
+      }
+    }
+
+    return Array.from(map.values());
+  }, [reimbursements, employeeDetailMap]);
+
+  // ── Sub-org options ───────────────────────────────────────────────────────
+
+  const subOrgOptions = useMemo(() => {
+    const names = new Set<string>();
+    employeeSummaries.forEach(e => {
+      if (e.subOrganization && e.subOrganization !== 'N/A' && !rootOrgNames.has(e.subOrganization)) {
+        names.add(e.subOrganization);
       }
     });
-    setTotalRequestedAmount(totalAmount);
-    setTotalRequests(totalRequest);
-    setApprovedRequests(approvedCount);
-    setRejectedRequests(rejectedCount);
-    setPendingRequests(pendingCount);
-    setOverviewLoading(false);
-  };
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [employeeSummaries, rootOrgNames]);
 
-  // ── Stats: re-fetch on period change or after approve/reject actions ───────
-  useEffect(() => {
-    const { alignment, date } = currentPeriod;
-    const fetchPromise =
-      alignment === 'monthly' ? fetchMonthlyReimbursementsOfAllEmp(date) :
-      alignment === 'yearly'  ? fetchYearlyReimbursementsOfAllEmp(date)  :
-      fetchAllTimeReimbursementsOfAllEmp();
-    fetchPromise.then(applyStats);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPeriod, fetchAgain]);
+  // ── Apply filters ─────────────────────────────────────────────────────────
 
-  // ── Pending requests (all-time) ───────────────────────────────────────────
-  useEffect(() => {
-    setPendingRequestData([]);
-    fetchAllTimeReimbursementsOfAllEmp().then((data) => {
-      const pending = data.filter((ele) => ele.id && ele.status === "Pending");
-      setPendingRequestData(pending);
+  const filteredSummaries = useMemo(() => {
+    return employeeSummaries.filter(emp => {
+      const statusMatch =
+        statusFilter === 'Active' ? emp.isActive :
+        statusFilter === 'Deactive' ? !emp.isActive :
+        true;
+      const subOrgMatch = subOrgFilter === 'All' || emp.subOrganization === subOrgFilter;
+      return statusMatch && subOrgMatch;
     });
-  }, [fetchAgain]);
+  }, [employeeSummaries, statusFilter, subOrgFilter]);
 
-  // ── Action handlers ───────────────────────────────────────────────────────
-  const handleApprove = async (rowDetails: IReimbursementsFetch) => {
-    if (!rowDetails?.id) return;
-    try {
-      setLoading(true);
-      setProcessingRowId(rowDetails.id);
-      setProcessingAction("approve");
-      await approveEmpReimbursementRequestById(rowDetails.id);
-      successConfirmation("Reimbursement Approved Successfully!");
-      setFetchAgain((prev) => !prev);
-    } catch (error) {
-      console.error("error in handleApprove", error);
-    } finally {
-      setLoading(false);
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
+  // ── Card totals ───────────────────────────────────────────────────────────
 
-  const handleReject = async (rowDetails: IReimbursementsFetch) => {
-    if (!rowDetails?.id) return;
-    try {
-      setLoading(true);
-      setProcessingRowId(rowDetails.id);
-      setProcessingAction("reject");
-      const val = await deleteConfirmation("Reimbursement Rejected Successfully!", "Yes, reject it!", "Rejected!");
-      if (val) {
-        await rejectEmpReimbursementRequestById(rowDetails.id);
-        setFetchAgain((prev) => !prev);
+  const cardTotals = useMemo(() => {
+    return filteredSummaries.reduce(
+      (acc, emp) => {
+        acc.totalRequestAmount += emp.totalRequestAmount;
+        acc.totalApprovedAmount += emp.totalApprovedAmount;
+        acc.totalPendingAmount += emp.totalPendingAmount;
+        acc.totalRejectedAmount += emp.totalRejectedAmount;
+        return acc;
+      },
+      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0 }
+    );
+  }, [filteredSummaries]);
+
+  // ── Table data ────────────────────────────────────────────────────────────
+
+  const tableData = useMemo(() => {
+    return filteredSummaries.slice().sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+  }, [filteredSummaries]);
+
+  // ── Column totals (footer row) ────────────────────────────────────────────
+
+  const columnTotals = useMemo(() => {
+    return tableData.reduce(
+      (acc, r) => {
+        acc.totalRequestAmount += r.totalRequestAmount;
+        acc.totalApprovedAmount += r.totalApprovedAmount;
+        acc.totalPendingAmount += r.totalPendingAmount;
+        acc.totalRejectedAmount += r.totalRejectedAmount;
+        acc.totalRequests += r.totalRequests;
+        acc.approvedCount += r.approvedCount;
+        acc.pendingCount += r.pendingCount;
+        acc.rejectedCount += r.rejectedCount;
+        return acc;
+      },
+      {
+        totalRequestAmount: 0, totalApprovedAmount: 0,
+        totalPendingAmount: 0, totalRejectedAmount: 0,
+        totalRequests: 0, approvedCount: 0, pendingCount: 0, rejectedCount: 0,
       }
-    } catch (error) {
-      console.error("error in handleReject", error);
-    } finally {
-      setLoading(false);
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
+    );
+  }, [tableData]);
 
-  const handlePeriodChange = useCallback((alignment: PeriodAlignment, date: Dayjs) => {
-    setOverviewLoading(true);
-    setCurrentPeriod({ alignment, date });
-  }, []);
+  // ── Period label for navigation ───────────────────────────────────────────
 
-  /** Open the in-app preview modal instead of navigating away */
-  const handleViewDocument = useCallback((documentUrl: string) => {
-    setPreviewUrl(documentUrl);
-  }, []);
+  const periodLabel = useMemo(() => {
+    if (alignment === 'monthly') return month.format('MMM YYYY');
+    if (alignment === 'yearly') return formatFiscalYearLabel(fiscalYear);
+    return undefined;
+  }, [alignment, month, fiscalYear]);
 
-  const handleClosePreview = useCallback(() => {
-    setPreviewUrl(null);
-  }, []);
+  const tableTitle = useMemo(() => {
+    if (alignment === 'monthly') return `Monthly Reimbursements — ${month.format('MMMM YYYY')}`;
+    if (alignment === 'yearly') return `Yearly Reimbursements — ${formatFiscalYearLabel(fiscalYear)}`;
+    return 'All Time Reimbursements';
+  }, [alignment, month, fiscalYear]);
 
-  const handleApproveAll = async () => {
-    if (pendingRequestData.length === 0) {
-      toast.info("No pending requests to approve");
-      return;
-    }
-    try {
-      setLoading(true);
-      setIsApprovingAll(true);
-      setProcessingAction("approveAll");
-      const reimbursementIds = pendingRequestData.map((item) => item.id).filter(Boolean) as string[];
-      const response = await approveMultipleReimbursements({ reimbursementIds });
-      if (response) {
-        successConfirmation("All pending reimbursements have been approved successfully!");
-        setFetchAgain((prev) => !prev);
-      }
-    } catch (error) {
-      console.error("Error approving all reimbursements:", error);
-      errorConfirmation("Failed to approve all reimbursements. Please try again.");
-    } finally {
-      setLoading(false);
-      setIsApprovingAll(false);
-      setProcessingAction(null);
-    }
-  };
+  const tableHeading = useMemo(() => {
+    if (alignment === 'monthly') return 'Monthly Reimbursements';
+    if (alignment === 'yearly') return 'Yearly Reimbursements';
+    return 'All Time Reimbursements';
+  }, [alignment]);
 
-  // ── Pending-requests table columns ───────────────────────────────────────
-  const columns = useMemo<MRT_ColumnDef<IReimbursements>[]>(
-    () => [
-      {
-        accessorKey: "expenseDate",
-        header: "Date",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "day",
-        header: "Day",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "ID",
-        header: "ID",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "name",
-        header: "Name",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "description",
-        header: "Note",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "type",
-        header: "Type",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "clientTypeId",
-        header: "Client Type",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
-      },
-      {
-        accessorKey: "clientCompanyId",
-        header: "Client Name",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
-      },
-      {
-        accessorKey: "projectId",
-        header: "Project Name",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => resolveProject(row.original.projectId),
-      },
-      {
-        accessorKey: "fromLocation",
-        header: "From Location",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
-      },
-      {
-        accessorKey: "toLocation",
-        header: "To Location",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
-      },
-      {
-        accessorKey: "amount",
-        header: "Amount",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "document",
-        header: "Document",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => (
-          <button
-            className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-            onClick={() => handleViewDocument(renderedCellValue)}
-            disabled={!renderedCellValue}
-            title={renderedCellValue ? "Preview document" : "No document attached"}
-          >
-            {renderedCellValue
-              ? <KTIcon iconName='eye' className='fs-3' />
-              : <i className="bi bi-file-earmark-x fs-3 text-danger"></i>}
-          </button>
-        ),
-      },
-      ...(isAdmin ? [{
-        accessorKey: "actions",
-        header: "Actions",
-        enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const resEdit = hasPermission(
-            resourceNameMapWithCamelCase.reimbursement,
-            permissionConstToUseWithHasPermission.editOthers,
-            row?.original
-          );
+  const exportFilename = useMemo(() => {
+    if (alignment === 'monthly') return `reimbursements-${month.format('MMM-YYYY').toLowerCase()}`;
+    if (alignment === 'yearly') return `reimbursements-${year.format('YYYY')}`;
+    return 'reimbursements-all-time';
+  }, [alignment, month, year]);
 
-          return resEdit ? (
-            <div className="flex items-center justify-center space-x-4">
-              <button
-                className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                onClick={() => handleApprove(row.original)}
-                disabled={loading || processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === "approve" ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="Approve" />
-                )}
-              </button>
-              <button
-                className="btn btn-icon btn-active-color-primary btn-sm w-4"
-                onClick={() => handleReject(row.original)}
-                disabled={loading || processingRowId === row.original.id}
-              >
-                {processingRowId === row.original.id && processingAction === "reject" ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                ) : (
-                  <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="Reject" />
-                )}
-              </button>
-            </div>
-          ) : (
-            "Not Allowed"
-          );
-        },
-      }] : []),
-    ],
-    [resolveClientType, resolveClientCompany, resolveProject, processingRowId, processingAction, loading, isAdmin, handleViewDocument]
+  // ── Filter toolbar ────────────────────────────────────────────────────────
+
+  const hasActiveFilters = statusFilter !== 'Active' || subOrgFilter !== 'All';
+
+  const FilterToolbar = () => (
+    <Box sx={{ display: 'flex', gap: '12px', rowGap: '16px', alignItems: 'center', px: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ width: '1px', height: '26px', backgroundColor: '#e5e7eb', mx: 0.5, display: { xs: 'none', md: 'block' } }} />
+
+      <ToolbarFilterSelect
+        label="Employee Status"
+        icon="bi-person-circle"
+        value={statusFilter}
+        onChange={(v) => setStatusFilter(v as StatusFilter)}
+        minWidth={150}
+        theme={statusFilter === 'Active'
+          ? { icon: '#10b981', border: '#a7f3d0', bg: '#ecfdf5', text: '#065f46', ring: 'rgba(16, 185, 129, 0.12)' }
+          : statusFilter === 'Deactive'
+            ? { icon: '#ef4444', border: '#fecaca', bg: '#fef2f2', text: '#991b1b', ring: 'rgba(239, 68, 68, 0.12)' }
+            : undefined}
+        options={[
+          { value: 'Active', label: 'Active' },
+          { value: 'Deactive', label: 'Inactive' },
+          { value: 'All', label: 'All' },
+        ]}
+      />
+
+      <ToolbarFilterSelect
+        label="Sub Organization"
+        icon="bi-building"
+        value={subOrgFilter}
+        onChange={setSubOrgFilter}
+        minWidth={220}
+        theme={subOrgFilter !== 'All'
+          ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' }
+          : undefined}
+        options={[
+          { value: 'All', label: 'All Sub Organizations' },
+          ...subOrgOptions.map(name => ({ value: name, label: name })),
+        ]}
+      />
+
+      {hasActiveFilters && (
+        <button
+          onClick={() => { setStatusFilter('Active'); setSubOrgFilter('All'); }}
+          title="Reset filters to defaults"
+          style={{
+            height: '38px', padding: '0 12px',
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            border: '1px dashed #fca5a5', borderRadius: '10px',
+            backgroundColor: '#ffffff', color: '#dc2626',
+            fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 600,
+            cursor: 'pointer', transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
+        >
+          <i className="bi bi-arrow-counterclockwise" style={{ fontSize: '13px' }} />
+          Reset
+        </button>
+      )}
+    </Box>
   );
+
+  // ── Export columns ────────────────────────────────────────────────────────
+
+  const exportColumns = useMemo(() => [
+    { key: 'employeeCode',         header: 'ID',                      type: 'text'     as const },
+    { key: 'name',                 header: 'Name',                    type: 'text'     as const },
+    { key: 'subOrganization',      header: 'Sub Organization',        type: 'text'     as const },
+    { key: 'department',           header: 'Department',              type: 'text'     as const },
+    { key: 'branch',               header: 'Branch',                  type: 'text'     as const },
+    { key: 'totalRequestAmount',   header: 'Total Request Amount',    type: 'currency' as const, showTotal: true },
+    { key: 'totalApprovedAmount',  header: 'Total Approved Amount',   type: 'currency' as const, showTotal: true },
+    { key: 'totalPendingAmount',   header: 'Total Pending Amount',    type: 'currency' as const, showTotal: true },
+    { key: 'totalRejectedAmount',  header: 'Total Rejected Amount',   type: 'currency' as const, showTotal: true },
+    { key: 'totalRequests',        header: 'Total Requests',          type: 'number'   as const, showTotal: true },
+    { key: 'approvedCount',        header: 'Requests Approved',       type: 'number'   as const, showTotal: true },
+    { key: 'pendingCount',         header: 'Requests Pending',        type: 'number'   as const, showTotal: true },
+    { key: 'rejectedCount',        header: 'Requests Rejected',       type: 'number'   as const, showTotal: true },
+  ], []);
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <ReimbursementOverview
-        totalRequestedAmount={totalRequestedAmount}
-        totalRequests={totalRequests}
-        approvedRequests={approvedRequests}
-        rejectedRequests={rejectedRequests}
-        pendingRequests={pendingRequests}
-        isLoading={overviewLoading}
+      <h3 className="fw-bold fs-1 mb-5 font-barlow">Employee Reimbursements Data</h3>
+
+      {/* Period toolbar */}
+      <SalaryPeriodToolbar
+        alignment={alignment}
+        options={[
+          { label: 'Monthly', value: 'monthly' },
+          { label: 'Yearly', value: 'yearly' },
+          { label: 'All Time', value: 'allTime' },
+        ]}
+        onAlignmentChange={(v) => setAlignment(v as PeriodAlignment)}
+        periodLabel={periodLabel}
+        onPrevious={alignment === 'monthly' ? handlePrevMonth : alignment === 'yearly' ? handlePrevYear : undefined}
+        onNext={alignment === 'monthly' ? handleNextMonth : alignment === 'yearly' ? handleNextYear : undefined}
+        disablePrevious={isLoading}
+        disableNext={isLoading}
       />
 
-      <>
-        <div className="mt-6 d-flex justify-content-between align-items-center">
-          <h2>Requests</h2>
-          {pendingRequestData.length > 0 && (
-            <button
-              className={`btn btn-primary ${isApprovingAll ? "disabled" : ""}`}
-              onClick={handleApproveAll}
-              disabled={isApprovingAll}
-            >
-              {isApprovingAll ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  Approving...
-                </>
-              ) : (
-                "Approve All Pending"
-              )}
-            </button>
-          )}
-        </div>
+      {/* Summary cards */}
+      <ReimbursementSummaryCard
+        totalRequestAmount={cardTotals.totalRequestAmount}
+        totalApprovedAmount={cardTotals.totalApprovedAmount}
+        totalPendingAmount={cardTotals.totalPendingAmount}
+        totalRejectedAmount={cardTotals.totalRejectedAmount}
+        isLoading={isLoading}
+      />
+
+      {/* Employee-wise reimbursement table */}
+      <div className="mt-5">
+        <h1>{tableHeading}</h1>
         <MaterialTable
-          columns={columns}
-          data={pendingRequestData}
-          employeeId={employeeId}
-          hideExportCenter={false}
-          tableName="All Reimbursements"
-          resource={resourceNameMapWithCamelCase.reimbursement}
-          viewOthers={true}
-          viewOwn={true}
+          renderTopToolbarRightActions={() => <FilterToolbar />}
+          renderExportActions={() => (
+            <ExportButton
+              data={tableData}
+              columns={exportColumns}
+              filename={exportFilename}
+              title={tableTitle}
+              subtitle="Employee-wise reimbursement summary by request status"
+              sheetName="Reimbursements"
+              showTotals
+              totalLabel="TOTAL"
+              disabled={tableData.length === 0}
+            />
+          )}
+          columns={[
+            {
+              accessorKey: 'employeeCode',
+              header: 'ID',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+              Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+            },
+            {
+              accessorKey: 'name',
+              header: 'Name',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+            },
+            {
+              accessorKey: 'subOrganization',
+              header: 'Sub Organization',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+            },
+            {
+              accessorKey: 'department',
+              header: 'Department',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+            },
+            {
+              accessorKey: 'branch',
+              header: 'Branch',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+            },
+            {
+              accessorKey: 'totalRequestAmount',
+              header: 'Total Request Amount',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                return val > 0 ? fmtINR(val) : '₹0';
+              },
+              Footer: () => fmtINR(columnTotals.totalRequestAmount),
+            },
+            {
+              accessorKey: 'totalApprovedAmount',
+              header: 'Total Approved Amount',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#16a34a' }}>{fmtINR(columnTotals.totalApprovedAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalPendingAmount',
+              header: 'Total Pending Amount',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#0891b2' }}>{fmtINR(columnTotals.totalPendingAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalRejectedAmount',
+              header: 'Total Rejected Amount',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#dc2626' }}>{fmtINR(columnTotals.totalRejectedAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalRequests',
+              header: 'Total Requests',
+              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? 0,
+              Footer: () => columnTotals.totalRequests,
+            },
+            {
+              accessorKey: 'approvedCount',
+              header: 'Requests Approved',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{val}</span>;
+              },
+              Footer: () => <span style={{ color: '#16a34a' }}>{columnTotals.approvedCount}</span>,
+            },
+            {
+              accessorKey: 'pendingCount',
+              header: 'Requests Pending',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{val}</span>;
+              },
+              Footer: () => <span style={{ color: '#0891b2' }}>{columnTotals.pendingCount}</span>,
+            },
+            {
+              accessorKey: 'rejectedCount',
+              header: 'Requests Rejected',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{val}</span>;
+              },
+              Footer: () => <span style={{ color: '#dc2626' }}>{columnTotals.rejectedCount}</span>,
+            },
+          ]}
+          data={tableData}
+          tableName="EmployeeReimbursementsData"
+          employeeId={employeeIdCurrent}
+          enableColumnSpecificSearch={true}
+          showColumnFooter={true}
         />
-      </>
-
-      <div className="my-10">
-        <h2>Reimbursement Records</h2>
       </div>
-      <MaterialToggleReimbursement
-        toggleItemsActions={toggleItemsActions}
-        onPeriodChange={handlePeriodChange}
-        showIdCol={showIdCol}
-        showName={showName}
-        resource={resourceNameMapWithCamelCase.reimbursement}
-        viewOthers={true}
-        viewOwn={true}
-        checkOwnWithOthers={true}
-      />
-
-      {/* In-app document preview modal */}
-      {previewUrl && (
-        <DocumentPreviewModal url={previewUrl} onClose={handleClosePreview} />
-      )}
     </>
   );
 }

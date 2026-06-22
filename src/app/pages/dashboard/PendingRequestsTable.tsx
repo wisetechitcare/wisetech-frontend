@@ -1,13 +1,11 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useMemo, useEffect, useCallback } from "react";
-import ReactDOM from "react-dom";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { Button } from "@mui/material";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
 import Loader from "@app/modules/common/utils/Loader";
-import { IAttendanceRequests, IReimbursementsFetch } from "@models/employee";
+import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -15,156 +13,39 @@ import { fetchCompanyOverview } from "@services/company";
 import {
   getPendingAttendanceRequests,
   fetchLeaveRequest,
+  fetchReimbursementBatches,
+  fetchPendingApprovals,
+  processApprovalAction,
+  fetchApprovalInstanceByRequest,
+  fetchReimbursementBatchById,
+  processBatchRequestAction,
 } from "@services/employee";
 import {
   transformAttendanceRequest,
-  fetchAllTimeReimbursementsOfAllEmp,
-  approveEmpReimbursementRequestById,
-  rejectEmpReimbursementRequestById
 } from "@utils/statistics";
 import { transformLeaveRequests } from "@pages/employee/attendance/admin/OverviewView";
 import { saveLeaveRequests } from "@redux/slices/attendance";
-import { LeaveStatus, LEAVE_STATUS, WORKING_METHOD_TYPE } from "@constants/attendance";
-import { successConfirmation, deleteConfirmation, errorConfirmation } from "@utils/modal";
+import { LeaveStatus } from "@constants/attendance";
+import { successConfirmation, errorConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
 import { convertTo12HourFormat } from "@utils/date";
 import { getGraceBasedThresholds } from "@utils/getGraceBasedThresholds";
 import { markWeekendOrHoliday } from "@utils/statistics";
 import { fetchConfiguration } from "@services/company";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
-import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from "@constants/statistics";
+import { onSiteAndHolidayWeekendSettingsOnOffName, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
-import { fetchApprovalInstanceByRequest, fetchPendingApprovals, processApprovalAction } from "@services/employee";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
+import {
+  BatchRow,
+  BatchDetailModal,
+  RejectReasonModal,
+  fmtDate,
+  fmtAmount,
+} from "@app/pages/employee/reimbursement/shared/ReimbursementBatchShared";
 
 // ---------------------------------------------------------------------------
-// DocumentPreviewModal
-// ---------------------------------------------------------------------------
-
-interface DocumentPreviewModalProps {
-  url: string;
-  onClose: () => void;
-}
-
-function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
-  const cleanUrl = url.split("?")[0].toLowerCase();
-  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(cleanUrl);
-  const isPdf = cleanUrl.endsWith(".pdf");
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  const modalContent = (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.65)",
-      }}
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Document preview"
-    >
-      <div
-        className="d-flex flex-column bg-white rounded shadow overflow-hidden"
-        style={{ width: "min(75vw, 900px)", height: "min(78vh, 710px)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0">
-          <div className="d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate">
-            <KTIcon iconName="document" className="fs-4 text-primary" />
-            <span className="text-truncate" style={{ maxWidth: 560 }}>
-              {url.split("/").pop()?.split("?")[0] ?? "Document"}
-            </span>
-          </div>
-          <div className="d-flex align-items-center gap-2 flex-shrink-0">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1"
-              title="Open in new tab"
-            >
-              <KTIcon iconName="exit-right-corner" className="fs-5" />
-              <span className="d-none d-sm-inline">Open in tab</span>
-            </a>
-            <button
-              className="btn btn-sm btn-icon btn-light btn-active-light-danger"
-              onClick={onClose}
-              title="Close preview (Esc)"
-            >
-              <KTIcon iconName="cross" className="fs-2" />
-            </button>
-          </div>
-        </div>
-        <div
-          className="flex-grow-1 overflow-hidden bg-light d-flex align-items-center justify-content-center"
-          style={{ minHeight: 0 }}
-        >
-          {isImage ? (
-            <img
-              src={url}
-              alt="Document preview"
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", padding: "1rem", userSelect: "none" }}
-            />
-          ) : isPdf ? (
-            <iframe
-              src={url}
-              title="PDF preview"
-              style={{ width: "100%", height: "100%", border: "none" }}
-              allow="fullscreen"
-            />
-          ) : (
-            <div className="d-flex flex-column align-items-center gap-3 p-5 text-center w-100 h-100">
-              <iframe
-                src={url}
-                title="Document preview"
-                style={{ width: "100%", flex: 1, border: "none", borderRadius: 8, minHeight: 0 }}
-                allow="fullscreen"
-              />
-              <p className="text-muted fs-7 mb-0">
-                If the document does not display,{" "}
-                <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
-                  open it in a new tab
-                </a>.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  return ReactDOM.createPortal(modalContent, document.body);
-}
-
-// ---------------------------------------------------------------------------
-
-interface PendingRequest {
-  id: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  duration: string;
-  remark: string;
-  type: "attendance" | "leave" | "reimbursement";
-}
 
 type RequestTab = "attendance" | "leaves" | "reimbursements";
 
@@ -174,29 +55,39 @@ const PendingRequestsTable = () => {
   const [activeTab, setActiveTab] = useState<RequestTab>("attendance");
   const [isLoading, setIsLoading] = useState(false);
   const [attendanceRequests, setAttendanceRequests] = useState<IAttendanceRequests[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [reimbursementRequests, setReimbursementRequests] = useState<IReimbursementsFetch[]>([]);
-  const [processingRowId, setProcessingRowId] = useState<string | null>(null);
-  const [processingAction, setProcessingAction] = useState<'approve' | 'reject' | null>(null);
   const [leaveConfiguration, setLeaveConfiguration] = useState<any>();
+
+  // Workflow approval state (for attendance & leaves)
   const [trackingId, setTrackingId] = useState<string | null>(null);
-  const [trackRequestModel, setTrackRequestModel] = useState<'AttendanceRequests' | 'LeaveTracker' | 'Reimbursement'>('LeaveTracker');
   const [trackInstanceId, setTrackInstanceId] = useState<string | null>(null);
   const [trackInstanceLoading, setTrackInstanceLoading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  // requestId -> instanceId for requests where the CURRENT user is the active approver
-  // (sourced from /api/approvals/pending, which already enforces "my action" + delegation).
   const [actionableApprovals, setActionableApprovals] = useState<Map<string, string>>(new Map());
   const [approvalProcessingId, setApprovalProcessingId] = useState<string | null>(null);
   const [approvalRejectTarget, setApprovalRejectTarget] = useState<{ requestId: string; instanceId: string } | null>(null);
   const [approvalRejectReason, setApprovalRejectReason] = useState('');
   const [approvalRejectSubmitting, setApprovalRejectSubmitting] = useState(false);
 
-  const { resolveClientType, resolveClientCompany, resolveProject } =
-    useReimbursementLookups(reimbursementRequests);
+  // Reimbursement batch state
+  const [reimbursementBatches, setReimbursementBatches] = useState<BatchRow[]>([]);
+  const [batchDetailId, setBatchDetailId] = useState<string | null>(null);
+  const [batchDetailInstanceId, setBatchDetailInstanceId] = useState<string | null>(null);
+  const [batchRejectTarget, setBatchRejectTarget] = useState<BatchRow | null>(null);
+  const [batchRejectSubmitting, setBatchRejectSubmitting] = useState(false);
+  const [batchProcessingId, setBatchProcessingId] = useState<string | null>(null);
 
-  // Fetch the approvals the current user can act on right now and key them by requestId.
+  const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
+  const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
+
+  const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
+  const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+  const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
+  const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
+  const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
+    const { attendance } = state;
+    return attendance.leaveRequests.filter((el: any) => el.status === LeaveStatus.ApprovalPending);
+  });
+
+  // Fetch approvals the current user can act on (used for attendance & leaves)
   const fetchActionableApprovals = useCallback(async () => {
     try {
       const res = await fetchPendingApprovals();
@@ -213,9 +104,8 @@ const PendingRequestsTable = () => {
     }
   }, []);
 
-  const openTracker = async (requestId: string, requestModel: 'AttendanceRequests' | 'LeaveTracker' | 'Reimbursement') => {
+  const openTracker = async (requestId: string, requestModel: 'AttendanceRequests' | 'LeaveTracker' | 'ReimbursementBatch') => {
     setTrackingId(requestId);
-    setTrackRequestModel(requestModel);
     setTrackInstanceId(null);
     setTrackInstanceLoading(true);
     try {
@@ -228,19 +118,6 @@ const PendingRequestsTable = () => {
       setTrackInstanceLoading(false);
     }
   };
-  const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
-  const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
-
-  const worktypeColorValues = useSelector((state: RootState) => state?.customColors?.workingLocation);
-  const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
-  const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
-  const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
-  const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
-  const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
-    const { attendance } = state;
-    return attendance.leaveRequests.filter((el: any) => el.status === LeaveStatus.ApprovalPending);
-  });
 
   // Fetch pending attendance requests
   const fetchAttendanceRequests = useCallback(async () => {
@@ -248,7 +125,6 @@ const PendingRequestsTable = () => {
       setIsLoading(true);
       const { data: { companyOverview } } = await fetchCompanyOverview();
       const companyId = (resolveActiveOrgId(companyOverview) ?? '');
-
       const { data: { attendanceRequests } } = await getPendingAttendanceRequests(companyId);
       const transformed = transformAttendanceRequest(attendanceRequests);
       setAttendanceRequests(transformed);
@@ -287,35 +163,46 @@ const PendingRequestsTable = () => {
     fetchLeaveConfig();
   }, []);
 
-  // Fetch pending reimbursement requests
-  const fetchReimbursementRequests = useCallback(async () => {
+  // Fetch pending reimbursement batches
+  const fetchPendingReimbursementBatches = useCallback(async () => {
     try {
       setIsLoading(true);
-      const data = await fetchAllTimeReimbursementsOfAllEmp();
-      const pendingData: IReimbursementsFetch[] = [];
-      data.forEach((ele) => {
-        if (ele.id && ele.status === "Pending") {
-          pendingData.push(ele);
-        }
-      });
-      setReimbursementRequests(pendingData);
-    } catch (error) {
-      console.error('Error fetching reimbursement requests:', error);
-      setReimbursementRequests([]);
+      const [batchRes, approvalRes] = await Promise.all([
+        fetchReimbursementBatches(),
+        fetchPendingApprovals(),
+      ]);
+      const allBatches: any[] = batchRes?.data?.batches || batchRes?.batches || [];
+      const approvalSteps: any[] = (approvalRes?.data ?? approvalRes ?? []) as any[];
+      const reimbBatchSteps = approvalSteps.filter((s: any) => s.instance?.requestModel === 'ReimbursementBatch');
+
+      const instanceMap: Record<string, string> = {};
+      for (const step of reimbBatchSteps) {
+        if (step.instance?.requestId) instanceMap[step.instance.requestId] = step.instance.id;
+      }
+      const pendingBatchIds = new Set(reimbBatchSteps.map((s: any) => s.instance.requestId));
+      const filtered = allBatches.filter((b: any) => b.status === 0 || pendingBatchIds.has(b.id));
+      const built: BatchRow[] = filtered.map((b: any) => ({
+        ...b,
+        approvalInstanceId: instanceMap[b.id] ?? null,
+        rejectionReason: b.rejectReason ?? null,
+      }));
+      setReimbursementBatches(built);
+    } catch {
+      setReimbursementBatches([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Fetch all data on component mount to show notification badges
+  // Load all data on mount
   useEffect(() => {
     fetchAttendanceRequests();
     fetchLeaveRequests();
-    fetchReimbursementRequests();
+    fetchPendingReimbursementBatches();
     fetchActionableApprovals();
-  }, [fetchAttendanceRequests, fetchLeaveRequests, fetchReimbursementRequests, fetchActionableApprovals]);
+  }, [fetchAttendanceRequests, fetchLeaveRequests, fetchPendingReimbursementBatches, fetchActionableApprovals]);
 
-  // Approve a request through the multi-level approval workflow.
+  // Approve a request through the multi-level approval workflow (attendance & leaves)
   const approveWorkflowRequest = useCallback(async (requestId: string, refresh: () => void) => {
     const instanceId = actionableApprovals.get(requestId);
     if (!instanceId) return;
@@ -331,7 +218,7 @@ const PendingRequestsTable = () => {
     }
   }, [actionableApprovals, fetchActionableApprovals]);
 
-  // Confirm a rejection (reason required, min 10 chars — enforced by the backend too).
+  // Workflow rejection for attendance & leaves
   const confirmWorkflowReject = useCallback(async () => {
     if (!approvalRejectTarget) return;
     const reason = approvalRejectReason.trim();
@@ -344,7 +231,7 @@ const PendingRequestsTable = () => {
       await Promise.all([
         fetchAttendanceRequests(),
         fetchLeaveRequests(),
-        fetchReimbursementRequests(),
+        fetchPendingReimbursementBatches(),
         fetchActionableApprovals(),
       ]);
     } catch (err: any) {
@@ -352,18 +239,63 @@ const PendingRequestsTable = () => {
     } finally {
       setApprovalRejectSubmitting(false);
     }
-  }, [approvalRejectTarget, approvalRejectReason, fetchAttendanceRequests, fetchLeaveRequests, fetchReimbursementRequests, fetchActionableApprovals]);
+  }, [approvalRejectTarget, approvalRejectReason, fetchAttendanceRequests, fetchLeaveRequests, fetchPendingReimbursementBatches, fetchActionableApprovals]);
+
+  // Reimbursement batch approve
+  const handleBatchApprove = async (row: BatchRow) => {
+    setBatchProcessingId(row.id);
+    try {
+      if (row.approvalInstanceId) {
+        await processApprovalAction(row.approvalInstanceId, 'approve');
+      } else {
+        const res = await fetchReimbursementBatchById(row.id);
+        const batch = res?.data?.batch || res?.batch;
+        const pending = batch?.reimbursements?.filter((r: any) => r.status === 0) || [];
+        for (const r of pending) {
+          await processBatchRequestAction(row.id, r.id, 'approve');
+        }
+      }
+      setReimbursementBatches((prev) => prev.filter((r) => r.id !== row.id));
+      successConfirmation('Batch approved!', 'Approved');
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Failed to approve');
+    } finally { setBatchProcessingId(null); }
+  };
+
+  // Reimbursement batch reject
+  const handleBatchRejectConfirm = async (reason: string) => {
+    if (!batchRejectTarget) return;
+    setBatchRejectSubmitting(true);
+    try {
+      if (batchRejectTarget.approvalInstanceId) {
+        await processApprovalAction(batchRejectTarget.approvalInstanceId, 'reject', reason);
+      } else {
+        const res = await fetchReimbursementBatchById(batchRejectTarget.id);
+        const batch = res?.data?.batch || res?.batch;
+        const pending = batch?.reimbursements?.filter((r: any) => r.status === 0) || [];
+        for (const r of pending) {
+          await processBatchRequestAction(batchRejectTarget.id, r.id, 'reject', reason);
+        }
+      }
+      setReimbursementBatches((prev) => prev.filter((r) => r.id !== batchRejectTarget.id));
+      setBatchRejectTarget(null);
+      successConfirmation('Batch rejected', 'Rejected');
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || 'Failed to reject');
+    } finally { setBatchRejectSubmitting(false); }
+  };
+
+  const openBatchDetail = useCallback((r: BatchRow) => {
+    setBatchDetailId(r.id);
+    setBatchDetailInstanceId(r.approvalInstanceId || null);
+  }, []);
 
   // Fetch grace-based thresholds for attendance
   useEffect(() => {
     const initThresholds = async () => {
-      if (!attendanceRequests || attendanceRequests.length === 0) {
-        return;
-      }
-
+      if (!attendanceRequests || attendanceRequests.length === 0) return;
       try {
         const thresholds = await getGraceBasedThresholds(attendanceRequests);
-
         if (thresholds) {
           setEmployeeThresholds(thresholds.employeesWithThresholds);
           setEarlyCheckOutThreshold(thresholds.defaultThresholds.earlyCheckOutThreshold);
@@ -372,66 +304,10 @@ const PendingRequestsTable = () => {
         console.error('Error fetching thresholds:', error);
       }
     };
-
     initThresholds();
   }, [attendanceRequests]);
 
-  // Approve reimbursement request handler
-  const approveReimbursementHandler = async (rowDetails: IReimbursementsFetch) => {
-    if (!rowDetails || !rowDetails.id) {
-      return;
-    }
-    try {
-      setProcessingRowId(rowDetails.id);
-      setProcessingAction('approve');
-      await approveEmpReimbursementRequestById(rowDetails.id);
-      successConfirmation('Reimbursement Approved Successfully!');
-      fetchReimbursementRequests();
-    } catch (error) {
-      console.log("error in approveReimbursement", error);
-    } finally {
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
-
-  // Reject reimbursement request handler
-  const rejectReimbursementHandler = async (rowDetails: IReimbursementsFetch) => {
-    if (!rowDetails || !rowDetails.id) {
-      return;
-    }
-    try {
-      setProcessingRowId(rowDetails.id);
-      setProcessingAction('reject');
-      const val = await deleteConfirmation('Reimbursement Rejected Successfully!', 'Yes, reject it!', 'Rejected!');
-      if (val) {
-        await rejectEmpReimbursementRequestById(rowDetails.id);
-        fetchReimbursementRequests();
-      }
-    } catch (error) {
-      console.log("error in rejectReimbursement", error);
-    } finally {
-      setProcessingRowId(null);
-      setProcessingAction(null);
-    }
-  };
-
-  const handleViewDocument = useCallback((documentUrl: string) => {
-    if (documentUrl) setPreviewUrl(documentUrl);
-  }, []);
-
-  const handleEdit = (requestId: string) => {
-    console.log("Edit request:", requestId);
-    // TODO: Implement edit functionality
-  };
-
-  const handleDelete = (requestId: string) => {
-    console.log("Delete request:", requestId);
-    // TODO: Implement delete functionality with confirmation
-  };
-
   const handleViewAll = () => {
-    // Navigate based on active tab
     if (activeTab === "attendance" || activeTab === "leaves") {
       navigate("/employees/attendance-and-leaves");
     } else if (activeTab === "reimbursements") {
@@ -439,19 +315,15 @@ const PendingRequestsTable = () => {
     }
   };
 
-  // Helper function to get leave type color
   const getLeaveTypeColor = (leaveType: string): string => {
     if (!leaveTypeColors) return '#3498DB';
-
     const normalizedType = leaveType?.toLowerCase() || '';
-
     if (normalizedType.includes('sick')) return leaveTypeColors.sickLeaveColor || '#E74C3C';
     if (normalizedType.includes('casual')) return leaveTypeColors.casualLeaveColor || '#3498DB';
     if (normalizedType.includes('annual')) return leaveTypeColors.annualLeaveColor || '#2ECC71';
     if (normalizedType.includes('maternal') || normalizedType.includes('maternity')) return leaveTypeColors.maternalLeaveColor || '#9B59B6';
     if (normalizedType.includes('floater')) return leaveTypeColors.floaterLeaveColor || '#F39C12';
     if (normalizedType.includes('unpaid')) return leaveTypeColors.unpaidLeaveColor || '#95A5A6';
-
     return '#3498DB';
   };
 
@@ -487,26 +359,20 @@ const PendingRequestsTable = () => {
         Cell: ({ row }: any) => {
           const employee = row.original;
           const checkIn = employee.checkIn;
-
           if (!checkIn || checkIn === '-NA-' || !employeeThresholds) {
             return <span>{checkIn || "N/A"}</span>;
           }
-
           const employeeData = employeeThresholds.find((emp: any) => emp.id === employee.id);
           const employeeThreshold = employeeData?.lateCheckInThreshold;
           const workingMethod = employee?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
           const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
           const isWeekendOrHolidays = employee.isWeekendOrHoliday;
-
           const checkInTime = checkIn.includes(':') ? dayjs(checkIn, ['HH:mm', 'HH:mm:ss']) : null;
           const thresholdTime = employeeThreshold ? dayjs(employeeThreshold, 'HH:mm:ss') : null;
-
           if (!thresholdTime) return <span>{checkIn || "N/A"}</span>;
           if (!checkInTime) return <span>{checkIn || "N/A"}</span>;
-
           const isLateCheckIn = checkInTime.isAfter(thresholdTime, 'minute');
           const finalCheckIn = convertTo12HourFormat(checkIn);
-
           return (
             <span style={{
               color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isLateCheckIn ? 'red' : 'green',
@@ -525,24 +391,19 @@ const PendingRequestsTable = () => {
           const employee = row.original;
           const checkOut = employee.checkOut;
           const isWeekendOrHolidays = employee.isWeekendOrHoliday;
-
           if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
             return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
           }
-
           const employeeData = employeeThresholds.find((emp: any) => emp.id === employee.id);
           const employeeThreshold = employeeData?.earlyCheckOutThreshold;
           const workingMethod = employee?.workingMethod?.replace('-', '')?.replace(' ', '')?.toLowerCase();
           const isOnSiteSettingsOn = leaveConfiguration?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
           const checkOutTime = checkOut.includes(':') ? dayjs(checkOut, ['HH:mm', 'HH:mm:ss']) : null;
           const thresholdTime = employeeThreshold ? dayjs(employeeThreshold, 'HH:mm:ss') : null;
-
           if (!thresholdTime) return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
           if (!checkOutTime) return <span>{checkOut ? convertTo12HourFormat(checkOut) : "N/A"}</span>;
-
           const isEarlyCheckOut = checkOutTime.isBefore(thresholdTime, 'minute');
           const finalCheckOut = convertTo12HourFormat(checkOut);
-
           return (
             <span style={{
               color: (((isWeekendOrHolidays || workingMethod == "onsite") && isOnSiteSettingsOn == "1")) ? 'green' : isEarlyCheckOut ? 'red' : 'green',
@@ -614,11 +475,6 @@ const PendingRequestsTable = () => {
       },
     ],
     [employeeThresholds, leaveConfiguration, showDateIn12HourFormat, earlyCheckOutThreshold, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchAttendanceRequests]
-  );
-
-  const hasLeaveEditPermission = hasPermission(
-    resourceNameMapWithCamelCase.dashboardPendingRequests,
-    permissionConstToUseWithHasPermission.editOthers
   );
 
   // Leave columns
@@ -730,177 +586,109 @@ const PendingRequestsTable = () => {
         },
       },
     ],
-    [processingRowId, processingAction, leaveTypeColors, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchLeaveRequests]
+    [leaveTypeColors, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchLeaveRequests]
   );
 
-  // Reimbursement columns
-  const reimbursementColumns = useMemo<MRT_ColumnDef<IReimbursementsFetch>[]>(
+  // Reimbursement batch columns (same as Approval → Reimbursement)
+  const reimbursementColumns = useMemo<MRT_ColumnDef<BatchRow>[]>(
     () => [
       {
-        accessorKey: "expenseDate",
-        header: "Date",
-        size: 100,
+        accessorKey: 'employee.employeeCode',
+        header: 'Employee ID',
+        size: 130,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
+        Cell: ({ row }) => (
+          <span className='text-dark fw-semibold fs-7'>{row.original.employee?.employeeCode || '—'}</span>
+        ),
       },
       {
-        accessorKey: "day",
-        header: "Day",
-        size: 80,
+        accessorKey: 'employeeName',
+        header: 'Employee Name',
+        size: 200,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
+        Cell: ({ row }) => {
+          const { firstName, lastName } = row.original.employee?.users || {};
+          const fullName = [firstName, lastName].filter(Boolean).join(' ');
+          return (
+            <button
+              className='btn btn-link p-0 text-primary fw-semibold fs-7'
+              style={{ textDecoration: 'none', cursor: 'pointer' }}
+              onClick={() => openBatchDetail(row.original)}
+              title='View submission details'
+            >
+              {fullName || '—'}
+            </button>
+          );
+        },
       },
       {
-        accessorKey: "name",
-        header: "Name",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
-      {
-        accessorKey: "ID",
-        header: "ID",
-        size: 100,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
-      {
-        accessorKey: "type",
-        header: "Type",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
-      {
-        accessorKey: "clientTypeId",
-        header: "Client Type",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-        Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
-      },
-      {
-        accessorKey: "clientCompanyId",
-        header: "Client Name",
-        size: 140,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-        Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
-      },
-      {
-        accessorKey: "projectId",
-        header: "Project Name",
-        size: 140,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-        Cell: ({ row }: any) => resolveProject(row.original.projectId),
-      },
-      {
-        accessorKey: "fromLocation",
-        header: "From Location",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
-      },
-      {
-        accessorKey: "toLocation",
-        header: "To Location",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
-      },
-      {
-        accessorKey: "amount",
-        header: "Amount",
-        size: 100,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
-      {
-        accessorKey: "description",
-        header: "Note",
+        accessorKey: 'totalAmount',
+        header: 'Total Amount (₹)',
         size: 150,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
+        Cell: ({ row }) => <span className='text-dark fs-7'>₹{fmtAmount(row.original.totalAmount)}</span>,
       },
       {
-        accessorKey: "document",
-        header: "Document",
-        size: 100,
+        accessorKey: 'totalRequests',
+        header: 'Total Requests',
+        size: 130,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ renderedCellValue }: any) => (
+        Cell: ({ row }) => (
           <button
-            className="btn btn-icon btn-active-color-primary btn-sm"
-            onClick={() => handleViewDocument(renderedCellValue)}
-            disabled={!renderedCellValue}
-            title={renderedCellValue ? "Preview document" : "No document attached"}
+            className='btn btn-link p-0 text-primary fw-semibold fs-7'
+            style={{ textDecoration: 'none', cursor: 'pointer' }}
+            onClick={() => openBatchDetail(row.original)}
+            title='View submission details'
           >
-            {renderedCellValue ? (
-              <KTIcon iconName="eye" className="fs-3" />
-            ) : (
-              <i className="bi bi-file-earmark-x fs-3 text-danger"></i>
-            )}
+            {row.original.totalRequests}
           </button>
         ),
       },
       {
-        accessorKey: "actions",
-        header: "Actions",
+        accessorKey: 'submittedAt',
+        header: 'Submitted On',
+        size: 140,
+        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
+        Cell: ({ row }) => <span className='fs-7'>{fmtDate(row.original.submittedAt)}</span>,
+      },
+      {
+        accessorKey: 'actions',
+        header: 'Action',
         size: 120,
+        enableSorting: false,
+        enableColumnActions: false,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
-          const hasEditPermission = hasPermission(
-            resourceNameMapWithCamelCase.dashboardPendingRequests,
-            permissionConstToUseWithHasPermission.editOthers
-          );
-
-          const isPending = row.original.status === 'Pending';
+          const r = row.original;
+          const isProcessing = batchProcessingId === r.id;
           return (
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              {hasEditPermission && <>
-                <button
-                  className='btn btn-icon btn-sm'
-                  onClick={() => approveReimbursementHandler(row.original)}
-                  title="Approve"
-                  disabled={processingRowId === row.original.id}
-                >
-                  {processingRowId === row.original.id && processingAction === 'approve' ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  ) : (
-                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} />
-                  )}
-                </button>
-                <button
-                  className='btn btn-icon btn-sm'
-                  onClick={() => rejectReimbursementHandler(row.original)}
-                  title="Reject"
-                  disabled={processingRowId === row.original.id}
-                >
-                  {processingRowId === row.original.id && processingAction === 'reject' ? (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  ) : (
-                    <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} />
-                  )}
-                </button>
-              </>}
-              {isPending && row.original.hasApprovalInstance && (
-                <button
-                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
-                  title="Track Approval"
-                  onClick={() => openTracker(row.original.id, 'Reimbursement')}
-                >
-                  <KTIcon iconName="map" className="fs-3" />
-                </button>
-              )}
-              {!hasEditPermission && !row.original.hasApprovalInstance && "Not Allowed"}
+            <div className='d-flex gap-2 align-items-center'>
+              <button
+                className='btn btn-icon btn-sm rounded-circle'
+                style={{ background: '#10b981', color: 'white', width: 32, height: 32, minWidth: 32, padding: 0 }}
+                title='Approve'
+                disabled={isProcessing}
+                onClick={() => handleBatchApprove(r)}
+              >
+                {isProcessing
+                  ? <span className='spinner-border spinner-border-sm' style={{ color: 'white', width: 14, height: 14 }} />
+                  : <i className='bi bi-check-lg fs-6' style={{ color: 'white' }} />}
+              </button>
+              <button
+                className='btn btn-icon btn-sm rounded-circle'
+                style={{ background: '#ef4444', color: 'white', width: 32, height: 32, minWidth: 32, padding: 0 }}
+                title='Reject'
+                disabled={isProcessing}
+                onClick={() => setBatchRejectTarget(r)}
+              >
+                <i className='bi bi-x-lg fs-6' style={{ color: 'white' }} />
+              </button>
             </div>
           );
         },
       },
     ],
-    [processingRowId, processingAction, resolveClientType, resolveClientCompany, resolveProject, handleViewDocument]
+    [batchProcessingId, openBatchDetail, handleBatchApprove]
   );
 
   if (isLoading) {
@@ -1001,10 +789,7 @@ const PendingRequestsTable = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: "323px",
-                border:
-                  activeTab === "attendance"
-                    ? "1.5px solid #9d4141"
-                    : "1px solid #a0b4d2",
+                border: activeTab === "attendance" ? "1.5px solid #9d4141" : "1px solid #a0b4d2",
                 backgroundColor: "white",
                 fontSize: "clamp(12px, 2.5vw, 14px)",
                 cursor: "pointer",
@@ -1015,19 +800,8 @@ const PendingRequestsTable = () => {
             >
               Attendance
             </button>
-            {/* Notification Badge for Attendance */}
             {attendanceRequests.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "-2px",
-                  right: "-1px",
-                  width: "10px",
-                  height: "11px",
-                  backgroundColor: "#b44545",
-                  borderRadius: "333px",
-                }}
-              />
+              <div style={{ position: "absolute", top: "-2px", right: "-1px", width: "10px", height: "11px", backgroundColor: "#b44545", borderRadius: "333px" }} />
             )}
           </div>
           <div style={{ position: "relative", flex: "0 0 auto" }}>
@@ -1036,10 +810,7 @@ const PendingRequestsTable = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: "323px",
-                border:
-                  activeTab === "leaves"
-                    ? "1.5px solid #9d4141"
-                    : "1px solid #a0b4d2",
+                border: activeTab === "leaves" ? "1.5px solid #9d4141" : "1px solid #a0b4d2",
                 backgroundColor: "white",
                 fontSize: "clamp(12px, 2.5vw, 14px)",
                 cursor: "pointer",
@@ -1050,19 +821,8 @@ const PendingRequestsTable = () => {
             >
               Leaves
             </button>
-            {/* Notification Badge for Leaves */}
             {openLeaveRequestsFromRedux.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "-2px",
-                  right: "-1px",
-                  width: "10px",
-                  height: "11px",
-                  backgroundColor: "#b44545",
-                  borderRadius: "333px",
-                }}
-              />
+              <div style={{ position: "absolute", top: "-2px", right: "-1px", width: "10px", height: "11px", backgroundColor: "#b44545", borderRadius: "333px" }} />
             )}
           </div>
           <div style={{ position: "relative", flex: "0 0 auto" }}>
@@ -1071,10 +831,7 @@ const PendingRequestsTable = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: "323px",
-                border:
-                  activeTab === "reimbursements"
-                    ? "1.5px solid #9d4141"
-                    : "1px solid #a0b4d2",
+                border: activeTab === "reimbursements" ? "1.5px solid #9d4141" : "1px solid #a0b4d2",
                 backgroundColor: "white",
                 fontSize: "clamp(12px, 2.5vw, 14px)",
                 cursor: "pointer",
@@ -1085,19 +842,8 @@ const PendingRequestsTable = () => {
             >
               Reimbursements
             </button>
-            {/* Notification Badge for Reimbursements */}
-            {reimbursementRequests.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "-2px",
-                  right: "-1px",
-                  width: "10px",
-                  height: "11px",
-                  backgroundColor: "#b44545",
-                  borderRadius: "333px",
-                }}
-              />
+            {reimbursementBatches.length > 0 && (
+              <div style={{ position: "absolute", top: "-2px", right: "-1px", width: "10px", height: "11px", backgroundColor: "#b44545", borderRadius: "333px" }} />
             )}
           </div>
         </div>
@@ -1135,33 +881,12 @@ const PendingRequestsTable = () => {
             enableFullScreenToggle={false}
             muiTableProps={{
               sx: {
-                "& .MuiTableHead-root": {
-                  "& .MuiTableRow-root": {
-                    "& .MuiTableCell-root": {
-                      backgroundColor: "transparent",
-                      borderBottom: "none",
-                    },
-                  },
-                },
-                "& .MuiTableBody-root": {
-                  "& .MuiTableRow-root": {
-                    "&:hover": {
-                      backgroundColor: "rgba(0, 0, 0, 0.02)",
-                    },
-                    "& .MuiTableCell-root": {
-                      borderBottom: "none",
-                      padding: "12px",
-                    },
-                  },
-                },
+                "& .MuiTableHead-root .MuiTableRow-root .MuiTableCell-root": { backgroundColor: "transparent", borderBottom: "none" },
+                "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
+                "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
               },
             }}
-            muiTablePaperStyle={{
-              sx: {
-                boxShadow: "none",
-                border: "none",
-              },
-            }}
+            muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
           />
         )}
 
@@ -1186,41 +911,20 @@ const PendingRequestsTable = () => {
             enableFullScreenToggle={false}
             muiTableProps={{
               sx: {
-                "& .MuiTableHead-root": {
-                  "& .MuiTableRow-root": {
-                    "& .MuiTableCell-root": {
-                      backgroundColor: "transparent",
-                      borderBottom: "none",
-                    },
-                  },
-                },
-                "& .MuiTableBody-root": {
-                  "& .MuiTableRow-root": {
-                    "&:hover": {
-                      backgroundColor: "rgba(0, 0, 0, 0.02)",
-                    },
-                    "& .MuiTableCell-root": {
-                      borderBottom: "none",
-                      padding: "12px",
-                    },
-                  },
-                },
+                "& .MuiTableHead-root .MuiTableRow-root .MuiTableCell-root": { backgroundColor: "transparent", borderBottom: "none" },
+                "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
+                "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
               },
             }}
-            muiTablePaperStyle={{
-              sx: {
-                boxShadow: "none",
-                border: "none",
-              },
-            }}
+            muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
           />
         )}
 
         {activeTab === "reimbursements" && (
           <MaterialTable
             columns={reimbursementColumns}
-            data={reimbursementRequests}
-            tableName="PendingReimbursementRequests"
+            data={reimbursementBatches}
+            tableName="PendingReimbursementBatches"
             isLoading={isLoading}
             hideFilters={true}
             hideExportCenter={false}
@@ -1237,42 +941,35 @@ const PendingRequestsTable = () => {
             enableFullScreenToggle={false}
             muiTableProps={{
               sx: {
-                "& .MuiTableHead-root": {
-                  "& .MuiTableRow-root": {
-                    "& .MuiTableCell-root": {
-                      backgroundColor: "transparent",
-                      borderBottom: "none",
-                    },
-                  },
-                },
-                "& .MuiTableBody-root": {
-                  "& .MuiTableRow-root": {
-                    "&:hover": {
-                      backgroundColor: "rgba(0, 0, 0, 0.02)",
-                    },
-                    "& .MuiTableCell-root": {
-                      borderBottom: "none",
-                      padding: "12px",
-                    },
-                  },
-                },
+                "& .MuiTableHead-root .MuiTableRow-root .MuiTableCell-root": { backgroundColor: "transparent", borderBottom: "none" },
+                "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
+                "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
               },
             }}
-            muiTablePaperStyle={{
-              sx: {
-                boxShadow: "none",
-                border: "none",
-              },
-            }}
+            muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
           />
         )}
       </div>
     </div>
 
-    {previewUrl && (
-      <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
-    )}
+    {/* Batch detail popup */}
+    <BatchDetailModal
+      batchId={batchDetailId}
+      onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); }}
+      onBatchActionDone={fetchPendingReimbursementBatches}
+      approvalInstanceId={batchDetailInstanceId}
+    />
 
+    {/* Batch rejection modal */}
+    <RejectReasonModal
+      show={!!batchRejectTarget}
+      onClose={() => setBatchRejectTarget(null)}
+      onConfirm={handleBatchRejectConfirm}
+      submitting={batchRejectSubmitting}
+      title='Reject Reimbursement Batch'
+    />
+
+    {/* Approval tracker for attendance / leaves */}
     <Modal
       show={!!trackingId}
       onHide={() => { setTrackingId(null); setTrackInstanceId(null); }}
@@ -1299,6 +996,7 @@ const PendingRequestsTable = () => {
       </Modal.Body>
     </Modal>
 
+    {/* Workflow reject modal for attendance / leaves */}
     <Modal
       show={!!approvalRejectTarget}
       onHide={() => { setApprovalRejectTarget(null); setApprovalRejectReason(''); }}
@@ -1389,7 +1087,6 @@ const styles = `
   }
 `;
 
-// Inject styles
 if (typeof document !== 'undefined') {
   const styleSheet = document.createElement("style");
   styleSheet.innerText = styles;

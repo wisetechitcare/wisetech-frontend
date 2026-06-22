@@ -2,6 +2,7 @@ import React from "react";
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Route, Routes, Outlet, Navigate } from "react-router-dom";
+import PendingReimbursementsPage from "./PendingReimbursementsPage";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { useFormik } from "formik";
@@ -34,7 +35,6 @@ import { createNewTowns, fetchAllReimbursementTypes, fetchAllTowns } from "@serv
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { uploadUserAsset } from "@services/uploader";
 import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById } from "@services/employee";
-import ReimbursementOverview from "./views/common/ReimbursementOverview";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
@@ -98,6 +98,7 @@ function Reimbursement() {
   const [pendingRequests, setPendingRequests] = useState(0);
   const [approvedAmount, setApprovedAmount] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
+  const [rejectedAmount, setRejectedAmount] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
@@ -137,7 +138,7 @@ function Reimbursement() {
   // ── Shared stats calculator ────────────────────────────────────────────────
   const applyStats = (data: IReimbursementsFetch[]) => {
     let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
-    let approvedAmt = 0, pendingAmt = 0;
+    let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0;
     data.forEach((ele) => {
       if (ele.id) {
         const amt = parseInt(ele.amount ?? "0");
@@ -148,6 +149,7 @@ function Reimbursement() {
           pendingAmt += amt;
         } else if (ele.status === "Rejected") {
           rejectedCount++;
+          rejectedAmt += amt;
         } else {
           approvedCount++;
           approvedAmt += amt;
@@ -161,6 +163,7 @@ function Reimbursement() {
     setPendingRequests(pendingCount);
     setApprovedAmount(approvedAmt);
     setPendingAmount(pendingAmt);
+    setRejectedAmount(rejectedAmt);
     setOverviewLoading(false);
   };
 
@@ -502,17 +505,21 @@ function Reimbursement() {
 
   return (
     <>
-      {/* <UsersListWrapper /> */}
-      <ReimbursementOverview
-        totalRequestedAmount={totalRequestedAmount}
+      {/* Pending Requests section with Employee Details + KPI overview */}
+      <PendingReimbursementsPage
         totalRequests={totalRequests}
+        totalRequestedAmount={totalRequestedAmount}
         approvedRequests={approvedRequests}
         rejectedRequests={rejectedRequests}
         pendingRequests={pendingRequests}
         approvedAmount={approvedAmount}
         pendingAmount={pendingAmount}
-        isLoading={overviewLoading}
+        rejectedAmount={rejectedAmount}
+        overviewLoading={overviewLoading}
       />
+
+      {/* Divider */}
+      <hr className="my-8" style={{ borderColor: '#e9ecef', borderWidth: '2px' }} />
 
       <div className="my-6">
         <h2>My Reimbursement Records</h2>
@@ -520,11 +527,12 @@ function Reimbursement() {
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
         onPeriodChange={handlePeriodChange}
-        onEdit={handleEdit}
-        showEditDeleteOption={false}
+        showEditDeleteOption={true}
         resource={resourceNameMapWithCamelCase.reimbursement}
         viewOwn={true}
         viewOthers={false}
+        viewMode="submissions"
+        selectedEmployeeId={employeeId}
       />
 
       {/* modal code starts here */}
