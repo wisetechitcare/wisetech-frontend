@@ -12,7 +12,7 @@ import MaterialToggleReimbursement, {
   PeriodAlignment,
   ToggleItemsCallBackFunctions,
 } from "../../MaterialToggleReimbursement";
-import ReimbursementOverview from "../common/ReimbursementOverview";
+import { EmployeeDetailsSection } from "../../PendingReimbursementsPage";
 import AllEmployeesSearchDropdown from "@app/modules/common/components/AllEmployeesSearchDropdown";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import ReimbursementPaymentModal from "../../components/ReimbursementPaymentModal";
@@ -34,8 +34,9 @@ function SearchEmployee() {
   const [pendingRequests, setPendingRequests] = useState(0);
   const [approvedAmount, setApprovedAmount] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
+  const [rejectedAmount, setRejectedAmount] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
-  const [showEditDeleteOption] = useState(false);
+  const [showEditDeleteOption] = useState(true);
   const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({
     alignment: 'monthly',
     date: dayjs(),
@@ -57,6 +58,7 @@ function SearchEmployee() {
   // History refresh key
   const [historyKey, setHistoryKey] = useState(0);
 
+
   const selectedEmployee = useSelector(
     (state: RootState) => state.employee.selectedEmployee
   );
@@ -73,7 +75,7 @@ function SearchEmployee() {
 
   const applyStats = (data: IReimbursementsFetch[]) => {
     let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
-    let approvedAmt = 0, pendingAmt = 0;
+    let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0;
     data.forEach((ele) => {
       if (ele.id) {
         const amt = parseInt(ele.amount ?? "0");
@@ -84,6 +86,7 @@ function SearchEmployee() {
           pendingAmt += amt;
         } else if (ele.status === "Rejected") {
           rejectedCount++;
+          rejectedAmt += amt;
         } else {
           approvedCount++;
           approvedAmt += amt;
@@ -97,6 +100,7 @@ function SearchEmployee() {
     setPendingRequests(pendingCount);
     setApprovedAmount(approvedAmt);
     setPendingAmount(pendingAmt);
+    setRejectedAmount(rejectedAmt);
     setOverviewLoading(false);
   };
 
@@ -110,6 +114,7 @@ function SearchEmployee() {
     fetchPromise.then(applyStats);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeriod, selectedEmployeeId]);
+
 
   const handlePeriodChange = useCallback((alignment: PeriodAlignment, date: Dayjs) => {
     setOverviewLoading(true);
@@ -265,15 +270,17 @@ function SearchEmployee() {
       <div className="mb-6">
         <AllEmployeesSearchDropdown />
       </div>
-      <ReimbursementOverview
-        totalRequestedAmount={totalRequestedAmount}
+      <EmployeeDetailsSection
         totalRequests={totalRequests}
+        totalRequestedAmount={totalRequestedAmount}
         approvedRequests={approvedRequests}
         rejectedRequests={rejectedRequests}
         pendingRequests={pendingRequests}
         approvedAmount={approvedAmount}
         pendingAmount={pendingAmount}
-        isLoading={overviewLoading}
+        rejectedAmount={rejectedAmount}
+        overviewLoading={overviewLoading}
+        employee={selectedEmployee?.id ? selectedEmployee : null}
       />
 
       <div className="my-6">
@@ -289,6 +296,7 @@ function SearchEmployee() {
         viewOthers={true}
         viewOwn={true}
         checkOwnWithOthers={true}
+        viewMode="submissions"
       />
 
       {/* Permanent inline payment history section with payout button inline in its heading */}
@@ -326,6 +334,7 @@ function SearchEmployee() {
         onSubmit={handleAdvancePaymentSubmit}
         editPayment={editAdvancePayment}
       />
+
     </>
   );
 }

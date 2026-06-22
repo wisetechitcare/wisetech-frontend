@@ -7,7 +7,7 @@ import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { Modal } from 'react-bootstrap';
 import { Form, Formik, FormikValues } from 'formik';
 import * as Yup from 'yup';
-import dayjs, { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { successConfirmation, errorConfirmation, deleteConfirmation, genericConfirmation } from '@utils/modal';
 import {
   fetchPendingReimbursementDrafts,
@@ -26,7 +26,9 @@ import DateInput from '@app/modules/common/inputs/DateInput';
 import ReimbursementDropdown from '@app/modules/common/inputs/ReimbursementDropdown';
 import { Option } from '@models/dropdown';
 import { KTIcon } from '@metronic/helpers';
-import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material';
+import { Avatar, Box, Chip, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import { getAvatar } from '@utils/avatar';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
@@ -143,14 +145,20 @@ function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
   return ReactDOM.createPortal(modalContent, document.body);
 }
 
-// ── Summary card ──────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtAmount(n: number | string) {
   return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
-const IconPendingRequests = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+function fmtAmountRounded(n: number) {
+  return Math.round(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// ── KPI icons ──────────────────────────────────────────────────────────────────
+
+const KpiIconRequests = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
     <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
     <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -158,87 +166,401 @@ const IconPendingRequests = () => (
   </svg>
 );
 
-const IconTotalAmount = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+const KpiIconAmount = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
     <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
     <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
   </svg>
 );
 
-interface SummaryCardProps { drafts: any[]; loading: boolean; }
+const KpiIconApproved = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
-function SummaryCard({ drafts, loading }: SummaryCardProps) {
-  const totalAmount = drafts.reduce((s: number, d: any) => s + parseFloat(String(d.amount || 0)), 0);
-  const cards = [
-    {
-      label: 'Pending Requests',
-      sublabel: 'Awaiting submission',
-      value: loading ? '—' : drafts.length,
-      accent: '#7c3aed',
-      iconBg: '#f5f3ff',
-      icon: <IconPendingRequests />,
-    },
-    {
-      label: 'Total Amount',
-      sublabel: 'Sum of all requests',
-      value: loading ? '—' : `₹${fmtAmount(totalAmount)}`,
-      accent: '#2563eb',
-      iconBg: '#eff6ff',
-      icon: <IconTotalAmount />,
-    },
-  ];
+const KpiIconApprovedAmount = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
+    <path d="M9 15l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const KpiIconPending = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+    <polyline points="12 6 12 12 16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const KpiIconPendingAmount = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
+    <polyline points="14 14 14 12 12 12 12 16 14 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const KpiIconRejected = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const KpiIconRejectedAmount = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
+    <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+// ── Compact KPI card (salary-module style) ─────────────────────────────────────
+
+interface ReimbKpiCardProps {
+  label: string;
+  value: string | number;
+  accent: string;
+  iconBg: string;
+  iconBorder: string;
+  icon: React.ReactNode;
+  loading: boolean;
+}
+
+function ReimbKpiCard({ label, value, accent, iconBg, iconBorder, icon, loading }: ReimbKpiCardProps) {
   return (
-    <>
-      <h2>Overview</h2>
-      <div className='d-flex gap-4 mb-6'>
-        {cards.map((c) => (
-          <Paper key={c.label} elevation={0} sx={{
-            flex: '0 0 220px',
+    <Paper
+      elevation={0}
+      sx={{
+        height: { xs: 76, md: 80 },
+        p: { xs: '12px 13px', md: '13px 14px' },
+        borderRadius: '16px',
+        background: 'linear-gradient(180deg, #ffffff 0%, #fcfdff 100%)',
+        border: '1px solid #e9eef5',
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 16px rgba(15, 23, 42, 0.035)',
+        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+        display: 'flex',
+        alignItems: 'stretch',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 2px 4px rgba(15, 23, 42, 0.04), 0 14px 22px rgba(15, 23, 42, 0.055)',
+          borderColor: iconBorder,
+        },
+      }}
+    >
+      <Stack direction="row" alignItems="flex-start" spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
+        <Box
+          sx={{
+            width: 38,
+            height: 38,
+            flex: '0 0 38px',
+            borderRadius: '11px',
+            display: 'grid',
+            placeItems: 'center',
+            color: accent,
+            backgroundColor: iconBg,
+            border: `1px solid ${iconBorder}`,
+          }}
+        >
+          {icon}
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              color: '#64748b',
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              lineHeight: 1.2,
+              mb: 0.35,
+              letterSpacing: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {label}
+          </Typography>
+          {loading
+            ? <Skeleton width={60} height={22} />
+            : (
+              <Typography
+                sx={{
+                  color: '#0f172a',
+                  fontSize: { xs: '0.9rem', md: '0.96rem' },
+                  fontWeight: 800,
+                  lineHeight: 1.25,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  minHeight: '38px',
+                }}
+              >
+                {value}
+              </Typography>
+            )
+          }
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+// ── Employee profile card (left panel) ────────────────────────────────────────
+
+type Gender = 0 | 1 | 2;
+
+function ReimbEmployeeProfileCard({ employee }: { employee: any }) {
+  const avatar = getAvatar(employee?.avatar || '', employee?.gender as unknown as Gender);
+  const name = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
+  const hasProfessionalFees = !!employee?.professionalFeesEnabled;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        height: '100%',
+        p: { xs: 1.5, md: 1.75 },
+        borderRadius: '16px',
+        background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
+        border: '1px solid #e9eef5',
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 16px rgba(15, 23, 42, 0.035)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Stack direction="row" spacing={{ xs: 1.5, md: 2 }} sx={{ mb: 1 }}>
+        <Avatar
+          src={avatar}
+          alt={name}
+          sx={{
+            width: { xs: 68, md: 74 },
+            height: { xs: 68, md: 74 },
             borderRadius: '16px',
-            border: '1px solid #f0f0f0',
-            background: '#ffffff',
-            overflow: 'hidden',
-            position: 'relative',
-            transition: 'box-shadow 220ms ease, transform 220ms ease',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)',
-            '&:hover': {
-              transform: 'translateY(-3px)',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.06), 0 12px 24px rgba(0,0,0,0.08)',
-            },
-          }}>
-            <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: c.accent, borderRadius: '16px 0 0 16px' }} />
-            <Box sx={{ p: '18px 20px 18px 24px' }}>
-              <Stack direction='row' justifyContent='space-between' alignItems='flex-start' mb={2}>
-                <Box>
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#94a3b8', lineHeight: 1.2, mb: 0.3 }}>
-                    {c.label}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.72rem', color: '#b0bec5', fontWeight: 500, lineHeight: 1.2 }}>
-                    {c.sublabel}
-                  </Typography>
-                </Box>
-                <Box sx={{ width: 40, height: 40, borderRadius: '12px', display: 'grid', placeItems: 'center', backgroundColor: c.iconBg, color: c.accent, flexShrink: 0 }}>
-                  {c.icon}
-                </Box>
-              </Stack>
-              {loading
-                ? <Skeleton width={80} height={36} />
-                : <Typography sx={{ fontSize: typeof c.value === 'number' ? '2rem' : '1.6rem', fontWeight: 800, color: c.accent, lineHeight: 1.1, letterSpacing: '-0.5px', wordBreak: 'break-word' }}>
-                    {c.value}
-                  </Typography>
-              }
+            boxShadow: '0 6px 12px rgba(15, 23, 42, 0.08)',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            flex: '0 0 auto',
+            '& .MuiAvatar-img': { objectFit: 'fill' },
+          }}
+        />
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1} mb={0.45}>
+            <Box sx={{ minWidth: 0 }}>
+              <Tooltip title={name} arrow placement="top">
+                <Typography sx={{ color: '#0f172a', fontSize: { xs: '1.05rem', md: '1.14rem' }, fontWeight: 800, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {name}
+                </Typography>
+              </Tooltip>
+              <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: 0.35 }}>
+                {employee?.employeeCode || '-'}
+              </Typography>
             </Box>
-          </Paper>
-        ))}
-      </div>
-    </>
+          </Stack>
+          <Typography sx={{ color: '#334155', fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.3 }}>
+            {employee?.companyPhoneNumber || '-'}
+          </Typography>
+          <Box sx={{ mt: 0.75 }}>
+            <Chip
+              label={hasProfessionalFees ? 'CONTRACT BASED' : 'SALARY BASED'}
+              size="small"
+              sx={{
+                height: '22px',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                letterSpacing: '0.5px',
+                backgroundColor: hasProfessionalFees ? '#f5f3ff' : '#f0fdf4',
+                color: hasProfessionalFees ? '#7c3aed' : '#16a34a',
+                border: `1px solid ${hasProfessionalFees ? '#ede9fe' : '#dcfce7'}`,
+                '& .MuiChip-label': { px: 1 },
+              }}
+            />
+          </Box>
+        </Box>
+      </Stack>
+
+      {employee?.companyEmailId && (
+        <Box
+          sx={{
+            mt: 1.4,
+            pt: 1.25,
+            borderTop: '1px solid #edf2f7',
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: '1fr' },
+            gap: 0.85,
+          }}
+        >
+          <Box
+            sx={{
+              minWidth: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.7,
+              px: 1,
+              py: 0.75,
+              borderRadius: '10px',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e8eef5',
+            }}
+          >
+            <Box sx={{ color: '#64748b', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
+              <EmailOutlinedIcon sx={{ fontSize: '14px' }} />
+            </Box>
+            <Typography
+              sx={{
+                minWidth: 0,
+                color: '#475569',
+                fontSize: '0.73rem',
+                fontWeight: 600,
+                lineHeight: 1.15,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {employee.companyEmailId}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+    </Paper>
+  );
+}
+
+// ── Employee Details section skeleton ─────────────────────────────────────────
+
+function EmployeeDetailsSkeleton() {
+  return (
+    <Paper elevation={0} sx={{ p: 1.25, borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.5}>
+        <Skeleton variant="rounded" width="100%" height={168} sx={{ maxWidth: { lg: 260 }, borderRadius: '16px' }} />
+        <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 1.25 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} variant="rounded" height={80} sx={{ borderRadius: '16px' }} />
+          ))}
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+// ── Employee Details section ───────────────────────────────────────────────────
+
+export interface EmployeeDetailsSectionProps {
+  totalRequests: number;
+  totalRequestedAmount: number;
+  approvedRequests: number;
+  rejectedRequests: number;
+  pendingRequests: number;
+  approvedAmount: number;
+  pendingAmount: number;
+  rejectedAmount: number;
+  overviewLoading: boolean;
+  /** Optional employee override. When provided, used instead of currentEmployee from redux. */
+  employee?: any;
+}
+
+export function EmployeeDetailsSection({
+  totalRequests,
+  totalRequestedAmount,
+  approvedRequests,
+  rejectedRequests,
+  pendingRequests,
+  approvedAmount,
+  pendingAmount,
+  rejectedAmount,
+  overviewLoading,
+  employee: employeeProp,
+}: EmployeeDetailsSectionProps) {
+  const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
+  const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
+
+  // Row 1 — counts; Row 2 — amounts (4 × 2 grid at xl)
+  const kpiCards: ReimbKpiCardProps[] = [
+    { label: 'Total Requests',          value: totalRequests,                                accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />,        loading: overviewLoading },
+    { label: 'Total Request Approved',  value: approvedRequests,                             accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />,        loading: overviewLoading },
+    { label: 'Total Request Pending',   value: pendingRequests,                              accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,         loading: overviewLoading },
+    { label: 'Total Request Rejected',  value: rejectedRequests,                             accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />,        loading: overviewLoading },
+    { label: 'Total Requested Amount',  value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />,          loading: overviewLoading },
+    { label: 'Total Approved Amount',   value: `₹${fmtAmountRounded(approvedAmount)}`,       accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />,  loading: overviewLoading },
+    { label: 'Total Pending Amount',    value: `₹${fmtAmountRounded(pendingAmount)}`,        accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />,   loading: overviewLoading },
+    { label: 'Total Rejected Amount',   value: `₹${fmtAmountRounded(rejectedAmount)}`,       accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />,  loading: overviewLoading },
+  ];
+
+  return (
+    <Box sx={{ width: '100%', mb: 4 }}>
+      <Typography className="font-barlow" sx={{ color: '#0f172a', fontSize: { xs: 20, md: 22 }, fontWeight: 800, lineHeight: 1.2, mb: 1.25 }}>
+        Employee Details
+      </Typography>
+
+      {!employee ? (
+        <EmployeeDetailsSkeleton />
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            width: '100%',
+            p: { xs: 1, md: 1.25 },
+            borderRadius: '20px',
+            background: 'linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%)',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', lg: '260px minmax(0, 1fr)' },
+              gap: 1.25,
+              alignItems: 'stretch',
+            }}
+          >
+            <ReimbEmployeeProfileCard employee={employee} />
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' },
+                gap: 1.25,
+                gridAutoRows: { xs: '76px', md: '80px' },
+                alignContent: 'start',
+                alignItems: 'stretch',
+              }}
+            >
+              {kpiCards.map((card) => (
+                <ReimbKpiCard key={card.label} {...card} />
+              ))}
+            </Box>
+          </Box>
+        </Paper>
+      )}
+    </Box>
   );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-function PendingReimbursementsPage() {
+function PendingReimbursementsPage({
+  totalRequests = 0,
+  totalRequestedAmount = 0,
+  approvedRequests = 0,
+  rejectedRequests = 0,
+  pendingRequests = 0,
+  approvedAmount = 0,
+  pendingAmount = 0,
+  rejectedAmount = 0,
+  overviewLoading = false,
+}: Partial<EmployeeDetailsSectionProps>) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
@@ -254,6 +576,7 @@ function PendingReimbursementsPage() {
 
   // Document preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dropdown option lists — same names as Reimbursement.tsx
   const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
@@ -441,7 +764,7 @@ function PendingReimbursementsPage() {
     setCurrentReimbursement(null);
   };
 
-  const handleSubmit = async (values: any, actions: FormikValues) => {
+  const handleSubmit = async (values: any, actions: any) => {
     try {
       setFormLoading(true);
       if (editMode) {
@@ -481,9 +804,21 @@ function PendingReimbursementsPage() {
 
       await createPendingReimbursementDraft(payload);
       setFormLoading(false);
-      successConfirmation("Reimbursement saved to Pending Requests.");
-      setShow(false);
+      successConfirmation('Reimbursement saved to Pending Requests.');
       loadDrafts();
+
+      // Keep modal open — clear only per-entry fields so Date, Client Type,
+      // Client Name, and Project Name stay populated for the next entry.
+      actions.setFieldValue('reimbursementTypeId', '');
+      actions.setFieldValue('amount', undefined);
+      actions.setFieldValue('fromLocation', '');
+      actions.setFieldValue('toLocation', '');
+      actions.setFieldValue('document', '');
+      actions.setFieldValue('description', '');
+      actions.setTouched({});
+      actions.setSubmitting(false);
+      setSelectedReimbursementFor(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       setFormLoading(false);
     }
@@ -576,7 +911,7 @@ function PendingReimbursementsPage() {
     if (!drafts.length) { errorConfirmation('No pending requests to submit'); return; }
     const confirmed = await genericConfirmation(
       'Confirm Submission for Approval',
-      'Are you sure you want to send all pending reimbursement requests for approval? Once click on Send for Approval, You will no longer be able to edit or delete them from Pending Requests Records.',
+      'Are you sure you want to send all pending reimbursement requests for approval?',
       'Send for Approval',
       'warning',
     );
@@ -598,6 +933,11 @@ function PendingReimbursementsPage() {
 
   // ── Table columns ──────────────────────────────────────────────────────────
 
+  const totalAmount = useMemo(
+    () => drafts.reduce((sum, d) => sum + Number(d.amount || 0), 0),
+    [drafts]
+  );
+
   const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
       accessorKey: 'expenseDate',
@@ -605,6 +945,7 @@ function PendingReimbursementsPage() {
       size: 120,
       enableColumnActions: false,
       Cell: ({ row }) => <span>{dayjs(row.original.expenseDate).format('DD MMM YYYY')}</span>,
+      Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
     },
     {
       accessorKey: 'day',
@@ -667,7 +1008,13 @@ function PendingReimbursementsPage() {
       header: 'Amount',
       size: 110,
       enableColumnActions: false,
-      Cell: ({ row }) => <span className='text-dark fw-bold fs-7'>{fmtAmount(row.original.amount)}</span>,
+      Cell: ({ row }) => (
+        <span className={row.original.isExceedingLimit ? 'fw-bold fs-7' : 'text-dark fw-bold fs-7'}
+          style={row.original.isExceedingLimit ? { color: '#ef4444' } : undefined}>
+          {fmtAmount(row.original.amount)}
+        </span>
+      ),
+      Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,
     },
     {
       accessorKey: 'document',
@@ -714,18 +1061,28 @@ function PendingReimbursementsPage() {
         </div>
       ),
     },
-  ], [resolveClientType, resolveClientCompany, resolveProject]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      {/* Summary cards */}
-      <SummaryCard drafts={drafts} loading={loading} />
+      {/* Employee Details + reimbursement KPI cards */}
+      <EmployeeDetailsSection
+        totalRequests={totalRequests}
+        totalRequestedAmount={totalRequestedAmount}
+        approvedRequests={approvedRequests}
+        rejectedRequests={rejectedRequests}
+        pendingRequests={pendingRequests}
+        approvedAmount={approvedAmount}
+        pendingAmount={pendingAmount}
+        rejectedAmount={rejectedAmount}
+        overviewLoading={overviewLoading}
+      />
 
       {/* Action bar */}
       <div className='d-flex justify-content-between align-items-center mb-4' style={{ paddingRight: '1.25rem' }}>
-        <h2 className='mb-0'>Pending Requests Records</h2>
+        <h2 className='mb-0'>Reimbursement Request Inbox</h2>
         <div className='d-flex gap-3'>
           {hasPermission(
             resourceNameMapWithCamelCase.reimbursement,
@@ -740,13 +1097,14 @@ function PendingReimbursementsPage() {
           )}
           {drafts.length > 0 && (
             <button
-              className='btn btn-lg btn-primary d-flex align-items-center gap-2'
+              className='btn btn-lg d-flex align-items-center gap-2'
+              style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
               onClick={handleSendForApproval}
               disabled={submitting}
             >
               {submitting
                 ? <span className='spinner-border spinner-border-sm me-2' />
-                : <KTIcon iconName='send' className='fs-4' />
+                : <KTIcon iconName='send' className='fs-4 text-white' />
               }
               {submitting ? 'Submitting...' : 'Send for Approval'}
             </button>
@@ -760,15 +1118,28 @@ function PendingReimbursementsPage() {
         columns={columns}
         tableName='Pending Reimbursements'
         hideFilters={false}
+        showColumnFooter={true}
         muiTableProps={{
-          muiTableBodyRowProps: () => ({
-            sx: {
-              backgroundColor: 'rgba(245,158,11,0.04)',
-              '& td:first-of-type': { borderLeft: '4px solid #f59e0b !important' },
-              transition: 'background-color 0.12s ease',
-              '&:hover td': { backgroundColor: 'rgba(245,158,11,0.08) !important' },
-            },
-          }),
+          muiTableBodyRowProps: ({ row }: any) => {
+            if (row.original?.isExceedingLimit) {
+              return {
+                sx: {
+                  backgroundColor: 'rgba(239,68,68,0.08)',
+                  '& td:first-of-type': { borderLeft: '4px solid #ef4444 !important' },
+                  transition: 'background-color 0.12s ease',
+                  '&:hover td': { backgroundColor: 'rgba(239,68,68,0.14) !important' },
+                },
+              };
+            }
+            return {
+              sx: {
+                backgroundColor: 'rgba(245,158,11,0.04)',
+                '& td:first-of-type': { borderLeft: '4px solid #f59e0b !important' },
+                transition: 'background-color 0.12s ease',
+                '&:hover td': { backgroundColor: 'rgba(245,158,11,0.08) !important' },
+              },
+            };
+          },
         }}
       />
 
@@ -792,9 +1163,13 @@ function PendingReimbursementsPage() {
                   expenseDate: currentReimbursement.expenseDate
                     ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
                     : dayjs().format('YYYY-MM-DD'),
-                  clientTypeId: currentReimbursement?.clientTypeId || '',
-                  clientCompanyId: currentReimbursement?.clientCompanyId || '',
-                  projectId: currentReimbursement?.projectId || '',
+                  clientTypeId: currentReimbursement?.clientTypeId ?? '',
+                  clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
+                  projectId: currentReimbursement?.projectId ?? '',
+                  fromLocation: currentReimbursement?.fromLocation ?? '',
+                  toLocation: currentReimbursement?.toLocation ?? '',
+                  description: currentReimbursement?.description ?? '',
+                  document: currentReimbursement?.document ?? '',
                 }),
             }}
             onSubmit={handleSubmit}
@@ -947,6 +1322,7 @@ function PendingReimbursementsPage() {
                   <div className='col-lg-12'>
                     <label className='mb-3 fw-bold'>Upload Reimbursement Bill</label>
                     <input
+                      ref={fileInputRef}
                       type='file'
                       accept='image/*,application/pdf'
                       className='form-control form-control-lg form-control-solid'

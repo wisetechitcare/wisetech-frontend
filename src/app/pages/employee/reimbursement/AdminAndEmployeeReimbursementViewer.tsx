@@ -4,7 +4,6 @@ import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
 import Reimbursement from "./Reimbursement";
-import PendingReimbursementsPage from "./PendingReimbursementsPage";
 import AllEmployee from "./views/admin/AllEmployee";
 import SearchEmployee from "./views/admin/SearchEmployee";
 import { useDispatch, useSelector } from "react-redux";
@@ -30,29 +29,24 @@ function AdminAndEmployeeReimbursementViewer() {
 
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
-      title: "Pending Requests",
-      component: <PendingReimbursementsPage />,
-      icon: activeTab === 0 ? reimbursementsIcons.reimbursementsIcon.active : reimbursementsIcons.reimbursementsIcon.default,
-    }]:[]),
-    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",
       component: <Reimbursement />,
-      icon: activeTab === 1 ? reimbursementsIcons.reimbursementsIcon.active : reimbursementsIcons.reimbursementsIcon.default,
+      icon: activeTab === 0 ? reimbursementsIcons.reimbursementsIcon.active : reimbursementsIcons.reimbursementsIcon.default,
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Employees Reimbursements",
       component: <AllEmployee />,
-      icon: activeTab === 2 ? reimbursementsIcons.employeesReimbursements.active : reimbursementsIcons.employeesReimbursements.default,
+      icon: activeTab === 1 ? reimbursementsIcons.employeesReimbursements.active : reimbursementsIcons.employeesReimbursements.default,
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
-      icon: activeTab === 3 ? reimbursementsIcons.serchEmployee.active : reimbursementsIcons.serchEmployee.default,
+      icon: activeTab === 2 ? reimbursementsIcons.serchEmployee.active : reimbursementsIcons.serchEmployee.default,
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
-      icon: activeTab === 4 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
+      icon: activeTab === 3 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
     }]:[]),
   ];
 

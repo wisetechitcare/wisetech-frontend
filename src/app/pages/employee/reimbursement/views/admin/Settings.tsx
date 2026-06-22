@@ -29,11 +29,17 @@ import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
 const reimbursementTypeSchema = Yup.object({
   type: Yup.string().required().label("Name"),
   icon: Yup.string().label("Icon"),
+  amountLimit: Yup.number()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v))
+    .min(0, "Amount Limit must be 0 or greater")
+    .label("Amount Limit"),
 });
 
-let initialState = {
+let initialState: { type: string; icon: string; amountLimit: number | null } = {
   type: "",
   icon: "",
+  amountLimit: null,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -175,7 +181,7 @@ function Settings() {
   };
 
   const handleNew = () => {
-    initialState = { type: "", icon: "" };
+    initialState = { type: "", icon: "", amountLimit: null };
     setPreviewIconValue("");
     setSelectedReimbursement(null);
     setShow(true);
@@ -198,6 +204,7 @@ function Settings() {
         ...values,
         type: values.type,
         icon: values.icon,
+        amountLimit: values.amountLimit ?? null,
       };
 
       if (editMode && selectedReimbursement) {
@@ -246,7 +253,7 @@ function Settings() {
       {
         accessorKey: "icon",
         header: "Icon",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => (
           <IconCell value={renderedCellValue} />
@@ -255,9 +262,17 @@ function Settings() {
       {
         accessorKey: "type",
         header: "Name",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      },
+      {
+        accessorKey: "amountLimit",
+        header: "Amount Limit",
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) =>
+          renderedCellValue != null ? `₹${Number(renderedCellValue).toLocaleString("en-IN")}` : "—",
       },
       ...(isAdmin
         ? [
@@ -361,9 +376,36 @@ function Settings() {
                       <TextInput
                         isRequired={true}
                         label="Enter Name"
-                        margin="mb-7"
+                        margin="mb-3"
                         formikField="type"
                       />
+                      {/* Amount Limit field */}
+                      <div className="d-flex flex-column fv-row mb-7">
+                        <label className="d-flex align-items-center fs-6 form-label mb-2">
+                          <span>Amount Limit</span>
+                        </label>
+                        <input
+                          // type="number"
+                          min={0}
+                          name="amountLimit"
+                          placeholder=""
+                          value={formikProps.values.amountLimit ?? ""}
+                          onChange={(e) =>
+                            formikProps.setFieldValue(
+                              "amountLimit",
+                              e.target.value === "" ? null : Number(e.target.value)
+                            )
+                          }
+                          onBlur={formikProps.handleBlur}
+                          className={`form-control${formikProps.touched.amountLimit && formikProps.errors.amountLimit ? " is-invalid" : ""}`}
+                          style={{ height: 44 }}
+                        />
+                        {formikProps.touched.amountLimit && formikProps.errors.amountLimit && (
+                          <div className="fv-plugins-message-container mt-1">
+                            <div className="fv-help-block">{formikProps.errors.amountLimit as string}</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Icon picker field */}
