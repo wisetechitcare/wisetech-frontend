@@ -1,0 +1,140 @@
+.revision-detail-modal {
+  position: fixed;
+  z-index: 1050;
+}
+
+.revision-detail-modal .modal-dialog {
+  max-width: 800px;
+}
+
+.revision-detail-modal .modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-color: #667eea;
+}
+
+.revision-detail-modal .modal-header .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+.revision-detail-modal .modal-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.revision-summary {
+  border-left: 4px solid #3b82f6;
+}
+
+.revision-summary strong {
+  color: #1a1a1a;
+  display: block;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}
+
+.revision-summary p {
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+.revision-changes .table {
+  margin-bottom: 0;
+}
+
+.revision-changes .table thead {
+  background-color: #f5f7fa;
+  border-top: 1px solid #e4e6ef;
+}
+
+.revision-changes .table thead th {
+  color: #6c757d;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+
+.revision-changes .table tbody tr {
+  border-color: #e4e6ef;
+  transition: background-color 0.2s ease;
+}
+
+.revision-changes .table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.revision-changes .table code {
+  font-size: 0.8rem;
+  word-break: break-all;
+  max-height: 60px;
+  display: block;
+  overflow-y: auto;
+}
+
+.nav-tabs {
+  border-bottom: 2px solid #e4e6ef;
+}
+
+.nav-tabs .nav-link {
+  color: #6c757d;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-weight: 500;
+  margin-bottom: -2px;
+  transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.nav-tabs .nav-link.active {
+  color: #3b82f6;
+  background-color: transparent;
+  border-color: #3b82f6;
+}
+
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  font-weight: 500;
+}
+
+.modal-footer {
+  border-top: 1px solid #e4e6ef;
+  padding: 1rem;
+  background-color: #f9fafb;
+}
+
+.modal-footer .btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .revision-detail-modal .modal-dialog {
+    margin: 0.5rem;
+  }
+
+  .revision-summary {
+    padding: 1rem !important;
+  }
+
+  .revision-summary .row {
+    gap: 0.5rem;
+  }
+
+  .revision-changes .table-responsive {
+    font-size: 0.85rem;
+  }
+}

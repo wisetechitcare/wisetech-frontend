@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { deleteLead, getAllLeads } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
@@ -490,6 +490,48 @@ const LeadTablePage = () => {
             </div>
           ) : (
             "N/A"
+          );
+        },
+      },
+      {
+        id: "lastRevision",
+        header: "Last Revision",
+        size: 130,
+        enableSorting: false,
+        Cell: ({ row }: { row: any }) => {
+          const [revisionCount, setRevisionCount] = useState<number | null>(null);
+
+          React.useEffect(() => {
+            const fetchRevisionCount = async () => {
+              try {
+                const response = await fetch(
+                  `http://localhost:9000/api/revisions/LEAD/${row.original.id}/history?pageSize=1`
+                );
+                if (response.ok) {
+                  const data = await response.json();
+                  setRevisionCount(data.data?.pagination?.total || 0);
+                }
+              } catch (error) {
+                console.error('Failed to fetch revision count:', error);
+                setRevisionCount(0);
+              }
+            };
+
+            fetchRevisionCount();
+          }, [row.original.id]);
+
+          if (revisionCount === null) {
+            return <span style={{ color: "#ccc", fontSize: "12px" }}>Loading...</span>;
+          }
+
+          if (revisionCount === 0) {
+            return <span style={{ color: "#ccc" }}>—</span>;
+          }
+
+          return (
+            <div className="badge badge-info" style={{ backgroundColor: "#3b82f6", color: "white" }}>
+              R{revisionCount}
+            </div>
           );
         },
       },
