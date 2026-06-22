@@ -122,6 +122,7 @@ export interface GrossDistributionData {
         value: number;
         type: string;
         isActive?: boolean;
+        _masterCategory?: string;
     };
 }
 

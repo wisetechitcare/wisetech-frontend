@@ -174,6 +174,38 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                     <KTIcon iconName="file-down" className="fs-6" />
                     <span>{isDownloading ? 'Generating…' : 'Download Slip'}</span>
                 </button>
+            ) : salarySlipProps ? (
+                /* Salary data exists but no saved DB record yet — fall back to client-side PDF */
+                <PDFDownloadLink
+                    document={<SalarySlipTemplate {...salarySlipProps} />}
+                    fileName={`${salarySlipProps.employee?.users?.firstName || ''} ${salarySlipProps.employee?.users?.lastName || ''} Salary Slip ${salarySlipProps.date || ''}.pdf`.trim()}
+                    style={{ textDecoration: 'none' }}
+                >
+                    {({ loading: pdfLoading }) => (
+                        <button
+                            disabled={pdfLoading}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '5px',
+                                padding: '7px 14px',
+                                border: '1.5px solid #e2e8f0',
+                                borderRadius: '6px',
+                                background: '#f8fafc',
+                                color: pdfLoading ? '#94a3b8' : '#475569',
+                                fontWeight: 500,
+                                fontSize: '12px',
+                                cursor: pdfLoading ? 'not-allowed' : 'pointer',
+                                opacity: pdfLoading ? 0.6 : 1,
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            <KTIcon iconName="file-down" className="fs-6" />
+                            <span>{pdfLoading ? 'Preparing…' : 'Download Slip'}</span>
+                        </button>
+                    )}
+                </PDFDownloadLink>
             ) : (
                 <button disabled style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', border: '1.5px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#94a3b8', fontWeight: 500, fontSize: '12px', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
                     <KTIcon iconName="file-down" className="fs-6" />
