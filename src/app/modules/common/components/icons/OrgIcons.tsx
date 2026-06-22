@@ -121,6 +121,16 @@ export function IconImage({ size = 18, color = 'currentColor', strokeWidth = 1.8
   );
 }
 
+export function IconUpload({ size = 18, color = 'currentColor', strokeWidth = 1.8, style, className }: IconProps) {
+  return (
+    <svg {...base(size, color, strokeWidth, style, className)}>
+      <path d="M17 8.5a5 5 0 0 0-9.65-1.4A4 4 0 0 0 6 15h2.5" />
+      <path d="M12 12v8" />
+      <path d="m8.5 15.5 3.5-3.5 3.5 3.5" />
+    </svg>
+  );
+}
+
 export function IconGear({ size = 18, color = 'currentColor', strokeWidth = 1.8, style, className }: IconProps) {
   return (
     <svg {...base(size, color, strokeWidth, style, className)}>

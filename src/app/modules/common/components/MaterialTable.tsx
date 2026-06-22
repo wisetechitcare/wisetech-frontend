@@ -268,8 +268,9 @@ function MaterialTable({
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const overflows = scrollWidth > clientWidth + 2;
     if (wrap) {
-      wrap.style.opacity = overflows ? '1' : '0';
-      wrap.style.pointerEvents = overflows ? 'auto' : 'none';
+      // Own-row scrollbar: collapse it entirely when the table doesn't overflow so it
+      // never takes space / overlaps the pagination footer.
+      wrap.style.display = overflows ? 'flex' : 'none';
     }
     if (!thumb || !overflows) return;
     const widthPct = (clientWidth / scrollWidth) * 100;
@@ -1570,6 +1571,83 @@ function MaterialTable({
 
             return (
               <Box sx={{ width: "100%" }}>
+                {/* Custom horizontal scrollbar — its own row above the pagination so it
+                    never overlaps the footer text (esp. inside narrow modals). Collapsed
+                    to display:none by syncThumb when the table doesn't overflow. */}
+                {!hideExportCenter && (
+                  <div
+                    ref={scrollBarWrapRef}
+                    style={{
+                      display: "none",
+                      alignItems: "center",
+                      gap: "10px",
+                      width: "100%",
+                      maxWidth: "560px",
+                      margin: "8px auto 0",
+                      padding: "0 16px",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    {/* Track */}
+                    <div
+                      ref={scrollTrackRef}
+                      onClick={(e) => {
+                        const track = scrollTrackRef.current;
+                        const el = tableContainerRef.current;
+                        if (!track || !el || isDraggingHScroll.current) return;
+                        const rect = track.getBoundingClientRect();
+                        const ratio = (e.clientX - rect.left) / rect.width;
+                        el.scrollLeft = ratio * (el.scrollWidth - el.clientWidth);
+                      }}
+                      style={{
+                        flex: 1,
+                        height: '6px',
+                        borderRadius: '99px',
+                        backgroundColor: '#d1d5db',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'height 0.18s ease',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.height = '8px'; }}
+                      onMouseLeave={e => { if (!isDraggingHScroll.current) (e.currentTarget as HTMLDivElement).style.height = '6px'; }}
+                    >
+                      {/* Thumb */}
+                      <div
+                        ref={scrollThumbRef}
+                        onPointerDown={onThumbPointerDown}
+                        onPointerMove={onThumbPointerMove}
+                        onPointerUp={onThumbPointerUp}
+                        onPointerCancel={onThumbPointerUp}
+                        onMouseEnter={e => {
+                          if (!isDraggingHScroll.current) {
+                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#6b7280';
+                            (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 3px rgba(107,114,128,0.2)';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isDraggingHScroll.current) {
+                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#9ca3af';
+                            (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                          }
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          /* left + width intentionally omitted — owned by syncThumb via direct DOM */
+                          height: '140%',
+                          minWidth: '24px',
+                          borderRadius: '99px',
+                          backgroundColor: '#9ca3af',
+                          cursor: 'grab',
+                          transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                          userSelect: 'none',
+                          touchAction: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <Box
                   sx={{
                     display: "flex",
@@ -1667,84 +1745,6 @@ function MaterialTable({
                       )}
                     </Box>
                   </Box>
-
-                  {/* Center: Custom horizontal scrollbar */}
-                  {!hideExportCenter && (
-                    <div
-                      ref={scrollBarWrapRef}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        position: "absolute",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "380px",
-                        gap: "10px",
-                        opacity: 0,
-                        pointerEvents: 'none',
-                        transition: 'opacity 0.25s ease',
-                      }}
-                    >
-                      {/* Track */}
-                      <div
-                        ref={scrollTrackRef}
-                        onClick={(e) => {
-                          const track = scrollTrackRef.current;
-                          const el = tableContainerRef.current;
-                          if (!track || !el || isDraggingHScroll.current) return;
-                          const rect = track.getBoundingClientRect();
-                          const ratio = (e.clientX - rect.left) / rect.width;
-                          el.scrollLeft = ratio * (el.scrollWidth - el.clientWidth);
-                        }}
-                        style={{
-                          flex: 1,
-                          height: '6px',
-                          borderRadius: '99px',
-                          backgroundColor: '#d1d5db',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'height 0.18s ease',
-                        }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.height = '8px'; }}
-                        onMouseLeave={e => { if (!isDraggingHScroll.current) (e.currentTarget as HTMLDivElement).style.height = '6px'; }}
-                      >
-                        {/* Thumb */}
-                        <div
-                          ref={scrollThumbRef}
-                          onPointerDown={onThumbPointerDown}
-                          onPointerMove={onThumbPointerMove}
-                          onPointerUp={onThumbPointerUp}
-                          onPointerCancel={onThumbPointerUp}
-                          onMouseEnter={e => {
-                            if (!isDraggingHScroll.current) {
-                              (e.currentTarget as HTMLDivElement).style.backgroundColor = '#6b7280';
-                              (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 3px rgba(107,114,128,0.2)';
-                            }
-                          }}
-                          onMouseLeave={e => {
-                            if (!isDraggingHScroll.current) {
-                              (e.currentTarget as HTMLDivElement).style.backgroundColor = '#9ca3af';
-                              (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-                            }
-                          }}
-                          style={{
-                            position: 'absolute',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            /* left + width intentionally omitted — owned by syncThumb via direct DOM */
-                            height: '140%',
-                            minWidth: '24px',
-                            borderRadius: '99px',
-                            backgroundColor: '#9ca3af',
-                            cursor: 'grab',
-                            transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
-                            userSelect: 'none',
-                            touchAction: 'none',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   {/* Right: Custom Pagination buttons */}
                   {!hidePagination && (

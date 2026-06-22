@@ -10,6 +10,7 @@ import { getAllClientContacts, getClientContactById } from "@services/companies"
 import { PageTitle } from "@metronic/layout/core";
 import Loader from "@app/modules/common/utils/Loader";
 import ClientContactsMain from "./ClientContactsMain";
+import ContactsOverview from "./components/ContactsOverview";
 import CalenderMain from "../calender/CalenderMain";
 import Maps from "../companyOverview/components/Map";
 
@@ -55,17 +56,25 @@ const ContactsNavbar = () => {
   const tabItems: TabItem[] = [
     {
       title: "Overview",
-      component:<ClientContactsMain/>,
+      component: <ContactsOverview />,
       icon:
         activeTab === 0
           ? leadsIcons.leadsOverviewIcon.active
             : leadsIcons.leadsOverviewIcon.default,
     },
     {
+      title: "Contacts",
+      component: <ClientContactsMain />,
+      icon:
+        activeTab === 1
+          ? projectsIcons.projectsIcon.active
+          : projectsIcons.projectsIcon.default,
+    },
+    {
       title: "Calendar",
       component: <CalenderMain />,
       icon:
-        activeTab === 1
+        activeTab === 2
           ? calenderIcons.calenderIcon.active
           : calenderIcons.calenderIcon.default,
     },
@@ -73,7 +82,7 @@ const ContactsNavbar = () => {
       title: "Map",
       component: <Maps points={coordinates} contactData={contactData} />,
       icon:
-        activeTab === 2
+        activeTab === 3
           ? worldIcons.worldIcon.active
           : worldIcons.worldIcon.default,
     },
@@ -81,7 +90,7 @@ const ContactsNavbar = () => {
       title: "Configure",
       component: <ContactConfigMain />,
       icon:
-        activeTab === 3
+        activeTab === 4
           ? leadsIcons.leadsConfigIcon.active
           : leadsIcons.leadsConfigIcon.default,
     },

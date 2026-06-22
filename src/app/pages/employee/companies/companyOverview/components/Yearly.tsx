@@ -64,6 +64,8 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
   const [companyStatusData, setCompanyStatusData] = useState<any[]>([]);
   const [isOthersView, setIsOthersView] = useState(false);
   const [top10Ids, setTop10Ids] = useState<string[]>([]);
+  const [openService, setOpenService] = useState(false);
+  const [serviceId, setServiceId] = useState("");
 
 
   // Get settings from Redux
@@ -121,6 +123,13 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
       setCompanyTypeId(typeId || "");
     }
     setOpenCompanyType(true);
+  };
+
+  // Service bar (3rd drill level) → open the companies modal filtered to that service.
+  // Opens even when the service has no companies (shows an empty list).
+  const handleServiceChartClick = (svcId: string) => {
+    setServiceId(svcId || "");
+    setOpenService(true);
   };
 
   const handleContactByRolesChartClick = (selectedLabel: string) => {
@@ -255,28 +264,17 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
               id: item.id,
               name: item.name,
               companyCount: item.companyCount,
-              color: item.color || "#3B82F6"
+              color: item.color || "#3B82F6",
+              parentTypeId: item.parentTypeId ?? null,
+              services: item.services ?? undefined
             }))}
             onBarClick={handleCompanyTypeChartClick}
+            onServiceClick={handleServiceChartClick}
           />
         </div>
         }
 
-        {/* Projects by Team */}
-        {settings.showCompaniesByRoles && chartData.contactsByRoles.length > 0 && <div className="col-12 col-md-12">
-            <CustomBarChart
-                data={applyFilter(chartData.contactsByRoles, "name")}
-                title="Contacts By Roles"
-                height={400} 
-                showFilter={false}
-                filterKey="name"
-                filterOptions={[]}
-                filterValue={filters.subcategory || ""}
-                onFilterChange={(value: string) => handleFilterChange("name", value)}
-                filterPlaceholder="All Categories"
-                onChartClick={handleContactByRolesChartClick}
-              />
-          </div>}
+        {/* "Contacts By Roles" moved to the Contacts section → Overview tab. */}
 
            {settings.showCompaniesByStatus && chartData.companiesByStatus.length > 0 && <div className="col-12 col-md-6">
             <CustomPieChart
@@ -339,6 +337,7 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
             top10Ids={top10Ids}
           />
           <CompanyDialogModal open={openContactByRoles} onClose={() => setOpenContactByRoles(false)} contactByRolesId={contactByRolesId} startDate={year} endDate={endDate}/>
+          <CompanyDialogModal open={openService} onClose={() => setOpenService(false)} serviceId={serviceId} startDate={year} endDate={endDate}/>
           <CompanyDialogModal open={openCompanyStatus} onClose={() => setOpenCompanyStatus(false)} statusId={companyStatusId} startDate={year} endDate={endDate}/>
     </div>
   );

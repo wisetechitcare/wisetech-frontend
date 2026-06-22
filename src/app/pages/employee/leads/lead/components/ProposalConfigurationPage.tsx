@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { showSuccess, showError, showWarning } from "@utils/modal";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
+import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 
 const ProposalConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -146,17 +147,20 @@ const ProposalConfigurationPage: React.FC = () => {
     setActiveTab("fields");
   };
 
+  const processTemplateFile = (file: File) => {
+    if (!selectedConfig) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = (event.target?.result as string).split(",")[1];
+      setTemplateBase64(base64);
+      setSelectedConfig({ ...selectedConfig, templateFileName: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && selectedConfig) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = (event.target?.result as string).split(",")[1];
-        setTemplateBase64(base64);
-        setSelectedConfig({ ...selectedConfig, templateFileName: file.name });
-      };
-      reader.readAsDataURL(file);
-    }
+    if (file) processTemplateFile(file);
   };
 
   const handleSave = async () => {
@@ -421,22 +425,17 @@ const ProposalConfigurationPage: React.FC = () => {
                               : "Add Word Template"}{" "}
                             (.docx)
                           </Form.Label>
-                          <div className="d-flex align-items-center">
-                            <Form.Control
-                              type="file"
-                              accept=".docx"
-                              onChange={handleFileUpload}
-                              className="form-control-solid"
-                            />
-                            {selectedConfig.templateFileName && (
-                              <Badge
-                                bg="light-success"
-                                className="ms-3 text-success p-2 border border-success border-dashed"
-                              >
-                                {selectedConfig.templateFileName}
-                              </Badge>
-                            )}
-                          </div>
+                          <DragDropFileField
+                            label=""
+                            accept=".docx"
+                            compact
+                            onFile={processTemplateFile}
+                            currentFileName={selectedConfig.templateFileName || ""}
+                            onChange={() => {
+                              setTemplateBase64("");
+                              setSelectedConfig({ ...selectedConfig, templateFileName: "" });
+                            }}
+                          />
                         </Form.Group>
                       </Col>
                     </Row>
