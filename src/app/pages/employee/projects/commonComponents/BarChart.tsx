@@ -527,6 +527,11 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                     },
                     '& .MuiSelect-icon': {
                       color: '#9D4141',
+                      fontSize: '1.9rem',
+                    },
+                    // Leave room for the larger dropdown arrow.
+                    '& .MuiSelect-select': {
+                      paddingRight: '34px !important',
                     },
                   }}
                 >
@@ -585,6 +590,11 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                     },
                     '& .MuiSelect-icon': {
                       color: '#9D4141',
+                      fontSize: '1.9rem',
+                    },
+                    // Leave room for the larger dropdown arrow.
+                    '& .MuiSelect-select': {
+                      paddingRight: '34px !important',
                     },
                   }}
                 >

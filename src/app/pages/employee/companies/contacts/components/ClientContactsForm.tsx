@@ -16,6 +16,7 @@ import {
   getAllContactStatuses,
   getAllClientContacts,
   getAllCompanyServices,
+  getAllSubServices,
 } from "@services/companies";
 import {
   getAllClientBranches,
@@ -37,6 +38,7 @@ import CompanyConfigMain from "../../companyConfig/CompanyConfigMain";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import CompaniesBranchForm from "../../companies/components/CompaniesBranchForm";
 import NewCompanyForm from "../../companies/components/NewCompanyForm";
+import SubServiceModal from "../../companies/components/SubServiceModal";
 import { useEventBus } from "@hooks/useEventBus";
 import { Close } from "@mui/icons-material";
 import { Box, IconButton, Typography } from "@mui/material";
@@ -100,6 +102,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [contactStatuses, setContactStatuses] = useState<any[]>([]);
   // Contacts share the company-service catalog (the same list companies use).
   const [companyServices, setCompanyServices] = useState<any[]>([]);
+  // Contacts also share the company sub-services catalog.
+  const [subServices, setSubServices] = useState<any[]>([]);
   const [selectedRole, setSelectedRole] = useState<{
     id: string;
     name: string;
@@ -115,6 +119,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [showContactStatusModal, setShowContactStatusModal] = useState(false);
   const [showCompanyServiceModal, setShowCompanyServiceModal] = useState(false);
+  const [showSubServiceModal, setShowSubServiceModal] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [branchWarning, setBranchWarning] = useState('');
@@ -145,6 +150,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     contactRoleId: "",
     statusId: "",
     serviceIds: [],
+    subServiceIds: [],
     isPrimaryContact: false,
     fullName: "",
     dob: "",
@@ -179,6 +185,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       contactRoleId: initialData.contactRoleId || "",
       statusId: initialData.statusId || "",
       serviceIds: initialData.serviceMappings?.map((m: any) => m.serviceId) || [],
+      subServiceIds: initialData.subServiceMappings?.map((m: any) => m.subServiceId) || [],
       isPrimaryContact: initialData.isPrimaryContact || false,
       fullName: initialData.fullName || "",
       dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth) : "",
@@ -327,13 +334,14 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [companiesData, roleTypesData, countriesData, branchesData, contactStatusesData, companyServicesData] = await Promise.all([
+      const [companiesData, roleTypesData, countriesData, branchesData, contactStatusesData, companyServicesData, subServicesData] = await Promise.all([
         getAllClientCompanies(),
         getAllContactRoleTypes(),
         fetchAllCountries(),
         getAllClientBranches(),
         getAllContactStatuses(),
         getAllCompanyServices(),
+        getAllSubServices(),
       ]);
       setCompanies(companiesData?.data?.companies || []);
       setContactRoleTypes(roleTypesData?.contactRoleTypes || []);
@@ -341,6 +349,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       setBranches(branchesData?.leadBranches || []);
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
       setCompanyServices(companyServicesData?.data?.services || companyServicesData?.services || []);
+      setSubServices(subServicesData?.subServices || []);
       const contactsData = await getAllClientContacts();
       setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
@@ -357,6 +366,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     loadInitialData();
   });
   useEventBus("companyServiceCreated", () => {
+    loadInitialData();
+  });
+  useEventBus("subServiceCreated", () => {
     loadInitialData();
   });
   useEventBus("companyCreated", () => {
@@ -501,6 +513,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         contactRoleId: formValues.contactRoleId,
         statusId: formValues.statusId,
         serviceIds: formValues.serviceIds || [],
+        subServiceIds: formValues.subServiceIds || [],
         isPrimaryContact: formValues.isPrimaryContact === true ? 'true' : 'false',
 
         fullName: formValues.fullName,
@@ -958,6 +971,48 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 style={{ cursor: "pointer" }}
                               >
                                 + New Service
+                              </small>
+                            </Col>
+                            <Col md={6} className="mt-2">
+                              <label className="form-label">Sub-services</label>
+                              <Select
+                                isMulti
+                                placeholder="Select sub-services"
+                                classNamePrefix="react-select"
+                                className="react-select-styled"
+                                options={(() => {
+                                  // Group sub-services under their parent company service.
+                                  const groups: Record<string, { label: string; options: any[] }> = {};
+                                  subServices.forEach((ss: any) => {
+                                    const parentName = ss.parentService?.name || "Other";
+                                    (groups[parentName] ||= { label: parentName, options: [] }).options.push({
+                                      value: ss.id,
+                                      label: ss.name,
+                                    });
+                                  });
+                                  return Object.values(groups)
+                                    .sort((a, b) => a.label.localeCompare(b.label))
+                                    .map((g) => ({ ...g, options: sortOptionsAlphabetically(g.options) }));
+                                })()}
+                                value={subServices
+                                  .filter((s) => (values.subServiceIds || []).includes(s.id))
+                                  .map((s) => ({ value: s.id, label: s.name }))}
+                                onChange={(selected: any) =>
+                                  setFieldValue(
+                                    "subServiceIds",
+                                    (selected || []).map((o: any) => o.value)
+                                  )
+                                }
+                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                                menuPosition="fixed"
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                              />
+                              <small
+                                className="text-primary"
+                                onClick={() => setShowSubServiceModal(true)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                + New Sub-service
                               </small>
                             </Col>
                           </Row>
@@ -1527,6 +1582,12 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         onClose={() => setShowCompanyServiceModal(false)}
         type="company-services"
         title="Service"
+      />
+      <SubServiceModal
+        show={showSubServiceModal}
+        onClose={() => setShowSubServiceModal(false)}
+        services={companyServices}
+        onCreated={() => loadInitialData()}
       />
       <CompaniesBranchForm
         show={showBranchModal}

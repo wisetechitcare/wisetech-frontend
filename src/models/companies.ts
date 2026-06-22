@@ -63,6 +63,13 @@ export interface ContactServiceMapping {
   service?: ContactService;
 }
 
+// One row of the contact ⇄ sub-service join table.
+export interface ContactSubServiceMapping {
+  id?: string;
+  subServiceId: string;
+  subService?: { id: string; name: string };
+}
+
 export interface Country {
   id: string | number | undefined;
   name: string;
@@ -96,6 +103,8 @@ export interface ContactFormValues {
   statusId?: string;
   serviceIds: string[];
   serviceMappings?: ContactServiceMapping[];
+  subServiceIds: string[];
+  subServiceMappings?: ContactSubServiceMapping[];
   primaryContact?: boolean;
   isPrimaryContact?: boolean;
   

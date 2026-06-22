@@ -2,6 +2,7 @@ import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatin
 import { useEffect, useState } from "react";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
 import SubServiceModal from "../companies/components/SubServiceModal";
+import CategoryTreeExplorer from "../../leads/configuration/components/CategoryTreeExplorer";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
@@ -74,6 +75,14 @@ const CompanyConfigMain = () => {
   };
 
   const handleModalOpen = () => {
+    setEditingCompanyType(null);
+    setShowModal(true);
+  };
+
+  // "Add subcategory" under a parent type → open the New Company Type modal with the
+  // parent preselected (no id → create mode).
+  const handleAddSubType = (parentTypeId?: string) => {
+    setEditingCompanyType(parentTypeId ? ({ parentTypeId } as any) : null);
     setShowModal(true);
   };
 
@@ -525,50 +534,18 @@ const CompanyConfigMain = () => {
             </button>
           </div>
 
-          <div className="row mt-4">
-            {companyTypes.map((companyType: any) => (
-              <div key={companyType.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: companyType.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={companyType.name}>{companyType.name.length > 10 ? companyType.name.slice(0, 10) + '...' : companyType.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleEdit(companyType)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCompanyTypeDelete(companyType.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="mt-4">
+            <CategoryTreeExplorer
+              categories={companyTypes.filter((t) => !t.parentTypeId) as any}
+              subcategories={companyTypes
+                .filter((t) => t.parentTypeId)
+                .map((t) => ({ ...t, categoryId: t.parentTypeId })) as any}
+              onCategoryEdit={(cat: any) => handleEdit(cat)}
+              onCategoryDelete={(id: string) => handleCompanyTypeDelete(id)}
+              onSubcategoryEdit={(sub: any) => handleEdit(sub)}
+              onSubcategoryDelete={(id: string) => handleCompanyTypeDelete(id)}
+              onAddSubcategory={(parentId?: string) => handleAddSubType(parentId)}
+            />
           </div>
         </div>
       </div>
@@ -651,7 +628,7 @@ const CompanyConfigMain = () => {
         onClose={handleModalClose}
         onSuccess={fetchCompanyTypes}
         initialData={editingCompanyType}
-        isEditing={!!editingCompanyType}
+        isEditing={!!editingCompanyType?.id}
         type="company-type"
         title="Company Type"
       />

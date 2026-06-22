@@ -71,7 +71,10 @@ export const upsertUserTablePreferences = async (employeeId: string, tableName: 
 // GET: Fetch user table preferences
 export const getUserTablePreferences = async (employeeId: string, tableName: string) => {
     try {
-        const endpoint = `${API_BASE_URL}${USERS.GET_USER_TABLE_PREFERENCES.replace(':employeeId', employeeId).replace(':tableName', tableName)}`;
+        // Encode the path params — table names may contain spaces/special chars (e.g.
+        // "Client Contacts"), which would otherwise break the URL and silently fail the
+        // load, so saved preferences never restore on reload/login.
+        const endpoint = `${API_BASE_URL}${USERS.GET_USER_TABLE_PREFERENCES.replace(':employeeId', encodeURIComponent(employeeId)).replace(':tableName', encodeURIComponent(tableName))}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (error) {
