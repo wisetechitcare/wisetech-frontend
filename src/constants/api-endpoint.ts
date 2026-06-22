@@ -461,6 +461,12 @@ export const LEAD_PROJECT_COMPANY = {
     UPDATE_CONTACT_ROLE_TYPE: "api/lead-project-companies/contact-role-types/:id",
     DELETE_CONTACT_ROLE_TYPE: "api/lead-project-companies/contact-role-types/:id",
 
+    GET_ALL_SUB_SERVICES: "api/lead-project-companies/sub-services",
+    GET_SUB_SERVICE_BY_ID: "api/lead-project-companies/sub-services/:id",
+    CREATE_SUB_SERVICE: "api/lead-project-companies/sub-services",
+    UPDATE_SUB_SERVICE: "api/lead-project-companies/sub-services/:id",
+    DELETE_SUB_SERVICE: "api/lead-project-companies/sub-services/:id",
+
     GET_ALL_LEAD_BRANCHES: 'api/lead-project-companies/lead-branches',
     GET_LEAD_BRANCH_BY_ID: 'api/lead-project-companies/lead-branches/:id',
     CREATE_LEAD_BRANCH: 'api/lead-project-companies/lead-branches',

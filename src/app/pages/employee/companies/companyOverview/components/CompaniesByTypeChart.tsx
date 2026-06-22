@@ -19,6 +19,7 @@
     name: string;
     companyCount: number;
     color: string;
+    parentTypeId?: string | null;
   }
 
   interface Props {
@@ -30,47 +31,109 @@
     ) => void;
   }
 
+  // One rendered bar. `kind: "group"` is a collapsible parent header (click toggles);
+  // `kind: "leaf"` is a clickable type that filters the table below.
+  interface Row {
+    id: string;
+    name: string;       // display label (may carry a ▸/▾ prefix or indentation)
+    rawName: string;    // plain type name (for tooltip)
+    value: number;
+    color: string;
+    kind: "group" | "leaf";
+  }
+
+  const INDENT = "  "; // two en-spaces for child/self rows
+
   const CompaniesByTypeChart: React.FC<Props> = ({ data, onBarClick }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [sortBy, setSortBy] = useState<"countDesc" | "countAsc" | "nameAZ" | "nameZA">(
       "nameAZ",
     );
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-    const { chartData, top10Ids } = useMemo(() => {
-      let sorted = [...data];
+    const toggleGroup = (id: string) =>
+      setExpandedGroups((prev) => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      });
 
-      // Apply sorting
-      if (sortBy === "countDesc") {
-        sorted.sort((a, b) => b.companyCount - a.companyCount);
-      } else if (sortBy === "countAsc") {
-        sorted.sort((a, b) => a.companyCount - b.companyCount);
-      } else if (sortBy === "nameAZ") {
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-      } else if (sortBy === "nameZA") {
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
+    const { rows, top10Ids } = useMemo(() => {
+      const byId = new Map(data.map((d) => [d.id, d]));
+
+      // Group children under their (in-data) parent.
+      const childrenByParent = new Map<string, DataItem[]>();
+      data.forEach((d) => {
+        if (d.parentTypeId && byId.has(d.parentTypeId)) {
+          const arr = childrenByParent.get(d.parentTypeId) || [];
+          arr.push(d);
+          childrenByParent.set(d.parentTypeId, arr);
+        }
+      });
+
+      // Top-level entries = everything that isn't a child of an in-data parent.
+      let topLevel = data
+        .filter((d) => !(d.parentTypeId && byId.has(d.parentTypeId)))
+        .map((d) => {
+          const children = childrenByParent.get(d.id) || [];
+          const total = d.companyCount + children.reduce((s, c) => s + c.companyCount, 0);
+          return { item: d, children, isGroup: children.length > 0, total };
+        });
+
+      // Sort top-level rows (groups sort by their total; standalone by their own count).
+      const cmp = {
+        countDesc: (a: any, b: any) => b.total - a.total,
+        countAsc: (a: any, b: any) => a.total - b.total,
+        nameAZ: (a: any, b: any) => a.item.name.localeCompare(b.item.name),
+        nameZA: (a: any, b: any) => b.item.name.localeCompare(a.item.name),
+      }[sortBy];
+      topLevel.sort(cmp);
+      // Sort children A–Z inside each group.
+      topLevel.forEach((g) => g.children.sort((a, b) => a.name.localeCompare(b.name)));
+
+      // Collapse the long tail into "Others" (top 10 top-level rows) unless expanded.
+      let visibleTop = topLevel;
+      let othersSum = 0;
+      if (!isExpanded && topLevel.length > 10) {
+        visibleTop = topLevel.slice(0, 10);
+        othersSum = topLevel.slice(10).reduce((s, g) => s + g.total, 0);
       }
 
-      const top10 = sorted.slice(0, 10);
-      const others = sorted.slice(10);
-      const top10Ids = top10.map((item) => item.id);
+      // Flat list of every type id in the visible top-level rows (for the "Others" filter).
+      const top10Ids = visibleTop.flatMap((g) => [g.item.id, ...g.children.map((c) => c.id)]);
 
-      if (isExpanded || others.length === 0) {
-        return { chartData: sorted, top10Ids };
+      const rows: Row[] = [];
+      visibleTop.forEach((g) => {
+        if (!g.isGroup) {
+          rows.push({ id: g.item.id, name: g.item.name, rawName: g.item.name, value: g.item.companyCount, color: g.item.color, kind: "leaf" });
+          return;
+        }
+        const expanded = expandedGroups.has(g.item.id);
+        rows.push({
+          id: g.item.id,
+          name: `${expanded ? "▾" : "▸"} ${g.item.name}`,
+          rawName: g.item.name,
+          value: g.total,
+          color: g.item.color,
+          kind: "group",
+        });
+        if (expanded) {
+          // The parent's own direct count (only when it has any).
+          if (g.item.companyCount > 0) {
+            rows.push({ id: g.item.id, name: `${INDENT}${g.item.name}`, rawName: g.item.name, value: g.item.companyCount, color: g.item.color, kind: "leaf" });
+          }
+          g.children.forEach((c) =>
+            rows.push({ id: c.id, name: `${INDENT}${c.name}`, rawName: c.name, value: c.companyCount, color: c.color, kind: "leaf" }),
+          );
+        }
+      });
+
+      if (othersSum > 0) {
+        rows.push({ id: "others", name: "Others", rawName: "Others", value: othersSum, color: "#94a3b8", kind: "leaf" });
       }
 
-      const othersSum = others.reduce((acc, curr) => acc + curr.companyCount, 0);
-      const combinedData = [
-        ...top10,
-        {
-          id: "others",
-          name: "Others",
-          companyCount: othersSum,
-          color: "#94a3b8", // Slate-400
-        },
-      ];
-
-      return { chartData: combinedData, top10Ids };
-    }, [data, isExpanded, sortBy]);
+      return { rows, top10Ids };
+    }, [data, isExpanded, sortBy, expandedGroups]);
 
     const handleSortChange = (event: SelectChangeEvent) => {
       setSortBy(event.target.value as any);
@@ -82,11 +145,14 @@
         toolbar: { show: false },
         events: {
           dataPointSelection: (event, chartContext, config) => {
-            const selectedItem = chartData[config.dataPointIndex];
-            if (selectedItem.id === "others") {
+            const row = rows[config.dataPointIndex];
+            if (!row) return;
+            if (row.kind === "group") {
+              toggleGroup(row.id); // expand / collapse — don't filter
+            } else if (row.id === "others") {
               onBarClick(null, true, top10Ids);
             } else {
-              onBarClick(selectedItem.id);
+              onBarClick(row.id);
             }
           },
         },
@@ -107,7 +173,7 @@
           },
         },
       },
-      colors: chartData.map((item) => item.color),
+      colors: rows.map((r) => r.color),
       dataLabels: {
         enabled: true,
         textAnchor: "start",
@@ -122,7 +188,7 @@
         offsetX: 10,
       },
       xaxis: {
-        categories: chartData.map((item) => item.name),
+        categories: rows.map((r) => r.name),
         title: {
           text: "Number of Companies",
           style: {
@@ -139,7 +205,7 @@
             colors: "#64748b",
           },
         },
-        axisBorder: { 
+        axisBorder: {
           show: true,
           color: '#cbd5e1',
           strokeWidth: 2,
@@ -194,13 +260,15 @@
       tooltip: {
         theme: "light",
         custom: function ({ series, seriesIndex, dataPointIndex, w }) {
-          const item = chartData[dataPointIndex];
+          const row = rows[dataPointIndex];
+          if (!row) return "";
+          const hint = row.kind === "group" ? " (click to expand)" : "";
           return `
             <div style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #ffffff; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-              <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px; font-size: 13px;">${item.name}</div>
+              <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px; font-size: 13px;">${row.rawName}${hint}</div>
               <div style="color: #64748b; font-size: 12px; display: flex; align-items: center; gap: 4px;">
-                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${item.color}; display: inline-block;"></span>
-                Count: <span style="font-weight: 600; color: #334155;">${item.companyCount}</span>
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${row.color}; display: inline-block;"></span>
+                Count: <span style="font-weight: 600; color: #334155;">${row.value}</span>
               </div>
             </div>
         `;
@@ -212,7 +280,7 @@
   const series = [
     {
       name: "Companies",
-      data: chartData.map((item) => item.companyCount),
+      data: rows.map((r) => r.value),
     },
   ];
 
@@ -299,7 +367,7 @@
           options={options}
           series={series}
           type="bar"
-          height={isExpanded ? Math.max(400, chartData.length * 45) : 400}
+          height={Math.max(400, rows.length * 42)}
         />
       </Box>
     </Box>

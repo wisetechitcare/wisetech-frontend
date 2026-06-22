@@ -49,6 +49,20 @@ export  interface ContactRoleType {
   name: string;
 }
 
+export interface ContactService {
+  id: string;
+  name: string;
+  color?: string;
+  isActive?: boolean;
+}
+
+// One row of the contact ⇄ service join table, as returned by the API.
+export interface ContactServiceMapping {
+  id?: string;
+  serviceId: string;
+  service?: ContactService;
+}
+
 export interface Country {
   id: string | number | undefined;
   name: string;
@@ -80,6 +94,8 @@ export interface ContactFormValues {
   roleInCompany: string;
   contactRoleId: string;
   statusId?: string;
+  serviceIds: string[];
+  serviceMappings?: ContactServiceMapping[];
   primaryContact?: boolean;
   isPrimaryContact?: boolean;
   

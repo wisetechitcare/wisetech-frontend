@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import { v4 as uuidv4 } from 'uuid';
 import { IFormField, IFormSection, FormFieldType } from '@models/company';
-import { IconGear, IconClose } from '@app/modules/common/components/icons/OrgIcons';
+import { IconClose } from '@app/modules/common/components/icons/OrgIcons';
 
 export type { IFormField as SchemaField, IFormSection as SchemaSection, FormFieldType as FieldType };
 
@@ -88,10 +88,27 @@ interface FieldCardProps {
   onMoveToSection: (targetSectionId: string) => void;
   otherSections: { id: string; title: string }[];
   error?: string;
+  locked?: boolean;
 }
 
-function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSection, otherSections, error }: FieldCardProps) {
+// Compact read-only row for built-in fields the host form renders itself.
+function LockedFieldRow({ field }: { field: IFormField }) {
+  const meta = TYPE_META[field.type];
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, background: C.panelAlt,
+      border: `1px solid ${C.line}`, borderRadius: 10, padding: '11px 14px', marginBottom: 8,
+    }}>
+      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.4px', color: C.brand, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, borderRadius: 999, padding: '2px 8px' }}>BUILT-IN</span>
+      <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.label}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, background: meta.bg, borderRadius: 6, padding: '3px 8px' }}>{meta.label}</span>
+    </div>
+  );
+}
+
+function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSection, otherSections, error, locked }: FieldCardProps) {
   const sys = field.isSystem;
+  if (locked) return <LockedFieldRow field={field} />;
   return (
     <div style={{
       background: sys ? C.panelAlt : '#fff', border: `1px solid ${error ? '#F3B4B4' : C.line}`,
@@ -161,9 +178,15 @@ interface Props {
   sections: IFormSection[];
   onSave: (sections: IFormSection[]) => void;
   onClose: () => void;
+  // Label for the "shown on … Info page" toggle (e.g. "Organization" or "Company").
+  infoPageLabel?: string;
+  // When true, built-in (system) fields are shown read-only for reference and cannot be
+  // edited/hidden/reordered. Use when the host form renders built-in fields itself
+  // (e.g. the CRM company form) so the manager only mutates custom fields/sections.
+  lockBuiltinFields?: boolean;
 }
 
-export default function FormSchemaManager({ show, sections, onSave, onClose }: Props) {
+export default function FormSchemaManager({ show, sections, onSave, onClose, infoPageLabel = 'Organization', lockBuiltinFields = false }: Props) {
   const [local, setLocal] = useState<IFormSection[]>([]);
   const [activeId, setActiveId] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -317,7 +340,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 26px', borderBottom: `1px solid ${C.line}`, background: C.surface }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, display: 'grid', placeItems: 'center', color: C.brand }}><IconGear size={20} /></div>
+          <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.brand }}><i className="bi bi-gear-fill" style={{ fontSize: 17, lineHeight: 1 }} /></div>
           <div>
             <div style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 17, color: C.ink }}>Manage Form Fields</div>
             <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 1 }}>
@@ -391,7 +414,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
                   <Toggle value={active.showOnInfoPage !== false} onChange={v => patchSection({ showOnInfoPage: v })} />
                   <div>
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: active.showOnInfoPage !== false ? C.brand : C.inkFaint }}>
-                      {active.showOnInfoPage !== false ? 'Shown on Organization Info page' : 'Hidden from Organization Info page'}
+                      {active.showOnInfoPage !== false ? `Shown on ${infoPageLabel} Info page` : `Hidden from ${infoPageLabel} Info page`}
                     </div>
                     <div style={{ fontSize: 11, color: C.inkFaint }}>Controls the whole section on the read-only info view (fields can be toggled individually below).</div>
                   </div>
@@ -425,7 +448,8 @@ export default function FormSchemaManager({ show, sections, onSave, onClose }: P
                         <FieldCard key={f.id} field={f} idx={i} total={visibleFields.length}
                           onChange={patch => patchField(f.id, patch)} onDelete={() => removeField(f.id)}
                           onMove={dir => moveField(f.id, dir)} onMoveToSection={target => moveFieldToSection(f.id, target)}
-                          otherSections={otherSections} error={fieldErrors[f.id]} />
+                          otherSections={otherSections} error={fieldErrors[f.id]}
+                          locked={lockBuiltinFields && f.isSystem} />
                       ))
                     )}
 

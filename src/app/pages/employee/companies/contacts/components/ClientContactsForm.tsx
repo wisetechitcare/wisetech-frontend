@@ -5,6 +5,8 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import Select from "react-select";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import {
   getAllClientCompanies,
   createClientContact,
@@ -13,6 +15,7 @@ import {
   getClientContactById,
   getAllContactStatuses,
   getAllClientContacts,
+  getAllCompanyServices,
 } from "@services/companies";
 import {
   getAllClientBranches,
@@ -95,6 +98,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     []
   );
   const [contactStatuses, setContactStatuses] = useState<any[]>([]);
+  // Contacts share the company-service catalog (the same list companies use).
+  const [companyServices, setCompanyServices] = useState<any[]>([]);
   const [selectedRole, setSelectedRole] = useState<{
     id: string;
     name: string;
@@ -109,6 +114,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [dataLoaded, setDataLoaded] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showContactStatusModal, setShowContactStatusModal] = useState(false);
+  const [showCompanyServiceModal, setShowCompanyServiceModal] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [branchWarning, setBranchWarning] = useState('');
@@ -138,6 +144,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     roleInCompany: "",
     contactRoleId: "",
     statusId: "",
+    serviceIds: [],
     isPrimaryContact: false,
     fullName: "",
     dob: "",
@@ -171,6 +178,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       roleInCompany: initialData.roleInCompany || "",
       contactRoleId: initialData.contactRoleId || "",
       statusId: initialData.statusId || "",
+      serviceIds: initialData.serviceMappings?.map((m: any) => m.serviceId) || [],
       isPrimaryContact: initialData.isPrimaryContact || false,
       fullName: initialData.fullName || "",
       dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth) : "",
@@ -319,18 +327,20 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [companiesData, roleTypesData, countriesData, branchesData, contactStatusesData] = await Promise.all([
+      const [companiesData, roleTypesData, countriesData, branchesData, contactStatusesData, companyServicesData] = await Promise.all([
         getAllClientCompanies(),
         getAllContactRoleTypes(),
         fetchAllCountries(),
         getAllClientBranches(),
         getAllContactStatuses(),
+        getAllCompanyServices(),
       ]);
       setCompanies(companiesData?.data?.companies || []);
       setContactRoleTypes(roleTypesData?.contactRoleTypes || []);
       setCountries(countriesData);
       setBranches(branchesData?.leadBranches || []);
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
+      setCompanyServices(companyServicesData?.data?.services || companyServicesData?.services || []);
       const contactsData = await getAllClientContacts();
       setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
@@ -344,6 +354,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     loadInitialData();
   });
   useEventBus("contactStatusCreated", () => {
+    loadInitialData();
+  });
+  useEventBus("companyServiceCreated", () => {
     loadInitialData();
   });
   useEventBus("companyCreated", () => {
@@ -487,6 +500,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         roleInCompany: formValues.roleInCompany,
         contactRoleId: formValues.contactRoleId,
         statusId: formValues.statusId,
+        serviceIds: formValues.serviceIds || [],
         isPrimaryContact: formValues.isPrimaryContact === true ? 'true' : 'false',
 
         fullName: formValues.fullName,
@@ -910,6 +924,40 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 style={{ cursor: "pointer" }}
                               >
                                 + New Status
+                              </small>
+                            </Col>
+                            <Col md={6} className="mt-2">
+                              <label className="form-label">Services</label>
+                              <Select
+                                isMulti
+                                placeholder="Select services"
+                                classNamePrefix="react-select"
+                                className="react-select-styled"
+                                options={sortOptionsAlphabetically(
+                                  companyServices.map((s) => ({
+                                    value: s.id,
+                                    label: s.name,
+                                  }))
+                                )}
+                                value={companyServices
+                                  .filter((s) => (values.serviceIds || []).includes(s.id))
+                                  .map((s) => ({ value: s.id, label: s.name }))}
+                                onChange={(selected: any) =>
+                                  setFieldValue(
+                                    "serviceIds",
+                                    (selected || []).map((o: any) => o.value)
+                                  )
+                                }
+                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                                menuPosition="fixed"
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                              />
+                              <small
+                                className="text-primary"
+                                onClick={() => setShowCompanyServiceModal(true)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                + New Service
                               </small>
                             </Col>
                           </Row>
@@ -1473,6 +1521,12 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         onClose={() => setShowContactStatusModal(false)}
         type="contact-status"
         title="Contact Status"
+      />
+      <CompanyConfigForm
+        show={showCompanyServiceModal}
+        onClose={() => setShowCompanyServiceModal(false)}
+        type="company-services"
+        title="Service"
       />
       <CompaniesBranchForm
         show={showBranchModal}

@@ -8,6 +8,7 @@ import {
   getClientContactsByCompanyId,
   getAllCompanyServices,
   createCompanyService,
+  getAllSubServices,
 } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
 import {
@@ -22,7 +23,8 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { Close } from "@mui/icons-material";
@@ -36,6 +38,12 @@ import { fetchAllEmployees } from "@services/employee";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService, createNewCompanyType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
+import FormSchemaManager from "@app/modules/common/components/FormSchemaManager";
+import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { IFormField, IFormSection } from "@models/company";
+import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
+import SubServiceModal from "./SubServiceModal";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 
 // Type definitions
 interface CompanyType {
@@ -82,7 +90,13 @@ interface FormValues {
   googleMapsLink?: string;
   internalReferenceEmployeeId?: string;
   externalReferenceContactId?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  gstAddress?: string;
+  gstDocument?: string;
+  panDocument?: string;
   services: string[];
+  subServiceIds: string[];
   referenceType: Array<{
     referenceType: string;
     internalReferenceEmployeeId?: string;
@@ -137,6 +151,8 @@ const NewCompanyForm: React.FC<Props> = ({
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
   const [clientContacts, setClientContacts] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [subServices, setSubServices] = useState<any[]>([]);
+  const [showSubServiceModal, setShowSubServiceModal] = useState(false);
   const [subCompanies, setSubCompanies] = useState<any[]>([]);
   const [initialValues, setInitialValues] = useState<FormValues>({
     companyName: "",
@@ -157,7 +173,13 @@ const NewCompanyForm: React.FC<Props> = ({
     note: "",
     latitude: "",
     longitude: "",
+    gstNumber: "",
+    panNumber: "",
+    gstAddress: "",
+    gstDocument: "",
+    panDocument: "",
     services: [],
+    subServiceIds: [],
     referenceType: [
       {
         referenceType: "",
@@ -171,6 +193,11 @@ const NewCompanyForm: React.FC<Props> = ({
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [servicesLoaded, setServicesLoaded] = useState(false);
+  // Per-company admin-defined custom sections/fields (mirrors the Organisation edit form).
+  // Seeded with the built-in section anchors so they appear in the schema manager.
+  const [formSections, setFormSections] = useState<IFormSection[]>(cloneCompanyDefaults());
+  const [showSchemaManager, setShowSchemaManager] = useState(false);
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -379,6 +406,11 @@ const NewCompanyForm: React.FC<Props> = ({
               longitude: company.longitude || "",
               gmbProfileUrl: company.gmbProfileUrl || "",
               googleMapsLink: company.googleMapsLink || "",
+              gstNumber: company.gstNumber || "",
+              panNumber: company.panNumber || "",
+              gstAddress: company.gstAddress || "",
+              gstDocument: company.gstDocument || "",
+              panDocument: company.panDocument || "",
               services: (() => {
                 // Extract service IDs from companyServicesMapping
                 let serviceIds = [];
@@ -403,6 +435,9 @@ const NewCompanyForm: React.FC<Props> = ({
 
                 return serviceIds;
               })(),
+              subServiceIds: Array.isArray(company.subServiceMappings)
+                ? company.subServiceMappings.map((m: any) => m.subServiceId || m.subService?.id).filter((id: any) => id)
+                : [],
               referenceType: company.references?.map((ref: any) => ({
                 referenceType: ref.referenceType || "",
                 internalReferenceEmployeeId: ref.internalReferenceEmployeeId || "",
@@ -419,6 +454,12 @@ const NewCompanyForm: React.FC<Props> = ({
                 externalReferenceSubCompanyId: "",
               }],
             });
+
+            // Load this company's saved custom sections/fields layout (per-company schema),
+            // merged onto the built-in section anchors so they always appear in the manager.
+            setFormSections(
+              mergeCompanySchema(company.sectionConfig ?? company.customSections)
+            );
           }
         } catch (error) {
           console.error("Failed to fetch company data", error);
@@ -446,7 +487,12 @@ const NewCompanyForm: React.FC<Props> = ({
           note: "",
           latitude: "",
           longitude: "",
+          gstNumber: "",
+          panNumber: "",
+          gstAddress: "",
+          gstDocument: "",
           services: [],
+          subServiceIds: [],
           referenceType: [
             {
               referenceType: "",
@@ -462,6 +508,7 @@ const NewCompanyForm: React.FC<Props> = ({
         setLogoFile(null);
         setStates([]);
         setCities([]);
+        setFormSections(cloneCompanyDefaults());
       }
     };
 
@@ -501,6 +548,88 @@ const NewCompanyForm: React.FC<Props> = ({
       setLogoFile(file);
       setLogoPreview(URL.createObjectURL(file));
     }
+  };
+
+  // ── Per-company custom sections/fields ────────────────────────────────────────
+  // Custom field values live inline on the schema (field.value), exactly like the
+  // Organisation edit form. File fields upload immediately and store the returned URL.
+  const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
+    setFormSections((prev) =>
+      prev.map((sec) =>
+        sec.id === sectionId
+          ? { ...sec, fields: sec.fields.map((f) => (f.id === fieldId ? { ...f, value } : f)) }
+          : sec
+      )
+    );
+    setCustomErrors((p) => {
+      const n = { ...p };
+      delete n[fieldId];
+      return n;
+    });
+  };
+
+  const validateCustomFields = (): boolean => {
+    const errs: Record<string, string> = {};
+    formSections.forEach((sec) =>
+      sec.fields.forEach((f) => {
+        if (f.required && !String(f.value ?? "").trim()) {
+          errs[f.id] = `${f.label} is required`;
+        }
+      })
+    );
+    setCustomErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  // Renders a single admin-defined custom field (text / number / date / file).
+  const renderCustomField = (field: IFormField, sectionId: string) => {
+    const reqMark = field.required ? <span style={{ color: "#dc3545" }}> *</span> : null;
+    if (field.type === "file") {
+      return (
+        <DragDropFileField
+          label={field.label}
+          required={field.required}
+          currentFileUrl={field.value}
+          currentFileName={field.value ? field.value.split("/").pop() : ""}
+          uploadFn={uploadCompanyAsset}
+          onChange={(url) => updateCustomValue(sectionId, field.id, url)}
+        />
+      );
+    }
+    if (field.type === "date") {
+      return (
+        <>
+          <label className="form-label">{field.label}{reqMark}</label>
+          <input
+            type="date"
+            className="form-control"
+            value={field.value ?? ""}
+            onChange={(e) => updateCustomValue(sectionId, field.id, e.target.value)}
+          />
+          {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
+        </>
+      );
+    }
+    const isNumber = field.type === "number";
+    return (
+      <>
+        <label className="form-label">{field.label}{reqMark}</label>
+        <input
+          type="text"
+          inputMode={isNumber ? "decimal" : undefined}
+          className="form-control"
+          placeholder={field.label}
+          value={field.value ?? ""}
+          onChange={(e) => {
+            const next = isNumber
+              ? e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
+              : e.target.value;
+            updateCustomValue(sectionId, field.id, next);
+          }}
+        />
+        {customErrors[field.id] && <div className="text-danger small mt-1">{customErrors[field.id]}</div>}
+      </>
+    );
   };
 
   const fetchRatingFactors = async () => {
@@ -544,6 +673,22 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
+  // Load + refresh the hierarchical sub-services catalog.
+  const loadSubServices = async () => {
+    try {
+      const response = await getAllSubServices();
+      setSubServices(response?.subServices || []);
+    } catch (error) {
+      console.error('Error fetching sub-services:', error);
+    }
+  };
+  useEffect(() => {
+    loadSubServices();
+  }, []);
+  useEventBus(EVENT_KEYS.subServiceCreated, () => {
+    loadSubServices();
+  });
+
   const handleRefreshCompanyTypes = async () => {
     try {
       const types = await getAllCompanyTypes();
@@ -567,6 +712,12 @@ const NewCompanyForm: React.FC<Props> = ({
   // instead of country code in payload, use country name
   const handleSubmit = async (values: FormValues, { setSubmitting }: any) => {
     try {
+      // Enforce required admin-defined custom fields before saving.
+      if (!validateCustomFields()) {
+        setSubmitting(false);
+        return;
+      }
+
       let logoUrl = "";
       if (logoFile) {
         try {
@@ -630,6 +781,10 @@ const NewCompanyForm: React.FC<Props> = ({
         googleMapsLink: values.googleMapsLink,
         references: references,
         services: values.services,
+        subServiceIds: values.subServiceIds || [],
+        // Per-company custom form layout + inline values.
+        sectionConfig: formSections,
+        customSections: formSections,
       };
 
       const finalCleanPayload = Object.keys(payload).reduce((acc, key) => {
@@ -771,6 +926,31 @@ const NewCompanyForm: React.FC<Props> = ({
                     </div>
                   ) : (
                     <>
+                      {/* Manage custom sections & fields (per-company schema) */}
+                      <div className="d-flex justify-content-end mb-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowSchemaManager(true)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            background: "#fff",
+                            border: "1.5px solid #9D4141",
+                            borderRadius: "8px",
+                            padding: "6px 16px",
+                            color: "#9D4141",
+                            fontWeight: 700,
+                            fontSize: "13px",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <i className="bi bi-gear-fill" style={{ fontSize: "15px", lineHeight: 1 }} />
+                          Manage Sections &amp; Fields
+                        </button>
+                      </div>
+
                       {/* Logo */}
                       <div className="mb-4">
                         <label
@@ -932,6 +1112,63 @@ const NewCompanyForm: React.FC<Props> = ({
                                 createFieldLabel="Service Name"
                                 createFieldPlaceholder="Enter service name..."
                               />
+                            </div>
+                          </div>
+
+                          {/* Sub-services — hierarchical children of the selected Services */}
+                          <div className="row g-3 mt-1">
+                            <div className="col-md-8">
+                              <label className="d-flex align-items-center fs-6 form-label mb-2">Sub-services</label>
+                              <Select
+                                isMulti
+                                placeholder={
+                                  (values.services || []).length === 0
+                                    ? "Select services first, or pick any sub-service"
+                                    : "Select sub-services..."
+                                }
+                                classNamePrefix="react-select"
+                                className="react-select-styled"
+                                options={(() => {
+                                  // Group sub-services by their parent service; when services are
+                                  // selected, show only those services' children.
+                                  const selected = new Set(values.services || []);
+                                  const groups: Record<string, { label: string; options: any[] }> = {};
+                                  subServices.forEach((ss: any) => {
+                                    if (selected.size && ss.parentServiceId && !selected.has(ss.parentServiceId)) return;
+                                    const parentName =
+                                      ss.parentService?.name ||
+                                      services.find((s: any) => s.id === ss.parentServiceId)?.name ||
+                                      "Other";
+                                    (groups[parentName] ||= { label: parentName, options: [] }).options.push({
+                                      value: ss.id,
+                                      label: ss.name,
+                                    });
+                                  });
+                                  // Sort the groups A–Z and each group's sub-services A–Z.
+                                  return Object.values(groups)
+                                    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true }))
+                                    .map((g) => ({ ...g, options: sortOptionsAlphabetically(g.options) }));
+                                })()}
+                                value={subServices
+                                  .filter((ss: any) => (values.subServiceIds || []).includes(ss.id))
+                                  .map((ss: any) => ({ value: ss.id, label: ss.name }))}
+                                onChange={(selectedOpts: any) =>
+                                  setFieldValue(
+                                    "subServiceIds",
+                                    (selectedOpts || []).map((o: any) => o.value)
+                                  )
+                                }
+                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                                menuPosition="fixed"
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                              />
+                              <small
+                                className="text-primary"
+                                onClick={() => setShowSubServiceModal(true)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                + New Sub-service
+                              </small>
                             </div>
                           </div>
                         </div>
@@ -1519,6 +1756,156 @@ const NewCompanyForm: React.FC<Props> = ({
                         </div>
                       </fieldset>
 
+                      {/* GST & Statutory */}
+                      <fieldset
+                        style={{
+                          borderTop: "1px solid #9D4141",
+                          padding: "clamp(14px, 2vw, 15px)",
+                        }}
+                        className="mt-7"
+                      >
+                        <legend
+                          style={{
+                            fontSize: "17px",
+                            fontWeight: 600,
+                            fontFamily: "Inter",
+                            marginTop: "-25px",
+                            marginLeft: "-17px",
+                            backgroundColor: "#F3F4F7",
+                            width: "auto",
+                            lineHeight: "1",
+                            letterSpacing: 0,
+                            color: "#9D4141",
+                            padding: "2px 2px 8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <div
+                            className="ms-5"
+                            style={{
+                              borderTop: "1px solid #9D4141",
+                              width: "30px",
+                              height: "0px",
+                            }}
+                          ></div>
+                          GST &amp; STATUTORY DETAILS
+                        </legend>
+                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                          <div className="row g-3">
+                            {/* GST: number + its own compact attachment */}
+                            <div className="col-md-6">
+                              <TextInput
+                                formikField="gstNumber"
+                                label="GST Number"
+                                isRequired={false}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <DragDropFileField
+                                label="GST Document"
+                                compact
+                                labelClassName="fs-6 form-label mb-2"
+                                currentFileUrl={values.gstDocument}
+                                currentFileName={
+                                  values.gstDocument ? values.gstDocument.split("/").pop() : ""
+                                }
+                                uploadFn={uploadCompanyAsset}
+                                onChange={(url) => setFieldValue("gstDocument", url)}
+                              />
+                            </div>
+                            {/* PAN: number + its own compact attachment */}
+                            <div className="col-md-6">
+                              <TextInput
+                                formikField="panNumber"
+                                label="PAN Number"
+                                isRequired={false}
+                              />
+                            </div>
+                            <div className="col-md-6">
+                              <DragDropFileField
+                                label="PAN Document"
+                                compact
+                                labelClassName="fs-6 form-label mb-2"
+                                currentFileUrl={values.panDocument}
+                                currentFileName={
+                                  values.panDocument ? values.panDocument.split("/").pop() : ""
+                                }
+                                uploadFn={uploadCompanyAsset}
+                                onChange={(url) => setFieldValue("panDocument", url)}
+                              />
+                            </div>
+                            <div className="col-md-12">
+                              <TextInput
+                                formikField="gstAddress"
+                                label="GST Address"
+                                isRequired={false}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </fieldset>
+
+                      {/* Admin-defined custom fields (per-company schema). Built-in fields are
+                          rendered by the form above; only custom fields appear here, grouped
+                          under their section title. */}
+                      {formSections.map((section) => {
+                        const visibleFields = section.fields.filter((f) => !f.isSystem && !f.hidden);
+                        if (visibleFields.length === 0) return null;
+                        return (
+                          <fieldset
+                            key={section.id}
+                            style={{
+                              borderTop: "1px solid #9D4141",
+                              padding: "clamp(14px, 2vw, 15px)",
+                            }}
+                            className="mt-7"
+                          >
+                            <legend
+                              style={{
+                                fontSize: "17px",
+                                fontWeight: 600,
+                                fontFamily: "Inter",
+                                marginTop: "-25px",
+                                marginLeft: "-17px",
+                                backgroundColor: "#F3F4F7",
+                                width: "auto",
+                                lineHeight: "1",
+                                letterSpacing: 0,
+                                color: "#9D4141",
+                                padding: "2px 2px 8px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <div
+                                className="ms-5"
+                                style={{
+                                  borderTop: "1px solid #9D4141",
+                                  width: "30px",
+                                  height: "0px",
+                                }}
+                              ></div>
+                              {section.title || "CUSTOM SECTION"}
+                            </legend>
+                            <div className="card-body card responsive-card p-md-10 p-3 ">
+                              <div className="row g-3">
+                                {visibleFields.map((field) => (
+                                  <div
+                                    key={field.id}
+                                    className={field.type === "file" ? "col-md-12" : "col-md-6"}
+                                  >
+                                    {renderCustomField(field, section.id)}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </fieldset>
+                        );
+                      })}
+
                       {/* Other */}
                       <fieldset
                         style={{
@@ -1653,6 +2040,23 @@ const NewCompanyForm: React.FC<Props> = ({
       <SubCompanyForm
         show={showSubCompanyForm}
         onClose={() => setShowSubCompanyForm(false)}
+      />
+      <FormSchemaManager
+        show={showSchemaManager}
+        sections={formSections}
+        infoPageLabel="Company"
+        lockBuiltinFields
+        onSave={(sections) => {
+          setFormSections(sections);
+          setShowSchemaManager(false);
+        }}
+        onClose={() => setShowSchemaManager(false)}
+      />
+      <SubServiceModal
+        show={showSubServiceModal}
+        onClose={() => setShowSubServiceModal(false)}
+        services={services}
+        onCreated={() => loadSubServices()}
       />
     </>
   );

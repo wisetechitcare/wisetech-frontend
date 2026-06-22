@@ -255,7 +255,8 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
               id: item.id,
               name: item.name,
               companyCount: item.companyCount,
-              color: item.color || "#3B82F6"
+              color: item.color || "#3B82F6",
+              parentTypeId: item.parentTypeId ?? null
             }))}
             onBarClick={handleCompanyTypeChartClick}
           />

@@ -203,6 +203,18 @@ const ClientContactsMain = ({
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
+        accessorKey: "services",
+        header: "Services",
+        // Flatten the serviceMappings relation into a plain comma-separated string so the
+        // "Search in All Columns" global filter can match on it.
+        accessorFn: (row: any) =>
+          (row.serviceMappings || [])
+            .map((m: any) => m?.service?.name)
+            .filter(Boolean)
+            .join(", "),
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+      },
+      {
         accessorKey: "email",
         header: "Email",
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
