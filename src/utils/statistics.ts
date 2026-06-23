@@ -1419,7 +1419,7 @@ function isDayWiseCheckInCheckOut(checkInDate: string, scheduleRows: ScheduleRow
 }
 
 
-export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]): Map<string, number> {
+export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[], _fromAdmin?: boolean): Map<string, number> {
     fetchCompanyTimings();
     // public holidays and weekends..
     const publicHolidays = store.getState().attendanceStats.publicHolidays;
@@ -3612,18 +3612,15 @@ export async function fetchEmpAllTimeKpiStatistics(fromAdmin: boolean = false, s
 }
 
 // ================================================================================
-// format number to currency in INR
+// format number to currency in INR, 
 export const formatNumber = (number: number | string) => {
-    // Truncate to prevent rounding up for "perfect no rounding off" requirement
-    const num = typeof number === 'string' ? parseFloat(number) : number;
-    const truncated = isNaN(num) ? 0 : Math.trunc(num);
-    return new Intl.NumberFormat('en-IN', {
+    return Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(truncated);
-};
+    }).format(Number(number));
+}
 
 // format string to currency in INR
 export const formatStringINR = (str: string | number) => {
@@ -3902,15 +3899,12 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
+        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty):
-    // JSON.parse(null) and JSON.parse("null") both yield null, and indexing it by the
-    // weekday would crash the whole page ("Cannot read properties of null").
-    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
+    const allWeekendsJson = JSON.parse(allWeekends);
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3939,13 +3933,12 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
     // Prepare holiday date strings in "YYYY-MM-DD"
     const allHolidaysWithoutWeeknd = allHolidays?.filter(data => !data?.isWeekend)
     const holidayDates = new Set(
-        (allHolidaysWithoutWeeknd ?? []).map(h => new Date(h.date).toISOString().split("T")[0])
+        allHolidaysWithoutWeeknd.map(h => new Date(h.date).toISOString().split("T")[0])
     );
 
     // const weekndsList = holidayDates?.filter()
 
-    // Guard against branches whose workingAndOffDays is unset (null / "null" / empty).
-    const allWeekendsJson = JSON.parse(allWeekends || "{}") || {};
+    const allWeekendsJson = JSON.parse(allWeekends);
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 

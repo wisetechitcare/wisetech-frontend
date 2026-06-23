@@ -24,6 +24,7 @@ export interface IReimbursementsUpdate {
   employeeId?: string;
   expenseDate?: string;
   fromLocation?: string;
+  toLocation?: string;
   id?: string;
   reimbursementTypeId?: string;
   reimbursementType?: {
@@ -38,6 +39,9 @@ export interface IReimbursementsUpdate {
     }
   }
   status?: string | number;
+  clientTypeId?: string;
+  clientCompanyId?: string;
+  projectId?: string;
 }
 
 export interface IEmployeesAttendance {
@@ -327,11 +331,13 @@ export interface IReimbursementTypeFetch {
   id: string,
   type: string,
   icon?: string,
-  isActive?: boolean
+  isActive?: boolean,
+  amountLimit?: number | null,
 }
 export interface IReimbursementTypeCreate {
   type: string,
   icon?: string,
+  amountLimit?: number | null,
 }
 
 export interface IReimbursementsFetch {
@@ -341,6 +347,7 @@ export interface IReimbursementsFetch {
   employeeId?: string;
   expenseDate?: string;
   fromLocation?: string;
+  toLocation?: string;
   id?: string;
   reimbursementTypeId?: string;
   reimbursementType?: {
@@ -355,12 +362,51 @@ export interface IReimbursementsFetch {
     }
   }
   status: string | number;
+  paymentStatus?: string;
+  isExceedingLimit?: boolean;
+  hasApprovalInstance?: boolean;
+  clientTypeId?: string;
+  clientCompanyId?: string;
+  projectId?: string;
+  day?: string;
+  type?: string;
+  name?: string;
+  ID?: string;
+  rejectionReason?: string | null;
+}
+
+export interface IReimbursementEmployeeLimit {
+  id: string;
+  employeeCode?: string;
+  name: string;
+  reimbursementLimitPerRequest: string | number | null;
 }
 
 export enum ReimbursementStatus {
   Pending = "Pending",
   Approved = "Approved",
   Rejected = "Rejected",
+}
+
+export interface IReimbursementPayment {
+  id: string;
+  employeeId: string;
+  totalAmount: number;
+  totalRequests: number;
+  amountPaid: number;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionId?: string;
+  remarks?: string;
+  status: string;
+  processedBy?: string;
+  processor?: {
+    employeeCode?: string;
+    users?: { firstName?: string; lastName?: string };
+  };
+  createdAt: string;
+  updatedAt: string;
+  reimbursements?: IReimbursementsFetch[];
 }
 
 export interface AttendanceRequest {

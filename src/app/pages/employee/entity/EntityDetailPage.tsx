@@ -30,6 +30,7 @@ import CommercialsSection from './detail/sections/CommercialsSection';
 import ActivitiesSection from './detail/sections/ActivitiesSection';
 import ExecutionSection from './detail/sections/ExecutionSection';
 import DocumentsSection from './detail/sections/DocumentsSection';
+import AuditSection from './detail/sections/AuditSection';
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -144,6 +145,8 @@ const EntityDetailPage: React.FC = () => {
             )}
           </DocumentsSection>
         );
+      case 'audit':
+        return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} />;
       default:
         return null;
     }
@@ -178,6 +181,9 @@ const EntityDetailPage: React.FC = () => {
                   <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px' }}>{`#${lead?.prefix || 'N/A'}`}</span>
                   {isProject && lead?.project?.prefix && (
                     <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px', color: '#0A5C2A' }}>· {`Project #${lead.project.prefix}`}</span>
+                  )}
+                  {(lead?.revisionCount !== undefined && lead?.revisionCount !== null) && (
+                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: '13px', color: '#64748B' }}>· {`R${lead.revisionCount}`}</span>
                   )}
                   {lead?.status?.name && (
                     <span className="badge" style={{ backgroundColor: lead.status.color || '#64748B', color: '#fff', fontSize: '10px' }}>{lead.status.name}</span>

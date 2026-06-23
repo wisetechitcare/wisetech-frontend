@@ -2,6 +2,7 @@ import React from "react";
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Route, Routes, Outlet, Navigate } from "react-router-dom";
+import PendingReimbursementsPage from "./PendingReimbursementsPage";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { useFormik } from "formik";
@@ -13,6 +14,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialToggleReimbursement, {
+  PeriodAlignment,
   ToggleItemsCallBackFunctions,
 } from "./MaterialToggleReimbursement";
 import { UsersListWrapper } from "@app/modules/apps/user-management/users-list/UsersList";
@@ -32,8 +34,7 @@ import DateInput from "@app/modules/common/inputs/DateInput";
 import { createNewTowns, fetchAllReimbursementTypes, fetchAllTowns } from "@services/options";
 import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropdown";
 import { uploadUserAsset } from "@services/uploader";
-import { createEmployeeReimbursement, updateReimbursementById } from "@services/employee";
-import Overview from "./views/common/Overview";
+import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById } from "@services/employee";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
@@ -95,7 +96,13 @@ function Reimbursement() {
   const [approvedRequests, setApprovedRequests] = useState(0);
   const [rejectedRequests, setRejectedRequests] = useState(0);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [approvedAmount, setApprovedAmount] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [rejectedAmount, setRejectedAmount] = useState(0);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
   const [showEditDeleteOption, setShowEditDeleteOption] = useState(true);
   const [refreshFlag, setRefreshFlag] = useState(false);
   const [show, setShow] = useState(false);
@@ -123,47 +130,56 @@ function Reimbursement() {
   const [ongoingStatusIds, setOngoingStatusIds] = useState<string[]>([]);
 
   const toggleItemsActions: ToggleItemsCallBackFunctions = {
-    monthly: function (month: Dayjs): void {
-      fetchEmpMonthlyReimbursements(month);
-    },
-    yearly: function (year: Dayjs): void {
-      fetchEmpYearlyReimbursements(year);
-    },
-    allTime: function (year: Dayjs): void {
-      fetchEmpAlltimeReimbursements();
-    },
+    monthly: function (month: Dayjs): void { /* handled by onPeriodChange */ },
+    yearly: function (year: Dayjs): void { /* handled by onPeriodChange */ },
+    allTime: function (): void { /* handled by onPeriodChange */ },
   };
 
-  // ── Stats load ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const currentYear = dayjs().startOf("year");
-    fetchEmpYearlyReimbursements(currentYear).then((data) => {
-      let totalAmount = 0,
-        totalRequest = 0,
-        approvedCount = 0,
-        rejectedCount = 0,
-        pendingCount = 0;
-      data.forEach((ele) => {
-        if (ele.id && ele.employeeId == employeeId) {
-          totalAmount += parseInt(ele.amount ? ele.amount : "0");
-          totalRequest += 1;
-          if (ele.status == "Pending") {
-            pendingCount += 1;
-          } else if (ele.status == "Rejected") {
-            rejectedCount += 1;
-          } else {
-            approvedCount += 1;
-          }
+  // ── Shared stats calculator ────────────────────────────────────────────────
+  const applyStats = (data: IReimbursementsFetch[]) => {
+    let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
+    let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0;
+    data.forEach((ele) => {
+      if (ele.id) {
+        const amt = parseInt(ele.amount ?? "0");
+        totalAmount += amt;
+        totalRequest += 1;
+        if (ele.status === "Pending") {
+          pendingCount++;
+          pendingAmt += amt;
+        } else if (ele.status === "Rejected") {
+          rejectedCount++;
+          rejectedAmt += amt;
+        } else {
+          approvedCount++;
+          approvedAmt += amt;
         }
-      });
-      setApprovedRequests(approvedCount);
-      setPendingRequests(pendingCount);
-      setRejectedRequests(rejectedCount);
-      setTotalRequests(totalRequest);
-      setTotalRequestedAmount(totalAmount);
+      }
+    });
+    setTotalRequestedAmount(totalAmount);
+    setTotalRequests(totalRequest);
+    setApprovedRequests(approvedCount);
+    setRejectedRequests(rejectedCount);
+    setPendingRequests(pendingCount);
+    setApprovedAmount(approvedAmt);
+    setPendingAmount(pendingAmt);
+    setRejectedAmount(rejectedAmt);
+    setOverviewLoading(false);
+  };
+
+  // ── Stats: re-fetch whenever the period or a data mutation occurs ──────────
+  useEffect(() => {
+    const { alignment, date } = currentPeriod;
+    const fetchPromise =
+      alignment === 'monthly' ? fetchEmpMonthlyReimbursements(date) :
+      alignment === 'yearly'  ? fetchEmpYearlyReimbursements(date)  :
+      fetchEmpAlltimeReimbursements();
+    fetchPromise.then((data) => {
+      applyStats(data);
       setReimbursementData(data);
     });
-  }, [show, employeeId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPeriod, statsRefreshKey, employeeId]);
 
   // ── Load all static dropdown data once on mount ────────────────────────────
   useEffect(() => {
@@ -350,6 +366,7 @@ function Reimbursement() {
         setLoading(false);
         successConfirmation("Reimbursement updated successfully");
         eventBus.emit("reimbursementRecords", { records: [] });
+        setStatsRefreshKey((prev) => prev + 1);
         setShow(false);
         setEditMode(false);
         return;
@@ -371,14 +388,18 @@ function Reimbursement() {
         description: filteredValues.description,
       } as IReimbursementsCreate;
 
-      await createEmployeeReimbursement(payload);
+      await createPendingReimbursementDraft(payload);
       setLoading(false);
-      successConfirmation("Reimbursement created successfully");
-      eventBus.emit("reimbursementRecords", { records: [] });
+      successConfirmation("Reimbursement saved to Pending Requests. Go to 'Pending Requests' to submit for approval.");
       setShow(false);
     } catch (err) {
       setLoading(false);
     }
+  };
+
+  const handlePeriodChange = (alignment: PeriodAlignment, date: Dayjs) => {
+    setOverviewLoading(true);
+    setCurrentPeriod({ alignment, date });
   };
 
   const handleClose = () => {
@@ -484,42 +505,34 @@ function Reimbursement() {
 
   return (
     <>
-      {/* <UsersListWrapper /> */}
-      <Overview
-        totalRequestedAmount={totalRequestedAmount}
+      {/* Pending Requests section with Employee Details + KPI overview */}
+      <PendingReimbursementsPage
         totalRequests={totalRequests}
+        totalRequestedAmount={totalRequestedAmount}
         approvedRequests={approvedRequests}
         rejectedRequests={rejectedRequests}
         pendingRequests={pendingRequests}
+        approvedAmount={approvedAmount}
+        pendingAmount={pendingAmount}
+        rejectedAmount={rejectedAmount}
+        overviewLoading={overviewLoading}
       />
 
-      <div
-        className="py-1 rounded-3 my-4 d-flex justify-content-end align-items-center"
-        style={{ paddingRight: "1.25rem" }}
-      >
-        {hasPermission(
-          resourceNameMapWithCamelCase.reimbursement,
-          permissionConstToUseWithHasPermission.create
-        ) && (
-          <button
-            className="d-flex justify-content-between align-items-center bg-primary  btn btn-lg btn-primary fs-5 w-auto"
-            onClick={() => handleNew()}
-          >
-            <div className="d-flex justify-content-center invisible"></div>
-            <div>Request Reimbursement</div>
-          </button>
-        )}
-      </div>
+      {/* Divider */}
+      <hr className="my-8" style={{ borderColor: '#e9ecef', borderWidth: '2px' }} />
+
       <div className="my-6">
         <h2>My Reimbursement Records</h2>
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}
-        onEdit={handleEdit}
-        showEditDeleteOption={showEditDeleteOption}
+        onPeriodChange={handlePeriodChange}
+        showEditDeleteOption={true}
         resource={resourceNameMapWithCamelCase.reimbursement}
         viewOwn={true}
         viewOthers={false}
+        viewMode="submissions"
+        selectedEmployeeId={employeeId}
       />
 
       {/* modal code starts here */}
@@ -753,7 +766,7 @@ function Reimbursement() {
                         loading || !formikProps.isValid || formikProps.isSubmitting
                       }
                     >
-                      {!loading && "Save Changes"}
+                      {!loading && (editMode ? "Save Changes" : "Save to Pending Requests")}
                       {loading && (
                         <span
                           className="indicator-progress"

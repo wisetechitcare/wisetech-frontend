@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import EmployeeInfo from "../forms/EmployeeInfo";
 import HiringInfo from "../forms/HiringInfo";
 import WorkContactInfo from "../forms/WorkContactInfo";
 import WorkExperience from "../forms/WorkExperience";
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
 import WizardSectionLayout from "./WizardSectionLayout";
-import DiscretionaryLeave from "../forms/DiscretionaryLeave";
-import LeaveAllocationStep from "../forms/LeaveAllocationStep";
+// Leave Settings section removed — no longer needed
+// import DiscretionaryLeave from "../forms/DiscretionaryLeave";
+// import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import "./Step2.css";
 
 const createNewWorkExp = () => ({
@@ -22,33 +23,32 @@ const newRejoinEntry = {
     reason: "",
 };
 
-function Step3({ formikProps, editMode, sidebarProfile }: any) {
+function Step3({ formikProps, editMode, sidebarProfile, activeSection, onSectionChange }: any) {
     const { values, setFieldValue } = formikProps;
     const workExpRows = Array.isArray(values.workExpInfo) ? values.workExpInfo : [];
     const rejoinRows = Array.isArray(values.rejoinHistory) ? values.rejoinHistory : [];
-    const [activeSection, setActiveSection] = useState("employee_info");
 
     useEffect(() => {
         if (!formikProps.submitCount) return;
         const errors = formikProps.errors || {};
         if (errors.designationId || errors.departmentId || errors.branchId || errors.workingMethodId) {
-            setActiveSection("employee_info");
+            onSectionChange("employee_info");
             return;
         }
         if (errors.companyEmailId || errors.companyPhoneNumber) {
-            setActiveSection("contact_info");
+            onSectionChange("contact_info");
             return;
         }
         if (errors.sourceOfHireId || errors.dateOfJoining) {
-            setActiveSection("hiring_info");
+            onSectionChange("hiring_info");
             return;
         }
         if (errors.rejoinHistory) {
-            setActiveSection("hiring_info");
+            onSectionChange("hiring_info");
             return;
         }
         if (errors.workExpInfo) {
-            setActiveSection("work_experience");
+            onSectionChange("work_experience");
             return;
         }
     }, [formikProps.submitCount, formikProps.errors]);
@@ -89,7 +89,8 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
         { id: "contact_info", title: "Work Contact Details", icon: "phone" },
         { id: "hiring_info", title: "Hiring Information", icon: "briefcase" },
         { id: "work_experience", title: "Work Experience Information", icon: "teacher" },
-        { id: "leave_settings", title: "Leave Settings", icon: "calendar-add" },
+        // Leave Settings section removed — no longer needed
+        // { id: "leave_settings", title: "Leave Settings", icon: "calendar-add" },
     ];
 
     const sectionContent: Record<string, any> = {
@@ -119,19 +120,20 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
                 <AddAnotherBtn onClick={addNewWorkExperience} />
             </div>
         ),
-        leave_settings: (
-            <div>
-                <LeaveAllocationStep />
-                <DiscretionaryLeave />
-            </div>
-        ),
+        // Leave Settings section removed — no longer needed
+        // leave_settings: (
+        //     <div>
+        //         <LeaveAllocationStep />
+        //         <DiscretionaryLeave />
+        //     </div>
+        // ),
     };
 
     return (
         <WizardSectionLayout
             sections={sections}
             activeSection={activeSection}
-            onSectionChange={setActiveSection}
+            onSectionChange={onSectionChange}
             sidebarProfile={sidebarProfile}
         >
             {sectionContent[activeSection]}

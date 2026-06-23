@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, OverlayTrigger, Tooltip as BSTooltip } from 'react-bootstrap';
+import { Modal, Button } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import * as Yup from 'yup';
-import TextInput from '@app/modules/common/inputs/TextInput';
 import { KTIcon } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
-import { createUpdateDeductionConfiguration, fetchDeductionConfiguration, validateDeductionConfigurationJson } from '@services/employee';
+import { createUpdateDeductionConfiguration, fetchDeductionConfiguration } from '@services/employee';
 import { IMonthlyApiResponse, IBreakdownData } from '@redux/slices/salaryData';
-import { IconButton } from '@mui/material';
 import { Close, InfoOutlined } from '@mui/icons-material';
 import { formatINRDecimal } from '../../../../../../../modules/payroll/utils/payrollFormatters';
+import { deductionMasterService } from '@modules/payroll/services/payrollService';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -28,6 +27,7 @@ interface DynamicField {
     type: string;
     isNew: boolean;
     autoAmount?: number; // Added to store the auto-calculated amount for preview
+    section?: 'government' | 'attendance' | 'custom'; // Added to allow section selection
 }
 
 /**
@@ -89,14 +89,20 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         setAutoCalculatedDeductions({});
     };
 
-    const addNewField = () => {
+    const addNewField = (section: 'government' | 'attendance' | 'custom' = 'custom') => {
+        const sectionLabels = {
+            government: 'Deduction',
+            attendance: 'Attendance',
+            custom: 'Other'
+        };
         const newField: DynamicField = {
             id: `new_field_${Date.now()}`,
-            name: `Other ${fieldCounter}`,
+            name: `${sectionLabels[section]} ${fieldCounter}`,
             value: 0,
             type: "number",
             isNew: true,
-            autoAmount: 0
+            autoAmount: 0,
+            section: section
         };
         setDynamicFields([...dynamicFields, newField]);
         setFieldCounter(fieldCounter + 1);
@@ -170,17 +176,22 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         try {
             setLoading(true);
             
-            // 1. Extract auto-calculated values from monthlyApiData for preview
+            // 1. Extract auto-calculated values from monthlyApiData for preview (fixed + variable)
             const autoDeductions: Record<string, number> = {};
-            if (monthlyApiData?.salaryData?.[0]?.deductionBreakdown?.fixed) {
-                const fixed = monthlyApiData.salaryData[0].deductionBreakdown.fixed;
+            const breakdown = monthlyApiData?.salaryData?.[0]?.deductionBreakdown;
+            if (breakdown?.fixed) {
+                const fixed = breakdown.fixed;
                 Object.entries(fixed).forEach(([key, data]: [string, any]) => {
                     autoDeductions[key] = data.earned || 0;
                 });
-                
-                // Check mutual exclusivity from API data
                 setProfFeesEnabled(!!fixed['Professional Fees']?.isActive);
                 setProfTaxEnabled(!!fixed['Professional Tax']?.isActive);
+            }
+            if (breakdown?.variable) {
+                // Also capture attendance-section auto amounts so previews show correctly
+                Object.entries(breakdown.variable).forEach(([key, data]: [string, any]) => {
+                    if (!(key in autoDeductions)) autoDeductions[key] = data.earned || 0;
+                });
             }
             setAutoCalculatedDeductions(autoDeductions);
 
@@ -195,27 +206,49 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                 console.log("No existing deduction config found, using defaults");
             }
 
-            // 3. Prepare the fields
-            const defaultFields: any = {
-                'Provident Fund': { name: 'Provident Fund', type: 'number', value: 0, isActive: true },
-                'Professional Tax': { name: 'Professional Tax', type: 'number', value: 0, isActive: true },
-                'Professional Fees': { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true }
-            };
+            // 3. Build default fields from active DEBIT components in Salary Component Master.
+            //    Falls back to the original 3 if the API call fails.
+            const defaultFields: any = {};
+            try {
+                const masterItems = await deductionMasterService.getAll();
+                const activeDebit = masterItems.filter(c => c.direction === 'DEBIT' && c.isActive);
+                activeDebit
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .forEach(c => {
+                        defaultFields[c.displayName] = { name: c.displayName, type: 'number', value: 0, isActive: true, _masterCategory: c.category };
+                    });
+            } catch {
+                // fallback: keep original three hardcoded fields so modal still works
+                defaultFields['Provident Fund']    = { name: 'Provident Fund',               type: 'number', value: 0, isActive: true };
+                defaultFields['Professional Tax']  = { name: 'Professional Tax',              type: 'number', value: 0, isActive: true };
+                defaultFields['Professional Fees'] = { name: 'Tax Deducted at Source (TDS)', type: 'number', value: 0, isActive: true };
+            }
 
             // Always start with all default fields, then overlay any saved values
             const finalData: any = {};
+            const masterKeys = new Set(Object.keys(defaultFields));
 
+            // Mark all master items so we can filter non-master items out of gov/att sections
             Object.entries(defaultFields).forEach(([key, value]: [string, any]) => {
-                finalData[key] = { ...value, value: 0, type: 'number' };
+                finalData[key] = { ...value, value: 0, type: 'number', _isFromMaster: true };
             });
 
             if (existingAdditionalData) {
                 Object.entries(existingAdditionalData).forEach(([key, value]: [string, any]) => {
                     if (key === '_fieldOrder') return;
-                    if (finalData[key]) {
-                        finalData[key] = { ...finalData[key], ...value, value: value.value || 0, type: 'number' };
+                    if (masterKeys.has(key)) {
+                        // Overlay saved value onto master item (keep _isFromMaster: true)
+                        finalData[key] = { ...finalData[key], ...value, value: value.value || 0, type: 'number', _isFromMaster: true };
                     } else {
-                        finalData[key] = { ...value, value: value.value || 0, type: 'number' };
+                        // Preserve non-master custom fields with their section information
+                        finalData[key] = {
+                            ...value,
+                            value: value.value || 0,
+                            type: 'number',
+                            isActive: true,
+                            _isFromMaster: false,
+                            _section: value._section || 'custom'
+                        };
                     }
                 });
             }
@@ -266,7 +299,8 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                     name: field.name,
                     value: Number(values[field.id]),
                     type: "number",
-                    isActive: true
+                    isActive: true,
+                    _section: field.section || 'custom'  // Preserve section for persistence
                 };
             });
 
@@ -298,42 +332,20 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
         }
     }, [show]);
 
-    const renderPreview = (fieldName: string, extraValue: number) => {
-        const auto = autoCalculatedDeductions[fieldName] || 0;
-        const total = Math.max(0, auto + extraValue);
-        const formatSignedAdjustment = (value: number) => {
-            if (value > 0) return `+${formatINRDecimal(value)}`;
-            if (value < 0) return `-${formatINRDecimal(Math.abs(value))}`;
-            return formatINRDecimal(0);
-        };
-        
-        return (
-            <div className="mt-2 p-3 bg-light rounded border border-dashed border-gray-300">
-                <div className="d-flex justify-content-between fs-8 text-gray-600 mb-1">
-                    <span>Auto Calculated:</span>
-                    <span>{formatINRDecimal(auto)}</span>
-                </div>
-                <div className="d-flex justify-content-between fs-8 text-primary mb-1">
-                    <span>Adjustment:</span>
-                    <span>{formatSignedAdjustment(extraValue)}</span>
-                </div>
-                <div className="separator separator-dashed my-1"></div>
-                <div className="d-flex justify-content-between fs-7 fw-bolder text-gray-800">
-                    <span>Final {fieldName}:</span>
-                    <span>{formatINRDecimal(total)}</span>
-                </div>
-            </div>
-        );
-    };
-
     return (
-        <Modal show={show} onHide={onClose} centered size="lg" backdrop="static">
-            <Modal.Header closeButton>
-                <Modal.Title className="fw-bolder fs-3 text-gray-800">Modify Deduction Distribution</Modal.Title>
+        <Modal show={show} onHide={onClose} centered size="lg" backdrop="static" scrollable>
+            <Modal.Header closeButton className="border-bottom-0 pb-2 px-6 pt-5">
+                <div>
+                    <Modal.Title className="fw-bolder fs-4 text-gray-800">Modify Deductions</Modal.Title>
+                    <p className="text-muted fs-8 mb-0 mt-1">
+                        Positive increases deduction · Negative reduces it · Does not overwrite auto-calculations
+                    </p>
+                </div>
             </Modal.Header>
-            <Modal.Body className="py-8">
+
+            <Modal.Body className="px-6 pt-4 pb-0" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
                 {loading ? (
-                    <div className="d-flex justify-content-center align-items-center py-20">
+                    <div className="d-flex justify-content-center py-20">
                         <div className="spinner-border text-primary" role="status">
                             <span className="visually-hidden">Loading...</span>
                         </div>
@@ -348,158 +360,239 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                         {(formikProps) => {
                             const existingFields = Object.entries(deductionDistributionData)
                                 .filter(([key]) => !deletedFields.includes(key) && key !== '_fieldOrder')
-                                .map(([key, value]: [string, any]) => ({
-                                    id: key,
-                                    ...value,
-                                    isNew: false
-                                }));
+                                .map(([key, value]: [string, any]) => ({ id: key, ...value, isNew: false }));
 
                             const allFields = [...existingFields, ...dynamicFields];
 
-                            return (
-                                <Form className='d-flex flex-column' noValidate>
-                                    <div className="alert alert-dismissible bg-light-primary border border-primary border-dashed d-flex flex-column flex-sm-row p-5 mb-8">
-                                        <InfoOutlined className="fs-2 text-primary me-4 mb-5 mb-sm-0" />
-                                        <div className="d-flex flex-column pe-0 pe-sm-10">
-                                            <h5 className="mb-1 text-primary fw-bolder">Important Note</h5>
-                                            <span className="fs-7 text-gray-700">
-                                                Positive amounts increase payroll calculated deductions. Negative amounts reduce them.
-                                                They will <strong>not</strong> overwrite the original calculations.
-                                            </span>
-                                        </div>
-                                    </div>
+                            const SYS_ATTENDANCE = ['late checkins', 'late attendance', 'early checkout', 'unpaid leave', 'half day', 'missed punch'];
 
-                                    <div className="d-flex justify-content-between align-items-center mb-6">
-                                        <h6 className="fw-bolder text-gray-800 mb-0">Deduction Adjustment Fields</h6>
+                            const getGroup = (field: any): 'government' | 'attendance' | 'other' => {
+                                // Check if field has explicit section (new fields or persisted custom fields)
+                                if (field.section === 'government') return 'government';
+                                if (field.section === 'attendance') return 'attendance';
+                                if (field._section === 'government') return 'government';
+                                if (field._section === 'attendance') return 'attendance';
+
+                                // For new fields without explicit section, default to custom
+                                if (field.isNew) return 'other';
+
+                                // Non-master items always go to Custom, never government/attendance
+                                if (!field._isFromMaster) return 'other';
+
+                                const cat = (field._masterCategory || '').toLowerCase();
+                                const name = (field.name || field.id || '').toLowerCase();
+                                if (cat.includes('attendance') || SYS_ATTENDANCE.some(s => name.includes(s))) return 'attendance';
+                                if (cat.includes('government') || cat.includes('statutory') ||
+                                    name.includes('provident fund') || name.includes('professional tax') ||
+                                    name.includes('professional fees') || name.includes('esi') ||
+                                    name.includes('epf') || name.includes('tds')) return 'government';
+                                return 'other';
+                            };
+
+                            const allFieldsWithGrouping = [...existingFields, ...dynamicFields];
+                            const govFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'government');
+                            const allAttFields = allFieldsWithGrouping.filter(f => getGroup(f) === 'attendance');
+                            // Late Checkins is auto-calculated — read-only; the rest are editable adjustments
+                            const lateCheckinFields = allAttFields.filter(f => (f.name || f.id) === 'Late Checkins');
+                            const editableAttFields = allAttFields.filter(f => (f.name || f.id) !== 'Late Checkins');
+
+                            // Read-only row for attendance (same green style as Work Earnings in Gross modal)
+                            const renderReadOnlyRow = (field: any) => {
+                                const fieldName = field.name || field.id;
+                                const amount = autoCalculatedDeductions[fieldName] || 0;
+                                return (
+                                    <div
+                                        key={field.id}
+                                        className="d-flex align-items-center gap-3 px-5 py-3"
+                                        style={{ borderBottom: '1px solid #f0fdf4', background: '#fff' }}
+                                    >
+                                        <div style={{ flex: '1 1 0' }}>
+                                            <span className="fw-semibold fs-7 text-gray-700">{fieldName}</span>
+                                        </div>
+                                        <div style={{ width: 160 }}>
+                                            <div className="input-group input-group-sm">
+                                                <span className="input-group-text border-end-0 px-2" style={{ fontSize: '0.75rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a' }}>₹</span>
+                                                <input
+                                                    type="text"
+                                                    readOnly
+                                                    value={formatINRDecimal(amount).replace('₹', '')}
+                                                    className="form-control border-start-0 ps-1 text-end fw-bolder"
+                                                    style={{ fontSize: '0.85rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#16a34a', cursor: 'default' }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div style={{ width: 28 }} />
+                                    </div>
+                                );
+                            };
+
+                            const renderRow = (field: any) => {
+                                const fieldKey = field.id;
+                                const currentExtra = Number(formikProps.values[fieldKey] || 0);
+                                const fieldName = field.name || field.id;
+                                const auto = autoCalculatedDeductions[fieldName] || 0;
+                                const total = Math.max(0, auto + currentExtra);
+
+                                const isProfTax = field.id === 'Professional Tax';
+                                const isProfFees = field.id === 'Professional Fees';
+                                let warningMsg = '';
+                                if (isProfTax && !profTaxEnabled) warningMsg = 'Auto-disabled (TDS active)';
+                                else if (isProfFees && !profFeesEnabled) warningMsg = 'Auto-disabled (P-Tax active)';
+
+                                return (
+                                    <div
+                                        key={field.id}
+                                        className="d-flex align-items-center gap-3 px-5 py-3"
+                                        style={{ borderBottom: '1px solid #f5f5f5' }}
+                                    >
+                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                                            {field.isNew ? (
+                                                <input
+                                                    className="form-control form-control-sm border-0 border-bottom rounded-0 bg-transparent fw-bold text-primary ps-0"
+                                                    value={field.name}
+                                                    onChange={(e) => updateFieldName(field.id, e.target.value, true)}
+                                                    placeholder="Component name…"
+                                                    style={{ fontSize: '0.82rem' }}
+                                                />
+                                            ) : (
+                                                <div>
+                                                    <span className="fw-semibold fs-7 text-gray-800">{field.name || field.id}</span>
+                                                    {warningMsg && <div className="text-warning fs-9 mt-1">{warningMsg}</div>}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div style={{ width: 120 }}>
+                                            <div className="input-group input-group-sm">
+                                                <span className="input-group-text bg-light border-end-0 text-gray-500 px-2" style={{ fontSize: '0.75rem' }}>₹</span>
+                                                <input
+                                                    type="number"
+                                                    className="form-control border-start-0 ps-1 text-end"
+                                                    {...formikProps.getFieldProps(fieldKey)}
+                                                    placeholder="0"
+                                                    style={{ fontWeight: 600, fontSize: '0.85rem' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="text-end" style={{ minWidth: 76 }}>
+                                            <div className="text-muted fs-9 mb-1">Auto</div>
+                                            <div className="fw-semibold fs-7 text-gray-700">{formatINRDecimal(auto)}</div>
+                                        </div>
+
+                                        <div className="text-end" style={{ minWidth: 80 }}>
+                                            <div className="text-muted fs-9 mb-1">Final</div>
+                                            <div className="fw-bolder fs-7" style={{ color: total > 0 ? '#f1416c' : '#a1a5b7' }}>
+                                                {formatINRDecimal(total)}
+                                            </div>
+                                        </div>
+
                                         <button
                                             type="button"
-                                            className="btn btn-sm btn-light-primary fw-bold"
-                                            onClick={addNewField}
+                                            onClick={() => removeField(field.id, field.isNew)}
+                                            style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                         >
-                                            <KTIcon iconName="plus" className="fs-6 me-1" />
-                                            Add Other Deduction
+                                            <Close fontSize="small" />
                                         </button>
                                     </div>
+                                );
+                            };
 
-                                    <div className="row g-6">
-                                        {allFields.map((field) => {
-                                            const isProfTax = field.id === 'Professional Tax';
-                                            const isProfFees = field.id === 'Professional Fees';
-                                            
-                                            let isDisabled = false;
-                                            let disabledReason = '';
+                            const renderSection = (
+                                title: string,
+                                color: string,
+                                fields: any[],
+                                showAdd = false,
+                                readOnly = false,
+                                sectionType?: 'government' | 'attendance' | 'custom'
+                            ) => {
+                                if (fields.length === 0 && !showAdd) return null;
+                                return (
+                                    <div className="mb-5">
+                                        <div className="d-flex align-items-center justify-content-between mb-2">
+                                            <div className="d-flex align-items-center gap-2">
+                                                <div style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: color }} />
+                                                <span className="fw-bolder fs-9 text-uppercase text-gray-500" style={{ letterSpacing: '0.06em' }}>
+                                                    {title}
+                                                </span>
+                                                {readOnly && <span className="badge badge-light-success fs-9 py-1 px-2">Auto-Calculated</span>}
+                                            </div>
+                                            {showAdd && (
+                                                <button type="button" className="btn btn-sm btn-light-primary fw-bold py-1 px-3 fs-8" onClick={() => addNewField(sectionType || 'custom')}>
+                                                    <KTIcon iconName="plus" className="fs-8 me-1" />
+                                                    Add Component
+                                                </button>
+                                            )}
+                                        </div>
 
-                                            // We only visually warn — we no longer block input.
-                                            // Extra manual amounts are independent of the
-                                            // auto-calculated component state.
-                                            if (isProfTax && !profTaxEnabled) {
-                                                disabledReason = "Professional Tax is auto-disabled (Tax Deducted at Source (TDS) is active). Extra amount still applies separately.";
-                                            } else if (isProfFees && !profFeesEnabled) {
-                                                disabledReason = "Tax Deducted at Source (TDS) is auto-disabled (Professional Tax is active). Extra amount still applies separately.";
-                                            }
-
-                                            const currentExtra = Number(formikProps.values[field.id] || 0);
-
-                                            return (
-                                                <div key={field.id} className="col-lg-6">
-                                                    <div className={`p-5 rounded-4 border ${isDisabled ? 'bg-light-secondary border-gray-300' : 'bg-white border-gray-200'} shadow-sm h-100 position-relative`}>
-                                                        <div className="d-flex justify-content-between align-items-start mb-4">
-                                                            <div className="flex-grow-1 pe-8">
-                                                                {field.isNew ? (
-                                                                    <div className="mb-3">
-                                                                        <label className="form-label fw-bold text-gray-700 fs-8 text-uppercase">Component Name</label>
-                                                                        <input
-                                                                            type="text"
-                                                                            className="form-control form-control-sm form-control-solid"
-                                                                            value={field.name}
-                                                                            onChange={(e) => updateFieldName(field.id, e.target.value, field.isNew)}
-                                                                            placeholder="e.g. Loan Recovery"
-                                                                        />
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="d-flex align-items-center gap-2 mb-1">
-                                                                        <span className={`fw-bolder fs-6 ${isDisabled ? 'text-gray-500' : 'text-gray-800'}`}>
-                                                                            {field.name || field.id}
-                                                                        </span>
-                                                                        {isDisabled && (
-                                                                            <OverlayTrigger
-                                                                                placement="top"
-                                                                                overlay={<BSTooltip>{disabledReason}</BSTooltip>}
-                                                                            >
-                                                                                <InfoOutlined sx={{ fontSize: 16, color: '#999' }} />
-                                                                            </OverlayTrigger>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <IconButton
-                                                                onClick={() => removeField(field.id, field.isNew)}
-                                                                size="small"
-                                                                className="position-absolute top-0 end-0 mt-2 me-2"
-                                                                sx={{ color: '#f1416c', '&:hover': { backgroundColor: '#fff5f8' } }}
-                                                            >
-                                                                <Close fontSize="small" />
-                                                            </IconButton>
-                                                        </div>
-
-                                                        <div className="mb-2">
-                                                            <label className={`form-label fw-bold fs-8 text-uppercase ${disabledReason ? 'text-warning' : 'text-gray-700'}`}>
-                                                                Deduction Adjustment Amount
-                                                            </label>
-                                                            <TextInput
-                                                                isRequired={true}
-                                                                label=""
-                                                                formikField={field.id}
-                                                                type="number"
-                                                                placeholder="0.00"
-                                                                readonly={false}
-                                                            />
-                                                        </div>
-
-                                                        {renderPreview(field.isNew ? field.id : field.name || field.id, currentExtra)}
-                                                        
-                                                        {disabledReason && (
-                                                            <div className="text-center py-3 bg-light-warning rounded border border-dashed border-warning mt-2">
-                                                                <span className="text-warning fs-8 fw-bold">{disabledReason}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                        {fields.length > 0 ? (
+                                            <div className="rounded-3 overflow-hidden" style={{ border: readOnly ? '1px solid #bbf7d0' : '1px solid #e9ecef' }}>
+                                                {/* Column headers */}
+                                                <div
+                                                    className="d-flex align-items-center gap-3 px-5 py-2"
+                                                    style={{
+                                                        background: readOnly ? '#f0fdf4' : '#f9f9f9',
+                                                        borderBottom: readOnly ? '1px solid #bbf7d0' : '1px solid #e9ecef',
+                                                    }}
+                                                >
+                                                    <div style={{ flex: '1 1 0', color: readOnly ? '#16a34a' : undefined }} className="fw-bold fs-9 text-uppercase">Component</div>
+                                                    {readOnly ? (
+                                                        <div style={{ width: 160, color: '#16a34a' }} className="fw-bold fs-9 text-uppercase text-end">Amount (Auto)</div>
+                                                    ) : (
+                                                        <>
+                                                            <div style={{ width: 120 }} className="text-muted fs-9 fw-bold text-uppercase text-center">Adjustment</div>
+                                                            <div style={{ minWidth: 76 }} className="text-muted fs-9 fw-bold text-uppercase text-end">Auto</div>
+                                                            <div style={{ minWidth: 80 }} className="text-muted fs-9 fw-bold text-uppercase text-end">Final</div>
+                                                        </>
+                                                    )}
+                                                    <div style={{ width: 28 }} />
                                                 </div>
-                                            );
-                                        })}
+                                                {fields.map(readOnly ? renderReadOnlyRow : renderRow)}
+                                            </div>
+                                        ) : (
+                                            showAdd && (
+                                                <div className="text-center py-6 bg-light rounded-3 border border-dashed border-gray-300">
+                                                    <span className="text-muted fs-8">No custom deductions yet. Click Add to create one.</span>
+                                                </div>
+                                            )
+                                        )}
                                     </div>
+                                );
+                            };
+
+                            return (
+                                <Form noValidate>
+                                    {renderSection('Government & Statutory', '#3e97ff', govFields, true, false, 'government')}
+                                    {lateCheckinFields.length > 0 && renderSection('Late Checkins', '#50cd89', lateCheckinFields, false, true)}
+                                    {renderSection('Attendance Deductions', '#ffa621', editableAttFields, true, false, 'attendance')}
 
                                     {allFields.length === 0 && (
-                                        <div className="text-center py-20 bg-light rounded-4 border border-dashed border-gray-300">
-                                            <KTIcon iconName="document" className="fs-3x text-gray-400 mb-5" />
-                                            <p className="text-gray-600 fw-bold mb-5">No deduction adjustments configured.</p>
-                                            <button
-                                                type="button"
-                                                className="btn btn-primary btn-sm px-6"
-                                                onClick={addNewField}
-                                            >
+                                        <div className="text-center py-14 bg-light rounded-4 border border-dashed border-gray-300 mb-4">
+                                            <KTIcon iconName="document" className="fs-3x text-gray-400 mb-4" />
+                                            <p className="text-gray-600 fw-bold mb-4 fs-7">No deduction adjustments configured.</p>
+                                            <button type="button" className="btn btn-primary btn-sm px-6" onClick={() => addNewField('custom')}>
                                                 Add First Adjustment
                                             </button>
                                         </div>
                                     )}
 
-                                    <div className="d-flex justify-content-end gap-3 mt-12 pt-8 border-top">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            className="btn btn-light"
-                                            onClick={onClose}
-                                            disabled={loading}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            className="btn btn-primary"
-                                            disabled={loading || !formikProps.isValid}
-                                        >
-                                            {loading ? 'Saving Changes...' : 'Save Deduction Distribution'}
-                                        </Button>
+                                    <div className="d-flex justify-content-between align-items-center py-4 border-top mt-2">
+                                        <span className="text-muted fs-9 d-flex align-items-center gap-1">
+                                            <InfoOutlined sx={{ fontSize: 13, verticalAlign: 'middle' }} />
+                                            Positive increases · Negative reduces
+                                        </span>
+                                        <div className="d-flex gap-3">
+                                            <Button type="button" variant="light" onClick={onClose} disabled={loading}>
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="submit"
+                                                disabled={loading || !formikProps.isValid}
+                                                style={{ backgroundColor: '#AA393D', borderColor: '#AA393D', color: '#fff' }}
+                                            >
+                                                {loading ? 'Saving…' : 'Save Changes'}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </Form>
                             );

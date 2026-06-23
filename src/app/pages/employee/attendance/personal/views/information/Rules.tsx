@@ -1,5 +1,7 @@
 ﻿import { KTIcon } from '@metronic/helpers';
-import { fetchConfiguration, updateConfigurationById } from '@services/company';
+import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
+import { useSelector } from 'react-redux';
+import { RootState } from '@redux/store';
 import { useEffect, useState } from 'react';
 import * as Yup from 'yup';
 import { Button, Card, ListGroup, Modal } from 'react-bootstrap'
@@ -28,8 +30,33 @@ export const timeToMinutes = (timeStr: string): number => {
     return hours * 60 + minutes;
 };
 
-const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: boolean, title?: string, hideGeneralSettings?: boolean }) => {
+const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly = false}: { fromAdmin?: boolean, title?: string, hideGeneralSettings?: boolean, scope?: { companyId?: string; branchId?: string }, readOnly?: boolean }) => {
     const [configuration, setConfiguration] = useState({});
+
+    // Per-org config: an explicit scope (from the Configure page's org/branch selector) wins;
+    // otherwise default to the viewed employee's own org so this editor is NEVER global. This is
+    // what stops "Default Shift Rules" and "Daily Shift Time" from writing two different rows.
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const effectiveScope = {
+        companyId: scope?.companyId ?? currentEmployeeCompanyId,
+        branchId: scope?.branchId ?? (scope?.companyId ? undefined : currentEmployeeBranchId),
+    };
+    const isScoped = Boolean(effectiveScope.companyId || effectiveScope.branchId);
+
+    // Write the scoped row (find-or-create by company/branch) so an inherited/global row is never
+    // overwritten; fall back to legacy by-id update only when there is no scope at all.
+    const saveConfig = async (payload: { module: string; configuration: any }) => {
+        if (isScoped) {
+            await createNewConfiguration({
+                ...payload,
+                companyId: effectiveScope.companyId,
+                branchId: effectiveScope.branchId,
+            } as any);
+        } else {
+            await updateConfigurationById(ruleId, payload);
+        }
+    };
 
     const [loading, setLoading] = useState(false);
     const [editMode, setEditMode] = useState(false);
@@ -63,7 +90,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
             configuration: config
         };
 
-        await updateConfigurationById(ruleId, payload);
+        await saveConfig(payload);
         successConfirmation('Rule deleted successfully');
         fetchLeaveConfiguration();
     }
@@ -101,7 +128,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
         try {
             setLoading(true);
             if (editMode) {
-                await updateConfigurationById(ruleId, payload);
+                await saveConfig(payload);
                 setLoading(false);
                 successConfirmation('Rule updated successfully');
                 fetchLeaveConfiguration();
@@ -110,7 +137,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
                 return;
             }
 
-            await updateConfigurationById(ruleId, payload);
+            await saveConfig(payload);
             setLoading(false);
             successConfirmation('Rule created successfully');
             fetchLeaveConfiguration();
@@ -128,7 +155,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
     };
 
     async function fetchLeaveConfiguration() {
-        const { data: { configuration } } = await fetchConfiguration('leave management');
+        const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, isScoped ? effectiveScope : undefined);
         const jsonObject = JSON.parse(configuration.configuration);
 
         // Parse check-in and check-out times
@@ -170,7 +197,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
 
     useEffect(() => {
         fetchLeaveConfiguration();
-    }, []);
+    }, [effectiveScope.companyId, effectiveScope.branchId]);
 
     return (
         <>
@@ -209,7 +236,7 @@ const Rules = ({ fromAdmin = false, title , hideGeneralSettings}: { fromAdmin?: 
                                     <strong>{name}</strong>
                                     <span className="float-end">
                                         {name == onSiteAndHolidayWeekendSettingsOnOffName ? (String(value)=='1' ? 'On': 'Off' ) : String(value)}
-                                        {fromAdmin && <button
+                                        {fromAdmin && !readOnly && <button
                                             className="btn btn-icon btn-active-color-primary  btn-sm ps-2 pr-0"
                                             onClick={() => handleEdit({ name, value })}
                                             style={{ backgroundColor: 'transparent', border: 'none', paddingLeft: '4px' }}>

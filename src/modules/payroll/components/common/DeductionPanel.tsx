@@ -164,19 +164,6 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                     );
                                 })
                             )}
-                             {/* Static attendance rows — hidden when master component is deactivated */}
-                             {(['Early Checkout', 'Unpaid Leave', 'Half Day', 'Missed Punch'] as const).map(name => {
-                                 const meta = rc(name);
-                                 if (meta !== null && meta.isActive === false) return null;
-                                 return (
-                                     <tr key={name}>
-                                         <td className="text-gray-800 fw-bold d-block fs-7">{rn(name)}</td>
-                                         <td className="text-center"><span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>-</span></td>
-                                         <td className="text-center"><span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>-</span></td>
-                                         <td className="text-end"><span className={`text-danger fw-bolder fs-7 ${sensitiveCls}`}>-₹0</span></td>
-                                     </tr>
-                                 );
-                             })}
                             <tr className="border-0">
                                 <td
                                     colSpan={3}

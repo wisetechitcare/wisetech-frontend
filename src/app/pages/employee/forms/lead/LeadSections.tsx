@@ -552,12 +552,14 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
             classic form, so edits persist through handleSubmit's projectDelta. */}
         {isReceived && (
           <Grid item xs={12} md={6}>
-            <div className="d-flex align-items-center gap-2 mb-1">
-              <span className="badge badge-light-success fs-8 fw-normal">Project Active</span>
-            </div>
             <DropDownInput
               formikField="projectStatusId"
-              inputLabel="Project Status"
+              inputLabel={
+                <span className="d-inline-flex align-items-center gap-2">
+                  Project Status
+                  <span className="badge badge-light-success fs-8 fw-normal">Project Active</span>
+                </span>
+              }
               isRequired={false}
               showColor={true}
               placeholder="Select project status…"

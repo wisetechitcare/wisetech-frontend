@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { getAuth } from '@/app/modules/auth/core/AuthHelpers';
 
 const BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
@@ -12,17 +13,14 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const raw = localStorage.getItem('authData');
-        if (raw) {
-            try {
-                const parsed = JSON.parse(raw);
-                const token = parsed?.token ?? parsed?.accessToken ?? parsed;
-                if (typeof token === 'string' && token) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
-            } catch {
-                // malformed storage entry — skip
-            }
+        // Single source of truth: the app stores auth under 'wise_tech_login' as a JSON
+        // object with a `.token` field (see AuthHelpers.setupAxios). apiClient is a
+        // SEPARATE axios instance, so it does NOT inherit the global auth interceptor —
+        // it must read the token itself via getAuth() to stay in lockstep.
+        const auth = getAuth() as { token?: string } | undefined;
+        const token = auth?.token;
+        if (typeof token === 'string' && token) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
@@ -34,11 +32,9 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('authData');
-            window.location.href = '/login';
-        }
-        // Unwrap server error body so callers get a consistent shape
+        // Session-expiry handling (clearing 'wise_tech_login' + redirect) is owned by
+        // the app's auth flow / route guards — not this client. Forcing a redirect here
+        // on any 401 risked logout loops. We just surface the error to the caller.
         return Promise.reject(error.response?.data ?? error);
     },
 );

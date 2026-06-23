@@ -34,6 +34,17 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
 
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
 
+    // Resolve the VIEWED employee's org/branch (selected when an admin views someone) so the
+    // working-time config is THEIR branch's, not the logged-in user's.
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
+
     const dailyStats = useSelector((state: RootState) => {
         const { attendanceStats } = state;
         return attendanceStats.daily;
@@ -63,7 +74,7 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
 
     // get working hours
     const fetchWorkingHours = async () => {
-        const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
+        const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
         const jsonObject = JSON.parse(configuration.configuration.configuration);
 
         const totalWorkingHoursString = jsonObject["Working time"];

@@ -15,6 +15,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString } from "@utils/employeeStatus";
 import StatusToggle from "@app/modules/common/components/StatusToggle";
 import { ToolbarFilterSelect } from "@app/pages/employee/salary/admin/SalaryTableFilters";
+import { useRootOrgNames } from "@hooks/useRootOrgNames";
 
 type StatusType = "all" | "active" | "inactive";
 
@@ -40,6 +41,7 @@ const EmployeeListContent = () => {
     return saved ? parseInt(saved, 10) : 0;
   });
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
+  const rootOrgNames = useRootOrgNames();
 
   const navigate = useNavigate();
 
@@ -315,9 +317,12 @@ const EmployeeListContent = () => {
 
   const subOrgOptions = useMemo(() => {
     const names = new Set<string>();
-    allEmployees.forEach((e: any) => { if (e.subOrganization && e.subOrganization !== 'N/A') names.add(e.subOrganization); });
+    allEmployees.forEach((e: any) => {
+      // Exclude the top-level org — only actual sub-orgs belong in this dropdown.
+      if (e.subOrganization && e.subOrganization !== 'N/A' && !rootOrgNames.has(e.subOrganization)) names.add(e.subOrganization);
+    });
     return Array.from(names).sort();
-  }, [allEmployees]);
+  }, [allEmployees, rootOrgNames]);
 
   const displayedEmployees = useMemo(() => {
     let result = allEmployees;

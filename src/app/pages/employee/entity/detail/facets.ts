@@ -309,4 +309,5 @@ export const ENTITY_TABS: TabDef[] = [
   { key: 'activities', label: 'Activities', icon: 'bi bi-chat-dots' },
   { key: 'execution', label: 'Execution', icon: 'bi bi-kanban', projectOnly: true },
   { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },
+  { key: 'audit', label: 'Audit', icon: 'bi bi-file-earmark-diff' },
 ];

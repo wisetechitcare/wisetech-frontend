@@ -8,7 +8,7 @@ import { ColourOption, SingleValue, DropdownIndicator } from "./ColorInDropdwon"
 
 interface DropDownInputProps {
     isRequired: boolean;
-    inputLabel: string;
+    inputLabel: string | React.ReactNode;
     options: any;
     formikField: string;
     placeholder?: string;

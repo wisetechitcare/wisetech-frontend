@@ -10,9 +10,12 @@ import AddonLeavesAllowanceCard from '@app/modules/common/components/AddonLeaves
 import {
   fetchConfiguration,
   fetchCompanyOverview,
+  fetchAllBranches,
 } from '@services/company';
 import { fetchCompanySettings } from '@services/options';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
+import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
+import { usePermission } from '@hooks/usePermission';
 import {
   DISABLE_LAUNCH_DEDUCTION_TIME_KEY,
   RESTRICT_ATTENDANCE_TO_7_DAYS_KEY,
@@ -231,6 +234,32 @@ const AttendanceConfig: React.FC = () => {
   const [shiftKey,        setShiftKey]        = useState(0);
   const [otherSettingsKey, setOtherSettingsKey] = useState(0);
 
+  // Shift-config scope: Organization default (root org) vs a specific branch override.
+  // Only the organization admin (settings.manage.all) may edit; the backend enforces it too.
+  const canEditConfig = usePermission('settings.manage.all');
+  const [rootOrgId, setRootOrgId] = useState<string>('');
+  const [rootOrgName, setRootOrgName] = useState<string>('Organization');
+  const [branchOptions, setBranchOptions] = useState<Array<{ id: string; name: string; orgName?: string }>>([]);
+  const [configScope, setConfigScope] = useState<{ companyId?: string; branchId?: string }>({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { companyOverview } } = await fetchCompanyOverview();
+        const rootOrg = resolveActiveOrg(companyOverview);
+        const rootId = rootOrg?.id ?? resolveActiveOrgId(companyOverview) ?? '';
+        setRootOrgId(rootId);
+        // Label the org-level tab with the real parent org name (e.g. "Wisetech Group"),
+        // not a generic "Organization".
+        setRootOrgName(rootOrg?.name ?? rootOrg?.organizationName ?? rootOrg?.companyName ?? 'Organization');
+        setConfigScope({ companyId: rootId }); // default to the organization config
+        const res = await fetchAllBranches();
+        const branches = res?.data?.branches ?? res?.data ?? [];
+        setBranchOptions(branches.map((b: any) => ({ id: b.id, name: b.name, orgName: b.company?.name })));
+      } catch { /* non-fatal — selector falls back to org default */ }
+    })();
+  }, []);
+
   // Data
   const [isLoading, setIsLoading] = useState(true);
   const [otherSettingsData, setOtherSettingsData] = useState<OtherSettingsData>({
@@ -253,8 +282,8 @@ const AttendanceConfig: React.FC = () => {
   const loadDailyShiftData = useCallback(async () => {
     try {
       const [dayWiseShiftsRes, leaveManagementRes] = await Promise.all([
-        fetchDayWiseShifts(),
-        fetchConfiguration(LEAVE_MANAGEMENT),
+        fetchDayWiseShifts(configScope),
+        fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, configScope),
       ]);
 
       const shifts = dayWiseShiftsRes?.data || [];
@@ -262,8 +291,12 @@ const AttendanceConfig: React.FC = () => {
 
       const sorted = daysOrder.map((day) => {
         const shift = shifts.find((s: any) => s.day.toLowerCase() === day.toLowerCase());
-        if (shift?.isActive) {
-          return { day, checkIn: shift.checkIn, checkOut: shift.checkOut, total: calcShiftDuration(shift.checkIn, shift.checkOut), isHoliday: false };
+        // The API returns snake_case (is_active/check_in/check_out); accept camelCase too.
+        const isActive = shift?.is_active ?? shift?.isActive;
+        const ci = shift?.check_in ?? shift?.checkIn;
+        const co = shift?.check_out ?? shift?.checkOut;
+        if (isActive) {
+          return { day, checkIn: ci, checkOut: co, total: calcShiftDuration(ci, co), isHoliday: false };
         }
         return { day, checkIn: '', checkOut: '', total: '', isHoliday: true };
       });
@@ -288,7 +321,7 @@ const AttendanceConfig: React.FC = () => {
     } catch (e) {
       console.error('Error loading shift data:', e);
     }
-  }, []);
+  }, [configScope]);
 
   const loadOtherSettingsData = useCallback(async () => {
     try {
@@ -367,6 +400,55 @@ const AttendanceConfig: React.FC = () => {
                   Configure daily work schedules, lunch breaks, and grace periods.
                 </p>
               </div>
+
+              {/* ── Scope tabs ──────────────────────────────────────────────
+                  Switch the shift config view between the organization default and each branch
+                  override. The Daily Shift Time card, Default Shift Rules, and the Configure modal
+                  all follow the active tab — so you can click through branches and instantly see
+                  what shift each one uses. (Replaces the in-modal "Configuring for" dropdown.) */}
+              {branchOptions.length > 0 && (
+                <div style={{ marginBottom: SP.lg }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch', width: '100%' }}>
+                    {[{ id: '', name: rootOrgName, orgName: '' }, ...branchOptions].map((b) => {
+                      const isOrg = b.id === '';
+                      const active = isOrg ? !configScope.branchId : configScope.branchId === b.id;
+                      const label = isOrg ? rootOrgName : (b.orgName ? `${b.orgName} › ${b.name}` : b.name);
+                      return (
+                        <button
+                          key={b.id || 'org'}
+                          type="button"
+                          onClick={() => setConfigScope(isOrg ? { companyId: rootOrgId } : { branchId: b.id })}
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: 8,
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            // Wrap long org›branch labels instead of overflowing on narrow screens.
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            maxWidth: '100%',
+                            textAlign: 'center',
+                            lineHeight: 1.3,
+                            fontFamily: FONT.body,
+                            border: active ? '1px solid #9d4141' : '1px solid #e4e6ef',
+                            background: active ? '#9d4141' : '#fff',
+                            color: active ? '#fff' : '#5e6278',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p style={{ fontFamily: FONT.body, fontSize: '12px', color: configScope.branchId ? '#9d4141' : '#6c757d', margin: '8px 0 0 0' }}>
+                    {configScope.branchId
+                      ? 'Showing this branch’s override — the cards and Configure below apply to this branch only.'
+                      : 'Showing the organization default — applies to every branch unless that branch has its own override.'}
+                  </p>
+                </div>
+              )}
 
               <div className="row g-4">
                 {/* ── Daily Shift Time card ────────────────────── */}
@@ -503,7 +585,7 @@ const AttendanceConfig: React.FC = () => {
                   boxShadow: '0 2px 12px rgba(24,28,50,0.05)',
                   padding: SP.lg,
                 }}>
-                  <Rules fromAdmin={true} title="Default Shift Rules" hideGeneralSettings={true} />
+                  <Rules fromAdmin={true} readOnly title="Default Shift Rules" hideGeneralSettings={true} scope={configScope} />
                 </div>
               </div>
             </div>
@@ -600,7 +682,27 @@ const AttendanceConfig: React.FC = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ padding: 0, backgroundColor: C.bgPage }}>
-          <DailyShiftTime key={shiftKey} />
+          {/* Scope is chosen via the tabs on the Configure page; shown here read-only so it's
+              always clear which org/branch this modal is editing. */}
+          {(() => {
+            const activeBranch = configScope.branchId ? branchOptions.find(b => b.id === configScope.branchId) : undefined;
+            const scopeLabel = activeBranch
+              ? `Branch override — ${activeBranch.orgName ? `${activeBranch.orgName} › ${activeBranch.name}` : activeBranch.name}`
+              : `${rootOrgName} — default for all branches`;
+            return (
+              <div style={{ padding: '16px 28px 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: C.textPrimary, margin: 0 }}>Configuring for:</label>
+                <span style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #e4e6ef', background: '#fff', fontSize: 13, fontWeight: 600, color: '#9d4141' }}>
+                  {scopeLabel}
+                </span>
+                {configScope.branchId
+                  ? <span style={{ fontSize: 12, color: '#9d4141' }}>Applies to this branch only.</span>
+                  : <span style={{ fontSize: 12, color: '#6c757d' }}>Applies to every sub-org & branch (unless a branch has its own override).</span>}
+                {!canEditConfig && <span style={{ fontSize: 12, color: '#c0392b' }}>You don’t have permission to edit (view only).</span>}
+              </div>
+            );
+          })()}
+          <DailyShiftTime key={`${shiftKey}-${configScope.branchId ?? configScope.companyId ?? 'org'}`} scope={configScope} />
         </Modal.Body>
       </Modal>
 

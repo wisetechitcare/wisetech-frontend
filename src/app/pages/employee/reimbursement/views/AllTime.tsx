@@ -18,6 +18,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
+import { Tooltip } from "@mui/material";
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -225,93 +226,110 @@ function AllTime({
       {
         accessorKey: "expenseDate",
         header: "Date",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "day",
         header: "Day",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       ...(showIdCol ? [{
         accessorKey: "ID",
         header: "ID",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       }] : []),
       ...(showName ? [{
         accessorKey: "name",
         header: "Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       }] : []),
       {
         accessorKey: "description",
         header: "Note",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "type",
         header: "Type",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "clientTypeId",
         header: "Client Type",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
       },
       {
         accessorKey: "clientCompanyId",
         header: "Client Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
       },
       {
         accessorKey: "projectId",
         header: "Project Name",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveProject(row.original.projectId),
       },
       {
         accessorKey: "fromLocation",
         header: "From Location",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
       },
       {
         accessorKey: "amount",
         header: "Amount",
-        enableSorting: false,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        Cell: ({ row, renderedCellValue }: any) => (
+          <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
+            {renderedCellValue}
+          </span>
+        ),
       },
       {
         accessorKey: "status",
         header: "Status",
-        enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      },
+      {
+        accessorKey: "paymentStatus",
+        header: "Payment Status",
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const status = row.original.status;
+          if (status === 'Rejected') return <span className="text-muted">N/A</span>;
+          if (status !== 'Approved') return <span className="text-muted">N/A</span>;
+          const ps = row.original.paymentStatus;
+          if (ps === 'PAID') return <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>;
+          if (ps === 'PARTIAL') return <span className="badge badge-light-info text-info fw-bold px-3 py-2">Partially Paid</span>;
+          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Pending</span>;
+        },
+      },
+      {
+        accessorKey: "rejectionReason",
+        header: "Reject Reason",
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const status = row.original.status;
+          const reason = row.original.rejectionReason;
+          if (status === 'Approved') return <span className="text-muted">N/A</span>;
+          if (status === 'Rejected' && reason) return <span className="text-danger">{reason}</span>;
+          return <span className="text-muted">N/A</span>;
+        },
       },
       {
         accessorKey: "document",
@@ -337,13 +355,18 @@ function AllTime({
         enableSorting: false,
         enableColumnActions: false,
         Cell: ({ row }: any) => {
-          const isApproved = row.original.status === 'Approved';
           const isPending = row.original.status === 'Pending';
-          const resEdit = !isApproved && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
-          const resDelete = !isApproved && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
+          const resEdit = isPending && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
+          const resDelete = isPending && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
 
-          if (isApproved) {
-            return <span className="text-muted">No actions available</span>;
+          if (!isPending) {
+            return (
+              <Tooltip title="This reimbursement has already been processed and cannot be modified." arrow placement="top">
+                <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
+                  No Action Available
+                </span>
+              </Tooltip>
+            );
           }
 
           return (
@@ -373,7 +396,7 @@ function AllTime({
                   <KTIcon iconName="map" className="fs-3" />
                 </button>
               )}
-              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && "Not Allowed"}
+              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && <span className="text-muted fs-7">—</span>}
             </div>
           );
         },
@@ -415,6 +438,33 @@ function AllTime({
               borderBottom: "none",
               paddingY: "5px",
             },
+          },
+          muiTableBodyRowProps: ({ row }: any) => {
+            if (row.original?.isExceedingLimit) {
+              return {
+                sx: {
+                  backgroundColor: "rgba(239, 68, 68, 0.08)",
+                  "& td:first-of-type": { borderLeft: "4px solid #ef4444 !important" },
+                  transition: "background-color 0.12s ease",
+                  "&:hover td": { backgroundColor: "rgba(239, 68, 68, 0.14) !important" },
+                },
+              };
+            }
+            const statusStr = String(row.original?.status || "").toLowerCase();
+            const colorMap: Record<string, { bg: string; border: string; hover: string }> = {
+              approved: { bg: "rgba(16,185,129,0.04)", border: "#10b981", hover: "rgba(16,185,129,0.08)" },
+              rejected: { bg: "rgba(239,68,68,0.04)", border: "#ef4444", hover: "rgba(239,68,68,0.08)" },
+              pending:  { bg: "rgba(245,158,11,0.04)", border: "#f59e0b", hover: "rgba(245,158,11,0.08)" },
+            };
+            const c = colorMap[statusStr] ?? null;
+            return {
+              sx: {
+                backgroundColor: c ? c.bg : undefined,
+                "& td:first-of-type": c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                transition: "background-color 0.12s ease",
+                "&:hover td": { backgroundColor: c ? `${c.hover} !important` : "#F8FAFC" },
+              },
+            };
           },
         }}
         tableName="All Time Reimbursements"

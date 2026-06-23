@@ -6,6 +6,7 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { IReimbursements, IReimbursementsFetch } from "@models/employee";
 import { fetchReimbursementsByProjectId } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
+import { Box, Paper, Stack, Typography } from "@mui/material";
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -163,6 +164,8 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
           ...r,
           expenseDate: formattedDate,
           day: date.toLocaleDateString("en-GB", { weekday: "long" }),
+          ID: r.employee?.employeeCode,
+          name: `${r.employee?.users?.firstName ?? ""} ${r.employee?.users?.lastName ?? ""}`.trim(),
           type: r.reimbursementType?.type ?? "-NA-",
           status:
             r.status == 0
@@ -202,47 +205,83 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
     setPreviewUrl(null);
   }, []);
 
+  const totalAmount = useMemo(
+    () => reimbursementData.reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
+    [reimbursementData]
+  );
+
+  const fmtAmount = (n: number) =>
+    Math.round(n).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
   const columns = useMemo<MRT_ColumnDef<IReimbursements>[]>(
     () => [
       {
         accessorKey: "expenseDate",
         header: "Date",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "day",
         header: "Day",
-        enableSorting: false,
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      },
+      {
+        accessorKey: "ID",
+        header: "ID",
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      },
+      {
+        accessorKey: "name",
+        header: "Name",
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "description",
         header: "Note",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
+        accessorKey: "fromLocation",
+        header: "From Location",
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+      },
+      {
+        accessorKey: "toLocation",
+        header: "To Location",
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+      },
+      {
         accessorKey: "type",
         header: "Type",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "amount",
         header: "Amount",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
         accessorKey: "status",
         header: "Status",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => {
           const colorMap: Record<string, string> = {
@@ -313,6 +352,38 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
     );
   }
 
+  const kpiCards = [
+    {
+      label: "Total Requested Amount",
+      sublabel: "Sum of all requests",
+      accent: "#2563eb",
+      iconBg: "#eff6ff",
+      value: fmtAmount(totalAmount),
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
+          <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
+        </svg>
+      ),
+    },
+    {
+      label: "Total Visit",
+      sublabel: "Total Visits Recorded",
+      accent: "#7c3aed",
+      iconBg: "#f5f3ff",
+      value: reimbursementData.length,
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+          <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+          <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      ),
+    },
+  ];
+
   return (
     <>
       <div className="mb-6">
@@ -322,6 +393,92 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
           {reimbursementData.length !== 1 ? "s" : ""} linked to this project
         </span>
       </div>
+
+      {/* KPI Overview Cards */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", marginBottom: "24px" }}>
+        {kpiCards.map((card) => (
+          <Paper
+            key={card.label}
+            elevation={0}
+            sx={{
+              flex: "0 0 auto",
+              width: 260,
+              borderRadius: "16px",
+              border: "1px solid #f0f0f0",
+              background: "#ffffff",
+              overflow: "hidden",
+              position: "relative",
+              transition: "box-shadow 220ms ease, transform 220ms ease",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05)",
+              "&:hover": {
+                transform: "translateY(-3px)",
+                boxShadow: "0 4px 8px rgba(0,0,0,0.06), 0 12px 24px rgba(0,0,0,0.08)",
+              },
+            }}
+          >
+            <Box
+              sx={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: "4px",
+                background: card.accent,
+                borderRadius: "16px 0 0 16px",
+              }}
+            />
+            <Box sx={{ p: "18px 20px 18px 24px" }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                      lineHeight: 1.2,
+                      mb: 0.3,
+                    }}
+                  >
+                    {card.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: "#b0bec5", fontWeight: 500, lineHeight: 1.2 }}>
+                    {card.sublabel}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "12px",
+                    display: "grid",
+                    placeItems: "center",
+                    backgroundColor: card.iconBg,
+                    color: card.accent,
+                    flexShrink: 0,
+                  }}
+                >
+                  {card.icon}
+                </Box>
+              </Stack>
+              <Typography
+                sx={{
+                  fontSize: typeof card.value === "number" ? "2rem" : "1.6rem",
+                  fontWeight: 800,
+                  color: card.accent,
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.5px",
+                  wordBreak: "break-word",
+                }}
+              >
+                {card.value}
+              </Typography>
+            </Box>
+          </Paper>
+        ))}
+      </div>
+
       <MaterialTable
         columns={columns}
         data={reimbursementData}

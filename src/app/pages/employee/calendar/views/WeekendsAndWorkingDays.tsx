@@ -24,6 +24,7 @@ import {
 
 interface weekends {
     id: string,
+    orgName: string,
     branchName: string,
     type: string,
     workingAndOffDays: any
@@ -106,6 +107,9 @@ function WeekendsAndWorkingDays() {
                     
                     return {
                         id: branch.id,
+                        // Show the owning org/sub-org so duplicate branch names (e.g. two
+                        // "Jogeshwari", "VASHI" vs "Vashi") are no longer ambiguous.
+                        orgName: branch.company?.name ?? '—',
                         branchName: branch.name,
                         type: weekendMesages ? `Every ${weekendMesages}` : 'No Holidays',
                         workingAndOffDays: JSON.parse(branch?.workingAndOffDays),
@@ -123,12 +127,45 @@ function WeekendsAndWorkingDays() {
         getBranchDetails();
     }, [refetch]);
 
+<<<<<<< HEAD
     const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => {
         const cols: MRT_ColumnDef<weekends>[] = [
             {
                 accessorKey: 'branchName',
                 header: 'Branch Name',
                 Cell: ({ renderedCellValue }) => <span>{renderedCellValue}</span>,
+=======
+    const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => [
+        {
+            accessorKey: 'orgName',
+            header: 'Organisation',
+            Cell: ({ renderedCellValue }) => renderedCellValue,
+        },
+        {
+            accessorKey: 'branchName',
+            header: 'Branch Name',
+            Cell: ({ renderedCellValue }) => renderedCellValue,
+        },
+        {
+            accessorKey: 'type',
+            header: 'Type',
+            Cell: ({ renderedCellValue }) => renderedCellValue,
+        },
+        ...(isAdmin ? [{
+            accessorKey: 'actions',
+            header: 'Actions',
+            Cell: ({ row }: any) => {
+                return ( hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) ?
+                <div className="flex items-center justify-center space-x-4">
+                    {" "}
+                    <button
+                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                        onClick={() => handleEdit(row.original)}
+                    >
+                        <KTIcon iconName="pencil" className=" inline fs-4 text-red-500" />
+                    </button>
+                </div>: "Not Allowed")
+>>>>>>> ad25fbab7f9b8d30e86448974337cd68e794b7d3
             },
             {
                 accessorKey: 'type',
@@ -204,6 +241,17 @@ function WeekendsAndWorkingDays() {
         enableReinitialize: true,
         validateOnMount: true,
     });
+
+    // Hard-reset the form to the OPENED branch's saved values every time a different branch is
+    // edited. Without this, an unsaved checkbox change in one branch carried over into the next
+    // branch's modal (the form kept its dirty state). currWeekendId flips to '' on close, so this
+    // also fires correctly when reopening the same branch.
+    useEffect(() => {
+        if (currWeekendId) {
+            formik.resetForm({ values: currWeekendValues });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currWeekendId]);
 
 
     return (

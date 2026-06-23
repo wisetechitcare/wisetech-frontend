@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box } from '@mui/material';
+import { useRootOrgNames } from "@hooks/useRootOrgNames";
 
 // Shared toolbar filters (Sub Organization / Employee Status / Pay Type) used by
 // the Monthly, Yearly and All Time salary tables so they stay identical.
@@ -103,17 +104,19 @@ export const useSalaryFilters = (employeesData: any): SalaryFilters => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
   const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
   const [payTypeFilter, setPayTypeFilter] = useState<PayTypeFilter>('All');
+  const rootOrgNames = useRootOrgNames();
 
   // Unique sub-organization names present in the data (dynamic, no hardcoding).
+  // The top-level org is excluded — only actual sub-orgs belong in this dropdown.
   const subOrgOptions = useMemo(() => {
     const summaries = employeesData?.message?.employeeSummaries ?? [];
     const names = new Set<string>();
     summaries.forEach((s: any) => {
       const name = s.subOrganization;
-      if (name && name !== 'N/A') names.add(name);
+      if (name && name !== 'N/A' && !rootOrgNames.has(name)) names.add(name);
     });
     return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [employeesData]);
+  }, [employeesData, rootOrgNames]);
 
   const filteredEmployeeSummaries = useMemo(() => {
     if (!employeesData?.message?.employeeSummaries) return [];

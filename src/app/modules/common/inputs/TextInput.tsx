@@ -88,7 +88,11 @@ function TextInput({
             const isInvalid = !!(meta.touched && meta.error);
 
             const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-              const raw = e.target.value;
+              let raw = e.target.value;
+
+              // Strip newlines, tabs, and excessive whitespace from all text inputs
+              raw = raw.replace(/[\n\r\t]/g, ' ').replace(/  +/g, ' ').trim();
+
               const parsedValue = parser ? parser(raw) : raw;
 
               if (inputValidation) {

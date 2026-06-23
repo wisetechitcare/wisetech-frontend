@@ -5,16 +5,16 @@ import MaterialHeaderTab, {
 } from "@app/modules/common/components/MaterialHeaderTab";
 import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
-import { BarChart } from "@mui/icons-material";
 import SearchEmployee from "./views/admin/SearchEmployee";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import Settings from "./views/admin/Settings";
+import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
 import overviewIcon from '../../../../_metronic/assets/sidepanelicons/overview.svg'
 import { leadsIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+
 
 function AdminAndEmployeeReimbursementViewer() {
   const dispatch = useDispatch();
@@ -45,7 +45,7 @@ function AdminAndEmployeeReimbursementViewer() {
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Configure",
-      component: <Settings />,
+      component: <ReimbursementConfiguration />,
       icon: activeTab === 3 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
     }]:[]),
   ];
