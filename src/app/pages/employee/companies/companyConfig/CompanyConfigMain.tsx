@@ -2,7 +2,7 @@ import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatin
 import { useEffect, useState } from "react";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
 import SubServiceModal from "../companies/components/SubServiceModal";
-import CategoryTreeExplorer from "../../leads/configuration/components/CategoryTreeExplorer";
+import CompanyTypeServiceTree from "./components/CompanyTypeServiceTree";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
@@ -68,6 +68,8 @@ const CompanyConfigMain = () => {
   const [subServices, setSubServices] = useState<any[]>([]);
   const [showSubServiceModal, setShowSubServiceModal] = useState(false);
   const [editingSubService, setEditingSubService] = useState<any | null>(null);
+  // Preset parent when adding a sub-service "under" a service from the unified tree.
+  const [subServiceDefaultParent, setSubServiceDefaultParent] = useState<string>("");
 
   const handleModalClose = () => {
     setShowModal(false);
@@ -150,16 +152,32 @@ const CompanyConfigMain = () => {
 
   const handleSubServiceModalOpen = () => {
     setEditingSubService(null);
+    setSubServiceDefaultParent("");
     setShowSubServiceModal(true);
   };
 
   const handleSubServiceModalClose = () => {
     setShowSubServiceModal(false);
     setEditingSubService(null);
+    setSubServiceDefaultParent("");
   };
 
   const handleSubServiceEdit = (subService: any) => {
     setEditingSubService(subService);
+    setSubServiceDefaultParent("");
+    setShowSubServiceModal(true);
+  };
+
+  // Tree wiring: add a service "under" a (sub-)type — preset its companyTypeId (null = Unassigned).
+  const handleAddServiceUnderType = (companyTypeId: string | null) => {
+    setEditingCompanyService(companyTypeId ? ({ companyTypeId } as any) : null);
+    setShowCompanyServicesModal(true);
+  };
+
+  // Tree wiring: add a sub-service "under" a service — preset its parent service.
+  const handleAddSubServiceUnderService = (parentServiceId: string) => {
+    setEditingSubService(null);
+    setSubServiceDefaultParent(parentServiceId || "");
     setShowSubServiceModal(true);
   };
 
@@ -370,159 +388,23 @@ const CompanyConfigMain = () => {
         </div>
       </div>
 
-      {/* Company Services Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Company Services</h5>
-            <button
-              onClick={handleCompanyServiceModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Company Service
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {companyServices.map((companyService: any) => (
-              <div key={companyService.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={companyService.name}>{companyService.name.length > 10 ? companyService.name.slice(0, 10) + '...' : companyService.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCompanyServiceEdit(companyService)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCompanyServiceDelete(companyService.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Company Sub-services Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Company Sub-services</h5>
-            <button
-              onClick={handleSubServiceModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Sub-service
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {subServices.length === 0 && (
-              <div className="col-12 text-muted" style={{ fontSize: "14px" }}>
-                No sub-services yet. Click “New Sub-service” to add one under a company service.
-              </div>
-            )}
-            {subServices.map((subService: any) => (
-              <div key={subService.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "8px 15px",
-                    minHeight: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex flex-column" style={{ minWidth: 0 }}>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 500,
-                      fontSize: '14px',
-                      lineHeight: '1.2',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }} title={subService.name}>{subService.name}</div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '11px',
-                      color: '#8a94a6',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }} title={subService.parentService?.name || ''}>
-                      {subService.parentService?.name ? `under ${subService.parentService.name}` : 'no parent service'}
-                    </div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleSubServiceEdit(subService)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleSubServiceDelete(subService.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Status Card */}
+      {/* Unified Company Hierarchy: Type → Sub-type → Service → Sub-service */}
       <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center ">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Company Type</h5>
+            <div>
+              <h5 className="card-title mb-1" style={{
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 600,
+                fontStyle: "normal",
+                fontSize: "16px",
+                lineHeight: "100%",
+                letterSpacing: "0"
+              }}>Company Type &amp; Services</h5>
+              <div className="text-muted" style={{ fontSize: "12px" }}>
+                Type → Sub-type → Service → Sub-service. Use the row actions to add a sub-type, a service, or a sub-service.
+              </div>
+            </div>
             <button
               onClick={handleModalOpen}
               className="btn"
@@ -535,16 +417,19 @@ const CompanyConfigMain = () => {
           </div>
 
           <div className="mt-4">
-            <CategoryTreeExplorer
-              categories={companyTypes.filter((t) => !t.parentTypeId) as any}
-              subcategories={companyTypes
-                .filter((t) => t.parentTypeId)
-                .map((t) => ({ ...t, categoryId: t.parentTypeId })) as any}
-              onCategoryEdit={(cat: any) => handleEdit(cat)}
-              onCategoryDelete={(id: string) => handleCompanyTypeDelete(id)}
-              onSubcategoryEdit={(sub: any) => handleEdit(sub)}
-              onSubcategoryDelete={(id: string) => handleCompanyTypeDelete(id)}
-              onAddSubcategory={(parentId?: string) => handleAddSubType(parentId)}
+            <CompanyTypeServiceTree
+              companyTypes={companyTypes}
+              services={companyServices}
+              subServices={subServices}
+              onAddSubType={(parentId: string) => handleAddSubType(parentId)}
+              onEditType={(type: any) => handleEdit(type)}
+              onDeleteType={(id: string) => handleCompanyTypeDelete(id)}
+              onAddService={(companyTypeId: string | null) => handleAddServiceUnderType(companyTypeId)}
+              onEditService={(service: any) => handleCompanyServiceEdit(service)}
+              onDeleteService={(id: string) => handleCompanyServiceDelete(id)}
+              onAddSubService={(parentServiceId: string) => handleAddSubServiceUnderService(parentServiceId)}
+              onEditSubService={(subService: any) => handleSubServiceEdit(subService)}
+              onDeleteSubService={(id: string) => handleSubServiceDelete(id)}
             />
           </div>
         </div>
@@ -673,6 +558,7 @@ const CompanyConfigMain = () => {
         show={showSubServiceModal}
         onClose={handleSubServiceModalClose}
         services={companyServices}
+        defaultParentId={subServiceDefaultParent}
         initialData={editingSubService}
         onCreated={() => fetchSubServices()}
       />

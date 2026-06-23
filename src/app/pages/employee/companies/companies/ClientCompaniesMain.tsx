@@ -32,6 +32,7 @@ interface Props {
   statusId?: string;
   companyTypeId?: string;
   serviceId?: string;
+  subServiceId?: string;
   locationId?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
@@ -43,6 +44,7 @@ const ClientCompaniesMain = ({
   statusId,
   companyTypeId,
   serviceId,
+  subServiceId,
   locationId,
   startDate,
   endDate,
@@ -161,7 +163,7 @@ const ClientCompaniesMain = ({
     };
   }, []);
 
-  const hideNewCompanyButton = statusId || companyTypeId || serviceId || locationId;
+  const hideNewCompanyButton = statusId || companyTypeId || serviceId || subServiceId || locationId;
   const columns = useMemo<MRT_ColumnDef<ProcessedCompany, any>[]>(
     () => [
       {
@@ -438,6 +440,15 @@ const ClientCompaniesMain = ({
     return [];
   };
 
+  // All sub-service ids a company is tagged with (via the company↔sub-service join).
+  const getCompanySubServiceIds = (item: any): string[] => {
+    const mappings = item.subServiceMappings || item.companySubServicesMapping;
+    if (Array.isArray(mappings)) {
+      return mappings.map((m: any) => m.subServiceId || m.subService?.id).filter(Boolean);
+    }
+    return [];
+  };
+
   const filteredData = dateFilteredData?.filter((item: any) => {
     const typeIds = getCompanyTypeIds(item);
     if (isOthersView && top10Ids) {
@@ -450,6 +461,9 @@ const ClientCompaniesMain = ({
 
     // Match if the company is tagged with the selected service.
     if (serviceId && !getCompanyServiceIds(item).includes(serviceId)) return false;
+
+    // Match if the company is tagged with the selected sub-service.
+    if (subServiceId && !getCompanySubServiceIds(item).includes(subServiceId)) return false;
 
     if (statusId && item.status !== statusId) return false;
 

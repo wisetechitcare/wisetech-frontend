@@ -67,6 +67,7 @@ interface City {
 interface FormValues {
   companyName: string;
   companyTypes: string[];
+  subTypes: string[];
   status: string;
   phone: string;
   phone2: string;
@@ -117,6 +118,7 @@ interface Props {
 const validationSchema = Yup.object().shape({
   companyName: Yup.string().required("Company name is required"),
   companyTypes: Yup.array().of(Yup.string()),
+  subTypes: Yup.array().of(Yup.string()),
   status: Yup.string(),
   email: Yup.string().email("Invalid email format"),
   phone: Yup.string(),
@@ -138,6 +140,26 @@ const NewCompanyForm: React.FC<Props> = ({
 }) => {
   const [companyTypes, setCompanyTypes] = useState<CompanyType[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
+
+  // Split the flat type list into MAIN types and SUB-types (one level deep, with the same
+  // orphan-promotion as the chart/tree so nothing ever disappears). Drives the cascading
+  // Company Type → Sub-type → Service selectors.
+  const { mainTypes, subTypesByParent } = useMemo(() => {
+    const typeById = new Map((companyTypes as any[]).map((t) => [t.id, t]));
+    const parentIsTopLevel = (pid: any) => {
+      const p = typeById.get(pid);
+      return !!p && (!p.parentTypeId || !typeById.has(p.parentTypeId));
+    };
+    const isSub = (t: any) => !!(t.parentTypeId && typeById.has(t.parentTypeId) && parentIsTopLevel(t.parentTypeId));
+    const mains = (companyTypes as any[]).filter((t) => !isSub(t));
+    const byParent = new Map<string, any[]>();
+    (companyTypes as any[]).filter(isSub).forEach((t) => {
+      const arr = byParent.get(t.parentTypeId) || [];
+      arr.push(t);
+      byParent.set(t.parentTypeId, arr);
+    });
+    return { mainTypes: mains, subTypesByParent: byParent };
+  }, [companyTypes]);
   const [states, setStates] = useState<State[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -157,6 +179,7 @@ const NewCompanyForm: React.FC<Props> = ({
   const [initialValues, setInitialValues] = useState<FormValues>({
     companyName: "",
     companyTypes: [],
+    subTypes: [],
     status: "ACTIVE",
     phone: "",
     phone2: "",
@@ -379,14 +402,25 @@ const NewCompanyForm: React.FC<Props> = ({
             // Set initial values with proper mapping
             setInitialValues({
               companyName: company.companyName || "",
+              // Main types only — sub-types go into `subTypes` (cascading selectors).
               companyTypes: (() => {
-                // Prefer the full multi-type mapping; fall back to the legacy single type id.
                 if (Array.isArray(company.companyTypeMappings) && company.companyTypeMappings.length > 0) {
                   return company.companyTypeMappings
+                    .filter((m: any) => !m.companyType?.parentTypeId)
                     .map((m: any) => m.companyTypeId || m.companyType?.id)
                     .filter((id: any) => id);
                 }
                 return company.companyTypeId ? [company.companyTypeId] : [];
+              })(),
+              // Sub-types (mappings whose type has a parent).
+              subTypes: (() => {
+                if (Array.isArray(company.companyTypeMappings) && company.companyTypeMappings.length > 0) {
+                  return company.companyTypeMappings
+                    .filter((m: any) => m.companyType?.parentTypeId)
+                    .map((m: any) => m.companyTypeId || m.companyType?.id)
+                    .filter((id: any) => id);
+                }
+                return [];
               })(),
               status: company.status || "ACTIVE",
               phone: company.phone || "",
@@ -471,6 +505,7 @@ const NewCompanyForm: React.FC<Props> = ({
         setInitialValues({
           companyName: "",
           companyTypes: [],
+          subTypes: [],
           status: "ACTIVE",
           phone: "",
           phone2: "",
@@ -737,9 +772,11 @@ const NewCompanyForm: React.FC<Props> = ({
         logoUrl = logoPreview;
       }
 
-      // Pull companyTypes out so it isn't spread into the payload as an unknown field — it's
-      // sent explicitly as `companyTypeIds` below.
-      const { addressLine1, companyTypes, ...rest } = values;
+      // Pull companyTypes/subTypes out so they aren't spread into the payload as unknown
+      // fields — they're merged and sent explicitly as `companyTypeIds` below.
+      const { addressLine1, companyTypes, subTypes, ...rest } = values;
+      // Storage is unchanged: a company is tagged with its main type(s) AND sub-type(s).
+      const companyTypeIdsMerged = Array.from(new Set([...(companyTypes || []), ...(subTypes || [])]));
 
       // Process references
       const references = values.referenceType
@@ -809,7 +846,7 @@ const NewCompanyForm: React.FC<Props> = ({
       if (editingCompanyId) {
         await updateClientCompany(editingCompanyId, {
           ...finalCleanPayload,
-          companyTypeIds: companyTypes,
+          companyTypeIds: companyTypeIdsMerged,
           overallRating: weightedAverageRating ?? 0.0,
         });
         successConfirmation("Company updated successfully");
@@ -818,7 +855,7 @@ const NewCompanyForm: React.FC<Props> = ({
       } else {
         await createClientCompany({
           ...finalCleanPayload,
-          companyTypeIds: companyTypes,
+          companyTypeIds: companyTypeIdsMerged,
           overallRating: weightedAverageRating ?? 0.0,
         });
         successConfirmation("Company created successfully");
@@ -1081,10 +1118,11 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             <div className="col-md-4">
+                              {/* Company Type — MAIN types only (sub-types live in the next field). */}
                               <MultiSelectWithInlineCreate
                                 formikField="companyTypes"
                                 inputLabel="Company type"
-                                options={transformToOptions(companyTypes)}
+                                options={transformToOptions(mainTypes)}
                                 placeholder="Select company type(s)..."
                                 isRequired={false}
                                 onCreate={createNewCompanyType}
@@ -1096,12 +1134,61 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             <div className="col-md-4">
+                              {/* Sub-type — children of the selected main type(s). */}
+                              <label className="d-flex align-items-center fs-6 form-label mb-2">Sub-type</label>
+                              <Select
+                                isMulti
+                                placeholder={
+                                  (values.companyTypes || []).length === 0
+                                    ? "Select a company type first…"
+                                    : "Select sub-type(s)..."
+                                }
+                                classNamePrefix="react-select"
+                                className="react-select-styled"
+                                options={(() => {
+                                  // Show sub-types whose parent is among the selected main types, grouped by parent.
+                                  const selectedMains = (values.companyTypes || []) as string[];
+                                  return selectedMains
+                                    .map((mainId) => {
+                                      const parent = (mainTypes as any[]).find((t) => t.id === mainId);
+                                      const kids = (subTypesByParent.get(mainId) || []);
+                                      if (!kids.length) return null;
+                                      return {
+                                        label: parent?.name || "Sub-types",
+                                        options: sortOptionsAlphabetically(kids.map((k: any) => ({ value: k.id, label: k.name }))),
+                                      };
+                                    })
+                                    .filter(Boolean) as any[];
+                                })()}
+                                value={(companyTypes as any[])
+                                  .filter((t) => (values.subTypes || []).includes(t.id))
+                                  .map((t) => ({ value: t.id, label: t.name }))}
+                                onChange={(selected: any) =>
+                                  setFieldValue("subTypes", (selected || []).map((o: any) => o.value))
+                                }
+                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                                menuPosition="fixed"
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                              />
+                            </div>
+                            <div className="col-md-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
                                 inputLabel="Services"
                                 options={(() => {
-                                  const options = transformToOptions(services);
-                                  return options;
+                                  // Strict cascade: when a type/sub-type is chosen, show ONLY services
+                                  // filed under it. No type chosen → show all. Broken-link (filed under a
+                                  // deleted type) and already-selected services are always retained.
+                                  const selectedTypes = new Set([...(values.companyTypes || []), ...(values.subTypes || [])]);
+                                  const typeIds = new Set((companyTypes || []).map((t: any) => t.id));
+                                  const selectedServiceIds = new Set(values.services || []);
+                                  const visible = (services || []).filter((s: any) =>
+                                    selectedTypes.size === 0 ||
+                                    selectedServiceIds.has(s.id) ||
+                                    (s.companyTypeId && selectedTypes.has(s.companyTypeId)) ||
+                                    (s.companyTypeId && !typeIds.has(s.companyTypeId))
+                                  );
+                                  return transformToOptions(visible);
                                 })()}
                                 placeholder="Select services..."
                                 isRequired={false}
@@ -1112,6 +1199,11 @@ const NewCompanyForm: React.FC<Props> = ({
                                 createFieldLabel="Service Name"
                                 createFieldPlaceholder="Enter service name..."
                               />
+                              {((values.companyTypes || []).length > 0 || (values.subTypes || []).length > 0) && (
+                                <small className="text-muted d-block mt-1">
+                                  Showing services filed under the selected type(s). Assign services to a type in <b>Configure → Company Type &amp; Services</b>.
+                                </small>
+                              )}
                             </div>
                           </div>
 

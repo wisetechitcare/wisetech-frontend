@@ -947,10 +947,27 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 classNamePrefix="react-select"
                                 className="react-select-styled"
                                 options={sortOptionsAlphabetically(
-                                  companyServices.map((s) => ({
-                                    value: s.id,
-                                    label: s.name,
-                                  }))
+                                  (() => {
+                                    // A contact shares its COMPANY's services: scope the options to the
+                                    // chosen company's tagged services. No company / company has none →
+                                    // show the full catalog. Already-selected services are always kept.
+                                    const selCompany: any = companies.find((c: any) => c.id === values.companyId);
+                                    const companyServiceIds = new Set<string>();
+                                    if (selCompany && Array.isArray(selCompany.companyServicesMapping)) {
+                                      selCompany.companyServicesMapping.forEach((m: any) => {
+                                        const id = m.serviceId || m.service?.id; if (id) companyServiceIds.add(id);
+                                      });
+                                    }
+                                    const selectedServiceIds = new Set(values.serviceIds || []);
+                                    return companyServices
+                                      .filter((s: any) =>
+                                        !selCompany ||
+                                        companyServiceIds.size === 0 ||
+                                        companyServiceIds.has(s.id) ||
+                                        selectedServiceIds.has(s.id)
+                                      )
+                                      .map((s) => ({ value: s.id, label: s.name }));
+                                  })()
                                 )}
                                 value={companyServices
                                   .filter((s) => (values.serviceIds || []).includes(s.id))
@@ -981,9 +998,20 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 classNamePrefix="react-select"
                                 className="react-select-styled"
                                 options={(() => {
-                                  // Group sub-services under their parent company service.
+                                  // Scope to the chosen company's own sub-services (shared catalog).
+                                  // No company / company has none → show all. Selected ones kept.
+                                  const selCompany: any = companies.find((c: any) => c.id === values.companyId);
+                                  const companySubIds = new Set<string>();
+                                  if (selCompany && Array.isArray(selCompany.subServiceMappings)) {
+                                    selCompany.subServiceMappings.forEach((m: any) => {
+                                      const id = m.subServiceId || m.subService?.id; if (id) companySubIds.add(id);
+                                    });
+                                  }
+                                  const selectedSubIds = new Set(values.subServiceIds || []);
                                   const groups: Record<string, { label: string; options: any[] }> = {};
                                   subServices.forEach((ss: any) => {
+                                    const ok = !selCompany || companySubIds.size === 0 || companySubIds.has(ss.id) || selectedSubIds.has(ss.id);
+                                    if (!ok) return;
                                     const parentName = ss.parentService?.name || "Other";
                                     (groups[parentName] ||= { label: parentName, options: [] }).options.push({
                                       value: ss.id,

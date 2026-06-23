@@ -556,7 +556,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     {Object.entries(data.variable).map(([key, item], index) => {
                                         const isHourly = index < 2;
                                         const hourlySalaryVal = apiSalaryData?.hourlySalary;
-                                        const dailySalaryVal = apiSalaryData?.employeeCardDeatils?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
+                                        const dailySalaryVal = apiSalaryData?.employeeCardDetails?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
                                         const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
                                         const displayRateValue = rateValue ? Math.floor(rateValue * 100) / 100 : undefined;
                                         const rateLabel = displayRateValue && typeof displayRateValue === 'number' && displayRateValue > 0 

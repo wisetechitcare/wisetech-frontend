@@ -61,6 +61,9 @@ const ContactsOverview: React.FC = () => {
           title="Contacts By Roles"
           height={400}
           showFilter={false}
+          sortMode="count"
+          showValueAnnotation={false}
+          persistKey="contactsByRoles"
           onChartClick={handleChartClick}
         />
       </div>

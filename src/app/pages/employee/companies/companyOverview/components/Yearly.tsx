@@ -66,6 +66,10 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
   const [top10Ids, setTop10Ids] = useState<string[]>([]);
   const [openService, setOpenService] = useState(false);
   const [serviceId, setServiceId] = useState("");
+  const [serviceTypeId, setServiceTypeId] = useState("");
+  const [openSubService, setOpenSubService] = useState(false);
+  const [subServiceId, setSubServiceId] = useState("");
+  const [subSvcTypeId, setSubSvcTypeId] = useState("");
 
 
   // Get settings from Redux
@@ -125,11 +129,20 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
     setOpenCompanyType(true);
   };
 
-  // Service bar (3rd drill level) → open the companies modal filtered to that service.
-  // Opens even when the service has no companies (shows an empty list).
-  const handleServiceChartClick = (svcId: string) => {
+  // Service bar (3rd drill level) → open the companies modal filtered to (type ∩ service) so the
+  // list total matches the bar number. Opens even when empty. typeId is null in "By Service" mode
+  // (aggregated across types) → service-only filter, still consistent.
+  const handleServiceChartClick = (svcId: string, typeId?: string | null) => {
     setServiceId(svcId || "");
+    setServiceTypeId(typeId || "");
     setOpenService(true);
+  };
+
+  // Sub-service bar (4th drill level) → companies modal filtered to (type ∩ sub-service).
+  const handleSubServiceChartClick = (subId: string, ownerTypeId?: string | null) => {
+    setSubServiceId(subId || "");
+    setSubSvcTypeId(ownerTypeId || "");
+    setOpenSubService(true);
   };
 
   const handleContactByRolesChartClick = (selectedLabel: string) => {
@@ -270,6 +283,8 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
             }))}
             onBarClick={handleCompanyTypeChartClick}
             onServiceClick={handleServiceChartClick}
+            onSubServiceClick={handleSubServiceChartClick}
+            persistKey="companiesByType"
           />
         </div>
         }
@@ -337,7 +352,8 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
             top10Ids={top10Ids}
           />
           <CompanyDialogModal open={openContactByRoles} onClose={() => setOpenContactByRoles(false)} contactByRolesId={contactByRolesId} startDate={year} endDate={endDate}/>
-          <CompanyDialogModal open={openService} onClose={() => setOpenService(false)} serviceId={serviceId} startDate={year} endDate={endDate}/>
+          <CompanyDialogModal open={openService} onClose={() => setOpenService(false)} companyTypeId={serviceTypeId} serviceId={serviceId} startDate={year} endDate={endDate}/>
+          <CompanyDialogModal open={openSubService} onClose={() => setOpenSubService(false)} companyTypeId={subSvcTypeId} subServiceId={subServiceId} startDate={year} endDate={endDate}/>
           <CompanyDialogModal open={openCompanyStatus} onClose={() => setOpenCompanyStatus(false)} statusId={companyStatusId} startDate={year} endDate={endDate}/>
     </div>
   );
