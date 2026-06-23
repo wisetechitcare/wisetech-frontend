@@ -16,11 +16,20 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from "react"
  */
 
 // --- Types ---------------------------------------------------------------
+export interface SubServiceCount {
+  id: string;
+  name: string;
+  count: number;
+  color?: string | null;
+}
+
 export interface ServiceCount {
   id: string;
   name: string;
   count: number;
   color?: string;
+  /** Optional 4th level: this service's sub-services among the same company set. */
+  subServices?: SubServiceCount[];
 }
 
 export interface DataItem {
@@ -39,8 +48,13 @@ interface Props {
   onBarClick: (typeId: string | null, isOthers?: boolean, top10Ids?: string[]) => void;
   /** Optional — fires when a Service bar is clicked (typeId = the parent type). */
   onServiceClick?: (serviceId: string, typeId: string | null) => void;
+  /** Optional — fires when a Sub-service bar is clicked (typeId = the owning (sub-)type). */
+  onSubServiceClick?: (subServiceId: string, typeId: string | null) => void;
   /** Collapse the tail into "Others" beyond this many top-level rows. Default 10. */
   topNLimit?: number;
+  /** When set, the toolbar selections (sort, By Type/Service, type filter, Show All) are
+   *  remembered in localStorage under this key — they persist until the user changes them. */
+  persistKey?: string;
 }
 
 type SortKey = "countDesc" | "countAsc" | "nameAZ" | "nameZA";
@@ -52,7 +66,7 @@ interface Node {
   name: string;
   count: number;
   color: string;
-  kind: "type" | "subtype" | "service";
+  kind: "type" | "subtype" | "service" | "subservice";
   children: Node[];
   parentId?: string | null;
   parentName?: string;
@@ -88,16 +102,31 @@ const CompaniesByTypeChart: React.FC<Props> = ({
   data,
   onBarClick,
   onServiceClick,
+  onSubServiceClick,
   topNLimit = 10,
+  persistKey,
 }) => {
+  // Persisted toolbar prefs (only when persistKey is provided). Survive refresh/logout/navigation.
+  const store = persistKey ? `companiesByTypeChart:${persistKey}` : null;
+  const lsRead = <T,>(k: string, fb: T): T => {
+    if (!store || typeof window === "undefined") return fb;
+    try { const v = window.localStorage.getItem(`${store}:${k}`); return v == null ? fb : (JSON.parse(v) as T); } catch { return fb; }
+  };
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("countDesc");
-  const [group, setGroup] = useState<GroupKey>("type");
+  const [sortBy, setSortBy] = useState<SortKey>(() => lsRead<SortKey>("sortBy", "countDesc"));
+  const [group, setGroup] = useState<GroupKey>(() => lsRead<GroupKey>("group", "type"));
   // Inclusion filter: empty = show ALL types; non-empty = show ONLY the selected types.
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(() => new Set(lsRead<string[]>("selectedTypes", [])));
   const [filterOpen, setFilterOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(() => lsRead<boolean>("showAll", false));
+
+  // Write each pref back whenever it changes.
+  useEffect(() => { if (store) try { window.localStorage.setItem(`${store}:sortBy`, JSON.stringify(sortBy)); } catch { /* ignore */ } }, [sortBy, store]);
+  useEffect(() => { if (store) try { window.localStorage.setItem(`${store}:group`, JSON.stringify(group)); } catch { /* ignore */ } }, [group, store]);
+  useEffect(() => { if (store) try { window.localStorage.setItem(`${store}:showAll`, JSON.stringify(showAll)); } catch { /* ignore */ } }, [showAll, store]);
+  useEffect(() => { if (store) try { window.localStorage.setItem(`${store}:selectedTypes`, JSON.stringify(Array.from(selectedTypes))); } catch { /* ignore */ } }, [selectedTypes, store]);
 
   // Responsive width tracking
   const containerRef = useRef<HTMLDivElement>(null);
@@ -150,12 +179,24 @@ const CompaniesByTypeChart: React.FC<Props> = ({
   // --- Build the tree from the flat data ---------------------------------
   const tree = useMemo<Node[]>(() => {
     const byId = new Map(data.map((d) => [d.id, d]));
+    // R1 — never-vanish: a child only nests under its parent when that parent is itself a genuine
+    // TOP-LEVEL type (no parent of its own). A "grandchild" (parent is itself a child) or a child
+    // whose parent is missing is PROMOTED to a top-level row instead of being silently dropped.
+    const isParentTopLevel = (parentId: string | null | undefined): boolean => {
+      if (!parentId) return false;
+      const p = byId.get(parentId);
+      if (!p) return false;
+      return !p.parentTypeId || !byId.has(p.parentTypeId);
+    };
+    const attachable = (d: DataItem): boolean =>
+      !!(d.parentTypeId && byId.has(d.parentTypeId) && isParentTopLevel(d.parentTypeId));
+
     const childrenByParent = new Map<string, DataItem[]>();
     data.forEach((d) => {
-      if (d.parentTypeId && byId.has(d.parentTypeId)) {
-        const arr = childrenByParent.get(d.parentTypeId) || [];
+      if (attachable(d)) {
+        const arr = childrenByParent.get(d.parentTypeId!) || [];
         arr.push(d);
-        childrenByParent.set(d.parentTypeId, arr);
+        childrenByParent.set(d.parentTypeId!, arr);
       }
     });
 
@@ -166,12 +207,22 @@ const CompaniesByTypeChart: React.FC<Props> = ({
         count: s.count,
         color: s.color || lighten(baseColor, 0.46),
         kind: "service" as const,
-        children: [],
+        // 4th level: sub-services under this service (id encodes the owning type for the modal filter).
+        children: (s.subServices || []).map((ss) => ({
+          id: `${item.id}/svc/${s.id}/sub/${ss.id}`,
+          name: ss.name,
+          count: ss.count,
+          color: ss.color || lighten(baseColor, 0.62),
+          kind: "subservice" as const,
+          children: [],
+          parentId: item.id,
+          parentName: s.name,
+        })),
         parentId: item.id,
         parentName: item.name,
       }));
 
-    const topLevel = data.filter((d) => !(d.parentTypeId && byId.has(d.parentTypeId)));
+    const topLevel = data.filter((d) => !attachable(d));
 
     return topLevel.map((d) => {
       const subs = childrenByParent.get(d.id) || [];
@@ -321,8 +372,16 @@ const CompaniesByTypeChart: React.FC<Props> = ({
   // Expanding/collapsing is done via the caret control (which stops propagation).
   const onRowClick = (r: FlatRow) => {
     if (r.isOthers) { onBarClick(null, true, top10Ids); return; }
+    if (r.node.kind === "subservice") {
+      // id = {ownerTypeId}/svc/{serviceId}/sub/{subServiceId}
+      const subId = r.node.id.split("/sub/")[1] || r.node.id;
+      const ownerTypeId = r.node.id.split("/svc/")[0] || null;
+      onSubServiceClick?.(subId, ownerTypeId);
+      return;
+    }
     if (r.node.kind === "service") {
-      onServiceClick?.(r.node.id.split("/svc/")[1] || r.node.id, r.node.parentId ?? null);
+      // Service nodes pass their owning (sub-)type so the modal can show type ∩ service.
+      onServiceClick?.(r.node.id.split("/svc/")[1].split("/sub/")[0] || r.node.id, r.node.parentId ?? null);
       return;
     }
     onBarClick(r.node.id);
@@ -355,7 +414,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
           <div style={{ fontSize: isMobile ? 16 : 17, fontWeight: 700, letterSpacing: "-.2px" }}>Companies by Type</div>
           {hasGroups && (
             <div style={{ fontSize: 12, color: "#8a93a0", marginTop: 3, lineHeight: 1.45 }}>
-              <b style={{ color: ACCENT, fontWeight: 600 }}>Type</b> → <b style={{ color: "#b8736f", fontWeight: 600 }}>Sub-type</b> → <b style={{ color: "#c79b98", fontWeight: 600 }}>Service</b> · click the <b style={{ color: ACCENT }}>▸</b> to expand · click a row to view its companies.
+              <b style={{ color: ACCENT, fontWeight: 600 }}>Type</b> → <b style={{ color: "#b8736f", fontWeight: 600 }}>Sub-type</b> → <b style={{ color: "#c79b98", fontWeight: 600 }}>Service</b> → <b style={{ color: "#d4b3b0", fontWeight: 600 }}>Sub-service</b> · click the <b style={{ color: ACCENT }}>▸</b> to expand · click a row to view its companies.
             </div>
           )}
         </div>
@@ -471,7 +530,14 @@ const CompaniesByTypeChart: React.FC<Props> = ({
           const textColor = TEXT_BY_LEVEL[Math.min(r.level, 2)];
           // Every row is actionable: a row opens the modal; the caret expands a group.
           const clickable = true;
-          const hint = r.hasChildren ? `· ${r.node.children.length} ${r.node.children[0].kind === "service" ? "services" : "sub-types"}` : "";
+          const childKindLabel = r.hasChildren
+            ? (r.node.children[0].kind === "service"
+                ? "services"
+                : r.node.children[0].kind === "subservice"
+                  ? "sub-services"
+                  : "sub-types")
+            : "";
+          const hint = r.hasChildren ? `· ${r.node.children.length} ${childKindLabel}` : "";
 
           if (isMobile) {
             return (
