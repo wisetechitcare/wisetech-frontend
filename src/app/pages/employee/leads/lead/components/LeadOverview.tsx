@@ -13,8 +13,8 @@ import { getLeadProjectPoints, type ProjectPointValue } from "@services/projectP
 import { useSelector, useDispatch } from "react-redux";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import type { AppDispatch, RootState } from "@redux/store";
-// Revision System
-import RevisionTimeline from "@app/modules/revisions/components/RevisionTimeline";
+// Revision System (Change Intelligence v2)
+import { VersionHistory } from "@app/modules/revisions/v2/VersionHistory";
 
 interface ProjectData {
   currentStatus: string;
@@ -1116,7 +1116,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
           <h5 style={{ marginBottom: "1rem", fontWeight: "600", fontSize: "16px" }}>
             Revision History & Audit Trail
           </h5>
-          <RevisionTimeline entityType="LEAD" entityId={lead.id} />
+          <VersionHistory type="LEAD" id={lead.id} isAdmin={false} />
         </div>
       )}
       </div>

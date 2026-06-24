@@ -95,6 +95,10 @@ export interface EntityVM {
     project?: { lines: CommercialLineVM[]; totals: CommercialTotals };
   };
   documents: DocVM[];
+  /** Narrative content captured on the lead — has no other home. */
+  notes: { remarks?: string; description?: string };
+  /** Where the source files for this record live (lead-level). */
+  fileLocation: { path?: string; company?: string; companyType?: string };
   systemRows: KV[];
   projectSystemRows?: KV[];
 }
@@ -248,30 +252,38 @@ export const buildEntityVM = (lead: any): EntityVM => {
     docx: d.generatedDocxUrl,
   }));
 
-  // ── SYSTEM ──
+  // ── NOTES & FILE LOCATION (lead-level narrative + where files live) ──
+  const notes = {
+    remarks: lead?.remarks || undefined,
+    description: lead?.description || undefined,
+  };
+  const fileLocation = {
+    path: lead?.fileLocation || undefined,
+    company: lead?.fileLocationCompany || undefined,
+    companyType: lead?.fileLocationCompanyType || undefined,
+  };
+
+  // ── SYSTEM (pure record metadata only — operational flags live in Execution,
+  //    file location lives in Documents, so they are NOT duplicated here) ──
   const systemRows: KV[] = [
     { label: 'Lead Number', value: lead?.prefix, minLevel: 'detailed' },
-    { label: 'Lead Type', value: lead?.leadType, minLevel: 'detailed' },
     { label: 'Created By', value: employeeUserName(lead?.createdBy), minLevel: 'detailed' },
     { label: 'Created', value: fmtDateTime(lead?.createdAt), minLevel: 'detailed' },
     { label: 'Last Edited By', value: employeeUserName(lead?.updatedBy), minLevel: 'detailed' },
     { label: 'Last Edited', value: fmtDateTime(lead?.updatedAt), minLevel: 'detailed' },
-    { label: 'File Location', value: lead?.fileLocationCompany, minLevel: 'advanced' },
     { label: 'Lead ID', value: lead?.id, minLevel: 'advanced' },
-    { label: 'Tenant', value: lead?.tenantId, minLevel: 'advanced' },
     { label: 'Active', value: lead?.isActive ? 'Yes' : 'No', minLevel: 'advanced' },
     { label: 'Location Flag', value: lead?.isLocationIncorrect ? 'Marked incorrect' : 'OK', minLevel: 'advanced' },
   ];
 
+  // Project edits flow through the lead (Lead-as-master), so the project's own
+  // editedBy is not stamped — "Last Edited By" is omitted here and authorship is
+  // read from the Lead Record. createdBy is stamped on auto-create, so it stays.
   const projectSystemRows: KV[] | undefined = isProject
     ? [
         { label: 'Project Number', value: p?.prefix, minLevel: 'detailed' },
-        { label: 'Access', value: p?.projectAccess, minLevel: 'detailed' },
-        { label: 'Live', value: p?.isLive ? 'Yes' : 'No', minLevel: 'detailed' },
-        { label: 'Open', value: p?.isProjectOpen === false ? 'Closed' : 'Open', minLevel: 'detailed' },
         { label: 'Created By', value: employeeUserName(p?.createdBy), minLevel: 'detailed' },
         { label: 'Created', value: fmtDateTime(p?.createdAt), minLevel: 'detailed' },
-        { label: 'Last Edited By', value: employeeUserName(p?.editedBy), minLevel: 'detailed' },
         { label: 'Last Edited', value: fmtDateTime(p?.updatedAt), minLevel: 'detailed' },
         { label: 'Project ID', value: p?.id, minLevel: 'advanced' },
         { label: 'Location Flag', value: p?.isLocationIncorrect ? 'Marked incorrect' : 'OK', minLevel: 'advanced' },
@@ -287,12 +299,18 @@ export const buildEntityVM = (lead: any): EntityVM => {
       ...(isProject && projectLines.length ? { project: { lines: projectLines, totals: sumProjectCommercials(p) } } : {}),
     },
     documents,
+    notes,
+    fileLocation,
     systemRows,
     projectSystemRows,
   };
 };
 
-// ── ONE tab set. Execution is the only conditional tab (project extension). ─────
+// ── ONE tab set. Summary is the comprehensive "everything" page (lead → project
+//    → company/contact → scope → commercials → docs → system). The operational
+//    project modules (Tasks / Timesheet / Reimbursement) are promoted to their
+//    own top-level tabs and only appear once the lead is a project. Audit is
+//    always present. ─────────────────────────────────────────────────────────
 
 export interface TabDef {
   key: string;
@@ -303,11 +321,9 @@ export interface TabDef {
 
 export const ENTITY_TABS: TabDef[] = [
   { key: 'summary', label: 'Summary', icon: 'bi bi-grid-1x2' },
-  { key: 'client', label: 'Client', icon: 'bi bi-buildings' },
-  { key: 'scope', label: 'Scope', icon: 'bi bi-diagram-3' },
-  { key: 'commercials', label: 'Commercials', icon: 'bi bi-cash-stack' },
-  { key: 'activities', label: 'Activities', icon: 'bi bi-chat-dots' },
-  { key: 'execution', label: 'Execution', icon: 'bi bi-kanban', projectOnly: true },
+  { key: 'tasks', label: 'Tasks', icon: 'bi bi-check2-square', projectOnly: true },
+  { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
+  { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },
   { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },
   { key: 'audit', label: 'Audit', icon: 'bi bi-file-earmark-diff' },
 ];

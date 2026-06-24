@@ -9,13 +9,39 @@ import {
   Business,
   MonetizationOn,
   LocationOn,
-  FactCheckOutlined,
   SettingsOutlined,
   Engineering,
-  PaymentOutlined,
-  EventOutlined,
+  EventNote,
+  DescriptionOutlined,
+  TrackChanges,
 } from "@mui/icons-material";
 import { ProjectExecutionSection } from "./ProjectExecutionSection";
+
+/**
+ * Placeholder body for wizard steps that exist in the flow but are not built yet.
+ * Keeps the step visible/navigable while clearly signalling it is non-functional.
+ */
+const ComingSoonSection: React.FC<{ title: string }> = ({ title }) => (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      padding: "64px 24px",
+      color: "#94A3B8",
+    }}
+  >
+    <SettingsOutlined style={{ fontSize: 48, marginBottom: 12, color: "#CBD5E1" }} />
+    <div style={{ fontFamily: "Inter, sans-serif", fontSize: 18, fontWeight: 700, color: "#475569" }}>
+      {title}
+    </div>
+    <div style={{ fontFamily: "Inter, sans-serif", fontSize: 13, marginTop: 6, maxWidth: 360 }}>
+      This section is currently in development. It will be available in a future update — no input is required here for now.
+    </div>
+  </div>
+);
 
 interface LeadWorkspaceProps {
   // ── Dropdown arrays ────────────────────────────────────────────────────────
@@ -24,6 +50,7 @@ interface LeadWorkspaceProps {
   services: any[];
   leadStatuses: any[];
   leadProjectStatuses?: any[];   // execution statuses shown after lead becomes "Received"
+  cancellationReasons?: any[];   // master list for closure reason (Canceled / Lost)
   employees: any[];
   teams: any[];
   countries: any[];
@@ -186,7 +213,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         "subcategoryIds",
         "leadInquiryDate",
         "leadAssignedTo",
-        "statusId",
       ],
       icon: <AssignmentOutlined />,
       render: (p) => (
@@ -195,12 +221,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
           <L.LeadBasicInfoSection {...p} />
           {/* Internal team: assigned head, telemarketer, coordinator */}
           <L.TeamDetailsSection {...p} />
-          {/* Lead lifecycle status — filtered by received/not-received */}
-          <L.StatusSection
-            {...p}
-            isReceivedStatus={isReceivedStatus}
-            leadProjectStatuses={props.leadProjectStatuses ?? []}
-          />
         </>
       ),
     },
@@ -210,52 +230,59 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       id: "company-relations",
       label: "Company & Relationships",
       title: "Company & Relationships",
-      subtitle: "Client companies, referrals and contact management",
+      subtitle: "Client companies and contact management",
       fields: ["leadTeams"],
       icon: <PeopleAlt />,
       render: (p) => (
         <>
           {/* Linked client companies — uses wt-section-card internally */}
           <L.ClientCompaniesSection {...p} />
-          {/* Referrals and direct sources — has its own card wrapper */}
-          <L.ReferralSection {...p} />
           {/* File location company — has its own card wrapper */}
           <L.FileLocationSection {...p} />
         </>
       ),
     },
 
-    // ── STEP 3: Project & Service Details ──────────────────────────────────
+    // ── STEP 3: Referral Details ──────────────────────────────────────────
+    {
+      id: "referral-details",
+      label: "Referral Details",
+      title: "Referral Details",
+      subtitle: "Lead sources and referral information",
+      fields: ["leadSourceType"],
+      icon: <PeopleAlt />,
+      render: (p) => <L.ReferralSection {...p} />,
+    },
+
+    // ── STEP 4: Project & Service Details ──────────────────────────────────
     {
       id: "project-details",
       label: "Project & Service Details",
       title: "Project & Service Details",
       subtitle: "Technical specifications and project scope",
-      fields: ["plotArea", "builtUpArea", "buildingDetail", "remarks", "description"],
+      fields: ["plotArea", "builtUpArea", "buildingDetail"],
       icon: <Business />,
       render: (_p) => (
         <>
           {/* Plot area, built-up area, building detail — has its own card wrapper */}
           <L.ProjectDetailsSection />
-          {/* Remarks and description — has its own card wrapper */}
-          <L.AdditionalDetailsSection />
         </>
       ),
     },
 
-    // ── STEP 4: Commercials & Costing ──────────────────────────────────────
+    // ── STEP 5: Commercials & Costing ──────────────────────────────────────
     {
       id: "commercials",
       label: "Commercials & Costing",
       title: "Commercials & Costing",
-      subtitle: "Work areas, rates and total commercial value",
+      subtitle: "Work areas, rates, payment stages and total commercial value",
       fields: ["projectAreas"],
       icon: <MonetizationOn />,
       // CommercialsSection has its own card wrapper
       render: (_p) => <L.CommercialsSection />,
     },
 
-    // ── STEP 5: Address, Location & Documents ──────────────────────────────
+    // ── STEP 6: Address, Location & Documents ──────────────────────────────
     {
       id: "address-docs",
       label: "Address, Location & Docs",
@@ -263,59 +290,48 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       subtitle: "Project address, location details and documents",
       fields: ["addresses"],
       icon: <LocationOn />,
-      // AddressSection has its own card wrapper
       component: L.AddressSection,
     },
 
-    // ── STEP 6: Review & Workflow ───────────────────────────────────────────
-    {
-      id: "review",
-      label: "Review & Workflow",
-      title: "Review & Conversion",
-      subtitle: "Review all details and complete the lead workflow",
-      fields: ["statusId", "poStatus", "poNumber", "poDate", "handledByEntries", "cancellationRemarks"],
-      icon: <FactCheckOutlined />,
-      component: L.LeadReviewStep,
-      isSubmitStep: true,
-    },
-
-    // ── STEP 7: Payment Stage ───────────────────────────────────────────────
-    {
-      id: "payment-stage",
-      label: "Payment Stage",
-      title: "Payment Stage (Future Scope)",
-      subtitle: "This section is currently in development and not yet active.",
-      fields: [],
-      icon: <PaymentOutlined />,
-      render: () => (
-        <div className="card shadow-sm mb-4">
-          <div className="card-body p-10 text-center">
-            <h3 className="text-muted mb-4">Payment Stage</h3>
-            <p className="text-gray-500 fs-5">
-              This module is planned for future scope and is currently not in use.
-            </p>
-          </div>
-        </div>
-      ),
-    },
-
-    // ── STEP 8: Meeting Schedule ────────────────────────────────────────────
+    // ── STEP 7: Meeting Schedule ────────────────────────────────────────────
     {
       id: "meeting-schedule",
       label: "Meeting Schedule",
-      title: "Meeting Schedule (Future Scope)",
-      subtitle: "This section is currently in development and not yet active.",
+      title: "Meeting Schedule",
+      subtitle: "Schedule and manage project meetings",
       fields: [],
-      icon: <EventOutlined />,
-      render: () => (
-        <div className="card shadow-sm mb-4">
-          <div className="card-body p-10 text-center">
-            <h3 className="text-muted mb-4">Meeting Schedule</h3>
-            <p className="text-gray-500 fs-5">
-              This module is planned for future scope and is currently not in use.
-            </p>
-          </div>
-        </div>
+      icon: <EventNote />,
+      render: (p) => <L.MeetingDetailsSection {...p} />,
+    },
+
+    // ── STEP 8: Remarks & Documents ─────────────────────────────────────────
+    {
+      id: "remarks-docs",
+      label: "Remarks & Documents",
+      title: "Remarks, Description & Documents",
+      subtitle: "Add remarks, detailed description, and document attachments",
+      fields: ["remarks", "nextFollowUpDate", "description", "fileLocation"],
+      icon: <DescriptionOutlined />,
+      render: (p) => <L.RemarksAndDocumentsSection {...p} />,
+    },
+
+    // ── STEP 9: Lead Status ─────────────────────────────────────────────────
+    // Placed last so it acts as the submit gate: NOT received → this is the final
+    // step (Save → revision dialog); received → the Project Execution step is
+    // appended after this, so here the footer shows "Save & Continue →".
+    {
+      id: "lead-status",
+      label: "Lead Status",
+      title: "Lead Status",
+      subtitle: "Set the lead status — converting it to a project unlocks execution",
+      fields: ["statusId"],
+      icon: <TrackChanges />,
+      render: (p) => (
+        <L.StatusSection
+          {...p}
+          isReceivedStatus={isReceivedStatus}
+          leadProjectStatuses={props.leadProjectStatuses ?? []}
+        />
       ),
     },
   ];
@@ -539,9 +555,25 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
           : "Create New Lead"
       }
       headerSub={
-        props.isEditMode
-          ? `ID: ${props.currLeadData?.id || ""} · Revision: ${props.currLeadData?.revisionCount || 0}`
-          : "Manage inquiry details and conversion workflow"
+        props.isEditMode ? (
+          <>
+            <span className={`wizard-meta-chip is-accent`}>
+              <i className="bi bi-clock-history" /> Revision {props.currLeadData?.revisionCount ?? 0}
+            </span>
+            {currentStatusName && (
+              <span className="wizard-meta-chip">
+                <i className="bi bi-flag" /> {currentStatusName}
+              </span>
+            )}
+            {props.currLeadData?.prefix && (
+              <span className="wizard-meta-chip">
+                <i className="bi bi-hash" /> {props.currLeadData.prefix}
+              </span>
+            )}
+          </>
+        ) : (
+          "Manage inquiry details and conversion workflow"
+        )
       }
       sidebarTitle="Lead Creation"
     />

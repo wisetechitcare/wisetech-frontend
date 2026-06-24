@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { useFormikContext } from "formik";
 import { toast } from "react-toastify";
-import { PictureAsPdf, Description } from "@mui/icons-material";
+import { PictureAsPdf, Description, ChevronRight, ChevronLeft } from "@mui/icons-material";
 import { EnterpriseWizardStep, WizardActionConfig, WizardSummaryConfig } from "../../types/formEngine.types";
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
@@ -14,7 +14,7 @@ interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   summary: WizardSummaryConfig<TValues>;
   actions: WizardActionConfig;
   headerTitle?: string;
-  headerSub?: string;
+  headerSub?: React.ReactNode;
   headerActions?: React.ReactNode;
   sidebarTitle?: string;
   breadcrumb?: string[];
@@ -39,6 +39,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
   const visibleSteps = useMemo(() => steps.filter((step) => !step.hidden), [steps]);
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [animKey, setAnimKey] = useState(0);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
 
   const summaryRows = typeof summary.rows === "function" ? summary.rows(values) : summary.rows;
   const isLastStep = currentStep === visibleSteps.length - 1;
@@ -97,12 +98,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
     }
   }, [isFirstStep, currentStep, goToStep]);
 
-  // Resolve breadcrumb: use prop or infer from module
-  const crumbs: string[] = breadcrumb || [
-    "Dashboard",
-    module === "lead" ? "Leads" : module === "project" ? "Projects" : "CRM",
-    headerTitle || "Create",
-  ];
+  void breadcrumb; // breadcrumb intentionally not rendered (kept in API for callers)
 
   return (
     <div className="enterprise-wizard" data-form-module={module}>
@@ -110,19 +106,16 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
       {/* ═══ STICKY HEADER ══════════════════════════════════════════════════ */}
       <div className="wizard-header">
         <div className="wizard-header-left">
-          {/* Breadcrumb */}
-          <nav className="wizard-breadcrumb" aria-label="Breadcrumb">
-            {crumbs.map((crumb, idx) => (
-              <React.Fragment key={idx}>
-                {idx > 0 && <span className="wt-bc-sep" aria-hidden="true">›</span>}
-                <span className={idx === crumbs.length - 1 ? "wt-bc-active" : ""}>{crumb}</span>
-              </React.Fragment>
-            ))}
-          </nav>
-
-          {/* Title */}
-          <h1 className="wizard-title">{headerTitle}</h1>
-          {headerSub && <p className="wizard-subtitle">{headerSub}</p>}
+          {/* Title with module avatar */}
+          <div className="wizard-title-row">
+            <div className="wizard-header-avatar" aria-hidden>
+              <i className={`bi ${module === "project" ? "bi-buildings-fill" : "bi-building"}`} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h1 className="wizard-title">{headerTitle}</h1>
+              {headerSub && <div className="wizard-subtitle">{headerSub}</div>}
+            </div>
+          </div>
         </div>
 
         {/* Header action buttons */}
@@ -171,8 +164,81 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
           </div>
         </main>
 
-        {/* ── RIGHT: Summary Panel ──────────────────────────────────────── */}
+        {/* ── RIGHT: Summary Panel (collapsible to the right, like a sidebar) ─ */}
+        {summaryCollapsed ? (
+          <aside
+            className="wizard-summary-panel"
+            aria-label="Lead summary (collapsed)"
+            style={{
+              width: 40,
+              minWidth: 40,
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              paddingTop: 12,
+              gap: 12,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setSummaryCollapsed(false)}
+              aria-label="Expand summary"
+              title="Expand summary"
+              style={{
+                background: 'transparent',
+                border: '1px solid #e2e8f0',
+                borderRadius: 8,
+                width: 28,
+                height: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#64748B',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronLeft style={{ fontSize: '1.2rem' }} />
+            </button>
+            <div
+              style={{
+                writingMode: 'vertical-rl',
+                transform: 'rotate(180deg)',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                color: '#64748B',
+                textTransform: 'uppercase',
+                userSelect: 'none',
+              }}
+            >
+              {summary.title}
+            </div>
+          </aside>
+        ) : (
         <aside className="wizard-summary-panel" aria-label="Lead summary" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 8px 0' }}>
+            <button
+              type="button"
+              onClick={() => setSummaryCollapsed(true)}
+              aria-label="Collapse summary"
+              title="Collapse summary"
+              style={{
+                background: 'transparent',
+                border: '1px solid #e2e8f0',
+                borderRadius: 8,
+                width: 28,
+                height: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#64748B',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronRight style={{ fontSize: '1.2rem' }} />
+            </button>
+          </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             <SummarySidebar
               title={summary.title}
@@ -182,7 +248,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
               hideSubmitButton
             />
           </div>
-          
+
           {/* Export Buttons at Bottom of Summary (Last Step Only) */}
           {isSaveStep && (actions.exportPdf || actions.exportDocx) && (
             <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
@@ -213,6 +279,7 @@ export function EnterpriseFormWizard<TValues = any, TStepProps = any>({
             </div>
           )}
         </aside>
+        )}
       </div>
 
       {/* ═══ BOTTOM STICKY FOOTER BAR ═══════════════════════════════════════ */}

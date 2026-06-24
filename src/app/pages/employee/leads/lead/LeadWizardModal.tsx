@@ -256,6 +256,16 @@ const LeadWizardModal = ({
       referredByEmployeeId: "", // Added: For internal referrals
       companyName: "", // Added: For internal referrals
     },
+    {
+      id: (Date.now() + 1).toString(),
+      referralType: "",
+      referringCompanyType: "", // Added: For external referrals - company type filter
+      referringCompany: "",
+      referringSubCompany: "",
+      referringContact: "",
+      referredByEmployeeId: "", // Added: For internal referrals
+      companyName: "", // Added: For internal referrals
+    },
   ]);
   const formikRef = useRef<any>(null);
   const dispatch = useDispatch<AppDispatch>();
@@ -770,6 +780,7 @@ const LeadWizardModal = ({
         contactPerson: "",
         contactRoleId: "",
         cancellationReasonId: "", //new
+        cancellationNote: "", // closure note for Canceled / Lost outcomes
         handledBy: "", //new
         handledByEntries: [], // new: array of {id, employeeId, handledDate}
         fileLocationCompanyType: "", //new
@@ -804,6 +815,7 @@ const LeadWizardModal = ({
         builtUpArea: "",
         builtUpAreaUnit: "sqft",
         buildingDetail: "",
+        projectPoints: [], // Dynamic project points (replaces otherPoint1/2/3)
         otherPoint1Heading: "",
         otherPoint1Description: "",
         otherPoint2Heading: "",
@@ -1022,6 +1034,7 @@ const LeadWizardModal = ({
         leadData.projectCategory?.id || leadData.projectCategoryId || "",
       statusId: leadData.status?.id || leadData.statusId || "",
       cancellationReasonId: leadData?.cancellationReasonId || "", //new
+      cancellationNote: leadData?.cancellationNote || "", // closure note for Canceled / Lost
       handledBy: leadData?.handledBy || "", //new
       handledByEntries: (() => {
         // Map from backend handledByEntries array
@@ -1190,6 +1203,7 @@ const LeadWizardModal = ({
       builtUpArea: leadData.additionalDetails?.builtUpArea || "",
       builtUpAreaUnit: leadData.additionalDetails?.builtUpAreaUnit || "sqft",
       buildingDetail: leadData.additionalDetails?.buildingDetail || "",
+      projectPoints: leadData.projectPoints || [], // Dynamic project points
       otherPoint1Heading: leadData.additionalDetails?.otherPoint1Heading || "",
       otherPoint1Description:
         leadData.additionalDetails?.otherPoint1Description || "",
@@ -2749,6 +2763,30 @@ const LeadWizardModal = ({
     // delete finalData.fileLocationCompany; //new
     delete finalData.exportTemplate;
 
+    // ── Derive closure (Canceled / Lost) state from the selected status ──────────
+    // A status flagged isLostOutcome (or the legacy "Canceled") marks the lead as a
+    // terminal negative outcome. We stamp isCancelled + a cancellation date and keep
+    // the human-readable reason text in sync; reopening the lead clears it all.
+    const selectedStatusObj = (leadStatuses || []).find((s: any) => s.id === finalData.statusId);
+    const isClosureOutcome =
+      !!selectedStatusObj &&
+      (selectedStatusObj.isLostOutcome === true || selectedStatusObj.name === "Canceled");
+    if (isClosureOutcome) {
+      finalData.isCancelled = true;
+      finalData.cancellationDate =
+        finalData.cancellationDate || currLeadData?.cancellationDate || new Date().toISOString();
+      const reasonObj = (leadCancellationReasons || []).find(
+        (r: any) => r.id === finalData.cancellationReasonId,
+      );
+      if (reasonObj?.reason) finalData.reasonForCancellation = reasonObj.reason;
+    } else {
+      finalData.isCancelled = false;
+      finalData.cancellationDate = null;
+      finalData.cancellationReasonId = "";
+      finalData.cancellationNote = "";
+      finalData.reasonForCancellation = "";
+    }
+
     if (
       finalData?.useCalculatedAmount === false ||
       finalData?.useCalculatedAmount === true
@@ -2762,6 +2800,8 @@ const LeadWizardModal = ({
       // Special handling for fields that should be included even if empty to allow clearing
       if (key === "documents" || key === "description" || key === "fileLocation"
         || key === "cancellationReasonId" || key === "handledBy"
+        || key === "cancellationNote" || key === "cancellationDate"
+        || key === "reasonForCancellation" || key === "isCancelled"
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
         || key === "leadAssignedTo") {
@@ -2806,12 +2846,17 @@ const LeadWizardModal = ({
     if (formData.receivedDate) projectDelta.poDate = formData.receivedDate;
 
     // The backend updateProjectSchema REQUIRES `title` and `createdById`. Include the
-    // existing project's values so the partial update passes validation (else 422).
+    // values so the partial update passes validation (else 422).
+    // CRITICAL: prefer the FRESHLY EDITED title from the form. Lead and Project share
+    // one title (unified entity), and the project update reverse-syncs scalars back
+    // onto the lead (ProjectRepository.update → syncProjectChangesToLead). Sending the
+    // stale `currLeadData.project.title` here clobbered the just-saved lead title,
+    // reverting edits even though the audit recorded them. Form value MUST win.
     if (Object.keys(projectDelta).length > 0 && currLeadData?.project) {
       projectDelta.title =
-        currLeadData.project.title ||
-        formData.projectName ||
         formData.title ||
+        formData.projectName ||
+        currLeadData.project.title ||
         currLeadData.title ||
         "Project";
       projectDelta.createdById =
@@ -2848,12 +2893,12 @@ const LeadWizardModal = ({
         if (employeeId) {
           finalCleanPayload.updatedById = employeeId;
         }
-        const result = await customConfirmation();
-
-        if (result) {
-          finalCleanPayload.revisionCount =
-            Number(currLeadData?.revisionCount || 0) + 1;
-        }
+        await customConfirmation();
+        // revisionCount is owned by the audit system (single source of truth) and is
+        // assigned server-side by the capture worker. The client must NOT send or
+        // increment it — doing so previously caused the header to diverge from the
+        // audit timeline. Any client-supplied revisionCount is ignored by the backend.
+        delete finalCleanPayload.revisionCount;
 
         const res = await updateLead(finalCleanPayload.id, finalCleanPayload);
         if (res?.hasError) {
@@ -3119,6 +3164,7 @@ const LeadWizardModal = ({
                       services={services}
                       leadStatuses={leadStatuses}
                       leadProjectStatuses={leadProjectStatuses}
+                      cancellationReasons={leadCancellationReasons}
                       employees={allEmployees?.list || []}
                       teams={teams}
                       countries={countries}

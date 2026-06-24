@@ -12,8 +12,8 @@ import { getAllTimeSheetWithCostByProjectId } from "@services/tasks";
 import { getProjectProjectPoints, type ProjectPointValue } from "@services/projectPoints";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
-// Revision System
-import RevisionTimeline from "@app/modules/revisions/components/RevisionTimeline";
+// Revision System (Change Intelligence v2)
+import { VersionHistory } from "@app/modules/revisions/v2/VersionHistory";
 
 const ProjectOverviewById = ({
   projectId,
@@ -1299,7 +1299,7 @@ const ProjectOverviewById = ({
           <h5 style={{ marginBottom: "1rem", fontWeight: "600", fontSize: "16px" }}>
             Revision History & Audit Trail
           </h5>
-          <RevisionTimeline entityType="PROJECT" entityId={projectId} />
+          <VersionHistory type="PROJECT" id={projectId} isAdmin={false} />
         </div>
       )}
 

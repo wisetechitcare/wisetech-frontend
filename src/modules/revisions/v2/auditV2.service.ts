@@ -68,35 +68,21 @@ export interface V2DiffResult {
   diffs: V2FieldChange[];
 }
 
-export interface RestorePreviewChange extends V2FieldChange {
-  restorable: boolean;
-}
-
-export interface RestorePreview {
-  targetRev: number;
-  currentRev: number;
-  changes: RestorePreviewChange[];
-  restorableCount: number;
-  skippedCount: number;
-}
-
-export interface RestoreResult {
-  restoredFrom: number;
-  applied: string[];
-  skipped: string[];
-}
-
 export interface EntityInsights {
   totalRevisions: number;
   totalChanges: number;
   distinctEditors: number;
   restoreCount: number;
+  sensitiveChanges: number;
   firstChangedAt: string | null;
   lastChangedAt: string | null;
   categoryMix: Array<{ category: string; count: number }>;
   hotFields: Array<{ field: string; label: string; count: number }>;
   topEditors: Array<{ actorId: string; name: string; count: number }>;
   volume: Array<{ date: string; count: number }>;
+  changeTypeMix: Array<{ type: string; count: number }>;
+  impactMix: Array<{ impact: string; count: number }>;
+  sourceMix: Array<{ source: string; count: number }>;
 }
 
 export interface AuditViewerInfo {
@@ -158,22 +144,6 @@ export const AuditV2Api = {
         `${BASE}/${type}/${id}/field/${fieldName}/history`,
         { limit },
       )
-      .then((r) => r.data);
-  },
-
-  restorePreview(type: AuditEntityType, id: string, targetRev: number): Promise<RestorePreview> {
-    return api
-      .post<ApiEnvelope<RestorePreview>>(`${BASE}/${type}/${id}/restore/preview`, { targetRev })
-      .then((r) => r.data);
-  },
-
-  restore(
-    type: AuditEntityType,
-    id: string,
-    body: { targetRev: number; reason?: string; expectedCurrentRev?: number },
-  ): Promise<RestoreResult> {
-    return api
-      .post<ApiEnvelope<RestoreResult>>(`${BASE}/${type}/${id}/restore`, body)
       .then((r) => r.data);
   },
 

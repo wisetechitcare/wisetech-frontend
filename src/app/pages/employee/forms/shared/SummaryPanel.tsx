@@ -52,7 +52,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
 
       {/* Warning notices if applicable */}
       {warningMessage && (
-        <div 
+        <div
           className="p-3 rounded border border-warning-subtle text-warning-emphasis bg-warning-subtle fs-7 fw-semibold"
           style={{ lineHeight: "1.4" }}
         >

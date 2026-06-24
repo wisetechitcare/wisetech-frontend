@@ -11,38 +11,47 @@ const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-/** Scope tab — services / categories / sub-categories + area, building, project points.
- *  Lead + project scope are unioned in the VM, so there is one Scope home. */
+/** Service Scope card — services / categories / sub-categories. Lives on the
+ *  Client sub-page (it describes what the client requested). */
+export const ServiceScopeCard: React.FC<{ vm: EntityVM }> = ({ vm }) => {
+  const { services, categories, subcategories } = vm.scope;
+  return (
+    <DetailCard title="Service Scope" subtitle="What was requested" icon="bi bi-diagram-3" accentColor="teal">
+      <div style={{ padding: '10px 0' }}>
+        <Label>Services</Label>
+        <ChipList items={services} accent="#0d9488" />
+      </div>
+      <div style={{ padding: '10px 0', borderTop: '1px solid #EEF2F6' }}>
+        <Label>Categories</Label>
+        <ChipList items={categories} accent="#7c3aed" />
+      </div>
+      <div style={{ padding: '10px 0', borderTop: '1px solid #EEF2F6' }}>
+        <Label>Sub-categories</Label>
+        <ChipList items={subcategories} accent="#3b82f6" />
+      </div>
+    </DetailCard>
+  );
+};
+
+/** Scope tab — area, building & project points (the technical specifications).
+ *  Service Scope itself is shown on the Client sub-page via ServiceScopeCard. */
 const ScopeSection: React.FC<{ vm: EntityVM }> = ({ vm }) => {
   const active = useDensity();
-  const { services, categories, subcategories, areaRows, points } = vm.scope;
+  const { areaRows, points } = vm.scope;
 
   return (
     <div className="row g-5">
-      <div className="col-12 col-xl-6">
-        <DetailCard title="Service Scope" subtitle="What was requested" icon="bi bi-diagram-3" accentColor="teal">
-          <div style={{ padding: '10px 0' }}>
-            <Label>Services</Label>
-            <ChipList items={services} accent="#0d9488" />
-          </div>
-          <div style={{ padding: '10px 0', borderTop: '1px solid #EEF2F6' }}>
-            <Label>Categories</Label>
-            <ChipList items={categories} accent="#7c3aed" />
-          </div>
-          <div style={{ padding: '10px 0', borderTop: '1px solid #EEF2F6' }}>
-            <Label>Sub-categories</Label>
-            <ChipList items={subcategories} accent="#3b82f6" />
-          </div>
-        </DetailCard>
-      </div>
-
-      <div className="col-12 col-xl-6">
+      <div className="col-12">
         <DetailCard title="Area & Building" subtitle="Technical specifications" icon="bi bi-buildings" accentColor="primary">
-          {areaRows
-            .filter(r => atLeast(active, r.minLevel || 'overview') && (r.value || active === 'advanced'))
-            .map((r, i, arr) => (
-              <DetailRow key={r.label} label={r.label} value={r.value || DASH} isLast={i === arr.length - 1} />
-            ))}
+          <div className="row">
+            {areaRows
+              .filter(r => atLeast(active, r.minLevel || 'overview') && (r.value || active === 'advanced'))
+              .map((r, i, arr) => (
+                <div className="col-12 col-md-6" key={r.label}>
+                  <DetailRow label={r.label} value={r.value || DASH} isLast={i >= arr.length - 2} />
+                </div>
+              ))}
+          </div>
         </DetailCard>
       </div>
 

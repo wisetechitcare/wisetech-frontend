@@ -1,10 +1,15 @@
-import React from 'react';
-import dayjs from 'dayjs';
+import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { DetailCard, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
+import { C, FONT, RADIUS, ICON_COLORS } from '@app/modules/configuration/ConfigDesignSystem';
 import { HealthGauge, MissingInfoChip } from '../widgets';
 import SystemSection from './SystemSection';
+import ProjectDetailSection from './ProjectDetailSection';
+import { companyContactCards } from './CompanyContactSection';
+import { AddressesCard, clientExtraCards } from './ClientSection';
+import ScopeSection, { ServiceScopeCard } from './ScopeSection';
+import CommercialsSection from './CommercialsSection';
 import type { EntityVM } from '../facets';
 import {
   fmtDate,
@@ -20,46 +25,152 @@ import {
 } from '../entityViewModel';
 import { getTimelineProgress, isDelayedProject } from '../../entityUtils';
 
-const TYPE_META: Record<string, { icon: string; color: string }> = {
-  call: { icon: 'bi bi-telephone-fill', color: '#3b82f6' },
-  meeting: { icon: 'bi bi-people-fill', color: '#7c3aed' },
-  email: { icon: 'bi bi-envelope-fill', color: '#0d9488' },
-  whatsapp: { icon: 'bi bi-whatsapp', color: '#16a34a' },
-  note: { icon: 'bi bi-journal-text', color: '#f5a623' },
-  visit: { icon: 'bi bi-geo-alt-fill', color: '#9d4141' },
-};
-const metaFor = (t?: string) => TYPE_META[(t || '').toLowerCase()] || { icon: 'bi bi-dot', color: '#64748B' };
-
 interface Stat {
   label: string;
   value: React.ReactNode;
   icon: string;
-  color: string;
+  accent: keyof typeof ICON_COLORS;
 }
 
-/** Compact metrics strip — dense inline stats with dividers (no big tiles/whitespace). */
-const StatBar: React.FC<{ items: Stat[] }> = ({ items }) => (
-  <div style={{ display: 'flex', flexWrap: 'wrap', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-    {items.map((it, i) => (
-      <div key={i} style={{ flex: '1 1 150px', minWidth: 140, padding: '9px 16px', borderRight: i === items.length - 1 ? 'none' : '1px solid #EEF2F6' }}>
-        <div style={{ fontFamily: 'Inter', fontSize: 10.5, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <i className={it.icon} style={{ fontSize: 12, color: it.color }} /> {it.label}
+/**
+ * Dense metrics grid — auto-fitting cells separated by hairline rules (drawn via a
+ * 1px gap over the border color), so several stats pack into one compact band with
+ * no chunky card boxes. Used inside the unified summary panel.
+ */
+const StatGrid: React.FC<{ items: Stat[] }> = ({ items }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 1, backgroundColor: C.border }}>
+    {items.map((it, i) => {
+      const { bg, color } = ICON_COLORS[it.accent] ?? ICON_COLORS.primary;
+      return (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', backgroundColor: C.bgCard, minWidth: 0 }}>
+          <span style={{ width: 30, height: 30, borderRadius: RADIUS.md, backgroundColor: bg, color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className={it.icon} style={{ fontSize: 13 }} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: FONT.body, fontSize: 10, color: C.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>{it.label}</div>
+            <div style={{ fontFamily: FONT.heading, fontSize: 14.5, fontWeight: 700, color: C.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.value}</div>
+          </div>
         </div>
-        <div style={{ fontFamily: 'Barlow', fontSize: 15, fontWeight: 700, color: '#1E293B', lineHeight: 1.15 }}>{it.value}</div>
-      </div>
-    ))}
+      );
+    })}
   </div>
 );
 
 /**
- * Summary — highlights panel. Health + KPI tiles (the one summary home for those
- * metrics) + content that exists NOWHERE else: the entity's Description/Notes and
- * a Recent-Activity preview. No snapshot cards re-printing header/System/Client.
+ * Two-per-row card grid. Cards flow left→right, two to a row; when the count is
+ * odd the final card spans the full width (e.g. 3 cards → two on top, one
+ * full-width below). Collapses to a single column on narrow screens.
  */
-const SummarySection: React.FC<{ lead: any; vm: EntityVM; onJump: (step: number) => void }> = ({ lead, vm, onJump }) => {
+const CardGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const items = React.Children.toArray(children).filter(Boolean);
+  const oddLast = items.length % 2 === 1;
+  return (
+    <div className="row g-5">
+      {items.map((node, i) => (
+        <div className={oddLast && i === items.length - 1 ? 'col-12' : 'col-12 col-lg-6'} key={i}>
+          {node}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Section divider with an uppercase label — used where one sub-page holds two domains. */
+const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> = ({ icon, title, color = '#94A3B8' }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 9, margin: '6px 2px 12px' }}>
+    <span style={{ width: 26, height: 26, borderRadius: 8, background: `${color}18`, color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <i className={icon} style={{ fontSize: 13 }} />
+    </span>
+    <span style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: '#475569' }}>{title}</span>
+    <span style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#E2E8F0,transparent)' }} />
+  </div>
+);
+
+type SubKey = 'overview' | 'client' | 'scope' | 'project';
+interface SubDef {
+  key: SubKey;
+  label: string;
+  icon: string;
+  projectOnly?: boolean;
+}
+const SUB_PAGES: SubDef[] = [
+  { key: 'overview', label: 'Overview', icon: 'bi bi-speedometer2' },
+  { key: 'client', label: 'Client', icon: 'bi bi-buildings' },
+  { key: 'scope', label: 'Scope & Commercials', icon: 'bi bi-diagram-3' },
+  { key: 'project', label: 'Project', icon: 'bi bi-kanban', projectOnly: true },
+];
+
+/**
+ * Segmented pill sub-nav inside the Summary tab. Styled to match the Audit Trail
+ * Timeline/Compare/Insights toggle: one rounded track on a light slate ground,
+ * the active sub-page raised as a white card, the rest flat.
+ */
+const SubNav: React.FC<{ items: SubDef[]; active: SubKey; onChange: (k: SubKey) => void }> = ({ items, active, onChange }) => (
+  <div
+    style={{
+      display: 'inline-flex',
+      gap: 3,
+      flexWrap: 'wrap',
+      marginBottom: 18,
+      background: '#EEF2F6',
+      padding: 4,
+      borderRadius: 12,
+    }}
+  >
+    {items.map(s => {
+      const isActive = s.key === active;
+      return (
+        <button
+          key={s.key}
+          type="button"
+          onClick={() => onChange(s.key)}
+          aria-pressed={isActive}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            border: 'none',
+            background: isActive ? '#fff' : 'transparent',
+            color: isActive ? '#AA393D' : '#475569',
+            borderRadius: 9,
+            padding: '7px 16px',
+            cursor: 'pointer',
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: isActive ? 700 : 500,
+            boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+            transition: 'background 0.15s ease, color 0.15s ease',
+          }}
+        >
+          <i className={s.icon} />
+          {s.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/**
+ * Summary — the entity overview area, divided into focused sub-pages via an
+ * in-tab segmented nav (Overview / Client / Scope & Commercials / Project /
+ * System). Each sub-page is one concern; the long single-scroll is gone. The
+ * operational project modules (Tasks / Timesheet / Reimbursement) and Documents
+ * remain their own top-level tabs.
+ */
+const SummarySection: React.FC<{
+  lead: any;
+  vm: EntityVM;
+  company?: any;
+  contact?: any;
+  onJump: (step: number) => void;
+}> = ({ lead, vm, company, contact, onJump }) => {
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
   const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project;
   const p = lead?.project || {};
+  const [sub, setSub] = useState<SubKey>('overview');
+
+  const subPages = useMemo(() => SUB_PAGES.filter(s => !s.projectOnly || isProject), [isProject]);
+  const active = subPages.some(s => s.key === sub) ? sub : 'overview';
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;
   const missing = computeMissingInfo(lead);
@@ -70,119 +181,109 @@ const SummarySection: React.FC<{ lead: any; vm: EntityVM; onJump: (step: number)
   const delayed = isDelayedProject(lead);
   const pmName = projectManagerName(p, allEmployees) || DASH;
 
-  // Recent activity preview (top 3) — unique to Summary as a digest of the Activities tab.
-  const recent = [
-    ...(lead?.connections || []),
-    ...(p?.connections || []),
-  ]
-    .map((c: any) => ({
-      ts: new Date(c?.date || c?.createdAt).getTime(),
-      ...metaFor(c?.type),
-      title: c?.type ? c.type.charAt(0).toUpperCase() + c.type.slice(1) : 'Activity',
-      body: c?.description || c?.notes,
-      who: employeeNameById(allEmployees, c?.createdBy),
-    }))
-    .concat(
-      (lead?.generatedProposals || []).map((d: any) => ({
-        ts: new Date(d?.createdAt).getTime(),
-        icon: 'bi bi-file-earmark-text-fill',
-        color: '#7c3aed',
-        title: 'Proposal generated',
-        body: d?.template?.templateName,
-        who: employeeUserName(d?.creator),
-      })),
-    )
-    .concat(
-      lead?.createdAt
-        ? [{ ts: new Date(lead.createdAt).getTime(), icon: 'bi bi-plus-circle-fill', color: '#16a34a', title: 'Lead created', body: undefined, who: employeeUserName(lead?.createdBy) }]
-        : [],
-    )
-    .filter(x => isFinite(x.ts))
-    .sort((a, b) => b.ts - a.ts)
-    .slice(0, 4);
-
-  return (
+  const Overview = (
     <div>
-      {/* Health band */}
-      <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.04)', padding: '18px 22px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+      <div style={{ position: 'relative', background: `linear-gradient(135deg, ${health.color}14 0%, ${C.bgCard} 58%)`, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, boxShadow: C.shadowCard, padding: '22px 26px 22px 30px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', overflow: 'visible' }}>
+        <span style={{ position: 'absolute', left: 0, top: 10, bottom: 10, width: 5, borderRadius: '0 4px 4px 0', background: `linear-gradient(${health.color}, ${health.color}99)` }} aria-hidden />
         <HealthGauge health={health} probability={probability} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <MissingInfoChip items={missing} onJump={onJump} />
           {isProject && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EDFDF3', color: '#0A5C2A', border: '1px solid #17C96433', borderRadius: 999, padding: '5px 12px', fontFamily: 'Inter', fontSize: 12, fontWeight: 700 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: C.successLight, color: '#16a34a', border: `1px solid ${C.success}33`, borderRadius: RADIUS.full, padding: '6px 13px', fontFamily: FONT.body, fontSize: 12, fontWeight: 700 }}>
               <i className="bi bi-kanban-fill" /> Project active
             </span>
           )}
           {lead?.isCancelled && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FFF1F3', color: '#9B1C44', border: '1px solid #F1416C33', borderRadius: 999, padding: '5px 12px', fontFamily: 'Inter', fontSize: 12, fontWeight: 700 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: C.dangerLight, color: C.danger, border: `1px solid ${C.danger}33`, borderRadius: RADIUS.full, padding: '6px 13px', fontFamily: FONT.body, fontSize: 12, fontWeight: 700 }}>
               <i className="bi bi-x-octagon-fill" /> Cancelled
             </span>
           )}
         </div>
       </div>
 
-      {/* Lead KPI strip — compact */}
-      <StatBar
+      <StatGrid
         items={[
-          { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', color: '#3b82f6' },
-          { label: 'Owner', value: owner, icon: 'bi bi-person-badge', color: '#9d4141' },
-          { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', color: '#0d9488' },
-          { label: 'Value', value: compactMoney(value), icon: 'bi bi-currency-rupee', color: '#16a34a' },
-          { label: 'Activities', value: (lead?.connections?.length || 0) + (p?.connections?.length || 0), icon: 'bi bi-chat-dots', color: '#7c3aed' },
+          { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', accent: 'blue' },
+          { label: 'Owner', value: owner, icon: 'bi bi-person-badge', accent: 'primary' },
+          { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
+          { label: 'Value', value: compactMoney(value), icon: 'bi bi-currency-rupee', accent: 'green' },
+          { label: 'Activities', value: (lead?.connections?.length || 0) + (p?.connections?.length || 0), icon: 'bi bi-chat-dots', accent: 'purple' },
         ]}
       />
 
-      {/* Project KPI strip — only when the lead became a project */}
       {isProject && (
-        <div className="mt-3">
-          <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: '#0A5C2A', margin: '0 2px 8px' }}>Project Execution</div>
-          <StatBar
+        <div className="mt-4">
+          <SectionHeading icon="bi bi-kanban" title="Project Snapshot" color={ICON_COLORS.green.color} />
+          <StatGrid
             items={[
-              { label: 'Project Status', value: <DetailStatusBadge status={p?.status?.name || DASH} color={p?.status?.color} />, icon: 'bi bi-kanban', color: '#3b82f6' },
-              { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', color: '#9d4141' },
-              { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', color: delayed ? '#f1416c' : '#f5a623' },
-              { label: 'Start Date', value: fmtDate(p?.startDate), icon: 'bi bi-calendar-event', color: '#0d9488' },
-              { label: 'Expected Closure', value: fmtDate(p?.endDate), icon: 'bi bi-calendar-check', color: '#16a34a' },
+              { label: 'Project Status', value: <DetailStatusBadge status={p?.status?.name || DASH} color={p?.status?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
+              { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
+              { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accent: delayed ? 'danger' : 'warning' },
+              { label: 'Start Date', value: fmtDate(p?.startDate), icon: 'bi bi-calendar-event', accent: 'teal' },
+              { label: 'Expected Closure', value: fmtDate(p?.endDate), icon: 'bi bi-calendar-check', accent: 'green' },
             ]}
           />
         </div>
       )}
 
-      {/* System & metadata — surfaced on Summary, above Recent Activity */}
-      <div className="mt-6">
-        <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: '#94A3B8', margin: '4px 2px 10px' }}>
-          System &amp; Metadata
-        </div>
-        <SystemSection vm={vm} />
+      <div className="mt-5">
+        <AddressesCard vm={vm} />
       </div>
 
-      {/* Recent activity preview — digest of the Activities tab (bottom of Summary) */}
-      <div className="row g-5 mt-5">
-        <div className="col-12">
-          <DetailCard title="Recent Activity" subtitle="Latest events" icon="bi bi-clock-history" accentColor="purple">
-            {recent.length === 0 ? (
-              <div style={{ padding: '14px 0', fontFamily: 'Inter', fontSize: 13, color: '#94A3B8' }}>
-                No activity logged yet. Calls, meetings and notes will appear here.
-              </div>
-            ) : (
-              <div style={{ padding: '6px 0' }}>
-                {recent.map((it, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 11, paddingBottom: i === recent.length - 1 ? 0 : 14 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: `${it.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <i className={it.icon} style={{ color: it.color, fontSize: 13 }} />
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 600, color: '#1E293B' }}>{it.title}</div>
-                      {it.body && <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.body}</div>}
-                      <div style={{ fontFamily: 'Inter', fontSize: 11, color: '#94A3B8' }}>{dayjs(it.ts).format('DD MMM YYYY')}{it.who ? ` · ${it.who}` : ''}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+      {(vm.notes.remarks || vm.notes.description) && (
+        <div className="mt-5">
+          <DetailCard title="Notes & Description" subtitle="Remarks captured on this record" icon="bi bi-card-text" accentColor="amber">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' }}>
+              {vm.notes.description && (
+                <div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: C.textMuted, marginBottom: 5 }}>Description</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 13.5, color: C.textPrimary, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{vm.notes.description}</div>
+                </div>
+              )}
+              {vm.notes.remarks && (
+                <div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: C.textMuted, marginBottom: 5 }}>Remarks</div>
+                  <div style={{ fontFamily: FONT.body, fontSize: 13.5, color: C.textPrimary, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{vm.notes.remarks}</div>
+                </div>
+              )}
+            </div>
           </DetailCard>
         </div>
+      )}
+
+      <div className="mt-6">
+        <SectionHeading icon="bi bi-gear" title="System & Metadata" color="#64748B" />
+        <SystemSection vm={vm} />
       </div>
+    </div>
+  );
+
+  const Client = (
+    <CardGrid>
+      {companyContactCards(company, contact, lead)}
+      <ServiceScopeCard vm={vm} />
+      {clientExtraCards(vm, lead?.companyId)}
+    </CardGrid>
+  );
+
+  const ScopeCommercials = (
+    <div>
+      <SectionHeading icon="bi bi-rulers" title="Specifications" color="#7c3aed" />
+      <ScopeSection vm={vm} />
+      <div className="mt-6">
+        <SectionHeading icon="bi bi-cash-stack" title="Commercials" color="#16a34a" />
+        <CommercialsSection vm={vm} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <SubNav items={subPages} active={active} onChange={setSub} />
+      {active === 'overview' && Overview}
+      {active === 'client' && Client}
+      {active === 'scope' && ScopeCommercials}
+      {active === 'project' && isProject && <ProjectDetailSection lead={lead} />}
     </div>
   );
 };

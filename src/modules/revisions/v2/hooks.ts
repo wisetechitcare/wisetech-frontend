@@ -40,19 +40,6 @@ export function useAuditDiff(
   });
 }
 
-export function useRestorePreview(
-  type: AuditEntityType,
-  id: string | undefined,
-  targetRev: number | null,
-) {
-  return useQuery({
-    queryKey: ['audit-restore-preview', type, id, targetRev],
-    enabled: !!id && targetRev != null,
-    staleTime: 0,
-    queryFn: () => AuditV2Api.restorePreview(type, id as string, targetRev as number),
-  });
-}
-
 export function useAuditInsights(type: AuditEntityType, id: string | undefined) {
   return useQuery({
     queryKey: ['audit-insights', type, id],
@@ -60,18 +47,6 @@ export function useAuditInsights(type: AuditEntityType, id: string | undefined) 
     staleTime: 0,
     refetchOnMount: 'always',
     queryFn: () => AuditV2Api.insights(type, id as string),
-  });
-}
-
-export function useRestore(type: AuditEntityType, id: string | undefined) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { targetRev: number; reason?: string; expectedCurrentRev?: number }) =>
-      AuditV2Api.restore(type, id as string, body),
-    onSuccess: () => {
-      // The rollback produced a new ROLLBACK ChangeSet — refresh the timeline.
-      qc.invalidateQueries({ queryKey: ['audit-timeline', type, id] });
-    },
   });
 }
 

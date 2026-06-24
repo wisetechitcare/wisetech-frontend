@@ -1,7 +1,7 @@
 import React from 'react';
 import { C, FONT, RADIUS, ICON_COLORS } from '@/app/modules/configuration/ConfigDesignSystem';
 import { V2FieldChange } from './auditV2.service';
-import { categoryMeta, changeTypeMeta, DIFF } from './tokens';
+import { categoryMeta, changeTypeMeta, DIFF, resolveValue } from './tokens';
 
 /** Category pill — icon + label, color from the shared palette. */
 export const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
@@ -57,57 +57,69 @@ export const ChangeTypeChip: React.FC<{ changeType: string }> = ({ changeType })
   );
 };
 
-function display(value: unknown, formatted: string): string {
-  if (formatted && formatted !== '(empty)') return formatted;
-  if (value === null || value === undefined || value === '') return '(empty)';
-  if (typeof value === 'object') return Array.isArray(value) ? `${value.length} item(s)` : '…';
-  return String(value);
-}
-
 /** old → new value rendering with screen-reader text and color+icon (a11y safe). */
 export const ValueDelta: React.FC<{ change: V2FieldChange; stacked?: boolean }> = ({
   change,
   stacked,
 }) => {
-  const oldText = display(change.oldValue, change.oldValueFormatted);
-  const newText = display(change.newValue, change.newValueFormatted);
+  const oldVal = resolveValue(change.oldValue, change.oldValueFormatted);
+  const newVal = resolveValue(change.newValue, change.newValueFormatted);
 
-  const chip = (text: string, color: string, bg: string, srLabel: string) => (
-    <span
-      style={{
-        backgroundColor: bg,
-        color,
-        padding: '2px 8px',
-        borderRadius: RADIUS.sm,
-        fontFamily: FONT.body,
-        fontSize: 12.5,
-        fontWeight: 500,
-        wordBreak: 'break-word',
-        maxWidth: '100%',
-      }}
-    >
-      <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-        {srLabel}
+  const chip = (
+    { text, placeholder }: { text: string; placeholder: boolean },
+    tone: 'old' | 'new',
+    srLabel: string,
+  ) => {
+    const color = placeholder ? C.textMuted : tone === 'old' ? DIFF.removed : DIFF.added;
+    const bg = placeholder ? C.bgSection : tone === 'old' ? DIFF.removedBg : DIFF.addedBg;
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          backgroundColor: bg,
+          color,
+          padding: '3px 9px',
+          borderRadius: RADIUS.sm,
+          fontFamily: FONT.body,
+          fontSize: 12.5,
+          fontWeight: placeholder ? 500 : 600,
+          fontStyle: placeholder ? 'italic' : 'normal',
+          textDecoration: tone === 'old' && !placeholder ? 'line-through' : 'none',
+          textDecorationColor: `${DIFF.removed}80`,
+          border: `1px solid ${color}1f`,
+          wordBreak: 'break-word',
+          maxWidth: '100%',
+          lineHeight: 1.35,
+        }}
+      >
+        <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+          {srLabel}
+        </span>
+        {text}
       </span>
-      {text}
-    </span>
-  );
+    );
+  };
 
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: stacked ? 'column' : 'row',
-        alignItems: stacked ? 'stretch' : 'center',
+        alignItems: stacked ? 'flex-start' : 'center',
         gap: 8,
         flexWrap: 'wrap',
       }}
     >
-      {change.changeType !== 'ADDED' && chip(oldText, DIFF.removed, DIFF.removedBg, 'changed from')}
-      {!stacked && change.changeType === 'MODIFIED' && (
-        <i className="bi bi-arrow-right" style={{ color: C.textMuted, fontSize: 12 }} aria-hidden />
+      {change.changeType !== 'ADDED' && chip(oldVal, 'old', 'changed from')}
+      {change.changeType === 'MODIFIED' && (
+        <i
+          className={stacked ? 'bi bi-arrow-down' : 'bi bi-arrow-right'}
+          style={{ color: C.textMuted, fontSize: 11 }}
+          aria-hidden
+        />
       )}
-      {change.changeType !== 'REMOVED' && chip(newText, DIFF.added, DIFF.addedBg, 'changed to')}
+      {change.changeType !== 'REMOVED' && chip(newVal, 'new', 'changed to')}
     </div>
   );
 };

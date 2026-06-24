@@ -244,7 +244,7 @@ const CompaniesProject = ({ companyId }: { companyId: string }) => {
     },
     {
       accessorKey: "projectAccess",
-      header: "Project Access",
+      header: "Visibility (tag)",
       Cell: ({ renderedCellValue }: any) => renderedCellValue,
     },
     {

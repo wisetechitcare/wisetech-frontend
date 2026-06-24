@@ -12,24 +12,17 @@ import { mapLeadToFormInitialValues } from '@pages/employee/leads/lead/utils';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import type { AppDispatch } from '@redux/store';
 
-import LeadFiles from '@pages/employee/leads/lead/components/LeadFiles';
 import LeadWizardModal from '@pages/employee/leads/lead/LeadWizardModal';
 import ProposalTemplatePage from '@pages/employee/leads/lead/components/ProposalTemplatePage';
 import { DMSProvider } from '@pages/employee/leads/lead/components/dms/store/DmsContext';
-import ProjectFiles from '@pages/employee/projects/project/components/ProjectFlies';
 
 import { isProjectEntity, getProjectPhase, PHASE_THEMES } from './entityUtils';
 import { DensityProvider } from './detail/density';
 import { buildEntityVM, ENTITY_TABS } from './detail/facets';
-import { relatedCounts } from './detail/entityViewModel';
 
 import SummarySection from './detail/sections/SummarySection';
-import ClientSection from './detail/sections/ClientSection';
-import ScopeSection from './detail/sections/ScopeSection';
-import CommercialsSection from './detail/sections/CommercialsSection';
-import ActivitiesSection from './detail/sections/ActivitiesSection';
-import ExecutionSection from './detail/sections/ExecutionSection';
-import DocumentsSection from './detail/sections/DocumentsSection';
+import { TasksTab, TimesheetTab, ReimbursementTab } from './detail/sections/ProjectModuleTabs';
+import DocumentsTab from './detail/sections/DocumentsTab';
 import AuditSection from './detail/sections/AuditSection';
 
 /**
@@ -67,13 +60,12 @@ const EntityDetailPage: React.FC = () => {
   // Live counts surfaced AS TAB BADGES (replaces the redundant related-records
   // strip, which just re-navigated to these same tabs). Only shown when > 0.
   const tabCounts = useMemo<Record<string, number>>(() => {
-    const c = relatedCounts(lead);
+    const p = lead?.project || {};
     return {
-      client: c.team,
-      commercials: c.commercials,
-      activities: (lead?.connections?.length || 0) + (lead?.project?.connections?.length || 0),
-      execution: c.tasks,
-      documents: c.proposals,
+      tasks: p?._count?.tasks ?? 0,
+      timesheet: p?._count?.timesheets ?? 0,
+      reimbursement: p?._count?.reimbursements ?? 0,
+      documents: lead?.generatedProposals?.length ?? 0,
     };
   }, [lead]);
 
@@ -93,8 +85,8 @@ const EntityDetailPage: React.FC = () => {
       const leadData = leadResponse.data.data.lead;
       setLead(leadData);
       const promises: Promise<any>[] = [];
-      if (leadData.companyId) promises.push(getClientCompanyById(leadData.companyId).then(setCompany).catch(console.error));
-      if (leadData.contactId) promises.push(getClientContactById(leadData.contactId).then(setContact).catch(console.error));
+      if (leadData.companyId) promises.push(getClientCompanyById(leadData.companyId).then(r => setCompany(r?.data?.company || null)).catch(console.error));
+      if (leadData.contactId) promises.push(getClientContactById(leadData.contactId).then(r => setContact(r?.data?.contact || null)).catch(console.error));
       await Promise.all(promises);
       setError(null);
     } catch (err) {
@@ -123,30 +115,25 @@ const EntityDetailPage: React.FC = () => {
     if (error || !lead || !vm) return <div className="alert alert-danger">{error || 'No data available'}</div>;
     switch (activeTab) {
       case 'summary':
-        return <SummarySection lead={lead} vm={vm} onJump={openEdit} />;
-      case 'client':
-        return <ClientSection vm={vm} />;
-      case 'scope':
-        return <ScopeSection vm={vm} />;
-      case 'commercials':
-        return <CommercialsSection vm={vm} />;
-      case 'activities':
-        return <ActivitiesSection lead={lead} />;
-      case 'execution':
-        return projectId ? <ExecutionSection lead={lead} projectId={projectId} /> : null;
-      case 'documents':
         return (
-          <DocumentsSection vm={vm} onExport={() => setShowProposalModal(true)}>
-            <LeadFiles lead={lead} />
-            {isProject && projectId && (
-              <div className="mt-2">
-                <ProjectFiles projectId={projectId} />
-              </div>
-            )}
-          </DocumentsSection>
+          <SummarySection
+            lead={lead}
+            vm={vm}
+            company={company}
+            contact={contact}
+            onJump={openEdit}
+          />
         );
+      case 'tasks':
+        return projectId ? <TasksTab lead={lead} projectId={projectId} /> : null;
+      case 'timesheet':
+        return projectId ? <TimesheetTab lead={lead} projectId={projectId} /> : null;
+      case 'reimbursement':
+        return projectId ? <ReimbursementTab lead={lead} projectId={projectId} /> : null;
+      case 'documents':
+        return <DocumentsTab lead={lead} vm={vm} isProject={isProject} projectId={projectId} onExport={() => setShowProposalModal(true)} />;
       case 'audit':
-        return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} />;
+        return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} onChanged={fetchLeadDetails} />;
       default:
         return null;
     }
@@ -214,16 +201,35 @@ const EntityDetailPage: React.FC = () => {
           {/* ── Sticky tab nav ── */}
           <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(248,250,252,0.92)', backdropFilter: 'blur(6px)', margin: '24px -8px 18px', padding: '6px 8px' }}>
             <div className="d-flex overflow-auto">
-              <ul className="nav flex-nowrap" style={{ gap: '8px' }}>
+              {/* Primary nav = clean underline tab bar. The active tab carries a brand
+                  underline indicator; the secondary sub-nav (Overview/Client/…) uses the
+                  segmented pill control, giving a clear two-level hierarchy. */}
+              <ul
+                className="nav flex-nowrap mb-0"
+                style={{ gap: '4px', listStyle: 'none', borderBottom: '1px solid #E2E8F0', width: '100%' }}
+              >
                 {tabs.map(tab => {
                   const isActive = activeTab === tab.key;
                   const count = tabCounts[tab.key];
                   return (
                     <li key={tab.key}>
                       <a
-                        className={`nav-link d-inline-flex align-items-center gap-2 px-4 py-2 rounded-pill border ${isActive ? 'border-primary text-primary' : 'border-secondary-subtle text-gray-700'} cursor-pointer`}
+                        className="d-inline-flex align-items-center gap-2 px-3 cursor-pointer"
                         onClick={() => setActiveTab(tab.key)}
-                        style={{ fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', fontWeight: isActive ? 700 : 500, fontSize: '13px', background: isActive ? '#fff' : 'transparent' }}
+                        aria-pressed={isActive}
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          whiteSpace: 'nowrap',
+                          fontWeight: isActive ? 700 : 500,
+                          fontSize: '13.5px',
+                          paddingTop: '8px',
+                          paddingBottom: '10px',
+                          marginBottom: '-1px',
+                          color: isActive ? '#AA393D' : '#64748B',
+                          background: 'transparent',
+                          borderBottom: `2px solid ${isActive ? '#AA393D' : 'transparent'}`,
+                          transition: 'color 0.15s ease, border-color 0.15s ease',
+                        }}
                       >
                         <i className={tab.icon} />
                         {tab.label}

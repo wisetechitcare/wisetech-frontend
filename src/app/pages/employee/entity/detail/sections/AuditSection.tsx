@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { DetailCard } from '@/app/modules/detail-page/DetailPageComponents';
-import { C, FONT, RADIUS, BTN } from '@/app/modules/configuration/ConfigDesignSystem';
+import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
 import { AuditEntityType } from '@/modules/revisions/v2/auditV2.service';
 import { AuditTimeline } from '@/modules/revisions/v2/AuditTimeline';
-import { DiffViewer, DiffMode } from '@/modules/revisions/v2/DiffViewer';
-import { RestoreDrawer } from '@/modules/revisions/v2/RestoreDrawer';
+import { ComparePanel } from '@/modules/revisions/v2/ComparePanel';
+import { ResetModal } from '@/modules/revisions/v2/ResetModal';
 import { AuditInsights } from '@/modules/revisions/v2/AuditInsights';
-import { useAuditDiff, useAuditTimeline, useAuditViewer } from '@/modules/revisions/v2/hooks';
+import { useAuditViewer } from '@/modules/revisions/v2/hooks';
+import eventBus from '@utils/EventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 type Mode = 'timeline' | 'compare' | 'insights';
 
@@ -23,6 +25,8 @@ interface AuditSectionProps {
   leadId?: string;
   isProject?: boolean;
   projectId?: string;
+  /** Called after a reset rewinds the entity, so the parent page can refetch. */
+  onChanged?: () => void;
 }
 
 const KEYFRAMES = `
@@ -32,6 +36,8 @@ const KEYFRAMES = `
   .ci-fade-in { animation: ciFadeIn .25s ease; }
   .ci-pulse   { animation: ciPulse 1.2s ease-in-out infinite; }
   .ci-spin    { display: inline-block; animation: ciSpin .8s linear infinite; }
+  .ci-card    { transition: box-shadow .2s ease, border-color .2s ease; }
+  .ci-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
   @media (prefers-reduced-motion: reduce) {
     .ci-fade-in, .ci-pulse, .ci-spin { animation: none !important; }
   }
@@ -75,156 +81,17 @@ const ModeToggle: React.FC<{ mode: Mode; onChange: (m: Mode) => void }> = ({
   );
 };
 
-const ComparePanel: React.FC<{
-  type: AuditEntityType;
-  id: string;
-  from: number | null;
-  to: number | null;
-  onApply: (from: number, to: number) => void;
-  onRestore: (rev: number) => void;
-}> = ({ type, id, from, to, onApply, onRestore }) => {
-  const [inFrom, setInFrom] = useState(from != null ? String(from) : '0');
-  const [inTo, setInTo] = useState(to != null ? String(to) : '');
-  const [diffMode, setDiffMode] = useState<DiffMode>('unified');
-  const timeline = useAuditTimeline(type, id);
-  const diff = useAuditDiff(type, id, from, to);
-
-  const allRevisions = timeline.data?.pages.flatMap((p) => p.changeSets) ?? [];
-  const revisions = allRevisions.map((cs) => cs.revisionNumber).sort((a, b) => a - b) ?? [];
-  const currentRevision = allRevisions.length > 0 ? allRevisions[0]?.revisionNumber : null;
-
-  const dropdownStyle: React.CSSProperties = {
-    padding: '10px 12px',
-    border: `1px solid ${C.border}`,
-    borderRadius: RADIUS.md,
-    fontFamily: FONT.body,
-    fontSize: 13,
-    color: C.textPrimary,
-    minWidth: 140,
-    backgroundColor: C.bgCard,
-    cursor: 'pointer',
-  };
-
-  return (
-    <div>
-      <div style={{ backgroundColor: C.bgSection, borderRadius: RADIUS.lg, padding: '14px 16px', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-          <label style={{ fontFamily: FONT.body, fontSize: 12, color: C.textSecondary }}>
-            <div style={{ marginBottom: 6, fontWeight: 600, color: C.textPrimary }}>From revision</div>
-            <select value={inFrom} onChange={(e) => setInFrom(e.target.value)} style={dropdownStyle}>
-              <option value="0">Original (R0)</option>
-              {revisions.map((rev) => (
-                <option key={rev} value={String(rev)}>
-                  R{rev}
-                </option>
-              ))}
-            </select>
-          </label>
-          <i className="bi bi-arrow-right" style={{ color: C.primary, marginBottom: 2, fontSize: 16 }} aria-hidden />
-          <label style={{ fontFamily: FONT.body, fontSize: 12, color: C.textSecondary }}>
-            <div style={{ marginBottom: 6, fontWeight: 600, color: C.textPrimary }}>To revision</div>
-            <select value={inTo} onChange={(e) => setInTo(e.target.value)} style={dropdownStyle}>
-              <option value="">-- Select --</option>
-              {revisions.map((rev) => (
-                <option key={rev} value={String(rev)}>
-                  R{rev}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            style={{ ...BTN.primary, marginBottom: 0, padding: '10px 20px' }}
-            disabled={inFrom === '' || inTo === ''}
-            onClick={() => onApply(parseInt(inFrom, 10) || 0, parseInt(inTo, 10) || 0)}
-          >
-            <i className="bi bi-arrow-left-right" aria-hidden /> Compare
-          </button>
-        </div>
-      </div>
-
-      {from == null || to == null ? (
-        <div style={{ textAlign: 'center', padding: '30px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-          <i className="bi bi-file-earmark-diff" style={{ fontSize: 26, display: 'block', marginBottom: 8 }} aria-hidden />
-          Pick two revisions to compare.
-        </div>
-      ) : diff.isLoading ? (
-        <div style={{ textAlign: 'center', padding: '30px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
-          <i className="bi bi-arrow-repeat ci-spin" style={{ fontSize: 22 }} aria-hidden /> Computing diff…
-        </div>
-      ) : diff.isError ? (
-        <div style={{ textAlign: 'center', padding: '24px 0', color: C.danger, fontFamily: FONT.body, fontSize: 13 }}>
-          Couldn't compute the diff (check the revision range).
-        </div>
-      ) : diff.data ? (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-            {from != null && from >= 0 && from !== currentRevision && (
-              <button
-                type="button"
-                onClick={() => onRestore(from)}
-                title={
-                  from === 0
-                    ? 'Revert to the original values (before the first change)'
-                    : `Restore the record to revision ${from}`
-                }
-                style={{
-                  background: 'transparent',
-                  color: C.textMuted,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: RADIUS.md,
-                  padding: '6px 12px',
-                  fontFamily: FONT.body,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                }}
-              >
-                <i className="bi bi-arrow-counterclockwise" aria-hidden /> {from === 0 ? 'Restore to original' : `Restore to R${from}`}
-              </button>
-            )}
-            {to != null && to >= 1 && to !== currentRevision && (
-              <button
-                type="button"
-                onClick={() => onRestore(to)}
-                title={`Restore the record to revision ${to}`}
-                style={{
-                  background: 'transparent',
-                  color: C.primary,
-                  border: `1px solid ${C.primary}`,
-                  borderRadius: RADIUS.md,
-                  padding: '6px 12px',
-                  fontFamily: FONT.body,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                }}
-              >
-                <i className="bi bi-arrow-counterclockwise" aria-hidden /> Restore to R{to}
-              </button>
-            )}
-          </div>
-          <DiffViewer result={diff.data} mode={diffMode} onModeChange={setDiffMode} />
-        </>
-      ) : null}
-    </div>
-  );
-};
-
-const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId }) => {
+const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId, onChanged }) => {
   const entityType: AuditEntityType = !leadId && projectId ? 'PROJECT' : 'LEAD';
   const entityId = entityType === 'PROJECT' ? projectId : leadId;
 
   const [mode, setMode] = useState<Mode>('timeline');
   const [from, setFrom] = useState<number | null>(null);
   const [to, setTo] = useState<number | null>(null);
-  const [restoreRev, setRestoreRev] = useState<number | null>(null);
+  const [resetTarget, setResetTarget] = useState<number | null>(null);
+
+  const viewer = useAuditViewer();
+  const canReset = !!viewer.data?.isAdmin;
 
   const handleCompare = (rev: number) => {
     setFrom(Math.max(0, rev - 1));
@@ -251,17 +118,31 @@ const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId }) => {
       actions={<ModeToggle mode={mode} onChange={setMode} />}
     >
       <style>{KEYFRAMES}</style>
-      {restoreRev != null && (
-        <RestoreDrawer
+      {resetTarget != null && (
+        <ResetModal
           type={entityType}
           id={entityId}
-          targetRev={restoreRev}
-          onClose={() => setRestoreRev(null)}
+          targetVersion={resetTarget}
+          onClose={() => setResetTarget(null)}
+          onDone={() => {
+            // The entity was rewound — make the whole detail page (header revision
+            // number, Summary, form) refetch immediately, no manual refresh needed.
+            // Direct callback is the guaranteed path; the event bus is a backup for
+            // any other open listeners (lists, badges).
+            onChanged?.();
+            eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId || entityId });
+            eventBus.emit(EVENT_KEYS.projectUpdated, { id: projectId || entityId });
+          }}
         />
       )}
       <div style={{ paddingTop: 6 }}>
         {mode === 'timeline' && (
-          <AuditTimeline type={entityType} id={entityId} onCompare={handleCompare} onRestore={setRestoreRev} />
+          <AuditTimeline
+            type={entityType}
+            id={entityId}
+            onCompare={handleCompare}
+            onReset={canReset ? setResetTarget : undefined}
+          />
         )}
         {mode === 'compare' && (
           <ComparePanel
@@ -273,7 +154,8 @@ const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId }) => {
               setFrom(f);
               setTo(t);
             }}
-            onRestore={setRestoreRev}
+            onReset={setResetTarget}
+            canReset={canReset}
           />
         )}
         {mode === 'insights' && <AuditInsights type={entityType} id={entityId} />}

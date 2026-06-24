@@ -160,67 +160,39 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
         </Grid>
       </div>
 
-      {/* ── Contract Financials ────────────────────────────────────────── */}
+      {/* ── Purchase Order (PO) Details ───────────────────────────────── */}
       <div className="wt-section-card" style={{ marginTop: "1.5rem" }}>
         <div className="wt-section-heading">
-          Contract Financials
+          Purchase Order (PO) Details
         </div>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
-            <TextInput
-              formikField="projectMeta.contractRate"
-              label="Contract Rate (₹)"
-              type="number"
+            <DropDownInput
               isRequired={false}
+              formikField="poStatus"
+              inputLabel="PO Status"
+              options={[
+                { value: "Pending", label: "Pending" },
+                { value: "Approved", label: "Approved" },
+                { value: "Rejected", label: "Rejected" },
+              ]}
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextInput
-              formikField="projectMeta.finalCost"
-              label="Final Cost (₹)"
-              type="number"
-              isRequired={false}
-            />
+            <TextInput formikField="poNumber" label="PO Number" isRequired={false} />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextInput
-              formikField="projectMeta.poNumber"
-              label="PO Number"
+            <DateInput
+              formikField="poDate"
+              inputLabel="PO Date"
+              formikProps={formikProps}
+              placeHolder="Select PO Date"
               isRequired={false}
             />
           </Grid>
         </Grid>
       </div>
 
-      {/* ── Location Verification ─────────────────────────────────────── */}
-      <div className="wt-section-card" style={{ marginTop: "1.5rem" }}>
-        <div className="wt-section-heading">
-          Location Verification
-        </div>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={!!meta.isLocationIncorrect}
-                  onChange={(e) => setFieldValue("projectMeta.isLocationIncorrect", e.target.checked)}
-                  color="warning"
-                />
-              }
-              label={<Typography sx={{ fontSize: "14px", fontWeight: 500 }}>Location Incorrect</Typography>}
-            />
-          </Grid>
-          {meta.isLocationIncorrect && (
-            <Grid item xs={12} md={9}>
-              <TextInput
-                formikField="projectMeta.locationRemark"
-                label="Location Remark"
-                isRequired={false}
-              />
-            </Grid>
-          )}
-        </Grid>
-      </div>
     </div>
   );
 };

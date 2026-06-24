@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Grid, Box, Typography, IconButton, CircularProgress } from "@mui/material";
+import { Grid, Box, Typography, IconButton, CircularProgress, Switch, FormControlLabel } from "@mui/material";
 import axios from "axios";
+import { ProjectPointsSection } from "@app/modules/projectPoints";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -26,6 +27,7 @@ interface LeadSectionsProps {
   leadStatuses: any[];
   leadProjectStatuses?: any[];   // project execution statuses (Received, Ongoing, Completed)
   isReceivedStatus?: boolean;    // true when lead.status.isProjectTrigger
+  cancellationReasons?: any[];   // master list for closure reason (Canceled / Lost)
   employees: any[];
   teams: any[];
   countries: any[];
@@ -220,33 +222,46 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
 
 // 2. Project Details Section
 export const ProjectDetailsSection: React.FC = () => {
+  const { values, setFieldValue } = useFormikContext<any>();
+
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <TextInput formikField="plotArea" label="Plot Area" type="number" isRequired={false} />
+    <>
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextInput formikField="plotArea" label="Plot Area" type="number" isRequired={false} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <DropDownInput formikField="plotAreaUnit" inputLabel="Plot Area Unit" options={[
+              { value: "SFT", label: "Sq. Ft" },
+              { value: "SQM", label: "Sq. M" },
+              { value: "ACRE", label: "Acres" },
+            ]} isRequired={false} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextInput formikField="builtUpArea" label="Built Up Area" type="number" isRequired={false} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <DropDownInput formikField="builtUpAreaUnit" inputLabel="Built Up Area Unit" options={[
+              { value: "SFT", label: "Sq. Ft" },
+              { value: "SQM", label: "Sq. M" },
+            ]} isRequired={false} />
+          </Grid>
+          <Grid item xs={12}>
+            <TextAreaInput formikField="buildingDetail" label="Building Detail / Spec" rows={3} isRequired={false} />
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <DropDownInput formikField="plotAreaUnit" inputLabel="Plot Area Unit" options={[
-            { value: "SFT", label: "Sq. Ft" },
-            { value: "SQM", label: "Sq. M" },
-            { value: "ACRE", label: "Acres" },
-          ]} isRequired={false} />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextInput formikField="builtUpArea" label="Built Up Area" type="number" isRequired={false} />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <DropDownInput formikField="builtUpAreaUnit" inputLabel="Built Up Area Unit" options={[
-            { value: "SFT", label: "Sq. Ft" },
-            { value: "SQM", label: "Sq. M" },
-          ]} isRequired={false} />
-        </Grid>
-        <Grid item xs={12}>
-          <TextAreaInput formikField="buildingDetail" label="Building Detail / Spec" rows={3} isRequired={false} />
-        </Grid>
-      </Grid>
-    </div>
+      </div>
+
+      {/* Project Points Section */}
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <ProjectPointsSection
+          value={values.projectPoints || []}
+          onChange={(newPoints) => setFieldValue('projectPoints', newPoints)}
+          title="Project Points"
+        />
+      </div>
+    </>
   );
 };
 
@@ -272,14 +287,14 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
   return (
     <div className="wt-section-card">
       <div className="wt-section-heading">
-        File Location
+        File Location In Computer Folder
       </div>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput
             isRequired={false}
             formikField="fileLocationCompanyType"
-            inputLabel="File Company Type"
+            inputLabel="Company Type In Computer Folder"
             options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
           />
         </Grid>
@@ -287,7 +302,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
           <DropDownInput
             isRequired={false}
             formikField="fileLocationCompany"
-            inputLabel="File Company Name"
+            inputLabel="Company Name In Computer Folder"
             options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
           />
         </Grid>
@@ -297,128 +312,240 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
 };
 
 // 5. Referral Details Section
-export const ReferralSection: React.FC<LeadSectionsProps> = (props) => {
-  const { values, setFieldValue } = useFormikContext<any>();
-  const employeeOptions = (props.employees || [])
-    .filter(x => x.isActive !== false)
-    .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
-    .map(x => ({ value: x.employeeId, label: x.employeeName }));
+// Lead Source Type Selector
+export const LeadSourceTypeSection: React.FC<LeadSectionsProps> = (props) => {
   const sourceTypes = [
     { value: "DIRECT", label: "Direct Source" },
     { value: "REFERRAL", label: "Referrals" },
   ];
 
   return (
-    <div className="wt-section-card">
-      <div className="wt-section-heading">
-        Referral Details
-      </div>
+    <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput formikField="leadSourceType" inputLabel="Lead Source Type" options={sourceTypes} isRequired={false} />
         </Grid>
-
-        {values.leadSourceType === "DIRECT" && (
-          <Grid item xs={12} md={6}>
-            <DropDownInput
-            isRequired={false}
-              formikField="leadDirectSource"
-              inputLabel="Direct Source"
-              options={(props.leadDirectSources || []).map(x => ({ value: x.id, label: x.name }))}
-            />
-          </Grid>
-        )}
-
-        {values.leadSourceType === "REFERRAL" && (
-          <Grid item xs={12}>
-            <div style={{ marginTop: "1rem" }}>
-              <FieldArray name="referrals">
-                {({ push, remove }) => (
-                  <div className="d-flex flex-column gap-3">
-                    {(values.referrals || []).map((ref: any, index: number) => (
-                      <div key={index} className="wt-entry-card">
-                        <button
-                          type="button"
-                          className="wt-entry-card-remove"
-                          onClick={() => remove(index)}
-                          aria-label="Remove referral"
-                        >
-                          <Close fontSize="small" />
-                        </button>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} md={4}>
-                            <DropDownInput
-              isRequired={false}
-                              formikField={`referrals.${index}.referralType`}
-                              inputLabel="Referral Type"
-                              options={(props.referralTypes || []).map(x => ({ value: x.id, label: x.name }))}
-                            />
-                          </Grid>
-                          {ref.referralType === "INTERNAL" ? (
-                            <Grid item xs={12} md={8}>
-                              <DropDownInput
-              isRequired={false}
-                                formikField={`referrals.${index}.referredByEmployeeId`}
-                                inputLabel="Referring Employee"
-                                options={employeeOptions}
-                              />
-                            </Grid>
-                          ) : (
-                            <>
-                              <Grid item xs={12} md={4}>
-                                <DropDownInput
-              isRequired={false}
-                                  formikField={`referrals.${index}.referringCompanyType`}
-                                  inputLabel="Referring Company Type"
-                                  options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
-                                />
-                              </Grid>
-                              <Grid item xs={12} md={4}>
-                                <DropDownInput
-              isRequired={false}
-                                  formikField={`referrals.${index}.referringCompany`}
-                                  inputLabel="Referring Company"
-                                  options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
-                                />
-                              </Grid>
-                            </>
-                          )}
-                        </Grid>
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      type="button"
-                      onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "" })}
-                      className="align-self-start fw-bold mt-1"
-                    >
-                      + Add Referral Source
-                    </Button>
-                  </div>
-                )}
-              </FieldArray>
-            </div>
-          </Grid>
-        )}
       </Grid>
     </div>
+  );
+};
+
+// Direct Source Section
+export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
+  return (
+    <div className="card shadow-sm border p-6 bg-white mb-6">
+      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+        Direct Source
+      </Typography>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <DropDownInput
+            isRequired={false}
+            formikField="leadDirectSource"
+            inputLabel="Direct Source"
+            options={(props.leadDirectSources || []).map(x => ({ value: x.id, label: x.name }))}
+          />
+        </Grid>
+      </Grid>
+    </div>
+  );
+};
+
+// Referral Details Section
+export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
+  const { values } = useFormikContext<any>();
+  const employeeOptions = (props.employees || [])
+    .filter(x => x.isActive !== false)
+    .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
+    .map(x => ({ value: x.employeeId, label: x.employeeName }));
+
+  return (
+    <div className="card shadow-sm border p-6 bg-white mb-6">
+      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+        Referral Details
+      </Typography>
+      <FieldArray name="referrals">
+        {({ push, remove }) => (
+          <div className="d-flex flex-column gap-3">
+            {(values.referrals || []).map((ref: any, index: number) => (
+              <div key={index} className="wt-entry-card">
+                <button
+                  type="button"
+                  className="wt-entry-card-remove"
+                  onClick={() => remove(index)}
+                  aria-label="Remove referral"
+                >
+                  <Close fontSize="small" />
+                </button>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <DropDownInput
+                      isRequired={false}
+                      formikField={`referrals.${index}.referralType`}
+                      inputLabel="Referral Type"
+                      options={(props.referralTypes || []).map(x => ({ value: x.id, label: x.name }))}
+                    />
+                  </Grid>
+                  {ref.referralType === "INTERNAL" ? (
+                    <Grid item xs={12} md={8}>
+                      <DropDownInput
+                        isRequired={false}
+                        formikField={`referrals.${index}.referredByEmployeeId`}
+                        inputLabel="Referring Employee"
+                        options={employeeOptions}
+                      />
+                    </Grid>
+                  ) : (
+                    <>
+                      <Grid item xs={12} md={4}>
+                        <DropDownInput
+                          isRequired={false}
+                          formikField={`referrals.${index}.referringCompanyType`}
+                          inputLabel="Referring Company Type"
+                          options={(props.companyTypes || []).map(x => ({ value: x.id, label: x.name }))}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <DropDownInput
+                          isRequired={false}
+                          formikField={`referrals.${index}.referringCompany`}
+                          inputLabel="Referring Company"
+                          options={(props.companies || []).map(x => ({ value: x.id, label: x.companyName }))}
+                        />
+                      </Grid>
+                    </>
+                  )}
+                </Grid>
+              </div>
+            ))}
+            <Button
+              variant="outline-primary"
+              size="sm"
+              type="button"
+              onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "" })}
+              className="align-self-start fw-bold mt-1"
+            >
+              + Add Referral Source
+            </Button>
+          </div>
+        )}
+      </FieldArray>
+    </div>
+  );
+};
+
+// Keep the old ReferralSection name for backwards compatibility, but make it render all three components
+export const ReferralSection: React.FC<LeadSectionsProps> = (props) => {
+  return (
+    <>
+      <DirectSourceSection {...props} />
+      <ReferralDetailsSection {...props} />
+    </>
   );
 };
 
 // 6. Commercials Section
 export const CommercialsSection: React.FC = () => {
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
-      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-        Commercial Work Areas
-      </Typography>
-      <CommercialsGrid type="lead" />
-    </div>
+    <>
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Commercial Work Areas
+        </Typography>
+        <CommercialsGrid type="lead" />
+      </div>
+
+      {/* Payment Stage subsection */}
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Payment Stage
+        </Typography>
+        <div className="text-center">
+          <p className="text-gray-500 fs-6">
+            This module is planned for future scope and is currently not in use.
+          </p>
+        </div>
+      </div>
+    </>
   );
 };
 
-// 7. Address Details Section
+// 7. Remarks & Documents Section
+export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) => {
+  return (
+    <>
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Remarks
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <TextAreaInput
+              formikField="remarks"
+              label="Remarks"
+              placeholder="Enter any remarks or notes about this lead"
+              isRequired={false}
+            />
+          </Grid>
+        </Grid>
+      </div>
+
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Follow-up
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <DateInput
+              formikField="nextFollowUpDate"
+              inputLabel="Next Follow-up Date"
+              formikProps={props.formikProps}
+              placeHolder="Select next follow-up date"
+              isRequired={false}
+            />
+            <p className="text-muted fs-8 mt-2 mb-0">
+              The next action date for this lead. Overdue follow-ups are flagged on the leads list.
+            </p>
+          </Grid>
+        </Grid>
+      </div>
+
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Detailed Description
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <TextAreaInput
+              formikField="description"
+              label="Detailed Description"
+              placeholder="Provide a detailed description of the project or lead"
+              isRequired={false}
+            />
+          </Grid>
+        </Grid>
+      </div>
+
+      <div className="card shadow-sm border p-6 bg-white mb-6">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+          Documents & Drawings
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <TextInput
+              formikField="fileLocation"
+              label="File Location / Document Path"
+              placeholder="Enter the location where documents and drawings are stored (e.g., shared folder path, cloud storage link)"
+              isRequired={false}
+            />
+          </Grid>
+        </Grid>
+      </div>
+    </>
+  );
+};
+
+// 8. Address Details Section
 export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const [mapRefreshKeys, setMapRefreshKeys] = React.useState<{[key: number]: number}>({});
@@ -488,6 +615,30 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
           </div>
         )}
       </FieldArray>
+
+      {/* ── Location Verification ─────────────────────────────────────── */}
+      <div className="mt-5 pt-4 border-top">
+        <Typography className="fs-6 fw-bold text-gray-800 mb-3">Location Verification</Typography>
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} md={3}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!values.projectMeta?.isLocationIncorrect}
+                  onChange={(e) => setFieldValue("projectMeta.isLocationIncorrect", e.target.checked)}
+                  color="warning"
+                />
+              }
+              label={<Typography sx={{ fontSize: "14px", fontWeight: 500 }}>Location Incorrect</Typography>}
+            />
+          </Grid>
+          {values.projectMeta?.isLocationIncorrect && (
+            <Grid item xs={12} md={9}>
+              <TextInput formikField="projectMeta.locationRemark" label="Location Remark" isRequired={false} />
+            </Grid>
+          )}
+        </Grid>
+      </div>
     </div>
   );
 };
@@ -516,18 +667,25 @@ export const AdditionalDetailsSection: React.FC = () => {
 //                    (RECEIVED / NOT_RECEIVED / ONGOING / COMPLETED / …)
 //
 // Writes: Lead Status → statusId, Project Status → projectStatusId
+// A status is a terminal "lost" closure if it carries the isLostOutcome flag, or
+// (back-compat) is the legacy "Canceled" status. Such leads require a reason.
+const isClosureStatus = (status?: any): boolean =>
+  !!status && (status.isLostOutcome === true || status.name === "Canceled");
+
 export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
-  const { setFieldValue } = useFormikContext<any>();
+  const { values, setFieldValue } = useFormikContext<any>();
   const isReceived = props.isReceivedStatus ?? false;
 
   const leadStatuses = props.leadStatuses || [];
-  const leadProjectStatuses = props.leadProjectStatuses || [];
+  const cancellationReasons = props.cancellationReasons || [];
+  const selectedStatus = leadStatuses.find((x: any) => x.id === values.statusId);
+  const isClosure = isClosureStatus(selectedStatus);
 
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
-        {/* Lead Status — always visible (same DropDownInput flow as the classic form) */}
-        <Grid item xs={12} md={isReceived ? 6 : 12}>
+        {/* Lead Status — the only editable field in this step. */}
+        <Grid item xs={12}>
           <DropDownInput
             formikField="statusId"
             inputLabel="Lead Status"
@@ -543,31 +701,78 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
                 // Leaving a project-trigger status — clear the project status too
                 setFieldValue("projectStatusId", "");
               }
+              // Leaving a closure status — clear the closure capture so stale
+              // reason/note values are never persisted on a reopened lead.
+              if (!isClosureStatus(selected)) {
+                setFieldValue("cancellationReasonId", "");
+                setFieldValue("cancellationNote", "");
+              }
             }}
           />
         </Grid>
 
-        {/* Project Status — only when Lead status is project-trigger (Received).
-            No onChange → self-binds to projectStatusId via Formik, exactly like the
-            classic form, so edits persist through handleSubmit's projectDelta. */}
+        {/* Closure capture — required reason + note for Canceled / Lost outcomes. */}
+        {isClosure && (
+          <Grid item xs={12}>
+            <div
+              className="p-4 rounded"
+              style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+            >
+              <div style={{ fontWeight: 700, color: "#b91c1c", fontSize: 15, marginBottom: 10 }}>
+                {selectedStatus?.isLostOutcome ? "Lost — Closure Details" : "Cancellation Details"}
+              </div>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <DropDownInput
+                    formikField="cancellationReasonId"
+                    inputLabel="Closure Reason"
+                    isRequired={true}
+                    showColor={true}
+                    placeholder="Select a reason…"
+                    options={cancellationReasons.map((r: any) => ({
+                      value: r.id,
+                      label: r.reason,
+                      color: r.color,
+                    }))}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextInput
+                    formikField="cancellationNote"
+                    label="Closure Note"
+                    isRequired={false}
+                  />
+                </Grid>
+              </Grid>
+              <div style={{ color: "#b91c1c", fontSize: 12, marginTop: 8 }}>
+                This lead will be marked as <strong>cancelled / lost</strong> and dated on save.
+                Manage reasons under Lead Configuration → Cancellation Reasons.
+              </div>
+            </div>
+          </Grid>
+        )}
+
+        {/* When the status is project-triggering, we DON'T ask for a project status
+            here — instead we confirm the conversion. Project execution details
+            (incl. project status) live in the dedicated Project Execution step. */}
         {isReceived && (
-          <Grid item xs={12} md={6}>
-            <DropDownInput
-              formikField="projectStatusId"
-              inputLabel={
-                <span className="d-inline-flex align-items-center gap-2">
-                  Project Status
-                  <span className="badge badge-light-success fs-8 fw-normal">Project Active</span>
-                </span>
-              }
-              isRequired={false}
-              showColor={true}
-              placeholder="Select project status…"
-              options={leadProjectStatuses.map((x: any) => ({ value: x.id, label: x.name, color: x.color }))}
-            />
-            {leadProjectStatuses.length === 0 && (
-              <span className="text-muted fs-8">Loading project statuses…</span>
-            )}
+          <Grid item xs={12}>
+            <div
+              className="d-flex align-items-center gap-3 p-4 rounded"
+              style={{ background: "#ecfdf5", border: "1px solid #a7f3d0" }}
+            >
+              <CheckCircleOutline style={{ color: "#15803d", fontSize: "2rem", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontWeight: 700, color: "#0A5C2A", fontSize: 15 }}>
+                  This lead has been converted to a Project
+                </div>
+                <div style={{ color: "#15803d", fontSize: 13, marginTop: 2 }}>
+                  A linked project is now active. Manage its status, team, timeline and
+                  financials in the <strong>Project Execution</strong> step. The lead
+                  record stays fully preserved.
+                </div>
+              </div>
+            </div>
           </Grid>
         )}
       </Grid>
@@ -708,8 +913,8 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
         Lead Information
       </div>
       <Grid container spacing={3}>
-        {/* Inquiry No + Date */}
-        <Grid item xs={12} md={6}>
+        {/* Inquiry No + Revision No (read-only) + Date */}
+        <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
             Inquiry No.
           </Typography>
@@ -733,7 +938,32 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             />
           </Box>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
+          <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
+            Revision No.
+          </Typography>
+          <Box
+            sx={{
+              border: "1px solid #D0D5DD",
+              borderRadius: "8px",
+              px: 2,
+              height: "45px",
+              display: "flex",
+              alignItems: "center",
+              background: "#F3F4F6",
+              color: "#6B7280",
+              fontSize: "14px",
+              cursor: "not-allowed",
+            }}
+            title="Revision number is managed automatically by the audit system"
+          >
+            {props.currLeadData?.revisionCount !== undefined &&
+            props.currLeadData?.revisionCount !== null
+              ? `R${props.currLeadData.revisionCount}`
+              : "—"}
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={4}>
           <DateInput formikField="leadInquiryDate" inputLabel="Lead Inquiry Date" formikProps={props.formikProps} placeHolder="Select Date" isRequired={false} />
         </Grid>
 
@@ -1046,14 +1276,27 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
         </div>
       )}
 
-      {/* ── Conditional: PO Details (status = Received) ───────────────── */}
-      {isReceived && <PODetailsSection {...props} />}
-
-      {/* ── Conditional: Work Handled By (status = Received) ─────────── */}
-      {isReceived && <HandleBySection {...props} />}
+      {/* PO Details and Work Handled By Allocation moved to the Project Execution
+          step (they are project-execution concerns, shown only for Received leads). */}
 
       {/* ── Conditional: Cancellation Details (status = Canceled) ────── */}
       {isCanceled && <CancellationReasonSection {...props} />}
+    </div>
+  );
+};
+
+// Meeting Details Section
+export const MeetingDetailsSection: React.FC<LeadSectionsProps> = () => {
+  return (
+    <div className="card shadow-sm border p-6 bg-white mb-6">
+      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+        Meeting Details
+      </Typography>
+      <div className="text-center py-4">
+        <p className="text-gray-500 fs-6">
+          This section is currently in development and not yet active.
+        </p>
+      </div>
     </div>
   );
 };

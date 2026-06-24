@@ -1,5 +1,5 @@
 import React from 'react';
-import { DetailCard } from '@app/modules/detail-page/DetailPageComponents';
+import { DetailCard, DetailRow } from '@app/modules/detail-page/DetailPageComponents';
 import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
 import type { EntityVM } from '../facets';
@@ -26,8 +26,17 @@ const DocumentsSection: React.FC<{ vm: EntityVM; onExport?: () => void; children
   children,
 }) => {
   const docs = vm.documents;
+  const fl = vm.fileLocation;
+  const hasFileLocation = !!(fl.path || fl.company || fl.companyType);
   return (
     <div className="d-flex flex-column gap-5">
+      {hasFileLocation && (
+        <DetailCard title="File Location" subtitle="Where the source files live" icon="bi bi-folder2-open" accentColor="amber">
+          <DetailRow label="Document Path" value={fl.path || DASH} />
+          <DetailRow label="File Company" value={fl.company || DASH} />
+          <DetailRow label="File Company Type" value={fl.companyType || DASH} isLast />
+        </DetailCard>
+      )}
       <DetailCard
         title="Generated Documents"
         subtitle={`${docs.length} proposal${docs.length === 1 ? '' : 's'}`}

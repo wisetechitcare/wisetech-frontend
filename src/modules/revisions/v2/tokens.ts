@@ -74,3 +74,108 @@ export function displayActor(first?: string | null, last?: string | null): strin
   const name = [first, last].filter(Boolean).join(' ').trim();
   return name || 'System';
 }
+
+/* ─── Value hygiene ──────────────────────────────────────────────────────────
+ * Audit values are formatted at capture time and persisted. Older rows can carry
+ * a raw machine identifier (uuid / cuid / long hex) where a human label failed to
+ * resolve — e.g. a Status change reading "(empty) → d0ca15dc-…". These helpers
+ * make sure a raw id is NEVER shown to a user: we detect id-shaped strings and
+ * replace them with a clean, honest placeholder, and we rebuild any summary that
+ * leaked an id from the change set's own field labels.
+ * ---------------------------------------------------------------------------- */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CUID_RE = /^c[a-z0-9]{20,}$/i;
+const LONGHEX_RE = /^[0-9a-f]{24,}$/i;
+
+/** True when a value looks like a machine identifier rather than human content. */
+export function isIdLike(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const s = value.trim();
+  if (s.length < 16) return false;
+  return UUID_RE.test(s) || CUID_RE.test(s) || LONGHEX_RE.test(s);
+}
+
+export interface ResolvedValue {
+  /** Display text, guaranteed free of raw identifiers. */
+  text: string;
+  /** True when the text is a neutral placeholder (empty / unresolved reference). */
+  placeholder: boolean;
+}
+
+/**
+ * Turn a (rawValue, formattedValue) pair into safe display text.
+ * Priority: a clean formatted label → the raw scalar → a neutral placeholder.
+ */
+export function resolveValue(value: unknown, formatted?: string | null): ResolvedValue {
+  const f = (formatted ?? '').trim();
+  if (f && f !== '(empty)' && !isIdLike(f)) return { text: f, placeholder: false };
+  if (value === null || value === undefined || value === '') {
+    return { text: 'Empty', placeholder: true };
+  }
+  if (typeof value === 'object') {
+    return {
+      text: Array.isArray(value) ? `${value.length} item(s)` : 'Details',
+      placeholder: true,
+    };
+  }
+  if (isIdLike(value) || isIdLike(f)) return { text: 'Reference', placeholder: true };
+  return { text: String(value), placeholder: false };
+}
+
+/**
+ * A clean, human one-line summary for a change set. Trusts the backend summary
+ * unless it leaked an identifier, in which case it is rebuilt from the change
+ * field labels / dominant category — so the timeline never shows "(empty) → uuid".
+ */
+export function humanizeSummary(cs: {
+  summary?: string | null;
+  category?: string | null;
+  changes?: Array<{ fieldLabel?: string | null }> | null;
+}): string {
+  const s = (cs.summary ?? '').trim();
+
+  // Normalize backend's raw-enum summary, e.g. "BASIC_INFO Information Modified".
+  const enumMatch = s.match(/^([A-Z][A-Z_]+)\s+Information\s+Modified$/i);
+  if (enumMatch) return `${categoryMeta(enumMatch[1].toUpperCase()).label} information updated`;
+
+  const leaked = !s || isIdLike(s) || s.split(/\s+/).some(isIdLike);
+  if (!leaked) return s;
+
+  const changes = cs.changes ?? [];
+  const labels = changes.map((c) => (c?.fieldLabel ?? '').trim()).filter(Boolean);
+  if (labels.length === 1) return `${labels[0]} updated`;
+  const cat = categoryMeta(cs.category ?? '').label;
+  if (labels.length > 1) return `${cat} information updated`;
+  return `${cat} updated`;
+}
+
+export type ActorKind = 'user' | 'system';
+
+/** Distinguish automated/system actors from real people for visual treatment. */
+export function actorKind(opts: {
+  first?: string | null;
+  last?: string | null;
+  changeSource?: string | null;
+  summary?: string | null;
+}): ActorKind {
+  const name = displayActor(opts.first, opts.last).toLowerCase();
+  const src = (opts.changeSource ?? '').toUpperCase();
+  if (!name || name === 'system' || name.includes('system') || name.includes('backfill')) {
+    return 'system';
+  }
+  if (src === 'SYSTEM' || src === 'ROLLBACK' || src === 'WEBHOOK') return 'system';
+  return 'user';
+}
+
+/** True when a change set is an automated pre-audit baseline / backfill marker. */
+export function isBaselineEntry(cs: {
+  summary?: string | null;
+  changedByFirstName?: string | null;
+  changedByLastName?: string | null;
+}): boolean {
+  const s = (cs.summary ?? '').toLowerCase();
+  if (s.includes('baseline') || s.includes('backfill') || s.includes('pre-audit')) return true;
+  const actor = displayActor(cs.changedByFirstName, cs.changedByLastName).toLowerCase();
+  return actor.includes('backfill');
+}

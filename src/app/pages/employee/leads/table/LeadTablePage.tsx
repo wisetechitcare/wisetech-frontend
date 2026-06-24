@@ -77,6 +77,7 @@ const LeadTablePage = () => {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [assignedToFilter, setAssignedToFilter] = useState("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
 
   const [day, setDay] = useState<Dayjs>(today);
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {
@@ -347,6 +348,8 @@ const LeadTablePage = () => {
             poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "N/A",
             inquiryDate: inquiryDate,
+            nextFollowUpDate: lead?.nextFollowUpDate || null,
+            revisionCount: Number(lead?.revisionCount) || 0,
             createdAt: lead?.createdAt ? new Date(lead.createdAt).toISOString() : new Date().toISOString(),
             createdBy: lead?.createdById || "N/A",
             updatedBy: lead?.updatedById || "N/A",
@@ -418,6 +421,42 @@ const LeadTablePage = () => {
           } catch (err) {
             return "N/A";
           }
+        },
+      },
+      {
+        accessorKey: "nextFollowUpDate",
+        header: "Next Follow-up",
+        size: 160,
+        enableSorting: true,
+        Cell: ({ cell }: { cell: any }) => {
+          const v = cell.getValue();
+          if (!v) return <span className="text-muted">—</span>;
+          const date = dayjs(v);
+          if (!date.isValid()) return <span className="text-muted">—</span>;
+          // Overdue = follow-up date is before the start of today.
+          const isOverdue = date.isBefore(dayjs().startOf("day"));
+          const isToday = date.isSame(dayjs(), "day");
+          return (
+            <span
+              className={`badge px-2 py-1 fs-8 fw-bold ${
+                isOverdue
+                  ? "bg-light-danger text-danger"
+                  : isToday
+                    ? "bg-light-warning text-warning"
+                    : "bg-light-success text-success"
+              }`}
+              title={
+                isOverdue
+                  ? "Follow-up overdue"
+                  : isToday
+                    ? "Follow-up due today"
+                    : "Upcoming follow-up"
+              }
+            >
+              {date.format("DD-MM-YYYY")}
+              {isOverdue ? " • Overdue" : isToday ? " • Today" : ""}
+            </span>
+          );
         },
       },
       {
@@ -499,30 +538,10 @@ const LeadTablePage = () => {
         size: 130,
         enableSorting: false,
         Cell: ({ row }: { row: any }) => {
-          const [revisionCount, setRevisionCount] = useState<number | null>(null);
-
-          React.useEffect(() => {
-            const fetchRevisionCount = async () => {
-              try {
-                const response = await fetch(
-                  `http://localhost:9000/api/revisions/LEAD/${row.original.id}/history?pageSize=1`
-                );
-                if (response.ok) {
-                  const data = await response.json();
-                  setRevisionCount(data.data?.pagination?.total || 0);
-                }
-              } catch (error) {
-                console.error('Failed to fetch revision count:', error);
-                setRevisionCount(0);
-              }
-            };
-
-            fetchRevisionCount();
-          }, [row.original.id]);
-
-          if (revisionCount === null) {
-            return <span style={{ color: "#ccc", fontSize: "12px" }}>Loading...</span>;
-          }
+          // Read the denormalized revisionCount carried on the row (kept in lockstep
+          // by the audit capture worker). Avoids a per-row fetch to the legacy
+          // /api/revisions endpoint (removed) and the N+1 it caused.
+          const revisionCount = Number(row.original?.revisionCount) || 0;
 
           if (revisionCount === 0) {
             return <span style={{ color: "#ccc" }}>—</span>;
@@ -734,14 +753,29 @@ const LeadTablePage = () => {
         String(item.area || "").toLowerCase().includes(q);
     }
 
-    return dateMatch && statusMatch && assignedMatch && searchMatch;
+    const overdueMatch = overdueOnly
+      ? item.nextFollowUpDate
+        ? dayjs(item.nextFollowUpDate).isValid() &&
+          dayjs(item.nextFollowUpDate).isBefore(dayjs().startOf("day"))
+        : false
+      : true;
+
+    return dateMatch && statusMatch && assignedMatch && searchMatch && overdueMatch;
   });
 
-  const hasAnyFilter = statusFilter || assignedToFilter || searchText;
+  const overdueCount = (tableData ?? []).filter(
+    (item: any) =>
+      item.nextFollowUpDate &&
+      dayjs(item.nextFollowUpDate).isValid() &&
+      dayjs(item.nextFollowUpDate).isBefore(dayjs().startOf("day")),
+  ).length;
+
+  const hasAnyFilter = statusFilter || assignedToFilter || searchText || overdueOnly;
   const clearAllFilters = () => {
     setStatusFilter("");
     setAssignedToFilter("");
     setSearchText("");
+    setOverdueOnly(false);
   };
 
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
@@ -1090,6 +1124,40 @@ const LeadTablePage = () => {
                 />
               )}
             />
+
+            {/* Overdue follow-ups toggle */}
+            <button
+              type="button"
+              onClick={() => setOverdueOnly((v) => !v)}
+              title="Show only leads whose next follow-up date has passed"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                height: FILTER_HEIGHT,
+                padding: "0 12px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontFamily: "Inter",
+                fontSize: "12px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                border: `1px solid ${overdueOnly ? "#DC2626" : "#E2E8F0"}`,
+                background: overdueOnly ? "#FEF2F2" : "#FFFFFF",
+                color: overdueOnly ? "#DC2626" : "#64748B",
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  backgroundColor: overdueCount > 0 ? "#DC2626" : "#CBD5E1",
+                  display: "inline-block",
+                }}
+              />
+              Overdue{overdueCount > 0 ? ` (${overdueCount})` : ""}
+            </button>
 
             {hasAnyFilter && (
               <button

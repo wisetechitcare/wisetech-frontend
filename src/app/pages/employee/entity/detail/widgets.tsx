@@ -110,7 +110,7 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
           cursor: 'pointer',
         }}
       >
-        <i className="bi bi-exclamation-triangle-fill" /> {items.length} fields missing
+        <i className="bi bi-exclamation-triangle-fill" /> {items.length} field{items.length === 1 ? '' : 's'} missing
         <i className={`bi bi-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 10 }} />
       </button>
       {open && (

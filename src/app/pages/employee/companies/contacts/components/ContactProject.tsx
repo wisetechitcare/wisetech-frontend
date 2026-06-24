@@ -236,7 +236,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
     },
     {
       accessorKey: "projectAccess",
-      header: "Project Access",
+      header: "Visibility (tag)",
       Cell: ({ renderedCellValue }: any) => renderedCellValue,
     },
     {

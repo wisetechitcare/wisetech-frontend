@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Grid, CircularProgress, IconButton, Tooltip } from "@mui/material";
-import { MyLocation, LocationOn } from "@mui/icons-material";
+import { MyLocation, LocationOn, CheckCircle, MapOutlined, Directions, ContentCopy, Clear } from "@mui/icons-material";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { useFormikContext } from "formik";
@@ -152,6 +152,55 @@ const premiumMarkerIcon = L.divIcon({
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 const OPEN_CAGE_API_KEY = import.meta.env.VITE_APP_OPEN_CAGE_API_KEY;
 
+// ── Coordinate / link helpers ────────────────────────────────────────────────
+const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+const isValidLat = (n: number) => Number.isFinite(n) && n >= -90 && n <= 90;
+const isValidLng = (n: number) => Number.isFinite(n) && n >= -180 && n <= 180;
+/** Canonical Google Maps place link from coordinates (the "auto sync" link). */
+const buildGoogleMapsLink = (lat: number, lng: number) =>
+  `https://www.google.com/maps?q=${round6(lat)},${round6(lng)}`;
+/** Turn-by-turn directions link to the dropped pin. */
+const buildDirectionsLink = (lat: number, lng: number) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${round6(lat)},${round6(lng)}`;
+
+/** Pull coordinates out of any Google/OSM maps URL we can recognise. */
+const parseCoordsFromUrl = (url: string): { lat: number; lng: number } | null => {
+  const patterns = [
+    /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, // place pin
+    /@(-?\d+\.\d+),(-?\d+\.\d+)/, // viewport center
+    /[?&](?:q|query|ll|destination)=(-?\d+\.\d+),(-?\d+\.\d+)/, // q=/ll=/destination=
+    /\/(-?\d+\.\d+),(-?\d+\.\d+)/, // path /lat,lng
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (isValidLat(lat) && isValidLng(lng)) return { lat, lng };
+    }
+  }
+  return null;
+};
+
+/** Normalise OpenCage components into the same shape Nominatim returns. */
+const openCageToNominatim = (r: any) => ({
+  display_name: r.formatted,
+  boundingbox: r.bounds
+    ? [r.bounds.southwest.lat, r.bounds.northeast.lat, r.bounds.southwest.lng, r.bounds.northeast.lng]
+    : undefined,
+  address: {
+    city: r.components.city || r.components.town || r.components.village || r.components.county,
+    town: r.components.town,
+    village: r.components.village,
+    county: r.components.county,
+    state: r.components.state,
+    country: r.components.country,
+    postcode: r.components.postcode,
+    suburb: r.components.suburb || r.components.neighbourhood,
+    road: r.components.road,
+  },
+});
+
 interface SmartLocationPickerProps {
   index: number;
   countryOptions: any[];
@@ -235,8 +284,17 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   
   const [pendingGeoState, setPendingGeoState] = useState<string | null>(null);
   const [pendingGeoCity, setPendingGeoCity] = useState<string | null>(null);
-  
+
+  const [locationVerified, setLocationVerified] = useState<boolean>(
+    !isNaN(parseFloat(addressData.latitude)) && !isNaN(parseFloat(addressData.longitude))
+  );
+  const [copied, setCopied] = useState(false);
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+  // Prevents the link→coords resolver from firing on links WE generated (no loop).
+  const skipNextLinkResolve = useRef(false);
+  const lastPincodeLookup = useRef<string>("");
 
   // Sync pending state when states array loads
   useEffect(() => {
@@ -254,21 +312,48 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     }
   }, [states, pendingGeoState, addressData.country]);
 
+  // Try to match pending city with available cities
+  const tryMatchPendingCity = React.useCallback(() => {
+    if (!pendingGeoCity || !cities || cities.length === 0) return;
+
+    const pendingLower = pendingGeoCity.toLowerCase().trim();
+
+    // Try exact match first
+    let foundCity = cities.find((c: any) =>
+      c.name.toLowerCase().trim() === pendingLower
+    );
+
+    // If no exact match, try partial/contains match
+    if (!foundCity) {
+      foundCity = cities.find((c: any) => {
+        const cityNameLower = c.name.toLowerCase().trim();
+        return pendingLower.includes(cityNameLower) ||
+               cityNameLower.includes(pendingLower);
+      });
+    }
+
+    // If still no match, try first letter match (for cases like "Mumbai" vs "Mumbai City")
+    if (!foundCity && pendingLower.length > 0) {
+      foundCity = cities.find((c: any) =>
+        c.name.toLowerCase().startsWith(pendingLower.charAt(0))
+      );
+    }
+
+    // Last resort: if there's only one city, select it
+    if (!foundCity && cities.length === 1) {
+      foundCity = cities[0];
+    }
+
+    if (foundCity && addressData.city !== foundCity.id) {
+      setFieldValue(`${addressPath}.city`, foundCity.id);
+      setPendingGeoCity(null);
+    }
+  }, [pendingGeoCity, cities, addressData.city, setFieldValue, addressPath]);
+
   // Sync pending city when cities array loads
   useEffect(() => {
-    if (pendingGeoCity && cities && cities.length > 0) {
-      const foundCity = cities.find((c: any) => 
-        c.name.toLowerCase() === pendingGeoCity.toLowerCase() || 
-        pendingGeoCity.toLowerCase().includes(c.name.toLowerCase())
-      );
-      if (foundCity) {
-        if (addressData.city !== foundCity.id) {
-           setFieldValue(`${addressPath}.city`, foundCity.id);
-        }
-        setPendingGeoCity(null);
-      }
-    }
-  }, [cities, pendingGeoCity]);
+    tryMatchPendingCity();
+  }, [cities, pendingGeoCity, tryMatchPendingCity]);
 
   // Initialize marker and center based on existing form data
   useEffect(() => {
@@ -281,55 +366,62 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     }
   }, []);
 
-  // Sync Google Map Link to Lat/Lng (if user pastes short link)
+  // Sync a pasted Google Map Link → Lat/Lng (handles short maps.app.goo.gl links).
   useEffect(() => {
     let active = true;
     const resolveLink = async () => {
       const link = addressData.googleMapLink;
       if (!link) return;
-      
+      // Ignore links we generated ourselves (avoids a resolve↔sync loop).
+      if (skipNextLinkResolve.current) {
+        skipNextLinkResolve.current = false;
+        return;
+      }
       if (isResolving) return;
-      
       setIsResolving(true);
-      
       try {
         if (link.includes("maps.app.goo.gl") || link.includes("goo.gl")) {
            const { data } = await axios.get(`${API_BASE_URL}/api/employee/resolve-map-link?url=${encodeURIComponent(link)}`, {
              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
            });
            if (active && data?.data?.finalUrl) {
-              extractCoordinatesFromUrl(data.data.finalUrl);
+              const coords = parseCoordsFromUrl(data.data.finalUrl);
+              if (coords) updateLocation(coords.lat, coords.lng, undefined, { keepLink: true });
            }
         } else {
-           if (active) extractCoordinatesFromUrl(link);
+           const coords = parseCoordsFromUrl(link);
+           if (active && coords) updateLocation(coords.lat, coords.lng, undefined, { keepLink: true });
         }
       } catch (error) {
         console.error("Failed to resolve link", error);
       }
       if (active) setIsResolving(false);
     };
-    
     resolveLink();
     return () => { active = false; };
   }, [addressData.googleMapLink]);
 
-  const extractCoordinatesFromUrl = (url: string) => {
-     const exactMatch = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-     if (exactMatch) {
-       updateLocation(parseFloat(exactMatch[1]), parseFloat(exactMatch[2]));
-       return;
-     }
-     const atMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-     if (atMatch) {
-       updateLocation(parseFloat(atMatch[1]), parseFloat(atMatch[2]));
-     }
-  };
-
-  const updateLocation = (lat: number, lng: number, placeData?: any) => {
+  const updateLocation = (
+    latRaw: number,
+    lngRaw: number,
+    placeData?: any,
+    opts?: { keepLink?: boolean },
+  ) => {
+    if (!isValidLat(latRaw) || !isValidLng(lngRaw)) return;
+    const lat = round6(latRaw);
+    const lng = round6(lngRaw);
     setCenter({ lat, lng });
     setMarkerPosition({ lat, lng });
+    setLocationVerified(true);
     setFieldValue(`${addressPath}.latitude`, lat.toString());
     setFieldValue(`${addressPath}.longitude`, lng.toString());
+
+    // ⭐ Auto-sync the Google Maps link from the pin (unless we're resolving FROM a
+    // pasted link, in which case we keep what the user pasted).
+    if (!opts?.keepLink) {
+      skipNextLinkResolve.current = true;
+      setFieldValue(`${addressPath}.googleMapLink`, buildGoogleMapsLink(lat, lng));
+    }
 
     if (placeData) {
        // If bounds exist, use them for smart zoom
@@ -352,14 +444,93 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
+    // Prefer OpenCage when an API key is configured (richer, more reliable
+    // components); silently fall back to free Nominatim on any error/quota.
+    if (OPEN_CAGE_API_KEY) {
+      try {
+        const { data } = await axios.get(
+          `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${OPEN_CAGE_API_KEY}&no_annotations=1&limit=1&language=en`
+        );
+        const result = data?.results?.[0];
+        if (result) {
+          parseAddressComponents(openCageToNominatim(result));
+          return;
+        }
+      } catch (error) {
+        console.warn("OpenCage reverse failed, falling back to Nominatim", error);
+      }
+    }
     try {
-      const { data } = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const { data } = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`);
       if (data && data.address) {
         parseAddressComponents(data);
       }
     } catch (error) {
       console.error("Reverse geocoding error", error);
     }
+  };
+
+  // ── Pincode → auto City/State (India Post; free, no key) ────────────────────
+  const lookupPincode = async (pin: string) => {
+    const code = (pin || "").trim();
+    if (!/^\d{6}$/.test(code) || code === lastPincodeLookup.current) return;
+    lastPincodeLookup.current = code;
+    setPincodeLoading(true);
+    try {
+      const { data } = await axios.get(`https://api.postalpincode.in/pincode/${code}`);
+      const postOffices = data?.[0]?.PostOffice || [];
+
+      if (postOffices.length > 0) {
+        // Get the first/main post office entry
+        const po = postOffices[0];
+
+        // India Post → mirror into the same auto-sync path used by geocoding.
+        const country = po.Country || "India";
+        const foundCountry = countryOptions.find(
+          (c) => c.label.toLowerCase() === country.toLowerCase()
+        );
+        if (foundCountry && addressData.country !== foundCountry.value) {
+          handleAddressCountryChange(index, foundCountry.value, setFieldValue);
+        }
+        if (po.State) setPendingGeoState(po.State);
+
+        // Prefer Division/District over Name/Block for better city matching
+        const cityName = po.Division || po.District || po.Block || po.Name || "";
+        if (cityName) setPendingGeoCity(cityName);
+      }
+    } catch (error) {
+      console.warn("Pincode lookup failed", error);
+    } finally {
+      setPincodeLoading(false);
+    }
+  };
+
+  // Auto-lookup once a full 6-digit pincode is present.
+  useEffect(() => {
+    const code = (addressData.pincode || "").trim();
+    if (/^\d{6}$/.test(code)) lookupPincode(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressData.pincode]);
+
+  const copyCoordinates = () => {
+    const lat = addressData.latitude;
+    const lng = addressData.longitude;
+    if (!lat || !lng) return;
+    navigator.clipboard?.writeText(`${lat}, ${lng}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  const clearLocation = () => {
+    setMarkerPosition(null);
+    setMapBounds(null);
+    setLocationVerified(false);
+    setSearchQuery("");
+    skipNextLinkResolve.current = true;
+    ["latitude", "longitude", "googleMapLink"].forEach((f) =>
+      setFieldValue(`${addressPath}.${f}`, "")
+    );
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -372,7 +543,11 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     if (val.length > 2) {
       searchTimeout.current = setTimeout(async () => {
         try {
-          const { data } = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5`);
+          // Add &addressdetails=1 to get address components in search results
+          // Add &countrycodes=in to prioritize India (for Indian locations)
+          const { data } = await axios.get(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5&addressdetails=1&countrycodes=in`
+          );
           if (data && data.length > 0) {
             setSearchResults(data);
           }
@@ -394,7 +569,9 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
         // Force immediate search if they press enter before debounce finishes
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
         try {
-          const { data } = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
+          const { data } = await axios.get(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=in`
+          );
           if (data && data.length > 0) {
             setSearchResults(data);
             selectPlace(data[0]);
@@ -409,43 +586,68 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   const selectPlace = (place: any) => {
     setSearchQuery(place.display_name);
     setShowDropdown(false);
+    // Set project address and reverse geocode to get detailed address components
+    setFieldValue(`${addressPath}.projectAddress`, place.display_name);
     updateLocation(parseFloat(place.lat), parseFloat(place.lon), place);
   };
 
   const parseAddressComponents = (result: any) => {
-    // If it's from reverse geocode it has .address directly. 
-    // If from search, we need to do a quick reverse geocode to get the address details cleanly, 
-    // or just use whatever address parts Nominatim returned if available (add &addressdetails=1 to search).
-    // Let's assume result.address is populated.
+    // Parse address components from Nominatim result (both reverse geocode and search with addressdetails=1)
     const components = result.address || {};
-    
-    const formatted = result.display_name || "";
-    setSearchQuery(formatted);
-    setFieldValue(`${addressPath}.projectAddress`, formatted);
-    
-    const city = components.city || components.town || components.village || components.county || "";
-    const state = components.state || "";
+    const display = result.display_name || "";
+
+    // ALWAYS set the formatted address (display_name) from Nominatim
+    if (display && !addressData.projectAddress) {
+      setFieldValue(`${addressPath}.projectAddress`, display);
+    }
+
+    // Extract address fields with multiple fallbacks
+    // Prefer city over district to get the most recognizable city name
+    const city = components.city ||
+                 components.town ||
+                 components.municipality ||
+                 components.county ||
+                 components.village ||
+                 components.district ||
+                 "";
+
+    const state = components.state ||
+                  components.province ||
+                  components.region ||
+                  "";
+
     const country = components.country || "";
     const pincode = components.postcode || "";
 
-    if (pincode) setFieldValue(`${addressPath}.pincode`, pincode);
-    
+    // Set pincode if available
+    if (pincode) {
+      setFieldValue(`${addressPath}.pincode`, pincode);
+    }
+
     // Auto-sync country, state, and city
     if (country) {
-       const foundCountry = countryOptions.find(c => 
-         c.label.toLowerCase() === country.toLowerCase() || 
+       const foundCountry = countryOptions.find(c =>
+         c.label.toLowerCase() === country.toLowerCase() ||
          country.toLowerCase().includes(c.label.toLowerCase())
        );
-       
-       if (foundCountry) {
-          if (addressData.country !== foundCountry.value) {
-             handleAddressCountryChange(index, foundCountry.value, setFieldValue);
-          }
-          
-          // Queue state and city to be synced once the dropdown options load from the backend
-          if (state) setPendingGeoState(state);
-          if (city) setPendingGeoCity(city);
+
+       if (foundCountry && addressData.country !== foundCountry.value) {
+          handleAddressCountryChange(index, foundCountry.value, setFieldValue);
        }
+
+       // Queue state and city to be synced once the dropdown options load from the backend
+       if (state) setPendingGeoState(state);
+
+       // For city, prefer the one from components, but also try extracting from display_name
+       let cityToSet = city;
+       if (!cityToSet && display) {
+         // Try to extract city from display name (usually second or third component)
+         const parts = display.split(',').map(p => p.trim());
+         // Filter out short parts and get a reasonable city name
+         cityToSet = parts.find(p => p.length > 2 && p.length < 30) || "";
+       }
+
+       if (cityToSet) setPendingGeoCity(cityToSet);
     }
   };
 
@@ -471,8 +673,17 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
   return (
     <div className="p-0 border rounded bg-white mb-6 overflow-hidden shadow-sm">
       <div className="d-flex justify-content-between align-items-center p-4 border-bottom bg-light">
-         <h5 className="mb-0 fw-bold d-flex align-items-center text-primary" style={{ fontFamily: 'Inter' }}>
-            <LocationOn className="me-2" /> Smart Location Details
+         <h5 className="mb-0 fw-bold d-flex align-items-center text-primary gap-2" style={{ fontFamily: 'Inter' }}>
+            <LocationOn className="me-1" /> Smart Location Details
+            {locationVerified ? (
+              <span className="badge d-inline-flex align-items-center gap-1" style={{ background: '#dcfce7', color: '#15803d', fontWeight: 600 }}>
+                <CheckCircle style={{ fontSize: 14 }} /> Location set
+              </span>
+            ) : (
+              <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', fontWeight: 600 }}>
+                Not set
+              </span>
+            )}
          </h5>
          <Tooltip title="Use My Current Location">
            <IconButton color="primary" onClick={locateMe} size="small" style={{ backgroundColor: '#e1f0ff' }}>
@@ -565,8 +776,33 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
               </LayersControl.BaseLayer>
             </LayersControl>
            
+            {/* Show all search results as clickable markers */}
+            {searchResults.length > 0 && !markerPosition && (
+              searchResults.map((result, idx) => (
+                <Marker
+                  key={idx}
+                  position={[parseFloat(result.lat), parseFloat(result.lon)]}
+                  title={result.display_name}
+                  eventHandlers={{
+                    click: () => selectPlace(result),
+                  }}
+                >
+                </Marker>
+              ))
+            )}
+
             {markerPosition && (
-              <Marker position={[markerPosition.lat, markerPosition.lng]} icon={premiumMarkerIcon} />
+              <Marker
+                position={[markerPosition.lat, markerPosition.lng]}
+                icon={premiumMarkerIcon}
+                draggable
+                eventHandlers={{
+                  dragend: (e: any) => {
+                    const ll = e.target.getLatLng();
+                    updateLocation(ll.lat, ll.lng);
+                  },
+                }}
+              />
             )}
             <MapEvents onMapClick={onMapClick} />
             <MapUpdater center={center} zoom={markerPosition ? 16 : 11} bounds={mapBounds} />
@@ -576,10 +812,51 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
 
           {!markerPosition && (
             <div style={{ position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 16px', borderRadius: '20px', fontSize: '14px', pointerEvents: 'none', zIndex: 1000 }}>
-               Click anywhere on the map to drop a pin
+               Click anywhere on the map to drop a pin — drag the pin to fine-tune
             </div>
           )}
         </div>
+
+        {/* ── Quick actions for the dropped pin ──────────────────────────── */}
+        {markerPosition && (
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-4">
+            <span className="text-muted fw-semibold" style={{ fontSize: 13 }}>
+              <LocationOn fontSize="small" className="me-1" />
+              {round6(markerPosition.lat)}, {round6(markerPosition.lng)}
+            </span>
+            <div className="vr mx-1" />
+            <a
+              className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1"
+              href={buildGoogleMapsLink(markerPosition.lat, markerPosition.lng)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MapOutlined style={{ fontSize: 16 }} /> Open in Maps
+            </a>
+            <a
+              className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1"
+              href={buildDirectionsLink(markerPosition.lat, markerPosition.lng)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Directions style={{ fontSize: 16 }} /> Directions
+            </a>
+            <button
+              type="button"
+              className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1"
+              onClick={copyCoordinates}
+            >
+              <ContentCopy style={{ fontSize: 16 }} /> {copied ? "Copied!" : "Copy coordinates"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 ms-auto"
+              onClick={clearLocation}
+            >
+              <Clear style={{ fontSize: 16 }} /> Clear
+            </button>
+          </div>
+        )}
 
         <div className="accordion mt-5" id={`advancedLocation-${index}`}>
           <div className="accordion-item border rounded">
@@ -618,6 +895,15 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextInput formikField={`${addressPath}.pincode`} label="Pincode" isRequired={false} />
+                    {pincodeLoading ? (
+                      <span className="text-muted d-inline-flex align-items-center gap-1 mt-1" style={{ fontSize: 12 }}>
+                        <CircularProgress size={12} /> Looking up city & state…
+                      </span>
+                    ) : (
+                      <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                        Enter a 6-digit Indian pincode to auto-fill City &amp; State.
+                      </span>
+                    )}
                   </Grid>
                   
                   <Grid item xs={12} md={6}>
@@ -630,17 +916,10 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                   <Grid item xs={12} md={3}>
                     <TextInput formikField={`${addressPath}.longitude`} label="Longitude" isRequired={false} />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid item xs={12} md={6}>
                     <TextInput
                       formikField={`${addressPath}.googleMapLink`}
                       label="Google Map Link"
-                      isRequired={false}
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={3}>
-                    <TextInput
-                      formikField={`${addressPath}.gmbLink`}
-                      label="Google Business Link"
                       isRequired={false}
                     />
                   </Grid>
