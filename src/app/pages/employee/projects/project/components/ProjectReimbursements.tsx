@@ -164,7 +164,6 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
           ...r,
           expenseDate: formattedDate,
           day: date.toLocaleDateString("en-GB", { weekday: "long" }),
-          ID: r.employee?.employeeCode,
           name: `${r.employee?.users?.firstName ?? ""} ${r.employee?.users?.lastName ?? ""}`.trim(),
           type: r.reimbursementType?.type ?? "-NA-",
           status:
@@ -210,6 +209,11 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
     [reimbursementData]
   );
 
+  const totalVisits = useMemo(
+    () => new Set(reimbursementData.map((r) => r.expenseDate)).size,
+    [reimbursementData]
+  );
+
   const fmtAmount = (n: number) =>
     Math.round(n).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -230,13 +234,6 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
       {
-        accessorKey: "ID",
-        header: "ID",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
         accessorKey: "name",
         header: "Name",
         enableSorting: true,
@@ -248,7 +245,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         header: "Note",
         enableSorting: true,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
       },
       {
         accessorKey: "fromLocation",
@@ -372,7 +369,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
       sublabel: "Total Visits Recorded",
       accent: "#7c3aed",
       iconBg: "#f5f3ff",
-      value: reimbursementData.length,
+      value: totalVisits,
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>

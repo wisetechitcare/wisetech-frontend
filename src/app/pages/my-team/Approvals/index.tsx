@@ -7,10 +7,9 @@ import { fetchAllApprovalInstances, fetchPendingApprovals } from '@services/empl
 import { navbarIcon } from '@metronic/assets/sidepanelicons';
 import AttendanceApprovals from './AttendanceApprovals';
 import LeaveApprovals from './LeaveApprovals';
-import ConveyanceApprovals from './ConveyanceApprovals';
 import TaskApprovals from './TaskApprovals';
 import OtherApprovals from './OtherApprovals';
-import ReimbursementBatchApprovals from '@pages/employee/reimbursement/ReimbursementBatchApprovals';
+import ReimbursementApprovals from './ReimbursementApprovals';
 
 type ApprovalStep = {
   delegatedFrom?: string | null;
@@ -209,12 +208,11 @@ function Approvals() {
   );
 
   const tabItems: TabItem[] = [
-    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: activeTab === 0 ? navbarIcon.overview.active    : navbarIcon.overview.default },
+    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: activeTab === 0 ? navbarIcon.overview.active       : navbarIcon.overview.default },
     { title: 'Leaves',        component: <LeaveApprovals />,             icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default },
-    { title: 'Reimbursements',component: <ReimbursementBatchApprovals />,icon: activeTab === 2 ? navbarIcon.overview.active    : navbarIcon.overview.default },
-    { title: 'Conveyance',    component: <ConveyanceApprovals />,        icon: activeTab === 3 ? navbarIcon.overview.active    : navbarIcon.overview.default },
-    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: activeTab === 4 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default },
-    { title: 'Others',        component: <OtherApprovals />,             icon: activeTab === 5 ? navbarIcon.overview.active    : navbarIcon.overview.default },
+    { title: 'Reimbursements',component: <ReimbursementApprovals />,     icon: activeTab === 2 ? navbarIcon.overview.active       : navbarIcon.overview.default },
+    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: activeTab === 3 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default },
+    { title: 'Others',        component: <OtherApprovals />,             icon: activeTab === 4 ? navbarIcon.overview.active       : navbarIcon.overview.default },
   ];
 
   return (

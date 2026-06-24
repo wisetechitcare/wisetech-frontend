@@ -168,9 +168,13 @@ interface BatchDetailModalProps {
   onClose: () => void;
   onBatchActionDone: () => void;
   approvalInstanceId?: string | null;
+  /** When set to 1 or 2, restricts the displayed reimbursements to only that approval status.
+   *  Used when opening the modal from an approved-group or rejected-group row so only the
+   *  matching requests are shown instead of the full batch. */
+  filterStatus?: number | null;
 }
 
-export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId }: BatchDetailModalProps) {
+export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus }: BatchDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -182,6 +186,38 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
 
   const pendingCount = batch?.reimbursements?.filter((r: any) => r.status === 0).length || 0;
   const batchIsPending = batch?.status === 0;
+
+  // For pending batches: hide individually-rejected items (already bifurcated from the workflow).
+  // For completed batches: when filterStatus is 1 or 2, show only requests that match that
+  // final approval status — this ensures the popup reflects exactly which group was clicked.
+  const visibleReimbursements = useMemo(() => {
+    const all: any[] = batch?.reimbursements ?? [];
+    if (batchIsPending) {
+      return all.filter((r: any) => r.status !== 2);
+    }
+    if (filterStatus === 1 || filterStatus === 2) {
+      return all.filter((r: any) => {
+        const s = typeof r.status === 'number' ? r.status : 0;
+        return s === filterStatus;
+      });
+    }
+    return all;
+  }, [batch?.reimbursements, batchIsPending, filterStatus]);
+
+  const approvalOverride = useMemo<'approved' | 'rejected' | undefined>(() => {
+    if (!approvalInstanceId) return undefined;
+    if (filterStatus === 2) return 'rejected';
+    const anyRejected = visibleReimbursements.some((r: any) => {
+      const s = typeof r.status === 'number' ? r.status : r.status === 'Rejected' ? 2 : 0;
+      return s === 2;
+    });
+    return anyRejected ? 'rejected' : undefined;
+  }, [approvalInstanceId, filterStatus, visibleReimbursements]);
+
+  const detailTotal = useMemo(
+    () => visibleReimbursements.reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0),
+    [visibleReimbursements],
+  );
 
   const { resolveClientType } = useReimbursementLookups(batch?.reimbursements ?? []);
 
@@ -221,6 +257,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
       header: 'Date',
       enableColumnActions: false,
       Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
+      Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
     },
     {
       accessorKey: 'day',
@@ -242,7 +279,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     },
     {
       accessorKey: 'clientType',
-      header: 'Client Type',
+      header: 'Company Type',
       enableColumnActions: false,
       Cell: ({ row }: any) => {
         const r = row.original;
@@ -252,7 +289,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     },
     {
       accessorKey: 'client',
-      header: 'Client Name',
+      header: 'Company Name',
       enableColumnActions: false,
       Cell: ({ row }: any) => row.original.clientCompany?.companyName || '—',
     },
@@ -283,6 +320,52 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           ₹{fmtAmount(row.original.amount)}
         </span>
       ),
+      Footer: () => <span className='fw-bold'>₹{fmtAmount(detailTotal)}</span>,
+    },
+    {
+      id: 'rowStatus',
+      header: 'Status',
+      enableSorting: false,
+      enableColumnActions: false,
+      Cell: ({ row }: any) => {
+        const s = row.original.status;
+        const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
+        return statusBadge(n);
+      },
+    },
+    {
+      id: 'paymentStatus',
+      header: 'Payment Status',
+      enableSorting: false,
+      enableColumnActions: false,
+      Cell: ({ row }: any) => {
+        const s = row.original.status;
+        const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
+        if (n !== 1) return <span className='text-muted fs-8'>—</span>;
+        const ps = row.original.paymentStatus;
+        if (ps === 'PAID')
+          return <span className='badge badge-light-success fw-semibold fs-8'>Paid</span>;
+        if (ps === 'PARTIAL')
+          return <span className='badge badge-light-info fw-semibold fs-8'>Partially Paid</span>;
+        return <span className='badge badge-light-warning fw-semibold fs-8'>Pending</span>;
+      },
+    },
+    {
+      id: 'rejectionReason',
+      header: 'Reject Reason',
+      enableSorting: false,
+      enableColumnActions: false,
+      Cell: ({ row }: any) => {
+        const s = row.original.status;
+        const n = typeof s === 'number' ? s : s === 'Rejected' ? 2 : 0;
+        if (n !== 2) return <span className='text-muted'>—</span>;
+        const reason = row.original.rejectionReason || row.original.rejectReason;
+        return reason ? (
+          <span style={{ color: '#ef4444', fontSize: 12 }}>{reason}</span>
+        ) : (
+          <span className='text-muted'>—</span>
+        );
+      },
     },
     {
       accessorKey: 'document',
@@ -311,7 +394,11 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         const r = row.original;
         const isProcessing = processingId === r.id;
         if (!batchIsPending || r.status !== 0) {
-          return <span className='text-muted'>No actions available</span>;
+          return (
+            <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
+              No Actions Available
+            </span>
+          );
         }
         return (
           <div className='d-flex gap-1'>
@@ -329,7 +416,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         );
       },
     },
-  ], [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType]);
+  ], [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal]);
 
   const handleBulkAction = async (action: 'approve' | 'reject-all', reason?: string) => {
     if (!batch?.reimbursements?.length) return;
@@ -382,8 +469,8 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
             {batch && (
               <div className='text-muted fs-7 mt-1'>
                 {batch.employee?.users?.firstName} {batch.employee?.users?.lastName} &nbsp;·&nbsp;
-                {batch.totalRequests} request{batch.totalRequests !== 1 ? 's' : ''} &nbsp;·&nbsp;
-                ₹{fmtAmount(batch.totalAmount)} total &nbsp;·&nbsp;
+                {visibleReimbursements.length} request{visibleReimbursements.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
+                ₹{fmtAmount(detailTotal)} total &nbsp;·&nbsp;
                 Submitted {fmtDate(batch.submittedAt)}
               </div>
             )}
@@ -394,7 +481,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           {approvalInstanceId && (
             <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
               <div className='fs-8 fw-bold text-muted text-uppercase mb-2' style={{ letterSpacing: '0.5px' }}>Approval Progress</div>
-              <ApprovalStatusTracker instanceId={approvalInstanceId} compact />
+              <ApprovalStatusTracker instanceId={approvalInstanceId} compact overrideStatus={approvalOverride} />
             </div>
           )}
 
@@ -421,6 +508,32 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
             </div>
           )}
 
+          {(filterStatus === 1 || filterStatus === 2) && (
+            <div style={{
+              padding: '10px 14px',
+              marginBottom: 14,
+              borderRadius: 6,
+              border: `1px solid ${filterStatus === 1 ? '#a7f3d0' : '#fca5a5'}`,
+              background: filterStatus === 1 ? '#f0fdf4' : '#fef2f2',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: filterStatus === 1 ? '#10b981' : '#ef4444',
+                flexShrink: 0,
+                display: 'inline-block',
+              }} />
+              <span style={{ fontWeight: 600, fontSize: 13, color: filterStatus === 1 ? '#065f46' : '#991b1b' }}>
+                {filterStatus === 1 ? 'Approved Requests' : 'Rejected Requests'}
+                {' — '}
+                {visibleReimbursements.length} {visibleReimbursements.length === 1 ? 'request' : 'requests'}
+                {' · ₹'}{fmtAmount(detailTotal)} total
+              </span>
+            </div>
+          )}
+
           {loading ? (
             <div className='d-flex justify-content-center py-10'>
               <span className='spinner-border text-primary' />
@@ -428,10 +541,11 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           ) : (
             <MaterialTable
               columns={detailColumns}
-              data={batch?.reimbursements ?? []}
+              data={visibleReimbursements}
               tableName='BatchDetailReimbursements'
               hideFilters={false}
               hideExportCenter={false}
+              showColumnFooter={true}
               renderExportActions={() => null}
               muiTableProps={{
                 sx: {
@@ -473,27 +587,6 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           )}
         </Modal.Body>
 
-        {batchIsPending && approvalInstanceId && (
-          <Modal.Footer>
-            <button
-              className='btn d-flex align-items-center gap-2'
-              style={{ backgroundColor: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', fontWeight: 600 }}
-              disabled={bulkProcessing}
-              onClick={() => handleBulkAction('approve')}
-            >
-              {bulkProcessing ? <span className='spinner-border spinner-border-sm' /> : null}
-              Approve All
-            </button>
-            <button
-              className='btn d-flex align-items-center gap-2'
-              style={{ backgroundColor: '#fdecea', color: '#c62828', border: '1px solid #ef9a9a', fontWeight: 600 }}
-              disabled={bulkProcessing}
-              onClick={() => setRejectTarget({ id: 'batch', type: 'batch-reject-all' })}
-            >
-              Reject All
-            </button>
-          </Modal.Footer>
-        )}
       </Modal>
 
       <RejectReasonModal

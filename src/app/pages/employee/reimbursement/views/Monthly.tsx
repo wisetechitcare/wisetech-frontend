@@ -249,13 +249,13 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
       },
       {
         accessorKey: "clientTypeId",
-        header: "Client Type",
+        header: "Company Type",
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
       },
       {
         accessorKey: "clientCompanyId",
-        header: "Client Name",
+        header: "Company Name",
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
       },
@@ -289,7 +289,7 @@ function Monthly({ month, showEditDeleteOption=false, showIdCol=false, showName=
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: "Approval Status",
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },

@@ -97,7 +97,7 @@ export function AsideMenuMain() {
           <AsideMenuItem to='/my-team/members' title='Members' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
           <AsideMenuItem to='/my-team/attendance' title='Attendance' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
           <AsideMenuItem to='/my-team/leaves' title='Leaves' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
-          <AsideMenuItem to='/my-team/conveyance' title='Conveyance' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
+          <AsideMenuItem to='/finance/bills' title='Reimbursements' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
           <AsideMenuItem to='/my-team/salary' title='Salary' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
           <AsideMenuItem to='/my-team/tasks' title='Tasks' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />
           <AsideMenuItem to='/my-team/projects' title='Projects' icon={sidePanelIcons.rectangle.default} activeIcon={sidePanelIcons.rectangle.active} fontIcon='bi-layers' />

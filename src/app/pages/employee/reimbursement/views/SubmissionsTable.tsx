@@ -10,7 +10,9 @@ import {
   fetchReimbursementBatches,
   fetchReimbursementBatchById,
   deleteEmployeeReimbursement,
+  fetchApprovalInstanceByRequest,
 } from '@services/employee';
+import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { deleteConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
@@ -150,6 +152,8 @@ interface SubmissionDetailModalProps {
   onRefresh: () => void;
   onEdit?: (row: IReimbursementsUpdate) => void;
   showEditDeleteOption?: boolean;
+  /** When 1 or 2, restricts the table to only show reimbursements with that approval status. */
+  filterStatus?: number | null;
 }
 
 function SubmissionDetailModal({
@@ -157,24 +161,54 @@ function SubmissionDetailModal({
   onClose,
   onRefresh,
   showEditDeleteOption,
+  filterStatus,
 }: SubmissionDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editRow, setEditRow] = useState<IReimbursementsUpdate | null>(null);
+  const [approvalCurrentLevel, setApprovalCurrentLevel] = useState<number>(1);
+  const [approvalInstanceId, setApprovalInstanceId] = useState<string | null>(null);
+  const [pendingEditRow, setPendingEditRow] = useState<IReimbursementsUpdate | null>(null);
+  const [showPartialApprovalWarning, setShowPartialApprovalWarning] = useState(false);
+
+  const isPartiallyApproved = approvalCurrentLevel > 1;
 
   const reimbursements: any[] = batch?.reimbursements ?? [];
+
+  // When filterStatus is 1 (approved) or 2 (rejected), show only matching requests so
+  // the popup reflects exactly which group was clicked in the submissions table.
+  const displayedReimbursements = useMemo(() => {
+    if (filterStatus === 1 || filterStatus === 2) {
+      return reimbursements.filter((r) => resolveStatusNum(r.status) === filterStatus);
+    }
+    return reimbursements;
+  }, [reimbursements, filterStatus]);
+
+  const detailTotal = useMemo(
+    () => displayedReimbursements.reduce((sum, r) => sum + Number(r.amount || 0), 0),
+    [displayedReimbursements],
+  );
   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(reimbursements);
 
   const loadBatch = useCallback(async () => {
     if (!batchId) return;
     setLoading(true);
     try {
-      const res = await fetchReimbursementBatchById(batchId);
-      setBatch(res?.data?.batch || res?.batch || null);
+      const [batchRes, instanceRes] = await Promise.all([
+        fetchReimbursementBatchById(batchId),
+        fetchApprovalInstanceByRequest('ReimbursementBatch', batchId).catch(() => null),
+      ]);
+      setBatch(batchRes?.data?.batch || batchRes?.batch || null);
+      const instance = instanceRes?.data || instanceRes;
+      setApprovalCurrentLevel(
+        instance?.status === 'pending' ? (instance?.currentLevel ?? 1) : 1,
+      );
+      setApprovalInstanceId(instance?.id ?? null);
     } catch {
       setBatch(null);
+      setApprovalCurrentLevel(1);
     } finally {
       setLoading(false);
     }
@@ -183,6 +217,7 @@ function SubmissionDetailModal({
   useEffect(() => {
     if (batchId) {
       setBatch(null);
+      setApprovalInstanceId(null);
       loadBatch();
     }
   }, [batchId, loadBatch]);
@@ -211,6 +246,7 @@ function SubmissionDetailModal({
         header: 'Date',
         enableColumnActions: false,
         Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
       {
         accessorKey: 'day',
@@ -223,7 +259,7 @@ function SubmissionDetailModal({
         accessorKey: 'description',
         header: 'Note',
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || '—',
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
       },
       {
         accessorKey: 'type',
@@ -233,7 +269,7 @@ function SubmissionDetailModal({
       },
       {
         accessorKey: 'clientType',
-        header: 'Client Type',
+        header: 'Company Type',
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const r = row.original;
@@ -245,7 +281,7 @@ function SubmissionDetailModal({
       },
       {
         accessorKey: 'client',
-        header: 'Client Name',
+        header: 'Company Name',
         enableColumnActions: false,
         Cell: ({ row }: any) =>
           row.original.clientCompany?.companyName ||
@@ -276,6 +312,7 @@ function SubmissionDetailModal({
         header: 'Amount',
         enableColumnActions: false,
         Cell: ({ row }: any) => `₹${fmtAmount(row.original.amount)}`,
+        Footer: () => <span className="fw-bold">₹{fmtAmount(detailTotal)}</span>,
       },
       {
         accessorKey: 'paymentStatus',
@@ -299,19 +336,23 @@ function SubmissionDetailModal({
           );
         },
       },
-      {
-        accessorKey: 'rejectionReason',
-        header: 'Reject Reason',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const statusNum = resolveStatusNum(row.original.status);
-          const reason = row.original.rejectionReason;
-          if (statusNum === 1) return <span className="text-muted">N/A</span>;
-          if (statusNum === 2 && reason)
-            return <span className="text-danger">{reason}</span>;
-          return <span className="text-muted">N/A</span>;
-        },
-      },
+      ...(filterStatus === 2
+        ? [
+            {
+              accessorKey: 'rejectionReason',
+              header: 'Reject Reason',
+              enableColumnActions: false,
+              Cell: ({ row }: any) => {
+                const reason = row.original.rejectionReason || row.original.rejectReason;
+                return reason ? (
+                  <span className="text-danger">{reason}</span>
+                ) : (
+                  <span className="text-muted">—</span>
+                );
+              },
+            },
+          ]
+        : []),
       {
         accessorKey: 'document',
         header: 'Document',
@@ -391,8 +432,13 @@ function SubmissionDetailModal({
                         onClick={() => {
                           const cleaned = Object.fromEntries(
                             Object.entries(r).filter(([, v]) => v != null),
-                          );
-                          setEditRow(cleaned as IReimbursementsUpdate);
+                          ) as IReimbursementsUpdate;
+                          if (isPartiallyApproved) {
+                            setPendingEditRow(cleaned);
+                            setShowPartialApprovalWarning(true);
+                          } else {
+                            setEditRow(cleaned);
+                          }
                         }}
                       >
                         <KTIcon iconName="pencil" className="fs-4 text-primary" />
@@ -430,6 +476,9 @@ function SubmissionDetailModal({
       handleViewDocument,
       deletingId,
       setEditRow,
+      detailTotal,
+      isPartiallyApproved,
+      filterStatus,
     ],
   );
 
@@ -450,8 +499,8 @@ function SubmissionDetailModal({
             </Modal.Title>
             {batch && (
               <div className="text-muted fs-7 mt-1">
-                {batch.totalRequests} request{batch.totalRequests !== 1 ? 's' : ''}&nbsp;·&nbsp;
-                ₹{fmtAmount(batch.totalAmount)} total&nbsp;·&nbsp;Submitted{' '}
+                {displayedReimbursements.length} request{displayedReimbursements.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
+                ₹{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
                 {fmtDate(batch.submittedAt)}
               </div>
             )}
@@ -459,6 +508,16 @@ function SubmissionDetailModal({
         </Modal.Header>
 
         <Modal.Body style={{ padding: '24px', maxHeight: '82vh', overflowY: 'auto' }}>
+          {approvalInstanceId && (
+            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
+              <div className="fs-8 fw-bold text-muted text-uppercase mb-2" style={{ letterSpacing: '0.5px' }}>Approval Progress</div>
+              <ApprovalStatusTracker
+                instanceId={approvalInstanceId}
+                compact
+                overrideStatus={filterStatus === 2 ? 'rejected' : filterStatus === 1 ? 'approved' : undefined}
+              />
+            </div>
+          )}
           {loading ? (
             <div className="d-flex justify-content-center py-10">
               <span className="spinner-border text-primary" />
@@ -466,10 +525,11 @@ function SubmissionDetailModal({
           ) : (
             <MaterialTable
               columns={detailColumns}
-              data={reimbursements}
+              data={displayedReimbursements}
               tableName="SubmissionDetailReimbursements"
               hideFilters={false}
               hideExportCenter={false}
+              showColumnFooter={true}
               muiTableProps={{
                 sx: {
                   '& .MuiTableBody-root .MuiTableCell-root': {
@@ -525,6 +585,44 @@ function SubmissionDetailModal({
           onRefresh();
         }}
       />
+
+      {/* Partial-approval reset warning */}
+      <Modal show={showPartialApprovalWarning} onHide={() => setShowPartialApprovalWarning(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Editing Will Reset Approval</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '20px 24px' }}>
+          <p className="mb-0" style={{ fontSize: 14 }}>
+            This batch has already been approved by one or more levels. Saving changes will
+            <strong> reset the entire approval process</strong> and resubmit from Level 1
+            so all approvers can review the updated details.
+          </p>
+          <p className="text-muted mt-2 mb-0" style={{ fontSize: 13 }}>
+            Are you sure you want to continue?
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            className="btn btn-sm btn-light"
+            onClick={() => {
+              setShowPartialApprovalWarning(false);
+              setPendingEditRow(null);
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn btn-sm btn-warning"
+            onClick={() => {
+              setEditRow(pendingEditRow);
+              setPendingEditRow(null);
+              setShowPartialApprovalWarning(false);
+            }}
+          >
+            Yes, Edit and Reset Approval
+          </button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }
@@ -554,9 +652,10 @@ function SubmissionsTable({
   viewOthers = false,
   checkOwnWithOthers = false,
 }: SubmissionsTableProps) {
-  const [batches, setBatches] = useState<any[]>([]);
+  const [rows, setRows] = useState<any[]>([]);
   const [tableLoading, setTableLoading] = useState(true);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
+  const [detailFilterStatus, setDetailFilterStatus] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -565,7 +664,6 @@ function SubmissionsTable({
     (allBatches: any[]) => {
       let filtered = allBatches;
 
-      // Filter by selected employee
       if (selectedEmployeeId) {
         filtered = filtered.filter(
           (b: any) =>
@@ -573,7 +671,6 @@ function SubmissionsTable({
         );
       }
 
-      // Filter by period
       if (period === 'monthly') {
         const monthStr = date.format('YYYY-MM');
         filtered = filtered.filter(
@@ -598,38 +695,77 @@ function SubmissionsTable({
       const allBatches: any[] = res?.data?.batches || res?.batches || [];
       const filtered = filterBatches(allBatches);
 
-      // Compute payment status dynamically for approved batches from their individual items
-      const approvedBatches = filtered.filter((b: any) => b.status === 1);
       const detailResults = await Promise.all(
-        approvedBatches.map((b: any) =>
+        filtered.map((b: any) =>
           fetchReimbursementBatchById(b.id)
-            .then((r: any) => ({ id: b.id, batch: r?.data?.batch || r?.batch || null }))
-            .catch(() => ({ id: b.id, batch: null })),
+            .then((r: any) => ({ batchMeta: b, batch: r?.data?.batch || r?.batch || null }))
+            .catch(() => ({ batchMeta: b, batch: null })),
         ),
       );
 
-      const paymentStatusMap: Record<string, string> = {};
-      for (const { id, batch } of detailResults) {
-        if (!batch) continue;
-        const items: any[] = batch.reimbursements || [];
-        const approvedItems = items.filter((r: any) => resolveStatusNum(r.status) === 1);
-        const paidCount = approvedItems.filter((r: any) => r.paymentStatus === 'PAID').length;
-        if (approvedItems.length > 0 && paidCount === approvedItems.length) {
-          paymentStatusMap[id] = 'PAID';
-        } else if (paidCount > 0) {
-          paymentStatusMap[id] = 'PARTIAL';
+      // Group into batch-level summary rows.
+      // Pending batches → 1 row. Completed batches → up to 2 rows (one per final status).
+      const groupedRows: any[] = [];
+      for (const { batchMeta, batch } of detailResults) {
+        const reimbursements: any[] = batch?.reimbursements ?? [];
+        const batchCompleted = batchMeta.status !== 0;
+
+        if (!batchCompleted) {
+          groupedRows.push({
+            _batchId: batchMeta.id,
+            _submissionId: batchMeta.submissionId,
+            _submittedAt: batchMeta.submittedAt,
+            _status: 0,
+            _totalRequests: batchMeta.totalRequests ?? reimbursements.length,
+            _totalAmount: batchMeta.totalAmount ?? reimbursements.reduce((s: number, r: any) => s + Number(r.amount || 0), 0),
+            _paymentStatus: null,
+            _rejectReason: null,
+          });
         } else {
-          paymentStatusMap[id] = 'UNPAID';
+          const statusGroups: Record<number, any[]> = {};
+          for (const r of reimbursements) {
+            const s = typeof r.status === 'number' ? r.status : 0;
+            if (!statusGroups[s]) statusGroups[s] = [];
+            statusGroups[s].push(r);
+          }
+
+          for (const [statusStr, items] of Object.entries(statusGroups)) {
+            const status = Number(statusStr);
+            const totalAmount = items.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+            let paymentStatus: string | null = null;
+            if (status === 1) {
+              const paidCount = items.filter((r) => r.paymentStatus === 'PAID').length;
+              const partialCount = items.filter((r) => r.paymentStatus === 'PARTIAL').length;
+              if (paidCount === items.length) paymentStatus = 'PAID';
+              else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
+              else paymentStatus = 'UNPAID';
+            }
+
+            const rejectReason =
+              status === 2
+                ? items.find((r) => r.rejectReason)?.rejectReason ||
+                  items.find((r) => r.rejectionReason)?.rejectionReason ||
+                  null
+                : null;
+
+            groupedRows.push({
+              _batchId: batchMeta.id,
+              _submissionId: batchMeta.submissionId,
+              _submittedAt: batchMeta.submittedAt,
+              _status: status,
+              _totalRequests: items.length,
+              _totalAmount: totalAmount,
+              _paymentStatus: paymentStatus,
+              _rejectReason: rejectReason,
+            });
+          }
         }
       }
 
-      const enriched = filtered.map((b: any) =>
-        b.status === 1 ? { ...b, paymentStatus: paymentStatusMap[b.id] ?? b.paymentStatus } : b,
-      );
-
-      setBatches(enriched);
+      setRows(groupedRows);
     } catch {
-      setBatches([]);
+      setRows([]);
     } finally {
       setTableLoading(false);
     }
@@ -639,102 +775,81 @@ function SubmissionsTable({
     loadBatches();
   }, [loadBatches]);
 
+  const rowsTotal = useMemo(
+    () => rows.reduce((sum, r) => sum + Number(r._totalAmount || 0), 0),
+    [rows],
+  );
+
   const columns = useMemo<MRT_ColumnDef<any>[]>(
     () => [
       {
-        accessorKey: 'submittedAt',
+        accessorKey: '_submittedAt',
         header: 'Submission Date',
         size: 160,
         Cell: ({ row }: any) => (
-          <span className="text-dark fs-7">{fmtDate(row.original.submittedAt)}</span>
+          <span className="text-dark fs-7">{fmtDate(row.original._submittedAt)}</span>
         ),
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
       {
-        accessorKey: 'totalRequests',
-        header: 'Total Requests',
-        size: 145,
+        accessorKey: '_submissionId',
+        header: 'Submission ID',
+        size: 160,
         Cell: ({ row }: any) => (
           <button
             className="btn btn-link p-0 fw-bold fs-7"
             style={{ textDecoration: 'none', color: '#AA393D', cursor: 'pointer' }}
-            onClick={() => setDetailBatchId(row.original.id)}
+            onClick={(e) => { e.stopPropagation(); setDetailBatchId(row.original._batchId); setDetailFilterStatus(row.original._status ?? null); }}
             title="View all requests in this submission"
           >
-            {row.original.totalRequests}
+            {row.original._submissionId || '—'}
           </button>
         ),
       },
       {
-        accessorKey: 'totalAmount',
-        header: 'Total Amount (₹)',
-        size: 165,
+        accessorKey: '_totalRequests',
+        header: 'Total Requests',
+        size: 130,
         Cell: ({ row }: any) => (
-          <span className="fs-7" style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : { color: 'inherit' }}>
-            ₹{fmtAmount(row.original.totalAmount)}
-          </span>
+          <span className="text-dark fs-7">{row.original._totalRequests}</span>
         ),
       },
       {
-        accessorKey: 'status',
-        header: 'Status',
-        size: 120,
+        accessorKey: '_totalAmount',
+        header: 'Amount (₹)',
+        size: 145,
+        Cell: ({ row }: any) => (
+          <span className="fs-7">₹{fmtAmount(row.original._totalAmount)}</span>
+        ),
+        Footer: () => <span className="text-dark fw-bold fs-7">₹{fmtAmount(rowsTotal)}</span>,
+      },
+      {
+        accessorKey: '_status',
+        header: 'Approval Status',
+        size: 130,
         Cell: ({ row }: any) => {
-          const s = row.original.status;
-          if (s === 1)
-            return (
-              <span className="badge badge-light-success fw-semibold fs-8">Approved</span>
-            );
-          if (s === 2)
-            return (
-              <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>
-            );
+          const s = row.original._status;
+          if (s === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
+          if (s === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
           return <span className="badge badge-light-warning fw-semibold fs-8">Pending</span>;
         },
       },
       {
-        accessorKey: 'paymentStatus',
+        accessorKey: '_paymentStatus',
         header: 'Payment Status',
         size: 145,
         Cell: ({ row }: any) => {
-          const s = row.original.status;
-          if (s === 2) return <span className="text-muted fs-7">N/A</span>;
-          if (s !== 1) return <span className="text-muted fs-7">N/A</span>;
-          const ps = row.original.paymentStatus;
+          if (row.original._status !== 1) return <span className="text-muted fs-7">N/A</span>;
+          const ps = row.original._paymentStatus;
           if (ps === 'PAID')
-            return (
-              <span className="badge badge-light-success text-success fw-bold px-3 py-2 fs-8">
-                Paid
-              </span>
-            );
+            return <span className="badge badge-light-success text-success fw-bold px-3 py-2 fs-8">Paid</span>;
           if (ps === 'PARTIAL')
-            return (
-              <span className="badge badge-light-info text-info fw-bold px-3 py-2 fs-8">
-                Partially Paid
-              </span>
-            );
-          return (
-            <span className="badge badge-light-warning text-warning fw-bold px-3 py-2 fs-8">
-              Pending
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: 'rejectReason',
-        header: 'Reject Reason',
-        size: 230,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const reason = row.original.rejectReason || row.original.rejectionReason;
-          return reason ? (
-            <span className="text-danger fs-7">{reason}</span>
-          ) : (
-            <span className="text-muted fs-7">N/A</span>
-          );
+            return <span className="badge badge-light-info text-info fw-bold px-3 py-2 fs-8">Partially Paid</span>;
+          return <span className="badge badge-light-warning text-warning fw-bold px-3 py-2 fs-8">Pending</span>;
         },
       },
     ],
-    [],
+    [rowsTotal],
   );
 
   return (
@@ -746,13 +861,14 @@ function SubmissionsTable({
       ) : (
         <MaterialTable
           columns={columns}
-          data={batches}
+          data={rows}
           tableName="Submissions"
           resource={resource}
           viewOwn={viewOwn}
           viewOthers={viewOthers}
           checkOwnWithOthers={checkOwnWithOthers}
           employeeId={employeeId}
+          showColumnFooter={true}
           muiTableProps={{
             sx: {
               '& .MuiTableBody-root .MuiTableCell-root': {
@@ -761,15 +877,17 @@ function SubmissionsTable({
               },
             },
             muiTableBodyRowProps: ({ row }: any) => {
-              const s = row.original?.status;
+              const s = row.original?._status ?? 0;
               const colorMap: Record<number, { bg: string; border: string; hover: string }> = {
                 1: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
                 2: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
                 0: { bg: 'rgba(245,158,11,0.04)', border: '#f59e0b', hover: 'rgba(245,158,11,0.08)' },
               };
-              const c = s !== undefined ? colorMap[s] : null;
+              const c = colorMap[s] ?? null;
               return {
+                onClick: () => { setDetailBatchId(row.original._batchId); setDetailFilterStatus(row.original._status ?? null); },
                 sx: {
+                  cursor: 'pointer',
                   backgroundColor: c ? c.bg : undefined,
                   '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
                   transition: 'background-color 0.12s ease',
@@ -785,7 +903,8 @@ function SubmissionsTable({
 
       <SubmissionDetailModal
         batchId={detailBatchId}
-        onClose={() => setDetailBatchId(null)}
+        filterStatus={detailFilterStatus}
+        onClose={() => { setDetailBatchId(null); setDetailFilterStatus(null); }}
         onRefresh={() => setRefreshKey((k) => k + 1)}
         onEdit={onEdit}
         showEditDeleteOption={showEditDeleteOption}

@@ -6,6 +6,8 @@ interface ReimbursementSummaryCardProps {
   totalApprovedAmount?: number;
   totalPendingAmount?: number;
   totalRejectedAmount?: number;
+  totalPaidAmount?: number;
+  totalRemainingAmount?: number;
   isLoading?: boolean;
 }
 
@@ -38,6 +40,21 @@ const IconRejected = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
     <path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const IconPaid = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M6 15h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const IconRemaining = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="19" cy="5" r="3" fill="currentColor"/>
   </svg>
 );
 
@@ -163,12 +180,14 @@ const ReimbursementSummaryCard: React.FC<ReimbursementSummaryCardProps> = ({
   totalApprovedAmount = 0,
   totalPendingAmount = 0,
   totalRejectedAmount = 0,
+  totalPaidAmount = 0,
+  totalRemainingAmount = 0,
   isLoading = false,
 }) => {
   if (isLoading) {
     return (
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
-        {Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)}
+        {Array.from({ length: 6 }).map((_, i) => <KpiSkeleton key={i} />)}
       </Box>
     );
   }
@@ -206,6 +225,22 @@ const ReimbursementSummaryCard: React.FC<ReimbursementSummaryCardProps> = ({
       iconBg: '#fef2f2',
       icon: <IconRejected />,
     },
+    {
+      label: 'Total Amount Paid',
+      sublabel: 'Payments disbursed',
+      value: fmt(totalPaidAmount),
+      accent: '#7c3aed',
+      iconBg: '#f5f3ff',
+      icon: <IconPaid />,
+    },
+    {
+      label: 'Total Amount Remaining',
+      sublabel: 'Approved, not yet paid',
+      value: fmt(totalRemainingAmount),
+      accent: '#ea580c',
+      iconBg: '#fff7ed',
+      icon: <IconRemaining />,
+    },
   ];
 
   return (
@@ -214,8 +249,8 @@ const ReimbursementSummaryCard: React.FC<ReimbursementSummaryCardProps> = ({
         display: 'grid',
         gridTemplateColumns: {
           xs: 'repeat(2, 1fr)',
-          sm: 'repeat(2, 1fr)',
-          lg: 'repeat(4, 1fr)',
+          sm: 'repeat(3, 1fr)',
+          lg: 'repeat(6, 1fr)',
         },
         gap: '14px',
       }}

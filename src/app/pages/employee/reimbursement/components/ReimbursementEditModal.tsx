@@ -21,8 +21,8 @@ import { RootState } from "@redux/store";
 
 const editSchema = Yup.object({
   expenseDate: Yup.string().label("Date"),
-  clientTypeId: Yup.string().label("Client Type"),
-  clientCompanyId: Yup.string().label("Client Name"),
+  clientTypeId: Yup.string().label("Company Type"),
+  clientCompanyId: Yup.string().label("Company Name"),
   projectId: Yup.string().label("Project"),
   reimbursementTypeId: Yup.string().label("Reimbursement For"),
   amount: Yup.number()
@@ -274,8 +274,8 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                   <DropDownInput
                     isRequired={true}
                     formikField="clientTypeId"
-                    inputLabel="Client Type"
-                    placeholder="Select Client Type"
+                    inputLabel="Company Type"
+                    placeholder="Select Company Type"
                     options={companyTypeOptions}
                     onChange={(option: any) => handleClientTypeChange(option, formikProps.setFieldValue)}
                     value={selectedClientType}
@@ -285,13 +285,13 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                   <DropDownInput
                     isRequired={false}
                     formikField="clientCompanyId"
-                    inputLabel="Client Name"
+                    inputLabel="Company Name"
                     placeholder={
                       !formikProps.values.clientTypeId
-                        ? "Select Client Type First"
+                        ? "Select Company Type First"
                         : filteredCompanies.length === 0
                         ? "No clients for this type"
-                        : "Select Client Name"
+                        : "Select Company Name"
                     }
                     options={[...filteredCompanies]
                       .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
@@ -311,7 +311,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
                     inputLabel="Choose Project Name"
                     placeholder={
                       !formikProps.values.clientCompanyId
-                        ? "Select Client Type & Name First"
+                        ? "Select Company Type & Name First"
                         : projectsLoading
                         ? "Loading Projects..."
                         : projectOptions.length === 0
@@ -404,7 +404,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved }: Props)
               </div>
 
               <div className="col-lg mt-4">
-                <TextInput isRequired={true} label="Remark" margin="mb-7" formikField="description" />
+                <TextInput label="Remark" margin="mb-7" formikField="description" isRequired={false} />
               </div>
 
               <div className="d-flex justify-content-end mt-5">

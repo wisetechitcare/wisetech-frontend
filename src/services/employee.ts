@@ -1334,7 +1334,7 @@ export const fetchApprovalWorkflowConfigs = async (employeeId: string, workflowT
 
 export const saveApprovalWorkflowChain = async (
     employeeId: string,
-    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'conveyance',
+    workflowType: 'attendance' | 'leave' | 'reimbursement',
     levels: Array<{ level: number; approverId?: string | null }>,
 ) => {
     try {
@@ -1801,6 +1801,7 @@ export const fetchUnpaidApprovedReimbursements = async (employeeId: string) => {
 
 export const createReimbursementPayment = async (payload: {
     employeeId: string;
+    batchId?: string;
     amountPaid: number;
     paymentDate: string;
     paymentMethod: string;
