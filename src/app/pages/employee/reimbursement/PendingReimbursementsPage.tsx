@@ -798,11 +798,7 @@ function PendingReimbursementsPage({
         if (values.isActive) delete values.isActive;
         if (values.status) delete values.status;
 
-        const filteredValues = Object.fromEntries(
-          Object.entries(values).filter(([key, value]) => key === 'amount' || value !== '')
-        );
-
-        await updatePendingReimbursementDraft(currentReimbursement.id, filteredValues);
+        await updatePendingReimbursementDraft(currentReimbursement.id, values);
         setFormLoading(false);
         successConfirmation('Reimbursement updated successfully');
         setShow(false);
@@ -980,20 +976,6 @@ function PendingReimbursementsPage({
       Cell: ({ row }) => <span>{dayjs(row.original.expenseDate).format('dddd')}</span>,
     },
     {
-      accessorKey: 'description',
-      header: 'Note',
-      size: 150,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.description || 'N/A'}</span>,
-    },
-    {
-      accessorKey: 'reimbursementType.type',
-      header: 'Type',
-      size: 140,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || '—'}</span>,
-    },
-    {
       accessorKey: 'clientTypeId',
       header: 'Company Type',
       size: 130,
@@ -1015,18 +997,11 @@ function PendingReimbursementsPage({
       Cell: ({ row }) => <span>{resolveProject(row.original.projectId)}</span>,
     },
     {
-      accessorKey: 'fromLocation',
-      header: 'From Location',
-      size: 130,
+      accessorKey: 'reimbursementType.type',
+      header: 'Type',
+      size: 140,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.fromLocation || 'NA'}</span>,
-    },
-    {
-      accessorKey: 'toLocation',
-      header: 'To Location',
-      size: 130,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.toLocation || 'NA'}</span>,
+      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || '—'}</span>,
     },
     {
       accessorKey: 'amount',
@@ -1040,6 +1015,27 @@ function PendingReimbursementsPage({
         </span>
       ),
       Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,
+    },
+    {
+      accessorKey: 'fromLocation',
+      header: 'From Location',
+      size: 130,
+      enableColumnActions: false,
+      Cell: ({ row }) => <span>{row.original.fromLocation || 'N/A'}</span>,
+    },
+    {
+      accessorKey: 'toLocation',
+      header: 'To Location',
+      size: 130,
+      enableColumnActions: false,
+      Cell: ({ row }) => <span>{row.original.toLocation || 'N/A'}</span>,
+    },
+    {
+      accessorKey: 'description',
+      header: 'Note',
+      size: 150,
+      enableColumnActions: false,
+      Cell: ({ row }) => <span>{row.original.description || 'N/A'}</span>,
     },
     {
       accessorKey: 'document',
@@ -1063,7 +1059,7 @@ function PendingReimbursementsPage({
     },
     {
       accessorKey: 'actions',
-      header: 'Actions',
+      header: 'Action',
       size: 130,
       enableSorting: false,
       enableColumnActions: false,
@@ -1345,17 +1341,90 @@ function PendingReimbursementsPage({
                 </div>
 
                 {/* Row 6: Document Upload */}
-                <div className='row'>
+                <div className='row mb-7'>
                   <div className='col-lg-12'>
-                    <label className='mb-3 fw-bold'>Upload Reimbursement Bill</label>
+                    <label className='mb-2 fw-bold'>Upload Reimbursement Bill</label>
+
+                    {/* Hidden real file input */}
                     <input
                       ref={fileInputRef}
                       type='file'
                       accept='image/*,application/pdf'
-                      className='form-control form-control-lg form-control-solid'
-                      required={false}
+                      className='d-none'
                       onChange={(event) => uploadFile(event, formikProps, 5 * 1024 * 1024)}
                     />
+
+                    <div className='d-flex align-items-center gap-2'>
+                      {/* Custom file control */}
+                      <div
+                        className='d-flex align-items-center p-0 overflow-hidden'
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          height: '46px',
+                          borderRadius: '0.475rem',
+                          border: '1px solid #e4e6ef',
+                          backgroundColor: '#f5f8fa',
+                        }}
+                      >
+                        {/* Choose File button */}
+                        <button
+                          type='button'
+                          onClick={() => fileInputRef.current?.click()}
+                          className='d-flex align-items-center gap-1 flex-shrink-0 h-100 px-3 border-0 fs-7 fw-semibold'
+                          style={{
+                            backgroundColor: '#e9ecef',
+                            color: '#5e6278',
+                            borderRight: '1px solid #dee2e6',
+                            borderRadius: '0.425rem 0 0 0.425rem',
+                            whiteSpace: 'nowrap',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <KTIcon iconName='paper-clip' className='fs-5' />
+                          Choose File
+                        </button>
+
+                        {/* Filename / placeholder */}
+                        <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>
+                          {formikProps.values.document ? (
+                            <>
+                            <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
+                            <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
+                              {String(formikProps.values.document).split('/').pop() ?? 'document'}
+                            </span>
+                            </>
+                          ) : (
+                            <span className='fs-7' style={{ color: '#a1a5b7' }}>No file chosen</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action buttons — appear only when a document is attached */}
+                      {formikProps.values.document && (
+                        <>
+                          <button
+                            type='button'
+                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            title='Preview document'
+                            onClick={() => setPreviewUrl(String(formikProps.values.document))}
+                          >
+                            <KTIcon iconName='eye' className='fs-3' />
+                          </button>
+                          <button
+                            type='button'
+                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            title='Remove document'
+                            onClick={() => {
+                              formikProps.setFieldValue('document', '');
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                          >
+                            <KTIcon iconName='trash' className='fs-3' />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
