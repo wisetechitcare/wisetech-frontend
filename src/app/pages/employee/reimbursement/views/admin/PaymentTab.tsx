@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -16,6 +18,8 @@ import {
 import { BatchDetailModal } from '../../shared/ReimbursementBatchShared';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import Swal from 'sweetalert2';
+import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -24,7 +28,7 @@ function fmtAmount(n: number | string) {
 }
 
 function fmtDate(d?: string) {
-  if (!d) return '—';
+  if (!d) return 'N/A';
   return dayjs(d).format('DD MMM YYYY');
 }
 
@@ -111,11 +115,20 @@ function PeriodFilterBar({
   onFilterChange: (f: PeriodFilter) => void;
   onNavigate: (dir: -1 | 1) => void;
 }) {
+  const [fiscalYearLabel, setFiscalYearLabel] = useState('');
+
+  useEffect(() => {
+    if (filter !== 'yearly') return;
+    generateFiscalYearFromGivenYear(date).then(({ startDate, endDate }) => {
+      setFiscalYearLabel(formatFiscalYearLabel(`${startDate} to ${endDate}`));
+    });
+  }, [date, filter]);
+
   const periodLabel =
     filter === 'monthly'
       ? date.format('MMM YYYY')
       : filter === 'yearly'
-      ? date.format('YYYY')
+      ? fiscalYearLabel || date.format('YYYY')
       : 'All Time';
 
   return (
@@ -191,14 +204,24 @@ function PendingPaymentTable({
     [pendingBatches],
   );
 
+  const totalRequestAmount = useMemo(
+    () => pendingBatches.reduce((s, b) => s + Number(b.totalAmount ?? 0), 0),
+    [pendingBatches],
+  );
+
+  const totalPaid = useMemo(
+    () => pendingBatches.reduce((s, b) => s + Number(b.paidAmount ?? 0), 0),
+    [pendingBatches],
+  );
+
   const tableData = useMemo(
     () =>
       pendingBatches.map((b) => ({
         id: b.id,
-        employeeCode: b.employee?.employeeCode || '—',
+        employeeCode: b.employee?.employeeCode || 'N/A',
         employeeName: b.employee?.users
-          ? `${b.employee.users.firstName ?? ''} ${b.employee.users.lastName ?? ''}`.trim() || '—'
-          : '—',
+          ? `${b.employee.users.firstName ?? ''} ${b.employee.users.lastName ?? ''}`.trim() || 'N/A'
+          : 'N/A',
         totalRequests: b.totalRequests,
         totalAmount: Number(b.totalAmount || 0),
         paidAmount: Number(b.paidAmount || 0),
@@ -223,6 +246,7 @@ function PendingPaymentTable({
         Cell: ({ renderedCellValue }: any) => (
           <span className="text-dark fw-bold fs-6">{renderedCellValue}</span>
         ),
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
       {
         accessorKey: 'totalRequests',
@@ -243,31 +267,37 @@ function PendingPaymentTable({
       },
       {
         accessorKey: 'totalAmount',
-        header: 'Total Amount',
+        header: 'Total Request Amount',
         size: 130,
         Cell: ({ renderedCellValue }: any) => (
           <span className="fw-bold fs-7" style={{ color: '#475569' }}>
             {formatINR(Number(renderedCellValue))}
           </span>
         ),
+        Footer: () => (
+          <span style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
+            {formatINR(totalRequestAmount)}
+          </span>
+        ),
       },
       {
         accessorKey: 'paidAmount',
-        header: 'Paid Amount',
+        header: 'Total Paid Amount',
         size: 130,
-        Cell: ({ renderedCellValue }: any) => {
-          const paid = Number(renderedCellValue);
-          return (
-            <span className="fw-bold fs-7" style={{ color: paid === 0 ? '#16a34a' : '#16a34a' }}>
-              {formatINR(paid)}
-            </span>
-          );
-        },
-        Footer: () => null,
+        Cell: ({ renderedCellValue }: any) => (
+          <span className="fw-bold fs-7" style={{ color: '#16a34a' }}>
+            {formatINR(Number(renderedCellValue))}
+          </span>
+        ),
+        Footer: () => (
+          <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
+            {formatINR(totalPaid)}
+          </span>
+        ),
       },
       {
         accessorKey: 'remainingAmount',
-        header: 'Remaining Amount',
+        header: 'Total Remaining Amount',
         size: 145,
         Cell: ({ renderedCellValue }: any) => {
           return (
@@ -328,7 +358,7 @@ function PendingPaymentTable({
         ),
       },
     ],
-    [markingId, onMarkAsPaid, onRowClick, totalRemaining],
+    [markingId, onMarkAsPaid, onRowClick, totalRemaining, totalRequestAmount, totalPaid],
   );
 
   return (
@@ -393,10 +423,10 @@ function PaymentDoneTable({
       const empId = b.employee?.id || b.employeeId;
       if (empId) {
         map.set(empId, {
-          employeeCode: b.employee?.employeeCode || '—',
+          employeeCode: b.employee?.employeeCode || 'N/A',
           employeeName: b.employee?.users
-            ? `${b.employee.users.firstName ?? ''} ${b.employee.users.lastName ?? ''}`.trim() || '—'
-            : '—',
+            ? `${b.employee.users.firstName ?? ''} ${b.employee.users.lastName ?? ''}`.trim() || 'N/A'
+            : 'N/A',
         });
       }
     });
@@ -441,12 +471,12 @@ function PaymentDoneTable({
                   return {
                     ...r,
                     employeeId: id,
-                    employeeCode: employeeMap.get(id)?.employeeCode || '—',
-                    employeeName: employeeMap.get(id)?.employeeName || '—',
+                    employeeCode: employeeMap.get(id)?.employeeCode || 'N/A',
+                    employeeName: employeeMap.get(id)?.employeeName || 'N/A',
                     paymentMadeBy: r.processor?.users
-                      ? `${r.processor.users.firstName ?? ''} ${r.processor.users.lastName ?? ''}`.trim() || '—'
-                      : '—',
-                    batchRef: bId ? (batchMap.get(bId) || r.batch?.submissionId || bId) : (r.batch?.submissionId || '—'),
+                      ? `${r.processor.users.firstName ?? ''} ${r.processor.users.lastName ?? ''}`.trim() || 'N/A'
+                      : 'N/A',
+                    batchRef: bId ? (batchMap.get(bId) || r.batch?.submissionId || bId) : (r.batch?.submissionId || 'N/A'),
                     _batchId: bId || null,
                   };
                 }),
@@ -457,7 +487,7 @@ function PaymentDoneTable({
       setPayments(
         results
           .flat()
-          .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()),
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
       );
     } catch {
       setPayments([]);
@@ -477,23 +507,25 @@ function PaymentDoneTable({
 
   // One row per Batch ID — each batch is a separate expandable parent row
   const batchRows = useMemo(() => {
-    return batches
-      .filter((b) => b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIAL')
-      .map((b) => ({
-        id: b.id,
-        batchId: b.id,
-        submissionId: b.submissionId || b.id,
-        employeeCode: b.employee?.employeeCode || '—',
-        employeeName: b.employee?.users
-          ? `${b.employee.users.firstName ?? ''} ${b.employee.users.lastName ?? ''}`.trim() || '—'
-          : '—',
-        totalRequests: Number(b.totalRequests ?? 0),
-        totalRequestAmount: Number(b.totalAmount || 0),
-        totalAmountPaid: Number(b.paidAmount || 0),
-        totalRemainingAmount: Number(b.remainingAmount ?? 0),
-        payments: payments.filter((p) => p._batchId === b.id),
-      }));
-  }, [batches, payments]);
+    return filterByPeriod(
+      batches.filter((b) => b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIAL'),
+      filter,
+      currentDate,
+    ).map((b) => ({
+      id: b.id,
+      batchId: b.id,
+      submissionId: b.submissionId || b.id,
+      employeeCode: b.employee?.employeeCode || 'N/A',
+      employeeName: b.employee?.users
+        ? `${b.employee.users.firstName ?? ''} ${b.employee.users.lastName ?? ''}`.trim() || 'N/A'
+        : 'N/A',
+      totalRequests: Number(b.totalRequests ?? 0),
+      totalRequestAmount: Number(b.totalAmount || 0),
+      totalAmountPaid: Number(b.paidAmount || 0),
+      totalRemainingAmount: Number(b.remainingAmount ?? 0),
+      payments: payments.filter((p) => p._batchId === b.id),
+    }));
+  }, [batches, payments, filter, currentDate]);
 
   const columns = useMemo(() => [
     {
@@ -533,17 +565,27 @@ function PaymentDoneTable({
     },
     {
       accessorKey: 'totalRequestAmount',
-      header: 'Total Request Amount (₹)',
+      header: 'Total Request Amount',
       size: 190,
       Cell: ({ renderedCellValue }: any) => (
         <span className="fw-bold fs-7" style={{ color: '#475569' }}>
           ₹{fmtAmount(Number(renderedCellValue))}
         </span>
       ),
+      Footer: ({ table }: any) => {
+        const total = table.getFilteredRowModel().rows.reduce(
+          (s: number, r: any) => s + Number(r.original.totalRequestAmount || 0), 0,
+        );
+        return (
+          <span style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
+            {formatINR(total)}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'totalAmountPaid',
-      header: 'Total Amount Paid (₹)',
+      header: 'Total Paid Amount',
       size: 175,
       Cell: ({ renderedCellValue }: any) => (
         <span className="fw-bolder fs-6" style={{ color: '#16a34a' }}>
@@ -563,7 +605,7 @@ function PaymentDoneTable({
     },
     {
       accessorKey: 'totalRemainingAmount',
-      header: 'Total Remaining Amount (₹)',
+      header: 'Total Remaining Amount',
       size: 210,
       Cell: ({ row, renderedCellValue }: any) => (
         <span className="fw-bolder fs-6" style={{
@@ -572,6 +614,16 @@ function PaymentDoneTable({
           ₹{fmtAmount(Number(renderedCellValue))}
         </span>
       ),
+      Footer: ({ table }: any) => {
+        const total = table.getFilteredRowModel().rows.reduce(
+          (s: number, r: any) => s + Number(r.original.totalRemainingAmount || 0), 0,
+        );
+        return (
+          <span style={{ color: '#AA393D', fontWeight: 700, fontSize: '1rem' }}>
+            {formatINR(total)}
+          </span>
+        );
+      },
     },
   ], []);
 
@@ -618,7 +670,7 @@ function PaymentDoneTable({
                 { label: 'Payment Date', width: '28%' },
                 { label: 'Payment Made By', width: '28%' },
                 { label: 'Method', width: '22%' },
-                { label: 'Amount Paid (₹)', width: '22%' },
+                { label: 'Amount Paid', width: '22%' },
               ];
 
               return (
@@ -676,7 +728,7 @@ function PaymentDoneTable({
                           </td>
                           <td style={{ padding: '10px 16px', borderRight: '1px solid #eeeeee' }}>
                             <span style={{ fontSize: 13, fontWeight: 500, color: '#424242' }}>
-                              {p.paymentMadeBy || '—'}
+                              {p.paymentMadeBy || 'N/A'}
                             </span>
                           </td>
                           <td style={{ padding: '10px 16px', borderRight: '1px solid #eeeeee' }}>
@@ -763,7 +815,7 @@ function MarkAsPaidModal({
 
   const employeeName = batch?.employee?.users
     ? `${batch.employee.users.firstName ?? ''} ${batch.employee.users.lastName ?? ''}`.trim()
-    : '—';
+    : 'N/A';
 
   const handleAmountSave = () => {
     const val = Number(amountInput);
@@ -892,7 +944,7 @@ function MarkAsPaidModal({
               className="fs-8 fw-bolder px-3 py-1 rounded-pill"
               style={{ background: '#fef2f2', color: '#AA393D', fontFamily: 'monospace', letterSpacing: '0.03em' }}
             >
-              {batch?.submissionId || batch?.id || '—'}
+              {batch?.submissionId || batch?.id || 'N/A'}
             </span>
           </div>
 
@@ -1243,6 +1295,9 @@ function PaymentTab() {
   useEffect(() => {
     loadBatches();
   }, [loadBatches]);
+
+  // Refresh when any payment or reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setRefreshKey((k) => k + 1); });
 
   const handleRowClick = (batchId: string) => {
     const batch = batches.find((b) => b.id === batchId);

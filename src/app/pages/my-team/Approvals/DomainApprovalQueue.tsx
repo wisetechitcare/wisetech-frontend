@@ -87,8 +87,7 @@ interface RejectModalProps {
 function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps) {
   const [reason, setReason] = useState('');
   const trimmed = reason.trim();
-  const tooShort = trimmed.length > 0 && trimmed.length < MIN_REASON_LENGTH;
-  const canSubmit = trimmed.length >= MIN_REASON_LENGTH && !submitting;
+  const canSubmit = trimmed.length > 0 && !submitting;
 
   useEffect(() => { if (!step) setReason(''); }, [step]);
 
@@ -123,17 +122,12 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
               <textarea
                 rows={3}
                 className='form-control'
-                placeholder='Describe why this request is being rejected (min 10 characters)…'
+                placeholder='Describe why this request is being rejected…'
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 style={{ resize: 'vertical', fontSize: 13 }}
                 disabled={submitting}
               />
-              {tooShort && (
-                <div style={{ fontSize: 11, color: '#f1416c', marginTop: 4 }}>
-                  Reason must be at least {MIN_REASON_LENGTH} characters ({trimmed.length}/{MIN_REASON_LENGTH})
-                </div>
-              )}
               {!trimmed && (
                 <div style={{ fontSize: 11, color: '#a1a5b7', marginTop: 4 }}>
                   A rejection reason is required.
@@ -297,6 +291,10 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     }
   };
 
+  const isReimbursementFlow = mode === 'include'
+    ? domainTypes.includes('reimbursement')
+    : !domainTypes.includes('reimbursement');
+
   const columns = useMemo<MRT_ColumnDef<ApprovalStep>[]>(() => [
     {
       accessorKey: 'requester',
@@ -316,42 +314,45 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         );
       },
     },
-    {
-      accessorKey: 'totalAmount',
-      header: 'Total Amount (₹)',
-      size: 150,
-      Cell: ({ row }) => {
-        const ds = row.original as DisplayStep;
-        const amount = ds._splitAmount != null ? ds._splitAmount : ds.requestDetails?.totalAmount;
-        if (amount == null) return <span className='text-muted fs-7'>—</span>;
-        return <span className='text-dark fw-semibold fs-7'>₹{fmtAmount(amount)}</span>;
-      },
-    },
-    {
-      accessorKey: 'totalRequests',
-      header: 'Total Requests',
-      size: 130,
-      Cell: ({ row }) => {
-        const ds = row.original as DisplayStep;
-        const count = ds._splitCount != null ? ds._splitCount : ds.requestDetails?.totalRequests;
-        if (count == null) return <span className='text-muted fs-7'>—</span>;
-        return (
-          <span
-            role='button'
-            className='fw-bold fs-6 text-primary'
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setBatchDetailId(ds.instance.requestId);
-              setBatchDetailInstanceId(ds.instance.id);
-              setBatchDetailFilterStatus(ds._splitStatus ?? null);
-            }}
-          >
-            {count}
-          </span>
-        );
-      },
-    },
+    ...(isReimbursementFlow ? [
+      {
+        accessorKey: 'totalRequests',
+        header: 'Total Requests',
+        size: 130,
+        Cell: ({ row }: any) => {
+          const ds = row.original as DisplayStep;
+          const count = ds._splitCount != null ? ds._splitCount : ds.requestDetails?.totalRequests;
+          if (count == null) return <span className='text-muted fs-7'>—</span>;
+          return (
+            <span
+              role='button'
+              className='fw-bold fs-6 text-primary'
+              style={{ cursor: 'pointer' }}
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                setBatchDetailId(ds.instance.requestId);
+                setBatchDetailInstanceId(ds.instance.id);
+                setBatchDetailFilterStatus(ds._splitStatus ?? null);
+              }}
+            >
+              {count}
+            </span>
+          );
+        },
+      } as MRT_ColumnDef<ApprovalStep>,
+      {
+        accessorKey: 'totalAmount',
+        header: 'Total Amount',
+        size: 150,
+        Cell: ({ row }: any) => {
+          const ds = row.original as DisplayStep;
+          const amount = ds._splitAmount != null ? ds._splitAmount : ds.requestDetails?.totalAmount;
+          if (amount == null) return <span className='text-muted fs-7'>—</span>;
+          return <span className='text-dark fw-semibold fs-7'>₹{fmtAmount(amount)}</span>;
+        },
+      } as MRT_ColumnDef<ApprovalStep>
+      
+    ] : []),
     {
       accessorKey: 'workflowType',
       header: 'Type',
@@ -493,7 +494,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         );
       },
     },
-  ], [processingId, leaveTypeColors, activeTab]);
+  ], [processingId, leaveTypeColors, activeTab, isReimbursementFlow]);
 
   const displaySteps = useMemo<DisplayStep[]>(() => {
     if (activeTab !== 'completed') {

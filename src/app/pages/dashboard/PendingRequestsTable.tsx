@@ -600,16 +600,6 @@ const PendingRequestsTable = () => {
   const reimbursementColumns = useMemo<MRT_ColumnDef<BatchRow>[]>(
     () => [
       {
-        accessorKey: 'employee.employeeCode',
-        header: 'Employee ID',
-        size: 130,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => (
-          <span className='text-dark fw-semibold fs-7'>{row.original.employee?.employeeCode || '—'}</span>
-        ),
-        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-      },
-      {
         accessorKey: 'employeeName',
         header: 'Employee Name',
         size: 200,
@@ -628,6 +618,7 @@ const PendingRequestsTable = () => {
             </button>
           );
         },
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
       {
         accessorKey: 'totalAmount',
@@ -1040,17 +1031,13 @@ const PendingRequestsTable = () => {
         <textarea
           rows={3}
           className='form-control'
-          placeholder='Describe why this request is being rejected (min 10 characters)…'
+          placeholder='Describe why this request is being rejected…'
           value={approvalRejectReason}
           onChange={(e) => setApprovalRejectReason(e.target.value)}
           style={{ resize: 'vertical', fontSize: 13 }}
           disabled={approvalRejectSubmitting}
         />
-        {approvalRejectReason.trim().length > 0 && approvalRejectReason.trim().length < 10 && (
-          <div style={{ fontSize: 11, color: '#f1416c', marginTop: 4 }}>
-            Reason must be at least 10 characters ({approvalRejectReason.trim().length}/10)
-          </div>
-        )}
+
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
         <button
@@ -1063,7 +1050,7 @@ const PendingRequestsTable = () => {
         <button
           className='btn btn-sm btn-danger d-flex align-items-center gap-2'
           onClick={confirmWorkflowReject}
-          disabled={approvalRejectReason.trim().length < 10 || approvalRejectSubmitting}
+          disabled={approvalRejectReason.trim().length === 0 || approvalRejectSubmitting}
         >
           {approvalRejectSubmitting && <span className='spinner-border spinner-border-sm' />}
           Confirm Rejection

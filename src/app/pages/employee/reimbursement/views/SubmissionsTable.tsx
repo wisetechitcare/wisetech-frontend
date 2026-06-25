@@ -23,9 +23,11 @@ import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { Tooltip } from '@mui/material';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 function fmtDate(d?: string) {
-  if (!d) return '—';
+  if (!d) return 'N/A';
   return dayjs(d).format('DD MMM YYYY');
 }
 
@@ -253,19 +255,7 @@ function SubmissionDetailModal({
         header: 'Day',
         enableColumnActions: false,
         Cell: ({ row }: any) =>
-          row.original.expenseDate ? dayjs(row.original.expenseDate).format('dddd') : '—',
-      },
-      {
-        accessorKey: 'description',
-        header: 'Note',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-      },
-      {
-        accessorKey: 'type',
-        header: 'Type',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => row.original.reimbursementType?.type || row.original.type || '—',
+          row.original.expenseDate ? dayjs(row.original.expenseDate).format('dddd') : 'N/A',
       },
       {
         accessorKey: 'clientType',
@@ -286,26 +276,20 @@ function SubmissionDetailModal({
         Cell: ({ row }: any) =>
           row.original.clientCompany?.companyName ||
           resolveClientCompany(row.original.clientCompanyId) ||
-          '—',
+          'N/A',
       },
       {
         accessorKey: 'project',
         header: 'Project Name',
         enableColumnActions: false,
         Cell: ({ row }: any) =>
-          row.original.project?.title || resolveProject(row.original.projectId) || '—',
+          row.original.project?.title || resolveProject(row.original.projectId) || 'N/A',
       },
       {
-        accessorKey: 'fromLocation',
-        header: 'From Location',
+        accessorKey: 'type',
+        header: 'Type',
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
-      },
-      {
-        accessorKey: 'toLocation',
-        header: 'To Location',
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
+        Cell: ({ row }: any) => row.original.reimbursementType?.type || row.original.type || 'N/A',
       },
       {
         accessorKey: 'amount',
@@ -315,44 +299,23 @@ function SubmissionDetailModal({
         Footer: () => <span className="fw-bold">₹{fmtAmount(detailTotal)}</span>,
       },
       {
-        accessorKey: 'paymentStatus',
-        header: 'Payment Status',
+        accessorKey: 'fromLocation',
+        header: 'From Location',
         enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const statusNum = resolveStatusNum(row.original.status);
-          if (statusNum === 2) return <span className="text-muted">N/A</span>;
-          if (statusNum !== 1) return <span className="text-muted">N/A</span>;
-          const ps = row.original.paymentStatus;
-          if (ps === 'PAID')
-            return (
-              <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>
-            );
-          if (ps === 'PARTIAL')
-            return (
-              <span className="badge badge-light-info text-info fw-bold px-3 py-2">Partially Paid</span>
-            );
-          return (
-            <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Pending</span>
-          );
-        },
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
       },
-      ...(filterStatus === 2
-        ? [
-            {
-              accessorKey: 'rejectionReason',
-              header: 'Reject Reason',
-              enableColumnActions: false,
-              Cell: ({ row }: any) => {
-                const reason = row.original.rejectionReason || row.original.rejectReason;
-                return reason ? (
-                  <span className="text-danger">{reason}</span>
-                ) : (
-                  <span className="text-muted">—</span>
-                );
-              },
-            },
-          ]
-        : []),
+      {
+        accessorKey: 'toLocation',
+        header: 'To Location',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'description',
+        header: 'Note',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
       {
         accessorKey: 'document',
         header: 'Document',
@@ -373,11 +336,67 @@ function SubmissionDetailModal({
           </button>
         ),
       },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const statusNum = resolveStatusNum(row.original.status);
+          if (statusNum === 1) return <span className="badge badge-light-success fw-semibold fs-8">Approved</span>;
+          if (statusNum === 2) return <span className="badge badge-light-danger fw-semibold fs-8">Rejected</span>;
+          return <span className="badge badge-light-warning fw-semibold fs-8">Pending</span>;
+        },
+      },
+      ...(displayedReimbursements.some((r) => resolveStatusNum(r.status) === 2)
+        ? [
+            {
+              accessorKey: 'rejectionReason',
+              header: 'Reject Reason',
+              enableColumnActions: false,
+              Cell: ({ row }: any) => {
+                const statusNum = resolveStatusNum(row.original.status);
+                if (statusNum !== 2) return <span className="text-muted">N/A</span>;
+                const reason = row.original.rejectionReason || row.original.rejectReason;
+                return reason ? (
+                  <span className="text-danger">{reason}</span>
+                ) : (
+                  <span className="text-muted">N/A</span>
+                );
+              },
+            },
+          ]
+        : []),
+      ...(filterStatus === 1
+        ? [
+            {
+              accessorKey: 'paymentStatus',
+              header: 'Payment Status',
+              enableColumnActions: false,
+              Cell: ({ row }: any) => {
+                const statusNum = resolveStatusNum(row.original.status);
+                if (statusNum === 2) return <span className="text-muted">N/A</span>;
+                if (statusNum !== 1) return <span className="text-muted">N/A</span>;
+                const ps = row.original.paymentStatus;
+                if (ps === 'PAID')
+                  return (
+                    <span className="badge badge-light-success text-success fw-bold px-3 py-2">Paid</span>
+                  );
+                if (ps === 'PARTIAL')
+                  return (
+                    <span className="badge badge-light-info text-info fw-bold px-3 py-2">Partially Paid</span>
+                  );
+                return (
+                  <span className="badge badge-light-warning text-warning fw-bold px-3 py-2">Pending</span>
+                );
+              },
+            },
+          ]
+        : []),
       ...(showEditDeleteOption
         ? [
             {
               id: 'actions',
-              header: 'Actions',
+              header: 'Action',
               enableSorting: false,
               enableColumnActions: false,
               Cell: ({ row }: any) => {
@@ -424,10 +443,10 @@ function SubmissionDetailModal({
                   );
 
                 return (
-                  <div className="d-flex align-items-center gap-2">
+                  <div className="flex items-center justify-center space-x-4">
                     {resEdit && (
                       <button
-                        className="btn btn-icon btn-active-color-primary btn-sm"
+                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
                         title="Edit"
                         onClick={() => {
                           const cleaned = Object.fromEntries(
@@ -441,12 +460,12 @@ function SubmissionDetailModal({
                           }
                         }}
                       >
-                        <KTIcon iconName="pencil" className="fs-4 text-primary" />
+                        <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
                       </button>
                     )}
                     {resDelete && (
                       <button
-                        className="btn btn-icon btn-active-color-danger btn-sm"
+                        className="btn btn-icon btn-active-color-primary btn-sm w-4"
                         title="Delete"
                         disabled={isDeleting}
                         onClick={() => handleDelete(r.id)}
@@ -454,12 +473,12 @@ function SubmissionDetailModal({
                         {isDeleting ? (
                           <span className="spinner-border spinner-border-sm text-danger" />
                         ) : (
-                          <KTIcon iconName="trash" className="fs-4 text-danger" />
+                          <KTIcon iconName="trash" className="inline fs-4 text-red-500" />
                         )}
                       </button>
                     )}
                     {!resEdit && !resDelete && (
-                      <span className="text-muted fs-7">—</span>
+                      <span className="text-muted fs-7">N/A</span>
                     )}
                   </div>
                 );
@@ -479,6 +498,7 @@ function SubmissionDetailModal({
       detailTotal,
       isPartiallyApproved,
       filterStatus,
+      displayedReimbursements,
     ],
   );
 
@@ -775,6 +795,9 @@ function SubmissionsTable({
     loadBatches();
   }, [loadBatches]);
 
+  // Refresh when any reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setRefreshKey((k) => k + 1); });
+
   const rowsTotal = useMemo(
     () => rows.reduce((sum, r) => sum + Number(r._totalAmount || 0), 0),
     [rows],
@@ -802,7 +825,7 @@ function SubmissionsTable({
             onClick={(e) => { e.stopPropagation(); setDetailBatchId(row.original._batchId); setDetailFilterStatus(row.original._status ?? null); }}
             title="View all requests in this submission"
           >
-            {row.original._submissionId || '—'}
+            {row.original._submissionId || 'N/A'}
           </button>
         ),
       },
