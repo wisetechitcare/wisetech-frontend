@@ -19,6 +19,15 @@ import React, { useMemo, useState, useCallback } from "react";
 
 const ACCENT = "#9D4141";
 
+// Row-action palette — harmonized with the maroon theme, each action a distinct hue.
+const ACTION = {
+  subType: "#9D4141",  // theme maroon — hierarchy / add sub-type
+  service: "#1f7a4d",  // green — add service
+  subService: "#0f766e", // teal — add sub-service
+  edit: "#2f6fb3",     // blue — edit
+  remove: "#c0392b",   // red — delete
+};
+
 interface CompanyTypeRow { id: string; name: string; color?: string | null; parentTypeId?: string | null; }
 interface ServiceRow { id: string; name: string; companyTypeId?: string | null; }
 interface SubServiceRow { id: string; name: string; color?: string | null; parentServiceId?: string | null; parentService?: { id: string; name: string } | null; }
@@ -55,6 +64,15 @@ interface TNode {
 const byName = (a: { name?: string }, b: { name?: string }) =>
   (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" });
 
+// hex (#rrggbb) → rgba string, so we can derive soft tints from a single accent color.
+const hexToRgba = (hex: string, a: number): string => {
+  const m = hex.replace("#", "");
+  const r = parseInt(m.substring(0, 2), 16);
+  const g = parseInt(m.substring(2, 4), 16);
+  const b = parseInt(m.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+};
+
 const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => {
   const [hov, setHov] = useState(false);
   return (
@@ -65,9 +83,23 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ background: hov ? "#f0f2f5" : "transparent", border: "none", borderRadius: 5, padding: "3px 6px", cursor: "pointer", color, display: "flex", alignItems: "center" }}
+      style={{
+        width: 30,
+        height: 30,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: hov ? hexToRgba(color, 0.24) : hexToRgba(color, 0.12),
+        border: `1px solid ${hov ? color : hexToRgba(color, 0.32)}`,
+        borderRadius: 8,
+        cursor: "pointer",
+        color,
+        boxShadow: hov ? `0 3px 8px ${hexToRgba(color, 0.3)}` : "none",
+        transform: hov ? "translateY(-1px)" : "none",
+        transition: "all .15s ease",
+      }}
     >
-      <i className={`bi ${icon}`} style={{ fontSize: 12 }} />
+      <i className={`bi ${icon}`} style={{ fontSize: 13, lineHeight: 1 }} />
     </button>
   );
 };
@@ -264,32 +296,32 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
               </div>
 
               {/* Hover actions */}
-              <div className="ctst-actions" style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+              <div className="ctst-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 {node.kind === "type" && node.canAddType && (
-                  <IconBtn icon="bi-diagram-3" title="Add sub-type" color="#16a34a" onClick={() => onAddSubType(node.id)} />
+                  <IconBtn icon="bi-diagram-3" title="Add sub-type" color={ACTION.subType} onClick={() => onAddSubType(node.id)} />
                 )}
                 {(node.kind === "type" || (node.kind === "group" && node.canAddService)) && (
-                  <IconBtn icon="bi-plus-lg" title="Add service" color="#16a34a" onClick={() => onAddService(node.kind === "group" ? null : node.id)} />
+                  <IconBtn icon="bi-plus-lg" title="Add service" color={ACTION.service} onClick={() => onAddService(node.kind === "group" ? null : node.id)} />
                 )}
                 {node.kind === "service" && (
-                  <IconBtn icon="bi-plus-lg" title="Add sub-service" color="#16a34a" onClick={() => onAddSubService(node.id)} />
+                  <IconBtn icon="bi-plus-lg" title="Add sub-service" color={ACTION.subService} onClick={() => onAddSubService(node.id)} />
                 )}
                 {node.kind === "type" && (
                   <>
-                    <IconBtn icon="bi-pencil" title="Edit type" color="#4f82c4" onClick={() => onEditType(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete type" color="#dc3545" onClick={() => onDeleteType(node.id)} />
+                    <IconBtn icon="bi-pencil" title="Edit type" color={ACTION.edit} onClick={() => onEditType(node.entity)} />
+                    <IconBtn icon="bi-trash" title="Delete type" color={ACTION.remove} onClick={() => onDeleteType(node.id)} />
                   </>
                 )}
                 {node.kind === "service" && (
                   <>
-                    <IconBtn icon="bi-pencil" title="Edit service" color="#4f82c4" onClick={() => onEditService(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete service" color="#dc3545" onClick={() => onDeleteService(node.id)} />
+                    <IconBtn icon="bi-pencil" title="Edit service" color={ACTION.edit} onClick={() => onEditService(node.entity)} />
+                    <IconBtn icon="bi-trash" title="Delete service" color={ACTION.remove} onClick={() => onDeleteService(node.id)} />
                   </>
                 )}
                 {node.kind === "subservice" && (
                   <>
-                    <IconBtn icon="bi-pencil" title="Edit sub-service" color="#4f82c4" onClick={() => onEditSubService(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete sub-service" color="#dc3545" onClick={() => onDeleteSubService(node.id)} />
+                    <IconBtn icon="bi-pencil" title="Edit sub-service" color={ACTION.edit} onClick={() => onEditSubService(node.entity)} />
+                    <IconBtn icon="bi-trash" title="Delete sub-service" color={ACTION.remove} onClick={() => onDeleteSubService(node.id)} />
                   </>
                 )}
               </div>
@@ -298,7 +330,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
         )}
       </div>
 
-      <style>{`.ctst-actions{opacity:0;transition:opacity .15s ease}.ctst-row:hover .ctst-actions{opacity:1}`}</style>
+      <style>{`.ctst-actions{opacity:.65;transition:opacity .15s ease}.ctst-row:hover .ctst-actions{opacity:1}`}</style>
     </div>
   );
 };
