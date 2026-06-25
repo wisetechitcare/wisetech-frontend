@@ -5,7 +5,6 @@ import WorkContactInfo from "../forms/WorkContactInfo";
 import WorkExperience from "../forms/WorkExperience";
 import AddAnotherBtn from "@app/modules/common/utils/AddAnotherBtn";
 import WizardSectionLayout from "./WizardSectionLayout";
-import DiscretionaryLeave from "../forms/DiscretionaryLeave";
 import LeaveAllocationStep from "../forms/LeaveAllocationStep";
 import "./Step2.css";
 
@@ -122,7 +121,6 @@ function Step3({ formikProps, editMode, sidebarProfile }: any) {
         leave_settings: (
             <div>
                 <LeaveAllocationStep />
-                <DiscretionaryLeave />
             </div>
         ),
     };

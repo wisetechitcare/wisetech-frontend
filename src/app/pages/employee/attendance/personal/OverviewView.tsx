@@ -36,6 +36,8 @@ interface LeaveResponse {
     dateTo: string;
     status: number;
     leaveTypeId: string;
+    isHalfDay?: boolean;
+    halfDaySession?: string | null;
     leaveOptions: {
         leaveType: string;
     }
@@ -209,6 +211,8 @@ export const transformLeaves = (leaves: LeaveResponse[]): ILeaves[] => {
             dateTo: dayjs(leave.dateTo).format('YYYY-MM-DD'),
             leaveTypeId: leave.leaveTypeId,
             statusNumber: leave.status,
+            isHalfDay: leave.isHalfDay ?? false,
+            halfDaySession: leave.halfDaySession ?? null,
             date: `${dateFrom} - ${dateTo}`,
             day: `${dateFromWeekday} - ${dateToWeekday}`,
             remark: leave.reason,

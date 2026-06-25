@@ -2958,6 +2958,8 @@ export async function customLeaves(leaves: Leaves[]): Promise<CustomLeaves[]> {
             leaveTypeId: leave.leaveTypeId,
             reason: leave.reason,
             status: leave.status,
+            isHalfDay: (leave as any).isHalfDay ?? false,
+            halfDaySession: (leave as any).halfDaySession ?? null,
             leaveOptions: leave.leaveOptions
         }
 

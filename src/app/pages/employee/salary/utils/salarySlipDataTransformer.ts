@@ -216,7 +216,7 @@ export function transformApiDataToSalarySlipProps(
   const formatDate = (): string => {
     const month = validApiData.month || '';
     // Extract year from API data or use current year as fallback
-    const year = (validApiData as any).employeeCardDeatils?.year || 
+    const year = (validApiData as any).employeeCardDetails?.year || 
                  (validApiData.monthStartDate ? new Date(validApiData.monthStartDate).getFullYear() : new Date().getFullYear());
     return `${month} ${year}`;
   };
@@ -284,7 +284,7 @@ export function transformApiDataToSalarySlipProps(
     presentDays: (validApiData as any).presentDays ?? (validApiData as any).extraData?.presentDays ?? undefined,
     monthStartDate: validApiData.monthStartDate ?? undefined,
     monthEndDate: validApiData.monthEndDate ?? undefined,
-    baseMonthlySalary: (validApiData as any).employeeCardDeatils?.monthlySalary ?? undefined,
+    baseMonthlySalary: (validApiData as any).employeeCardDetails?.monthlySalary ?? undefined,
     paymentHistory: paymentHistory ?? null,
     salaryId: salaryId ?? undefined,
   };

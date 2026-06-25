@@ -17,6 +17,8 @@ type RequestDetails = {
   dateTo?: string | null;
   reason?: string | null;
   description?: string | null;
+  isHalfDay?: boolean | null;
+  halfDaySession?: string | null;
 };
 
 type ApprovalStep = {
@@ -57,6 +59,23 @@ const MIN_REASON_LENGTH = 10;
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Like formatDate but prefixes the weekday, e.g. "Thu, 25 Jun 2026".
+function formatDateWithDay(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Inclusive calendar-day count between two ISO dates. Parses the date-only portion as UTC
+// so the diff is exact whole days (no DST/timezone drift). Half-day leaves count as 0.5.
+function leaveDayCount(dateFrom?: string | null, dateTo?: string | null, isHalfDay?: boolean | null): number {
+  if (!dateFrom) return 0;
+  if (isHalfDay) return 0.5;
+  const a = Date.parse(String(dateFrom).slice(0, 10));
+  const b = Date.parse(String(dateTo || dateFrom).slice(0, 10));
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.round((b - a) / 86400000) + 1;
 }
 
 // ─── Reject modal ─────────────────────────────────────────────────────────────
@@ -298,14 +317,26 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       header: 'Duration',
       size: 180,
       Cell: ({ row }) => {
-        const { dateFrom, dateTo } = row.original.requestDetails ?? {};
+        const { dateFrom, dateTo, isHalfDay, halfDaySession } = row.original.requestDetails ?? {};
         if (!dateFrom) return <span className='text-muted fs-7'>—</span>;
-        const from = formatDate(dateFrom);
-        const to = dateTo ? formatDate(dateTo) : null;
+        const from = formatDateWithDay(dateFrom);
+        const to = dateTo ? formatDateWithDay(dateTo) : null;
+        const session = String(halfDaySession || '').toUpperCase();
+        const isRange = !!(to && to !== from);
+        const days = leaveDayCount(dateFrom, dateTo, isHalfDay);
         return (
           <div className='d-flex flex-column'>
             <span className='text-dark fw-semibold fs-7'>{from}</span>
-            {to && to !== from && <span className='text-muted fs-8'>→ {to}</span>}
+            {isRange && <span className='text-muted fs-8'>→ {to}</span>}
+            {isHalfDay ? (
+              <span className='badge badge-light-primary fw-bold fs-8 mt-1 align-self-start'>
+                ½ day{session === 'AM' || session === 'PM' ? ` (${session})` : ''}
+              </span>
+            ) : (
+              <span className='badge badge-light-primary fw-bold fs-8 mt-1 align-self-start'>
+                {days} {days === 1 ? 'day' : 'days'}
+              </span>
+            )}
           </div>
         );
       },

@@ -10,17 +10,12 @@ import { getAllAnnouncements } from "@services/company";
 import { RootState, store } from "@redux/store";
 import { ShareWith } from "@constants/statistics";
 
-interface IShareWith {
-  EVERYONE: string;
-  SELECTED_MEMBERS: string;
-}
-
 interface IAnnouncement {
   id: string;
   title: string;
   description: string;
   imageUrl?: string;
-  shareWith: IShareWith;
+  shareWith: string;
   departmentId?: string | null;
   fromDate: string;
   toDate: string;
@@ -37,7 +32,6 @@ const DashboardAnnouncements = () => {
   const [show, setShow] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 
-  console.log("Current Announcement: ===================>", currentAnnouncement);
   const navigate = useNavigate();
 
   // Extract userId as a primitive to prevent unnecessary re-renders and API calls
@@ -84,7 +78,7 @@ const DashboardAnnouncements = () => {
       try {
         const {
           data: { announcements },
-        } = await getAllAnnouncements();
+        } = await getAllAnnouncements('me');
 
         if (announcements?.length > 0) {
           setcurrentAnnouncement(announcements[0]);
@@ -137,8 +131,8 @@ const DashboardAnnouncements = () => {
 
   return (
     <>
-      <div className="col-lg-7 col-md-12 mb-3 mb-lg-0 h-100">
-        <div className="card border-0 rounded-3 h-100" style={{ boxShadow: '12px 12px 44px 0px rgba(0,0,0,0.08)' }}>
+      <div className="col-lg-7 col-md-12 mb-3 mb-lg-0">
+        <div className="card border-0 rounded-3" style={{ boxShadow: '12px 12px 44px 0px rgba(0,0,0,0.08)' }}>
           <div className="card-body p-3 p-md-4">
             {/* Header */}
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">

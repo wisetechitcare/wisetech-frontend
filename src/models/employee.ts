@@ -209,6 +209,8 @@ export interface CustomLeaves {
   leaveTypeId: string,
   reason: string | null,
   status: number,
+  isHalfDay?: boolean,
+  halfDaySession?: string | null,
   leaveOptions: LeaveOptions
 }
 
@@ -254,6 +256,8 @@ export interface ILeaves {
   statusNumber?: number;
   leaveTypeId?: string;
   employeeId?: string;
+  isHalfDay?: boolean;
+  halfDaySession?: string | null;
   createdAt?: string;
   updatedAt?: string;
   approvedByName?: string;
@@ -288,13 +292,29 @@ export interface IValidateTokenInOut {
   token: string;
 }
 
+/** A leave attachment. Stored private in S3 (key); `url` is a short-lived presigned link. */
+export interface LeaveDocument {
+  key?: string;
+  url?: string;
+  name: string;
+  size?: number;
+  contentType?: string;
+}
+
 export interface ILeaveRequest {
   employeeId: string;
-  leaveTypeId: string;
+  /** Optional when autoAllocate is true — the engine picks the type(s). */
+  leaveTypeId?: string;
   dateFrom: string;
   dateTo: string;
   reason?: string;
   status: number;
+  isHalfDay?: boolean;
+  halfDaySession?: 'AM' | 'PM';
+  /** When true, the backend splits the range across paid balances by priority, then Unpaid. */
+  autoAllocate?: boolean;
+  /** Uploaded attachment metadata to persist on the leave row. */
+  documents?: LeaveDocument[];
 }
 
 export interface IReimbursements {

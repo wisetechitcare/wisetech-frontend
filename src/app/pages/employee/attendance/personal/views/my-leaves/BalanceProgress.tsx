@@ -1,27 +1,4 @@
-// import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES, Status, UNPAID_LEAVES } from "@constants/statistics";
-// import { toAbsoluteUrl } from "@metronic/helpers";
-// import { CustomLeaves, Leaves } from "@models/employee";
-// import { saveLeaves } from "@redux/slices/attendanceStats";
-// import { RootState, store } from "@redux/store";
-// import { fetchPublicHolidays, fetchLeaveOptions } from "@services/company";
-// import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements } from "@services/employee";
-// import { hasPermission } from "@utils/authAbac";
-// import { generateFiscalYearFromGivenYear } from "@utils/file";
-// import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
-// import { fetchAllAddonLeavesAllowances } from "@services/addonLeavesAllowance";
-// import dayjs from "dayjs";
-// import { useEffect, useMemo, useState, useCallback } from "react";
-// import { Card } from "react-bootstrap";
-// import { useDispatch, useSelector } from "react-redux";
-// import ConvertLeavesModal from "./ConvertLeavesModal";
-// import EncashTransferLeavesModal from "./EncashTransferLeavesModal";
-// import MyLeaveManagementRequests from "./MyLeaveManagementRequests";
-// import LeaveBalanceItem from "./LeaveBalanceItem";
-// import { useEventBus } from "@hooks/useEventBus";
-// import { EVENT_KEYS } from "@constants/eventKeys";
-// import {
-//     getTotalWeekendsBetweenDates,
-import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES, Status, UNPAID_LEAVES } from "@constants/statistics";
+import { Status } from "@constants/statistics";
 import { toAbsoluteUrl } from "@metronic/helpers";
 import { CustomLeaves, Leaves } from "@models/employee";
 import { saveLeaves } from "@redux/slices/attendanceStats";
@@ -51,6 +28,8 @@ import {
     buildLeaveData,
     calculateTotalAvailableLeaves,
     calculateCumulativeSummary,
+    buildCumulativeInputs,
+    CumulativeInputs,
 } from "@utils/balanceProgressUtils";
 import { calculateProRatedMonths } from "@utils/fiscalYearHelper";
 
@@ -69,7 +48,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
     const [leaveBalances, setLeaveBalances] = useState<Record<string, number>>({});
     const [proRatedBalances, setProRatedBalances] = useState<Record<string, number>>({});
     const [leavesTakenCount, setLeavesTakenCount] = useState<Record<string, number>>({});
-    const [leavesTakenIncludingPending, setLeavesTakenIncludingPending] = useState<Record<string, number>>({});
+    const [cumulativeInputs, setCumulativeInputs] = useState<CumulativeInputs>({ totalNonMaternalPaidAllocated: 0, takenIncludingPendingByType: {} });
     const [holidays, setHolidays] = useState<number>(0);
     const [weekendCount, setWeekendCount] = useState<number>(0);
     const [totalLeaves, setTotalLeaves] = useState<CustomLeaves[]>([]);
@@ -280,13 +259,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                     branchWorkingDays
                 );
 
-                const leavesTakenIncludingPending = calculateLeavesTakenByType(
-                    fiscalYearFilteredLeaves,
-                    publicHolidayDates,
-                    branchWorkingDays,
-                    true
-                );
-
                 const hasPendingOrApprovedTransfer = await hasPendingOrApprovedEncashTransfer(
                     transferRequests,
                     startDateNew,
@@ -330,7 +302,9 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                 setLeaveBalances(balances);
                 setProRatedBalances(proRated);
                 setLeavesTakenCount(leavesTaken);
-                setLeavesTakenIncludingPending(leavesTakenIncludingPending);
+                // Cumulative inputs come straight from the authoritative leavesSummary (leave_balance),
+                // via the shared helper — identical source to the Apply-Leave modal.
+                setCumulativeInputs(buildCumulativeInputs(leavesSummary));
 
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -362,24 +336,12 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
         [startDateNew]
     );
 
-    // Full annual allocation for pro-ratable types only (Annual + Casual + Sick + Floater).
-    // Using leaveBalances (not proRatedBalances) so getCumulativeAllowedLeaves applies
-    // pro-rating exactly once. Maternal is excluded — it carries full allocation from day 1
-    // and must not be subject to monthly pacing.
-    const totalFullNonMaternalPaidAllocation = useMemo(
-        () =>
-            (leaveBalances[ANNUAL_LEAVES] || 0) +
-            (leaveBalances[CASUAL_LEAVES] || 0) +
-            (leaveBalances[SICK_LEAVES] || 0) +
-            (leaveBalances[FLOATER_LEAVES] || 0),
-        [leaveBalances]
-    );
-
     // Single source of truth for the cumulative summary — used in both the header card
-    // and the sub-section so they always show the same numbers.
+    // and the sub-section so they always show the same numbers. Inputs are built from the
+    // authoritative leavesSummary via buildCumulativeInputs (shared with the Apply-Leave modal).
     const cumulativeSummary = useMemo(
-        () => calculateCumulativeSummary(totalFullNonMaternalPaidAllocation, leavesTakenIncludingPending, fiscalStartMonth),
-        [totalFullNonMaternalPaidAllocation, leavesTakenIncludingPending, fiscalStartMonth]
+        () => calculateCumulativeSummary(cumulativeInputs.totalNonMaternalPaidAllocated, cumulativeInputs.takenIncludingPendingByType, fiscalStartMonth),
+        [cumulativeInputs, fiscalStartMonth]
     );
 
     const res1 = viewOthers && hasPermission(resource, "readOthers", { employeeId: selectedEmployeeId });
@@ -618,43 +580,6 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
                         }}>{totalPaidUsed}/{totalPaidAssigned}</span>
                     </div>
 
-                    {/* Cumulative Allowance Summary — uses the same cumulativeSummary useMemo as the header card */}
-                    {(() => {
-                        const { allowedTillNow, used, remaining } = cumulativeSummary;
-                        return (
-                            <div style={{
-                                marginTop: '12px',
-                                padding: '12px',
-                                backgroundColor: '#f0f9ff',
-                                borderRadius: '8px',
-                                border: '1px solid #bae6fd'
-                            }}>
-                                <div style={{
-                                    fontFamily: 'Inter, sans-serif',
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    color: '#0369a1',
-                                    marginBottom: '8px'
-                                }}>Cumulative Allowance</div>
-                                {[
-                                    { label: 'Allowed till now', value: allowedTillNow, color: '#1a1a1a' },
-                                    { label: 'Used till now', value: used, color: '#1a1a1a' },
-                                    { label: 'Remaining allowed', value: remaining, color: remaining > 0 ? '#059669' : '#dc2626' },
-                                ].map(({ label, value, color }) => (
-                                    <div key={label} style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        fontFamily: 'Inter, sans-serif',
-                                        fontSize: '13px',
-                                        marginTop: '4px'
-                                    }}>
-                                        <span style={{ color: '#6b7280' }}>{label}</span>
-                                        <span style={{ fontWeight: '600', color }}>{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        );
-                    })()}
                 </Card>
 
                 {/* RIGHT CARD - Unpaid Leaves Balance */}

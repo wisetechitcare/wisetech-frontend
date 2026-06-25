@@ -553,7 +553,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                     {Object.entries(data.variable).map(([key, item], index) => {
                                         const isHourly = index < 2;
                                         const hourlySalaryVal = apiSalaryData?.hourlySalary;
-                                        const dailySalaryVal = apiSalaryData?.employeeCardDeatils?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
+                                        const dailySalaryVal = apiSalaryData?.employeeCardDetails?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
                                         const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
                                         const displayRateValue = rateValue ? Math.floor(rateValue * 100) / 100 : undefined;
                                         const rateLabel = displayRateValue && typeof displayRateValue === 'number' && displayRateValue > 0 
@@ -1795,6 +1795,32 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             // but if additional filtering is needed based on exit date, it can be added here
             let filteredUnpaidLeaves = Number(unpaidLeaves) || 0;
             let filteredPaidLeaves = Number(paidLeavesResult) || 0;
+
+            // Half-day adjustment: the leave-count utilities count each half-day leave as a
+            // full day. A half-day leave is always a single working day, so subtract 0.5 per
+            // approved half-day leave in the period (split by paid/unpaid leave type).
+            try {
+                const allLeaves: any[] = store.getState().attendanceStats.leaves || [];
+                let paidHalfAdj = 0;
+                let unpaidHalfAdj = 0;
+                allLeaves.forEach((l: any) => {
+                    const statusNum = typeof l.statusNumber === 'number' ? l.statusNumber : l.status;
+                    if (statusNum !== LeaveStatus.Approved) return;
+                    if (!l.isHalfDay) return;
+                    const d = dayjs(l.date || l.dateFrom);
+                    const inPeriod = isYearly
+                        ? d.isBetween(fiscalStartDate, fiscalEndDate, 'day', '[]')
+                        : d.format('YYYY-MM') === `${year}-${month}`;
+                    if (!inPeriod) return;
+                    const type = (l.leaveOptions?.leaveType || l.type || '').toLowerCase();
+                    if (type.includes('unpaid')) unpaidHalfAdj += 0.5;
+                    else paidHalfAdj += 0.5;
+                });
+                filteredPaidLeaves = Math.max(0, filteredPaidLeaves - paidHalfAdj);
+                filteredUnpaidLeaves = Math.max(0, filteredUnpaidLeaves - unpaidHalfAdj);
+            } catch (halfDayErr) {
+                console.error('Half-day leave adjustment failed (non-fatal):', halfDayErr);
+            }
 
             if (employee?.dateOfExit) {
                 const exitDate = dayjs(employee.dateOfExit);
