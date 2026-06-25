@@ -117,7 +117,7 @@ const PrivateRoutes = () => {
           <Route path='members' element={<Navigate to='/employees' replace />} />
           <Route path='attendance' element={<Navigate to='/my-team/overview' replace />} />
           <Route path='leaves' element={<Navigate to='/my-team/overview' replace />} />
-          <Route path='conveyance' element={<Navigate to='/finance/bills' replace />} />
+
           <Route path='salary' element={<Navigate to='/finance/salary' replace />} />
           <Route path='tasks' element={<Navigate to='/tasks/employee-level-teams' replace />} />
           <Route path='projects' element={<Navigate to='/qc/projects' replace />} />

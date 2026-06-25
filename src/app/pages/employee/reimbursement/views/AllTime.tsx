@@ -261,13 +261,13 @@ function AllTime({
       },
       {
         accessorKey: "clientTypeId",
-        header: "Client Type",
+        header: "Company Type",
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
       },
       {
         accessorKey: "clientCompanyId",
-        header: "Client Name",
+        header: "Company Name",
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
       },
@@ -301,7 +301,7 @@ function AllTime({
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: "Approval Status",
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },

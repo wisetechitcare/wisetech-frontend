@@ -43,8 +43,8 @@ const getReimbursementSchema = (currentReimbursement: any) => {
     expenseDate: currentReimbursement
       ? Yup.string().label('Date')
       : Yup.string().required().label('Date'),
-    clientTypeId: Yup.string().label('Client Type'),
-    clientCompanyId: Yup.string().label('Client Name'),
+    clientTypeId: Yup.string().label('Company Type'),
+    clientCompanyId: Yup.string().label('Company Name'),
     projectId: Yup.string().label('Project'),
     reimbursementTypeId: currentReimbursement
       ? Yup.string().label('Reimbursement For')
@@ -52,9 +52,7 @@ const getReimbursementSchema = (currentReimbursement: any) => {
     amount: currentReimbursement
       ? Yup.number().required().label('Amount').min(1, 'Amount must be greater than 0').max(1000000, 'Amount must be less than 10,00,000')
       : Yup.number().required().label('Amount').min(1, 'Amount must be greater than 0').max(1000000, 'Amount must be less than 10,00,000'),
-    description: currentReimbursement
-      ? Yup.string().label('Note')
-      : Yup.string().required().label('Note'),
+    description: Yup.string().label('Note'),
     document: Yup.string().label('Reference Document'),
     fromLocation: Yup.string().matches(/^[a-zA-Z\s]*$/, 'From Location must contain only alphabets').label('From Location'),
     toLocation: Yup.string().matches(/^[a-zA-Z\s]*$/, 'To Location must contain only alphabets').label('To Location'),
@@ -218,6 +216,23 @@ const KpiIconRejectedAmount = () => (
     <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
     <line x1="10" y1="13.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     <line x1="14" y1="13.5" x2="10" y2="17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const KpiIconPaymentPaid = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
+    <path d="M7 15l2.5 2.5L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const KpiIconPaymentRemaining = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M2 10h20" stroke="currentColor" strokeWidth="2"/>
+    <circle cx="12" cy="15" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M12 13.5V15h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
 
@@ -445,8 +460,8 @@ function EmployeeDetailsSkeleton() {
     <Paper elevation={0} sx={{ p: 1.25, borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.5}>
         <Skeleton variant="rounded" width="100%" height={168} sx={{ maxWidth: { lg: 260 }, borderRadius: '16px' }} />
-        <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 1.25 }}>
-          {Array.from({ length: 8 }).map((_, i) => (
+        <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(5, 1fr)' }, gap: 1.25 }}>
+          {Array.from({ length: 10 }).map((_, i) => (
             <Skeleton key={i} variant="rounded" height={80} sx={{ borderRadius: '16px' }} />
           ))}
         </Box>
@@ -466,6 +481,8 @@ export interface EmployeeDetailsSectionProps {
   approvedAmount: number;
   pendingAmount: number;
   rejectedAmount: number;
+  paidAmount?: number;
+  remainingAmount?: number;
   overviewLoading: boolean;
   /** Optional employee override. When provided, used instead of currentEmployee from redux. */
   employee?: any;
@@ -480,22 +497,25 @@ export function EmployeeDetailsSection({
   approvedAmount,
   pendingAmount,
   rejectedAmount,
+  paidAmount = 0,
+  remainingAmount = 0,
   overviewLoading,
   employee: employeeProp,
 }: EmployeeDetailsSectionProps) {
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
 
-  // Row 1 — counts; Row 2 — amounts (4 × 2 grid at xl)
   const kpiCards: ReimbKpiCardProps[] = [
-    { label: 'Total Requests',          value: totalRequests,                                accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />,        loading: overviewLoading },
-    { label: 'Total Request Approved',  value: approvedRequests,                             accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />,        loading: overviewLoading },
-    { label: 'Total Request Pending',   value: pendingRequests,                              accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,         loading: overviewLoading },
-    { label: 'Total Request Rejected',  value: rejectedRequests,                             accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />,        loading: overviewLoading },
-    { label: 'Total Requested Amount',  value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />,          loading: overviewLoading },
-    { label: 'Total Approved Amount',   value: `₹${fmtAmountRounded(approvedAmount)}`,       accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />,  loading: overviewLoading },
-    { label: 'Total Pending Amount',    value: `₹${fmtAmountRounded(pendingAmount)}`,        accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />,   loading: overviewLoading },
-    { label: 'Total Rejected Amount',   value: `₹${fmtAmountRounded(rejectedAmount)}`,       accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />,  loading: overviewLoading },
+    { label: 'Total Requests',          value: totalRequests,                                accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />,           loading: overviewLoading },
+    { label: 'Total Request Approved',  value: approvedRequests,                             accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />,           loading: overviewLoading },
+    { label: 'Total Request Pending',   value: pendingRequests,                              accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,            loading: overviewLoading },
+    { label: 'Total Request Rejected',  value: rejectedRequests,                             accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />,           loading: overviewLoading },
+    { label: 'Payment Paid',            value: `₹${fmtAmountRounded(paidAmount)}`,           accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />,        loading: overviewLoading },
+    { label: 'Total Requested Amount',  value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />,             loading: overviewLoading },
+    { label: 'Total Approved Amount',   value: `₹${fmtAmountRounded(approvedAmount)}`,       accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />,     loading: overviewLoading },
+    { label: 'Total Pending Amount',    value: `₹${fmtAmountRounded(pendingAmount)}`,        accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />,      loading: overviewLoading },
+    { label: 'Total Rejected Amount',   value: `₹${fmtAmountRounded(rejectedAmount)}`,       accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />,     loading: overviewLoading },
+    { label: 'Payment Remaining',       value: `₹${fmtAmountRounded(remainingAmount)}`,      accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />,   loading: overviewLoading },
   ];
 
   return (
@@ -530,7 +550,7 @@ export function EmployeeDetailsSection({
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' },
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr))' },
                 gap: 1.25,
                 gridAutoRows: { xs: '76px', md: '80px' },
                 alignContent: 'start',
@@ -559,6 +579,8 @@ function PendingReimbursementsPage({
   approvedAmount = 0,
   pendingAmount = 0,
   rejectedAmount = 0,
+  paidAmount = 0,
+  remainingAmount = 0,
   overviewLoading = false,
 }: Partial<EmployeeDetailsSectionProps>) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -678,7 +700,7 @@ function PendingReimbursementsPage({
       }
     }
 
-    // 2. Client Type
+    // 2. Company Type
     if (rec.clientTypeId) {
       const ctMatch = companyTypeOptions.find((c) => c.value === rec.clientTypeId);
       if (ctMatch) setSelectedClientType({ value: ctMatch.value, label: ctMatch.label });
@@ -686,7 +708,7 @@ function PendingReimbursementsPage({
       const filtered = allClientCompanies.filter((c: any) => c.companyTypeId === rec.clientTypeId);
       setFilteredCompanies([...filtered].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)));
 
-      // 3. Client Name
+      // 3. Company Name
       if (rec.clientCompanyId) {
         const ccMatch = allClientCompanies.find((c: any) => c.id === rec.clientCompanyId);
         if (ccMatch) setSelectedClientCompany({ value: ccMatch.id, label: ccMatch.companyName });
@@ -776,11 +798,7 @@ function PendingReimbursementsPage({
         if (values.isActive) delete values.isActive;
         if (values.status) delete values.status;
 
-        const filteredValues = Object.fromEntries(
-          Object.entries(values).filter(([key, value]) => key === 'amount' || value !== '')
-        );
-
-        await updatePendingReimbursementDraft(currentReimbursement.id, filteredValues);
+        await updatePendingReimbursementDraft(currentReimbursement.id, values);
         setFormLoading(false);
         successConfirmation('Reimbursement updated successfully');
         setShow(false);
@@ -807,8 +825,8 @@ function PendingReimbursementsPage({
       successConfirmation('Reimbursement saved to Pending Requests.');
       loadDrafts();
 
-      // Keep modal open — clear only per-entry fields so Date, Client Type,
-      // Client Name, and Project Name stay populated for the next entry.
+      // Keep modal open — clear only per-entry fields so Date, Company Type,
+      // Company Name, and Project Name stay populated for the next entry.
       actions.setFieldValue('reimbursementTypeId', '');
       actions.setFieldValue('amount', undefined);
       actions.setFieldValue('fromLocation', '');
@@ -919,8 +937,11 @@ function PendingReimbursementsPage({
     setSubmitting(true);
     try {
       const res = await submitReimbursementBatch(employeeId);
+      const payload = res?.data ?? res ?? {};
+      const submissionId = payload?.submissionId || '';
+      const hasInstance = !!payload?.approvalInstanceId;
       successConfirmation(
-        `Batch submitted! Submission ID: ${res?.data?.submissionId || res?.submissionId || ''}`,
+        `Batch submitted! Submission ID: ${submissionId}${hasInstance ? '\nYour request has been routed to your approver.' : ''}`,
         'Submitted for Approval'
       );
       loadDrafts();
@@ -955,29 +976,15 @@ function PendingReimbursementsPage({
       Cell: ({ row }) => <span>{dayjs(row.original.expenseDate).format('dddd')}</span>,
     },
     {
-      accessorKey: 'description',
-      header: 'Note',
-      size: 150,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.description || '—'}</span>,
-    },
-    {
-      accessorKey: 'reimbursementType.type',
-      header: 'Type',
-      size: 140,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || '—'}</span>,
-    },
-    {
       accessorKey: 'clientTypeId',
-      header: 'Client Type',
+      header: 'Company Type',
       size: 130,
       enableColumnActions: false,
       Cell: ({ row }) => <span>{resolveClientType(row.original.clientTypeId)}</span>,
     },
     {
       accessorKey: 'clientCompanyId',
-      header: 'Client Name',
+      header: 'Company Name',
       size: 180,
       enableColumnActions: false,
       Cell: ({ row }) => <span>{resolveClientCompany(row.original.clientCompanyId)}</span>,
@@ -990,18 +997,11 @@ function PendingReimbursementsPage({
       Cell: ({ row }) => <span>{resolveProject(row.original.projectId)}</span>,
     },
     {
-      accessorKey: 'fromLocation',
-      header: 'From Location',
-      size: 130,
+      accessorKey: 'reimbursementType.type',
+      header: 'Type',
+      size: 140,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.fromLocation || 'NA'}</span>,
-    },
-    {
-      accessorKey: 'toLocation',
-      header: 'To Location',
-      size: 130,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.toLocation || 'NA'}</span>,
+      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || '—'}</span>,
     },
     {
       accessorKey: 'amount',
@@ -1015,6 +1015,27 @@ function PendingReimbursementsPage({
         </span>
       ),
       Footer: () => <span className='text-dark fw-bold fs-7'>{fmtAmount(totalAmount)}</span>,
+    },
+    {
+      accessorKey: 'fromLocation',
+      header: 'From Location',
+      size: 130,
+      enableColumnActions: false,
+      Cell: ({ row }) => <span>{row.original.fromLocation || 'N/A'}</span>,
+    },
+    {
+      accessorKey: 'toLocation',
+      header: 'To Location',
+      size: 130,
+      enableColumnActions: false,
+      Cell: ({ row }) => <span>{row.original.toLocation || 'N/A'}</span>,
+    },
+    {
+      accessorKey: 'description',
+      header: 'Note',
+      size: 150,
+      enableColumnActions: false,
+      Cell: ({ row }) => <span>{row.original.description || 'N/A'}</span>,
     },
     {
       accessorKey: 'document',
@@ -1038,7 +1059,7 @@ function PendingReimbursementsPage({
     },
     {
       accessorKey: 'actions',
-      header: 'Actions',
+      header: 'Action',
       size: 130,
       enableSorting: false,
       enableColumnActions: false,
@@ -1077,6 +1098,8 @@ function PendingReimbursementsPage({
         approvedAmount={approvedAmount}
         pendingAmount={pendingAmount}
         rejectedAmount={rejectedAmount}
+        paidAmount={paidAmount}
+        remainingAmount={remainingAmount}
         overviewLoading={overviewLoading}
       />
 
@@ -1192,14 +1215,14 @@ function PendingReimbursementsPage({
                   </div>
                 </div>
 
-                {/* Row 2: Client Type + Client Name */}
+                {/* Row 2: Company Type + Company Name */}
                 <div className='row'>
                   <div className='col-lg-6 mb-7'>
                     <DropDownInput
                       isRequired={true}
                       formikField='clientTypeId'
-                      inputLabel='Client Type'
-                      placeholder='Select Client Type'
+                      inputLabel='Company Type'
+                      placeholder='Select Company Type'
                       options={companyTypeOptions}
                       onChange={(option: any) => handleClientTypeChange(option, formikProps.setFieldValue)}
                       value={selectedClientType}
@@ -1209,13 +1232,13 @@ function PendingReimbursementsPage({
                     <DropDownInput
                       isRequired={false}
                       formikField='clientCompanyId'
-                      inputLabel='Client Name'
+                      inputLabel='Company Name'
                       placeholder={
                         !formikProps.values.clientTypeId
-                          ? 'Select Client Type First'
+                          ? 'Select Company Type First'
                           : filteredCompanies.length === 0
                           ? 'No clients for this type'
-                          : 'Select Client Name'
+                          : 'Select Company Name'
                       }
                       options={[...filteredCompanies]
                         .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
@@ -1236,7 +1259,7 @@ function PendingReimbursementsPage({
                       inputLabel='Choose Project Name'
                       placeholder={
                         !formikProps.values.clientCompanyId
-                          ? 'Select Client Type & Name First'
+                          ? 'Select Company Type & Name First'
                           : projectsLoading
                           ? 'Loading Projects...'
                           : projectOptions.length === 0
@@ -1318,27 +1341,100 @@ function PendingReimbursementsPage({
                 </div>
 
                 {/* Row 6: Document Upload */}
-                <div className='row'>
+                <div className='row mb-7'>
                   <div className='col-lg-12'>
-                    <label className='mb-3 fw-bold'>Upload Reimbursement Bill</label>
+                    <label className='mb-2 fw-bold'>Upload Reimbursement Bill</label>
+
+                    {/* Hidden real file input */}
                     <input
                       ref={fileInputRef}
                       type='file'
                       accept='image/*,application/pdf'
-                      className='form-control form-control-lg form-control-solid'
-                      required={false}
+                      className='d-none'
                       onChange={(event) => uploadFile(event, formikProps, 5 * 1024 * 1024)}
                     />
+
+                    <div className='d-flex align-items-center gap-2'>
+                      {/* Custom file control */}
+                      <div
+                        className='d-flex align-items-center p-0 overflow-hidden'
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          height: '46px',
+                          borderRadius: '0.475rem',
+                          border: '1px solid #e4e6ef',
+                          backgroundColor: '#f5f8fa',
+                        }}
+                      >
+                        {/* Choose File button */}
+                        <button
+                          type='button'
+                          onClick={() => fileInputRef.current?.click()}
+                          className='d-flex align-items-center gap-1 flex-shrink-0 h-100 px-3 border-0 fs-7 fw-semibold'
+                          style={{
+                            backgroundColor: '#e9ecef',
+                            color: '#5e6278',
+                            borderRight: '1px solid #dee2e6',
+                            borderRadius: '0.425rem 0 0 0.425rem',
+                            whiteSpace: 'nowrap',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <KTIcon iconName='paper-clip' className='fs-5' />
+                          Choose File
+                        </button>
+
+                        {/* Filename / placeholder */}
+                        <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>
+                          {formikProps.values.document ? (
+                            <>
+                            <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
+                            <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
+                              {String(formikProps.values.document).split('/').pop() ?? 'document'}
+                            </span>
+                            </>
+                          ) : (
+                            <span className='fs-7' style={{ color: '#a1a5b7' }}>No file chosen</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action buttons — appear only when a document is attached */}
+                      {formikProps.values.document && (
+                        <>
+                          <button
+                            type='button'
+                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            title='Preview document'
+                            onClick={() => setPreviewUrl(String(formikProps.values.document))}
+                          >
+                            <KTIcon iconName='eye' className='fs-3' />
+                          </button>
+                          <button
+                            type='button'
+                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            title='Remove document'
+                            onClick={() => {
+                              formikProps.setFieldValue('document', '');
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                          >
+                            <KTIcon iconName='trash' className='fs-3' />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Row 7: Remark */}
                 <div className='col-lg'>
                   <TextInput
-                    isRequired={true}
                     label='Remark'
                     margin='mb-7'
                     formikField='description'
+                    isRequired={false}
                   />
                 </div>
 

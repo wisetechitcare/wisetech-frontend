@@ -111,7 +111,6 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
     total: number; used: number; allowedTillNow: number; remaining: number;
   } | null>(null);
 
-  // Monthly leave limit tracking (from salman_conveyance)
   const allowedPerMonthFromRedux = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.allowedPerMonth);
   const [allowedPerMonth, setAllowedPerMonth] = useState<number>(allowedPerMonthFromRedux || 1);
   const [currentMonthUsage, setCurrentMonthUsage] = useState<number>(0);

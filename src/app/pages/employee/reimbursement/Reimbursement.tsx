@@ -36,6 +36,7 @@ import ReimbursementDropdown from "@app/modules/common/inputs/ReimbursementDropd
 import { uploadUserAsset } from "@services/uploader";
 import { createPendingReimbursementDraft, updatePendingReimbursementDraft, updateReimbursementById } from "@services/employee";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentHistoryTable";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import eventBus from "@utils/EventBus";
@@ -48,8 +49,8 @@ const getReimbursementSchema = (currentReimbursement: IReimbursementsCreate) => 
     expenseDate: currentReimbursement
       ? Yup.string().label("Date")
       : Yup.string().required().label("Date"),
-    clientTypeId: Yup.string().label("Client Type"),
-    clientCompanyId: Yup.string().label("Client Name"),
+    clientTypeId: Yup.string().label("Company Type"),
+    clientCompanyId: Yup.string().label("Company Name"),
     projectId: Yup.string().label("Project"),
     reimbursementTypeId: currentReimbursement
       ? Yup.string().label("Reimbursement For")
@@ -65,9 +66,7 @@ const getReimbursementSchema = (currentReimbursement: IReimbursementsCreate) => 
           .label("Amount")
           .min(1, "Amount must be greater than 0")
           .max(1000000, "Amount must be less than 10,00,000"),
-    description: currentReimbursement
-      ? Yup.string().label("Note")
-      : Yup.string().required().label("Note"),
+    description: Yup.string().label("Note"),
     document: currentReimbursement
       ? Yup.string().label("Reference Document")
       : Yup.string().label("Reference Document"),
@@ -99,6 +98,8 @@ function Reimbursement() {
   const [approvedAmount, setApprovedAmount] = useState(0);
   const [pendingAmount, setPendingAmount] = useState(0);
   const [rejectedAmount, setRejectedAmount] = useState(0);
+  const [paidAmount, setPaidAmount] = useState(0);
+  const [remainingAmount, setRemainingAmount] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
@@ -115,6 +116,11 @@ function Reimbursement() {
   const employeeId = useSelector(
     (state: RootState) => state.employee.currentEmployee.id
   );
+  const employeeCode = useSelector(
+    (state: RootState) => state.employee.currentEmployee.employeeCode
+  );
+  const authUser = useSelector((state: RootState) => state.auth.currentUser);
+  const employeeName = `${authUser.firstName ?? ''} ${authUser.lastName ?? ''}`.trim();
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
   // Client type / company / project state
@@ -138,7 +144,7 @@ function Reimbursement() {
   // ── Shared stats calculator ────────────────────────────────────────────────
   const applyStats = (data: IReimbursementsFetch[]) => {
     let totalAmount = 0, totalRequest = 0, approvedCount = 0, rejectedCount = 0, pendingCount = 0;
-    let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0;
+    let approvedAmt = 0, pendingAmt = 0, rejectedAmt = 0, paidAmt = 0, remainingAmt = 0;
     data.forEach((ele) => {
       if (ele.id) {
         const amt = parseInt(ele.amount ?? "0");
@@ -153,6 +159,11 @@ function Reimbursement() {
         } else {
           approvedCount++;
           approvedAmt += amt;
+          if (ele.paymentStatus === 'PAID') {
+            paidAmt += amt;
+          } else {
+            remainingAmt += amt;
+          }
         }
       }
     });
@@ -164,6 +175,8 @@ function Reimbursement() {
     setApprovedAmount(approvedAmt);
     setPendingAmount(pendingAmt);
     setRejectedAmount(rejectedAmt);
+    setPaidAmount(paidAmt);
+    setRemainingAmount(remainingAmt);
     setOverviewLoading(false);
   };
 
@@ -248,7 +261,7 @@ function Reimbursement() {
       }
     }
 
-    // 2. Client Type — look up name from companyTypeOptions
+    // 2. Company Type — look up name from companyTypeOptions
     if (rec.clientTypeId) {
       const ctMatch = companyTypeOptions.find((c) => c.value === rec.clientTypeId);
       if (ctMatch) {
@@ -260,7 +273,7 @@ function Reimbursement() {
       );
       setFilteredCompanies([...filtered].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)));
 
-      // 3. Client Name — look up companyName from allClientCompanies
+      // 3. Company Name — look up companyName from allClientCompanies
       if (rec.clientCompanyId) {
         const ccMatch = allClientCompanies.find((c: any) => c.id === rec.clientCompanyId);
         if (ccMatch) {
@@ -515,6 +528,8 @@ function Reimbursement() {
         approvedAmount={approvedAmount}
         pendingAmount={pendingAmount}
         rejectedAmount={rejectedAmount}
+        paidAmount={paidAmount}
+        remainingAmount={remainingAmount}
         overviewLoading={overviewLoading}
       />
 
@@ -534,6 +549,15 @@ function Reimbursement() {
         viewMode="submissions"
         selectedEmployeeId={employeeId}
       />
+
+      {employeeId && (
+        <ReimbursementPaymentHistoryTable
+          employeeId={employeeId}
+          employeeCode={employeeCode}
+          employeeName={employeeName}
+          refreshKey={statsRefreshKey}
+        />
+      )}
 
       {/* modal code starts here */}
       {/* 1. show/hide, 2. handleClose, 3. Title, 4. initialState, 5. reimbursementSchema, 6. handleSubmit */}
@@ -560,7 +584,6 @@ function Reimbursement() {
             validationSchema={getReimbursementSchema(currentReimbursement)}
           >
             {(formikProps) => {
-              useEffect(() => {}, []); // fetch any data if required in future in useEffect
               return (
                 <Form
                   className="d-flex flex-column"
@@ -582,14 +605,14 @@ function Reimbursement() {
                     </div>
                   </div>
 
-                  {/* Row 2: Client Type + Client Name */}
+                  {/* Row 2: Company Type + Company Name */}
                   <div className="row">
                     <div className="col-lg-6 mb-7">
                       <DropDownInput
                         isRequired={true}
                         formikField="clientTypeId"
-                        inputLabel="Client Type"
-                        placeholder="Select Client Type"
+                        inputLabel="Company Type"
+                        placeholder="Select Company Type"
                         options={companyTypeOptions}
                         onChange={(option: any) =>
                           handleClientTypeChange(option, formikProps.setFieldValue)
@@ -602,13 +625,13 @@ function Reimbursement() {
                       <DropDownInput
                         isRequired={false}
                         formikField="clientCompanyId"
-                        inputLabel="Client Name"
+                        inputLabel="Company Name"
                         placeholder={
                           !formikProps.values.clientTypeId
-                            ? "Select Client Type First"
+                            ? "Select Company Type First"
                             : filteredCompanies.length === 0
                             ? "No clients for this type"
-                            : "Select Client Name"
+                            : "Select Company Name"
                         }
                         options={[...filteredCompanies].sort((a: any, b: any) => a.companyName.localeCompare(b.companyName)).map((c: any) => ({
                           value: c.id,
@@ -632,7 +655,7 @@ function Reimbursement() {
                         inputLabel="Choose Project Name"
                         placeholder={
                           !formikProps.values.clientCompanyId
-                            ? "Select Client Type & Name First"
+                            ? "Select Company Type & Name First"
                             : projectsLoading
                             ? "Loading Projects..."
                             : projectOptions.length === 0
@@ -750,10 +773,10 @@ function Reimbursement() {
                   {/* Row 7: Remark */}
                   <div className="col-lg">
                     <TextInput
-                      isRequired={true}
                       label="Remark"
                       margin="mb-7"
                       formikField="description"
+                      isRequired={false}
                     />
                   </div>
 

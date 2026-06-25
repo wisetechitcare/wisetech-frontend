@@ -9,7 +9,7 @@ import {
 } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 
-type WorkflowType = 'attendance' | 'leave' | 'conveyance';
+type WorkflowType = 'attendance' | 'leave' | 'reimbursement';
 
 interface ApproverOption {
   value: string;
@@ -24,7 +24,7 @@ interface ApprovalSettingsProps {
 const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'attendance', label: 'Attendance' },
   { key: 'leave', label: 'Leave' },
-  { key: 'conveyance', label: 'Conveyance' },
+  { key: 'reimbursement', label: 'Reimbursement' },
 ];
 
 const emptyChain = (): string[] => ['', '', '', '', ''];
@@ -32,7 +32,7 @@ const emptyChain = (): string[] => ['', '', '', '', ''];
 const emptyRecord = (): Record<WorkflowType, string[]> => ({
   attendance: emptyChain(),
   leave: emptyChain(),
-  conveyance: emptyChain(),
+  reimbursement: emptyChain(),
 });
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -43,7 +43,7 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({ employeeId }) => {
   const [isSaving, setIsSaving] = useState<Record<WorkflowType, boolean>>({
     attendance: false,
     leave: false,
-    conveyance: false,
+    reimbursement: false,
   });
   const [chains, setChains] = useState<Record<WorkflowType, string[]>>(emptyRecord());
   const [configIds, setConfigIds] = useState<Record<WorkflowType, string[]>>(emptyRecord());
