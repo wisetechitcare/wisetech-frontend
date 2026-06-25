@@ -15,6 +15,8 @@ import { fetchAuthzCapabilities } from '@redux/slices/authz'
 import { fetchCurrentEmployeeByEmpId } from '@services/employee'
 import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
+import { SectionGuard } from '@app/modules/common/components/SectionGuard'
+import { can } from '@utils/can'
 
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
 const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
@@ -273,9 +275,11 @@ const PrivateRoutes = () => {
         {hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers) && <Route
           path='employees/calendar'
           element={
-            <SuspensedView>
-              <Calendar />
-            </SuspensedView>
+            <SectionGuard module='calendar'>
+              <SuspensedView>
+                <Calendar />
+              </SuspensedView>
+            </SectionGuard>
           }
         />}
         <Route
@@ -295,12 +299,14 @@ const PrivateRoutes = () => {
           }
         />}
 
-        {hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) && <Route
+        {(hasPermission(uiControlResourceNameMapWithCamelCase.employeesUnderAttendanceAndLeaves, permissionConstToUseWithHasPermission.readOthers) || can('attendance.employees.view.all')) && <Route
           path='employees/attendance-and-leaves'
           element={
-            <SuspensedView>
-              <EmployeesAttendanceView />
-            </SuspensedView>
+            <SectionGuard module='attendance.employees'>
+              <SuspensedView>
+                <EmployeesAttendanceView />
+              </SuspensedView>
+            </SectionGuard>
           }
         />}
         <Route
@@ -421,9 +427,11 @@ const PrivateRoutes = () => {
         <Route
           path='employee/report/kpis'
           element={
-            <SuspensedView>
-              <PersonalKpiMain />
-            </SuspensedView>}
+            <SectionGuard module='reports.kpi'>
+              <SuspensedView>
+                <PersonalKpiMain />
+              </SuspensedView>
+            </SectionGuard>}
         />
         <Route
           path='/qc/leads/configuration'
@@ -435,9 +443,11 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/leads'
           element={
-            <SuspensedView>
-              <LeadsMain />
-            </SuspensedView>}
+            <SectionGuard module='crm.leads'>
+              <SuspensedView>
+                <LeadsMain />
+              </SuspensedView>
+            </SectionGuard>}
         />
         <Route
           path='/leads/:id'
@@ -450,9 +460,11 @@ const PrivateRoutes = () => {
         <Route
           path='/tasks'
           element={
-            <SuspensedView>
-              <TasksMain />
-            </SuspensedView>
+            <SectionGuard module='tasks'>
+              <SuspensedView>
+                <TasksMain />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
@@ -507,25 +519,31 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/projects'
           element={
-            <SuspensedView>
-              <ProjectsMain />
-            </SuspensedView>
+            <SectionGuard module='projects'>
+              <SuspensedView>
+                <ProjectsMain />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
           path='/qc/contacts'
           element={
-            <SuspensedView>
-              <ContactsNavbar />
-            </SuspensedView>
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <ContactsNavbar />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
           path='/qc/companies'
           element={
-            <SuspensedView>
-              <CompaniesMain />
-            </SuspensedView>
+            <SectionGuard module='crm.companies'>
+              <SuspensedView>
+                <CompaniesMain />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route

@@ -1,13 +1,14 @@
 import { permissionConstToUseWithHasPermission, ResourceMapWithName, resourceNameMapWithCamelCase, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import { KTIcon } from '@metronic/helpers';
-import { createRole, fetchRoles, createPermissionForRoleById, updatePermissionForRoleById, updateRoleById, deleteRoleById, deletePermissionForRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
+import { createRole, fetchRoles, getRoleById, createPermissionForRoleById, updatePermissionForRoleById, updateRoleById, deleteRoleById, deletePermissionForRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react'
 import { Button, Modal, Spinner, Accordion } from 'react-bootstrap';
+import RoleAccessEditor from './RoleAccessEditor';
 
 const PermissionConts = {
   readOthers: "View (Others)",
@@ -39,12 +40,16 @@ interface RoleData {
 
 interface PermissionsListProps {
   rolesData: RoleData;
+  setRefetch?: (show: boolean) => void;
 }
 
-function PermissionsList({ rolesData }: PermissionsListProps) {
+function PermissionsList({ rolesData, setRefetch }: PermissionsListProps) {
   const [loading, setLoading] = useState(false);
 
   const role = rolesData;
+  // Live copy of the role's permissions so the form reflects saves without a
+  // full page reload (and so create/update detection stays accurate).
+  const [permissions, setPermissions] = useState<RoleData['permissions']>(rolesData.permissions || []);
 
   // Sort resources alphabetically by displayName
   const sortResourcesAlphabetically = <T extends { displayName: string }>(resources: T[]): T[] => {
@@ -695,32 +700,24 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
   const sortedGroupNames = Object.keys(groupedResourcesConfig).sort((a, b) => a.localeCompare(b));
   const sortedUiControlGroupNames = Object.keys(groupedUiControlConfig).sort((a, b) => a.localeCompare(b));
 
-  const initialUIControls = {...sortedUiControlConfig.reduce((acc, resource) => {
-    acc[resource.resourceKey] = resource.actions.reduce((actionAcc, actionObj) => {
-      const existingPerm = role.permissions.find(
-        (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action
-      );
-      actionAcc[actionObj.action] = actionObj.disabled ? false : (existingPerm ? existingPerm.allow : false);
-      return actionAcc;
-    }, {} as Record<string, boolean>);
-    return acc;
-  }, {} as Record<string, Record<string, boolean>>)}
+  // Build the formik checkbox map from a permissions list. Only active (allow &&
+  // isActive) rows count as "checked".
+  const buildValues = (perms: RoleData['permissions']) => {
+    const fromConfig = (cfg: typeof sortedResourcesConfig) =>
+      cfg.reduce((acc, resource) => {
+        acc[resource.resourceKey] = resource.actions.reduce((actionAcc, actionObj) => {
+          const existingPerm = perms.find(
+            (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action && perm.isActive !== false
+          );
+          actionAcc[actionObj.action] = actionObj.disabled ? false : (existingPerm ? existingPerm.allow : false);
+          return actionAcc;
+        }, {} as Record<string, boolean>);
+        return acc;
+      }, {} as Record<string, Record<string, boolean>>);
+    return { ...fromConfig(sortedResourcesConfig), ...fromConfig(sortedUiControlConfig) };
+  };
 
-  // console.log("initialUIControls:: ",initialUIControls);
-
-  const initialFormikValues = {
-    ...sortedResourcesConfig.reduce((acc, resource) => {
-      acc[resource.resourceKey] = resource.actions.reduce((actionAcc, actionObj) => {
-        const existingPerm = role.permissions.find(
-          (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action
-        );
-        actionAcc[actionObj.action] = actionObj.disabled ? false : (existingPerm ? existingPerm.allow : false);
-        return actionAcc;
-      }, {} as Record<string, boolean>);
-      return acc;
-    }, {} as Record<string, Record<string, boolean>>),
-    ...initialUIControls
-  }
+  const initialFormikValues = buildValues(permissions);
 
   const formik = useFormik({
     initialValues: initialFormikValues,
@@ -761,8 +758,8 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
             return;
           }
           const allowValue = values[resource.resourceKey][actionObj.action];
-          const existingPerm = role.permissions.find(
-            (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action
+          const existingPerm = permissions.find(
+            (perm) => perm.resource === resource.resourceKey && perm.action === actionObj.action && perm.isActive !== false
           );
 
           if (existingPerm) {
@@ -795,6 +792,18 @@ function PermissionsList({ rolesData }: PermissionsListProps) {
       });
 
       await Promise.all(promises);
+
+      // Re-pull the role so the form reflects exactly what's persisted (fixes the
+      // "save doesn't stick" symptom) and refresh the list behind the modal.
+      try {
+        const fresh = await getRoleById(role.id);
+        const freshPerms = fresh?.data?.permissions ?? [];
+        setPermissions(freshPerms);
+        formik.resetForm({ values: buildValues(freshPerms) });
+      } catch {
+        /* non-fatal: the writes already succeeded */
+      }
+      setRefetch?.(true);
       successConfirmation('Permissions updated successfully!');
 
     } catch (error) {
@@ -994,7 +1003,7 @@ function EditRole({ handleCloseEditModal, roleDetails, setRefetch }: { handleClo
       </div>
       <div className='row my-3 d-none d-lg-flex'>
         <div className='col-8'>
-          <PermissionsList rolesData={roleDetails} />
+          <RoleAccessEditor roleId={roleDetails?.id} roleName={roleDetails?.name} setRefetch={setRefetch} />
         </div>
         <div className='col-4' >
           <EditRoleName handleCloseEditModal={handleCloseEditModal} setRefetch={setRefetch} roleDetails={roleDetails} />
