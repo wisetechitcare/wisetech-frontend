@@ -14,6 +14,7 @@ import { showError, showSuccess } from "@utils/modal";
 import dayjs from "dayjs";
 import { ExportCenterModal } from "./dms/components/ExportCenterModal";
 import { useAuth } from "../../../../../modules/auth";
+import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 
 interface ProposalTemplatePageProps {
   show: boolean;
@@ -57,6 +58,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   const [formData, setFormData] = useState<any>({});
   const [rules, setRules] = useState<ProposalRule[]>([]);
   const [templateBase64, setTemplateBase64] = useState<string>("");
+  const [uploadedTemplateName, setUploadedTemplateName] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [availableFields, setAvailableFields] = useState<any[]>([]);
@@ -721,20 +723,23 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
     setRules(updatedRules);
   };
 
+  const processTemplateFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = (event.target?.result as string).split(",")[1];
+      setTemplateBase64(base64);
+      setUploadedTemplateName(file.name);
+      // If no template selected and no rules, add a default rule
+      if (!selectedTemplateId && rules.length === 0) {
+        setRules([{ minArea: 0, maxArea: 100000, configurations: [] }]);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = (event.target?.result as string).split(",")[1];
-        setTemplateBase64(base64);
-        // If no template selected and no rules, add a default rule
-        if (!selectedTemplateId && rules.length === 0) {
-          setRules([{ minArea: 0, maxArea: 100000, configurations: [] }]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+    if (file) processTemplateFile(file);
   };
 
   const handleAddRule = () => {
@@ -1018,21 +1023,15 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             <div className="separator border-gray-200 my-8"></div>
             <h5 className="fw-bolder text-dark mb-4">Custom Template</h5>
             <Form.Group>
-              <Form.Label className="fs-9 fw-bolder text-uppercase text-muted mb-2">
-                Word Template (.docx)
-              </Form.Label>
-              <Form.Control
-                type="file"
+              <DragDropFileField
+                label="Word Template (.docx)"
+                labelClassName="fs-9 fw-bolder text-uppercase text-muted mb-2"
                 accept=".docx"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                className="form-control-solid form-control-sm"
+                compact
+                onFile={processTemplateFile}
+                currentFileName={uploadedTemplateName || (templateBase64 ? "Template uploaded" : "")}
+                onChange={() => { setTemplateBase64(""); setUploadedTemplateName(""); }}
               />
-              {templateBase64 && (
-                <Badge bg="light-success" className="text-success mt-2 w-100">
-                  File Uploaded
-                </Badge>
-              )}
             </Form.Group>
           </Col>
 

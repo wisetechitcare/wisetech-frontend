@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
@@ -18,6 +19,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [allBranches, setAllBranches] = useState<any[]>([]);
   const employeeId = useSelector((state: RootState) => state.auth.currentUser?.id);
+  const navigate = useNavigate();
 
   const fetchClientContacts = async () => {
     try {
@@ -97,6 +99,15 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       {
         accessorKey: "fullName",
         header: "Full Name",
+        Cell: ({ row }) => (
+          <button
+            className="btn btn-link p-0 text-start text-decoration-none"
+            style={{ color: "inherit", fontWeight: 600, fontSize: "14px" }}
+            onClick={() => navigate(`/contacts/${row.original.id}`)}
+          >
+            {row.original.fullName || "NA"}
+          </button>
+        ),
       },
       {
         accessorKey: "branch",
@@ -170,7 +181,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         ),
       },
     ],
-    [allBranches, contacts, employeeId]
+    [allBranches, contacts, employeeId, navigate]
   );
 
   return (

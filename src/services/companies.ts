@@ -127,6 +127,68 @@ export const deleteContactRoleType = async (id: string, targetId?: string) => {
     }
 }
 
+// ── Sub-services (hierarchical: each belongs to a parent company Service) ──
+
+// Get All Sub-services
+export const getAllSubServices = async () => {
+    try {
+        return await cachedRequest('subServices', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_SUB_SERVICES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, LOOKUP_TTL);
+    } catch (err) {
+        throw err;
+    }
+}
+
+// Get Sub-service By Id
+export const getSubServiceById = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_SUB_SERVICE_BY_ID.replace(':id', id)}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// Create Sub-service (payload: { name, parentServiceId, color? })
+export const createSubService = async (payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_SUB_SERVICE}`;
+        const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('subServices');
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// Update Sub-service
+export const updateSubService = async (id: string, payload: any) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_SUB_SERVICE.replace(':id', id)}`;
+        const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('subServices');
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// Delete Sub-service
+export const deleteSubService = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_SUB_SERVICE.replace(':id', id)}`;
+        const { data } = await axios.delete(endpoint);
+        invalidateRequestCache('subServices');
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Create Client Company
 export const createClientCompany = async (payload: any) => {
     try {

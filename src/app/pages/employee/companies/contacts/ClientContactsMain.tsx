@@ -25,8 +25,10 @@ const ClientContactsMain = ({
   startDate,
   endDate,
 }: Props) => {
+  // Use the same id source as the (working) Companies table so table preferences
+  // (column visibility, sorting, page size, …) persist across reloads/login.
   const employeeId = useSelector(
-    (state: RootState) => state.auth.currentUser?.id,
+    (state: RootState) => state.employee.currentEmployee?.id,
   );
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
 
@@ -203,6 +205,28 @@ const ClientContactsMain = ({
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
+        accessorKey: "services",
+        header: "Services",
+        // Flatten the serviceMappings relation into a plain comma-separated string so the
+        // "Search in All Columns" global filter can match on it.
+        accessorFn: (row: any) =>
+          (row.serviceMappings || [])
+            .map((m: any) => m?.service?.name)
+            .filter(Boolean)
+            .join(", "),
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+      },
+      {
+        accessorKey: "subServices",
+        header: "Sub-services",
+        accessorFn: (row: any) =>
+          (row.subServiceMappings || [])
+            .map((m: any) => m?.subService?.name)
+            .filter(Boolean)
+            .join(", "),
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+      },
+      {
         accessorKey: "email",
         header: "Email",
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
@@ -367,7 +391,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
       <MaterialTable
         columns={columns}
         data={filterData}
-        tableName="Client Contacts"
+        tableName="Client-Contacts"
         resource="CLIENT_CONTACTS"
         viewOwn={true}
         viewOthers={true}

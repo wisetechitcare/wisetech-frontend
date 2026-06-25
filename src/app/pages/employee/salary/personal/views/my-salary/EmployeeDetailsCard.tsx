@@ -338,24 +338,24 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const hasProfessionalFees = !!employee?.professionalFeesEnabled;
 
     let annualCTC: number | undefined;
-    if (apiSalaryData?.employeeCardDeatils?.annualCTC) {
-        annualCTC = apiSalaryData.employeeCardDeatils.annualCTC;
+    if (apiSalaryData?.employeeCardDetails?.annualCTC) {
+        annualCTC = apiSalaryData.employeeCardDetails.annualCTC;
     }
-    if (apiSalaryData?.employeeCardDeatils?.monthlySalary) {
-        monthlySalary = apiSalaryData.employeeCardDeatils.monthlySalary;
+    if (apiSalaryData?.employeeCardDetails?.monthlySalary) {
+        monthlySalary = apiSalaryData.employeeCardDetails.monthlySalary;
     }
-    if (apiSalaryData?.employeeCardDeatils?.hourlySalary) {
-        hourlySalary = apiSalaryData.employeeCardDeatils.hourlySalary;
+    if (apiSalaryData?.employeeCardDetails?.hourlySalary) {
+        hourlySalary = apiSalaryData.employeeCardDetails.hourlySalary;
     }
 
     let monthlyPaidAmount: number;
-    if (apiSalaryData?.employeeCardDeatils?.monthlyPaid) {
-        monthlyPaidAmount = apiSalaryData.employeeCardDeatils.monthlyPaid;
+    if (apiSalaryData?.employeeCardDetails?.monthlyPaid) {
+        monthlyPaidAmount = apiSalaryData.employeeCardDetails.monthlyPaid;
     } else {
         monthlyPaidAmount = 0;
     }
 
-    const apiDailySalary = apiSalaryData?.employeeCardDeatils?.dailySalary;
+    const apiDailySalary = apiSalaryData?.employeeCardDetails?.dailySalary;
 
     const dailySalary = typeof apiDailySalary === 'number' && apiDailySalary >= 0
         ? apiDailySalary

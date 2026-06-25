@@ -280,20 +280,7 @@ const Monthly: React.FC<Props> = ({ month, endDate }) => {
 
         {/* Projects by Team */}
         {/* {settings.showProjectsByTeam && chartData.teamData.length > 0 && ( */}
-         {settings.showCompaniesByRoles && chartData.contactsByRoles.length > 0 && <div className="col-12 col-md-12">
-            <CustomBarChart
-                data={applyFilter(chartData.contactsByRoles, "name")}
-                title="Contacts By Roles"
-                height={400} 
-                showFilter={false}
-                filterKey="name"
-                filterOptions={[]}
-                filterValue={filters.subcategory || ""}
-                onFilterChange={(value: string) => handleFilterChange("name", value)}
-                filterPlaceholder="All Categories"
-                onChartClick={handleContactByRolesChartClick}
-              />
-          </div>}
+         {/* "Contacts By Roles" moved to the Contacts section → Overview tab. */}
         {/* )} */}
 
          {settings.showCompaniesByStatus && chartData.companiesByStatus.length > 0 && <div className="col-12 col-md-6">
