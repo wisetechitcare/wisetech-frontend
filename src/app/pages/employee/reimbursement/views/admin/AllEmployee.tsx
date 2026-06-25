@@ -45,6 +45,8 @@ interface EmployeeSummary {
   totalApprovedAmount: number;
   totalPendingAmount: number;
   totalRejectedAmount: number;
+  totalPaidAmount: number;
+  totalRemainingAmount: number;
   totalRequests: number;
   approvedCount: number;
   pendingCount: number;
@@ -157,6 +159,8 @@ function AllEmployee() {
           totalApprovedAmount: 0,
           totalPendingAmount: 0,
           totalRejectedAmount: 0,
+          totalPaidAmount: 0,
+          totalRemainingAmount: 0,
           totalRequests: 0,
           approvedCount: 0,
           pendingCount: 0,
@@ -172,6 +176,11 @@ function AllEmployee() {
       if (r.status === 'Approved' || r.status === 1) {
         emp.totalApprovedAmount += amount;
         emp.approvedCount += 1;
+        if (r.paymentStatus === 'PAID') {
+          emp.totalPaidAmount += amount;
+        } else {
+          emp.totalRemainingAmount += amount;
+        }
       } else if (r.status === 'Pending' || r.status === 0) {
         emp.totalPendingAmount += amount;
         emp.pendingCount += 1;
@@ -218,9 +227,11 @@ function AllEmployee() {
         acc.totalApprovedAmount += emp.totalApprovedAmount;
         acc.totalPendingAmount += emp.totalPendingAmount;
         acc.totalRejectedAmount += emp.totalRejectedAmount;
+        acc.totalPaidAmount += emp.totalPaidAmount;
+        acc.totalRemainingAmount += emp.totalRemainingAmount;
         return acc;
       },
-      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0 }
+      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0, totalPaidAmount: 0, totalRemainingAmount: 0 }
     );
   }, [filteredSummaries]);
 
@@ -241,6 +252,8 @@ function AllEmployee() {
         acc.totalApprovedAmount += r.totalApprovedAmount;
         acc.totalPendingAmount += r.totalPendingAmount;
         acc.totalRejectedAmount += r.totalRejectedAmount;
+        acc.totalPaidAmount += r.totalPaidAmount;
+        acc.totalRemainingAmount += r.totalRemainingAmount;
         acc.totalRequests += r.totalRequests;
         acc.approvedCount += r.approvedCount;
         acc.pendingCount += r.pendingCount;
@@ -250,6 +263,7 @@ function AllEmployee() {
       {
         totalRequestAmount: 0, totalApprovedAmount: 0,
         totalPendingAmount: 0, totalRejectedAmount: 0,
+        totalPaidAmount: 0, totalRemainingAmount: 0,
         totalRequests: 0, approvedCount: 0, pendingCount: 0, rejectedCount: 0,
       }
     );
@@ -355,8 +369,10 @@ function AllEmployee() {
     { key: 'totalRequestAmount',   header: 'Total Request Amount',    type: 'currency' as const, showTotal: true },
     { key: 'totalApprovedAmount',  header: 'Total Approved Amount',   type: 'currency' as const, showTotal: true },
     { key: 'totalPendingAmount',   header: 'Total Pending Amount',    type: 'currency' as const, showTotal: true },
-    { key: 'totalRejectedAmount',  header: 'Total Rejected Amount',   type: 'currency' as const, showTotal: true },
-    { key: 'totalRequests',        header: 'Total Requests',          type: 'number'   as const, showTotal: true },
+    { key: 'totalRejectedAmount',   header: 'Total Rejected Amount',   type: 'currency' as const, showTotal: true },
+    { key: 'totalPaidAmount',       header: 'Total Amount Paid',       type: 'currency' as const, showTotal: true },
+    { key: 'totalRemainingAmount',  header: 'Total Amount Remaining',  type: 'currency' as const, showTotal: true },
+    { key: 'totalRequests',         header: 'Total Requests',          type: 'number'   as const, showTotal: true },
     { key: 'approvedCount',        header: 'Requests Approved',       type: 'number'   as const, showTotal: true },
     { key: 'pendingCount',         header: 'Requests Pending',        type: 'number'   as const, showTotal: true },
     { key: 'rejectedCount',        header: 'Requests Rejected',       type: 'number'   as const, showTotal: true },
@@ -390,6 +406,8 @@ function AllEmployee() {
         totalApprovedAmount={cardTotals.totalApprovedAmount}
         totalPendingAmount={cardTotals.totalPendingAmount}
         totalRejectedAmount={cardTotals.totalRejectedAmount}
+        totalPaidAmount={cardTotals.totalPaidAmount}
+        totalRemainingAmount={cardTotals.totalRemainingAmount}
         isLoading={isLoading}
       />
 
@@ -412,12 +430,6 @@ function AllEmployee() {
             />
           )}
           columns={[
-            {
-              accessorKey: 'employeeCode',
-              header: 'ID',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-              Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-            },
             {
               accessorKey: 'name',
               header: 'Name',
@@ -462,10 +474,29 @@ function AllEmployee() {
               header: 'Total Pending Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                if (!val) return '-';
                 return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtINR(val)}</span>;
               },
               Footer: () => <span style={{ color: '#0891b2' }}>{fmtINR(columnTotals.totalPendingAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalPaidAmount',
+              header: 'Total Amount Paid',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#7c3aed' }}>{fmtINR(columnTotals.totalPaidAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalRemainingAmount',
+              header: 'Total Amount Remaining',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#ea580c', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#ea580c' }}>{fmtINR(columnTotals.totalRemainingAmount)}</span>,
             },
             {
               accessorKey: 'totalRejectedAmount',
@@ -485,7 +516,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'approvedCount',
-              header: 'Requests Approved',
+              header: 'Total Requests Approved',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -495,17 +526,16 @@ function AllEmployee() {
             },
             {
               accessorKey: 'pendingCount',
-              header: 'Requests Pending',
+              header: 'Total Requests Pending',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                if (!val) return '-';
                 return <span style={{ color: '#0891b2', fontWeight: 600 }}>{val}</span>;
               },
               Footer: () => <span style={{ color: '#0891b2' }}>{columnTotals.pendingCount}</span>,
             },
             {
               accessorKey: 'rejectedCount',
-              header: 'Requests Rejected',
+              header: 'Total Requests Rejected',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';

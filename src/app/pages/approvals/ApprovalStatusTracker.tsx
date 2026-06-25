@@ -50,6 +50,10 @@ interface Props {
   instanceId: string;
   compact?: boolean;          // smaller variant used inside the reject modal
   showAuditLog?: boolean;     // show the audit section below the stepper
+  /** When provided, overrides the terminal banner status so the UI reflects the actual
+   *  batch outcome even when the approval workflow instance has a different status
+   *  (e.g. workflow approved but individual items were rejected). */
+  overrideStatus?: 'approved' | 'rejected';
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -77,7 +81,6 @@ const WORKFLOW_LABELS: Record<string, string> = {
   leave: 'Leave',
   attendance: 'Attendance',
   reimbursement: 'Reimbursement',
-  conveyance: 'Conveyance',
 };
 
 // ─── Step node ────────────────────────────────────────────────────────────────
@@ -177,7 +180,7 @@ function StepNode({ step, isCurrent, compact }: { step: StepData; isCurrent: boo
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = false }: Props) {
+function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = false, overrideStatus }: Props) {
   const [data, setData] = useState<InstanceStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -226,12 +229,13 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
 
   const { instance, steps, auditLogs } = data;
   const overallStatus = instance.status;
+  const effectiveStatus = overrideStatus ?? overallStatus;
   const rd = instance.requestDetails;
 
-  const overallColor = STATUS_COLORS[overallStatus] ?? '#a1a5b7';
-  const overallLabel = overallStatus === 'pending'
+  const overallColor = STATUS_COLORS[effectiveStatus] ?? '#a1a5b7';
+  const overallLabel = effectiveStatus === 'pending'
     ? `Level ${instance.currentLevel} of ${instance.totalLevels}`
-    : overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1);
+    : effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1);
 
   return (
     <div>
@@ -259,8 +263,8 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
 
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-            backgroundColor: overallStatus === 'approved' ? '#e8fff3'
-              : overallStatus === 'rejected' ? '#fff5f8' : '#f1faff',
+            backgroundColor: effectiveStatus === 'approved' ? '#e8fff3'
+              : effectiveStatus === 'rejected' ? '#fff5f8' : '#f1faff',
             color: overallColor,
             textTransform: 'uppercase', marginLeft: 'auto',
           }}>
@@ -323,7 +327,7 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
       </div>
 
       {/* ── Terminal banner ── */}
-      {overallStatus === 'approved' && (
+      {effectiveStatus === 'approved' && (
         <div style={{
           marginTop: 8, padding: compact ? '8px 12px' : '12px 16px',
           backgroundColor: '#e8fff3', borderRadius: 8,
@@ -337,7 +341,7 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
         </div>
       )}
 
-      {overallStatus === 'rejected' && (
+      {effectiveStatus === 'rejected' && overallStatus === 'rejected' && (
         <div style={{
           marginTop: 8, padding: compact ? '8px 12px' : '12px 16px',
           backgroundColor: '#fff5f8', borderRadius: 8,
@@ -346,7 +350,27 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
         }}>
           <span style={{ color: '#f1416c', fontSize: 18 }}>✕</span>
           <span style={{ color: '#f1416c', fontWeight: 600, fontSize: compact ? 12 : 14 }}>
-            Request rejected
+            {(() => {
+              const rejectedStep = steps.find((s) => s.status === 'rejected');
+              if (rejectedStep) {
+                return `Rejected at Level ${rejectedStep.level} by ${rejectedStep.approverName}`;
+              }
+              return 'Request rejected';
+            })()}
+          </span>
+        </div>
+      )}
+
+      {effectiveStatus === 'rejected' && overallStatus === 'approved' && (
+        <div style={{
+          marginTop: 8, padding: compact ? '8px 12px' : '12px 16px',
+          backgroundColor: '#fff5f8', borderRadius: 8,
+          border: '1px solid #f1416c33',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ color: '#f1416c', fontSize: 18 }}>✕</span>
+          <span style={{ color: '#f1416c', fontWeight: 600, fontSize: compact ? 12 : 14 }}>
+            Items rejected individually during batch review
           </span>
         </div>
       )}
