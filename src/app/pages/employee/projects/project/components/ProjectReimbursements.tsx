@@ -165,7 +165,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
           expenseDate: formattedDate,
           day: date.toLocaleDateString("en-GB", { weekday: "long" }),
           name: `${r.employee?.users?.firstName ?? ""} ${r.employee?.users?.lastName ?? ""}`.trim(),
-          type: r.reimbursementType?.type ?? "-NA-",
+          type: r.reimbursementType?.type ?? "N/A",
           status:
             r.status == 0
               ? "Pending"
@@ -252,14 +252,14 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         header: "From Location",
         enableSorting: true,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
         enableSorting: true,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
       },
       {
         accessorKey: "type",

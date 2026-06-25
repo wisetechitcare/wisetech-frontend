@@ -7,6 +7,10 @@ import { fetchReimbursementPayments, fetchReimbursementBatchById } from '@servic
 import DateSelector from '@components/DateSelector';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
+import { generateFiscalYearFromGivenYear } from '@utils/file';
+import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -25,7 +29,7 @@ function fmtAmount(n: number | string) {
 }
 
 function fmtDate(d?: string) {
-    if (!d) return '—';
+    if (!d) return 'N/A';
     return dayjs(d).format('DD MMM YYYY');
 }
 
@@ -93,6 +97,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 }) => {
     const [filter, setFilter] = useState<PeriodFilter>('monthly');
     const [currentDate, setCurrentDate] = useState(dayjs());
+    const [fiscalYearLabel, setFiscalYearLabel] = useState('');
     const [payments, setPayments] = useState<(IReimbursementPayment & Record<string, any>)[]>([]);
     const [batchSubmissionMap, setBatchSubmissionMap] = useState<Map<string, string>>(new Map());
     const [batchApprovalMap, setBatchApprovalMap] = useState<Map<string, string | null>>(new Map());
@@ -159,11 +164,21 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         loadPayments();
     }, [loadPayments, refreshKey]);
 
+    // Refresh whenever a payment is recorded/updated/deleted on any connected client (WebSocket)
+    useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadPayments(); });
+
+    useEffect(() => {
+        if (filter !== 'yearly') return;
+        generateFiscalYearFromGivenYear(currentDate).then(({ startDate, endDate }) => {
+            setFiscalYearLabel(formatFiscalYearLabel(`${startDate} to ${endDate}`));
+        });
+    }, [currentDate, filter]);
+
     const periodLabel =
         filter === 'monthly'
             ? currentDate.format('MMM YYYY')
             : filter === 'yearly'
-            ? currentDate.format('YYYY')
+            ? fiscalYearLabel || currentDate.format('YYYY')
             : 'All Time';
 
     const navigate = (dir: -1 | 1) => {
@@ -187,16 +202,16 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 (p as any).batch?.submissionId ||
                 batchId;
             const paymentMadeBy: string = p.processor?.users
-                ? `${p.processor.users.firstName ?? ''} ${p.processor.users.lastName ?? ''}`.trim() || '—'
-                : '—';
+                ? `${p.processor.users.firstName ?? ''} ${p.processor.users.lastName ?? ''}`.trim() || 'N/A'
+                : 'N/A';
 
             if (!map.has(batchId)) {
                 map.set(batchId, {
                     id: batchId,
                     batchId,
                     submissionId,
-                    employeeCode: employeeCode || '—',
-                    employeeName: employeeName || '—',
+                    employeeCode: employeeCode || 'N/A',
+                    employeeName: employeeName || 'N/A',
                     totalRequests: Number(p.totalRequests ?? 0),
                     totalRequestAmount: 0,
                     totalAmountPaid: 0,
@@ -222,6 +237,16 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 
     const grandTotalPaid = useMemo(
         () => batchRows.reduce((s, r) => s + r.totalAmountPaid, 0),
+        [batchRows],
+    );
+
+    const grandTotalRequestAmount = useMemo(
+        () => batchRows.reduce((s, r) => s + r.totalRequestAmount, 0),
+        [batchRows],
+    );
+
+    const grandTotalRemainingAmount = useMemo(
+        () => batchRows.reduce((s, r) => s + r.totalRemainingAmount, 0),
         [batchRows],
     );
 
@@ -270,17 +295,22 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             },
             {
                 accessorKey: 'totalRequestAmount',
-                header: 'Total Request Amount (₹)',
+                header: 'Total Request Amount',
                 size: 200,
                 Cell: ({ renderedCellValue }: any) => (
                     <span className="fw-bold fs-7" style={{ color: '#475569' }}>
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
+                Footer: () => (
+                    <span style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
+                        {formatINR(grandTotalRequestAmount)}
+                    </span>
+                ),
             },
             {
                 accessorKey: 'totalAmountPaid',
-                header: 'Total Amount Paid (₹)',
+                header: 'Total Paid Amount',
                 size: 185,
                 Cell: ({ renderedCellValue }: any) => (
                     <span className="fw-bolder fs-6" style={{ color: '#16a34a' }}>
@@ -295,7 +325,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             },
             {
                 accessorKey: 'totalRemainingAmount',
-                header: 'Total Remaining Amount (₹)',
+                header: 'Total Remaining Amount',
                 size: 220,
                 Cell: ({ renderedCellValue }: any) => (
                     <span
@@ -307,9 +337,14 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                         ₹{fmtAmount(Number(renderedCellValue))}
                     </span>
                 ),
+                Footer: () => (
+                    <span style={{ color: '#AA393D', fontWeight: 700, fontSize: '1rem' }}>
+                        {formatINR(grandTotalRemainingAmount)}
+                    </span>
+                ),
             },
         ],
-        [grandTotalPaid],
+        [grandTotalPaid, grandTotalRequestAmount, grandTotalRemainingAmount],
     );
 
     return (
@@ -384,7 +419,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                                     { label: 'Payment Date', width: '28%' },
                                     { label: 'Payment Made By', width: '28%' },
                                     { label: 'Method', width: '22%' },
-                                    { label: 'Amount Paid (₹)', width: '22%' },
+                                    { label: 'Amount Paid', width: '22%' },
                                 ];
 
                                 return (
@@ -490,7 +525,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                                                                     color: '#424242',
                                                                 }}
                                                             >
-                                                                {p._paymentMadeBy || '—'}
+                                                                {p._paymentMadeBy || 'N/A'}
                                                             </span>
                                                         </td>
                                                         <td

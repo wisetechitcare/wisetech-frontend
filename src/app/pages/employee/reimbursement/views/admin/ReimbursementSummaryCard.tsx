@@ -195,7 +195,7 @@ const ReimbursementSummaryCard: React.FC<ReimbursementSummaryCardProps> = ({
   const cards: CardItem[] = [
     {
       label: 'Total Request Amount',
-      sublabel: 'All requests combined',
+      sublabel: 'All Requests Combined',
       value: fmt(totalRequestAmount),
       accent: '#d97706',
       iconBg: '#fffbeb',
@@ -203,7 +203,7 @@ const ReimbursementSummaryCard: React.FC<ReimbursementSummaryCardProps> = ({
     },
     {
       label: 'Total Approved Amount',
-      sublabel: 'Approved requests',
+      sublabel: 'All Approved Requests',
       value: fmt(totalApprovedAmount),
       accent: '#16a34a',
       iconBg: '#f0fdf4',
@@ -211,36 +211,36 @@ const ReimbursementSummaryCard: React.FC<ReimbursementSummaryCardProps> = ({
     },
     {
       label: 'Total Pending Amount',
-      sublabel: 'Awaiting approval',
+      sublabel: 'All Awaiting Approval',
       value: fmt(totalPendingAmount),
       accent: '#0891b2',
       iconBg: '#ecfeff',
       icon: <IconPending />,
     },
     {
-      label: 'Total Rejected Amount',
-      sublabel: 'Rejected requests',
-      value: fmt(totalRejectedAmount),
-      accent: '#dc2626',
-      iconBg: '#fef2f2',
-      icon: <IconRejected />,
-    },
-    {
-      label: 'Total Amount Paid',
-      sublabel: 'Payments disbursed',
+      label: 'Total Paid Amount',
+      sublabel: 'Payments Disbursed',
       value: fmt(totalPaidAmount),
       accent: '#7c3aed',
       iconBg: '#f5f3ff',
       icon: <IconPaid />,
     },
     {
-      label: 'Total Amount Remaining',
-      sublabel: 'Approved, not yet paid',
+      label: 'Total Remaining Amount',
+      sublabel: 'Approved, Not Yet Paid',
       value: fmt(totalRemainingAmount),
       accent: '#ea580c',
       iconBg: '#fff7ed',
       icon: <IconRemaining />,
     },
+    {
+      label: 'Total Rejected Amount',
+      sublabel: 'All Rejected Requests',
+      value: fmt(totalRejectedAmount),
+      accent: '#dc2626',
+      iconBg: '#fef2f2',
+      icon: <IconRejected />,
+    }
   ];
 
   return (

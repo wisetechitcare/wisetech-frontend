@@ -12,6 +12,8 @@ import {
 } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { getSocket } from '@utils/socketClient';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import {
   BatchRow,
   BatchDetailModal,
@@ -187,6 +189,9 @@ function ReimbursementBatchApprovals() {
     return () => { socket.off('approval:pending', handler); };
   }, [load]);
 
+  // Refresh when any reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { load(); });
+
   const handleApprove = async (row: BatchRow) => {
     setProcessingId(row.id);
     try {
@@ -257,7 +262,7 @@ function ReimbursementBatchApprovals() {
             onClick={() => openDetail(row.original)}
             title='View submission details'
           >
-            {fullName || '—'}
+            {fullName || 'N/A'}
           </button>
         );
       },
@@ -342,7 +347,7 @@ function ReimbursementBatchApprovals() {
             onClick={() => openExpandedDetail(row.original)}
             title='View submission details'
           >
-            {fullName || '—'}
+            {fullName || 'N/A'}
           </button>
         );
       },
@@ -351,7 +356,7 @@ function ReimbursementBatchApprovals() {
       accessorKey: '_submissionId',
       header: 'Submission ID',
       size: 160,
-      Cell: ({ row }: any) => <span className='text-dark fs-7'>{row.original._submissionId || '—'}</span>,
+      Cell: ({ row }: any) => <span className='text-dark fs-7'>{row.original._submissionId || 'N/A'}</span>,
     },
     {
       accessorKey: '_totalRequests',
@@ -388,7 +393,7 @@ function ReimbursementBatchApprovals() {
         const reason = row.original._rejectReason;
         return reason
           ? <span className='text-danger fs-7'>{reason}</span>
-          : <span className='text-muted fs-7'>—</span>;
+          : <span className='text-muted fs-7'>N/A</span>;
       },
     },
     ...(activeTab === 'approved' || activeTab === 'completed' ? [{
