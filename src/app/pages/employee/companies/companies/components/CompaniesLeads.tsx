@@ -29,7 +29,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
   
   useEffect(()=>{
     setLoading(true);
-    getAllClientContacts()
+    getAllClientContacts({}, true)
       .then((res) => setContacts(res.data.contacts || []))
       .catch(console.error)
       .finally(() => setLoading(false));

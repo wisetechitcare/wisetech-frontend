@@ -42,7 +42,7 @@ const ClientContactsMain = ({
   const [newContactModal, setNewContactModal] = useState(false);
   const loadAllContacts = async () => {
     try {
-      const contactsData = await getAllClientContacts();
+      const contactsData = await getAllClientContacts({ pageSize: 500 });
       const companiesData = await getAllClientCompanies(true);
 
       const contacts = contactsData?.data?.contacts || [];

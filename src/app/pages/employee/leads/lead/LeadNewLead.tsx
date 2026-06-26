@@ -602,11 +602,11 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     dispatch(fetchAllEmployeesAsync());
   }, []);
 
-  // ── Event bus subscriptions (merged — file 2 adds leadDeleted) ───────────────
+  // ── Event bus subscriptions ───────────────────────────────────────────────
   useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
   useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
   useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
-  useEventBus(EVENT_KEYS.chartSettingsUpdated, fetchAllData);
+  // chartSettingsUpdated only changes visual config — no data re-fetch needed
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
   const hideNewLeadButton =

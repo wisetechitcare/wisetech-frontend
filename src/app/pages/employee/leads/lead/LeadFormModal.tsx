@@ -339,7 +339,7 @@ const LeadFormModal = ({
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
 
   useEffect(() => {
-    getAllLeads()
+    getAllLeads({ pageSize: 500 })
       .then((res: any) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
       .catch(() => { });
   }, []);

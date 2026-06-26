@@ -1748,15 +1748,7 @@ export const fetchAllStarEmployeeByStartAndEndDate = async (
   }
 };
 
-export const getAllKPIModules = async () => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_KPI_MODULES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
+export const getAllKPIModules = getAllKpiModules;
 
 export const createKpiScore = async (payload: any) => {
     try {

@@ -224,7 +224,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
   useEffect(() => {
     const fetchContacts = async () => {
-      const response = await getAllClientContacts();
+      const response = await getAllClientContacts({}, true);
       setContacts(response.data.contacts);
     };
     fetchContacts();
