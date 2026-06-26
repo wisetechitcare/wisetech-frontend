@@ -131,24 +131,24 @@ export function useReimbursementLookups(rows: any[] = []): LookupMaps {
 
   const resolveClientType = useCallback(
     (id: string | null | undefined): string => {
-      if (!id) return "NA";
-      return companyTypeMap[id] ?? "NA";
+      if (!id) return "N/A";
+      return companyTypeMap[id] ?? "N/A";
     },
     [companyTypeMap]
   );
 
   const resolveClientCompany = useCallback(
     (id: string | null | undefined): string => {
-      if (!id) return "NA";
-      return clientCompanyMap[id] ?? "NA";
+      if (!id) return "N/A";
+      return clientCompanyMap[id] ?? "N/A";
     },
     [clientCompanyMap]
   );
 
   const resolveProject = useCallback(
     (id: string | null | undefined): string => {
-      if (!id) return "NA";
-      return projectMap[id] ?? "NA";
+      if (!id) return "N/A";
+      return projectMap[id] ?? "N/A";
     },
     [projectMap]
   );

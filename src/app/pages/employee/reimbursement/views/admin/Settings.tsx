@@ -21,6 +21,8 @@ import { MRT_ColumnDef } from "material-react-table";
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { useSelector } from "react-redux";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
 
@@ -156,6 +158,8 @@ function Settings() {
   const [fetchAgain, setFetchAgain] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
 
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setFetchAgain((prev) => !prev); });
+
   // We track the Formik setFieldValue separately so the icon picker can write to Formik
   const formikSetFieldRef = React.useRef<((field: string, value: any) => void) | null>(null);
   const [previewIconValue, setPreviewIconValue] = useState<string>("");
@@ -272,7 +276,7 @@ function Settings() {
         enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) =>
-          renderedCellValue != null ? `₹${Number(renderedCellValue).toLocaleString("en-IN")}` : "—",
+          renderedCellValue != null ? `₹${Number(renderedCellValue).toLocaleString("en-IN")}` : "N/A",
       },
       ...(isAdmin
         ? [

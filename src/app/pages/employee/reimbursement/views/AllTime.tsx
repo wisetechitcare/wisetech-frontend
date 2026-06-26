@@ -15,6 +15,7 @@ import { deleteConfirmation } from "@utils/modal";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
 import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
@@ -169,6 +170,8 @@ function AllTime({
   const [fetchAgain, setFetchAgain] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
 
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setFetchAgain((prev) => !prev); });
+
   /** URL of the document currently being previewed; null = modal closed */
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -281,13 +284,13 @@ function AllTime({
         accessorKey: "fromLocation",
         header: "From Location",
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
       },
       {
         accessorKey: "amount",
@@ -396,7 +399,7 @@ function AllTime({
                   <KTIcon iconName="map" className="fs-3" />
                 </button>
               )}
-              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && <span className="text-muted fs-7">—</span>}
+              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && <span className="text-muted fs-7">N/A</span>}
             </div>
           );
         },

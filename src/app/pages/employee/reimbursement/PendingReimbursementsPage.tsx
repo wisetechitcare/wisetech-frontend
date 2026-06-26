@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
@@ -33,6 +33,8 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -507,15 +509,15 @@ export function EmployeeDetailsSection({
 
   const kpiCards: ReimbKpiCardProps[] = [
     { label: 'Total Requests',          value: totalRequests,                                accent: '#7c3aed', iconBg: '#f5f3ff', iconBorder: '#ede9fe', icon: <KpiIconRequests />,           loading: overviewLoading },
-    { label: 'Total Request Approved',  value: approvedRequests,                             accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />,           loading: overviewLoading },
-    { label: 'Total Request Pending',   value: pendingRequests,                              accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,            loading: overviewLoading },
-    { label: 'Total Request Rejected',  value: rejectedRequests,                             accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />,           loading: overviewLoading },
-    { label: 'Payment Paid',            value: `₹${fmtAmountRounded(paidAmount)}`,           accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />,        loading: overviewLoading },
+    { label: 'Total Approved Requests',  value: approvedRequests,                             accent: '#16a34a', iconBg: '#f0fdf4', iconBorder: '#dcfce7', icon: <KpiIconApproved />,           loading: overviewLoading },
+    { label: 'Total Pending Requests',   value: pendingRequests,                              accent: '#d97706', iconBg: '#fffbeb', iconBorder: '#fef3c7', icon: <KpiIconPending />,            loading: overviewLoading },
+    { label: 'Total Rejected Requests',  value: rejectedRequests,                             accent: '#dc2626', iconBg: '#fef2f2', iconBorder: '#fecaca', icon: <KpiIconRejected />,           loading: overviewLoading },
+    { label: 'Total Paid Amount',            value: `₹${fmtAmountRounded(paidAmount)}`,           accent: '#059669', iconBg: '#ecfdf5', iconBorder: '#a7f3d0', icon: <KpiIconPaymentPaid />,        loading: overviewLoading },
     { label: 'Total Requested Amount',  value: `₹${fmtAmountRounded(totalRequestedAmount)}`, accent: '#2563eb', iconBg: '#eff6ff', iconBorder: '#dbeafe', icon: <KpiIconAmount />,             loading: overviewLoading },
     { label: 'Total Approved Amount',   value: `₹${fmtAmountRounded(approvedAmount)}`,       accent: '#0891b2', iconBg: '#ecfeff', iconBorder: '#cffafe', icon: <KpiIconApprovedAmount />,     loading: overviewLoading },
     { label: 'Total Pending Amount',    value: `₹${fmtAmountRounded(pendingAmount)}`,        accent: '#ea580c', iconBg: '#fff7ed', iconBorder: '#ffedd5', icon: <KpiIconPendingAmount />,      loading: overviewLoading },
     { label: 'Total Rejected Amount',   value: `₹${fmtAmountRounded(rejectedAmount)}`,       accent: '#e11d48', iconBg: '#fff1f2', iconBorder: '#ffe4e6', icon: <KpiIconRejectedAmount />,     loading: overviewLoading },
-    { label: 'Payment Remaining',       value: `₹${fmtAmountRounded(remainingAmount)}`,      accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />,   loading: overviewLoading },
+    { label: 'Total Remaining Amount',       value: `₹${fmtAmountRounded(remainingAmount)}`,      accent: '#b45309', iconBg: '#fefce8', iconBorder: '#fef08a', icon: <KpiIconPaymentRemaining />,   loading: overviewLoading },
   ];
 
   return (
@@ -570,7 +572,15 @@ export function EmployeeDetailsSection({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-function PendingReimbursementsPage({
+export interface PendingReimbursementsPageHandle {
+  openAddModal: () => void;
+}
+
+interface PendingReimbursementsPageProps extends Partial<EmployeeDetailsSectionProps> {
+  onDraftsChange?: (count: number) => void;
+}
+
+const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, PendingReimbursementsPageProps>(function PendingReimbursementsPage({
   totalRequests = 0,
   totalRequestedAmount = 0,
   approvedRequests = 0,
@@ -582,7 +592,8 @@ function PendingReimbursementsPage({
   paidAmount = 0,
   remainingAmount = 0,
   overviewLoading = false,
-}: Partial<EmployeeDetailsSectionProps>) {
+  onDraftsChange,
+}, ref) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
 
@@ -632,6 +643,14 @@ function PendingReimbursementsPage({
   }, [employeeId]);
 
   useEffect(() => { loadDrafts(); }, [loadDrafts]);
+
+  // Refresh when drafts change on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadDrafts(); });
+
+  useEffect(() => { onDraftsChange?.(drafts.length); }, [drafts.length, onDraftsChange]);
+
+  const handleNewRef = useRef<() => void>(() => {});
+  useImperativeHandle(ref, () => ({ openAddModal: () => handleNewRef.current() }));
 
   // ── Load dropdown data — separated exactly like Reimbursement.tsx ──────────
   // Reimbursement types use fetchAllReimbursementTypesFromDb (the working utility),
@@ -766,6 +785,7 @@ function PendingReimbursementsPage({
     setEditMode(false);
     setCurrentReimbursement(null);
   };
+  handleNewRef.current = handleNew;
 
   const handleEdit = (draft: any) => {
     setSelectedReimbursementFor(null);
@@ -1001,7 +1021,7 @@ function PendingReimbursementsPage({
       header: 'Type',
       size: 140,
       enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || '—'}</span>,
+      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || 'N/A'}</span>,
     },
     {
       accessorKey: 'amount',
@@ -1103,68 +1123,72 @@ function PendingReimbursementsPage({
         overviewLoading={overviewLoading}
       />
 
-      {/* Action bar */}
-      <div className='d-flex justify-content-between align-items-center mb-4' style={{ paddingRight: '1.25rem' }}>
-        <h2 className='mb-0'>Reimbursement Request Inbox</h2>
-        <div className='d-flex gap-3'>
-          {hasPermission(
-            resourceNameMapWithCamelCase.reimbursement,
-            permissionConstToUseWithHasPermission.create
-          ) && (
-            <button
-              className='d-flex justify-content-between align-items-center bg-primary btn btn-lg btn-primary fs-5 w-auto'
-              onClick={handleNew}
-            >
-              <div>Add Reimbursement Request</div>
-            </button>
-          )}
-          {drafts.length > 0 && (
-            <button
-              className='btn btn-lg d-flex align-items-center gap-2'
-              style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
-              onClick={handleSendForApproval}
-              disabled={submitting}
-            >
-              {submitting
-                ? <span className='spinner-border spinner-border-sm me-2' />
-                : <KTIcon iconName='send' className='fs-4 text-white' />
-              }
-              {submitting ? 'Submitting...' : 'Send for Approval'}
-            </button>
-          )}
+      {/* Action bar — only visible when inbox is shown */}
+      {(loading || drafts.length > 0) && (
+        <div className='d-flex justify-content-between align-items-center mb-4' style={{ paddingRight: '1.25rem' }}>
+          <h2 className='mb-0'>Reimbursement Request Inbox</h2>
+          <div className='d-flex gap-3'>
+            {hasPermission(
+              resourceNameMapWithCamelCase.reimbursement,
+              permissionConstToUseWithHasPermission.create
+            ) && (
+              <button
+                className='d-flex justify-content-between align-items-center bg-primary btn btn-lg btn-primary fs-5 w-auto'
+                onClick={handleNew}
+              >
+                <div>Add Reimbursement Request</div>
+              </button>
+            )}
+            {drafts.length > 0 && (
+              <button
+                className='btn btn-lg d-flex align-items-center gap-2'
+                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
+                onClick={handleSendForApproval}
+                disabled={submitting}
+              >
+                {submitting
+                  ? <span className='spinner-border spinner-border-sm me-2' />
+                  : <KTIcon iconName='send' className='fs-4 text-white' />
+                }
+                {submitting ? 'Submitting...' : 'Send for Approval'}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Table */}
-      <MaterialTable
-        data={drafts}
-        columns={columns}
-        tableName='Pending Reimbursements'
-        hideFilters={false}
-        showColumnFooter={true}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }: any) => {
-            if (row.original?.isExceedingLimit) {
+      {/* Table — only shown when there are drafts or while loading */}
+      {(loading || drafts.length > 0) && (
+        <MaterialTable
+          data={drafts}
+          columns={columns}
+          tableName='Pending Reimbursements'
+          hideFilters={false}
+          showColumnFooter={true}
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => {
+              if (row.original?.isExceedingLimit) {
+                return {
+                  sx: {
+                    backgroundColor: 'rgba(239,68,68,0.08)',
+                    '& td:first-of-type': { borderLeft: '4px solid #ef4444 !important' },
+                    transition: 'background-color 0.12s ease',
+                    '&:hover td': { backgroundColor: 'rgba(239,68,68,0.14) !important' },
+                  },
+                };
+              }
               return {
                 sx: {
-                  backgroundColor: 'rgba(239,68,68,0.08)',
-                  '& td:first-of-type': { borderLeft: '4px solid #ef4444 !important' },
+                  backgroundColor: 'rgba(245,158,11,0.04)',
+                  '& td:first-of-type': { borderLeft: '4px solid #f59e0b !important' },
                   transition: 'background-color 0.12s ease',
-                  '&:hover td': { backgroundColor: 'rgba(239,68,68,0.14) !important' },
+                  '&:hover td': { backgroundColor: 'rgba(245,158,11,0.08) !important' },
                 },
               };
-            }
-            return {
-              sx: {
-                backgroundColor: 'rgba(245,158,11,0.04)',
-                '& td:first-of-type': { borderLeft: '4px solid #f59e0b !important' },
-                transition: 'background-color 0.12s ease',
-                '&:hover td': { backgroundColor: 'rgba(245,158,11,0.08) !important' },
-              },
-            };
-          },
-        }}
-      />
+            },
+          }}
+        />
+      )}
 
       {/* In-app document preview modal */}
       {previewUrl && (
@@ -1462,6 +1486,6 @@ function PendingReimbursementsPage({
       </Modal>
     </>
   );
-}
+});
 
 export default PendingReimbursementsPage;

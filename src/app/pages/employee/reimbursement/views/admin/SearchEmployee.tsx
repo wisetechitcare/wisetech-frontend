@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import dayjs, { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -29,6 +31,7 @@ function SearchEmployee() {
   const [paidAmount, setPaidAmount] = useState(0);
   const [remainingAmount, setRemainingAmount] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [showEditDeleteOption] = useState(true);
   const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({
     alignment: 'monthly',
@@ -98,7 +101,10 @@ function SearchEmployee() {
           fetchEmpAlltimeReimbursements(selectedEmployeeId);
     fetchPromise.then(applyStats);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPeriod, selectedEmployeeId]);
+  }, [currentPeriod, selectedEmployeeId, statsRefreshKey]);
+
+  // Refresh stats when any reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setStatsRefreshKey((k) => k + 1); });
 
   const handlePeriodChange = useCallback((alignment: PeriodAlignment, date: Dayjs) => {
     setOverviewLoading(true);
