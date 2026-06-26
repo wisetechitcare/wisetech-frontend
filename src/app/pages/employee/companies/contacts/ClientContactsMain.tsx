@@ -43,7 +43,7 @@ const ClientContactsMain = ({
   const loadAllContacts = async () => {
     try {
       const contactsData = await getAllClientContacts();
-      const companiesData = await getAllClientCompanies();
+      const companiesData = await getAllClientCompanies(true);
 
       const contacts = contactsData?.data?.contacts || [];
       const companies = companiesData?.data?.companies || [];
