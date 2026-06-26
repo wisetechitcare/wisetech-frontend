@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -27,6 +28,7 @@ interface SalarySummary {
 
 const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false, onStatusFilterChange }) => {
 
+  const navigate = useNavigate();
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   const filters = useSalaryFilters(employeesData);
@@ -98,6 +100,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
       return {
         id: summary.employeeCode || 'N/A',
+        employeeId: summary.employeeId || null,
         name: summary.fullName || 'N/A',
         subOrganization: summary.subOrganization || 'N/A',
         department: summary.department || 'N/A',
@@ -249,7 +252,11 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             {
               accessorKey: "name",
               header: "Name",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+              Cell: ({ renderedCellValue, row }: any) => (
+                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
+                  {renderedCellValue || "N/A"}
+                </span>
+              ),
             },
             {
               accessorKey: "subOrganization",
@@ -423,6 +430,15 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => ({
+              onClick: () => {
+                const empId = row.original.employeeId;
+                if (empId) navigate('/finance/salary', { state: { goToSearchEmployee: true, employeeId: empId } });
+              },
+              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
+            }),
+          }}
         />
       </div>
     </>

@@ -333,29 +333,55 @@ function PendingPaymentTable({
       },
       {
         accessorKey: 'actions',
-        header: 'Action',
+        header: 'Record',
         size: 120,
         enableSorting: false,
         enableColumnFilter: false,
-        Cell: ({ row }: any) => (
-          <button
-            className="btn btn-icon btn-active-color-primary btn-sm"
-            title="Mark as Paid"
-            disabled={markingId === row.original.id}
-            onClick={async (e) => {
-              e.stopPropagation();
-              setMarkingId(row.original.id);
-              await onMarkAsPaid(row.original._batch);
-              setMarkingId(null);
-            }}
-          >
-            {markingId === row.original.id ? (
-              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-            ) : (
-              <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt="Mark as Paid" />
-            )}
-          </button>
-        ),
+        Cell: ({ row }: any) => {
+          const isPending = markingId === row.original.id;
+          return (
+            <button
+              disabled={isPending}
+              onClick={async (e) => {
+                e.stopPropagation();
+                setMarkingId(row.original.id);
+                await onMarkAsPaid(row.original._batch);
+                setMarkingId(null);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                borderRadius: 8,
+                border: '1.5px solid #d1d5db',
+                background: isPending ? '#f3f4f6' : '#ffffff',
+                color: isPending ? '#9ca3af' : '#374151',
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: '0.01em',
+                cursor: isPending ? 'not-allowed' : 'pointer',
+                boxShadow: isPending ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => { if (!isPending) { e.currentTarget.style.borderColor = '#AA393D'; e.currentTarget.style.color = '#AA393D'; } }}
+              onMouseLeave={(e) => { if (!isPending) { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#374151'; } }}
+            >
+              {isPending ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" style={{ width: 12, height: 12, borderWidth: 2 }} />
+                  Wait…
+                </>
+              ) : (
+                <>
+                  <KTIcon iconName="wallet" className="fs-7" />
+                  Pay
+                </>
+              )}
+            </button>
+          );
+        },
       },
     ],
     [markingId, onMarkAsPaid, onRowClick, totalRemaining, totalRequestAmount, totalPaid],
@@ -1206,7 +1232,6 @@ function MarkAsPaidModal({
 // ── Main PaymentTab ────────────────────────────────────────────────────────────
 
 function PaymentTab() {
-  const [activeSubTab, setActiveSubTab] = useState<'pending' | 'done'>('pending');
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
@@ -1348,76 +1373,39 @@ function PaymentTab() {
   const pendingCount = batches.filter(
     (b) => b.paymentStatus === 'UNPAID' || b.paymentStatus === 'PARTIAL',
   ).length;
-  const doneCount = batches.filter(
-    (b) => b.paymentStatus === 'PAID' || b.paymentStatus === 'PARTIAL',
-  ).length;
 
   return (
     <div>
-      {/* Sub-tab navigation */}
-      <div className="d-flex gap-3 mb-6">
-        <button
-          className="btn btn-sm fw-bold px-6 py-3"
-          style={
-            activeSubTab === 'pending'
-              ? { backgroundColor: '#AA393D', color: '#fff', borderColor: '#AA393D' }
-              : { backgroundColor: '#f1f3f4', color: '#5e6278', border: '1px solid #dee2e6' }
-          }
-          onClick={() => setActiveSubTab('pending')}
-        >
-          Pending Payment
-          {!loading && (
+      {/* Pending Payment — only shown when there are pending entries */}
+      {!loading && pendingCount > 0 && (
+        <div className="mb-8">
+          <div className="d-flex align-items-center gap-3 mb-4">
+            <h2 className="fw-bold fs-3 mb-0">Pending Payment</h2>
             <span
-              className="ms-2 badge"
-              style={
-                activeSubTab === 'pending'
-                  ? { backgroundColor: 'rgba(255,255,255,0.25)', color: '#fff' }
-                  : { backgroundColor: '#dee2e6', color: '#5e6278' }
-              }
+              className="badge fw-bold fs-8 px-3 py-2"
+              style={{ backgroundColor: '#fef3c7', color: '#92400e', borderRadius: 6 }}
             >
               {pendingCount}
             </span>
-          )}
-        </button>
-        <button
-          className="btn btn-sm fw-bold px-6 py-3"
-          style={
-            activeSubTab === 'done'
-              ? { backgroundColor: '#AA393D', color: '#fff', borderColor: '#AA393D' }
-              : { backgroundColor: '#f1f3f4', color: '#5e6278', border: '1px solid #dee2e6' }
-          }
-          onClick={() => setActiveSubTab('done')}
-        >
-          Payment Done
-          {!loading && (
-            <span
-              className="ms-2 badge"
-              style={
-                activeSubTab === 'done'
-                  ? { backgroundColor: 'rgba(255,255,255,0.25)', color: '#fff' }
-                  : { backgroundColor: '#dee2e6', color: '#5e6278' }
-              }
-            >
-              {doneCount}
-            </span>
-          )}
-        </button>
-      </div>
+          </div>
+          <PendingPaymentTable
+            batches={batches}
+            loading={loading}
+            onMarkAsPaid={handleMarkAsPaid}
+            onRowClick={handleRowClick}
+          />
+        </div>
+      )}
 
-      {activeSubTab === 'pending' ? (
-        <PendingPaymentTable
-          batches={batches}
-          loading={loading}
-          onMarkAsPaid={handleMarkAsPaid}
-          onRowClick={handleRowClick}
-        />
-      ) : (
+      {/* Payment Done — always shown */}
+      <div>
+        <h2 className="fw-bold fs-3 mb-4">Payment Done</h2>
         <PaymentDoneTable
           batches={batches}
           loading={loading}
           onRowClick={handleRowClick}
         />
-      )}
+      </div>
 
       <BatchDetailModal
         batchId={detailBatchId}

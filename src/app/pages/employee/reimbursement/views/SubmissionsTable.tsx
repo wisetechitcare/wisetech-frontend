@@ -246,16 +246,17 @@ function SubmissionDetailModal({
       {
         accessorKey: 'expenseDate',
         header: 'Date',
+        size: 150, minSize: 130, maxSize: 180,
         enableColumnActions: false,
-        Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
+        Cell: ({ row }: any) => (
+          <div>
+            <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{fmtDate(row.original.expenseDate) || 'N/A'}</div>
+            {row.original.expenseDate && (
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{dayjs(row.original.expenseDate).format('dddd')}</div>
+            )}
+          </div>
+        ),
         Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-      },
-      {
-        accessorKey: 'day',
-        header: 'Day',
-        enableColumnActions: false,
-        Cell: ({ row }: any) =>
-          row.original.expenseDate ? dayjs(row.original.expenseDate).format('dddd') : 'N/A',
       },
       {
         accessorKey: 'clientType',

@@ -19,6 +19,8 @@ export const USERS = {
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
     SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
     GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
+    SAVE_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
+    GET_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
 }
 
 export const COMPANY = {

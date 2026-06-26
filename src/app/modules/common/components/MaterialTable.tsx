@@ -2,9 +2,13 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { MaterialReactTable } from "material-react-table";
 import {
+  Button,
+  ButtonGroup,
   Container,
   createTheme,
   Icon,
+  Menu,
+  MenuItem,
   ThemeProvider,
   useMediaQuery,
   useTheme,
@@ -390,6 +394,7 @@ function MaterialTable({
     null,
   );
   const [isExportInitialized, setIsExportInitialized] = useState(false);
+  const [rowsAnchorEl, setRowsAnchorEl] = useState<null | HTMLElement>(null);
 
   // Mobile detection
   const theme = useTheme();
@@ -1702,33 +1707,88 @@ function MaterialTable({
                       >
                         {isMobile ? "Rows:" : "Rows per page:"}
                       </span>
-                      <select
-                        value={pageSize}
-                        onChange={(e) => {
-                          table.setPageSize(
-                            Number(e.target.value) as PageSizeOption,
-                          );
-                          table.setPageIndex(0);
-                        }}
-                        style={{
-                          padding: isMobile ? "4px 8px" : "5px 10px",
-                          fontSize: "13px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          backgroundColor: "#fff",
-                          color: "#374151",
-                          fontWeight: 500,
-                          appearance: "auto",
-                          outline: "none",
+                      <ButtonGroup
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                         }}
                       >
+                        <Button
+                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: isMobile ? 12 : 13,
+                            borderColor: '#e5e7eb',
+                            color: '#374151',
+                            borderRadius: '10px 0 0 10px',
+                            px: isMobile ? 1 : 1.5,
+                            py: 0.6,
+                            minWidth: 'unset',
+                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                          }}
+                        >
+                          {pageSize}
+                        </Button>
+                        <Button
+                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                          sx={{
+                            borderColor: '#e5e7eb',
+                            color: '#9ca3af',
+                            borderRadius: '0 10px 10px 0',
+                            px: 0.4,
+                            minWidth: 'unset',
+                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                          }}
+                        >
+                          <KTIcon iconName="down" className="fs-6" />
+                        </Button>
+                      </ButtonGroup>
+                      <Menu
+                        anchorEl={rowsAnchorEl}
+                        open={Boolean(rowsAnchorEl)}
+                        onClose={() => setRowsAnchorEl(null)}
+                        slotProps={{
+                          paper: {
+                            elevation: 3,
+                            sx: {
+                              mt: 0.5,
+                              minWidth: 100,
+                              borderRadius: '12px',
+                              border: '1px solid #e2e8f0',
+                              overflow: 'hidden',
+                              '& .MuiMenuItem-root': {
+                                px: 2,
+                                py: 0.9,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#1e293b',
+                                '&:hover': { bgcolor: '#f8fafc' },
+                                '&.Mui-selected': { bgcolor: '#fef2f2', color: '#AA393D', '&:hover': { bgcolor: '#fee2e2' } },
+                              },
+                            },
+                          },
+                        }}
+                        transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                        anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                      >
                         {PAGE_SIZE_OPTIONS.map((size) => (
-                          <option key={size} value={size}>
+                          <MenuItem
+                            key={size}
+                            selected={size === pageSize}
+                            onClick={() => {
+                              table.setPageSize(Number(size) as PageSizeOption);
+                              table.setPageIndex(0);
+                              setRowsAnchorEl(null);
+                            }}
+                          >
                             {size}
-                          </option>
+                          </MenuItem>
                         ))}
-                      </select>
+                      </Menu>
                       {!isMobile && totalRows > 0 && (
                         <span
                           style={{
