@@ -8,7 +8,6 @@ import {
   getAllClientCompanies,
   getAllCompanyTypes,
   deleteClientCompany,
-  getAllClientContacts,
 } from "@services/companies";
 import NewCompanyForm from "./components/NewCompanyForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -66,7 +65,6 @@ const ClientCompaniesMain = ({
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
-  const [contacts, setContacts] = useState<any[]>([]);
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -80,9 +78,7 @@ const ClientCompaniesMain = ({
 
       // Then fetch companies and map the types
       const companiesResponse = await getAllClientCompanies();
-      const contactsResponse = await getAllClientContacts();
       const companiesData = companiesResponse?.data?.companies || [];
-      const contactsData = contactsResponse?.data?.contacts || [];
       const processedCompanies = companiesData.map((company: Company) => {
         // Process references to handle multiple entries
         const referenceTypes =
@@ -91,11 +87,12 @@ const ClientCompaniesMain = ({
         const internalRefs =
           company.references
             ?.filter((ref) => ref.internalReferenceEmployeeId)
-            .map(
-              (ref) =>
-                ref.internalReferenceEmployee?.fullName ||
-                ref.internalReferenceEmployeeId,
-            )
+            .map((ref) => {
+              const emp = ref.internalReferenceEmployee;
+              if (!emp) return ref.internalReferenceEmployeeId;
+              if (emp.users) return `${emp.users.firstName} ${emp.users.lastName}`;
+              return emp.nickName || ref.internalReferenceEmployeeId;
+            })
             .join(", ") || "N/A";
         const externalRefs =
           company.references
@@ -138,11 +135,9 @@ const ClientCompaniesMain = ({
       });
 
       setCompanies(processedCompanies);
-      setContacts(contactsData);
     } catch (error) {
       console.error("Failed to fetch data", error);
       setCompanies([]);
-      setContacts([]);
     } finally {
       setIsLoading(false);
     }

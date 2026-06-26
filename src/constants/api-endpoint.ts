@@ -19,6 +19,8 @@ export const USERS = {
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
     SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
     GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
+    SAVE_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
+    GET_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
 }
 
 export const COMPANY = {
@@ -206,6 +208,8 @@ export const EMPLOYEE = {
     UPDATE_MEETING: "/api/employee/meetings",
     DELETE_MEETING: "/api/employee/meetings",
     UPDATE_EMPLOYEE_ROLES: "api/employee/:id/roles",
+    GET_EMPLOYEE_ACCESS: "api/employee/:id/access",
+    SET_SECTION_ACCESS: "api/employee/:id/access/section",
     GET_EMPLOYEE_PERMISSIONS: "api/employee/:id/permissions",
     CREATE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions",
     UPDATE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions/:permissionId",
@@ -330,6 +334,10 @@ export const LOCATION = {
     FLAG_LOCATION: 'api/location/:type/:id/flag'
 }
 
+export const AUDIT = {
+    GET_RBAC_AUDIT_LOGS: "api/audit/rbac",
+}
+
 export const ROLES = {
     GET_ALL_ROLES: "api/roles",
     GET_ROLE: "api/roles/:id",
@@ -342,6 +350,8 @@ export const ROLES = {
     DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
     REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
+    GET_ROLE_ACCESS: "api/roles/:id/access",
+    SET_ROLE_SECTION_ACCESS: "api/roles/:id/access/section",
 }
 
 export const DAY_WISE_SHIFT = {

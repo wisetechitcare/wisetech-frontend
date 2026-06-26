@@ -73,61 +73,72 @@ const AllTimeRecords: React.FC = () => {
 
     
 
+    const statCards = [
+        {
+            icon: 'bi-clock',
+            accent: '#6366f1',
+            bg: '#eef2ff',
+            value: totalWorkedTime,
+            label: 'Total Working Time',
+            sub: `Since ${joiningDate}`,
+        },
+        {
+            icon: 'bi-calendar-check',
+            accent: '#22c55e',
+            bg: '#f0fdf4',
+            value: `${records.totalExtraWorkingDays} Days`,
+            label: 'Extra Working Days',
+            sub: convertDaysToYearsMonthsDays(records.totalExtraWorkingDays),
+        },
+        {
+            icon: 'bi-calendar2-x',
+            accent: '#f59e0b',
+            bg: '#fffbeb',
+            value: `${records.leaveDays} Days`,
+            label: 'Total Leave Days',
+            sub: convertDaysToYearsMonthsDays(records.leaveDays),
+        },
+        {
+            icon: 'bi-alarm',
+            accent: '#ef4444',
+            bg: '#fef2f2',
+            value: `${records.lateDays} Days`,
+            label: 'Late Check-Ins',
+            sub: convertDaysToYearsMonthsDays(records.lateDays),
+        },
+    ];
+
     return (
-        <Card className="p-4">
-            <h5>All time Records</h5>
-            <Row className="text-center mt-3">
-                <Col md={3} className='mb-3'>
-                    <Card className="border p-4">
-                        <div className="d-flex flex-column text-start">
-                            <i className="bi bi-clock fs-2 mb-2"></i>
-                            <div className="fs-4 fw-bold">{totalWorkedTime}</div>
-                            <div className="text-muted">Total Working Time</div>
-                            <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                                Joined {joiningDate}
+        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: '20px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <span style={{ width: 4, height: 20, background: 'linear-gradient(180deg,#6366f1,#8b5cf6)', borderRadius: 99, display: 'inline-block' }} />
+                <h5 style={{ margin: 0, fontWeight: 700, fontSize: 16, color: '#111827', letterSpacing: '-0.01em' }}>All Time Records</h5>
+            </div>
+            <Row>
+                {statCards.map(({ icon, accent, bg, value, label, sub }) => (
+                    <Col md={3} sm={6} className="mb-3" key={label}>
+                        <div style={{
+                            border: `1px solid ${accent}22`,
+                            borderRadius: 14,
+                            padding: '16px 18px',
+                            background: '#fff',
+                            boxShadow: `0 2px 8px ${accent}12`,
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                        }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <i className={`bi ${icon}`} style={{ fontSize: 20, color: accent }} />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', lineHeight: 1.2, letterSpacing: '-0.02em' }}>{value}</div>
+                                <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600, marginTop: 4 }}>{label}</div>
+                                {sub && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{sub}</div>}
                             </div>
                         </div>
-                    </Card>
-                </Col>
-
-                <Col md={3} className='mb-3'>
-                    <Card className="border p-4">
-                        <div className="d-flex flex-column text-start">
-                            <i className="bi bi-calendar-check fs-2 mb-2"></i>
-                            <div className="fs-4 fw-bold">{records.totalExtraWorkingDays} Days</div>
-                            <div className="text-muted">Total Extra Working Days</div>
-                            <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                                {convertDaysToYearsMonthsDays(records.totalExtraWorkingDays)}
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col md={3} className='mb-3'>
-                    <Card className="border p-4">
-                        <div className="d-flex flex-column text-start">
-                            <i className="bi bi-calendar2-x fs-2 mb-2"></i>
-                            <div className="fs-4 fw-bold">{records.leaveDays} Days</div>
-                            <div className="text-muted">Total Leave Days</div>
-                            <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                                {convertDaysToYearsMonthsDays(records.leaveDays)}
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col md={3} className='mb-3'>
-                    <Card className="border p-4">
-                        <div className="d-flex flex-column text-start">
-                            <i className="bi bi-calendar2-event fs-2 mb-2"></i>
-                            <div className="fs-4 fw-bold">{records.lateDays} Days</div>
-                            <div className="text-muted">Total Late Check-Ins</div>
-                            <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                                {convertDaysToYearsMonthsDays(records.lateDays)}
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
+                    </Col>
+                ))}
             </Row>
         </Card>
     );

@@ -589,7 +589,7 @@ function CustomCalendar() {
                                                     </span>
                                                 </span>
                                             </label>
-                                            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && <label
+                                            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) && <label
                                                 className='btn btn-outline btn-outline-dashed btn-outline-default p-3 d-flex align-items-center mb-3'
                                                 onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }}
                                             >

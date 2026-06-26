@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
@@ -63,6 +64,7 @@ const fmtINR = (n: number) =>
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
+  const navigate = useNavigate();
   const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
   const [month, setMonth] = useState<Dayjs>(dayjs());
   const [year, setYear] = useState<Dayjs>(dayjs());
@@ -438,7 +440,11 @@ function AllEmployee() {
             {
               accessorKey: 'name',
               header: 'Name',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+              Cell: ({ renderedCellValue, row }: any) => (
+                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
+                  {renderedCellValue || 'N/A'}
+                </span>
+              ),
             },
             {
               accessorKey: 'subOrganization',
@@ -554,6 +560,15 @@ function AllEmployee() {
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => ({
+              onClick: () => {
+                const empId = row.original.employeeId;
+                if (empId) navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } });
+              },
+              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
+            }),
+          }}
         />
       </div>
     </>
