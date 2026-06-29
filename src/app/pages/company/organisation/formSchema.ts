@@ -17,6 +17,7 @@ export const BUILTIN_SECTION_CONFIGS: Record<string, BuiltinSectionConfig> = {
         { name: 'fiscalYear', label: 'Fiscal Year', required: true },
         { name: 'contactNumber', label: 'Contact Number', required: true },
         { name: 'websiteUrl', label: 'Website URL', required: true },
+        { name: 'superAdminEmail', label: 'Super Admin Email', required: true },
         { name: 'businessType', label: 'Business Type', required: false },
         { name: 'founder', label: 'Founder', required: false },
     ]},
@@ -154,6 +155,10 @@ export function buildValidationSchema(formSchema: IFormSection[]) {
             // Date fields must hold a valid date (the calendar picker enforces format,
             // this guards any stray/typed value too).
             if (f.type === 'date') s = s.test('valid-date', `${f.label} must be a valid date`, v => !v || !isNaN(Date.parse(v)));
+            // Super Admin Email keeps the same email-format rule it had on the old
+            // Admin Settings page — this field drives admin-level access, so the working
+            // (required + valid email) must stay identical now that it lives in the org form.
+            if (f.id === 'superAdminEmail') s = s.email('Invalid email');
             shape[f.id] = f.required ? s.required(`${f.label} is required`) : s;
         }
     }));

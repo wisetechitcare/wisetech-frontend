@@ -209,7 +209,9 @@ const ProjectTablePage = () => {
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const leadsResponse = await getAllLeads();
+      // Fetch the full set — the default 50-row page capped this to ~15 projects
+      // (only the project-trigger leads within the first 50). Filtered client-side.
+      const leadsResponse = await getAllLeads({ pageSize: 100000 });
       const leadsData = leadsResponse?.data?.data?.leads || [];
 
       // Filter to ONLY project leads (isProjectTrigger === true)

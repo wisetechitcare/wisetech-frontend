@@ -120,7 +120,7 @@ export const AuditV2Api = {
   timeline(
     type: AuditEntityType,
     id: string,
-    opts: { cursor?: number; limit?: number; category?: string; actorId?: string } = {},
+    opts: { cursor?: number; limit?: number; category?: string; actorId?: string; fresh?: number } = {},
   ): Promise<V2TimelinePage> {
     return api
       .get<ApiEnvelope<V2TimelinePage>>(`${BASE}/${type}/${id}/timeline`, opts)

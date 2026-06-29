@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
 import { V2DiffResult, V2FieldChange } from './auditV2.service';
-import { ChangeTypeChip, ValueDelta, CategoryBadge } from './parts';
+import { ChangeTypeChip, ValueDelta, CategoryBadge, parseFieldSummary, FieldSummaryGrid } from './parts';
 import { DIFF, resolveValue, humanizeSummary, categoryMeta } from './tokens';
 import { diffWords } from './wordDiff';
 
@@ -120,6 +120,7 @@ const SideCell: React.FC<{ value: unknown; formatted: string; tone: 'old' | 'new
     new: { color: DIFF.added, bg: DIFF.addedBg },
     empty: { color: C.textMuted, bg: C.bgSection },
   }[isEmpty ? 'empty' : tone];
+  const summary = !words && !isEmpty ? parseFieldSummary(resolved.text) : null;
   return (
     <div
       style={{
@@ -136,7 +137,7 @@ const SideCell: React.FC<{ value: unknown; formatted: string; tone: 'old' | 'new
         border: `1px solid ${map.color}1f`,
       }}
     >
-      {words ?? resolved.text}
+      {summary ? <FieldSummaryGrid rows={summary} valueColor={map.color} /> : words ?? resolved.text}
     </div>
   );
 };

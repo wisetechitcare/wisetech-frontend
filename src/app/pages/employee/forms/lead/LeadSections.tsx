@@ -476,22 +476,6 @@ export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) =
     <>
       <div className="card shadow-sm border p-6 bg-white mb-6">
         <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Remarks
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <TextAreaInput
-              formikField="remarks"
-              label="Remarks"
-              placeholder="Enter any remarks or notes about this lead"
-              isRequired={false}
-            />
-          </Grid>
-        </Grid>
-      </div>
-
-      <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
           Follow-up
         </Typography>
         <Grid container spacing={3}>
@@ -648,9 +632,6 @@ export const AdditionalDetailsSection: React.FC = () => {
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <TextAreaInput formikField="remarks" label="Remarks" rows={2} isRequired={false} />
-        </Grid>
         <Grid item xs={12}>
           <TextAreaInput formikField="description" label="Detailed Description" rows={3} isRequired={false} />
         </Grid>
@@ -1237,12 +1218,6 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
 
         <div className="wt-review-card">
           <div className="wt-review-card-title">Additional Info</div>
-          <div className="wt-review-row">
-            <span className="wt-review-label">Remarks</span>
-            <span className="wt-review-value" style={{ fontStyle: values.remarks ? undefined : "italic", color: values.remarks ? undefined : "var(--wt-gray-400)" }}>
-              {values.remarks ? values.remarks.substring(0, 40) + (values.remarks.length > 40 ? "…" : "") : "None"}
-            </span>
-          </div>
           <div className="wt-review-row">
             <span className="wt-review-label">Description</span>
             <span className="wt-review-value" style={{ fontStyle: values.description ? undefined : "italic", color: values.description ? undefined : "var(--wt-gray-400)" }}>

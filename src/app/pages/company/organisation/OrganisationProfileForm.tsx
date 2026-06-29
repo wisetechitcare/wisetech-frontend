@@ -26,6 +26,12 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 // The canonical form-schema helpers (defaults, merge, validation, legacy derive)
 // live in ./formSchema so the Organization Info page renders from the same source.
 
+// Safety-net default for the Super Admin Email. This field used to be editable on
+// the standalone Admin Settings page; it now lives here as a built-in field. The main
+// organization already has it configured, so this default only kicks in if an org's
+// value is ever blank — keeping admin notifications/working from silently losing a recipient.
+export const DEFAULT_SUPER_ADMIN_EMAIL = 'wisetechandassociates@gmail.com';
+
 // Initial Values setup (consistent with Overview)
 const initialValues: ICompanyOverview = {
     name: "",
@@ -333,8 +339,9 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                             }
                                             else if (resolveActiveOrg(companyOverview).hasOwnProperty(key) && key !== 'numberOfEmployees') {
                                                 newInitialValues[key] = (resolveActiveOrg(companyOverview)[key] || '') as any;
-                                                if (key === 'superAdminEmail') {
-                                                    // console.log('Setting superAdminEmail:', resolveActiveOrg(companyOverview)[key]);
+                                                // Fall back to the default Super Admin Email if this org has none configured.
+                                                if (key === 'superAdminEmail' && !newInitialValues[key]) {
+                                                    newInitialValues[key] = DEFAULT_SUPER_ADMIN_EMAIL as any;
                                                 }
                                             }
                                         });

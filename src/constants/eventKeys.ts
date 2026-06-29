@@ -38,6 +38,7 @@ export type AppEventMap = {
     contactStatusCreated: { id: string };
     contactStatusUpdated: { id: string };
     contactStatusDeleted: { id: string };
+    subServiceCreated: { id: string };
     companyCreated: { id: string };
     companyServiceCreated: { id: string };
     companyServiceUpdated: { id: string };
@@ -138,6 +139,7 @@ export type AppEventMap = {
     contactStatusCreated: 'contactStatusCreated',
     contactStatusUpdated: 'contactStatusUpdated',
     contactStatusDeleted: 'contactStatusDeleted',
+    subServiceCreated: 'subServiceCreated',
     companyCreated: 'companyCreated',
     companyServiceCreated: 'companyServiceCreated',
     companyServiceUpdated: 'companyServiceUpdated',

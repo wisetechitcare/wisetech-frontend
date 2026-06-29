@@ -64,6 +64,12 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
   const [companyStatusData, setCompanyStatusData] = useState<any[]>([]);
   const [isOthersView, setIsOthersView] = useState(false);
   const [top10Ids, setTop10Ids] = useState<string[]>([]);
+  const [openService, setOpenService] = useState(false);
+  const [serviceId, setServiceId] = useState("");
+  const [serviceTypeId, setServiceTypeId] = useState("");
+  const [openSubService, setOpenSubService] = useState(false);
+  const [subServiceId, setSubServiceId] = useState("");
+  const [subSvcTypeId, setSubSvcTypeId] = useState("");
 
 
   // Get settings from Redux
@@ -121,6 +127,22 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
       setCompanyTypeId(typeId || "");
     }
     setOpenCompanyType(true);
+  };
+
+  // Service bar (3rd drill level) → open the companies modal filtered to (type ∩ service) so the
+  // list total matches the bar number. Opens even when empty. typeId is null in "By Service" mode
+  // (aggregated across types) → service-only filter, still consistent.
+  const handleServiceChartClick = (svcId: string, typeId?: string | null) => {
+    setServiceId(svcId || "");
+    setServiceTypeId(typeId || "");
+    setOpenService(true);
+  };
+
+  // Sub-service bar (4th drill level) → companies modal filtered to (type ∩ sub-service).
+  const handleSubServiceChartClick = (subId: string, ownerTypeId?: string | null) => {
+    setSubServiceId(subId || "");
+    setSubSvcTypeId(ownerTypeId || "");
+    setOpenSubService(true);
   };
 
   const handleContactByRolesChartClick = (selectedLabel: string) => {
@@ -255,28 +277,19 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
               id: item.id,
               name: item.name,
               companyCount: item.companyCount,
-              color: item.color || "#3B82F6"
+              color: item.color || "#3B82F6",
+              parentTypeId: item.parentTypeId ?? null,
+              services: item.services ?? undefined
             }))}
             onBarClick={handleCompanyTypeChartClick}
+            onServiceClick={handleServiceChartClick}
+            onSubServiceClick={handleSubServiceChartClick}
+            persistKey="companiesByType"
           />
         </div>
         }
 
-        {/* Projects by Team */}
-        {settings.showCompaniesByRoles && chartData.contactsByRoles.length > 0 && <div className="col-12 col-md-12">
-            <CustomBarChart
-                data={applyFilter(chartData.contactsByRoles, "name")}
-                title="Contacts By Roles"
-                height={400} 
-                showFilter={false}
-                filterKey="name"
-                filterOptions={[]}
-                filterValue={filters.subcategory || ""}
-                onFilterChange={(value: string) => handleFilterChange("name", value)}
-                filterPlaceholder="All Categories"
-                onChartClick={handleContactByRolesChartClick}
-              />
-          </div>}
+        {/* "Contacts By Roles" moved to the Contacts section → Overview tab. */}
 
            {settings.showCompaniesByStatus && chartData.companiesByStatus.length > 0 && <div className="col-12 col-md-6">
             <CustomPieChart
@@ -339,6 +352,8 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
             top10Ids={top10Ids}
           />
           <CompanyDialogModal open={openContactByRoles} onClose={() => setOpenContactByRoles(false)} contactByRolesId={contactByRolesId} startDate={year} endDate={endDate}/>
+          <CompanyDialogModal open={openService} onClose={() => setOpenService(false)} companyTypeId={serviceTypeId} serviceId={serviceId} startDate={year} endDate={endDate}/>
+          <CompanyDialogModal open={openSubService} onClose={() => setOpenSubService(false)} companyTypeId={subSvcTypeId} subServiceId={subServiceId} startDate={year} endDate={endDate}/>
           <CompanyDialogModal open={openCompanyStatus} onClose={() => setOpenCompanyStatus(false)} statusId={companyStatusId} startDate={year} endDate={endDate}/>
     </div>
   );

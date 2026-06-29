@@ -304,13 +304,13 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       render: (p) => <L.MeetingDetailsSection {...p} />,
     },
 
-    // ── STEP 8: Remarks & Documents ─────────────────────────────────────────
+    // ── STEP 8: Follow-up & Documents ───────────────────────────────────────
     {
       id: "remarks-docs",
-      label: "Remarks & Documents",
-      title: "Remarks, Description & Documents",
-      subtitle: "Add remarks, detailed description, and document attachments",
-      fields: ["remarks", "nextFollowUpDate", "description", "fileLocation"],
+      label: "Follow-up & Documents",
+      title: "Follow-up, Description & Documents",
+      subtitle: "Set the follow-up, add a detailed description, and document attachments",
+      fields: ["nextFollowUpDate", "description", "fileLocation"],
       icon: <DescriptionOutlined />,
       render: (p) => <L.RemarksAndDocumentsSection {...p} />,
     },

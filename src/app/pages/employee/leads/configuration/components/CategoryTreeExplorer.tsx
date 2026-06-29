@@ -136,7 +136,7 @@ interface CategoryNodeProps {
   onToggle: () => void;
   onCategoryEdit: () => void;
   onCategoryDelete: () => void;
-  onAddSubcategory: () => void;
+  onAddSubcategory: (categoryId?: string) => void;
   onSubcategoryEdit: (sub: ProjectItem) => void;
   onSubcategoryDelete: (id: string) => void;
   onKeyNav: (e: React.KeyboardEvent) => void;
@@ -198,7 +198,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
         </span>
 
         <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-          <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" hoverBg="#f0fdf4" onClick={onAddSubcategory} />
+          <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" hoverBg="#f0fdf4" onClick={() => onAddSubcategory(category.id)} />
           <IconBtn icon="bi-pencil" title="Edit category" color="#4f82c4" hoverBg="#eff6ff" onClick={onCategoryEdit} />
           <IconBtn icon="bi-trash" title="Delete category" color={C.danger} hoverBg={C.dangerLight} onClick={onCategoryDelete} />
         </div>
@@ -223,7 +223,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
               No subcategories —
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onAddSubcategory(); }}
+                onClick={(e) => { e.stopPropagation(); onAddSubcategory(category.id); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, fontFamily: FONT.body, fontSize: '12px', fontWeight: 600, padding: 0 }}
               >
                 Add one

@@ -54,7 +54,10 @@ const EntityDetailPage: React.FC = () => {
   const phase = getProjectPhase(lead);
   const phaseTheme = PHASE_THEMES[phase] ?? PHASE_THEMES.none;
 
-  const tabs = useMemo(() => ENTITY_TABS.filter(t => !t.projectOnly || (isProject && projectId)), [isProject, projectId]);
+  // Project-only tabs (Tasks/Timesheet/Reimbursement) show for ANY project-trigger
+  // lead — they fetch operational data by lead id, so a linked project row is no
+  // longer required (lead-as-master).
+  const tabs = useMemo(() => ENTITY_TABS.filter(t => !t.projectOnly || isProject), [isProject]);
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
 
   // Live counts surfaced AS TAB BADGES (replaces the redundant related-records
@@ -125,11 +128,11 @@ const EntityDetailPage: React.FC = () => {
           />
         );
       case 'tasks':
-        return projectId ? <TasksTab lead={lead} projectId={projectId} /> : null;
+        return <TasksTab lead={lead} projectId={projectId} />;
       case 'timesheet':
-        return projectId ? <TimesheetTab lead={lead} projectId={projectId} /> : null;
+        return <TimesheetTab lead={lead} projectId={projectId} />;
       case 'reimbursement':
-        return projectId ? <ReimbursementTab lead={lead} projectId={projectId} /> : null;
+        return <ReimbursementTab lead={lead} projectId={projectId} />;
       case 'documents':
         return <DocumentsTab lead={lead} vm={vm} isProject={isProject} projectId={projectId} onExport={() => setShowProposalModal(true)} />;
       case 'audit':

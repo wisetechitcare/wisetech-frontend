@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { C, FONT, RADIUS, BTN, ICON_COLORS } from '@/app/modules/configuration/ConfigDesignSystem';
 import { AuditEntityType, V2ChangeSet } from './auditV2.service';
 import { useAuditTimeline } from './hooks';
@@ -224,8 +224,16 @@ type Row =
   | { kind: 'baseline'; entries: V2ChangeSet[]; key: string };
 
 export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset }) => {
-  const query = useAuditTimeline(type, id);
+  // freshRef makes an explicit Refresh click bypass the server's cached page.
+  const freshRef = useRef(false);
+  const query = useAuditTimeline(type, id, 15, freshRef);
   const { refetch } = query;
+  const handleRefresh = () => {
+    freshRef.current = true;
+    void Promise.resolve(refetch()).finally(() => {
+      freshRef.current = false;
+    });
+  };
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (csId: string) =>
@@ -304,7 +312,7 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
       </span>
       <button
         type="button"
-        onClick={() => refetch()}
+        onClick={handleRefresh}
         disabled={query.isFetching}
         style={{ ...BTN.ghost, padding: '5px 10px', fontSize: 12 }}
         title="Refresh"

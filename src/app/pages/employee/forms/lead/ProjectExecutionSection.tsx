@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Grid, Typography, Switch, FormControlLabel } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import { useFormikContext } from "formik";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -13,6 +14,61 @@ interface ProjectExecutionSectionProps {
   teams: any[];
   formikProps: any;
 }
+
+/**
+ * Theme-consistent toggle — a rounded-RECTANGLE switch with a square thumb.
+ * Off  = light burgundy tint + white square thumb on the left.
+ * On   = solid brand burgundy (--wt-primary) + white square thumb on the right.
+ * Geometry is symmetric (3px padding on every side) so the thumb is perfectly
+ * aligned and flush in both states.
+ */
+const ThemedSwitch = styled(Switch)(() => ({
+  width: 46,
+  height: 26,
+  padding: 0,
+  display: "flex",
+  "& .MuiSwitch-switchBase": {
+    padding: 0,
+    margin: 3,
+    transitionDuration: "220ms",
+    color: "#fff",
+    "&.Mui-checked": {
+      transform: "translateX(20px)",
+      color: "#fff",
+      "& + .MuiSwitch-track": {
+        backgroundColor: "var(--wt-primary, #8B1A2F)",
+        opacity: 1,
+        border: "1px solid var(--wt-primary, #8B1A2F)",
+      },
+      "&:hover": {
+        backgroundColor: "transparent",
+      },
+    },
+    "&:hover": {
+      backgroundColor: "transparent",
+    },
+    "&.Mui-focusVisible .MuiSwitch-thumb": {
+      boxShadow: "0 0 0 3px rgba(139, 26, 47, 0.28)",
+    },
+  },
+  "& .MuiSwitch-thumb": {
+    boxSizing: "border-box",
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.28)",
+  },
+  "& .MuiSwitch-track": {
+    borderRadius: 8,
+    // Light burgundy tint for the OFF state (distinct from the very-faint
+    // --wt-primary-light token, which is too subtle to read here).
+    backgroundColor: "rgba(139, 26, 47, 0.16)",
+    border: "1px solid rgba(139, 26, 47, 0.22)",
+    opacity: 1,
+    transition: "background-color 220ms, border-color 220ms",
+  },
+}));
 
 export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = ({
   employees,
@@ -98,27 +154,45 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <div className="mt-2 d-flex gap-4 align-items-center">
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={!!meta.isLive}
-                    onChange={(e) => setFieldValue("projectMeta.isLive", e.target.checked)}
-                    color="success"
-                  />
-                }
-                label={<Typography sx={{ fontSize: "14px", fontWeight: 500 }}>Is Live</Typography>}
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={meta.isProjectOpen !== false}
-                    onChange={(e) => setFieldValue("projectMeta.isProjectOpen", e.target.checked)}
-                    color="primary"
-                  />
-                }
-                label={<Typography sx={{ fontSize: "14px", fontWeight: 500 }}>Project Open</Typography>}
-              />
+            {/* Match the sibling fields: a form-label header + an input-height row
+                so the toggles align with the dropdowns instead of floating high. */}
+            <label className="form-label">Visibility</label>
+            <div
+              className="d-flex gap-4 align-items-center"
+              style={{ minHeight: 42 }}
+            >
+              {[
+                { key: "projectMeta.isLive", label: "Is Live", checked: !!meta.isLive },
+                {
+                  key: "projectMeta.isProjectOpen",
+                  label: "Project Open",
+                  checked: meta.isProjectOpen !== false,
+                },
+              ].map((t) => (
+                <FormControlLabel
+                  key={t.key}
+                  control={
+                    <ThemedSwitch
+                      checked={t.checked}
+                      onChange={(e) => setFieldValue(t.key, e.target.checked)}
+                    />
+                  }
+                  sx={{ ml: 0, mr: 0, gap: 1.25 }}
+                  label={
+                    <Typography
+                      sx={{
+                        fontSize: "13.5px",
+                        fontWeight: t.checked ? 600 : 500,
+                        color: t.checked ? "var(--wt-primary, #8B1A2F)" : "#475569",
+                        transition: "color 150ms, font-weight 150ms",
+                        userSelect: "none",
+                      }}
+                    >
+                      {t.label}
+                    </Typography>
+                  }
+                />
+              ))}
             </div>
           </Grid>
         </Grid>

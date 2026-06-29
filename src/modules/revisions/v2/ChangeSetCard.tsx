@@ -14,29 +14,6 @@ interface Props {
   onReset?: (revisionNumber: number) => void;
 }
 
-const ContextChip: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (
-  <span
-    title={`${label}: ${value}`}
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 6,
-      fontFamily: FONT.body,
-      fontSize: 11,
-      fontWeight: 500,
-      color: C.textSecondary,
-      backgroundColor: C.bgSection,
-      padding: '4px 9px',
-      borderRadius: RADIUS.full,
-      border: `1px solid ${C.border}`,
-    }}
-  >
-    <i className={icon} style={{ fontSize: 11, color: C.textMuted }} aria-hidden />
-    <span style={{ color: C.textMuted }}>{label}</span>
-    <span style={{ color: C.textPrimary, fontWeight: 600 }}>{value}</span>
-  </span>
-);
-
 const actionBtn = (extra?: React.CSSProperties): React.CSSProperties => ({
   background: 'transparent',
   borderRadius: RADIUS.md,
@@ -303,7 +280,9 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
             )}
           </div>
 
-          {/* Provenance / non-repudiation + actions */}
+          {/* Provenance chips (Source / Device / Browser / IP) and the Verified
+              badge were removed from the UI per request. The hash chain
+              (prevHash/rowHash) is still computed and stored server-side. */}
           <div
             style={{
               display: 'flex',
@@ -313,31 +292,6 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
               marginTop: 12,
             }}
           >
-            {cs.changeSource && <ContextChip icon="bi bi-input-cursor-text" label="Source" value={cs.changeSource} />}
-            {cs.deviceType && <ContextChip icon="bi bi-display" label="Device" value={cs.deviceType} />}
-            {cs.browserName && <ContextChip icon="bi bi-globe2" label="Browser" value={cs.browserName} />}
-            {cs.ipAddress && <ContextChip icon="bi bi-hdd-network" label="IP" value={cs.ipAddress} />}
-            {cs.rowHash && (
-              <span
-                title={`Tamper-evidence hash: ${cs.rowHash}`}
-                style={{
-                  fontFamily: FONT.body,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: '#16a34a',
-                  backgroundColor: C.successLight,
-                  padding: '4px 9px',
-                  borderRadius: RADIUS.full,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                }}
-              >
-                <i className="bi bi-shield-check" style={{ fontSize: 11 }} aria-hidden />
-                Verified
-              </span>
-            )}
-
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               {onReset && (
                 <button

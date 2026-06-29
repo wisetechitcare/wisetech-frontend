@@ -15,7 +15,6 @@ import CompaniesRating from "./CompaniesRating";
 import CompaniesProject from "./CompaniesProject";
 import CompaniesLeads from "./CompaniesLeads";
 
-import { open } from "fs";
 import DetailsModal from "@pages/employee/leads/lead/DetailsModal";
 import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import Loader from "@app/modules/common/utils/Loader";
@@ -533,9 +532,10 @@ const CompanyDetails = () => {
       />
 
       {/* New Project Modal */}
-      <ChooseProjectTypeModal
-        show={showNewProjectModal}
-        onHide={() => setShowNewProjectModal(false)}
+      <DetailsModal
+        open={showNewProjectModal}
+        onClose={handleCloseNewProjectModal}
+        Datas={templateDataForLeads}
       />
 
       {/* Add New Lead */}

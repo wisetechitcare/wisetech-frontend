@@ -1,8 +1,10 @@
-﻿import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Modal, Button } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
-import { createCompanyType, updateCompanyType, createContactRoleType, updateContactRoleType, createRatingFactor, updateRatingFactor, createContactStatus, updateContactStatus, createCompanyService, updateCompanyService } from "@services/companies";
+import Select from "react-select";
+import { createCompanyType, updateCompanyType, createContactRoleType, updateContactRoleType, createRatingFactor, updateRatingFactor, createContactStatus, updateContactStatus, createCompanyService, updateCompanyService, getAllCompanyTypes } from "@services/companies";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
@@ -20,6 +22,8 @@ export interface ConfigItem {
   name: string;
   color: string;
   isActive: boolean;
+  parentTypeId?: string | null;
+  companyTypeId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -47,25 +51,64 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // company-type → list of possible parents; company-services → list of types to file under.
+  const [companyTypes, setCompanyTypes] = useState<any[]>([]);
 
+  useEffect(() => {
+    if (show && (type === "company-type" || type === "company-services")) {
+      getAllCompanyTypes()
+        .then((res: any) => setCompanyTypes(res?.companyTypes || []))
+        .catch(() => setCompanyTypes([]));
+    }
+  }, [show, type]);
+
+  // Parent options: top-level types only (no parent themselves) and never the type being edited,
+  // keeping the hierarchy a single level deep.
+  const parentTypeOptions = sortOptionsAlphabetically(
+    companyTypes
+      .filter((t) => !t.parentTypeId && t.id !== initialData?.id)
+      .map((t) => ({ value: t.id, label: t.name }))
+  );
+
+  // R3 — a type that already has sub-types can't be given a parent (that would create a 3-deep
+  // chain and make its children vanish, the old "Consultant (All)" bug). Disable the picker.
+  const editingTypeHasChildren =
+    type === "company-type" && !!initialData?.id &&
+    companyTypes.some((t) => t.parentTypeId === initialData.id);
+
+  // company-services → all types (incl. sub-types) the service can be filed under.
+  const serviceTypeOptions = sortOptionsAlphabetically(
+    companyTypes.map((t) => ({ value: t.id, label: t.name }))
+  );
 
   const initialValues = {
     name: initialData?.name || "",
     color: type === "company-services" ? "" : (initialData?.color || "#8B4444"),
     isActive: initialData?.isActive ?? true,
+    parentTypeId: initialData?.parentTypeId || "",
+    companyTypeId: initialData?.companyTypeId || "",
   };
 
   const handleSubmit = async (values: typeof initialValues) => {
     setError("");
     setIsSubmitting(true);
     try {
+      // Only company-type carries parentTypeId and only company-services carries companyTypeId;
+      // strip both for every other config type.
+      const { parentTypeId, companyTypeId, ...rest } = values;
+      const payload: any = type === "company-type"
+        ? { ...rest, parentTypeId: parentTypeId || null }
+        : type === "company-services"
+          ? { ...rest, companyTypeId: companyTypeId || null }
+          : rest;
+
       if (isEditing && initialData?.id) {
         const updateFn = type === "company-type" ? updateCompanyType :
                          type === "contact-role-type" ? updateContactRoleType :
                          type === "contact-status" ? updateContactStatus :
-                         type === "company-services" ? (id: string, payload: any) => updateCompanyService(id, payload) :
+                         type === "company-services" ? (id: string, p: any) => updateCompanyService(id, p) :
                          updateRatingFactor;
-        await updateFn(initialData.id, values);
+        await updateFn(initialData.id, payload);
         successConfirmation(`${title} updated successfully`);
       } else {
         const createFn = type === "company-type" ? createCompanyType :
@@ -73,7 +116,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                          type === "contact-status" ? createContactStatus :
                          type === "company-services" ? createCompanyService :
                          createRatingFactor;
-        const res = await createFn(values);
+        const res = await createFn(payload);
         successConfirmation(`${title} created successfully`);
       }
 
@@ -104,7 +147,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
         </Modal.Title>
       </Modal.Header>
       <Formik
-        initialValues={initialData || { name: '', color: '#8B4444', isActive: true }}
+        initialValues={initialValues}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
         enableReinitialize
@@ -280,8 +323,71 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                   </div>
                 </div>
               )}
+
+              {/* Parent Type — groups this type under another in the "Companies by Type" chart */}
+              {type === "company-type" && (
+                <div className="mb-4">
+                  <label
+                    className="form-label"
+                    style={{ fontWeight: '500', color: '#1a1a1a', fontSize: '14px', marginBottom: '8px' }}
+                  >
+                    Parent Type <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <Select
+                    isClearable
+                    isDisabled={editingTypeHasChildren}
+                    placeholder="None — top-level type"
+                    classNamePrefix="react-select"
+                    options={parentTypeOptions}
+                    value={
+                      values.parentTypeId
+                        ? parentTypeOptions.find((o: any) => o.value === values.parentTypeId) || null
+                        : null
+                    }
+                    onChange={(opt: any) => setFieldValue("parentTypeId", opt?.value || "")}
+                    menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                    menuPosition="fixed"
+                    styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                  />
+                  <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
+                    {editingTypeHasChildren
+                      ? "This type already has sub-types, so it can't be moved under another type (keeps the hierarchy one level deep)."
+                      : "Leave empty for a main type. Sub-types (e.g. “Architect Interior”) group under their parent in the chart."}
+                  </div>
+                </div>
+              )}
+
+              {/* Company Type — files this service under a (sub-)type for the tree + tagging filter */}
+              {type === "company-services" && (
+                <div className="mb-4">
+                  <label
+                    className="form-label"
+                    style={{ fontWeight: '500', color: '#1a1a1a', fontSize: '14px', marginBottom: '8px' }}
+                  >
+                    Company Type <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <Select
+                    isClearable
+                    placeholder="Unassigned — no type"
+                    classNamePrefix="react-select"
+                    options={serviceTypeOptions}
+                    value={
+                      values.companyTypeId
+                        ? serviceTypeOptions.find((o: any) => o.value === values.companyTypeId) || null
+                        : null
+                    }
+                    onChange={(opt: any) => setFieldValue("companyTypeId", opt?.value || "")}
+                    menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                    menuPosition="fixed"
+                    styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                  />
+                  <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
+                    Files this service under a company type/sub-type. Leave empty to keep it under “Unassigned”.
+                  </div>
+                </div>
+              )}
             </Modal.Body>
-            
+
             <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
               <Button 
                 variant="primary" 

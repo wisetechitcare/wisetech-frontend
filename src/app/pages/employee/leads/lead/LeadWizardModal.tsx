@@ -34,7 +34,6 @@ import {
   getAllProjectStatuses,
   getAllProjectSubcategories,
   getAllTeams,
-  updateProjectById,
 } from "@services/projects";
 import {
   getAllClientCompanies,
@@ -1266,10 +1265,13 @@ const LeadWizardModal = ({
       poStatus: leadData?.poStatus || initialFormData?.poStatus || "Pending",
       poFile: leadData?.poFile || initialFormData?.poFile || "",
 
-      // ─── Project fields (from lead.project when status is Received/project trigger) ───
-      // Only populated when editing a lead that has an associated project
-      projectStatusId: leadData.project?.statusId || "",
-      projectManagerId: leadData.project?.assignedToId || leadData.project?.projectManagerId || "",
+      // ─── Project Execution fields ─────────────────────────────────────────────
+      // LEAD-AS-MASTER: these now live on the 1:1 lead_executions extension
+      // (leadData.execution). The legacy leadData.project shape is kept only as a
+      // fallback for un-migrated records. Reading project.* first was why a saved
+      // Project Execution step came back EMPTY on reload (data was on .execution).
+      projectStatusId: leadData.execution?.projectStatusId || leadData.project?.statusId || "",
+      projectManagerId: leadData.execution?.projectManagerId || leadData.project?.assignedToId || leadData.project?.projectManagerId || "",
       projectTeams: (() => {
         if (leadData.project?.projectTeams && Array.isArray(leadData.project.projectTeams)) {
           return leadData.project.projectTeams.map((pt: any) => ({
@@ -1304,17 +1306,21 @@ const LeadWizardModal = ({
         : leadData.receivedDate || "",
       projectMeta: {
         projectManagerId:
-          leadData.project?.projectManagerId || leadData.project?.assignedToId || "",
-        teamId: leadData.project?.teamId || "",
-        projectAccess: leadData.project?.projectAccess || "PRIVATE",
-        isLive: leadData.project?.isLive ?? false,
-        isProjectOpen: leadData.project?.isProjectOpen ?? true,
+          leadData.execution?.projectManagerId || leadData.project?.projectManagerId || leadData.project?.assignedToId || "",
+        teamId: leadData.execution?.teamId || leadData.project?.teamId || "",
+        projectAccess: leadData.execution?.projectAccess || leadData.project?.projectAccess || "PRIVATE",
+        isLive: leadData.execution?.isLive ?? leadData.project?.isLive ?? false,
+        isProjectOpen: leadData.execution?.isProjectOpen ?? leadData.project?.isProjectOpen ?? true,
         contractRate:
-          leadData.project?.rate !== undefined && leadData.project?.rate !== null
+          leadData.execution?.rate !== undefined && leadData.execution?.rate !== null
+            ? String(leadData.execution.rate)
+            : leadData.project?.rate !== undefined && leadData.project?.rate !== null
             ? String(leadData.project.rate)
             : "",
         finalCost:
-          leadData.project?.cost !== undefined && leadData.project?.cost !== null
+          leadData.execution?.cost !== undefined && leadData.execution?.cost !== null
+            ? String(leadData.execution.cost)
+            : leadData.project?.cost !== undefined && leadData.project?.cost !== null
             ? String(leadData.project.cost)
             : "",
         poNumber: leadData.project?.poNumber || "",
@@ -2658,9 +2664,10 @@ const LeadWizardModal = ({
       ...(formData?.branchId && {
         leadBranchMapping: { branchId: formData?.branchId },
       }),
-      ...(formData?.leadDirectSource && {
-        leadDirectSourceId: formData?.leadDirectSource,
-      }),
+      // Always send leadDirectSourceId (even when cleared) so the backend can
+      // disconnect it on removal — without this an empty value is omitted from the
+      // payload and the removal is never persisted or audited.
+      leadDirectSourceId: formData?.leadDirectSource || "",
       additionalDetails: {
         ...additionalDetails,
         // Calculate and include total project area for persistence
@@ -2804,7 +2811,7 @@ const LeadWizardModal = ({
         || key === "reasonForCancellation" || key === "isCancelled"
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
-        || key === "leadAssignedTo") {
+        || key === "leadAssignedTo" || key === "leadDirectSourceId") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
@@ -2817,52 +2824,27 @@ const LeadWizardModal = ({
     }
 
     // ─── Extract project-only fields (don't send to lead API) ───
-    // ─── Build the project update payload — maps the wizard's projectMeta.* + the
-    //     date fields to actual Project columns. Only sent when the lead has a
-    //     linked project (resolvedProjectId below). ─────────────────────────────────
+    // LEAD-AS-MASTER: execution-only fields (project status/manager/team/access/flags/
+    // financials) are written onto the lead's 1:1 execution extension (lead_executions)
+    // via the lead payload — no separate project update. (locationRemark /
+    // isLocationIncorrect / startDate / endDate / poNumber / poDate already persist on
+    // the lead + additionalDetails.)
     const pm = formData.projectMeta || {};
     const toNum = (v: any) =>
       v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v);
-    const projectDelta: any = {};
+    finalCleanPayload.execution = {
+      projectStatusId: formData.projectStatusId || null,
+      projectManagerId: pm.projectManagerId || null,
+      teamId: pm.teamId || null,
+      ...(pm.projectAccess ? { projectAccess: pm.projectAccess } : {}),
+      isLive: !!pm.isLive,
+      isProjectOpen: pm.isProjectOpen !== false,
+      rate: toNum(pm.contractRate) ?? null,
+      cost: toNum(pm.finalCost) ?? null,
+    };
 
-    if (formData.projectStatusId) projectDelta.statusId = formData.projectStatusId;
-    if (pm.projectManagerId) {
-      projectDelta.projectManagerId = pm.projectManagerId;
-      projectDelta.assignedToId = pm.projectManagerId;
-    }
-    if (pm.teamId) projectDelta.teamId = pm.teamId;
-    if (pm.projectAccess) projectDelta.projectAccess = pm.projectAccess;
-    projectDelta.isLive = !!pm.isLive;
-    projectDelta.isProjectOpen = pm.isProjectOpen !== false;
-    projectDelta.isLocationIncorrect = !!pm.isLocationIncorrect;
-    if (pm.locationRemark !== undefined) projectDelta.locationRemark = pm.locationRemark || null;
-    const rate = toNum(pm.contractRate);
-    if (rate !== undefined) projectDelta.rate = rate;
-    const cost = toNum(pm.finalCost);
-    if (cost !== undefined) projectDelta.cost = cost;
-    if (pm.poNumber !== undefined) projectDelta.poNumber = pm.poNumber || null;
-    if (formData.startDate) projectDelta.startDate = formData.startDate;
-    if (formData.endDate) projectDelta.endDate = formData.endDate;
-    if (formData.receivedDate) projectDelta.poDate = formData.receivedDate;
-
-    // The backend updateProjectSchema REQUIRES `title` and `createdById`. Include the
-    // values so the partial update passes validation (else 422).
-    // CRITICAL: prefer the FRESHLY EDITED title from the form. Lead and Project share
-    // one title (unified entity), and the project update reverse-syncs scalars back
-    // onto the lead (ProjectRepository.update → syncProjectChangesToLead). Sending the
-    // stale `currLeadData.project.title` here clobbered the just-saved lead title,
-    // reverting edits even though the audit recorded them. Form value MUST win.
-    if (Object.keys(projectDelta).length > 0 && currLeadData?.project) {
-      projectDelta.title =
-        formData.title ||
-        formData.projectName ||
-        currLeadData.project.title ||
-        currLeadData.title ||
-        "Project";
-      projectDelta.createdById =
-        currLeadData.project.createdById || employeeId || createdById;
-    }
-    // Remove project-only fields from the lead payload (they go via projectDelta)
+    // Remove the flat project-only fields from the lead payload — they're now carried
+    // by finalCleanPayload.execution (lead_executions), not as top-level lead columns.
     delete finalCleanPayload.projectStatusId;
     delete finalCleanPayload.projectManagerId;
     delete finalCleanPayload.projectTeams;
@@ -2904,18 +2886,8 @@ const LeadWizardModal = ({
         if (res?.hasError) {
           errorConfirmation("Failed to update lead. Please try again.");
         } else {
-          // ─── If lead has a project, update project delta (status, manager, teams, handled-by) ───
-          // Resolve the project id from either the flat field or the nested project object
-          // (the form reads project status from currLeadData.project.* — keep both in sync).
-          const resolvedProjectId = currLeadData?.projectId || currLeadData?.project?.id;
-          if (resolvedProjectId && Object.keys(projectDelta).length > 0) {
-            try {
-              await updateProjectById(resolvedProjectId, projectDelta);
-            } catch (projError) {
-              console.error("Error updating project delta:", projError);
-              errorConfirmation("Lead updated but project update failed. Please refresh.");
-            }
-          }
+          // LEAD-AS-MASTER: execution fields were persisted on the lead (execution
+          // extension) as part of the lead update — no separate project write.
           successConfirmation("Lead Updated successfully!");
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
           if (onClose) onClose();
@@ -2983,6 +2955,33 @@ const LeadWizardModal = ({
   // statuses reuse backup2's `statuses` state — leads remain the source of truth.
   // ──────────────────────────────────────────────────────────────────────────
   const companyCascade = useCompanyHierarchy(companies);
+
+  // Edit mode: preload each leadTeam row's cascade options (sub-companies +
+  // contacts) so the saved Sub Company / Contact Person values can render their
+  // labels on reopen. Without this the dropdowns have no options and display
+  // "Select..." even though the IDs are present in form state. Runs once the
+  // company list is available; preloadCascades is keyed by row index to match
+  // the FieldArray ordering produced by buildInitialValues.
+  const cascadesPreloadedRef = useRef(false);
+  useEffect(() => {
+    if (
+      isEditMode &&
+      companies.length > 0 &&
+      Array.isArray(currLeadData?.leadTeams) &&
+      currLeadData.leadTeams.length > 0 &&
+      !cascadesPreloadedRef.current
+    ) {
+      cascadesPreloadedRef.current = true;
+      companyCascade.preloadCascades(
+        currLeadData.leadTeams.map((team: any) => ({
+          companyTypeId: team.companyType?.id || team.companyTypeId || "",
+          companyId: team.company?.id || team.companyId || "",
+          subCompanyId: team.subCompany?.id || team.subCompanyId || "",
+        })),
+      );
+    }
+  }, [isEditMode, currLeadData?.leadTeams, companies.length, companyCascade]);
+
   const leadProjectStatuses = statuses;
   // DropDownInput delegates the whole update to onChange — so these wrappers MUST
   // set the changed field themselves, then run the cascade + clear dependents.

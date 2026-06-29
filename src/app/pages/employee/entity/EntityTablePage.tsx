@@ -397,7 +397,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const leadsResponse = await getAllLeads();
+      // Full set — table filters & paginates client-side; default 50-row page
+      // would otherwise truncate the unified entity list.
+      const leadsResponse = await getAllLeads({ pageSize: 100000 });
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 

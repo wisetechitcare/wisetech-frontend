@@ -167,6 +167,9 @@ const SummarySection: React.FC<{
   const allEmployees = useSelector((s: RootState) => s.allEmployees?.list) || [];
   const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project;
   const p = lead?.project || {};
+  // Lead-as-master: execution-only fields now come from the lead's 1:1 execution
+  // extension. Fall back to the (transitional) project row when present.
+  const exec = lead?.execution || {};
   const [sub, setSub] = useState<SubKey>('overview');
 
   const subPages = useMemo(() => SUB_PAGES.filter(s => !s.projectOnly || isProject), [isProject]);
@@ -177,9 +180,16 @@ const SummarySection: React.FC<{
   const health = computeHealth(lead, missing.length);
   const probability = conversionProbability(lead, health);
   const value = sumLeadCommercials(lead).totalCost;
-  const progress = getTimelineProgress(p?.startDate, p?.endDate);
+  // Dates live on the lead now (fallback to the project row during transition).
+  const execStart = lead?.startDate || p?.startDate;
+  const execEnd = lead?.endDate || p?.endDate;
+  const progress = getTimelineProgress(execStart, execEnd);
   const delayed = isDelayedProject(lead);
-  const pmName = projectManagerName(p, allEmployees) || DASH;
+  const execManager = exec?.projectManager
+    ? employeeUserName(exec.projectManager)
+    : employeeNameById(allEmployees, exec?.projectManagerId);
+  const pmName = execManager || projectManagerName(p, allEmployees) || DASH;
+  const execStatus = exec?.projectStatus || p?.status || null;
 
   const Overview = (
     <div>
@@ -216,11 +226,11 @@ const SummarySection: React.FC<{
           <SectionHeading icon="bi bi-kanban" title="Project Snapshot" color={ICON_COLORS.green.color} />
           <StatGrid
             items={[
-              { label: 'Project Status', value: <DetailStatusBadge status={p?.status?.name || DASH} color={p?.status?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
+              { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
               { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
               { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accent: delayed ? 'danger' : 'warning' },
-              { label: 'Start Date', value: fmtDate(p?.startDate), icon: 'bi bi-calendar-event', accent: 'teal' },
-              { label: 'Expected Closure', value: fmtDate(p?.endDate), icon: 'bi bi-calendar-check', accent: 'green' },
+              { label: 'Start Date', value: fmtDate(execStart), icon: 'bi bi-calendar-event', accent: 'teal' },
+              { label: 'Expected Closure', value: fmtDate(execEnd), icon: 'bi bi-calendar-check', accent: 'green' },
             ]}
           />
         </div>

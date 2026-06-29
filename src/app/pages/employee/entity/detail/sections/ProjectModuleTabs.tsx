@@ -35,7 +35,9 @@ export const TasksTab: React.FC<{ lead: any; projectId: string }> = ({ lead, pro
         { label: 'Due', value: fmtDate(p?.endDate), icon: 'bi bi-calendar-check', accentColor: 'green' },
       ]}
     >
-      <TasksMainTable projectId={projectId} />
+      {/* Lead-as-master: fetch operational data by the LEAD id (backend resolves by
+          lead_id OR project_id), so it works even for leads not linked to a project. */}
+      <TasksMainTable projectId={lead?.id ?? projectId} />
     </TabShell>
   );
 };
@@ -51,7 +53,7 @@ export const TimesheetTab: React.FC<{ lead: any; projectId: string }> = ({ lead,
         { label: 'End', value: fmtDate(p?.endDate), icon: 'bi bi-calendar-check', accentColor: 'green' },
       ]}
     >
-      <TaskTimesheet fetchMode="project" projectId={projectId} />
+      <TaskTimesheet fetchMode="project" projectId={lead?.id ?? projectId} />
     </TabShell>
   );
 };
@@ -65,7 +67,7 @@ export const ReimbursementTab: React.FC<{ lead: any; projectId: string }> = ({ l
         { label: 'Project', value: p?.prefix || DASH, icon: 'bi bi-kanban', accentColor: 'blue' },
       ]}
     >
-      <ProjectReimbursements projectId={projectId} />
+      <ProjectReimbursements projectId={lead?.id ?? projectId} />
     </TabShell>
   );
 };

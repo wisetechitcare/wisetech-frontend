@@ -281,11 +281,11 @@ export const buildEntityVM = (lead: any): EntityVM => {
   // read from the Lead Record. createdBy is stamped on auto-create, so it stays.
   const projectSystemRows: KV[] | undefined = isProject
     ? [
-        { label: 'Project Number', value: p?.prefix, minLevel: 'detailed' },
+        { label: 'Project Number', value: lead?.originalProjectPrefix ?? p?.prefix, minLevel: 'detailed' },
         { label: 'Created By', value: employeeUserName(p?.createdBy), minLevel: 'detailed' },
         { label: 'Created', value: fmtDateTime(p?.createdAt), minLevel: 'detailed' },
         { label: 'Last Edited', value: fmtDateTime(p?.updatedAt), minLevel: 'detailed' },
-        { label: 'Project ID', value: p?.id, minLevel: 'advanced' },
+        { label: 'Project ID', value: lead?.projectId ?? p?.id, minLevel: 'advanced' },
         { label: 'Location Flag', value: p?.isLocationIncorrect ? 'Marked incorrect' : 'OK', minLevel: 'advanced' },
       ]
     : undefined;

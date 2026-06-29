@@ -57,6 +57,37 @@ export const ChangeTypeChip: React.FC<{ changeType: string }> = ({ changeType })
   );
 };
 
+/**
+ * Parse a multi-field row summary ("Area (SQFT): 5 · Cost Type: Rate · Rate: ₹5")
+ * into label/value pairs so it can render as a clean stacked list instead of one
+ * long (and, when removed, struck-through) line. Returns null for ordinary values.
+ */
+export function parseFieldSummary(text: string): { label: string; value: string }[] | null {
+  if (!text.includes(' · ')) return null;
+  const rows: { label: string; value: string }[] = [];
+  for (const seg of text.split(' · ')) {
+    const idx = seg.indexOf(': ');
+    if (idx === -1) return null; // not a "label: value" segment → leave as plain text
+    rows.push({ label: seg.slice(0, idx), value: seg.slice(idx + 2) });
+  }
+  return rows.length >= 2 ? rows : null;
+}
+
+/** Compact label/value table for a parsed multi-field collection summary. */
+export const FieldSummaryGrid: React.FC<{
+  rows: { label: string; value: string }[];
+  valueColor: string;
+}> = ({ rows, valueColor }) => (
+  <span style={{ display: 'inline-grid', gridTemplateColumns: 'auto 1fr', columnGap: 12, rowGap: 3, maxWidth: '100%' }}>
+    {rows.map((r, i) => (
+      <React.Fragment key={i}>
+        <span style={{ color: C.textMuted, fontWeight: 500, whiteSpace: 'nowrap' }}>{r.label}</span>
+        <span style={{ color: valueColor, fontWeight: 600, wordBreak: 'break-word' }}>{r.value}</span>
+      </React.Fragment>
+    ))}
+  </span>
+);
+
 /** old → new value rendering with screen-reader text and color+icon (a11y safe). */
 export const ValueDelta: React.FC<{ change: V2FieldChange; stacked?: boolean }> = ({
   change,
@@ -72,6 +103,32 @@ export const ValueDelta: React.FC<{ change: V2FieldChange; stacked?: boolean }> 
   ) => {
     const color = placeholder ? C.textMuted : tone === 'old' ? DIFF.removed : DIFF.added;
     const bg = placeholder ? C.bgSection : tone === 'old' ? DIFF.removedBg : DIFF.addedBg;
+
+    // Multi-field collection summary → render as a compact label/value table so the
+    // numbers are scannable (one field per line), not a single dense, struck line.
+    const summary = placeholder ? null : parseFieldSummary(text);
+    if (summary) {
+      return (
+        <span
+          style={{
+            display: 'inline-block',
+            backgroundColor: bg,
+            padding: '6px 11px',
+            borderRadius: RADIUS.sm,
+            border: `1px solid ${color}1f`,
+            fontFamily: FONT.body,
+            fontSize: 12.5,
+            maxWidth: '100%',
+          }}
+        >
+          <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+            {srLabel}
+          </span>
+          <FieldSummaryGrid rows={summary} valueColor={color} />
+        </span>
+      );
+    }
+
     return (
       <span
         style={{

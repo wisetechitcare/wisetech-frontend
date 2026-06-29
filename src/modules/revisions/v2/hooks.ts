@@ -10,13 +10,23 @@ import {
  * Cursor-based infinite timeline + immutable (cache-forever) diffs.
  */
 
-export function useAuditTimeline(type: AuditEntityType, id?: string, limit = 15) {
+export function useAuditTimeline(
+  type: AuditEntityType,
+  id?: string,
+  limit = 15,
+  freshRef?: { current: boolean },
+) {
   return useInfiniteQuery({
     queryKey: ['audit-timeline', type, id],
     enabled: !!id,
     initialPageParam: undefined as number | undefined,
     queryFn: ({ pageParam }) =>
-      AuditV2Api.timeline(type, id as string, { cursor: pageParam, limit }),
+      AuditV2Api.timeline(type, id as string, {
+        cursor: pageParam,
+        limit,
+        // Set by an explicit Refresh click so the server skips its cached page.
+        fresh: freshRef?.current ? 1 : undefined,
+      }),
     getNextPageParam: (last: V2TimelinePage) => last.nextCursor ?? undefined,
     // Audit data changes out-of-band (the user edits the entity elsewhere), so
     // always show fresh data when the tab is opened or the window regains focus.

@@ -229,7 +229,10 @@ const LeadTablePage = () => {
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const leadsResponse = await getAllLeads();
+      // Fetch the full set — this table filters & paginates client-side, so the
+      // default 50-row page would otherwise cap the list (root cause of "only 50
+      // leads"). High pageSize mirrors the projects endpoint's bulk fetch.
+      const leadsResponse = await getAllLeads({ pageSize: 100000 });
       const leadsData = leadsResponse?.data?.data?.leads || [];
 
       // Filter to show: non-project leads + received status leads (transitioning)

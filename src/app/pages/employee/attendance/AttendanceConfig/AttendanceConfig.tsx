@@ -240,6 +240,9 @@ const AttendanceConfig: React.FC = () => {
   const [rootOrgId, setRootOrgId] = useState<string>('');
   const [rootOrgName, setRootOrgName] = useState<string>('Organization');
   const [branchOptions, setBranchOptions] = useState<Array<{ id: string; name: string; orgName?: string }>>([]);
+  // Sub-orgs (descendants of the root org) — each gets its own scope tab so an org-level
+  // default can be set per sub-org, matching the Org → Sub-Org → Branch resolve chain.
+  const [subOrgOptions, setSubOrgOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [configScope, setConfigScope] = useState<{ companyId?: string; branchId?: string }>({});
 
   useEffect(() => {
@@ -253,6 +256,23 @@ const AttendanceConfig: React.FC = () => {
         // not a generic "Organization".
         setRootOrgName(rootOrg?.name ?? rootOrg?.organizationName ?? rootOrg?.companyName ?? 'Organization');
         setConfigScope({ companyId: rootId }); // default to the organization config
+
+        // Collect every sub-org under the root (any depth) so each can get its own scope tab.
+        const allOrgs = Array.isArray(companyOverview) ? companyOverview : [];
+        const subOrgs: Array<{ id: string; name: string }> = [];
+        const seen = new Set<string>([rootId]);
+        const stack = [rootId];
+        while (stack.length) {
+          const cur = stack.pop() as string;
+          for (const child of allOrgs.filter((o: any) => o && o.parentOrganizationId === cur)) {
+            if (seen.has(child.id)) continue;
+            seen.add(child.id);
+            subOrgs.push({ id: child.id, name: child.name ?? child.organizationName ?? child.companyName ?? 'Sub-org' });
+            stack.push(child.id);
+          }
+        }
+        setSubOrgOptions(subOrgs);
+
         const res = await fetchAllBranches();
         const branches = res?.data?.branches ?? res?.data ?? [];
         setBranchOptions(branches.map((b: any) => ({ id: b.id, name: b.name, orgName: b.company?.name })));
@@ -406,18 +426,26 @@ const AttendanceConfig: React.FC = () => {
                   override. The Daily Shift Time card, Default Shift Rules, and the Configure modal
                   all follow the active tab — so you can click through branches and instantly see
                   what shift each one uses. (Replaces the in-modal "Configuring for" dropdown.) */}
-              {branchOptions.length > 0 && (
+              {(subOrgOptions.length > 0 || branchOptions.length > 0) && (
                 <div style={{ marginBottom: SP.lg }}>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch', width: '100%' }}>
-                    {[{ id: '', name: rootOrgName, orgName: '' }, ...branchOptions].map((b) => {
-                      const isOrg = b.id === '';
-                      const active = isOrg ? !configScope.branchId : configScope.branchId === b.id;
-                      const label = isOrg ? rootOrgName : (b.orgName ? `${b.orgName} › ${b.name}` : b.name);
+                    {[
+                      // Root org default
+                      { kind: 'org' as const, id: rootOrgId, label: rootOrgName, scope: { companyId: rootOrgId } },
+                      // One default tab per sub-org
+                      ...subOrgOptions.map((o) => ({ kind: 'org' as const, id: o.id, label: o.name, scope: { companyId: o.id } })),
+                      // One override tab per branch (labelled with its owning org)
+                      ...branchOptions.map((b) => ({ kind: 'branch' as const, id: b.id, label: b.orgName ? `${b.orgName} › ${b.name}` : b.name, scope: { branchId: b.id } })),
+                    ].map((b) => {
+                      const active = b.kind === 'branch'
+                        ? configScope.branchId === b.id
+                        : (!configScope.branchId && configScope.companyId === b.id);
+                      const label = b.label;
                       return (
                         <button
-                          key={b.id || 'org'}
+                          key={`${b.kind}-${b.id || 'org'}`}
                           type="button"
-                          onClick={() => setConfigScope(isOrg ? { companyId: rootOrgId } : { branchId: b.id })}
+                          onClick={() => setConfigScope(b.scope)}
                           style={{
                             padding: '7px 14px',
                             borderRadius: 8,
@@ -445,7 +473,9 @@ const AttendanceConfig: React.FC = () => {
                   <p style={{ fontFamily: FONT.body, fontSize: '12px', color: configScope.branchId ? '#9d4141' : '#6c757d', margin: '8px 0 0 0' }}>
                     {configScope.branchId
                       ? 'Showing this branch’s override — the cards and Configure below apply to this branch only.'
-                      : 'Showing the organization default — applies to every branch unless that branch has its own override.'}
+                      : (configScope.companyId && configScope.companyId !== rootOrgId)
+                        ? 'Showing this sub-org’s default — applies to every branch under it unless that branch has its own override.'
+                        : 'Showing the organization default — applies to every sub-org & branch unless they have their own override.'}
                   </p>
                 </div>
               )}
