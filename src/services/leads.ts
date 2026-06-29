@@ -20,6 +20,43 @@ export const getAllLeads = async (params?: { page?: number; pageSize?: number })
 };
 
 /**
+ * Fetch EVERY lead, regardless of count.
+ *
+ * The backend paginates and hard-caps `pageSize` at 500, so a single request can
+ * never return more than 500 rows. This helper fetches the first page, reads the
+ * reported `total`, and then pulls any remaining pages concurrently — fast even
+ * for large datasets — returning a response in the same shape `getAllLeads` does
+ * (`response.data.data.leads`) so existing callers need no other changes.
+ */
+export const getAllLeadsComplete = async () => {
+  const MAX_PAGE_SIZE = 500;
+  const first = await getAllLeads({ page: 1, pageSize: MAX_PAGE_SIZE });
+  const payload = first?.data?.data;
+  const leads = payload?.leads ?? [];
+  const total = payload?.total ?? leads.length;
+
+  if (total <= leads.length) {
+    return first;
+  }
+
+  const totalPages = Math.ceil(total / MAX_PAGE_SIZE);
+  const restResponses = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      getAllLeads({ page: i + 2, pageSize: MAX_PAGE_SIZE })
+    )
+  );
+
+  const allLeads = [
+    ...leads,
+    ...restResponses.flatMap((r) => r?.data?.data?.leads ?? []),
+  ];
+
+  first.data.data.leads = allLeads;
+  first.data.data.total = total;
+  return first;
+};
+
+/**
  * Get lead by ID
  */
 export const getLeadById = async (id: string) => {
