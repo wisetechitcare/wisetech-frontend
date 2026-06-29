@@ -115,20 +115,15 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                         const dbColVis: Record<string, boolean> = dbPreferences.data.preferences.columnVisibility ?? {};
 
                         // Property-level merge for columnVisibility.
-                        // Rule: if code default is 'true' but DB has 'false', the code wins.
-                        // This handles the case where meta.defaultVisible was changed from false→true
-                        // in code — the DB has a stale 'false' that should no longer hide the column.
-                        // When DB has 'true' but code has 'false', the DB wins (user explicitly showed
-                        // a column that is hidden by default).
+                        // The user's saved choice is the source of truth and must persist across
+                        // reloads / re-logins. Start from code defaults so that brand-new columns
+                        // (not yet present in the DB) get their default visibility, then let every
+                        // saved DB value win — including an explicit 'false' for a column the user
+                        // hid. (Columns removed from code but still in the DB are harmless; the
+                        // table simply ignores unknown keys.)
                         const mergedColumnVisibility: Record<string, boolean> = {
-                            ...defaultPreferences.columnVisibility,   // start with code defaults
-                            ...Object.fromEntries(
-                                Object.entries(dbColVis).filter(([key, dbVal]) => {
-                                    const codeDefault = defaultPreferences.columnVisibility[key];
-                                    // Drop DB 'false' entries where code now says 'true' (stale default)
-                                    return !(dbVal === false && codeDefault === true);
-                                })
-                            )
+                            ...defaultPreferences.columnVisibility,   // defaults fill in any new columns
+                            ...dbColVis,                              // user's persisted choices win
                         };
 
                         // Merge with defaults to ensure all properties exist; use deep-merged visibility

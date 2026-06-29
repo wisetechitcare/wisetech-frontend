@@ -228,11 +228,19 @@ export const deleteClientCompany = async (id: string) => {
 
 // Get All Client Companies
 // Pass `light=true` for dropdowns — returns a slim payload (no heavy nested relations).
-export const getAllClientCompanies = async (light = false) => {
+// Pass `fields` for selective column fetching — returns only the data those columns need.
+export const getAllClientCompanies = async (light = false, fields?: string[]) => {
     try {
-        return await cachedRequest(`clientCompanies${light ? ':light' : ''}`, async () => {
+        const cacheKey = `clientCompanies${light ? ':light' : ''}${fields?.length ? ':' + fields.join(',') : ''}`;
+        return await cachedRequest(cacheKey, async () => {
             const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CLIENT_COMPANIES}`;
-            const { data } = await axios.get(endpoint, { params: { pageSize: 9999, ...(light ? { light: true } : {}) } });
+            const { data } = await axios.get(endpoint, {
+                params: {
+                    pageSize: 9999,
+                    ...(light ? { light: true } : {}),
+                    ...(fields?.length ? { fields: fields.join(',') } : {})
+                }
+            });
             return data;
         }, MUTABLE_TTL);
     } catch (err) {
@@ -266,10 +274,15 @@ export const getAllSubCompanies = async () => {
 
 // Get All Client Contacts
 // Pass `light=true` for dropdowns — returns only the small fields a picker needs.
-export const getAllClientContacts = async (params: any = {}, light = false) => {
+// Pass `fields` for selective column fetching — returns only the data those columns need.
+export const getAllClientContacts = async (params: any = {}, light = false, fields?: string[]) => {
     try {
         const finalParams = light ? { ...params, light: true } : params;
-        return await cachedRequest(`clientContacts:${light ? 'light:' : ''}${JSON.stringify(params)}`, async () => {
+        if (fields?.length) {
+            finalParams.fields = fields.join(',');
+        }
+        const cacheKey = `clientContacts:${light ? 'light:' : ''}${JSON.stringify(params)}${fields?.length ? ':' + fields.join(',') : ''}`;
+        return await cachedRequest(cacheKey, async () => {
             const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_CONTACTS}`;
             const { data } = await axios.get(endpoint, { params: finalParams });
             return data;

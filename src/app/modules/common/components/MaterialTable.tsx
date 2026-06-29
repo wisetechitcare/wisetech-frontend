@@ -91,6 +91,9 @@ interface MaterialTableProps {
   /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
   showColumnFooter?: boolean;
   defaultSorting?: Array<{ id: string; desc: boolean }>;
+  /** Notifies the parent of the currently-visible column keys (after preferences load
+   *  and on every show/hide toggle). Lets a page fetch only the data those columns need. */
+  onVisibleColumnsChange?: (visibleKeys: string[]) => void;
 }
 
 const defaultColumnSizes = {
@@ -141,6 +144,7 @@ function MaterialTable({
   renderExportActions,
   showColumnFooter = false,
   defaultSorting,
+  onVisibleColumnsChange,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -390,6 +394,17 @@ function MaterialTable({
     resetPreferences,
   } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
+  // Surface the visible column keys to the parent once preferences resolve and on every
+  // toggle. A column is visible unless its visibility flag is explicitly false.
+  useEffect(() => {
+    if (!isInitialized || !onVisibleColumnsChange) return;
+    const vis = preferences.columnVisibility || {};
+    const visibleKeys = finalColumns
+      .map((c: any) => c.accessorKey)
+      .filter((k: any) => k && vis[k] !== false);
+    onVisibleColumnsChange(visibleKeys);
+  }, [isInitialized, preferences.columnVisibility, finalColumns, onVisibleColumnsChange]);
+
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,
   );
@@ -449,6 +464,17 @@ function MaterialTable({
     [updateExportType],
   );
 
+  // Memoized column lookup map for O(1) access (instead of O(n) .find() per row)
+  const columnDefMap = useMemo(() => {
+    const map = new Map<string, any>();
+    effectiveSearchableColumns.forEach((col: any) => {
+      if (col.accessorKey) {
+        map.set(col.accessorKey, col);
+      }
+    });
+    return map;
+  }, [effectiveSearchableColumns]);
+
   // Apply column-specific filtering and ranking
   const applyColumnFilter = useCallback(
     (searchValue: string, columnToSearch: string) => {
@@ -494,14 +520,15 @@ function MaterialTable({
             if (keywords.every((k) => allRowText.includes(k))) {
               score += 50; // High bonus for row-wide AND match
               isMatch = true;
-            } else if (score >= 10) { 
+            } else if (score >= 10) {
                // Require at least 10 score to be considered a match to filter out noise
                isMatch = true;
             }
           } else {
-            const colDef = effectiveSearchableColumns.find((c: any) => c.accessorKey === columnToSearch);
+            // Use memoized column map for O(1) lookup instead of O(n) .find()
+            const colDef = columnDefMap.get(columnToSearch);
             const columnValue = colDef ? (colDef.accessorFn ? colDef.accessorFn(row) : row[colDef.accessorKey]) : row[columnToSearch];
-            
+
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
@@ -522,7 +549,7 @@ function MaterialTable({
 
       setFilteredData(sortedResults);
     },
-    [finalData, effectiveSearchableColumns],
+    [finalData, effectiveSearchableColumns, columnDefMap],
   );
 
   // Handle column selector change

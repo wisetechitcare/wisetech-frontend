@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 // import { Button } from "react-bootstrap";
 import { Button } from "@mui/material";
@@ -19,12 +19,33 @@ import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import { companyLogoIcons } from "@metronic/assets/sidepanelicons";
 
+// All selectable company-table column keys (must match the `accessorKey`s below).
+const COMPANY_COLUMN_KEYS = [
+  "companyName", "companyTypeId", "industry", "location", "createdAt", "updatedAt",
+  "budget", "projectCount", "referenceType", "internalReference", "externalReference",
+];
+
+const computeCompanyFields = (
+  visibility?: Record<string, boolean>,
+): string[] | undefined => {
+  if (!visibility) return undefined;
+  const visible = COMPANY_COLUMN_KEYS.filter((k) => visibility[k] !== false);
+  return visible.length >= COMPANY_COLUMN_KEYS.length ? undefined : visible;
+};
+
+const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
+  Object.fromEntries(COMPANY_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
+
+const getFieldsKey = (fields: string[] | undefined): string =>
+  fields ? [...fields].sort().join(",") : "ALL";
+
 interface ProcessedCompany extends Company {
   companyTypeName: string;
   referenceType?: string;
   internalReferenceEmployeeId?: string;
   externalReferenceContactId?: string;
   totalBudget?: number;
+  projectCount?: number;
 }
 
 interface Props {
@@ -65,7 +86,14 @@ const ClientCompaniesMain = ({
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
-  const fetchData = async () => {
+
+  // Column visibility & selective fetching
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchData = useCallback(async (fields?: string[]) => {
     setIsLoading(true);
     try {
       // First fetch company types
@@ -77,7 +105,7 @@ const ClientCompaniesMain = ({
       setCompanyTypesMap(typesMap);
 
       // Then fetch companies and map the types
-      const companiesResponse = await getAllClientCompanies();
+      const companiesResponse = await getAllClientCompanies(false, fields);
       const companiesData = companiesResponse?.data?.companies || [];
       const processedCompanies = companiesData.map((company: Company) => {
         // Process references to handle multiple entries
@@ -131,6 +159,7 @@ const ClientCompaniesMain = ({
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
           totalBudget: totalBudget,
+          projectCount: (company as any)._count?.projectCompanyMappings ?? 0,
         };
       });
 
@@ -141,11 +170,46 @@ const ClientCompaniesMain = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
   }, []);
+
+  // Handle column visibility changes and trigger selective refetch
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      // Pass the raw visible column accessorKeys; the backend gates the heavy
+      // `references` relation on these.
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        fetchData(keys);
+      }, 500);
+    },
+    [fetchData],
+  );
 
   // Add event listener for data refresh
   useEffect(() => {
@@ -252,6 +316,12 @@ const ClientCompaniesMain = ({
         accessorKey: "status",
         header: "Status",
         Cell: ({ cell }) => cell.getValue() || "N/A",
+      },
+      {
+        accessorKey: "projectCount",
+        header: "No. of Projects",
+        size: 110,
+        Cell: ({ cell }) => cell.getValue() ?? 0,
       },
       {
         accessorKey: "overallRating",
@@ -539,6 +609,7 @@ const ClientCompaniesMain = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         muiTableProps={{
           sx: {
             borderCollapse: "separate",

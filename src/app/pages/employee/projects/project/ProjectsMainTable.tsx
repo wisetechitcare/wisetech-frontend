@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   deleteProjectById,
   getAllProjectCategories,
@@ -32,6 +32,28 @@ import { Button } from "@mui/material";
 import { SHOW_PROJECT_BUTTONS } from "@constants/configurations-key";
 import { fetchConfiguration } from "@services/company";
 import { parseConfig } from "../configure/ProjectButtonSettingUI";
+
+// All selectable project-table column keys (must match the `accessorKey`s below).
+// Used to translate column visibility into the `fields` the API should fetch.
+const PROJECT_COLUMN_KEYS = [
+  "receivedDate", "projectId", "projectName", "totalCost", "company", "contact",
+  "branch", "category", "subCategory", "status", "startDate", "endDate", "team",
+  "rate", "budget", "cost", "country", "city", "state", "address",
+];
+
+const computeProjectFields = (
+  visibility?: Record<string, boolean>,
+): string[] | undefined => {
+  if (!visibility) return undefined;
+  const visible = PROJECT_COLUMN_KEYS.filter((k) => visibility[k] !== false);
+  return visible.length >= PROJECT_COLUMN_KEYS.length ? undefined : visible;
+};
+
+const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
+  Object.fromEntries(PROJECT_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
+
+const getFieldsKey = (fields: string[] | undefined): string =>
+  fields ? [...fields].sort().join(",") : "ALL";
 
 type ProjectDialogModalProps = {
   statusId?: any;
@@ -103,43 +125,59 @@ const ProjectsMainTable = ({
   const [deleteProject, setDeleteProject] = useState<any>(null);
   const [projectCanAddFromLeads, setProjectCanAddFromLeads] = useState(true);
 
-  const getAllProjectsData = async () => {
-    try {
-      setLoading(true);
-      // Fire all independent fetches in parallel instead of one-after-another.
-      const [
-        response, response2, response3, response4, response5,
-        response6, response7, response9, response10, response11,
-      ] = await Promise.all([
-        getAllProjects(),
-        getAllProjectCategories(),
-        getAllProjectSubcategories(),
-        getAllProjectStatuses(),
-        getAllClientCompanies(true),
-        getAllClientContacts({}, true),
-        getAllClientBranches(),
-        fetchAllCountries(),
-        getAllCompanyTypes(),
-        getAllTeams(1, 9999), // Get all teams for dropdown
-      ]);
-      setAllProjects(response.data?.projects);
-      setAllProjectCategories(response2?.projectCategories);
-      setAllProjectSubcategories(response3?.projectSubCategories);
-      setAllProjectStatuses(response4?.projectStatuses);
-      setAllClientCompanies(response5.data?.companies);
-      setAllClientContacts(response6.data?.contacts);
-      setAllClientBranches(response7.data?.leadBranches);
-      setAllCountries(response9.data?.countries);
-      setAllCompanyTypes(response10?.companyTypes);
-      setAllTeams(response11?.data?.teams);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Column visibility & selective fetching
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getAllProjectsData = useCallback(
+    async (fields?: string[]) => {
+      try {
+        setLoading(true);
+        // Fire all independent fetches in parallel instead of one-after-another.
+        const [
+          response, response2, response3, response4, response5,
+          response6, response7, response9, response10, response11,
+        ] = await Promise.all([
+          getAllProjects(fields),
+          getAllProjectCategories(),
+          getAllProjectSubcategories(),
+          getAllProjectStatuses(),
+          getAllClientCompanies(true),
+          getAllClientContacts({}, true),
+          getAllClientBranches(),
+          fetchAllCountries(),
+          getAllCompanyTypes(),
+          getAllTeams(1, 9999), // Get all teams for dropdown
+        ]);
+        setAllProjects(response.data?.projects);
+        setAllProjectCategories(response2?.projectCategories);
+        setAllProjectSubcategories(response3?.projectSubCategories);
+        setAllProjectStatuses(response4?.projectStatuses);
+        setAllClientCompanies(response5.data?.companies);
+        setAllClientContacts(response6.data?.contacts);
+        setAllClientBranches(response7.data?.leadBranches);
+        setAllCountries(response9.data?.countries);
+        setAllCompanyTypes(response10?.companyTypes);
+        setAllTeams(response11?.data?.teams);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
   useEffect(() => {
     getAllProjectsData();
+  }, [getAllProjectsData]);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
   }, []);
 
   useEventBus(EVENT_KEYS.projectCreated, () => {
@@ -153,6 +191,34 @@ const ProjectsMainTable = ({
   useEventBus(EVENT_KEYS.projectDeleted, () => {
     getAllProjectsData();
   });
+
+  // Handle column visibility changes and trigger selective refetch
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      // Pass the raw visible column accessorKeys; the backend gates heavy relations
+      // (commercials/handledBy) on these. Empty/unchanged → no refetch.
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        getAllProjectsData(keys);
+      }, 500);
+    },
+    [getAllProjectsData],
+  );
 
   useEffect(() => {
     const colors = allProjects.map((project: any) => {
@@ -248,29 +314,37 @@ const ProjectsMainTable = ({
 
   // set background color based on project status of each row
   const columns = [
-    // {
-    //   accessorKey: "prefix",
-    //   header: "Inquiry Id",
-    //   size: 80,
-    //   enableEditing: false,
-    //   Cell: ({ row }: { row: any }) => {
-    //     return (
-    //       <span
-    //         className="cursor-pointer "
-    //         style={{
-    //           color: "inherit",
-    //           fontWeight: "600",
-    //           fontSize: "14px",
-    //         }}
-    //         onClick={() => {
-    //           navigate(`/projects/${row.original.id}`);
-    //         }}
-    //       >
-    //         {row?.original?.prefix || "N/A"}
-    //       </span>
-    //     );
-    //   },
-    // },
+    {
+      accessorKey: "receivedDate",
+      header: "Received Date",
+      size: 150,
+      Cell: ({ renderedCellValue }: any) =>
+        renderedCellValue ? dayjs(renderedCellValue).format("DD-MM-YYYY") : "-NA-",
+    },
+    {
+      accessorKey: "prefix",
+      header: "Project ID",
+      size: 200,
+      enableEditing: false,
+      Cell: ({ row }: { row: any }) => {
+        return (
+          <span
+            className="cursor-pointer"
+            style={{
+              color: "inherit",
+              fontWeight: "600",
+              fontSize: "14px",
+              whiteSpace: "nowrap",
+            }}
+            onClick={() => {
+              navigate(`/projects/${row.original.id}`);
+            }}
+          >
+            {row?.original?.prefix || "-NA-"}
+          </span>
+        );
+      },
+    },
     {
       accessorKey: "title",
       header: "Project Name",
@@ -298,6 +372,7 @@ const ProjectsMainTable = ({
       header: "Client Companies",
       size: 300,
       minSize: 300,
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const companies = row.original.projectCompanyMappings || [];
         const companyNames = companies
@@ -313,6 +388,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "branchNames",
       header: "Branch Name",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const branches = row.original.projectCompanyMappings || [];
         const branchNames = branches
@@ -324,6 +400,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectCategoryId",
       header: "Category",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => {
         const projectCategory = allProjectCategories.find(
           (category: any) => category.id === renderedCellValue,
@@ -334,6 +411,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectSubCategoryId",
       header: "Sub Category",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => {
         const projectSubCategory = allProjectSubcategories.find(
           (category: any) => category.id === renderedCellValue,
@@ -359,8 +437,86 @@ const ProjectsMainTable = ({
       },
     },
     {
+      accessorKey: "handledBy",
+      header: "Handled By",
+      size: 200,
+      // "Handle By" is stored as handledByEntries ([{ employeeId, handledDate }]); resolve
+      // each employee to a name. Fall back to the legacy scalar handledBy if present.
+      Cell: ({ row }: any) => {
+        const entries = row?.original?.handledByEntries || [];
+        const names = entries
+          .map(
+            (e: any) =>
+              allEmployees?.list?.find(
+                (emp: any) => emp.employeeId === e.employeeId,
+              )?.employeeName || e.employeeId,
+          )
+          .filter(Boolean);
+        if (names.length) {
+          return <span style={{ whiteSpace: "nowrap" }}>{names.join(", ")}</span>;
+        }
+        const legacy = row?.original?.handledBy;
+        if (legacy) {
+          const emp = allEmployees?.list?.find(
+            (e: any) => e.employeeId === legacy,
+          );
+          return (
+            <span style={{ whiteSpace: "nowrap" }}>
+              {emp?.employeeName || legacy}
+            </span>
+          );
+        }
+        return "-NA-";
+      },
+    },
+    {
+      accessorKey: "fileLocation",
+      header: "File Location",
+      size: 220,
+      // "File Location in Computer" = Company Type + Company, stored as IDs; resolve to
+      // names. Fall back to the free-text fileLocation path.
+      Cell: ({ row }: any) => {
+        const companyId = row?.original?.fileLocationCompany;
+        const typeId = row?.original?.fileLocationCompanyType;
+        const path = row?.original?.fileLocation;
+        const company = companyId
+          ? findClientCompanyName(companyId) || companyId
+          : "";
+        const type = typeId
+          ? allCompanyTypes?.find((t: any) => String(t.id) === String(typeId))
+              ?.name || typeId
+          : "";
+        if (company) {
+          return (
+            <span style={{ whiteSpace: "nowrap" }}>
+              {company}
+              {type ? <span style={{ color: "#9CA3AF" }}> ({type})</span> : null}
+            </span>
+          );
+        }
+        if (path) {
+          const isUrl = /^https?:\/\//i.test(String(path));
+          return isUrl ? (
+            <a
+              href={String(path)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ color: "#AA393D", textDecoration: "underline", whiteSpace: "nowrap" }}
+            >
+              Open file
+            </a>
+          ) : (
+            <span style={{ whiteSpace: "nowrap" }}>{String(path)}</span>
+          );
+        }
+        return "-NA-";
+      },
+    },
+    {
       accessorKey: "startDate",
       header: "Start Date",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => {
         if (!renderedCellValue) return "N/A";
         const startDate = new Date(renderedCellValue);
@@ -370,6 +526,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "endDate",
       header: "End Date",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => {
         if (!renderedCellValue) return "N/A";
         const endDate = new Date(renderedCellValue);
@@ -379,18 +536,21 @@ const ProjectsMainTable = ({
     {
       accessorKey: "rate",
       header: "Rate",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         formatNumber(renderedCellValue) || "-NA-",
     },
     {
       accessorKey: "cost",
       header: "Cost",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         formatNumber(renderedCellValue) || "-NA-",
     },
     {
       accessorKey: "teamId",
       header: "Team Name",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allTeams.find((team: any) => team.id === renderedCellValue)?.name
@@ -399,6 +559,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectManagerId",
       header: "Project Manager",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allEmployees?.list?.find(
@@ -409,6 +570,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "contactPersonNames",
       header: "Contact Person Name",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const contacts = row.original.projectCompanyMappings || [];
         const contactNames = contacts
@@ -422,6 +584,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "leadAssignedTo",
       header: "Lead Assigned",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allEmployees?.list?.find(
@@ -432,16 +595,19 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectAccess",
       header: "Project Access",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "-NA-",
     },
     {
       accessorKey: "description",
       header: "Description",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => renderedCellValue || "-NA-",
     },
     {
       accessorKey: "createdById",
       header: "Created By Name",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => {
         const employee = allEmployees?.list?.find(
           (employee: any) => employee.employeeId === renderedCellValue,
@@ -452,6 +618,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "editedById",
       header: "Edited By",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) => {
         if (renderedCellValue != null) {
           const employee = allEmployees?.list?.find(
@@ -466,18 +633,21 @@ const ProjectsMainTable = ({
     {
       accessorKey: "createdAt",
       header: "Created At",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         dayjs(renderedCellValue).format("DD-MM-YYYY") || "-NA-",
     },
     {
       accessorKey: "updatedAt",
       header: "Updated At",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         dayjs(renderedCellValue).format("DD-MM-YYYY") || "-NA-",
     },
     {
       accessorKey: "inquiryDate",
       header: "Inquiry Date",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? dayjs(renderedCellValue).format("DD-MM-YYYY")
@@ -486,6 +656,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "leadInquiryDate",
       header: "Lead Inquiry Date",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? dayjs(renderedCellValue).format("DD-MM-YYYY")
@@ -494,6 +665,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "leadContactId",
       header: "Lead Contact Name",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? allClientContacts.find(
@@ -504,12 +676,14 @@ const ProjectsMainTable = ({
     {
       accessorKey: "projectArea",
       header: "Project Area",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue ? renderedCellValue : "-NA-",
     },
     {
       accessorKey: "projectAddress",
       header: "Project Address",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const addresses = row.original.addresses || [];
         const fullAddresses = addresses
@@ -521,6 +695,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "zipcode",
       header: "Zip Code",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const addresses = row.original.addresses || [];
         const zipcodes = addresses
@@ -533,12 +708,14 @@ const ProjectsMainTable = ({
     {
       accessorKey: "mapLocation",
       header: "Map Location",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue ? renderedCellValue : "-NA-",
     },
     {
       accessorKey: "country",
       header: "Country",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const addresses = row.original.addresses || [];
         const countries = addresses
@@ -551,6 +728,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "state",
       header: "State",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const addresses = row.original.addresses || [];
         const states = addresses
@@ -563,6 +741,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "city",
       header: "City",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const addresses = row.original.addresses || [];
         const cities = addresses
@@ -575,6 +754,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "locality",
       header: "Locality",
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const addresses = row.original.addresses || [];
         const localities = addresses
@@ -587,12 +767,14 @@ const ProjectsMainTable = ({
     {
       accessorKey: "poNumber",
       header: "PO Number",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue ? renderedCellValue : "-NA-",
     },
     {
       accessorKey: "poDate",
       header: "PO Date",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue
           ? dayjs(renderedCellValue).format("DD-MM-YYYY")
@@ -601,6 +783,7 @@ const ProjectsMainTable = ({
     {
       accessorKey: "leadDirectSourceId",
       header: "Lead Direct Source",
+      meta: { defaultVisible: false },
       Cell: ({ renderedCellValue }: any) =>
         renderedCellValue ? renderedCellValue : "-NA-",
     },
@@ -643,7 +826,10 @@ const ProjectsMainTable = ({
       : []),
   ];
 
-  if (loading) {
+  // Only show the full-page loader on the INITIAL load (no data yet). On background
+  // refetches (e.g. the column-selective refetch) keep the table mounted — unmounting it
+  // reloads preferences and re-triggers the refetch, causing an infinite reload loop.
+  if (loading && (allProjects?.length ?? 0) === 0) {
     return <Loader />;
   }
 
@@ -802,6 +988,7 @@ const ProjectsMainTable = ({
         employeeId={employeeId}
         enableColumnResizing={true}
         layoutMode="semantic"
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         muiTableContainerProps={{
           sx: {
             maxHeight: "700px",
