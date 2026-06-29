@@ -42,7 +42,9 @@ const ClientContactsMain = ({
   const [newContactModal, setNewContactModal] = useState(false);
   const loadAllContacts = async () => {
     try {
-      const contactsData = await getAllClientContacts({ pageSize: 500 });
+      // No pagination params → backend returns ALL contacts (passing pageSize
+      // flips it into paginated mode and caps the result).
+      const contactsData = await getAllClientContacts({});
       const companiesData = await getAllClientCompanies(true);
 
       const contacts = contactsData?.data?.contacts || [];

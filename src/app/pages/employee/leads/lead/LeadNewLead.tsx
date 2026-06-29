@@ -14,7 +14,7 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { deleteLead, getAllLeads } from "@services/leads";
+import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DetailsModal from "./DetailsModal";
@@ -409,7 +409,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const leadsResponse = await getAllLeads();
+      const leadsResponse = await getAllLeadsComplete();
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 

@@ -480,7 +480,7 @@ function MaterialTable({
             .join(" ")
             .toLowerCase();
 
-          if (columnToSearch === "all") {
+          if (columnToSearch === "all" || columnToSearch === "") {
             // Calculate individual field scores
             rowSearchableValues.forEach((val) => {
               if (typeof val === "string" || typeof val === "number") {
