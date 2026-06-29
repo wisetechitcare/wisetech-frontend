@@ -464,6 +464,17 @@ function MaterialTable({
     [updateExportType],
   );
 
+  // Memoized column lookup map for O(1) access (instead of O(n) .find() per row)
+  const columnDefMap = useMemo(() => {
+    const map = new Map<string, any>();
+    effectiveSearchableColumns.forEach((col: any) => {
+      if (col.accessorKey) {
+        map.set(col.accessorKey, col);
+      }
+    });
+    return map;
+  }, [effectiveSearchableColumns]);
+
   // Apply column-specific filtering and ranking
   const applyColumnFilter = useCallback(
     (searchValue: string, columnToSearch: string) => {
@@ -509,14 +520,15 @@ function MaterialTable({
             if (keywords.every((k) => allRowText.includes(k))) {
               score += 50; // High bonus for row-wide AND match
               isMatch = true;
-            } else if (score >= 10) { 
+            } else if (score >= 10) {
                // Require at least 10 score to be considered a match to filter out noise
                isMatch = true;
             }
           } else {
-            const colDef = effectiveSearchableColumns.find((c: any) => c.accessorKey === columnToSearch);
+            // Use memoized column map for O(1) lookup instead of O(n) .find()
+            const colDef = columnDefMap.get(columnToSearch);
             const columnValue = colDef ? (colDef.accessorFn ? colDef.accessorFn(row) : row[colDef.accessorKey]) : row[columnToSearch];
-            
+
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
@@ -537,7 +549,7 @@ function MaterialTable({
 
       setFilteredData(sortedResults);
     },
-    [finalData, effectiveSearchableColumns],
+    [finalData, effectiveSearchableColumns, columnDefMap],
   );
 
   // Handle column selector change
