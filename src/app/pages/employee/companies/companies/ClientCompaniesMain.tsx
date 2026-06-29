@@ -25,6 +25,7 @@ interface ProcessedCompany extends Company {
   internalReferenceEmployeeId?: string;
   externalReferenceContactId?: string;
   totalBudget?: number;
+  projectCount?: number;
 }
 
 interface Props {
@@ -131,6 +132,7 @@ const ClientCompaniesMain = ({
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
           totalBudget: totalBudget,
+          projectCount: (company as any)._count?.projectCompanyMappings ?? 0,
         };
       });
 
@@ -252,6 +254,12 @@ const ClientCompaniesMain = ({
         accessorKey: "status",
         header: "Status",
         Cell: ({ cell }) => cell.getValue() || "N/A",
+      },
+      {
+        accessorKey: "projectCount",
+        header: "No. of Projects",
+        size: 110,
+        Cell: ({ cell }) => cell.getValue() ?? 0,
       },
       {
         accessorKey: "overallRating",

@@ -3,13 +3,16 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
-export const getAllLeads = async (params?: { page?: number; pageSize?: number }) => {
+export const getAllLeads = async (params?: { page?: number; pageSize?: number; fields?: string[] }) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEADS}`;
     const response = await axios.get(endpoint, {
       params: {
         page: params?.page ?? 1,
         pageSize: params?.pageSize ?? 200,
+        // Sparse fetch: when provided, the backend returns only the data these
+        // columns need. Omitted → full row shape.
+        ...(params?.fields?.length ? { fields: params.fields.join(',') } : {}),
       },
     });
     return response;
@@ -28,9 +31,9 @@ export const getAllLeads = async (params?: { page?: number; pageSize?: number })
  * for large datasets — returning a response in the same shape `getAllLeads` does
  * (`response.data.data.leads`) so existing callers need no other changes.
  */
-export const getAllLeadsComplete = async () => {
+export const getAllLeadsComplete = async (fields?: string[]) => {
   const MAX_PAGE_SIZE = 500;
-  const first = await getAllLeads({ page: 1, pageSize: MAX_PAGE_SIZE });
+  const first = await getAllLeads({ page: 1, pageSize: MAX_PAGE_SIZE, fields });
   const payload = first?.data?.data;
   const leads = payload?.leads ?? [];
   const total = payload?.total ?? leads.length;
@@ -42,7 +45,7 @@ export const getAllLeadsComplete = async () => {
   const totalPages = Math.ceil(total / MAX_PAGE_SIZE);
   const restResponses = await Promise.all(
     Array.from({ length: totalPages - 1 }, (_, i) =>
-      getAllLeads({ page: i + 2, pageSize: MAX_PAGE_SIZE })
+      getAllLeads({ page: i + 2, pageSize: MAX_PAGE_SIZE, fields })
     )
   );
 

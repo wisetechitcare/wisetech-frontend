@@ -91,6 +91,9 @@ interface MaterialTableProps {
   /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
   showColumnFooter?: boolean;
   defaultSorting?: Array<{ id: string; desc: boolean }>;
+  /** Notifies the parent of the currently-visible column keys (after preferences load
+   *  and on every show/hide toggle). Lets a page fetch only the data those columns need. */
+  onVisibleColumnsChange?: (visibleKeys: string[]) => void;
 }
 
 const defaultColumnSizes = {
@@ -141,6 +144,7 @@ function MaterialTable({
   renderExportActions,
   showColumnFooter = false,
   defaultSorting,
+  onVisibleColumnsChange,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -389,6 +393,17 @@ function MaterialTable({
     updateExportType,
     resetPreferences,
   } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
+
+  // Surface the visible column keys to the parent once preferences resolve and on every
+  // toggle. A column is visible unless its visibility flag is explicitly false.
+  useEffect(() => {
+    if (!isInitialized || !onVisibleColumnsChange) return;
+    const vis = preferences.columnVisibility || {};
+    const visibleKeys = finalColumns
+      .map((c: any) => c.accessorKey)
+      .filter((k: any) => k && vis[k] !== false);
+    onVisibleColumnsChange(visibleKeys);
+  }, [isInitialized, preferences.columnVisibility, finalColumns, onVisibleColumnsChange]);
 
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,

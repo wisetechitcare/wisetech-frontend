@@ -15,8 +15,8 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { deleteLead, getAllLeadsComplete } from "@services/leads";
-import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DetailsModal from "./DetailsModal";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
@@ -160,7 +160,34 @@ const NavigationButtons: React.FC<{
   </div>
 );
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// All selectable leads-table column keys (must match the `accessorKey`s below and the
+// backend LEAD_FIELD_MAP). Used to translate column visibility into the `fields` the
+// API should fetch. "actions" is excluded — it carries no data.
+const LEAD_COLUMN_KEYS = [
+  "inquiryDate", "prefix", "projectName", "totalCost", "client", "service",
+  "category", "subCategory", "status", "receivedDate", "poStatus", "assignedTo",
+  "startDate", "duration", "contact", "createdAt", "createdBy", "updatedBy",
+  "country", "city", "state", "area", "cost",
+];
+
+// Translate a columnVisibility map into the `fields` to request. Returns undefined when
+// every column is visible (→ full fetch, exact legacy behavior); only narrows to a
+// subset once the user has actually hidden a column.
+const computeLeadFields = (
+  visibility?: Record<string, boolean>,
+): string[] | undefined => {
+  if (!visibility) return undefined;
+  const visible = LEAD_COLUMN_KEYS.filter((k) => visibility[k] !== false);
+  return visible.length >= LEAD_COLUMN_KEYS.length ? undefined : visible;
+};
+
+// Build a visibility map from a list of visible column keys.
+const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
+  Object.fromEntries(LEAD_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
+
+// Stable identity for a field-set, so we can detect "did the selection actually change?".
+const fieldsKey = (fields: string[] | undefined): string =>
+  fields ? [...fields].sort().join(",") : "ALL";
 
 const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   statusId,
@@ -252,6 +279,15 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
   let rawLeadsData = rawLeadsDatas;
+
+  // Column-selective fetching: when the user changes which columns are visible (via the
+  // table's show/hide menu), auto-refetch with only the data those columns need.
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  // Stable key of the field-set last fetched; used to skip redundant refetches (the
+  // visibility callback also fires on search keystrokes / initial load).
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derive assigned-to employees directly from lead data so new assignees appear automatically.
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };
@@ -406,10 +442,30 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   }, []);
 
   // ── Data fetch ───────────────────────────────────────────────────────────────
-  const fetchAllData = useCallback(async () => {
+  // `fields` controls column-selective fetching:
+  //   - "auto" (default, used on mount): read the user's saved column visibility and
+  //     fetch only what those columns need.
+  //   - string[] | undefined (used by the auto-refetch on column change): explicit field
+  //     set; undefined means all columns → full fetch.
+  const fetchAllData = useCallback(async (fields: string[] | undefined | "auto" = "auto") => {
     try {
       setLoading(true);
-      const leadsResponse = await getAllLeadsComplete();
+      let resolvedFields: string[] | undefined;
+      if (fields === "auto") {
+        try {
+          const prefsRes = currentEmployeeId
+            ? await getUserTablePreferences(currentEmployeeId, "LeadsTablesMain")
+            : null;
+          resolvedFields = computeLeadFields(
+            prefsRes?.data?.preferences?.columnVisibility,
+          );
+        } catch {
+          resolvedFields = undefined;
+        }
+      } else {
+        resolvedFields = fields;
+      }
+      const leadsResponse = await getAllLeadsComplete(resolvedFields);
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 
@@ -593,19 +649,57 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentEmployeeId]);
 
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData, pagination]);
+
+  // Clear any pending column-change refetch on unmount.
+  useEffect(
+    () => () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    },
+    [],
+  );
+
+  // Fired by MaterialTable after preferences load and whenever a column is shown/hidden.
+  // Auto-refetch with only the visible columns' data — but only when the visible SET
+  // actually changed (the callback also fires on unrelated re-renders such as searching).
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      const fields = computeLeadFields(visibilityFromKeys(keys));
+      const key = fieldsKey(fields);
+
+      // First emission reflects the saved selection the mount fetch already used —
+      // record it as the baseline, don't refetch.
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce so toggling several columns in a row triggers a single refetch.
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        fetchAllData(fields);
+      }, 500);
+    },
+    [fetchAllData],
+  );
   useEffect(() => {
     dispatch(fetchAllEmployeesAsync());
   }, []);
 
   // ── Event bus subscriptions ───────────────────────────────────────────────
-  useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
+  // Ignore the event payload; refetch in "auto" mode (respects the saved column selection).
+  useEventBus(EVENT_KEYS.leadCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadUpdated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadDeleted, () => fetchAllData());
   // chartSettingsUpdated only changes visual config — no data re-fetch needed
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
@@ -1697,6 +1791,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           />
         )}
         employeeId={currentEmployeeId}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         resource="LEADS"
         viewOwn={true}
         viewOthers={true}
