@@ -3,11 +3,15 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
-export const getAllLeads = async (params?: { page?: number; pageSize?: number })=> {
+export const getAllLeads = async (params?: { page?: number; pageSize?: number }) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEADS}`;
-    const response = await axios.get(endpoint);
-    
+    const response = await axios.get(endpoint, {
+      params: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 200,
+      },
+    });
     return response;
   } catch (error) {
     console.error('Error fetching leads:', error);

@@ -40,7 +40,7 @@ const ContactsNavbar = () => {
   }, [contactId]);
 
   useEffect(() => {
-    getAllClientContacts().then((res) => {
+    getAllClientContacts({}, true).then((res) => {
       setContactData(res?.data?.contacts);
       const allCoordinates = res?.data?.contacts
         ?.filter((item: any) => item.latitude && item.longitude)
