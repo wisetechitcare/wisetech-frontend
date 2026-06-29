@@ -1000,7 +1000,7 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
   return (
     <div className="wt-section-card">
       <div className="wt-section-heading">
-        Linked Client Companies
+        Address To 
       </div>
       <FieldArray name="leadTeams">
         {({ push, remove }) => (

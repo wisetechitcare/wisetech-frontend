@@ -268,7 +268,6 @@ const SOURCE_META: Record<string, { label: string; icon: string }> = {
   BULK_IMPORT: { label: 'Bulk import', icon: 'bi bi-file-earmark-arrow-up' },
   SYSTEM: { label: 'System', icon: 'bi bi-gear-fill' },
   WEBHOOK: { label: 'Webhook', icon: 'bi bi-lightning-charge' },
-  ROLLBACK: { label: 'Rollback', icon: 'bi bi-arrow-counterclockwise' },
 };
 const sourceMeta = (s: string) => SOURCE_META[s] ?? { label: s.replace(/_/g, ' '), icon: 'bi bi-dot' };
 
@@ -361,14 +360,6 @@ export const AuditInsights: React.FC<Props> = ({ type, id }) => {
             <Dot />
             <span style={{ color: C.purple, fontWeight: 600 }}>
               <i className="bi bi-shield-lock-fill" aria-hidden /> {data.sensitiveChanges} sensitive
-            </span>
-          </>
-        )}
-        {data.restoreCount > 0 && (
-          <>
-            <Dot />
-            <span>
-              <i className="bi bi-arrow-counterclockwise" aria-hidden /> {data.restoreCount} restore{data.restoreCount === 1 ? '' : 's'}
             </span>
           </>
         )}

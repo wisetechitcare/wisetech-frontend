@@ -1299,7 +1299,9 @@ const ProjectOverviewById = ({
           <h5 style={{ marginBottom: "1rem", fontWeight: "600", fontSize: "16px" }}>
             Revision History & Audit Trail
           </h5>
-          <VersionHistory type="PROJECT" id={projectId} isAdmin={false} />
+          {/* Lead-as-master: a project IS a Received lead — its audit history lives
+              under the LEAD entity (the PROJECT audit entity type was retired). */}
+          <VersionHistory type="LEAD" id={projectId} isAdmin={false} />
         </div>
       )}
 

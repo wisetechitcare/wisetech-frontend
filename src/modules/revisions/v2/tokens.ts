@@ -21,7 +21,6 @@ const CATEGORY_META: Record<string, CategoryMeta> = {
   CONTACT: { label: 'Contact', icon: 'bi bi-person-vcard', accent: 'teal' },
   COMMERCIAL: { label: 'Commercial', icon: 'bi bi-receipt', accent: 'blue' },
   BASIC_INFO: { label: 'Basic Info', icon: 'bi bi-info-circle-fill', accent: 'primary' },
-  ROLLBACK: { label: 'Rollback', icon: 'bi bi-arrow-counterclockwise', accent: 'purple' },
   MULTIPLE: { label: 'Multiple', icon: 'bi bi-collection', accent: 'primary' },
 };
 
@@ -164,7 +163,7 @@ export function actorKind(opts: {
   if (!name || name === 'system' || name.includes('system') || name.includes('backfill')) {
     return 'system';
   }
-  if (src === 'SYSTEM' || src === 'ROLLBACK' || src === 'WEBHOOK') return 'system';
+  if (src === 'SYSTEM' || src === 'WEBHOOK') return 'system';
   return 'user';
 }
 
