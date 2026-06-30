@@ -163,11 +163,6 @@ export const ProjectExecutionSection: React.FC<ProjectExecutionSectionProps> = (
             >
               {[
                 { key: "projectMeta.isLive", label: "Is Live", checked: !!meta.isLive },
-                {
-                  key: "projectMeta.isProjectOpen",
-                  label: "Project Open",
-                  checked: meta.isProjectOpen !== false,
-                },
               ].map((t) => (
                 <FormControlLabel
                   key={t.key}
