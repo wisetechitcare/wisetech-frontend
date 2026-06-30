@@ -657,14 +657,6 @@ const Monthly = ({ month, endDate }: Props) => {
   return (
     <div className="">
       <div className="row g-3">
-        {/* Featured Analytics Row */}
-        <div className="col-12 mb-2">
-          <MonthlyLeadsChart 
-            startDate={startDate} 
-            endDate={endDates} 
-          />
-        </div>
-
         {/* ── Premium executive analytics (status, service, acquisition, category) ── */}
         <div className="col-12">
           <LeadOverviewDashboard
@@ -681,6 +673,14 @@ const Monthly = ({ month, endDate }: Props) => {
             onCategorySelect={handleCategoryNodeClick}
             onSourceSelect={handleSourceChartClick}
             onReferralSelect={handleReferralChartClick}
+          />
+        </div>
+
+        {/* Featured Analytics Row */}
+        <div className="col-12 mb-2">
+          <MonthlyLeadsChart
+            startDate={startDate}
+            endDate={endDates}
           />
         </div>
 
