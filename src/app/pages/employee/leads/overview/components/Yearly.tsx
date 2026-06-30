@@ -604,25 +604,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
         {/* ── Section 1: Executive Insights ──────────────────────────────── */}
         <YearlyInsightsPanel insights={yearlyInsights} />
 
-        {/* ── Section 2: Revenue Intelligence & Forecast ─────────────────── */}
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Revenue Intelligence & Forecast"
-            subtitle="Cumulative value vs target, smart forecast and monthly value performance"
-            icon="bi-cash-coin"
-            accent="#8B5CF6"
-          />
-          <div className="row g-3">
-            <div className="col-12 col-xl-6">
-              <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
-            </div>
-            <div className="col-12 col-xl-6">
-              <MonthlyBarWithTarget startDate={startDates} endDate={endDates} />
-            </div>
-          </div>
-        </section>
-
-        {/* ── Sections 3-6: Pipeline / Service / Acquisition / Category ──── */}
+        {/* ── Sections 2-5: Pipeline / Service / Acquisition / Category ──── */}
         {/* Reuses the shared dashboard for full consistency with Monthly.    */}
         <LeadOverviewDashboard
           statusData={chartData.statusData}
@@ -640,6 +622,24 @@ const Yearly = ({ startDate, endDate }: Props) => {
           onSourceSelect={handleSourceChartClick}
           onReferralSelect={handleReferralChartClick}
         />
+
+        {/* ── Section 6: Revenue Intelligence & Forecast ─────────────────── */}
+        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <AnalyticsHeader
+            title="Revenue Intelligence & Forecast"
+            subtitle="Cumulative value vs target, smart forecast and monthly value performance"
+            icon="bi-cash-coin"
+            accent="#8B5CF6"
+          />
+          <div className="row g-3">
+            <div className="col-12 col-xl-6">
+              <YearlyPerformanceAnalytics startDate={startDate} endDate={endDate} />
+            </div>
+            <div className="col-12 col-xl-6">
+              <MonthlyBarWithTarget startDate={startDates} endDate={endDates} />
+            </div>
+          </div>
+        </section>
 
         {/* ── Section 9: Segment Analysis (company type) ─────────────────── */}
         {settings?.showLeadsByCompanyType && (
