@@ -37,11 +37,21 @@ export const AddressesCard: React.FC<{ vm: EntityVM }> = ({ vm }) => {
   );
 };
 
-const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = ({ companies }) => (
+const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = ({ companies }) => {
+  // Dynamic grid layout based on number of companies
+  const getGridClass = () => {
+    if (companies.length === 1) return 'col-12';
+    if (companies.length === 2) return 'col-12 col-md-6';
+    if (companies.length === 3) return 'col-12 col-md-6 col-lg-4';
+    if (companies.length >= 4 && companies.length <= 6) return 'col-12 col-sm-6 col-md-4 col-lg-4';
+    return 'col-12 col-sm-6 col-md-4 col-lg-3';
+  };
+
+  return (
   <DetailCard title="Companies & Contacts" subtitle={`${companies.length} linked`} icon="bi bi-buildings" accentColor="blue">
     <div className="row g-4">
       {companies.map((c, i) => (
-        <div className="col-12 col-md-6" key={i}>
+        <div className={getGridClass()} key={i}>
           <div style={{
             background: '#FAFBFC',
             border: '1px solid #E2E8F0',
@@ -129,7 +139,8 @@ const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = 
       ))}
     </div>
   </DetailCard>
-);
+  );
+};
 
 const ReferralsCard: React.FC<{ referrals: EntityVM['client']['referrals'] }> = ({ referrals }) => (
   <DetailCard title="Source & Referrals" subtitle="How this lead arrived" icon="bi bi-signpost-split" accentColor="purple">
