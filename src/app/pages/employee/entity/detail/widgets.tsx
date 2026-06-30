@@ -9,12 +9,13 @@ export const HealthGauge: React.FC<{ health: HealthResult; probability?: number 
   const { score, band, color, factors } = health;
   const deg = (score / 100) * 360;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-      <div style={{ position: 'relative', width: 78, height: 78, flexShrink: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+      {/* Compact gauge */}
+      <div style={{ position: 'relative', width: 60, height: 60, flexShrink: 0 }}>
         <div
           style={{
-            width: 78,
-            height: 78,
+            width: 60,
+            height: 60,
             borderRadius: '50%',
             background: `conic-gradient(${color} ${deg}deg, #EEF2F6 ${deg}deg)`,
           }}
@@ -22,39 +23,42 @@ export const HealthGauge: React.FC<{ health: HealthResult; probability?: number 
         <div
           style={{
             position: 'absolute',
-            inset: 7,
+            inset: 5,
             background: '#fff',
             borderRadius: '50%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: 1,
           }}
         >
-          <span style={{ fontFamily: 'Barlow', fontWeight: 700, fontSize: 22, color, lineHeight: 1 }}>{score}</span>
-          <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#94A3B8', fontWeight: 600 }}>HEALTH</span>
+          <span style={{ fontFamily: 'Barlow', fontWeight: 700, fontSize: 18, color, lineHeight: 1 }}>{score}</span>
+          <span style={{ fontFamily: 'Inter', fontSize: 8, color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>HEALTH</span>
         </div>
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontFamily: 'Barlow', fontWeight: 700, fontSize: 16, color }}>{band}</div>
+
+      {/* Compact info */}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontFamily: 'Barlow', fontWeight: 700, fontSize: 14, color, lineHeight: 1 }}>{band}</div>
         {probability != null && (
-          <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#475569', fontWeight: 600, marginTop: 2 }}>
-            {probability}% conversion likelihood
+          <div style={{ fontFamily: 'Inter', fontSize: 11, color: '#64748B', fontWeight: 500, marginTop: 2 }}>
+            {probability}% conversion
           </div>
         )}
-        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {factors.slice(0, 3).map((f, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {factors.slice(0, 2).map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span
                 style={{
-                  width: 6,
-                  height: 6,
+                  width: 5,
+                  height: 5,
                   borderRadius: '50%',
                   background: f.impact === 'positive' ? '#16a34a' : f.impact === 'negative' ? '#f1416c' : '#94a3b8',
                   flexShrink: 0,
                 }}
               />
-              <span style={{ fontFamily: 'Inter', fontSize: 11, color: '#64748B' }}>{f.detail}</span>
+              <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#64748B', lineHeight: 1.3 }}>{f.detail}</span>
             </div>
           ))}
         </div>

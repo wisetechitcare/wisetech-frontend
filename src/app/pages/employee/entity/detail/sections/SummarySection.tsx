@@ -196,7 +196,7 @@ const SummarySection: React.FC<{
 
   const Overview = (
     <div>
-      <div style={{ position: 'relative', background: `linear-gradient(135deg, ${health.color}14 0%, ${C.bgCard} 58%)`, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, boxShadow: C.shadowCard, padding: '22px 26px 22px 30px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', overflow: 'visible' }}>
+      <div style={{ position: 'relative', background: `linear-gradient(135deg, ${health.color}14 0%, ${C.bgCard} 58%)`, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, boxShadow: C.shadowCard, padding: '14px 18px 14px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', overflow: 'visible' }}>
         <span style={{ position: 'absolute', left: 0, top: 10, bottom: 10, width: 5, borderRadius: '0 4px 4px 0', background: `linear-gradient(${health.color}, ${health.color}99)` }} aria-hidden />
         <HealthGauge health={health} probability={probability} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
