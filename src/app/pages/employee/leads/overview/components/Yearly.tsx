@@ -39,9 +39,7 @@ import {
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
-  YearlyInsightsPanel,
   buildYearlySeries,
-  generateYearlyInsights,
   ChartDatum,
 } from "@pages/dashboard/leadAnalytics";
 
@@ -558,25 +556,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
     () => aggregateLocations(locationRes?.data || []),
     [locationRes]
   );
-  const yearlyInsights = useMemo(
-    () =>
-      generateYearlyInsights(
-        currentSeries,
-        prevSeries,
-        chartData.statusData,
-        chartData.serviceData,
-        chartData.sourceData,
-        locationInsightData
-      ),
-    [
-      currentSeries,
-      prevSeries,
-      chartData.statusData,
-      chartData.serviceData,
-      chartData.sourceData,
-      locationInsightData,
-    ]
-  );
 
   const fiscalLabel = `FY ${startDate.format("YYYY")}–${endDate.format("YY")}`;
 
@@ -601,10 +580,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
   return (
     <div className="">
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        {/* ── Section 1: Executive Insights ──────────────────────────────── */}
-        <YearlyInsightsPanel insights={yearlyInsights} />
-
-        {/* ── Sections 2-5: Pipeline / Service / Acquisition / Category ──── */}
+        {/* ── Sections 1-4: Pipeline / Service / Acquisition / Category ──── */}
         {/* Reuses the shared dashboard for full consistency with Monthly.    */}
         <LeadOverviewDashboard
           statusData={chartData.statusData}
