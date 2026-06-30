@@ -45,8 +45,10 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
         formatter: (params: any) => {
           const p = Array.isArray(params) ? params[0] : params;
           const row = rows[p.dataIndex];
+          const volume = row?.volumeValue !== undefined ? row.volumeValue : row?.value;
           const rev = showRevenue && row?.totalCost ? `<br/>${formatINR(row.totalCost)}` : "";
-          return `<strong>${row?.label}</strong><br/>${row?.value} Leads · ${row?.share}%${rev}`;
+          const volumeText = row?.volumeValue !== undefined ? `${volume} Leads · ` : "";
+          return `<strong>${row?.label}</strong><br/>${volumeText}${row?.share}%${rev}`;
         },
       },
       xAxis: { type: "value", splitLine: { lineStyle: { color: "#F1F5F9" } }, axisLabel: { color: "#94A3B8" } },

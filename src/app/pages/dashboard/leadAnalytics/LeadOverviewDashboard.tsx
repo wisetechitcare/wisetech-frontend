@@ -5,7 +5,7 @@ import AnalyticsHeader from "./AnalyticsHeader";
 import PipelinePerformance from "./PipelinePerformance";
 import LeadServiceTreemap from "./LeadServiceTreemap";
 import RankedBarChart from "./RankedBarChart";
-import AcquisitionGauge from "./AcquisitionGauge";
+import AcquisitionChart from "./AcquisitionChart";
 import CategorySunburst from "./CategorySunburst";
 import {
   ChartDatum,
@@ -87,6 +87,16 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     [kpis]
   );
 
+  const serviceDataByRevenue = useMemo(
+    () =>
+      serviceData.map((s) => ({
+        ...s,
+        value: s.totalCost || 0,
+        volumeValue: s.value,
+      })),
+    [serviceData]
+  );
+
   const showStatus = settings?.showLeadsStatusChart;
   const showService = settings?.showLeadsByServiceChart;
   const showCategory = settings?.showLeadsByProjectCategory;
@@ -148,14 +158,14 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             </div>
             <div className="col-12 col-lg-6">
               <AnalyticsCard
-                title="Service Contribution"
-                subtitle="Ranked by lead volume · revenue in tooltip"
+                title="Service Value"
+                subtitle="Ranked by revenue · lead count in tooltip"
                 index={1}
                 insights={serviceInsights}
                 isEmpty={isEmpty(serviceData)}
                 emptyHint="Add services to see the ranking."
               >
-                <RankedBarChart data={serviceData} onSelect={onServiceSelect} showRevenue />
+                <RankedBarChart data={serviceDataByRevenue} onSelect={onServiceSelect} showRevenue />
               </AnalyticsCard>
             </div>
           </div>
@@ -175,21 +185,21 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             {showSource && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
-                  <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
+                  <AcquisitionChart variant="gauge" data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
             {showReferral && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
-                  <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
+                  <AcquisitionChart variant="donut" data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
             {showDirect && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
-                  <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
+                  <AcquisitionChart variant="rose" data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
