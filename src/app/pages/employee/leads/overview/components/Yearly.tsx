@@ -39,11 +39,8 @@ import {
   AnalyticsCard,
   AnalyticsHeader,
   RankedBarChart,
-  KpiStatCard,
-  YearlyGrowthChart,
   YearlyInsightsPanel,
   buildYearlySeries,
-  computeYearlyKpis,
   generateYearlyInsights,
   ChartDatum,
 } from "@pages/dashboard/leadAnalytics";
@@ -561,10 +558,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
     () => aggregateLocations(locationRes?.data || []),
     [locationRes]
   );
-  const yearlyKpis = useMemo(
-    () => computeYearlyKpis(currentSeries, prevSeries, chartData.statusData),
-    [currentSeries, prevSeries, chartData.statusData]
-  );
   const yearlyInsights = useMemo(
     () =>
       generateYearlyInsights(
@@ -608,39 +601,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
   return (
     <div className="">
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        {/* ── Section 1: Executive Overview (KPIs with YoY + sparklines) ─── */}
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Executive Overview"
-            subtitle={`Year-at-a-glance · ${fiscalLabel} · trends compared to the previous year`}
-            icon="bi-speedometer2"
-            accent="#6366F1"
-          />
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {yearlyKpis.map((kpi, i) => (
-              <KpiStatCard key={kpi.label} {...kpi} index={i} />
-            ))}
-          </div>
-        </section>
-
-        {/* ── Section 2: Yearly Lead Growth (hero trend) ─────────────────── */}
-        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <AnalyticsHeader
-            title="Yearly Lead Growth"
-            subtitle="How lead creation and conversion moved month by month"
-            icon="bi-graph-up"
-            accent="#22C55E"
-          />
-          <YearlyGrowthChart series={currentSeries} periodLabel={fiscalLabel} />
-        </section>
-
-        {/* ── Section 3: Revenue Intelligence & Forecast ─────────────────── */}
+        {/* ── Section 1: Revenue Intelligence & Forecast ─────────────────── */}
         <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <AnalyticsHeader
             title="Revenue Intelligence & Forecast"
