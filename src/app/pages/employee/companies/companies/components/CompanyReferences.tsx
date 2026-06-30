@@ -1,25 +1,25 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 
-interface CompanyReference {
+// A row = a company this company referred (this company is their referral company).
+interface ReferredCompanyReference {
   id: string;
   referenceType: "INTERNAL" | "EXTERNAL";
-  internalReferenceEmployee?: {
+  company?: {
     id: string;
-    nickName?: string;
-    users?: { firstName: string; lastName: string };
+    prefix?: string | null;
+    companyName: string;
+    phone?: string | null;
+    email?: string | null;
+    status?: string | null;
+    companyType?: { id: string; name: string } | null;
   } | null;
-  externalReferenceContact?: {
-    id: string;
-    fullName: string;
-    phone?: string;
-    email?: string;
-  } | null;
-  externalReferenceCompanyType?: { id: string; name: string } | null;
-  isActive: boolean;
 }
 
-const CompanyReferences: React.FC<{ references?: CompanyReference[] }> = ({ references = [] }) => {
+const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference[] }> = ({ referredCompanies = [] }) => {
+  const navigate = useNavigate();
+
   const columns = [
     {
       accessorKey: "referenceType",
@@ -36,66 +36,61 @@ const CompanyReferences: React.FC<{ references?: CompanyReference[] }> = ({ refe
       accessorKey: "refName",
       header: "Reference Name",
       Cell: ({ row }: any) => {
-        const ref: CompanyReference = row.original;
-        if (ref.referenceType === "INTERNAL" && ref.internalReferenceEmployee) {
-          const emp = ref.internalReferenceEmployee;
-          const name = emp.users
-            ? `${emp.users.firstName} ${emp.users.lastName}`
-            : emp.nickName || "—";
-          return <span>{name}</span>;
-        }
-        if (ref.referenceType === "EXTERNAL" && ref.externalReferenceContact) {
-          return <span>{ref.externalReferenceContact.fullName}</span>;
-        }
-        return <span className="text-muted">—</span>;
+        const c = (row.original as ReferredCompanyReference).company;
+        if (!c) return <span className="text-muted">—</span>;
+        return (
+          <button
+            className="btn btn-link p-0 text-start text-decoration-none fw-semibold"
+            style={{ color: "inherit", fontSize: "14px" }}
+            onClick={() => navigate(`/companies/${c.id}`)}
+          >
+            {c.companyName}
+          </button>
+        );
       },
     },
     {
       accessorKey: "contactPhone",
       header: "Phone",
       Cell: ({ row }: any) => {
-        const ref: CompanyReference = row.original;
-        if (ref.referenceType === "EXTERNAL" && ref.externalReferenceContact?.phone) {
-          return <span>{ref.externalReferenceContact.phone}</span>;
-        }
-        return <span className="text-muted">—</span>;
+        const c = (row.original as ReferredCompanyReference).company;
+        return c?.phone ? <span>{c.phone}</span> : <span className="text-muted">—</span>;
       },
     },
     {
       accessorKey: "contactEmail",
       header: "Email",
       Cell: ({ row }: any) => {
-        const ref: CompanyReference = row.original;
-        if (ref.referenceType === "EXTERNAL" && ref.externalReferenceContact?.email) {
-          return <span>{ref.externalReferenceContact.email}</span>;
-        }
-        return <span className="text-muted">—</span>;
+        const c = (row.original as ReferredCompanyReference).company;
+        return c?.email ? <span>{c.email}</span> : <span className="text-muted">—</span>;
       },
     },
     {
-      accessorKey: "externalReferenceCompanyType",
+      accessorKey: "companyType",
       header: "Company Type",
       Cell: ({ row }: any) => {
-        const ref: CompanyReference = row.original;
-        return (
-          <span>{ref.externalReferenceCompanyType?.name || <span className="text-muted">—</span>}</span>
-        );
+        const c = (row.original as ReferredCompanyReference).company;
+        return <span>{c?.companyType?.name || <span className="text-muted">—</span>}</span>;
       },
     },
     {
-      accessorKey: "isActive",
+      accessorKey: "status",
       header: "Status",
-      Cell: ({ row }: any) => (
-        <span className={`badge ${row.original.isActive ? "badge-light-success" : "badge-light-danger"}`}>
-          {row.original.isActive ? "Active" : "Inactive"}
-        </span>
-      ),
+      Cell: ({ row }: any) => {
+        const status = (row.original as ReferredCompanyReference).company?.status;
+        const active = status === "ACTIVE";
+        return (
+          <span className={`badge ${active ? "badge-light-success" : "badge-light-danger"}`}>
+            {active ? "Active" : status || "—"}
+          </span>
+        );
+      },
     },
   ];
 
   return (
     <MaterialTable
-      data={references}
+      data={referredCompanies}
       columns={columns}
       tableName="company-references"
       hidePagination={true}

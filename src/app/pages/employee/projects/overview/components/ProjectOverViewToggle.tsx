@@ -1,19 +1,14 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
-
+import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { resourseAndView } from "@models/company";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -59,8 +54,6 @@ const ProjectOverViewToggle = ({ toggleItemsActions, fromAdmin = false, dateSett
   const [yearStart, setYearStart] = useState<Dayjs | null>(null);
   const [yearEnd, setYearEnd] = useState<Dayjs | null>(null);
   const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
   const [chooseProjectTypeModal, setChooseProjectTypeModal] = useState(false);
@@ -180,26 +173,6 @@ const ProjectOverViewToggle = ({ toggleItemsActions, fromAdmin = false, dateSett
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   };
 
-  const NavigationButtons = ({
-    onPrev,
-    onNext,
-    displayText,
-  }: {
-    onPrev: () => void;
-    onNext: () => void;
-    displayText: string;
-  }) => (
-    <div className="d-flex align-items-center">
-      <button  className="btn btn-sm p-0 " onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-      <button  className="btn btn-sm p-0 " onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  );
-
     const fetchSettings = async () => {
       try {
         const response = await fetchConfiguration(SHOW_PROJECT_BUTTONS);
@@ -257,113 +230,31 @@ const ProjectOverViewToggle = ({ toggleItemsActions, fromAdmin = false, dateSett
       </div>
 
 
-      <div className="d-flex flex-row justify-content-between align-items-center mb-6 ">
-        <div className="d-flex flex-column align-items-center d-md-block">
-          {isMobile ? (
-            <Select
-              value={alignment}
-              onChange={(e) => handleChange(e as any, e.target.value)}
-              fullWidth
-              displayEmpty
-              variant="outlined"
-              size="small"
-              sx={{
-                borderRadius: "20px",
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "20px",
-
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderRadius: "20px",
-                  borderColor: "#D2B48C",
-                  borderWidth: "3px",
-                }, '& .Mui-selected': {
-                  borderColor: '#9D4141 !important',
-                  color: '#9D4141 !important',
-                },
-                '& .MuiToggleButton-root:hover': {
-                  borderColor: '#9D4141 !important',
-                  color: '#9D4141 !important',
-                }
-
-
-              }}
-
-            >
-              <MenuItem value="monthly">Monthly</MenuItem>
-              <MenuItem value="yearly">Yearly</MenuItem>
-              <MenuItem value="custom">Custom</MenuItem>
-            </Select>
-          ) : (
-            <ToggleButtonGroup
-              value={alignment}
-              exclusive
-              onChange={handleChange}
-              aria-label="view selection"
-              sx={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px",
-                justifyContent: "center",
-                width: "100%",
-                "& .MuiToggleButton-root": {
-                  borderRadius: "20px",
-                  borderColor: "#A0B4D2 !important",
-                  color: "#000000 !important",
-                  paddingX: {
-                    xs: "32px",
-                    md: "45px",
-                  },
-                  borderWidth: "2px",
-                  fontWeight: "600",
-                  width: {
-                    xs: "65px",
-                    sm: "75px",
-                  },
-                  fontSize: {
-                    xs: "10px",
-                    sm: "12px",
-                  },
-                  height: { xs: "30px", sm: "36px" },
-                  fontFamily: "Inter",
-                  backgroundColor: "transparent !important", // Remove default background
-                  "&:hover": {
-                    backgroundColor: "transparent !important", // Remove hover background
-                    borderColor: "#9D4141 !important",
-                    color: "#9D4141 !important",
-                  },
-                },
-                "& .Mui-selected": {
-                  borderColor: "#9D4141 !important",
-                  color: "#9D4141 !important",
-                  backgroundColor: "transparent !important", // Remove selected background
-                },
-              }}
-            >
-              <ToggleButton value="monthly">Monthly</ToggleButton>
-              <ToggleButton value="yearly">Yearly</ToggleButton>
-              <ToggleButton value="custom">Custom</ToggleButton>
-            </ToggleButtonGroup>
-          )}
-
-
-        </div>
+      <div className="d-flex flex-row justify-content-between align-items-center mb-6">
+        <PeriodTabs
+          value={alignment}
+          options={[
+            { label: 'Monthly', value: 'monthly' },
+            { label: 'Yearly', value: 'yearly' },
+            { label: 'Custom', value: 'custom' },
+          ]}
+          onChange={(val) => handleChange(null as any, val)}
+          ariaLabel="view selection"
+        />
 
         {alignment === "monthly" && (
-          <NavigationButtons
-            onPrev={() => navigateMonth("prev")}
+          <PeriodNavigator
+            label={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
+            onPrevious={() => navigateMonth("prev")}
             onNext={() => navigateMonth("next")}
-            displayText={`${monthStart.format(
-              "DD MMM"
-            )} - ${monthEnd.format("DD MMM")}`}
           />
         )}
 
         {alignment === "yearly" && yearStart && yearEnd && (
-          <NavigationButtons
-            onPrev={() => navigateYear("prev")}
+          <PeriodNavigator
+            label={fiscalYearDisplay}
+            onPrevious={() => navigateYear("prev")}
             onNext={() => navigateYear("next")}
-            displayText={fiscalYearDisplay}
           />
         )}
 

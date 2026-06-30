@@ -3,6 +3,7 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 
+
 interface LeadReferral {
   id: string;
   lead?: { id: string; title?: string; status?: { name: string; color?: string } | null; createdAt?: string } | null;
@@ -71,7 +72,46 @@ const ContactLeadReferences: React.FC<{ referrals?: LeadReferral[] }> = ({ refer
       columns={columns}
       tableName="contact-lead-references"
       hidePagination={true}
-      muiTableProps={{ sx: { minWidth: 500 } }}
+      muiTableProps={{
+        sx: { minWidth: 500 },
+        muiTableBodyRowProps: ({ row }: any) => {
+          const color = row.original?.lead?.status?.color || "#AA393D";
+          return {
+            sx: {
+              cursor: "pointer",
+              backgroundColor: `${color}20`,
+              transition: "all 0.2s ease",
+              "& .MuiTableCell-root": {
+                fontSize: "14.5px",
+                fontFamily: "Inter",
+                fontWeight: 500,
+                padding: "6px 8px !important",
+                border: "none",
+                color: "#333",
+                whiteSpace: "nowrap",
+              },
+              "& .MuiTableCell-root:first-of-type": {
+                borderTopLeftRadius: "12px",
+                borderBottomLeftRadius: "12px",
+                borderLeft: "3px solid transparent !important",
+                transition: "border-color 0.2s ease-in-out !important",
+              },
+              "& .MuiTableCell-root:last-of-type": {
+                borderTopRightRadius: "12px",
+                borderBottomRightRadius: "12px",
+              },
+              "&:hover": {
+                backgroundColor: "#F8FAFC !important",
+                transform: "translateY(-2px)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                "& .MuiTableCell-root": { backgroundColor: "#F8FAFC !important" },
+                "& .MuiTableCell-root:first-of-type": { borderLeftColor: `${color} !important` },
+              },
+            },
+            onClick: () => row.original?.lead?.id && navigate(`/employee/lead/${row.original.lead.id}`),
+          };
+        },
+      }}
     />
   );
 };
