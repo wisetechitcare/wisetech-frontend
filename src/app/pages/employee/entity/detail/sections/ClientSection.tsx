@@ -41,14 +41,88 @@ const CompaniesCard: React.FC<{ companies: EntityVM['client']['companies'] }> = 
   <DetailCard title="Companies & Contacts" subtitle={`${companies.length} linked`} icon="bi bi-buildings" accentColor="blue">
     <div className="row g-4">
       {companies.map((c, i) => (
-        <div className="col-12 col-md-6 col-xl-4" key={i}>
-          <div style={{ border: '1px solid #EEF2F6', borderRadius: 12, padding: 14, height: '100%' }}>
-            <DetailProfileBlock name={c.name} subtitle={c.type || 'Company'} href={c.href} accentColor="blue" />
-            <div style={{ marginTop: 8 }}>
-              {c.subCompany && <DetailRow label="Sub-company" value={c.subCompany} />}
-              <DetailRow label="Contact" value={c.contact ? <DetailLink href={c.contactId ? `/contacts/${c.contactId}` : '#'}>{c.contact}</DetailLink> : DASH} />
-              <DetailRow label="Phone" value={c.phone || DASH} />
-              <DetailRow label="Email" value={c.email || DASH} isLast />
+        <div className="col-12 col-md-6" key={i}>
+          <div style={{
+            background: '#FAFBFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: 14,
+            padding: '18px',
+            height: '100%',
+            transition: 'all 200ms ease',
+            cursor: 'pointer',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)'
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.borderColor = '#3B82F6';
+            el.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.1)';
+            el.style.background = '#FAFBFC';
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.borderColor = '#E2E8F0';
+            el.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.04)';
+            el.style.background = '#FAFBFC';
+          }}>
+            {/* Company Header */}
+            <div style={{ marginBottom: 14 }}>
+              <DetailProfileBlock name={c.name} subtitle={c.type || 'Company'} href={c.href} accentColor="blue" />
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: '#E2E8F0', margin: '12px 0' }}></div>
+
+            {/* Contact Details */}
+            <div style={{ marginTop: 12 }}>
+              {c.subCompany && (
+                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="bi bi-diagram-3" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Sub-company</div>
+                    <div style={{ fontSize: 14, color: '#1E293B', fontWeight: 500 }}>{c.subCompany}</div>
+                  </div>
+                </div>
+              )}
+
+              {c.contact && (
+                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="bi bi-person-circle" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Contact Person</div>
+                    <DetailLink href={c.contactId ? `/contacts/${c.contactId}` : '#'} style={{ fontSize: 14, fontWeight: 500 }}>
+                      {c.contact}
+                    </DetailLink>
+                  </div>
+                </div>
+              )}
+
+              {c.phone && (
+                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="bi bi-telephone-fill" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Phone</div>
+                    <a href={`tel:${c.phone}`} style={{ fontSize: 14, color: '#3B82F6', fontWeight: 500, textDecoration: 'none' }}>
+                      {c.phone}
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {c.email && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="bi bi-envelope-fill" style={{ color: '#64748B', fontSize: 14 }}></i>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#64748B', fontWeight: 500, marginBottom: 2 }}>Email</div>
+                    <a href={`mailto:${c.email}`} style={{ fontSize: 14, color: '#3B82F6', fontWeight: 500, textDecoration: 'none', wordBreak: 'break-all' }}>
+                      {c.email}
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {!c.subCompany && !c.contact && !c.phone && !c.email && (
+                <div style={{ fontSize: 13, color: '#94A3B8', fontStyle: 'italic' }}>No contact details available</div>
+              )}
             </div>
           </div>
         </div>
