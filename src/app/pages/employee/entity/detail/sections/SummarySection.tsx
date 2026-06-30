@@ -179,7 +179,10 @@ const SummarySection: React.FC<{
   const missing = computeMissingInfo(lead);
   const health = computeHealth(lead, missing.length);
   const probability = conversionProbability(lead, health);
-  const value = sumLeadCommercials(lead).totalCost;
+  const commercials = sumLeadCommercials(lead);
+  const value = commercials.totalCost;
+  const totalArea = commercials.totalArea;
+  const totalRate = totalArea > 0 ? (value / totalArea).toFixed(2) : 0;
   // Dates live on the lead now (fallback to the project row during transition).
   const execStart = lead?.startDate || p?.startDate;
   const execEnd = lead?.endDate || p?.endDate;
@@ -216,7 +219,9 @@ const SummarySection: React.FC<{
           { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', accent: 'blue' },
           { label: 'Assigned To', value: owner, icon: 'bi bi-person-badge', accent: 'primary' },
           { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
-          { label: 'Value', value: compactMoney(value), icon: 'bi bi-currency-rupee', accent: 'green' },
+          { label: 'Total Area', value: totalArea ? `${totalArea.toLocaleString('en-IN')} SFT` : DASH, icon: 'bi bi-diagram-2', accent: 'warning' },
+          { label: 'Total Rate', value: totalRate ? `₹${parseFloat(totalRate as any).toLocaleString('en-IN')}` : DASH, icon: 'bi bi-graph-up', accent: 'info' },
+          { label: 'Cost', value: compactMoney(value), icon: 'bi bi-currency-rupee', accent: 'green' },
         ]}
       />
 
