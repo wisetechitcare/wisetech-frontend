@@ -12,8 +12,8 @@ import { getAllTimeSheetWithCostByProjectId } from "@services/tasks";
 import { getProjectProjectPoints, type ProjectPointValue } from "@services/projectPoints";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
-// Revision System (Change Intelligence v2)
-import { VersionHistory } from "@app/modules/revisions/v2/VersionHistory";
+// Audit (change history)
+import { VersionHistory } from "@app/modules/audit/VersionHistory";
 
 const ProjectOverviewById = ({
   projectId,

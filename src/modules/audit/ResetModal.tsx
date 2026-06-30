@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { C, FONT, RADIUS, BTN } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType } from './auditV2.service';
+import { AuditEntityType } from './audit.service';
 import { useResetPreview, useReset } from './hooks';
 
 interface Props {

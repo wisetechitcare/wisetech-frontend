@@ -13,8 +13,8 @@ import { getLeadProjectPoints, type ProjectPointValue } from "@services/projectP
 import { useSelector, useDispatch } from "react-redux";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import type { AppDispatch, RootState } from "@redux/store";
-// Revision System (Change Intelligence v2)
-import { VersionHistory } from "@app/modules/revisions/v2/VersionHistory";
+// Audit (change history)
+import { VersionHistory } from "@app/modules/audit/VersionHistory";
 
 interface ProjectData {
   currentStatus: string;

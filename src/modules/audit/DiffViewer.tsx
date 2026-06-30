@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { V2DiffResult, V2FieldChange } from './auditV2.service';
+import { AuditDiffResult, AuditFieldChange } from './audit.service';
 import { ChangeTypeChip, ValueDelta, CategoryBadge, parseFieldSummary, FieldSummaryGrid } from './parts';
 import { DIFF, resolveValue, humanizeSummary, categoryMeta } from './tokens';
 import { diffWords } from './wordDiff';
@@ -15,7 +15,7 @@ export interface DiffSideMeta {
 }
 
 interface Props {
-  result: V2DiffResult;
+  result: AuditDiffResult;
   mode: DiffMode;
   onModeChange: (m: DiffMode) => void;
   fromMeta?: DiffSideMeta;
@@ -96,7 +96,7 @@ const InlineWordDiff: React.FC<{ oldText: string; newText: string }> = ({ oldTex
 };
 
 /** True when a change is a text edit worth a word-level diff. */
-function wordDiffable(change: V2FieldChange): { oldText: string; newText: string } | null {
+function wordDiffable(change: AuditFieldChange): { oldText: string; newText: string } | null {
   if (change.changeType !== 'MODIFIED') return null;
   const o = resolveValue(change.oldValue, change.oldValueFormatted);
   const n = resolveValue(change.newValue, change.newValueFormatted);
@@ -142,7 +142,7 @@ const SideCell: React.FC<{ value: unknown; formatted: string; tone: 'old' | 'new
   );
 };
 
-const DiffRow: React.FC<{ change: V2FieldChange; mode: DiffMode }> = ({ change, mode }) => {
+const DiffRow: React.FC<{ change: AuditFieldChange; mode: DiffMode }> = ({ change, mode }) => {
   const words = wordDiffable(change);
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderTop: `1px solid ${C.border}` }}>
@@ -215,7 +215,7 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
   }, [result.diffs, query, activeCat]);
 
   const grouped = useMemo(() => {
-    const g = new Map<string, V2FieldChange[]>();
+    const g = new Map<string, AuditFieldChange[]>();
     for (const d of filtered) {
       if (!g.has(d.fieldCategory)) g.set(d.fieldCategory, []);
       g.get(d.fieldCategory)!.push(d);

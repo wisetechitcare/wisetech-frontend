@@ -1,9 +1,9 @@
 import { api } from '@/lib/apiClient';
 
 /**
- * Change Intelligence v2 API client.
+ * Audit API client.
  *
- * Uses the shared `api` helper (JWT auth + 401 handling) — the v2 endpoints are
+ * Uses the shared `api` helper (JWT auth + 401 handling) — the audit endpoints are
  * behind `protect`, unlike the legacy raw-fetch revisions service. The backend
  * wraps every response as { statusCode, message, data }, so each call unwraps `.data`.
  */
@@ -19,7 +19,7 @@ export type AuditEntityType =
 export type ChangeType = 'ADDED' | 'REMOVED' | 'MODIFIED';
 export type ChangeImpact = 'MINOR' | 'MAJOR' | 'CRITICAL';
 
-export interface V2FieldChange {
+export interface AuditFieldChange {
   id?: string;
   fieldName: string;
   fieldLabel: string;
@@ -35,7 +35,7 @@ export interface V2FieldChange {
   changeImpact: ChangeImpact;
 }
 
-export interface V2ChangeSet {
+export interface AuditChangeSet {
   id: string;
   revisionNumber: number;
   changedAt: string;
@@ -49,23 +49,23 @@ export interface V2ChangeSet {
   browserName?: string | null;
   deviceType?: string | null;
   rowHash?: string | null;
-  changes: V2FieldChange[];
+  changes: AuditFieldChange[];
 }
 
-export interface V2TimelinePage {
-  changeSets: V2ChangeSet[];
+export interface AuditTimelinePage {
+  changeSets: AuditChangeSet[];
   nextCursor: number | null;
   hasMore: boolean;
 }
 
-export interface V2DiffResult {
+export interface AuditDiffResult {
   entityType: AuditEntityType;
   entityId: string;
   from: number;
   to: number;
   summary: string;
   stats: { added: number; removed: number; modified: number; total: number };
-  diffs: V2FieldChange[];
+  diffs: AuditFieldChange[];
 }
 
 export interface EntityInsights {
@@ -89,7 +89,7 @@ export interface AuditViewerInfo {
   isAdmin: boolean;
 }
 
-export interface ResetPreviewChange extends V2FieldChange {
+export interface ResetPreviewChange extends AuditFieldChange {
   restorable: boolean;
 }
 
@@ -129,22 +129,22 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
-const BASE = '/api/v2/audit';
+const BASE = '/api/audit';
 
-export const AuditV2Api = {
+export const AuditApi = {
   timeline(
     type: AuditEntityType,
     id: string,
     opts: { cursor?: number; limit?: number; category?: string; actorId?: string; fresh?: number } = {},
-  ): Promise<V2TimelinePage> {
+  ): Promise<AuditTimelinePage> {
     return api
-      .get<ApiEnvelope<V2TimelinePage>>(`${BASE}/${type}/${id}/timeline`, opts)
+      .get<ApiEnvelope<AuditTimelinePage>>(`${BASE}/${type}/${id}/timeline`, opts)
       .then((r) => r.data);
   },
 
-  diff(type: AuditEntityType, id: string, from: number, to: number): Promise<V2DiffResult> {
+  diff(type: AuditEntityType, id: string, from: number, to: number): Promise<AuditDiffResult> {
     return api
-      .get<ApiEnvelope<V2DiffResult>>(`${BASE}/${type}/${id}/diff`, { from, to })
+      .get<ApiEnvelope<AuditDiffResult>>(`${BASE}/${type}/${id}/diff`, { from, to })
       .then((r) => r.data);
   },
 
@@ -191,4 +191,4 @@ export const AuditV2Api = {
   },
 };
 
-export default AuditV2Api;
+export default AuditApi;

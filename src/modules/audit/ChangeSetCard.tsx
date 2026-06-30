@@ -1,12 +1,12 @@
 import React from 'react';
 import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { V2ChangeSet } from './auditV2.service';
+import { AuditChangeSet } from './audit.service';
 import { CategoryBadge, ChangeTypeChip, ValueDelta } from './parts';
 import { initials, displayActor, actorKind, humanizeSummary } from './tokens';
 import { fromNow, fullDateTime } from './time';
 
 interface Props {
-  cs: V2ChangeSet;
+  cs: AuditChangeSet;
   expanded: boolean;
   onToggle: () => void;
   onCompare: (revisionNumber: number) => void;

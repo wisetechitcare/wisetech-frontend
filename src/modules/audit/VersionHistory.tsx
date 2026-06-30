@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { C, FONT, RADIUS, BTN } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType } from './auditV2.service';
+import { AuditEntityType } from './audit.service';
 import { useAuditTimeline, useAuditDiff } from './hooks';
 import { DiffViewer, DiffMode } from './DiffViewer';
 import { ResetModal } from './ResetModal';

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { C, FONT, RADIUS, ICON_COLORS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType, EntityInsights } from './auditV2.service';
+import { AuditEntityType, EntityInsights } from './audit.service';
 import { useAuditInsights } from './hooks';
 import { categoryMeta, changeTypeMeta, initials, IMPACT_COLOR } from './tokens';
 import { fromNow, fullDateTime } from './time';

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { C, FONT, RADIUS, BTN, ICON_COLORS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType, V2ChangeSet } from './auditV2.service';
+import { AuditEntityType, AuditChangeSet } from './audit.service';
 import { useAuditTimeline } from './hooks';
 import { ChangeSetCard } from './ChangeSetCard';
 import { categoryMeta, isBaselineEntry } from './tokens';
@@ -108,7 +108,7 @@ const RailRow: React.FC<{
 
 /** Collapsed group of consecutive automated baseline/backfill entries. */
 const BaselineGroup: React.FC<{
-  entries: V2ChangeSet[];
+  entries: AuditChangeSet[];
   isLast: boolean;
   onCompare: (rev: number) => void;
   onReset?: (rev: number) => void;
@@ -220,8 +220,8 @@ const BaselineGroup: React.FC<{
 };
 
 type Row =
-  | { kind: 'single'; cs: V2ChangeSet }
-  | { kind: 'baseline'; entries: V2ChangeSet[]; key: string };
+  | { kind: 'single'; cs: AuditChangeSet }
+  | { kind: 'baseline'; entries: AuditChangeSet[]; key: string };
 
 export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset }) => {
   // freshRef makes an explicit Refresh click bypass the server's cached page.
@@ -266,7 +266,7 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
   // Collapse runs of consecutive automated baseline/backfill entries into one group.
   const rows: Row[] = useMemo(() => {
     const out: Row[] = [];
-    let bucket: V2ChangeSet[] = [];
+    let bucket: AuditChangeSet[] = [];
     const flush = () => {
       if (bucket.length === 0) return;
       if (bucket.length === 1) out.push({ kind: 'single', cs: bucket[0] });

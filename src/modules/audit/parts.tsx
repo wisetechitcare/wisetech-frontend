@@ -1,6 +1,6 @@
 import React from 'react';
 import { C, FONT, RADIUS, ICON_COLORS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { V2FieldChange } from './auditV2.service';
+import { AuditFieldChange } from './audit.service';
 import { categoryMeta, changeTypeMeta, DIFF, resolveValue } from './tokens';
 
 /** Category pill — icon + label, color from the shared palette. */
@@ -89,7 +89,7 @@ export const FieldSummaryGrid: React.FC<{
 );
 
 /** old → new value rendering with screen-reader text and color+icon (a11y safe). */
-export const ValueDelta: React.FC<{ change: V2FieldChange; stacked?: boolean }> = ({
+export const ValueDelta: React.FC<{ change: AuditFieldChange; stacked?: boolean }> = ({
   change,
   stacked,
 }) => {

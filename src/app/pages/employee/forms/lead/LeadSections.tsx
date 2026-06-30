@@ -332,6 +332,8 @@ export const LeadSourceTypeSection: React.FC<LeadSectionsProps> = (props) => {
 
 // Direct Source Section
 export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
+  const directSources = props.leadDirectSources || [];
+  const hasOptions = directSources.length > 0;
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
@@ -343,8 +345,25 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
             isRequired={false}
             formikField="leadDirectSource"
             inputLabel="Direct Source"
-            options={(props.leadDirectSources || []).map(x => ({ value: x.id, label: x.name }))}
+            options={directSources.map(x => ({ value: x.id, label: x.name }))}
           />
+          {/* When the list is empty there is nothing to select (and therefore nothing
+              to save). Make that explicit and offer an inline way to add one. */}
+          {!hasOptions && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#b45309" }}>
+              No direct sources configured yet.
+              {props.setShowDirectSourceModal && (
+                <button
+                  type="button"
+                  className="btn btn-link p-0 ms-1 align-baseline fw-bold"
+                  style={{ fontSize: 12 }}
+                  onClick={() => props.setShowDirectSourceModal(true)}
+                >
+                  + Add a Direct Source
+                </button>
+              )}
+            </div>
+          )}
         </Grid>
       </Grid>
     </div>
@@ -353,11 +372,20 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
 
 // Referral Details Section
 export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
-  const { values } = useFormikContext<any>();
+  const { values, setFieldValue } = useFormikContext<any>();
   const employeeOptions = (props.employees || [])
     .filter(x => x.isActive !== false)
     .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
     .map(x => ({ value: x.employeeId, label: x.employeeName }));
+
+  // The referral-type dropdown stores the type's ID (a UUID), NOT the literal
+  // string "INTERNAL". Resolve the selected type and read its isInternal flag
+  // (with a name fallback) so the Internal path shows the "Referring Employee"
+  // field instead of the company fields.
+  const isInternalReferral = (referralTypeId: string): boolean => {
+    const t = (props.referralTypes || []).find((x: any) => x.id === referralTypeId);
+    return t?.isInternal === true || /internal/i.test(t?.name || "");
+  };
 
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
@@ -384,9 +412,21 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                       formikField={`referrals.${index}.referralType`}
                       inputLabel="Referral Type"
                       options={(props.referralTypes || []).map(x => ({ value: x.id, label: x.name }))}
+                      onChange={(opt: any) => {
+                        const newType = opt?.value || "";
+                        setFieldValue(`referrals.${index}.referralType`, newType);
+                        // Clear the opposite branch so a row never carries both a
+                        // referring company AND a referring employee.
+                        if (isInternalReferral(newType)) {
+                          setFieldValue(`referrals.${index}.referringCompanyType`, "");
+                          setFieldValue(`referrals.${index}.referringCompany`, "");
+                        } else {
+                          setFieldValue(`referrals.${index}.referredByEmployeeId`, "");
+                        }
+                      }}
                     />
                   </Grid>
-                  {ref.referralType === "INTERNAL" ? (
+                  {isInternalReferral(ref.referralType) ? (
                     <Grid item xs={12} md={8}>
                       <DropDownInput
                         isRequired={false}

@@ -597,7 +597,8 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
     const display = result.display_name || "";
 
     // ALWAYS set the formatted address (display_name) from Nominatim
-    if (display && !addressData.projectAddress) {
+    // This ensures auto-fill works every time the user updates the pin
+    if (display) {
       setFieldValue(`${addressPath}.projectAddress`, display);
     }
 
@@ -883,7 +884,13 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                       inputLabel="State"
                       options={(states || []).map((x: any) => ({ value: x.id, label: x.name }))}
                       onChange={(val: any) => handleAddressStateChange(index, val?.value, addressData.country, setFieldValue)}
+                      disabled={!addressData.country}
                     />
+                    {!addressData.country && (
+                      <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                        Select a country first
+                      </span>
+                    )}
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <DropDownInput
@@ -891,7 +898,13 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
                       formikField={`${addressPath}.city`}
                       inputLabel="City"
                       options={(cities || []).map((x: any) => ({ value: x.id, label: x.name }))}
+                      disabled={!addressData.state}
                     />
+                    {!addressData.state && (
+                      <span className="text-muted mt-1 d-block" style={{ fontSize: 11 }}>
+                        Select a state first
+                      </span>
+                    )}
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <TextInput formikField={`${addressPath}.pincode`} label="Pincode" isRequired={false} />

@@ -1,12 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AuditV2Api,
+  AuditApi,
   AuditEntityType,
-  V2TimelinePage,
-} from './auditV2.service';
+  AuditTimelinePage,
+} from './audit.service';
 
 /**
- * React Query hooks for the Change Intelligence v2 read API.
+ * React Query hooks for the Audit read API.
  * Cursor-based infinite timeline + immutable (cache-forever) diffs.
  */
 
@@ -21,13 +21,13 @@ export function useAuditTimeline(
     enabled: !!id,
     initialPageParam: undefined as number | undefined,
     queryFn: ({ pageParam }) =>
-      AuditV2Api.timeline(type, id as string, {
+      AuditApi.timeline(type, id as string, {
         cursor: pageParam,
         limit,
         // Set by an explicit Refresh click so the server skips its cached page.
         fresh: freshRef?.current ? 1 : undefined,
       }),
-    getNextPageParam: (last: V2TimelinePage) => last.nextCursor ?? undefined,
+    getNextPageParam: (last: AuditTimelinePage) => last.nextCursor ?? undefined,
     // Audit data changes out-of-band (the user edits the entity elsewhere), so
     // always show fresh data when the tab is opened or the window regains focus.
     staleTime: 0,
@@ -46,7 +46,7 @@ export function useAuditDiff(
     queryKey: ['audit-diff', type, id, from, to],
     enabled: !!id && from != null && to != null,
     staleTime: Infinity, // diffs of immutable revisions never change
-    queryFn: () => AuditV2Api.diff(type, id as string, from as number, to as number),
+    queryFn: () => AuditApi.diff(type, id as string, from as number, to as number),
   });
 }
 
@@ -56,7 +56,7 @@ export function useAuditInsights(type: AuditEntityType, id: string | undefined) 
     enabled: !!id,
     staleTime: 0,
     refetchOnMount: 'always',
-    queryFn: () => AuditV2Api.insights(type, id as string),
+    queryFn: () => AuditApi.insights(type, id as string),
   });
 }
 
@@ -65,7 +65,7 @@ export function useAuditViewer() {
   return useQuery({
     queryKey: ['audit-me'],
     staleTime: Infinity,
-    queryFn: () => AuditV2Api.me(),
+    queryFn: () => AuditApi.me(),
   });
 }
 
@@ -78,14 +78,14 @@ export function useResetPreview(
     queryKey: ['audit-reset-preview', type, id, targetVersion],
     enabled: !!id && targetVersion != null,
     staleTime: 0,
-    queryFn: () => AuditV2Api.resetPreview(type, id as string, targetVersion as number),
+    queryFn: () => AuditApi.resetPreview(type, id as string, targetVersion as number),
   });
 }
 
 export function useReset(type: AuditEntityType, id: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (targetVersion: number) => AuditV2Api.reset(type, id as string, targetVersion),
+    mutationFn: (targetVersion: number) => AuditApi.reset(type, id as string, targetVersion),
     onSuccess: () => {
       // Versions were deleted — refresh timeline + insights.
       qc.invalidateQueries({ queryKey: ['audit-timeline', type, id] });

@@ -2778,6 +2778,12 @@ const LeadWizardModal = ({
     const isClosureOutcome =
       !!selectedStatusObj &&
       (selectedStatusObj.isLostOutcome === true || selectedStatusObj.name === "Canceled");
+    // "Not Received" is NOT a closure/lost outcome, but the form still captures an
+    // optional cancellation reason for it (why the lead was not received). It must be
+    // preserved here — the legacy else-branch wiped it, so the reason never persisted
+    // and never appeared in the audit trail.
+    const isNotReceivedOutcome =
+      !!selectedStatusObj && selectedStatusObj.name === "Not Received";
     if (isClosureOutcome) {
       finalData.isCancelled = true;
       finalData.cancellationDate =
@@ -2786,6 +2792,16 @@ const LeadWizardModal = ({
         (r: any) => r.id === finalData.cancellationReasonId,
       );
       if (reasonObj?.reason) finalData.reasonForCancellation = reasonObj.reason;
+    } else if (isNotReceivedOutcome) {
+      // Keep the captured reason; Not Received is not a cancellation, so isCancelled
+      // stays false and no cancellation date/note is stamped.
+      finalData.isCancelled = false;
+      finalData.cancellationDate = null;
+      finalData.cancellationNote = "";
+      const reasonObj = (leadCancellationReasons || []).find(
+        (r: any) => r.id === finalData.cancellationReasonId,
+      );
+      finalData.reasonForCancellation = reasonObj?.reason || "";
     } else {
       finalData.isCancelled = false;
       finalData.cancellationDate = null;

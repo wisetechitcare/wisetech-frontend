@@ -2,21 +2,21 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { DetailCard } from '@/app/modules/detail-page/DetailPageComponents';
 import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType, AuditV2Api } from '@/modules/revisions/v2/auditV2.service';
-import { AuditTimeline } from '@/modules/revisions/v2/AuditTimeline';
-import { ComparePanel } from '@/modules/revisions/v2/ComparePanel';
-import { ResetModal } from '@/modules/revisions/v2/ResetModal';
-import { AuditInsights } from '@/modules/revisions/v2/AuditInsights';
-import { useAuditViewer } from '@/modules/revisions/v2/hooks';
+import { AuditEntityType, AuditApi } from '@/modules/audit/audit.service';
+import { AuditTimeline } from '@/modules/audit/AuditTimeline';
+import { ComparePanel } from '@/modules/audit/ComparePanel';
+import { ResetModal } from '@/modules/audit/ResetModal';
+import { AuditInsights } from '@/modules/audit/AuditInsights';
+import { useAuditViewer } from '@/modules/audit/hooks';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 
 type Mode = 'timeline' | 'compare' | 'insights';
 
 /**
- * Audit tab — Change Intelligence v2 surface.
+ * Audit tab — change history surface.
  *
- * Replaces the legacy inline implementation. Consumes the authorized /api/v2/audit
+ * Replaces the legacy inline implementation. Consumes the authorized /api/audit
  * API, reuses the app's detail-page design system, and offers two modes:
  *   • Timeline — infinite, expandable ChangeSet feed with actor/device context
  *   • Compare  — diff any two revisions (unified / side-by-side)
@@ -109,7 +109,7 @@ const AuditSection: React.FC<AuditSectionProps> = ({ leadId, projectId, onChange
     if (!entityId || verifying) return;
     setVerifying(true);
     try {
-      const res = await AuditV2Api.verifyChain(entityType, entityId);
+      const res = await AuditApi.verifyChain(entityType, entityId);
       if (res.intact) {
         toast.success(
           `Audit chain intact — ${res.verified} revision(s) verified` +

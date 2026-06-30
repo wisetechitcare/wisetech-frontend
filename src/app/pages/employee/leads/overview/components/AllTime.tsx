@@ -499,7 +499,7 @@ const AllTime = () => {
           referralSourceData={chartData.referralSourceData}
           directSourceData={chartData.directSourceData}
           settings={settings}
-          showKpis={true}
+          showKpis={false}
           onStatusSelect={handleStatusChartClick}
           onServiceSelect={handleServiceChartClick}
           onCategorySelect={handleCategoryNodeClick}

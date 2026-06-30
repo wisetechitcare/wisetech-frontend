@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem';
-import { AuditEntityType } from './auditV2.service';
+import { AuditEntityType } from './audit.service';
 import { DiffViewer, DiffMode } from './DiffViewer';
 import { useAuditDiff, useAuditTimeline } from './hooks';
 import { actorKind, displayActor, humanizeSummary, initials } from './tokens';

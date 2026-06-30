@@ -668,6 +668,7 @@ const Monthly = ({ month, endDate }: Props) => {
             referralSourceData={chartData.referralSourceData}
             directSourceData={chartData.directSourceData}
             settings={settings}
+            showKpis={false}
             onStatusSelect={handleStatusChartClick}
             onServiceSelect={handleServiceChartClick}
             onCategorySelect={handleCategoryNodeClick}
