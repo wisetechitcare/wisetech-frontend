@@ -47,6 +47,10 @@ const LocationDropdown = ({ formikField, inputLabel, options, isRequired, placeh
                 classNamePrefix={"react-select"}
                 className='react-select-styled'
                 value={value}
+                // Portal the menu to <body> so it renders above (and escapes the
+                // overflow of) any modal/dialog it's used inside.
+                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
                 filterOption={(option, inputValue) => {
                   if (!inputValue) return true;
                   return option.label.toLowerCase().startsWith(inputValue.toLowerCase());

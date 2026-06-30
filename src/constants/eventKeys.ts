@@ -96,6 +96,7 @@ export type AppEventMap = {
     faqUpdated: { id: string };
     faqDeleted: { id: string };
     dashboardSettingsUpdated: { sections: any[] };
+    biometricDeviceUpdated: { branchIds?: string[] };
   };
 
   export type AppEventKey = keyof AppEventMap;
@@ -197,5 +198,6 @@ export type AppEventMap = {
     faqUpdated: 'faqUpdated',
     faqDeleted: 'faqDeleted',
     dashboardSettingsUpdated: 'dashboardSettingsUpdated',
+    biometricDeviceUpdated: 'biometricDeviceUpdated',
 
   };
