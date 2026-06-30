@@ -650,3 +650,14 @@ export const DRAFT = {
     GET: 'api/draft/:entityType/:entityId',
     DELETE: 'api/draft/:entityType/:entityId',
 };
+
+export const BIOMETRIC = {
+    LIST_DEVICES:   'api/biometric/devices',
+    CREATE_DEVICE:  'api/biometric/devices',
+    UPDATE_DEVICE:  'api/biometric/devices',
+    DELETE_DEVICE:  'api/biometric/devices',
+    TOGGLE_DEVICE:  'api/biometric/devices',
+    TEST_DEVICE:    'api/biometric/devices',
+    SYNC_DEVICE:    'api/biometric/devices',
+    DEVICE_LOGS:    'api/biometric/devices',
+};
