@@ -601,7 +601,10 @@ const Yearly = ({ startDate, endDate }: Props) => {
   return (
     <div className="">
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        {/* ── Section 1: Revenue Intelligence & Forecast ─────────────────── */}
+        {/* ── Section 1: Executive Insights ──────────────────────────────── */}
+        <YearlyInsightsPanel insights={yearlyInsights} />
+
+        {/* ── Section 2: Revenue Intelligence & Forecast ─────────────────── */}
         <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <AnalyticsHeader
             title="Revenue Intelligence & Forecast"
@@ -619,10 +622,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
           </div>
         </section>
 
-        {/* ── Section 4: Executive Insights ──────────────────────────────── */}
-        <YearlyInsightsPanel insights={yearlyInsights} />
-
-        {/* ── Sections 5-8: Pipeline / Service / Acquisition / Category ──── */}
+        {/* ── Sections 3-6: Pipeline / Service / Acquisition / Category ──── */}
         {/* Reuses the shared dashboard for full consistency with Monthly.    */}
         <LeadOverviewDashboard
           statusData={chartData.statusData}
