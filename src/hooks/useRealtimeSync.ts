@@ -54,6 +54,8 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
     // branch ids so an open Devices modal refetches only when relevant.
     const onBiometricDeviceUpdated = (payload: { branchIds?: string[] }) => {
       eventBus.emit(EVENT_KEYS.biometricDeviceUpdated, { branchIds: payload?.branchIds });
+    };
+
     // reimbursement mutations (create / update / delete / approve / payment)
     const onReimbursementChanged = (payload: { action: string; employeeId?: string }) => {
       eventBus.emit(EVENT_KEYS.reimbursementChanged, payload);
