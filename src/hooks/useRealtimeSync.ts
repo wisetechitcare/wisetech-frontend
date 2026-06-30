@@ -54,6 +54,11 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
     // branch ids so an open Devices modal refetches only when relevant.
     const onBiometricDeviceUpdated = (payload: { branchIds?: string[] }) => {
       eventBus.emit(EVENT_KEYS.biometricDeviceUpdated, { branchIds: payload?.branchIds });
+    // reimbursement mutations (create / update / delete / approve / payment)
+    const onReimbursementChanged = (payload: { action: string; employeeId?: string }) => {
+      eventBus.emit(EVENT_KEYS.reimbursementChanged, payload);
+      // Also wake up table views that listen to the legacy event key
+      eventBus.emit(EVENT_KEYS.reimbursementRecords, { records: [] });
     };
 
     socket.on('connect', onConnect);
@@ -61,6 +66,7 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
     socket.on('project_linked', onProjectLinked);
     socket.on('project_unlinked_deleted', onProjectUnlinkedDeleted);
     socket.on('biometric_device_updated', onBiometricDeviceUpdated);
+    socket.on('reimbursement_changed', onReimbursementChanged);
 
     return () => {
       socket.off('connect', onConnect);
@@ -68,6 +74,7 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       socket.off('project_linked', onProjectLinked);
       socket.off('project_unlinked_deleted', onProjectUnlinkedDeleted);
       socket.off('biometric_device_updated', onBiometricDeviceUpdated);
+      socket.off('reimbursement_changed', onReimbursementChanged);
     };
   }, [employeeId]);
 }

@@ -15,28 +15,53 @@ import { getAvatar } from "@utils/avatar";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { getEmployeeStatus, getEmployeeStatusString } from "@utils/employeeStatus";
+import { usePermission } from "@hooks/usePermission";
+import EmployeeAccessTab from "./EmployeeAccessTab";
 
 const ShowEmployeeDetailsToggle = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
   const allemployees = useSelector((state: RootState) => state.allEmployees);
   const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
   const [employee, setEmployee] = useState<any>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("details");
+  const canManageAccess = usePermission("users.manage.all");
   const dispatch = useDispatch<AppDispatch>();
   const employeeStatus = getEmployeeStatusString(employee);
-  
+
   useEffect(() => {
     dispatch(loadAllEmployeesIfNeeded());
   }, [dispatch]);
 
   useEffect(() => {
+    // Guard against a non-employee path segment (e.g. a stale/mismatched link)
+    // landing on /employees/:employeeId — without this the page spins forever.
     const fetchData = async () => {
-      const { data } = await fetchCurrentEmployeeByEmpId(employeeId!);
-      setEmployee(data.employee);
+      try {
+        setLoadFailed(false);
+        const { data } = await fetchCurrentEmployeeByEmpId(employeeId!);
+        if (data?.employee) setEmployee(data.employee);
+        else setLoadFailed(true);
+      } catch {
+        setLoadFailed(true);
+      }
     };
     fetchData();
   }, [employeeId]);
+
+  if (loadFailed) {
+    return (
+      <div className="card border-0 shadow-sm m-8">
+        <div className="card-body text-center py-10">
+          <i className="bi bi-exclamation-triangle fs-1 text-warning mb-3 d-block"></i>
+          <h5 className="fw-semibold">This page isn't available</h5>
+          <p className="text-muted mb-4">We couldn't open this employee record. It may have moved or you may not have access.</p>
+          <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Go to Dashboard</button>
+        </div>
+      </div>
+    );
+  }
 
   if (!employee) return <Loader />;
 
@@ -202,6 +227,7 @@ const ShowEmployeeDetailsToggle = () => {
           }}
         >
           <ToggleButton value="details">Details</ToggleButton>
+          {canManageAccess && <ToggleButton value="access">Access</ToggleButton>}
           {/* <ToggleButton value="configure">Configure</ToggleButton> */}
         </ToggleButtonGroup>
       </div>
@@ -211,6 +237,11 @@ const ShowEmployeeDetailsToggle = () => {
         {activeTab === "details" && (
           <div className="tab-pane fade show active">
             <ShowEmployeeDetailsById employeeId={employeeId!} />
+          </div>
+        )}
+        {activeTab === "access" && canManageAccess && (
+          <div className="tab-pane fade show active">
+            <EmployeeAccessTab employeeId={employeeId!} />
           </div>
         )}
         {activeTab === "configure" && (

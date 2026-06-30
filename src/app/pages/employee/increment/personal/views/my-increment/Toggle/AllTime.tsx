@@ -55,7 +55,7 @@ const AllTime = ({
         try {
             const hist = await incrementService.fetchIncrementHistory(employee.id);
             setRecords(hist);
-            const an = await incrementService.fetchAllTimeAnalytics(employee.id);
+            const an = await incrementService.fetchAllTimeAnalytics(employee.id, hist);
             setAnalytics(an);
         } catch (err) {
             console.error('Failed to load all-time increment data', err);

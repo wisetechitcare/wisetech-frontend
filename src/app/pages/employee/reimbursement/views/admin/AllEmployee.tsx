@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
@@ -18,6 +19,8 @@ import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,6 +64,7 @@ const fmtINR = (n: number) =>
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
+  const navigate = useNavigate();
   const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
   const [month, setMonth] = useState<Dayjs>(dayjs());
   const [year, setYear] = useState<Dayjs>(dayjs());
@@ -128,6 +132,9 @@ function AllEmployee() {
   useEffect(() => {
     fetchReimbursements();
   }, [fetchReimbursements]);
+
+  // Refresh when any reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { fetchReimbursements(); });
 
   // ── Navigation handlers ───────────────────────────────────────────────────
 
@@ -433,7 +440,11 @@ function AllEmployee() {
             {
               accessorKey: 'name',
               header: 'Name',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+              Cell: ({ renderedCellValue, row }: any) => (
+                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
+                  {renderedCellValue || 'N/A'}
+                </span>
+              ),
             },
             {
               accessorKey: 'subOrganization',
@@ -452,7 +463,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'totalRequestAmount',
-              header: 'Total Request Amount',
+              header: 'Total Requested Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 return val > 0 ? fmtINR(val) : '₹0';
@@ -480,7 +491,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'totalPaidAmount',
-              header: 'Total Amount Paid',
+              header: 'Total Paid Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -490,7 +501,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'totalRemainingAmount',
-              header: 'Total Amount Remaining',
+              header: 'Total Remaining Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -516,7 +527,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'approvedCount',
-              header: 'Total Requests Approved',
+              header: 'Total Approved Requests',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -526,7 +537,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'pendingCount',
-              header: 'Total Requests Pending',
+              header: 'Total Pending Requests',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 return <span style={{ color: '#0891b2', fontWeight: 600 }}>{val}</span>;
@@ -535,7 +546,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'rejectedCount',
-              header: 'Total Requests Rejected',
+              header: 'Total Rejected Requests',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -549,6 +560,15 @@ function AllEmployee() {
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => ({
+              onClick: () => {
+                const empId = row.original.employeeId;
+                if (empId) navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } });
+              },
+              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
+            }),
+          }}
         />
       </div>
     </>

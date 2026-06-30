@@ -8,8 +8,9 @@ import ContactLeadsOverview from "./ContactLeadsOverview";
 import ContactOverview from "./ContactOverview";
 import ContactProject from "./ContactProject";
 import ClientContactsForm from "./ClientContactsForm";
+import ContactLeadReferences from "./ContactLeadReferences";
 
-type TabType = "overview" | "leads" | "projects";
+type TabType = "overview" | "leads" | "projects" | "lead-reference";
 
 const ContactMainToggle = () => {
   const { contactId } = useParams<{ contactId: string }>();
@@ -49,6 +50,7 @@ const ContactMainToggle = () => {
     { key: "overview", label: "Overview" },
     { key: "leads", label: "Leads" },
     { key: "projects", label: "Projects" },
+    { key: "lead-reference", label: "Lead Reference" },
   ];
 
   const renderTabContent = () => {
@@ -61,6 +63,8 @@ const ContactMainToggle = () => {
         return <ContactLeadsOverview contact={contact}/>
       case "projects":
         return <ContactProject contact={contact}/>;
+      case "lead-reference":
+        return <ContactLeadReferences referrals={contact?.referrals} />;
       default:
         return <ContactOverview contact={contact} />;
     }

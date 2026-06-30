@@ -92,9 +92,10 @@ export const incrementService = {
 
     fetchYearlyAnalytics: async (
         employeeId: string,
-        year: string
+        year: string,
+        preloadedHistory?: IncrementRecord[]
     ): Promise<YearlyAnalytics | null> => {
-        const fullHistory = await incrementService.fetchIncrementHistory(employeeId);
+        const fullHistory = preloadedHistory ?? await incrementService.fetchIncrementHistory(employeeId);
         if (fullHistory.length === 0) return null;
 
         // ascending order for processing
@@ -173,8 +174,8 @@ export const incrementService = {
         };
     },
 
-    fetchAllTimeAnalytics: async (employeeId: string): Promise<AllTimeAnalytics | null> => {
-        const fullHistory = await incrementService.fetchIncrementHistory(employeeId);
+    fetchAllTimeAnalytics: async (employeeId: string, preloadedHistory?: IncrementRecord[]): Promise<AllTimeAnalytics | null> => {
+        const fullHistory = preloadedHistory ?? await incrementService.fetchIncrementHistory(employeeId);
         if (fullHistory.length === 0) return null;
 
         // fullHistory is descending; index 0 = latest
@@ -243,9 +244,10 @@ export const incrementService = {
     fetchIncrementAnalytics: async (
         employeeId: string,
         mode: 'AllTime' | 'Yearly',
-        specificYear?: string
+        specificYear?: string,
+        preloadedHistory?: IncrementRecord[]
     ): Promise<IncrementAnalytics | null> => {
-        const fullHistory = await incrementService.fetchIncrementHistory(employeeId);
+        const fullHistory = preloadedHistory ?? await incrementService.fetchIncrementHistory(employeeId);
         if (fullHistory.length === 0) return null;
 
         const currentSalary = fullHistory[0].newSalary;

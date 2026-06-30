@@ -339,7 +339,7 @@ const LeadFormModal = ({
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
 
   useEffect(() => {
-    getAllLeads()
+    getAllLeads({ pageSize: 500 })
       .then((res: any) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
       .catch(() => { });
   }, []);
@@ -3164,7 +3164,7 @@ const LeadFormModal = ({
                                 }}
                               >
                                 <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                                TEAM DETAILS
+                                ADDRESSING TO 
                               </legend>
 
                               <FieldArray name="leadTeams">
@@ -3188,8 +3188,15 @@ const LeadFormModal = ({
                                         return (
                                           <div
                                             key={index}
-                                            className="card-body card responsive-card p-md-10 p-3 mb-3"
-                                            style={{ position: 'relative' }}
+                                            className="mb-3"
+                                            style={{
+                                              position: 'relative',
+                                              background: '#fff',
+                                              border: '1px solid #e8e0e0',
+                                              borderRadius: '10px',
+                                              padding: '20px 20px 12px',
+                                              boxShadow: '0 1px 4px rgba(157,65,65,0.07)',
+                                            }}
                                           >
                                             <Row>
                                               <Col md={3}>
@@ -3288,13 +3295,24 @@ const LeadFormModal = ({
                                             {values.leadTeams.length > 1 && (
                                               <div
                                                 onClick={() => remove(index)}
+                                                title="Remove"
                                                 style={{
                                                   cursor: "pointer",
                                                   color: "#9D4141",
-                                                  fontSize: "20px",
+                                                  fontSize: "16px",
+                                                  fontWeight: 700,
+                                                  lineHeight: 1,
                                                   position: "absolute",
-                                                  right: "15px",
-                                                  top: "5px",
+                                                  right: "12px",
+                                                  top: "10px",
+                                                  width: "24px",
+                                                  height: "24px",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  justifyContent: "center",
+                                                  borderRadius: "50%",
+                                                  border: "1px solid #e8d4d4",
+                                                  background: "#fdf5f5",
                                                 }}
                                               >
                                                 ×
@@ -3318,11 +3336,16 @@ const LeadFormModal = ({
                                       style={{
                                         cursor: "pointer",
                                         color: "#9D4141",
-                                        border: "1px dotted #9D4141",
-                                        borderRadius: "5px",
-                                        padding: "8px 10px",
+                                        border: "1.5px dashed #c9898980",
+                                        borderRadius: "8px",
+                                        padding: "10px 16px",
                                         textAlign: "center",
-                                        marginTop: "10px",
+                                        marginTop: "12px",
+                                        fontSize: "13px",
+                                        fontWeight: 600,
+                                        letterSpacing: "0.02em",
+                                        background: "#fdf8f8",
+                                        transition: "background 0.15s",
                                       }}
                                       className="justify-content-center align-items-center"
                                     >

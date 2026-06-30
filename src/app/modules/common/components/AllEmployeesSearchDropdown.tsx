@@ -5,6 +5,7 @@ import { fetchAllEmployees } from "@services/employee";
 import { useEffect, useRef, useState } from "react";
 import { Container, Row, Col, Form } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 
@@ -12,6 +13,7 @@ type EmployeeStatus = 'all' | 'active' | 'inactive';
 
 const AllEmployeesSearchDropdown = () => {
   const autoCompleteRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
   const [scrollY, setScrollY] = useState(0);
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus>('active');
 
@@ -118,6 +120,17 @@ const AllEmployeesSearchDropdown = () => {
       dispatch(saveSelectedEmployee(loggedInEmployee));
     }
   }, []); // Run only once on mount
+
+  // Auto-select employee when navigated from payroll table
+  useEffect(() => {
+    const targetId = (location.state as any)?.employeeId;
+    if (!targetId || allEmployees.length === 0) return;
+    const match = allEmployees.find(e => e.id === targetId);
+    if (match) {
+      setSelectedDropdownEmployee(match);
+      dispatch(saveSelectedEmployee(match));
+    }
+  }, [allEmployees, location.state]);
 
   return (
     <>

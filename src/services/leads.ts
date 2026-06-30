@@ -3,16 +3,60 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
-export const getAllLeads = async (params?: { page?: number; pageSize?: number })=> {
+export const getAllLeads = async (params?: { page?: number; pageSize?: number; fields?: string[] }) => {
   try {
     const endpoint = `${API_BASE_URL}/${CLIENT_COMPANIES.GET_ALL_LEADS}`;
-    const response = await axios.get(endpoint);
-    
+    const response = await axios.get(endpoint, {
+      params: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 200,
+        // Sparse fetch: when provided, the backend returns only the data these
+        // columns need. Omitted → full row shape.
+        ...(params?.fields?.length ? { fields: params.fields.join(',') } : {}),
+      },
+    });
     return response;
   } catch (error) {
     console.error('Error fetching leads:', error);
     throw error;
   }
+};
+
+/**
+ * Fetch EVERY lead, regardless of count.
+ *
+ * The backend paginates and hard-caps `pageSize` at 500, so a single request can
+ * never return more than 500 rows. This helper fetches the first page, reads the
+ * reported `total`, and then pulls any remaining pages concurrently — fast even
+ * for large datasets — returning a response in the same shape `getAllLeads` does
+ * (`response.data.data.leads`) so existing callers need no other changes.
+ */
+export const getAllLeadsComplete = async (fields?: string[]) => {
+  const MAX_PAGE_SIZE = 500;
+  const first = await getAllLeads({ page: 1, pageSize: MAX_PAGE_SIZE, fields });
+  const payload = first?.data?.data;
+  const leads = payload?.leads ?? [];
+  const total = payload?.total ?? leads.length;
+
+  if (total <= leads.length) {
+    return first;
+  }
+
+  const totalPages = Math.ceil(total / MAX_PAGE_SIZE);
+  const restResponses = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      getAllLeads({ page: i + 2, pageSize: MAX_PAGE_SIZE, fields })
+    )
+  );
+
+  const allLeads = [
+    ...leads,
+    ...restResponses.flatMap((r) => r?.data?.data?.leads ?? []),
+  ];
+
+  first.data.data.leads = allLeads;
+  first.data.data.total = total;
+  return first;
 };
 
 /**

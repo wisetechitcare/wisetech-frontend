@@ -30,7 +30,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
   
   useEffect(()=>{
     setLoading(true);
-    getAllClientContacts()
+    getAllClientContacts({}, true)
       .then((res) => setContacts(res.data.contacts || []))
       .catch(console.error)
       .finally(() => setLoading(false));

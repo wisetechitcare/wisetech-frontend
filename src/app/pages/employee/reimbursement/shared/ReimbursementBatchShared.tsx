@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import ReactDOM from 'react-dom';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
@@ -17,7 +19,7 @@ import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 export function fmtDate(d?: string) {
-  if (!d) return '—';
+  if (!d) return 'N/A';
   return dayjs(d).format('DD MMM YYYY');
 }
 
@@ -236,6 +238,8 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
 
   useEffect(() => { loadBatch(); }, [loadBatch]);
 
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });
+
   const handleIndividualAction = useCallback(async (requestId: string, action: 'approve' | 'reject', comments?: string) => {
     if (!batchId) return;
     setProcessingId(requestId);
@@ -251,97 +255,22 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     }
   }, [batchId, loadBatch, onBatchActionDone]);
 
-  const detailColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
-    {
-      accessorKey: 'expenseDate',
-      header: 'Date',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
-      Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-    },
-    {
-      accessorKey: 'day',
-      header: 'Day',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.expenseDate ? dayjs(row.original.expenseDate).format('dddd') : '—',
-    },
-    {
-      accessorKey: 'description',
-      header: 'Note',
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || '—',
-    },
-    {
-      accessorKey: 'type',
-      header: 'Type',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.reimbursementType?.type || '—',
-    },
-    {
-      accessorKey: 'clientType',
-      header: 'Company Type',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => {
-        const r = row.original;
-        return r.clientCompany?.companyType?.name
-          || resolveClientType(r.clientCompany?.companyTypeId || r.clientTypeId);
-      },
-    },
-    {
-      accessorKey: 'client',
-      header: 'Company Name',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.clientCompany?.companyName || '—',
-    },
-    {
-      accessorKey: 'project',
-      header: 'Project Name',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.project?.title || '—',
-    },
-    {
-      accessorKey: 'fromLocation',
-      header: 'From Location',
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
-    },
-    {
-      accessorKey: 'toLocation',
-      header: 'To Location',
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
-    },
-    {
-      accessorKey: 'amount',
-      header: 'Amount',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => (
-        <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
-          ₹{fmtAmount(row.original.amount)}
-        </span>
-      ),
-      Footer: () => <span className='fw-bold'>₹{fmtAmount(detailTotal)}</span>,
-    },
-    {
-      id: 'rowStatus',
-      header: 'Status',
-      enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ row }: any) => {
-        const s = row.original.status;
-        const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
-        return statusBadge(n);
-      },
-    },
-    {
+  const detailColumns = useMemo<MRT_ColumnDef<any>[]>(() => {
+    const hasApproved = visibleReimbursements.some((r: any) => {
+      const s = typeof r.status === 'number' ? r.status : r.status === 'Approved' ? 1 : 0;
+      return s === 1;
+    });
+    const hasRejected = visibleReimbursements.some((r: any) => {
+      const s = typeof r.status === 'number' ? r.status : r.status === 'Rejected' ? 2 : 0;
+      return s === 2;
+    });
+
+    const paymentStatusCol: MRT_ColumnDef<any> = {
       id: 'paymentStatus',
       header: 'Payment Status',
       enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => {
-        const s = row.original.status;
-        const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
-        if (n !== 1) return <span className='text-muted fs-8'>—</span>;
         const ps = row.original.paymentStatus;
         if (ps === 'PAID')
           return <span className='badge badge-light-success fw-semibold fs-8'>Paid</span>;
@@ -349,74 +278,160 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           return <span className='badge badge-light-info fw-semibold fs-8'>Partially Paid</span>;
         return <span className='badge badge-light-warning fw-semibold fs-8'>Pending</span>;
       },
-    },
-    {
+    };
+
+    const rejectionReasonCol: MRT_ColumnDef<any> = {
       id: 'rejectionReason',
-      header: 'Reject Reason',
+      header: 'Rejected Reason',
       enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => {
-        const s = row.original.status;
-        const n = typeof s === 'number' ? s : s === 'Rejected' ? 2 : 0;
-        if (n !== 2) return <span className='text-muted'>—</span>;
         const reason = row.original.rejectionReason || row.original.rejectReason;
         return reason ? (
           <span style={{ color: '#ef4444', fontSize: 12 }}>{reason}</span>
         ) : (
-          <span className='text-muted'>—</span>
+          <span className='text-muted'>N/A</span>
         );
       },
-    },
-    {
-      accessorKey: 'document',
-      header: 'Document',
-      enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => (
-        <button
-          className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
-          onClick={() => handleViewDocument(renderedCellValue)}
-          disabled={!renderedCellValue}
-          title={renderedCellValue ? 'Preview document' : 'No document attached'}
-        >
-          {renderedCellValue
-            ? <KTIcon iconName='eye' className='fs-3' />
-            : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>}
-        </button>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ row }: any) => {
-        const r = row.original;
-        const isProcessing = processingId === r.id;
-        if (!batchIsPending || r.status !== 0) {
-          return (
-            <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
-              No Actions Available
-            </span>
-          );
-        }
-        return (
-          <div className='d-flex gap-1'>
-            <button className='btn btn-icon btn-sm' title='Approve' disabled={isProcessing}
-              onClick={() => handleIndividualAction(r.id, 'approve')}>
-              {isProcessing
-                ? <span className='spinner-border spinner-border-sm text-success' />
-                : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />}
-            </button>
-            <button className='btn btn-icon btn-sm' title='Reject' disabled={isProcessing}
-              onClick={() => setRejectTarget({ id: r.id, type: 'individual' })}>
-              <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
-            </button>
+    };
+
+    return [
+      {
+        accessorKey: 'expenseDate',
+        header: 'Date',
+        size: 150, minSize: 130, maxSize: 180,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => (
+          <div>
+            <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{fmtDate(row.original.expenseDate) || 'N/A'}</div>
+            {row.original.expenseDate && (
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{dayjs(row.original.expenseDate).format('dddd')}</div>
+            )}
           </div>
-        );
+        ),
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
-    },
-  ], [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal]);
+      {
+        accessorKey: 'clientType',
+        header: 'Company Type',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const r = row.original;
+          return r.clientCompany?.companyType?.name
+            || resolveClientType(r.clientCompany?.companyTypeId || r.clientTypeId);
+        },
+      },
+      {
+        accessorKey: 'client',
+        header: 'Company Name',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => row.original.clientCompany?.companyName || 'N/A',
+      },
+      {
+        accessorKey: 'project',
+        header: 'Project Name',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => row.original.project?.title || 'N/A',
+      },
+      {
+        accessorKey: 'type',
+        header: 'Type',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => row.original.reimbursementType?.type || 'N/A',
+      },
+      {
+        accessorKey: 'amount',
+        header: 'Amount',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => (
+          <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
+            ₹{fmtAmount(row.original.amount)}
+          </span>
+        ),
+        Footer: () => <span className='fw-bold'>₹{fmtAmount(detailTotal)}</span>,
+      },
+      {
+        accessorKey: 'fromLocation',
+        header: 'From Location',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'toLocation',
+        header: 'To Location',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'description',
+        header: 'Note',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'document',
+        header: 'Document',
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => (
+          <button
+            className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
+            onClick={() => handleViewDocument(renderedCellValue)}
+            disabled={!renderedCellValue}
+            title={renderedCellValue ? 'Preview document' : 'No document attached'}
+          >
+            {renderedCellValue
+              ? <KTIcon iconName='eye' className='fs-3' />
+              : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>}
+          </button>
+        ),
+      },
+      {
+        id: 'rowStatus',
+        header: 'Status',
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const s = row.original.status;
+          const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
+          return statusBadge(n);
+        },
+      },
+      ...(hasApproved ? [paymentStatusCol] : []),
+      ...(hasRejected ? [rejectionReasonCol] : []),
+      {
+        id: 'actions',
+        header: 'Action',
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const r = row.original;
+          const isProcessing = processingId === r.id;
+          if (!batchIsPending || r.status !== 0) {
+            return (
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
+                No Actions Available
+              </span>
+            );
+          }
+          return (
+            <div className='d-flex gap-1'>
+              <button className='btn btn-icon btn-sm' title='Approve' disabled={isProcessing}
+                onClick={() => handleIndividualAction(r.id, 'approve')}>
+                {isProcessing
+                  ? <span className='spinner-border spinner-border-sm text-success' />
+                  : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />}
+              </button>
+              <button className='btn btn-icon btn-sm' title='Reject' disabled={isProcessing}
+                onClick={() => setRejectTarget({ id: r.id, type: 'individual' })}>
+                <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
+              </button>
+            </div>
+          );
+        },
+      },
+    ];
+  }, [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal, visibleReimbursements]);
 
   const handleBulkAction = async (action: 'approve' | 'reject-all', reason?: string) => {
     if (!batch?.reimbursements?.length) return;

@@ -22,6 +22,8 @@ import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import Loader from "@app/modules/common/utils/Loader";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
+import CompanyReferences from "./CompanyReferences";
+import CompanyLeadReferences from "./CompanyLeadReferences";
 
 
 type TabType =
@@ -31,7 +33,9 @@ type TabType =
   | "contacts"
   | "subcompanies"
   | "branches"
-  | "rating";
+  | "rating"
+  | "references"
+  | "lead-reference";
 
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -135,6 +139,8 @@ const CompanyDetails = () => {
     { key: "subcompanies", label: "Subcompanies" },
     { key: "branches", label: "Branches" },
     { key: "rating", label: "Rating" },
+    { key: "references", label: "References" },
+    { key: "lead-reference", label: "Lead Reference" },
   ];
 
   const templateDataForLeads = [
@@ -173,6 +179,10 @@ const CompanyDetails = () => {
         return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} />;
       case "rating":
         return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} toggleMounted={true} />
+      case "references":
+        return <CompanyReferences references={company.references} />;
+      case "lead-reference":
+        return <CompanyLeadReferences referredLeads={(company as any).referredLeads} />;
       default:
         return <Overview company={company} />;
     }

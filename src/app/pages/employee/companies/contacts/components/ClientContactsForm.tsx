@@ -350,7 +350,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
       setCompanyServices(companyServicesData?.data?.services || companyServicesData?.services || []);
       setSubServices(subServicesData?.subServices || []);
-      const contactsData = await getAllClientContacts();
+      const contactsData = await getAllClientContacts({}, true);
       setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
     } catch (error) {

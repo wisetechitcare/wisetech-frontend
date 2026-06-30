@@ -11,26 +11,12 @@ import { useEffect } from "react";
 import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
-import { getAllLeads } from "@services/leads";
 import GlobalFilesView from "./GlobalFilesView";
 
 const LeadsMain = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const [rawLeadsData, setRawLeadsData] = useState<any>([]);
 
   const dispatch = useDispatch<AppDispatch>();
-  useEffect(() => {
-    async function fetchLeadData() {
-      const {
-        data: {
-          data: { leads },
-        },
-      } = await getAllLeads();
-      // console.log("AllLeadsData:: ",leads);
-      setRawLeadsData(leads);
-    }
-    fetchLeadData();
-  }, []);
 
   useEffect(() => {
     // Initialize chart settings when app loads

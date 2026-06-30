@@ -359,11 +359,15 @@ export const getProjectLocationCount = async (startDate: string, endDate: string
     }
 }
 
-// Get All Projects
-export const getAllProjects = async () => {
+// Get All Projects with optional field selection
+export const getAllProjects = async (fields?: string[]) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_PROJECTS}`;
-        const { data } = await axios.get(endpoint);
+        const { data } = await axios.get(endpoint, {
+            params: {
+                ...(fields?.length ? { fields: fields.join(',') } : {}),
+            },
+        });
         return data;
     } catch (err) {
         throw err;

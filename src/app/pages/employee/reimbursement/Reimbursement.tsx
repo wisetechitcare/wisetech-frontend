@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useRef } from "react";
 import { KTCard, KTCardBody } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Route, Routes, Outlet, Navigate } from "react-router-dom";
-import PendingReimbursementsPage from "./PendingReimbursementsPage";
+import PendingReimbursementsPage, { PendingReimbursementsPageHandle } from "./PendingReimbursementsPage";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { useFormik } from "formik";
@@ -40,6 +40,8 @@ import ReimbursementPaymentHistoryTable from "./components/ReimbursementPaymentH
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import eventBus from "@utils/EventBus";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import { Select } from "@mui/material";
 import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { getProjectsByCompanyId, getAllProjectStatuses } from "@services/projects";
@@ -106,6 +108,8 @@ function Reimbursement() {
   const [currentPeriod, setCurrentPeriod] = useState<{ alignment: PeriodAlignment; date: Dayjs }>({ alignment: 'monthly', date: dayjs() });
   const [showEditDeleteOption, setShowEditDeleteOption] = useState(true);
   const [refreshFlag, setRefreshFlag] = useState(false);
+  const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
+  const pendingPageRef = useRef<PendingReimbursementsPageHandle>(null);
   const [show, setShow] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [reimbursementOptions, setReimbursementOptions] = useState<any[]>([]);
@@ -193,6 +197,11 @@ function Reimbursement() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPeriod, statsRefreshKey, employeeId]);
+
+  // Refresh stats whenever a reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => {
+    setStatsRefreshKey((prev) => prev + 1);
+  });
 
   // ── Load all static dropdown data once on mount ────────────────────────────
   useEffect(() => {
@@ -520,6 +529,8 @@ function Reimbursement() {
     <>
       {/* Pending Requests section with Employee Details + KPI overview */}
       <PendingReimbursementsPage
+        ref={pendingPageRef}
+        onDraftsChange={setPendingDraftsCount}
         totalRequests={totalRequests}
         totalRequestedAmount={totalRequestedAmount}
         approvedRequests={approvedRequests}
@@ -534,10 +545,21 @@ function Reimbursement() {
       />
 
       {/* Divider */}
-      <hr className="my-8" style={{ borderColor: '#e9ecef', borderWidth: '2px' }} />
+      <div style={{ borderColor: '#e9ecef', borderWidth: '2px' }} />
 
-      <div className="my-6">
-        <h2>My Reimbursement Records</h2>
+      <div className="d-flex justify-content-between align-items-center my-6">
+        <h2 className="mb-0">My Reimbursement Records</h2>
+        {pendingDraftsCount === 0 && hasPermission(
+          resourceNameMapWithCamelCase.reimbursement,
+          permissionConstToUseWithHasPermission.create
+        ) && (
+          <button
+            className='d-flex justify-content-between align-items-center bg-primary btn btn-lg btn-primary fs-5 w-auto'
+            onClick={() => pendingPageRef.current?.openAddModal()}
+          >
+            <div>Add Reimbursement Request</div>
+          </button>
+        )}
       </div>
       <MaterialToggleReimbursement
         toggleItemsActions={toggleItemsActions}

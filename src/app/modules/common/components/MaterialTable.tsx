@@ -2,9 +2,13 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { MaterialReactTable } from "material-react-table";
 import {
+  Button,
+  ButtonGroup,
   Container,
   createTheme,
   Icon,
+  Menu,
+  MenuItem,
   ThemeProvider,
   useMediaQuery,
   useTheme,
@@ -87,6 +91,9 @@ interface MaterialTableProps {
   /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
   showColumnFooter?: boolean;
   defaultSorting?: Array<{ id: string; desc: boolean }>;
+  /** Notifies the parent of the currently-visible column keys (after preferences load
+   *  and on every show/hide toggle). Lets a page fetch only the data those columns need. */
+  onVisibleColumnsChange?: (visibleKeys: string[]) => void;
 }
 
 const defaultColumnSizes = {
@@ -137,6 +144,7 @@ function MaterialTable({
   renderExportActions,
   showColumnFooter = false,
   defaultSorting,
+  onVisibleColumnsChange,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -386,10 +394,22 @@ function MaterialTable({
     resetPreferences,
   } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
+  // Surface the visible column keys to the parent once preferences resolve and on every
+  // toggle. A column is visible unless its visibility flag is explicitly false.
+  useEffect(() => {
+    if (!isInitialized || !onVisibleColumnsChange) return;
+    const vis = preferences.columnVisibility || {};
+    const visibleKeys = finalColumns
+      .map((c: any) => c.accessorKey)
+      .filter((k: any) => k && vis[k] !== false);
+    onVisibleColumnsChange(visibleKeys);
+  }, [isInitialized, preferences.columnVisibility, finalColumns, onVisibleColumnsChange]);
+
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,
   );
   const [isExportInitialized, setIsExportInitialized] = useState(false);
+  const [rowsAnchorEl, setRowsAnchorEl] = useState<null | HTMLElement>(null);
 
   // Mobile detection
   const theme = useTheme();
@@ -444,6 +464,17 @@ function MaterialTable({
     [updateExportType],
   );
 
+  // Memoized column lookup map for O(1) access (instead of O(n) .find() per row)
+  const columnDefMap = useMemo(() => {
+    const map = new Map<string, any>();
+    effectiveSearchableColumns.forEach((col: any) => {
+      if (col.accessorKey) {
+        map.set(col.accessorKey, col);
+      }
+    });
+    return map;
+  }, [effectiveSearchableColumns]);
+
   // Apply column-specific filtering and ranking
   const applyColumnFilter = useCallback(
     (searchValue: string, columnToSearch: string) => {
@@ -475,7 +506,7 @@ function MaterialTable({
             .join(" ")
             .toLowerCase();
 
-          if (columnToSearch === "all") {
+          if (columnToSearch === "all" || columnToSearch === "") {
             // Calculate individual field scores
             rowSearchableValues.forEach((val) => {
               if (typeof val === "string" || typeof val === "number") {
@@ -489,14 +520,15 @@ function MaterialTable({
             if (keywords.every((k) => allRowText.includes(k))) {
               score += 50; // High bonus for row-wide AND match
               isMatch = true;
-            } else if (score >= 10) { 
+            } else if (score >= 10) {
                // Require at least 10 score to be considered a match to filter out noise
                isMatch = true;
             }
           } else {
-            const colDef = effectiveSearchableColumns.find((c: any) => c.accessorKey === columnToSearch);
+            // Use memoized column map for O(1) lookup instead of O(n) .find()
+            const colDef = columnDefMap.get(columnToSearch);
             const columnValue = colDef ? (colDef.accessorFn ? colDef.accessorFn(row) : row[colDef.accessorKey]) : row[columnToSearch];
-            
+
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
@@ -517,7 +549,7 @@ function MaterialTable({
 
       setFilteredData(sortedResults);
     },
-    [finalData, effectiveSearchableColumns],
+    [finalData, effectiveSearchableColumns, columnDefMap],
   );
 
   // Handle column selector change
@@ -1702,33 +1734,88 @@ function MaterialTable({
                       >
                         {isMobile ? "Rows:" : "Rows per page:"}
                       </span>
-                      <select
-                        value={pageSize}
-                        onChange={(e) => {
-                          table.setPageSize(
-                            Number(e.target.value) as PageSizeOption,
-                          );
-                          table.setPageIndex(0);
-                        }}
-                        style={{
-                          padding: isMobile ? "4px 8px" : "5px 10px",
-                          fontSize: "13px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          backgroundColor: "#fff",
-                          color: "#374151",
-                          fontWeight: 500,
-                          appearance: "auto",
-                          outline: "none",
+                      <ButtonGroup
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                         }}
                       >
+                        <Button
+                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: isMobile ? 12 : 13,
+                            borderColor: '#e5e7eb',
+                            color: '#374151',
+                            borderRadius: '10px 0 0 10px',
+                            px: isMobile ? 1 : 1.5,
+                            py: 0.6,
+                            minWidth: 'unset',
+                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                          }}
+                        >
+                          {pageSize}
+                        </Button>
+                        <Button
+                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                          sx={{
+                            borderColor: '#e5e7eb',
+                            color: '#9ca3af',
+                            borderRadius: '0 10px 10px 0',
+                            px: 0.4,
+                            minWidth: 'unset',
+                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                          }}
+                        >
+                          <KTIcon iconName="down" className="fs-6" />
+                        </Button>
+                      </ButtonGroup>
+                      <Menu
+                        anchorEl={rowsAnchorEl}
+                        open={Boolean(rowsAnchorEl)}
+                        onClose={() => setRowsAnchorEl(null)}
+                        slotProps={{
+                          paper: {
+                            elevation: 3,
+                            sx: {
+                              mt: 0.5,
+                              minWidth: 100,
+                              borderRadius: '12px',
+                              border: '1px solid #e2e8f0',
+                              overflow: 'hidden',
+                              '& .MuiMenuItem-root': {
+                                px: 2,
+                                py: 0.9,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#1e293b',
+                                '&:hover': { bgcolor: '#f8fafc' },
+                                '&.Mui-selected': { bgcolor: '#fef2f2', color: '#AA393D', '&:hover': { bgcolor: '#fee2e2' } },
+                              },
+                            },
+                          },
+                        }}
+                        transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                        anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                      >
                         {PAGE_SIZE_OPTIONS.map((size) => (
-                          <option key={size} value={size}>
+                          <MenuItem
+                            key={size}
+                            selected={size === pageSize}
+                            onClick={() => {
+                              table.setPageSize(Number(size) as PageSizeOption);
+                              table.setPageIndex(0);
+                              setRowsAnchorEl(null);
+                            }}
+                          >
                             {size}
-                          </option>
+                          </MenuItem>
                         ))}
-                      </select>
+                      </Menu>
                       {!isMobile && totalRows > 0 && (
                         <span
                           style={{
