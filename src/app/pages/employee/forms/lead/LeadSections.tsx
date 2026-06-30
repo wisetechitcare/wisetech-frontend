@@ -661,6 +661,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
   const cancellationReasons = props.cancellationReasons || [];
   const selectedStatus = leadStatuses.find((x: any) => x.id === values.statusId);
   const isClosure = isClosureStatus(selectedStatus);
+  const isNotReceived = selectedStatus?.name === "Not Received";
 
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
@@ -691,6 +692,39 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
             }}
           />
         </Grid>
+
+        {/* Not Received capture — optional cancellation reason for Not Received status. */}
+        {isNotReceived && (
+          <Grid item xs={12}>
+            <div
+              className="p-4 rounded"
+              style={{ background: "#fef9e7", border: "1px solid #fde68a" }}
+            >
+              <div style={{ fontWeight: 700, color: "#b45309", fontSize: 15, marginBottom: 10 }}>
+                Not Received — Cancellation Reason
+              </div>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <DropDownInput
+                    formikField="cancellationReasonId"
+                    inputLabel="Cancellation Reason"
+                    isRequired={false}
+                    showColor={true}
+                    placeholder="Select a reason (optional)…"
+                    options={cancellationReasons.map((r: any) => ({
+                      value: r.id,
+                      label: r.reason,
+                      color: r.color,
+                    }))}
+                  />
+                </Grid>
+              </Grid>
+              <div style={{ color: "#b45309", fontSize: 12, marginTop: 8 }}>
+                Add an optional reason for why this lead was not received. Manage reasons under Lead Configuration → Cancellation Reasons.
+              </div>
+            </div>
+          </Grid>
+        )}
 
         {/* Closure capture — required reason + note for Canceled / Lost outcomes. */}
         {isClosure && (
