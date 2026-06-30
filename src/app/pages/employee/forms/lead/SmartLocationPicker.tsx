@@ -643,9 +643,9 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({
        let cityToSet = city;
        if (!cityToSet && display) {
          // Try to extract city from display name (usually second or third component)
-         const parts = display.split(',').map(p => p.trim());
+         const parts = display.split(',').map((p: string) => p.trim());
          // Filter out short parts and get a reasonable city name
-         cityToSet = parts.find(p => p.length > 2 && p.length < 30) || "";
+         cityToSet = parts.find((p: string) => p.length > 2 && p.length < 30) || "";
        }
 
        if (cityToSet) setPendingGeoCity(cityToSet);

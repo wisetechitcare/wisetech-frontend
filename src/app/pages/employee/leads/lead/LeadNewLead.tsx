@@ -15,9 +15,9 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { deleteLead, getAllLeads } from "@services/leads";
-import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { deleteLead, getAllLeadsComplete } from "@services/leads";
+import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DetailsModal from "./DetailsModal";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
@@ -43,6 +43,7 @@ import {
   fetchAllStates,
   fetchAllCities,
 } from "@services/options";
+import { getAllClientCompanies, getAllCompanyTypes } from "@services/companies";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import eventBus from "@utils/EventBus";
@@ -161,8 +162,7 @@ const NavigationButtons: React.FC<{
   </div>
 );
 
-// ─── Main Component ────────────────────────────────────────────────────────────
-
+// All selectable leads-table column keys (must match the `accessorKey`s below and the
 const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   statusId,
   serviceId,
@@ -198,6 +198,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
   const [rawLeadsDatas, setRawLeadsDatas] = useState<any[]>([]);
+  // Lookup maps to resolve the File Location columns (which store company / company-type
+  // IDs) into human-readable names.
+  const [fileLocCompanyMap, setFileLocCompanyMap] = useState<Map<string, string>>(new Map());
+  const [fileLocTypeMap, setFileLocTypeMap] = useState<Map<string, string>>(new Map());
   const [showChartSettingsModal, setShowChartSettingsModal] = useState(false);
   // ── Bulk import state (from file 2) ─────────────────────────────────────────
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -206,6 +210,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   const [searchText, setSearchText] = useState("");
+  const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Daily
   const [day, setDay] = useState<Dayjs>(today);
@@ -406,11 +412,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     loadPreference();
   }, []);
 
-  // ── Data fetch ───────────────────────────────────────────────────────────────
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const leadsResponse = await getAllLeads();
+      const leadsResponse = await getAllLeadsComplete();
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 
@@ -584,6 +589,9 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             referrals: lead.referrals || [],
             companyType: lead.company?.companyTypeId || "",
             receivedDate: lead?.receivedDate || "",
+            fileLocation: lead?.fileLocation || "",
+            fileLocationCompany: lead?.fileLocationCompany || "",
+            fileLocationCompanyType: lead?.fileLocationCompanyType || "",
           };
         });
 
@@ -594,20 +602,68 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentEmployeeId]);
 
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData, pagination]);
+
+  // Debounce search input (300ms delay before filtering)
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 300);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchText]);
+
+  // Clear any pending timers on unmount.
+  useEffect(
+    () => () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    },
+    [],
+  );
+
+  // Fired by MaterialTable after preferences load and whenever a column is shown/hidden.
+  // Auto-refetch with only the visible columns' data — but only when the visible SET
+  // actually changed (the callback also fires on unrelated re-renders such as searching).
   useEffect(() => {
     dispatch(fetchAllEmployeesAsync());
   }, []);
 
-  // ── Event bus subscriptions (merged — file 2 adds leadDeleted) ───────────────
-  useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
-  useEventBus(EVENT_KEYS.chartSettingsUpdated, fetchAllData);
+  // Load company + company-type lookups so the File Location column can resolve the
+  // stored IDs into names.
+  useEffect(() => {
+    (async () => {
+      try {
+        const [companiesRes, typesRes] = await Promise.all([
+          getAllClientCompanies(true),
+          getAllCompanyTypes(),
+        ]);
+        const companies =
+          companiesRes?.data?.companies || companiesRes?.companies || [];
+        const types = typesRes?.companyTypes || [];
+        setFileLocCompanyMap(
+          new Map(companies.map((c: any) => [String(c.id), c.companyName])),
+        );
+        setFileLocTypeMap(
+          new Map(types.map((t: any) => [String(t.id), t.name])),
+        );
+      } catch (err) {
+        console.warn("Failed to load file-location company lookups:", err);
+      }
+    })();
+  }, []);
+
+  // ── Event bus subscriptions ───────────────────────────────────────────────
+  // Ignore the event payload; refetch in "auto" mode (respects the saved column selection).
+  useEventBus(EVENT_KEYS.leadCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadUpdated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadDeleted, () => fetchAllData());
+  // chartSettingsUpdated only changes visual config — no data re-fetch needed
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
   const hideNewLeadButton =
@@ -623,12 +679,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     monthlyStatusId;
 
   // ── Columns ──────────────────────────────────────────────────────────────────
-  const columns = [
+  // Memoized so the array keeps a stable identity across renders. An unstable identity
+  // makes useTablePreferences recompute its defaults + re-run the column-order reset
+  // effect on every render, which (with hidden-by-default columns + selective fetching)
+  // ping-pongs with the auto-refetch and reloads the table continuously.
+  const columns = useMemo(() => [
 
     {
       accessorKey: "inquiryDate",
       header: "Inquiry Date",
-      size: 150,
+      size: 140,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -637,8 +697,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "prefix",
       header: "Inquiry Id",
-      size: 250,
-      minSize: 250,
+      size: 180,
+      minSize: 160,
       enableEditing: false,
       Cell: ({ row }: { row: any }) => (
         <span
@@ -656,8 +716,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "projectName",
       header: "Project Name",
-      size: 400,
-      minSize: 400,
+      size: 320,
+      minSize: 240,
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return (
@@ -670,7 +730,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "totalCost",
       header: "Total Cost",
-      size: 120,
+      size: 130,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return v !== undefined ? `₹${Number(v).toLocaleString()}` : "₹0";
@@ -680,6 +741,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "client",
       header: "Client",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return typeof v === "object" ? v.name || "N/A" : v || "N/A";
@@ -689,6 +751,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "service",
       header: "Service",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         projectServices?.find((s: any) => s.id === cell.getValue())?.name ||
         "N/A",
@@ -697,6 +760,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "category",
       header: "Category",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         projectCategories?.find((c: any) => c.id === cell.getValue())?.name ||
         "N/A",
@@ -705,6 +769,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "subCategory",
       header: "Sub Category",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         projectSubcategories?.find((s: any) => s.id === cell.getValue())
           ?.name || "N/A",
@@ -712,7 +777,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "status",
       header: "Lead Status",
-      size: 130,
+      size: 150,
       Cell: ({ row }: any) => {
         const st = row?.original?.status;
         return st?.name ? (
@@ -731,6 +796,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "receivedDate",
       header: "Received Date",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -740,6 +806,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "poStatus",
       header: "PO Status",
       size: 130,
+      meta: { defaultVisible: false },
       Cell: ({ row }: any) => {
         const poStatus = row?.original?.poStatus;
         if (row?.original?.status?.name !== "Received" || !poStatus)
@@ -761,7 +828,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "assignedTo",
       header: "Assigned To",
-      size: 150,
+      size: 160,
       Cell: ({ cell }: { cell: any }) =>
         allemployees?.find((e: any) => e.employeeId === cell.getValue())
           ?.employeeName || "N/A",
@@ -769,7 +836,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "startDate",
       header: "Date",
-      size: 150,
+      size: 120,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
@@ -779,12 +847,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "duration",
       header: "Duration",
       size: 120,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
       accessorKey: "contact",
       header: "Contact",
-      size: 150,
+      size: 160,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return typeof v === "object" ? v.name || v.email || "N/A" : v || "N/A";
@@ -794,6 +864,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "createdAt",
       header: "Created Date",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
     },
@@ -801,6 +872,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "createdBy",
       header: "Created By",
       size: 150,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         allemployees?.find((e: any) => e.employeeId === cell.getValue())
           ?.employeeName || "N/A",
@@ -808,7 +880,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     {
       accessorKey: "updatedBy",
       header: "Edited By",
-      size: 150,
+      size: 140,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         allemployees?.find((e: any) => e.employeeId === cell.getValue())
           ?.employeeName || "N/A",
@@ -817,32 +890,83 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       accessorKey: "country",
       header: "Country",
       size: 120,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
       accessorKey: "city",
       header: "City",
-      size: 120,
+      size: 110,
+      meta: { defaultVisible: false },
       Cell: ({ row }: { row: any }) => row.original.city || "N/A",
     },
     {
       accessorKey: "state",
       header: "State",
-      size: 120,
+      size: 110,
+      meta: { defaultVisible: false },
       Cell: ({ row }: { row: any }) => row.original.state || "N/A",
     },
     {
       accessorKey: "area",
       header: "Area",
       size: 120,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
       accessorKey: "cost",
       header: "Cost",
       size: 120,
+      meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) =>
         cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
+    },
+    {
+      accessorKey: "fileLocation",
+      header: "File Location",
+      size: 200,
+      // "File Location in Computer" in the form = Company Type + Company. The lead stores
+      // those as IDs, so resolve them to names; fall back to the free-text path.
+      Cell: ({ row }: { row: any }) => {
+        const companyId = row?.original?.fileLocationCompany;
+        const typeId = row?.original?.fileLocationCompanyType;
+        const path = row?.original?.fileLocation;
+        // Resolve IDs → names (fall back to the raw value if it's already a name / unmapped).
+        const company = companyId
+          ? fileLocCompanyMap.get(String(companyId)) || companyId
+          : "";
+        const type = typeId
+          ? fileLocTypeMap.get(String(typeId)) || typeId
+          : "";
+        if (company) {
+          return (
+            <span style={{ whiteSpace: "nowrap" }}>
+              {company}
+              {type ? (
+                <span style={{ color: "#9CA3AF" }}> ({type})</span>
+              ) : null}
+            </span>
+          );
+        }
+        if (path) {
+          const isUrl = /^https?:\/\//i.test(String(path));
+          return isUrl ? (
+            <a
+              href={String(path)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ color: "#AA393D", textDecoration: "underline", whiteSpace: "nowrap" }}
+            >
+              Open file
+            </a>
+          ) : (
+            <span style={{ whiteSpace: "nowrap" }}>{String(path)}</span>
+          );
+        }
+        return "N/A";
+      },
     },
     ...(hideNewLeadButton
       ? []
@@ -850,10 +974,10 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         {
           accessorKey: "actions",
           header: "Actions",
-          size: 120,
+          size: 100,
           enableEditing: false,
           Cell: ({ row }: { row: any }) => (
-            <Box sx={{ display: "flex", gap: "8px" }}>
+            <Box sx={{ display: "flex", gap: "8px", justifyContent: "center" }}>
               <button
                 className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
                 onClick={(e) => {
@@ -880,7 +1004,16 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           ),
         },
       ]),
-  ];
+  ], [
+    projectServices,
+    projectCategories,
+    projectSubcategories,
+    allemployees,
+    rawLeadsData,
+    hideNewLeadButton,
+    fileLocCompanyMap,
+    fileLocTypeMap,
+  ]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
 
@@ -961,8 +1094,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     { key: 'updatedBy',    header: 'Edited By',      type: 'text'     as const },
   ], []);
 
-  if (loading) return <Loader />;
-
   // ── Prop-driven filters ───────────────────────────────────────────────────────
   const startDates = startDate ? dayjs(startDate) : null;
   const endDates = endDate ? dayjs(endDate) : null;
@@ -1040,83 +1171,142 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     return propDateFiltered;
   })();
 
+  // ── Memoized lookup maps for O(1) access (instead of O(n) .find()) ────────────
+  const employeeMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allemployees?.forEach((e: any) => {
+      if (e.employeeId) map.set(e.employeeId, e.employeeName);
+    });
+    return map;
+  }, [allemployees]);
+
+  const serviceMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projectServices?.forEach((s: any) => {
+      if (s.id) map.set(s.id, s.name);
+    });
+    return map;
+  }, [projectServices]);
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projectCategories?.forEach((c: any) => {
+      if (c.id) map.set(c.id, c.name);
+    });
+    return map;
+  }, [projectCategories]);
+
+  const subCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projectSubcategories?.forEach((s: any) => {
+      if (s.id) map.set(s.id, s.name);
+    });
+    return map;
+  }, [projectSubcategories]);
+
   // ── Quick filter: date + status + assigned (AND) ───────────────────────────────
-  const quickFilteredData = filteredByProps?.filter((item: any) => {
-    let dateMatch = true;
-    const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
-    if (alignment === "daily") {
-      dateMatch = d ? d.isSame(day, "day") : false;
-    } else if (alignment === "weekly") {
-      dateMatch = d
-        ? !d.isBefore(weekStart.startOf("day")) &&
-        !d.isAfter(weekEnd.endOf("day"))
-        : false;
-    } else if (alignment === "monthly") {
-      dateMatch = d
-        ? !d.isBefore(monthStart.startOf("day")) &&
-        !d.isAfter(monthEnd.endOf("day"))
-        : false;
-    } else if (alignment === "yearly" && yearStart && yearEnd) {
-      dateMatch = d
-        ? !d.isBefore(yearStart.startOf("day")) &&
-        !d.isAfter(yearEnd.endOf("day"))
-        : false;
-    } else if (alignment === "allyear") {
-      dateMatch = true;
-    } else if (alignment === "custom") {
-      if (customStartDate || customEndDate) {
-        if (!d) dateMatch = false;
-        else {
-          if (customStartDate && d.isBefore(customStartDate.startOf("day")))
-            dateMatch = false;
-          if (customEndDate && d.isAfter(customEndDate.endOf("day")))
-            dateMatch = false;
+  const quickFilteredData = useMemo(() => {
+    return filteredByProps?.filter((item: any) => {
+      let dateMatch = true;
+      const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
+      if (alignment === "daily") {
+        dateMatch = d ? d.isSame(day, "day") : false;
+      } else if (alignment === "weekly") {
+        dateMatch = d
+          ? !d.isBefore(weekStart.startOf("day")) &&
+          !d.isAfter(weekEnd.endOf("day"))
+          : false;
+      } else if (alignment === "monthly") {
+        dateMatch = d
+          ? !d.isBefore(monthStart.startOf("day")) &&
+          !d.isAfter(monthEnd.endOf("day"))
+          : false;
+      } else if (alignment === "yearly" && yearStart && yearEnd) {
+        dateMatch = d
+          ? !d.isBefore(yearStart.startOf("day")) &&
+          !d.isAfter(yearEnd.endOf("day"))
+          : false;
+      } else if (alignment === "allyear") {
+        dateMatch = true;
+      } else if (alignment === "custom") {
+        if (customStartDate || customEndDate) {
+          if (!d) dateMatch = false;
+          else {
+            if (customStartDate && d.isBefore(customStartDate.startOf("day")))
+              dateMatch = false;
+            if (customEndDate && d.isAfter(customEndDate.endOf("day")))
+              dateMatch = false;
+          }
         }
       }
-    }
-    const statusMatch = statusFilter
-      ? item.status?.name?.toLowerCase() === statusFilter.toLowerCase()
-      : true;
-    const assignedMatch = assignedToFilter
-      ? assignedToFilter === "__NA__"
-        ? !item.assignedTo
-        : item.assignedTo === assignedToFilter
-      : true;
+      const statusMatch = statusFilter
+        ? item.status?.name?.toLowerCase() === statusFilter.toLowerCase()
+        : true;
+      const assignedMatch = assignedToFilter
+        ? assignedToFilter === "__NA__"
+          ? !item.assignedTo
+          : item.assignedTo === assignedToFilter
+        : true;
 
-    let searchMatch = true;
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      const employeeName = allemployees?.find((e: any) => e.employeeId === item.assignedTo)?.employeeName || "";
-      const serviceName = projectServices?.find((s: any) => s.id === item.service)?.name || "";
-      const categoryName = projectCategories?.find((c: any) => c.id === item.category)?.name || "";
-      const subCategoryName = projectSubcategories?.find((s: any) => s.id === item.subCategory)?.name || "";
-      const cityName = item.city || "";
-      const stateName = item.state || "";
-      const countryName = item.country || "";
+      let searchMatch = true;
+      if (debouncedSearchText) {
+        const q = debouncedSearchText.toLowerCase();
+        // Use memoized maps instead of .find() for O(1) lookups
+        const employeeName = employeeMap.get(item.assignedTo) || "";
+        const serviceName = serviceMap.get(item.service) || "";
+        const categoryName = categoryMap.get(item.category) || "";
+        const subCategoryName = subCategoryMap.get(item.subCategory) || "";
 
-      searchMatch =
-        String(item.projectName || "").toLowerCase().includes(q) ||
-        String(item.prefix || "").toLowerCase().includes(q) ||
-        String(item.client || "").toLowerCase().includes(q) ||
-        String(item.status?.name || "").toLowerCase().includes(q) ||
-        String(employeeName).toLowerCase().includes(q) ||
-        String(serviceName).toLowerCase().includes(q) ||
-        String(categoryName).toLowerCase().includes(q) ||
-        String(subCategoryName).toLowerCase().includes(q) ||
-        String(cityName).toLowerCase().includes(q) ||
-        String(stateName).toLowerCase().includes(q) ||
-        String(countryName).toLowerCase().includes(q) ||
-        String(item.area || "").toLowerCase().includes(q);
-    }
+        searchMatch =
+          item.projectName?.toLowerCase().includes(q) ||
+          item.prefix?.toLowerCase().includes(q) ||
+          item.client?.toLowerCase().includes(q) ||
+          item.status?.name?.toLowerCase().includes(q) ||
+          employeeName.toLowerCase().includes(q) ||
+          serviceName.toLowerCase().includes(q) ||
+          categoryName.toLowerCase().includes(q) ||
+          subCategoryName.toLowerCase().includes(q) ||
+          item.city?.toLowerCase().includes(q) ||
+          item.state?.toLowerCase().includes(q) ||
+          item.country?.toLowerCase().includes(q) ||
+          item.area?.toLowerCase().includes(q);
+      }
 
-    return dateMatch && statusMatch && assignedMatch && searchMatch;
-  });
+      return dateMatch && statusMatch && assignedMatch && searchMatch;
+    });
+  }, [
+    filteredByProps,
+    alignment,
+    day,
+    weekStart,
+    weekEnd,
+    monthStart,
+    monthEnd,
+    yearStart,
+    yearEnd,
+    customStartDate,
+    customEndDate,
+    statusFilter,
+    assignedToFilter,
+    debouncedSearchText,
+    employeeMap,
+    serviceMap,
+    categoryMap,
+    subCategoryMap,
+  ]);
 
-  const hasAnyFilter = statusFilter || assignedToFilter || searchText;
+  // Only show the full-page loader on the INITIAL load (no data yet). Placed AFTER all
+  // hooks so the hook order is identical on every render (React requires this — an early
+  // return before a hook causes "Rendered fewer hooks than expected"). On subsequent
+  // refetches the table stays mounted instead of flashing the loader.
+  if (loading && tableData.length === 0) return <Loader />;
+
+  const hasAnyFilter = statusFilter || assignedToFilter || debouncedSearchText;
   const clearAllFilters = () => {
     setStatusFilter("");
     setAssignedToFilter("");
     setSearchText("");
+    setDebouncedSearchText("");
   };
 
   // ── Total cost for filtered data ─────────────────────────────────────────────
@@ -1673,7 +1863,12 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           sx: {
             borderCollapse: "separate",
             borderSpacing: "0 4px !important",
-            minWidth: "1600px",
+            // Precise column widths: `fixed` makes each column exactly its `size`
+            // (no stretching to fill), and `max-content` sizes the table to the sum
+            // of the columns so there's no forced dead space. Horizontal scroll kicks
+            // in via the container's overflowX when the columns exceed the viewport.
+            tableLayout: "fixed",
+            width: "max-content",
           },
           muiTableBodyRowProps: ({ row }: any) => ({
             sx: {

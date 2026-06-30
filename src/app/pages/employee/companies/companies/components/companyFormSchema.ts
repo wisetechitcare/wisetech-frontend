@@ -12,7 +12,7 @@ export const COMPANY_BUILTIN_SECTIONS: BuiltinSection[] = [
   { id: "project_details", title: "PROJECT DETAILS", fields: [
     { id: "companyName", label: "Company Name" },
     { id: "companyTypes", label: "Company Type" },
-    { id: "services", label: "Services" },
+    { id: "services", label: "Sub-services" },
   ]},
   { id: "references", title: "REFERENCES", fields: [
     { id: "references", label: "References" },

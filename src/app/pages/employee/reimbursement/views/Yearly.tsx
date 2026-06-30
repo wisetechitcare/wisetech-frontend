@@ -13,6 +13,7 @@ import { deleteConfirmation } from "@utils/modal";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import { useReimbursementLookups } from "@hooks/useReimbursementLookups";
 import { Modal } from "react-bootstrap";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
@@ -147,6 +148,8 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
   const [fetchAgain, setFetchAgain] = useState(true);
   const [reimbursementData, setReimbursementData] = useState<IReimbursementsFetch[]>([]);
 
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setFetchAgain((prev) => !prev); });
+
   /** URL of the document currently being previewed; null = modal closed */
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -239,13 +242,13 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
       },
       {
         accessorKey: "clientTypeId",
-        header: "Client Type",
+        header: "Company Type",
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientType(row.original.clientTypeId),
       },
       {
         accessorKey: "clientCompanyId",
-        header: "Client Name",
+        header: "Company Name",
         enableColumnActions: false,
         Cell: ({ row }: any) => resolveClientCompany(row.original.clientCompanyId),
       },
@@ -259,13 +262,13 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
         accessorKey: "fromLocation",
         header: "From Location",
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "NA",
+        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
       },
       {
         accessorKey: "amount",
@@ -279,7 +282,7 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: "Approval Status",
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
       },
@@ -374,7 +377,7 @@ function Yearly({ year, showEditDeleteOption=false, showIdCol=false, showName=fa
                   <KTIcon iconName="map" className="fs-3" />
                 </button>
               )}
-              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && <span className="text-muted fs-7">—</span>}
+              {(!resEdit && !resDelete && !row.original.hasApprovalInstance) && <span className="text-muted fs-7">N/A</span>}
             </div>
           );
         },

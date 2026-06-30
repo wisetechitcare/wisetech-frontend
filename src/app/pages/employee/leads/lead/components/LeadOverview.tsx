@@ -14,7 +14,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import type { AppDispatch, RootState } from "@redux/store";
 // Audit (change history)
-import { VersionHistory } from "@app/modules/audit/VersionHistory";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 interface ProjectData {
   currentStatus: string;

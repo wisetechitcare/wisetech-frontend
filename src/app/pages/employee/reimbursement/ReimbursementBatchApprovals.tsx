@@ -12,30 +12,36 @@ import {
 } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { getSocket } from '@utils/socketClient';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import {
   BatchRow,
   BatchDetailModal,
   RejectReasonModal,
   fmtDate,
   fmtAmount,
+  statusBadge,
 } from './shared/ReimbursementBatchShared';
 
 
-type TabKey = 'pending' | 'approved' | 'rejected';
+type TabKey = 'pending' | 'approved' | 'rejected' | 'completed';
 type TabItem = { key: TabKey; label: string };
 
 const TABS: TabItem[] = [
   { key: 'pending', label: 'Pending My Action' },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
+  { key: 'completed', label: 'Completed' },
 ];
 
 function ReimbursementBatchApprovals() {
   const [activeTab, setActiveTab] = useState<TabKey>('pending');
   const [rows, setRows] = useState<BatchRow[]>([]);
+  const [expandedRows, setExpandedRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [detailInstanceId, setDetailInstanceId] = useState<string | null>(null);
+  const [detailFilterStatus, setDetailFilterStatus] = useState<number | null>(null);
 
   const [rejectTarget, setRejectTarget] = useState<BatchRow | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
@@ -55,36 +61,124 @@ function ReimbursementBatchApprovals() {
     }));
   }, []);
 
+  // Builds a single grouped-row object from a subset of reimbursements within a batch.
+  const buildGroupedRow = useCallback((
+    batchMeta: any,
+    items: any[],
+    status: number,
+    instanceMap: Record<string, string>,
+  ) => {
+    const totalAmount = items.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+    let paymentStatus: string | null = null;
+    if (status === 1) {
+      const paidCount = items.filter((r) => r.paymentStatus === 'PAID').length;
+      const partialCount = items.filter((r) => r.paymentStatus === 'PARTIAL').length;
+      if (paidCount === items.length) paymentStatus = 'PAID';
+      else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
+      else paymentStatus = 'UNPAID';
+    }
+
+    const rejectReason =
+      status === 2
+        ? items.find((r) => r.rejectReason)?.rejectReason ||
+          items.find((r) => r.rejectionReason)?.rejectionReason ||
+          null
+        : null;
+
+    return {
+      _batchId: batchMeta.id,
+      _submissionId: batchMeta.submissionId,
+      _submittedAt: batchMeta.submittedAt,
+      _status: status,
+      _totalRequests: items.length,
+      _totalAmount: totalAmount,
+      _paymentStatus: paymentStatus,
+      _rejectReason: rejectReason,
+      _approvalInstanceId: instanceMap[batchMeta.id] ?? null,
+      employee: batchMeta.employee,
+    };
+  }, []);
+
   const load = useCallback(async (tab: TabKey = activeTab) => {
     setLoading(true);
     try {
       const [batchRes, approvalRes] = await Promise.all([
         fetchReimbursementBatches(),
-        tab === 'pending' ? fetchPendingApprovals() : fetchAllApprovalInstances(tab === 'approved' ? 'completed' : 'completed'),
+        tab === 'pending' ? fetchPendingApprovals() : fetchAllApprovalInstances('completed'),
       ]);
 
       const allBatches: any[] = batchRes?.data?.batches || batchRes?.batches || [];
       const approvalSteps: any[] = approvalRes?.data ?? approvalRes ?? [];
       const reimbBatchSteps = approvalSteps.filter((s: any) => s.instance?.requestModel === 'ReimbursementBatch');
 
-      let filtered: any[];
-      if (tab === 'pending') {
-        const pendingBatchIds = new Set(reimbBatchSteps.map((s: any) => s.instance.requestId));
-        filtered = allBatches.filter((b: any) => b.status === 0 || pendingBatchIds.has(b.id));
-      } else if (tab === 'approved') {
-        filtered = allBatches.filter((b: any) => b.status === 1);
-      } else {
-        filtered = allBatches.filter((b: any) => b.status === 2);
+      // Build instance ID map for attaching to expanded rows
+      const instanceMap: Record<string, string> = {};
+      for (const step of reimbBatchSteps) {
+        if (step.instance?.requestId) {
+          instanceMap[step.instance.requestId] = step.instance.id;
+        }
       }
 
-      const built = buildRows(filtered, reimbBatchSteps);
-      setRows(built as BatchRow[]);
+      if (tab === 'pending') {
+        const pendingBatchIds = new Set(reimbBatchSteps.map((s: any) => s.instance.requestId));
+        const filtered = allBatches.filter((b: any) => b.status === 0 || pendingBatchIds.has(b.id));
+        const built = buildRows(filtered, reimbBatchSteps);
+        setRows(built as BatchRow[]);
+        setExpandedRows([]);
+      } else {
+        // For approved / rejected / completed tabs: fetch detail for all completed batches,
+        // then split each batch's reimbursements by their individual approval status.
+        const completedBatches = allBatches.filter((b: any) => b.status !== 0);
+
+        const detailResults = await Promise.all(
+          completedBatches.map((b: any) =>
+            fetchReimbursementBatchById(b.id)
+              .then((r: any) => ({ batchMeta: b, batch: r?.data?.batch || r?.batch || null }))
+              .catch(() => ({ batchMeta: b, batch: null })),
+          ),
+        );
+
+        const grouped: any[] = [];
+
+        for (const { batchMeta, batch } of detailResults) {
+          const reimbursements: any[] = batch?.reimbursements ?? [];
+
+          if (tab === 'completed') {
+            // Show one row per status group so every processed request is visible
+            // with its correct final approval status (approved, rejected, or mixed).
+            const statusGroups: Record<number, any[]> = {};
+            for (const r of reimbursements) {
+              const s = typeof r.status === 'number' ? r.status : 0;
+              if (s === 0) continue; // skip still-pending items inside a completed batch
+              if (!statusGroups[s]) statusGroups[s] = [];
+              statusGroups[s].push(r);
+            }
+            for (const [statusStr, items] of Object.entries(statusGroups)) {
+              grouped.push(buildGroupedRow(batchMeta, items, Number(statusStr), instanceMap));
+            }
+          } else {
+            // Approved or Rejected tab: only include the matching status group.
+            const statusFilter = tab === 'approved' ? 1 : 2;
+            const filtered = reimbursements.filter((r) => {
+              const s = typeof r.status === 'number' ? r.status : 0;
+              return s === statusFilter;
+            });
+            if (filtered.length === 0) continue;
+            grouped.push(buildGroupedRow(batchMeta, filtered, statusFilter, instanceMap));
+          }
+        }
+
+        setExpandedRows(grouped);
+        setRows([]);
+      }
     } catch {
       setRows([]);
+      setExpandedRows([]);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, buildRows]);
+  }, [activeTab, buildRows, buildGroupedRow]);
 
   useEffect(() => { load(activeTab); }, [activeTab]);
 
@@ -94,6 +188,9 @@ function ReimbursementBatchApprovals() {
     socket.on('approval:pending', handler);
     return () => { socket.off('approval:pending', handler); };
   }, [load]);
+
+  // Refresh when any reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { load(); });
 
   const handleApprove = async (row: BatchRow) => {
     setProcessingId(row.id);
@@ -140,17 +237,17 @@ function ReimbursementBatchApprovals() {
   const openDetail = useCallback((r: BatchRow) => {
     setDetailBatchId(r.id);
     setDetailInstanceId(r.approvalInstanceId || null);
+    setDetailFilterStatus(null); // pending batch — show all requests to the approver
   }, []);
 
+  const openExpandedDetail = useCallback((row: any) => {
+    setDetailBatchId(row._batchId);
+    setDetailInstanceId(row._approvalInstanceId || null);
+    setDetailFilterStatus(row._status ?? null);
+  }, []);
+
+  // Columns for the Pending tab (batch-level rows)
   const columns = useMemo<MRT_ColumnDef<BatchRow>[]>(() => [
-    {
-      accessorKey: 'employee.employeeCode',
-      header: 'Employee ID',
-      size: 130,
-      Cell: ({ row }) => (
-        <span className='text-dark fw-semibold fs-7'>{row.original.employee?.employeeCode || '—'}</span>
-      ),
-    },
     {
       accessorKey: 'employeeName',
       header: 'Employee Name',
@@ -165,7 +262,7 @@ function ReimbursementBatchApprovals() {
             onClick={() => openDetail(row.original)}
             title='View submission details'
           >
-            {fullName || '—'}
+            {fullName || 'N/A'}
           </button>
         );
       },
@@ -197,19 +294,7 @@ function ReimbursementBatchApprovals() {
       size: 140,
       Cell: ({ row }) => <span className='text fs-7'>{fmtDate(row.original.submittedAt)}</span>,
     },
-    ...(activeTab === 'rejected' ? [{
-      accessorKey: 'rejectionReason',
-      header: 'Reject Reason',
-      size: 220,
-      enableColumnActions: false,
-      Cell: ({ row }: any) => {
-        const reason = row.original.rejectionReason;
-        return reason
-          ? <span className='text-danger fs-7'>{reason}</span>
-          : <span className='text-muted fs-7'>N/A</span>;
-      },
-    }] : []),
-    ...(activeTab === 'pending' ? [{
+    {
       accessorKey: 'actions',
       header: 'Action',
       size: 120,
@@ -243,8 +328,88 @@ function ReimbursementBatchApprovals() {
           </div>
         );
       },
+    },
+  ], [processingId, openDetail, handleApprove, setRejectTarget]);
+
+  // Columns for Approved / Rejected tabs (batch-grouped summary rows)
+  const expandedColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'employeeName',
+      header: 'Employee Name',
+      size: 200,
+      Cell: ({ row }: any) => {
+        const { firstName, lastName } = row.original.employee?.users || {};
+        const fullName = [firstName, lastName].filter(Boolean).join(' ');
+        return (
+          <button
+            className='btn btn-link p-0 text-primary fw-semibold fs-7'
+            style={{ textDecoration: 'none', cursor: 'pointer' }}
+            onClick={() => openExpandedDetail(row.original)}
+            title='View submission details'
+          >
+            {fullName || 'N/A'}
+          </button>
+        );
+      },
+    },
+    {
+      accessorKey: '_submissionId',
+      header: 'Submission ID',
+      size: 160,
+      Cell: ({ row }: any) => <span className='text-dark fs-7'>{row.original._submissionId || 'N/A'}</span>,
+    },
+    {
+      accessorKey: '_totalRequests',
+      header: 'Total Requests',
+      size: 130,
+      Cell: ({ row }: any) => <span className='text-dark fs-7'>{row.original._totalRequests}</span>,
+    },
+    {
+      accessorKey: '_totalAmount',
+      header: 'Total Amount (₹)',
+      size: 145,
+      Cell: ({ row }: any) => <span className='text-dark fs-7'>₹{fmtAmount(row.original._totalAmount)}</span>,
+    },
+    {
+      accessorKey: '_submittedAt',
+      header: 'Submitted On',
+      size: 140,
+      Cell: ({ row }: any) => <span className='text fs-7'>{fmtDate(row.original._submittedAt)}</span>,
+    },
+    {
+      accessorKey: '_status',
+      header: 'Approval Status',
+      size: 130,
+      Cell: ({ row }: any) => statusBadge(row.original._status ?? 0),
+    },
+    {
+      id: 'rejectionReason',
+      header: 'Rejection Reason',
+      size: 220,
+      enableSorting: false,
+      enableColumnActions: false,
+      Cell: ({ row }: any) => {
+        if (row.original._status !== 2) return <span className='text-muted fs-7'>N/A</span>;
+        const reason = row.original._rejectReason;
+        return reason
+          ? <span className='text-danger fs-7'>{reason}</span>
+          : <span className='text-muted fs-7'>N/A</span>;
+      },
+    },
+    ...(activeTab === 'approved' || activeTab === 'completed' ? [{
+      accessorKey: '_paymentStatus',
+      header: 'Payment Status',
+      size: 145,
+      enableColumnActions: false,
+      Cell: ({ row }: any) => {
+        if (row.original._status !== 1) return <span className='text-muted fs-7'>N/A</span>;
+        const ps = row.original._paymentStatus;
+        if (ps === 'PAID') return <span className='badge badge-light-success text-success fw-bold px-3 py-2 fs-8'>Paid</span>;
+        if (ps === 'PARTIAL') return <span className='badge badge-light-info text-info fw-bold px-3 py-2 fs-8'>Partially Paid</span>;
+        return <span className='badge badge-light-warning text-warning fw-bold px-3 py-2 fs-8'>Pending</span>;
+      },
     }] : []),
-  ], [processingId, activeTab, openDetail, handleApprove, setRejectTarget]);
+  ], [activeTab, openExpandedDetail]);
 
   return (
     <>
@@ -270,13 +435,44 @@ function ReimbursementBatchApprovals() {
         </button>
       </div>
 
-      <MaterialTable data={rows} columns={columns} tableName='Reimbursement Approvals' hideFilters={false} hideExportCenter />
+      {activeTab === 'pending' ? (
+        <MaterialTable data={rows} columns={columns} tableName='Reimbursement Approvals' hideFilters={false} hideExportCenter />
+      ) : (
+        <MaterialTable
+          data={expandedRows}
+          columns={expandedColumns}
+          tableName='Reimbursement Completed'
+          hideFilters={false}
+          hideExportCenter
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => {
+              const s = row.original?._status ?? 0;
+              const colorMap: Record<number, { bg: string; border: string; hover: string }> = {
+                1: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
+                2: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
+              };
+              const c = colorMap[s] ?? null;
+              return {
+                onClick: () => openExpandedDetail(row.original),
+                sx: {
+                  cursor: 'pointer',
+                  backgroundColor: c ? c.bg : undefined,
+                  '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
+                  transition: 'background-color 0.12s ease',
+                  '&:hover td': { backgroundColor: c ? `${c.hover} !important` : '#F8FAFC' },
+                },
+              };
+            },
+          }}
+        />
+      )}
 
       <BatchDetailModal
         batchId={detailBatchId}
-        onClose={() => { setDetailBatchId(null); setDetailInstanceId(null); }}
+        onClose={() => { setDetailBatchId(null); setDetailInstanceId(null); setDetailFilterStatus(null); }}
         onBatchActionDone={() => load(activeTab)}
         approvalInstanceId={detailInstanceId}
+        filterStatus={detailFilterStatus}
       />
 
       <RejectReasonModal

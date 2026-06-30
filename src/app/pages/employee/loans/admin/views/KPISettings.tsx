@@ -344,7 +344,7 @@ export default function KpiSettings() {
                 title={section.category}
                 description={`${activeFactors.length} active factors`}
                 icon="bi-diagram-2"
-                iconColor="info"
+                iconColor="blue"
                 badge={{ label: `${activeFactors.length}`, color: C.info, bg: '#dbeafe' }}
               >
                 {canEdit && (

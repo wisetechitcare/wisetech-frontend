@@ -55,7 +55,7 @@ const ContactProject = ({ contact }: { contact: any }) => {
       const response3 = await getAllProjectSubcategories();
       const response4 = await getAllProjectStatuses();
       const response5 = await getAllClientCompanies();
-      const response6 = await getAllClientContacts();
+      const response6 = await getAllClientContacts({}, true);
       const response7 = await getAllClientBranches();
       const response9 = await fetchAllCountries();
       const response10 = await getAllCompanyTypes();

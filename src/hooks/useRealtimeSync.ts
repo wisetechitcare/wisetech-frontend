@@ -50,16 +50,25 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       if (payload.projectId) eventBus.emit(EVENT_KEYS.projectDeleted, { id: payload.projectId });
     };
 
+    // reimbursement mutations (create / update / delete / approve / payment)
+    const onReimbursementChanged = (payload: { action: string; employeeId?: string }) => {
+      eventBus.emit(EVENT_KEYS.reimbursementChanged, payload);
+      // Also wake up table views that listen to the legacy event key
+      eventBus.emit(EVENT_KEYS.reimbursementRecords, { records: [] });
+    };
+
     socket.on('connect', onConnect);
     socket.on('lead_project_synced', onLeadProjectSynced);
     socket.on('project_linked', onProjectLinked);
     socket.on('project_unlinked_deleted', onProjectUnlinkedDeleted);
+    socket.on('reimbursement_changed', onReimbursementChanged);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('lead_project_synced', onLeadProjectSynced);
       socket.off('project_linked', onProjectLinked);
       socket.off('project_unlinked_deleted', onProjectUnlinkedDeleted);
+      socket.off('reimbursement_changed', onReimbursementChanged);
     };
   }, [employeeId]);
 }

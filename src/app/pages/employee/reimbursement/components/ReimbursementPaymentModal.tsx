@@ -311,8 +311,8 @@ const ReimbursementPaymentModal: React.FC<ReimbursementPaymentModalProps> = ({
                                                                             <th>Date</th>
                                                                             <th>Type</th>
                                                                             <th>Note</th>
-                                                                            <th>Client Type</th>
-                                                                            <th>Client Name</th>
+                                                                            <th>Company Type</th>
+                                                                            <th>Company Name</th>
                                                                             <th>Project</th>
                                                                             <th className="text-end pe-3">Amount</th>
                                                                         </tr>

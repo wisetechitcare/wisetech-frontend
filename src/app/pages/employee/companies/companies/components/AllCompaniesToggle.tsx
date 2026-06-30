@@ -20,6 +20,8 @@ import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import Loader from "@app/modules/common/utils/Loader";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
+import CompanyReferences from "./CompanyReferences";
+import LeadReferenceTab from "./LeadReferenceTab";
 
 
 type TabType =
@@ -29,7 +31,9 @@ type TabType =
   | "contacts"
   | "subcompanies"
   | "branches"
-  | "rating";
+  | "rating"
+  | "references"
+  | "lead-reference";
 
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
@@ -127,7 +131,8 @@ const CompanyDetails = () => {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "leads", label: "Leads" },
+    { key: "lead-reference", label: "Lead Reference" },
+    { key: "references", label: "Company References" },
     { key: "projects", label: "Projects" },
     { key: "contacts", label: "Contacts" },
     { key: "subcompanies", label: "Subcompanies" },
@@ -171,6 +176,13 @@ const CompanyDetails = () => {
         return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} />;
       case "rating":
         return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} toggleMounted={true} />
+      case "references":
+        // Companies this company referred (it is their referral company).
+        return <CompanyReferences referredCompanies={(company as any).referredCompanyReferences} />;
+      case "lead-reference":
+        // Leads this company referred (it is the referring company): analytics chart
+        // (stacked by status, with value) + period filter driving the table below.
+        return <LeadReferenceTab referredLeads={(company as any).referredLeads} />;
       default:
         return <Overview company={company} />;
     }

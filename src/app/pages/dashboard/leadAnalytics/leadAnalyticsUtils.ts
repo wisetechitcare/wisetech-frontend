@@ -212,6 +212,8 @@ export const computeExecutiveKpis = (
 export interface RankedDatum extends ChartDatum {
   /** Share of the total, 0–100. */
   share: number;
+  /** Optional raw volume (lead count) shown alongside the ranked value. */
+  volumeValue?: number;
 }
 
 export const toRanked = (data: ChartDatum[], limit?: number): RankedDatum[] => {

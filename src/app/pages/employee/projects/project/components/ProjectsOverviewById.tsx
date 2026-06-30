@@ -13,7 +13,7 @@ import { getProjectProjectPoints, type ProjectPointValue } from "@services/proje
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 // Audit (change history)
-import { VersionHistory } from "@app/modules/audit/VersionHistory";
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 const ProjectOverviewById = ({
   projectId,

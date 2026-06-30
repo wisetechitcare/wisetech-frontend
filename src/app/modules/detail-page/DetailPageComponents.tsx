@@ -231,13 +231,15 @@ export const DetailLink: React.FC<{
   children: React.ReactNode;
   external?: boolean;
   avatar?: string;
-}> = ({ href, children, external, avatar }) => {
+  style?: CSSProperties;
+}> = ({ href, children, external, avatar, style }) => {
   const s: CSSProperties = {
     color: C.primary,
     textDecoration: 'none',
     fontWeight: 500,
     fontSize: '13px',
     fontFamily: FONT.body,
+    ...style,
   };
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>

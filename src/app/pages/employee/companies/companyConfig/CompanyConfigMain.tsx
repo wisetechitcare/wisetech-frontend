@@ -1,7 +1,6 @@
-import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatingFactor, getAllCompanyServices, deleteCompanyService, getAllSubServices, deleteSubService } from "@services/companies";
+import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatingFactor, getAllCompanyServices, deleteCompanyService } from "@services/companies";
 import { useEffect, useState } from "react";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
-import SubServiceModal from "../companies/components/SubServiceModal";
 import CompanyTypeServiceTree from "./components/CompanyTypeServiceTree";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -74,11 +73,6 @@ const CompanyConfigMain = () => {
   const [companyServices, setCompanyServices] = useState<any[]>([]);
   const [showCompanyServicesModal, setShowCompanyServicesModal] = useState(false);
   const [editingCompanyService, setEditingCompanyService] = useState<any | null>(null);
-  const [subServices, setSubServices] = useState<any[]>([]);
-  const [showSubServiceModal, setShowSubServiceModal] = useState(false);
-  const [editingSubService, setEditingSubService] = useState<any | null>(null);
-  // Preset parent when adding a sub-service "under" a service from the unified tree.
-  const [subServiceDefaultParent, setSubServiceDefaultParent] = useState<string>("");
 
   const handleModalClose = () => {
     setShowModal(false);
@@ -159,35 +153,11 @@ const CompanyConfigMain = () => {
     setShowCompanyServicesModal(true);
   };
 
-  const handleSubServiceModalOpen = () => {
-    setEditingSubService(null);
-    setSubServiceDefaultParent("");
-    setShowSubServiceModal(true);
-  };
-
-  const handleSubServiceModalClose = () => {
-    setShowSubServiceModal(false);
-    setEditingSubService(null);
-    setSubServiceDefaultParent("");
-  };
-
-  const handleSubServiceEdit = (subService: any) => {
-    setEditingSubService(subService);
-    setSubServiceDefaultParent("");
-    setShowSubServiceModal(true);
-  };
-
-  // Tree wiring: add a service "under" a (sub-)type — preset its companyTypeId (null = Unassigned).
+  // Tree wiring: add a "Sub-service" (a Service row) under a "Service" (a sub-type) —
+  // preset its companyTypeId (the sub-type id; null = Unassigned).
   const handleAddServiceUnderType = (companyTypeId: string | null) => {
     setEditingCompanyService(companyTypeId ? ({ companyTypeId } as any) : null);
     setShowCompanyServicesModal(true);
-  };
-
-  // Tree wiring: add a sub-service "under" a service — preset its parent service.
-  const handleAddSubServiceUnderService = (parentServiceId: string) => {
-    setEditingSubService(null);
-    setSubServiceDefaultParent(parentServiceId || "");
-    setShowSubServiceModal(true);
   };
 
 
@@ -216,7 +186,6 @@ const CompanyConfigMain = () => {
         fetchCompanyTypes(),
         fetchRatingFactors(),
         fetchCompanyServices(),
-        fetchSubServices()
       ]);
     } catch (error) {
       console.error("Error loading initial data:", error);
@@ -262,26 +231,6 @@ const CompanyConfigMain = () => {
 
   useEventBus(EVENT_KEYS.companyServiceCreated, () => {
     fetchCompanyServices();
-  });
-
-  // fetch sub-services (hierarchical, grouped under a parent company Service)
-  const fetchSubServices = async () => {
-    try {
-      const response = await getAllSubServices();
-      const list = response?.subServices || [];
-      const sorted = [...list].sort((a, b) => {
-        const pa = a.parentService?.name || "";
-        const pb = b.parentService?.name || "";
-        return pa.localeCompare(pb) || (a.name || "").localeCompare(b.name || "");
-      });
-      setSubServices(sorted);
-    } catch (error) {
-      console.error("Error fetching sub-services:", error);
-    }
-  };
-
-  useEventBus(EVENT_KEYS.subServiceCreated, () => {
-    fetchSubServices();
   });
 
   // Delete confirmation hook for Company Types
@@ -346,22 +295,10 @@ const CompanyConfigMain = () => {
 
   const handleCompanyServiceDelete = async (id: string) => {
     try {
-      const confirmed = await deleteConfirmation("Company service deleted successfully");
+      const confirmed = await deleteConfirmation("Sub-service deleted successfully");
       if (confirmed) {
         await deleteCompanyService(id);
         fetchCompanyServices();
-      }
-    } catch (error) {
-      console.error("Error deleting company service:", error);
-    }
-  };
-
-  const handleSubServiceDelete = async (id: string) => {
-    try {
-      const confirmed = await deleteConfirmation("Sub-service deleted successfully");
-      if (confirmed) {
-        await deleteSubService(id);
-        fetchSubServices();
       }
     } catch (error) {
       console.error("Error deleting sub-service:", error);
@@ -507,7 +444,7 @@ const CompanyConfigMain = () => {
                 letterSpacing: "0"
               }}>Company Type &amp; Services</h5>
               <div className="text-muted" style={{ fontSize: "12px" }}>
-                Type → Sub-type → Service → Sub-service. Use the row actions to add a sub-type, a service, or a sub-service.
+                Type → Service → Sub-service. Use the row actions to add a service or a sub-service.
               </div>
             </div>
             <button
@@ -525,16 +462,14 @@ const CompanyConfigMain = () => {
             <CompanyTypeServiceTree
               companyTypes={companyTypes}
               services={companyServices}
-              subServices={subServices}
-              onAddSubType={(parentId: string) => handleAddSubType(parentId)}
+              // "Add Service" creates a CompanyType sub-type under the top-level type.
+              onAddService={(parentId: string) => handleAddSubType(parentId)}
               onEditType={(type: any) => handleEdit(type)}
               onDeleteType={(id: string) => handleCompanyTypeDelete(id)}
-              onAddService={(companyTypeId: string | null) => handleAddServiceUnderType(companyTypeId)}
-              onEditService={(service: any) => handleCompanyServiceEdit(service)}
-              onDeleteService={(id: string) => handleCompanyServiceDelete(id)}
-              onAddSubService={(parentServiceId: string) => handleAddSubServiceUnderService(parentServiceId)}
-              onEditSubService={(subService: any) => handleSubServiceEdit(subService)}
-              onDeleteSubService={(id: string) => handleSubServiceDelete(id)}
+              // "Add Sub-service" creates a Service row under the sub-type.
+              onAddSubService={(companyTypeId: string | null) => handleAddServiceUnderType(companyTypeId)}
+              onEditSubService={(service: any) => handleCompanyServiceEdit(service)}
+              onDeleteSubService={(id: string) => handleCompanyServiceDelete(id)}
             />
           </div>
         </div>
@@ -585,7 +520,8 @@ const CompanyConfigMain = () => {
         initialData={editingCompanyType}
         isEditing={!!editingCompanyType?.id}
         type="company-type"
-        title="Company Type"
+        // A sub-type (has a parent) is presented as a "Service"; a top-level row is a "Company Type".
+        title={editingCompanyType?.parentTypeId ? "Service" : "Company Type"}
       />
       <CompanyConfigForm
         show={showRatingFactorModal}
@@ -603,15 +539,7 @@ const CompanyConfigMain = () => {
         initialData={editingCompanyService}
         isEditing={!!editingCompanyService}
         type="company-services"
-        title="Company Service"
-      />
-      <SubServiceModal
-        show={showSubServiceModal}
-        onClose={handleSubServiceModalClose}
-        services={companyServices}
-        defaultParentId={subServiceDefaultParent}
-        initialData={editingSubService}
-        onCreated={() => fetchSubServices()}
+        title="Sub-service"
       />
 
       {/* Delete Confirmation Modal for Company Types */}

@@ -1,5 +1,6 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Container } from "@mui/material";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import Daily from "@pages/employee/kpis/personal/views/my-kpi/Daily";
 import Weekly from "@pages/employee/kpis/personal/views/my-kpi/Weekly";
 import Monthly from "@pages/employee/kpis/personal/views/my-kpi/Monthly";
@@ -235,125 +236,44 @@ const [weekEnd, setWeekEnd] = useState(() => {
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   };
 
-  const NavigationButtons = ({
-    onPrev,
-    onNext,
-    displayText,
-    dashboardView 
-  }: {
-    onPrev: () => void;
-    onNext: () => void;
-    displayText: string;
-    dashboardView?: boolean;
-  }) => (
-    <div className="mb-6">
-      <button className="btn btn-sm p-0" onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 my-5">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  );
-
   return (
     <>
       <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center justify-content-start align-items-start">
-        <div className="col-12 col-sm-auto mb-3" >
-          <ToggleButtonGroup
+        <div className="col-12 col-sm-auto mb-3">
+          <PeriodTabs
             value={alignment}
-            exclusive
-            onChange={handleChange}
-            aria-label="view selection"
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-              justifyContent: 'between',
-              alignItems:"center",
-              width: '100%',
-              '& .MuiToggleButton-root': {
-                borderRadius: '20px',
-                borderColor: '#A0B4D2 !important',
-                color: '#000000 !important',
-                // paddingY: {xs:'1px',sm:'5px'},
-                paddingX: {
-                  xs: "0px",
-                  md: "45px"
-                },
-                marginBottom:{
-                  xs:"10px",
-                  md:"20px"
-                },
-                borderWidth: '2px',
-                fontWeight: '600',
-                width: {
-                  xs: '65px', 
-                  sm: '75px'   
-                },
-                fontSize: {
-                  xs: '10px',
-                  sm: '12px'
-                },
-                height: { xs: "30px", sm: '36px' },
-                fontFamily: 'Inter',
-              },
-              '& .Mui-selected': {
-                borderColor: '#9D4141 !important',
-                color: '#9D4141 !important',
-              },
-              '& .MuiToggleButton-root:hover': {
-                borderColor: '#9D4141 !important',
-                color: '#9D4141 !important',
-              },
-            }}
-          >
-            {/* <ToggleButton value="daily">Daily</ToggleButton> */}
-            <ToggleButton value="weekly">Weekly</ToggleButton>
-            <ToggleButton value="monthly">Monthly</ToggleButton>
-            <ToggleButton value="yearly">Yearly</ToggleButton>
-            <ToggleButton value="custom">Custom</ToggleButton>
-            {/* <ToggleButton value="alltime">All Time</ToggleButton> */}
-          </ToggleButtonGroup>
-        </div>
-        {/* {alignment === "daily" && (
-          <NavigationButtons
-            onPrev={() => navigateDay("prev")}
-            onNext={() => navigateDay("next")}
-            displayText={day.format("DD MMM, YYYY")}
-            dashboardView={dashboardView}
+            options={[
+              { label: 'Weekly', value: 'weekly' },
+              { label: 'Monthly', value: 'monthly' },
+              { label: 'Yearly', value: 'yearly' },
+              { label: 'Custom', value: 'custom' },
+            ]}
+            onChange={(val) => handleChange(null as any, val)}
+            ariaLabel="view selection"
           />
-        )} */}
+        </div>
 
         {alignment === "weekly" && (
-          <NavigationButtons
-            onPrev={() => navigateWeek("prev")}
+          <PeriodNavigator
+            label={`${weekStart.format("DD MMM, YYYY")} - ${weekEnd.format("DD MMM, YYYY")}`}
+            onPrevious={() => navigateWeek("prev")}
             onNext={() => navigateWeek("next")}
-            displayText={`${weekStart.format(
-              "DD MMM, YYYY"
-            )} - ${weekEnd.format("DD MMM, YYYY")}`}
-            dashboardView={dashboardView}
           />
         )}
 
         {alignment === "monthly" && (
-          <NavigationButtons
-            onPrev={() => navigateMonth("prev")}
+          <PeriodNavigator
+            label={`${monthStart.format("DD MMM, YYYY")} - ${monthEnd.format("DD MMM, YYYY")}`}
+            onPrevious={() => navigateMonth("prev")}
             onNext={() => navigateMonth("next")}
-            displayText={`${monthStart.format(
-              "DD MMM, YYYY"
-            )} - ${monthEnd.format("DD MMM, YYYY")}`}
-            dashboardView={dashboardView}
           />
         )}
 
         {alignment === "yearly" && yearStart && yearEnd && (
-          <NavigationButtons
-            onPrev={() => navigateYear("prev")}
+          <PeriodNavigator
+            label={fiscalYearDisplay}
+            onPrevious={() => navigateYear("prev")}
             onNext={() => navigateYear("next")}
-            displayText={fiscalYearDisplay}
-            dashboardView={dashboardView}
           />
         )}
 

@@ -66,7 +66,7 @@ const ProjectCommandCenterKpi: React.FC<Props> = ({
           {prefix}
           {isNumeric ? (
             <CountUp
-              end={displayValue}
+              end={Number(displayValue) || 0}
               duration={0.6}
               separator=","
               decimals={decimals}

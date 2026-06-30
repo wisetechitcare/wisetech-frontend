@@ -3,6 +3,7 @@ export type AppEventMap = {
     userRaisedRequestSubmitted: { formId: string }; 
     weekendColor: { color: string }; 
     reimbursementRecords: { records: any };
+    reimbursementChanged: { action: string; employeeId?: string };
     holidayUpdated: { id: string };
     holidayDeleted: { id: string };
     leadStatusCreated: { id: string };
@@ -104,6 +105,7 @@ export type AppEventMap = {
     userRaisedRequestSubmitted: 'userRaisedRequestSubmitted',
     weekendColor: 'weekendColor',
     reimbursementRecords: 'reimbursementRecords',
+    reimbursementChanged: 'reimbursementChanged',
     holidayUpdated: 'holidayUpdated',
     holidayDeleted: 'holidayDeleted',
     leadStatusCreated: 'leadStatusCreated',

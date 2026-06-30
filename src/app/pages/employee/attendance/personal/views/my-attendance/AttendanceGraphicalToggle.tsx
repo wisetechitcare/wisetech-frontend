@@ -15,6 +15,7 @@ import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/componen
 import { fetchAppSettings } from "@redux/slices/appSettings";
 import Loader from "@app/modules/common/utils/Loader";
 import { AppDispatch } from "@redux/store";
+import { saveAttendancePeriodPreference, getAttendancePeriodPreference } from "@services/users";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 const Daily = lazy(() => import("@pages/employee/attendance/personal/views/my-attendance/Daily"));
 // import Daily from "@pages/employee/attendance/personal/views/my-attendance/Daily"
@@ -50,7 +51,7 @@ const AttendanceGraphicalToggle = ({
   const dispatch = useDispatch();
   const today = dayjs();
 
-  const [alignment, setAlignment] = useState("daily");
+  const [alignment, setAlignment] = useState("monthly");
 
   const [day, setDay] = useState(today);
   // week should be start from monday to sunday
@@ -111,6 +112,16 @@ const [weekEnd, setWeekEnd] = useState(() => {
         fetchColorAndStoreInSlice(),
         dispatch(fetchAppSettings() as any)
       ]);
+
+      try {
+        const res = await getAttendancePeriodPreference();
+        const saved = res?.data?.period;
+        if (saved && ['daily', 'weekly', 'monthly', 'yearly', 'custom'].includes(saved)) {
+          setAlignment(saved);
+        }
+      } catch {
+        // keep default monthly
+      }
     };
     initializeData();
   }, [dispatch]);
@@ -152,6 +163,7 @@ const [weekEnd, setWeekEnd] = useState(() => {
     if (!newAlignment) return;
 
     setAlignment(newAlignment);
+    saveAttendancePeriodPreference(newAlignment).catch(() => {});
 
     switch (newAlignment) {
       case "daily":

@@ -7,6 +7,8 @@ import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 
 function ReimbursementEmployeeLimit() {
   const [employeeLimits, setEmployeeLimits] = useState<IReimbursementEmployeeLimit[]>([]);
@@ -39,6 +41,8 @@ function ReimbursementEmployeeLimit() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadData(); });
 
   const handleEdit = useCallback((row: IReimbursementEmployeeLimit) => {
     setEditingId(row.id);

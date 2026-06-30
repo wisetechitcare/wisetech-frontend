@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 import ReactDOM from 'react-dom';
 import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
@@ -17,7 +19,7 @@ import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 export function fmtDate(d?: string) {
-  if (!d) return '—';
+  if (!d) return 'N/A';
   return dayjs(d).format('DD MMM YYYY');
 }
 
@@ -168,9 +170,13 @@ interface BatchDetailModalProps {
   onClose: () => void;
   onBatchActionDone: () => void;
   approvalInstanceId?: string | null;
+  /** When set to 1 or 2, restricts the displayed reimbursements to only that approval status.
+   *  Used when opening the modal from an approved-group or rejected-group row so only the
+   *  matching requests are shown instead of the full batch. */
+  filterStatus?: number | null;
 }
 
-export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId }: BatchDetailModalProps) {
+export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approvalInstanceId, filterStatus }: BatchDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -182,6 +188,38 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
 
   const pendingCount = batch?.reimbursements?.filter((r: any) => r.status === 0).length || 0;
   const batchIsPending = batch?.status === 0;
+
+  // For pending batches: hide individually-rejected items (already bifurcated from the workflow).
+  // For completed batches: when filterStatus is 1 or 2, show only requests that match that
+  // final approval status — this ensures the popup reflects exactly which group was clicked.
+  const visibleReimbursements = useMemo(() => {
+    const all: any[] = batch?.reimbursements ?? [];
+    if (batchIsPending) {
+      return all.filter((r: any) => r.status !== 2);
+    }
+    if (filterStatus === 1 || filterStatus === 2) {
+      return all.filter((r: any) => {
+        const s = typeof r.status === 'number' ? r.status : 0;
+        return s === filterStatus;
+      });
+    }
+    return all;
+  }, [batch?.reimbursements, batchIsPending, filterStatus]);
+
+  const approvalOverride = useMemo<'approved' | 'rejected' | undefined>(() => {
+    if (!approvalInstanceId) return undefined;
+    if (filterStatus === 2) return 'rejected';
+    const anyRejected = visibleReimbursements.some((r: any) => {
+      const s = typeof r.status === 'number' ? r.status : r.status === 'Rejected' ? 2 : 0;
+      return s === 2;
+    });
+    return anyRejected ? 'rejected' : undefined;
+  }, [approvalInstanceId, filterStatus, visibleReimbursements]);
+
+  const detailTotal = useMemo(
+    () => visibleReimbursements.reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0),
+    [visibleReimbursements],
+  );
 
   const { resolveClientType } = useReimbursementLookups(batch?.reimbursements ?? []);
 
@@ -200,6 +238,8 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
 
   useEffect(() => { loadBatch(); }, [loadBatch]);
 
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBatch(); });
+
   const handleIndividualAction = useCallback(async (requestId: string, action: 'approve' | 'reject', comments?: string) => {
     if (!batchId) return;
     setProcessingId(requestId);
@@ -215,121 +255,183 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     }
   }, [batchId, loadBatch, onBatchActionDone]);
 
-  const detailColumns = useMemo<MRT_ColumnDef<any>[]>(() => [
-    {
-      accessorKey: 'expenseDate',
-      header: 'Date',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => fmtDate(row.original.expenseDate),
-    },
-    {
-      accessorKey: 'day',
-      header: 'Day',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.expenseDate ? dayjs(row.original.expenseDate).format('dddd') : '—',
-    },
-    {
-      accessorKey: 'description',
-      header: 'Note',
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || '—',
-    },
-    {
-      accessorKey: 'type',
-      header: 'Type',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.reimbursementType?.type || '—',
-    },
-    {
-      accessorKey: 'clientType',
-      header: 'Client Type',
+  const detailColumns = useMemo<MRT_ColumnDef<any>[]>(() => {
+    const hasApproved = visibleReimbursements.some((r: any) => {
+      const s = typeof r.status === 'number' ? r.status : r.status === 'Approved' ? 1 : 0;
+      return s === 1;
+    });
+    const hasRejected = visibleReimbursements.some((r: any) => {
+      const s = typeof r.status === 'number' ? r.status : r.status === 'Rejected' ? 2 : 0;
+      return s === 2;
+    });
+
+    const paymentStatusCol: MRT_ColumnDef<any> = {
+      id: 'paymentStatus',
+      header: 'Payment Status',
+      enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => {
-        const r = row.original;
-        return r.clientCompany?.companyType?.name
-          || resolveClientType(r.clientCompany?.companyTypeId || r.clientTypeId);
+        const ps = row.original.paymentStatus;
+        if (ps === 'PAID')
+          return <span className='badge badge-light-success fw-semibold fs-8'>Paid</span>;
+        if (ps === 'PARTIAL')
+          return <span className='badge badge-light-info fw-semibold fs-8'>Partially Paid</span>;
+        return <span className='badge badge-light-warning fw-semibold fs-8'>Pending</span>;
       },
-    },
-    {
-      accessorKey: 'client',
-      header: 'Client Name',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.clientCompany?.companyName || '—',
-    },
-    {
-      accessorKey: 'project',
-      header: 'Project Name',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => row.original.project?.title || '—',
-    },
-    {
-      accessorKey: 'fromLocation',
-      header: 'From Location',
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
-    },
-    {
-      accessorKey: 'toLocation',
-      header: 'To Location',
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || 'NA',
-    },
-    {
-      accessorKey: 'amount',
-      header: 'Amount',
-      enableColumnActions: false,
-      Cell: ({ row }: any) => (
-        <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
-          ₹{fmtAmount(row.original.amount)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'document',
-      header: 'Document',
-      enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => (
-        <button
-          className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
-          onClick={() => handleViewDocument(renderedCellValue)}
-          disabled={!renderedCellValue}
-          title={renderedCellValue ? 'Preview document' : 'No document attached'}
-        >
-          {renderedCellValue
-            ? <KTIcon iconName='eye' className='fs-3' />
-            : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>}
-        </button>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
+    };
+
+    const rejectionReasonCol: MRT_ColumnDef<any> = {
+      id: 'rejectionReason',
+      header: 'Rejected Reason',
       enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }: any) => {
-        const r = row.original;
-        const isProcessing = processingId === r.id;
-        if (!batchIsPending || r.status !== 0) {
-          return <span className='text-muted'>No actions available</span>;
-        }
-        return (
-          <div className='d-flex gap-1'>
-            <button className='btn btn-icon btn-sm' title='Approve' disabled={isProcessing}
-              onClick={() => handleIndividualAction(r.id, 'approve')}>
-              {isProcessing
-                ? <span className='spinner-border spinner-border-sm text-success' />
-                : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />}
-            </button>
-            <button className='btn btn-icon btn-sm' title='Reject' disabled={isProcessing}
-              onClick={() => setRejectTarget({ id: r.id, type: 'individual' })}>
-              <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
-            </button>
-          </div>
+        const reason = row.original.rejectionReason || row.original.rejectReason;
+        return reason ? (
+          <span style={{ color: '#ef4444', fontSize: 12 }}>{reason}</span>
+        ) : (
+          <span className='text-muted'>N/A</span>
         );
       },
-    },
-  ], [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType]);
+    };
+
+    return [
+      {
+        accessorKey: 'expenseDate',
+        header: 'Date',
+        size: 150, minSize: 130, maxSize: 180,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => (
+          <div>
+            <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{fmtDate(row.original.expenseDate) || 'N/A'}</div>
+            {row.original.expenseDate && (
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{dayjs(row.original.expenseDate).format('dddd')}</div>
+            )}
+          </div>
+        ),
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+      },
+      {
+        accessorKey: 'clientType',
+        header: 'Company Type',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const r = row.original;
+          return r.clientCompany?.companyType?.name
+            || resolveClientType(r.clientCompany?.companyTypeId || r.clientTypeId);
+        },
+      },
+      {
+        accessorKey: 'client',
+        header: 'Company Name',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => row.original.clientCompany?.companyName || 'N/A',
+      },
+      {
+        accessorKey: 'project',
+        header: 'Project Name',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => row.original.project?.title || 'N/A',
+      },
+      {
+        accessorKey: 'type',
+        header: 'Type',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => row.original.reimbursementType?.type || 'N/A',
+      },
+      {
+        accessorKey: 'amount',
+        header: 'Amount',
+        enableColumnActions: false,
+        Cell: ({ row }: any) => (
+          <span style={row.original.isExceedingLimit ? { color: '#ef4444', fontWeight: 600 } : undefined}>
+            ₹{fmtAmount(row.original.amount)}
+          </span>
+        ),
+        Footer: () => <span className='fw-bold'>₹{fmtAmount(detailTotal)}</span>,
+      },
+      {
+        accessorKey: 'fromLocation',
+        header: 'From Location',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'toLocation',
+        header: 'To Location',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'description',
+        header: 'Note',
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+      },
+      {
+        accessorKey: 'document',
+        header: 'Document',
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) => (
+          <button
+            className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
+            onClick={() => handleViewDocument(renderedCellValue)}
+            disabled={!renderedCellValue}
+            title={renderedCellValue ? 'Preview document' : 'No document attached'}
+          >
+            {renderedCellValue
+              ? <KTIcon iconName='eye' className='fs-3' />
+              : <i className='bi bi-file-earmark-x fs-3 text-danger'></i>}
+          </button>
+        ),
+      },
+      {
+        id: 'rowStatus',
+        header: 'Status',
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const s = row.original.status;
+          const n = typeof s === 'number' ? s : s === 'Approved' ? 1 : s === 'Rejected' ? 2 : 0;
+          return statusBadge(n);
+        },
+      },
+      ...(hasApproved ? [paymentStatusCol] : []),
+      ...(hasRejected ? [rejectionReasonCol] : []),
+      {
+        id: 'actions',
+        header: 'Action',
+        enableSorting: false,
+        enableColumnActions: false,
+        Cell: ({ row }: any) => {
+          const r = row.original;
+          const isProcessing = processingId === r.id;
+          if (!batchIsPending || r.status !== 0) {
+            return (
+              <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 500, cursor: 'default', userSelect: 'none' }}>
+                No Actions Available
+              </span>
+            );
+          }
+          return (
+            <div className='d-flex gap-1'>
+              <button className='btn btn-icon btn-sm' title='Approve' disabled={isProcessing}
+                onClick={() => handleIndividualAction(r.id, 'approve')}>
+                {isProcessing
+                  ? <span className='spinner-border spinner-border-sm text-success' />
+                  : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='' />}
+              </button>
+              <button className='btn btn-icon btn-sm' title='Reject' disabled={isProcessing}
+                onClick={() => setRejectTarget({ id: r.id, type: 'individual' })}>
+                <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
+              </button>
+            </div>
+          );
+        },
+      },
+    ];
+  }, [batchIsPending, processingId, handleIndividualAction, handleViewDocument, resolveClientType, detailTotal, visibleReimbursements]);
 
   const handleBulkAction = async (action: 'approve' | 'reject-all', reason?: string) => {
     if (!batch?.reimbursements?.length) return;
@@ -382,8 +484,8 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
             {batch && (
               <div className='text-muted fs-7 mt-1'>
                 {batch.employee?.users?.firstName} {batch.employee?.users?.lastName} &nbsp;·&nbsp;
-                {batch.totalRequests} request{batch.totalRequests !== 1 ? 's' : ''} &nbsp;·&nbsp;
-                ₹{fmtAmount(batch.totalAmount)} total &nbsp;·&nbsp;
+                {visibleReimbursements.length} request{visibleReimbursements.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
+                ₹{fmtAmount(detailTotal)} total &nbsp;·&nbsp;
                 Submitted {fmtDate(batch.submittedAt)}
               </div>
             )}
@@ -394,7 +496,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           {approvalInstanceId && (
             <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
               <div className='fs-8 fw-bold text-muted text-uppercase mb-2' style={{ letterSpacing: '0.5px' }}>Approval Progress</div>
-              <ApprovalStatusTracker instanceId={approvalInstanceId} compact />
+              <ApprovalStatusTracker instanceId={approvalInstanceId} compact overrideStatus={approvalOverride} />
             </div>
           )}
 
@@ -421,6 +523,32 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
             </div>
           )}
 
+          {(filterStatus === 1 || filterStatus === 2) && (
+            <div style={{
+              padding: '10px 14px',
+              marginBottom: 14,
+              borderRadius: 6,
+              border: `1px solid ${filterStatus === 1 ? '#a7f3d0' : '#fca5a5'}`,
+              background: filterStatus === 1 ? '#f0fdf4' : '#fef2f2',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: filterStatus === 1 ? '#10b981' : '#ef4444',
+                flexShrink: 0,
+                display: 'inline-block',
+              }} />
+              <span style={{ fontWeight: 600, fontSize: 13, color: filterStatus === 1 ? '#065f46' : '#991b1b' }}>
+                {filterStatus === 1 ? 'Approved Requests' : 'Rejected Requests'}
+                {' — '}
+                {visibleReimbursements.length} {visibleReimbursements.length === 1 ? 'request' : 'requests'}
+                {' · ₹'}{fmtAmount(detailTotal)} total
+              </span>
+            </div>
+          )}
+
           {loading ? (
             <div className='d-flex justify-content-center py-10'>
               <span className='spinner-border text-primary' />
@@ -428,10 +556,11 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           ) : (
             <MaterialTable
               columns={detailColumns}
-              data={batch?.reimbursements ?? []}
+              data={visibleReimbursements}
               tableName='BatchDetailReimbursements'
               hideFilters={false}
               hideExportCenter={false}
+              showColumnFooter={true}
               renderExportActions={() => null}
               muiTableProps={{
                 sx: {
@@ -473,27 +602,6 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           )}
         </Modal.Body>
 
-        {batchIsPending && approvalInstanceId && (
-          <Modal.Footer>
-            <button
-              className='btn d-flex align-items-center gap-2'
-              style={{ backgroundColor: '#e8f5e9', color: '#2e7d32', border: '1px solid #a5d6a7', fontWeight: 600 }}
-              disabled={bulkProcessing}
-              onClick={() => handleBulkAction('approve')}
-            >
-              {bulkProcessing ? <span className='spinner-border spinner-border-sm' /> : null}
-              Approve All
-            </button>
-            <button
-              className='btn d-flex align-items-center gap-2'
-              style={{ backgroundColor: '#fdecea', color: '#c62828', border: '1px solid #ef9a9a', fontWeight: 600 }}
-              disabled={bulkProcessing}
-              onClick={() => setRejectTarget({ id: 'batch', type: 'batch-reject-all' })}
-            >
-              Reject All
-            </button>
-          </Modal.Footer>
-        )}
       </Modal>
 
       <RejectReasonModal

@@ -67,9 +67,6 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
   const [openService, setOpenService] = useState(false);
   const [serviceId, setServiceId] = useState("");
   const [serviceTypeId, setServiceTypeId] = useState("");
-  const [openSubService, setOpenSubService] = useState(false);
-  const [subServiceId, setSubServiceId] = useState("");
-  const [subSvcTypeId, setSubSvcTypeId] = useState("");
 
 
   // Get settings from Redux
@@ -136,13 +133,6 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
     setServiceId(svcId || "");
     setServiceTypeId(typeId || "");
     setOpenService(true);
-  };
-
-  // Sub-service bar (4th drill level) → companies modal filtered to (type ∩ sub-service).
-  const handleSubServiceChartClick = (subId: string, ownerTypeId?: string | null) => {
-    setSubServiceId(subId || "");
-    setSubSvcTypeId(ownerTypeId || "");
-    setOpenSubService(true);
   };
 
   const handleContactByRolesChartClick = (selectedLabel: string) => {
@@ -283,7 +273,6 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
             }))}
             onBarClick={handleCompanyTypeChartClick}
             onServiceClick={handleServiceChartClick}
-            onSubServiceClick={handleSubServiceChartClick}
             persistKey="companiesByType"
           />
         </div>
@@ -353,7 +342,6 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
           />
           <CompanyDialogModal open={openContactByRoles} onClose={() => setOpenContactByRoles(false)} contactByRolesId={contactByRolesId} startDate={year} endDate={endDate}/>
           <CompanyDialogModal open={openService} onClose={() => setOpenService(false)} companyTypeId={serviceTypeId} serviceId={serviceId} startDate={year} endDate={endDate}/>
-          <CompanyDialogModal open={openSubService} onClose={() => setOpenSubService(false)} companyTypeId={subSvcTypeId} subServiceId={subServiceId} startDate={year} endDate={endDate}/>
           <CompanyDialogModal open={openCompanyStatus} onClose={() => setOpenCompanyStatus(false)} statusId={companyStatusId} startDate={year} endDate={endDate}/>
     </div>
   );

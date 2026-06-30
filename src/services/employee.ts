@@ -1334,7 +1334,7 @@ export const fetchApprovalWorkflowConfigs = async (employeeId: string, workflowT
 
 export const saveApprovalWorkflowChain = async (
     employeeId: string,
-    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'conveyance',
+    workflowType: 'attendance' | 'leave' | 'reimbursement',
     levels: Array<{ level: number; approverId?: string | null }>,
 ) => {
     try {
@@ -1748,15 +1748,7 @@ export const fetchAllStarEmployeeByStartAndEndDate = async (
   }
 };
 
-export const getAllKPIModules = async () => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_KPI_MODULES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
+export const getAllKPIModules = getAllKpiModules;
 
 export const createKpiScore = async (payload: any) => {
     try {
@@ -1801,6 +1793,7 @@ export const fetchUnpaidApprovedReimbursements = async (employeeId: string) => {
 
 export const createReimbursementPayment = async (payload: {
     employeeId: string;
+    batchId?: string;
     amountPaid: number;
     paymentDate: string;
     paymentMethod: string;

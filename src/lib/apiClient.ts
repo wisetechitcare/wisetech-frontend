@@ -13,14 +13,18 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // Single source of truth: the app stores auth under 'wise_tech_login' as a JSON
-        // object with a `.token` field (see AuthHelpers.setupAxios). apiClient is a
-        // SEPARATE axios instance, so it does NOT inherit the global auth interceptor —
-        // it must read the token itself via getAuth() to stay in lockstep.
-        const auth = getAuth() as { token?: string } | undefined;
-        const token = auth?.token;
-        if (typeof token === 'string' && token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        // App stores the JWT under 'wise_tech_login' as { token, id }
+        const raw = localStorage.getItem('wise_tech_login');
+        if (raw) {
+            try {
+                const parsed = JSON.parse(raw);
+                const token = parsed?.token;
+                if (typeof token === 'string' && token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
+            } catch {
+                // malformed storage entry — skip
+            }
         }
         return config;
     },
@@ -32,9 +36,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-        // Session-expiry handling (clearing 'wise_tech_login' + redirect) is owned by
-        // the app's auth flow / route guards — not this client. Forcing a redirect here
-        // on any 401 risked logout loops. We just surface the error to the caller.
+        if (error.response?.status === 401) {
+            localStorage.removeItem('wise_tech_login');
+            window.location.href = '/login';
+        }
+        // Unwrap server error body so callers get a consistent shape
         return Promise.reject(error.response?.data ?? error);
     },
 );

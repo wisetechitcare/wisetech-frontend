@@ -201,11 +201,13 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
                     }}
                     disabled={isSubmitting}
                   />
-                  <ErrorMessage
-                    name="name"
-                    component="div"
-                    style={{ color: '#dc3545', marginTop: '4px', fontSize: '12px', fontFamily: FONT.body }}
-                  />
+                  <ErrorMessage name="name">
+                    {(msg: string) => (
+                      <div style={{ color: '#dc3545', marginTop: '4px', fontSize: '12px', fontFamily: FONT.body }}>
+                        {msg}
+                      </div>
+                    )}
+                  </ErrorMessage>
                 </div>
 
                 {/* Color Picker */}
@@ -284,11 +286,13 @@ const EmployeeConfigureForm: React.FC<ConfigFormProps> = ({
                       }}
                     />
                   </div>
-                  <ErrorMessage
-                    name="color"
-                    component="div"
-                    style={{ color: '#dc3545', marginTop: '4px', fontSize: '12px', fontFamily: FONT.body }}
-                  />
+                  <ErrorMessage name="color">
+                    {(msg: string) => (
+                      <div style={{ color: '#dc3545', marginTop: '4px', fontSize: '12px', fontFamily: FONT.body }}>
+                        {msg}
+                      </div>
+                    )}
+                  </ErrorMessage>
                 </div>
               </Modal.Body>
 

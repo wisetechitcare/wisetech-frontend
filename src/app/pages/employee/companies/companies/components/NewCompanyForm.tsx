@@ -8,7 +8,6 @@ import {
   getClientContactsByCompanyId,
   getAllCompanyServices,
   createCompanyService,
-  getAllSubServices,
 } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
 import {
@@ -42,7 +41,6 @@ import FormSchemaManager from "@app/modules/common/components/FormSchemaManager"
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 import { IFormField, IFormSection } from "@models/company";
 import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
-import SubServiceModal from "./SubServiceModal";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 
 // Type definitions
@@ -173,8 +171,6 @@ const NewCompanyForm: React.FC<Props> = ({
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
   const [clientContacts, setClientContacts] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
-  const [subServices, setSubServices] = useState<any[]>([]);
-  const [showSubServiceModal, setShowSubServiceModal] = useState(false);
   const [subCompanies, setSubCompanies] = useState<any[]>([]);
   const [initialValues, setInitialValues] = useState<FormValues>({
     companyName: "",
@@ -222,9 +218,69 @@ const NewCompanyForm: React.FC<Props> = ({
   const [showSchemaManager, setShowSchemaManager] = useState(false);
   const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
 
+  // ── Memoized dropdown options & lookup maps ──────────────────────────────────
+  // The References section renders cascading company → sub-company selects inside a
+  // FieldArray. Previously each select rebuilt its option list inline by mapping the
+  // full company list on every render/keystroke — the main cause of the lag. Build
+  // them once and reuse via O(1) lookups.
+  const companyTypeOptions = useMemo(
+    () => companyTypes.map((ct) => ({ label: ct.name, value: ct.id })),
+    [companyTypes],
+  );
+  const contactOptions = useMemo(
+    () => contacts.map((c: any) => ({ label: c.fullName, value: c.id, avatar: c.profilePhoto })),
+    [contacts],
+  );
+  const employeeOptions = useMemo(
+    () =>
+      allEmployees.map((e: any) => ({
+        label: `${e.users?.firstName} ${e.users?.lastName}`,
+        value: e.id,
+      })),
+    [allEmployees],
+  );
+  const companyOptions = useMemo(
+    () => allCompanies.map((c: any) => ({ label: c.companyName, value: c.id })),
+    [allCompanies],
+  );
+  const companyById = useMemo(
+    () => new Map<string, any>(allCompanies.map((c: any) => [c.id, c])),
+    [allCompanies],
+  );
+  // companyTypeId → company options (for the "filter companies by type" cascade).
+  const companiesByTypeId = useMemo(() => {
+    const m = new Map<string, { label: string; value: string }[]>();
+    allCompanies.forEach((c: any) => {
+      const tid = c.companyTypeId;
+      if (!tid) return;
+      const arr = m.get(tid) || [];
+      arr.push({ label: c.companyName, value: c.id });
+      m.set(tid, arr);
+    });
+    return m;
+  }, [allCompanies]);
+  const subCompanyOptionsAll = useMemo(
+    () => subCompanies.map((s: any) => ({ label: s.subCompanyName, value: s.id })),
+    [subCompanies],
+  );
+  // companyId → its sub-company options.
+  const subCompaniesByCompanyId = useMemo(() => {
+    const m = new Map<string, { label: string; value: string }[]>();
+    allCompanies.forEach((c: any) => {
+      const subs = Array.isArray(c.subCompanies) ? c.subCompanies : [];
+      if (subs.length) {
+        m.set(
+          c.id,
+          subs.map((s: any) => ({ label: s.subCompanyName || s.name, value: s.id })),
+        );
+      }
+    });
+    return m;
+  }, [allCompanies]);
+
   useEffect(() => {
     const fetchContacts = async () => {
-      const response = await getAllClientContacts();
+      const response = await getAllClientContacts({}, true);
       setContacts(response.data.contacts);
     };
     fetchContacts();
@@ -261,7 +317,10 @@ const NewCompanyForm: React.FC<Props> = ({
 
   useEffect(() => {
     const fetchCompanies = async () => {
-      const response = await getAllClientCompanies();
+      // Light payload: the form only needs id, companyName, companyTypeId and the
+      // nested subCompanies for the References cascade — not the heavy nested
+      // references/mappings the full payload carries.
+      const response = await getAllClientCompanies(true);
       setAllCompanies(response.data.companies);
     };
     fetchCompanies();
@@ -469,15 +528,15 @@ const NewCompanyForm: React.FC<Props> = ({
 
                 return serviceIds;
               })(),
-              subServiceIds: Array.isArray(company.subServiceMappings)
-                ? company.subServiceMappings.map((m: any) => m.subServiceId || m.subService?.id).filter((id: any) => id)
-                : [],
+              subServiceIds: [],
               referenceType: company.references?.map((ref: any) => ({
                 referenceType: ref.referenceType || "",
                 internalReferenceEmployeeId: ref.internalReferenceEmployeeId || "",
                 externalReferenceContactId: ref.externalReferenceContactId || "",
                 externalReferenceCompanyTypeId: ref.externalReferenceCompanyTypeId || "",
-                externalReferenceCompanyId: ref.externalReferenceCompanyId || "",
+                // The referral company is stored in `referralCompanyId` (the
+                // `company_id`/externalReferenceCompanyId is the owning company).
+                externalReferenceCompanyId: ref.referralCompanyId || "",
                 externalReferenceSubCompanyId: ref.externalReferenceSubCompanyId || "",
               })) || [{
                 referenceType: "",
@@ -708,22 +767,6 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
-  // Load + refresh the hierarchical sub-services catalog.
-  const loadSubServices = async () => {
-    try {
-      const response = await getAllSubServices();
-      setSubServices(response?.subServices || []);
-    } catch (error) {
-      console.error('Error fetching sub-services:', error);
-    }
-  };
-  useEffect(() => {
-    loadSubServices();
-  }, []);
-  useEventBus(EVENT_KEYS.subServiceCreated, () => {
-    loadSubServices();
-  });
-
   const handleRefreshCompanyTypes = async () => {
     try {
       const types = await getAllCompanyTypes();
@@ -816,9 +859,18 @@ const NewCompanyForm: React.FC<Props> = ({
         city: cities.find((c) => c.id === values.city)?.name,
         gmbProfileUrl: values.gmbProfileUrl,
         googleMapsLink: values.googleMapsLink,
+        // Backend expects numbers; the form holds these as strings. Coerce, and drop
+        // invalid/empty values (finalCleanPayload strips undefined).
+        latitude:
+          values.latitude !== "" && Number.isFinite(Number(values.latitude))
+            ? Number(values.latitude)
+            : undefined,
+        longitude:
+          values.longitude !== "" && Number.isFinite(Number(values.longitude))
+            ? Number(values.longitude)
+            : undefined,
         references: references,
         services: values.services,
-        subServiceIds: values.subServiceIds || [],
         // Per-company custom form layout + inline values.
         sectionConfig: formSections,
         customSections: formSections,
@@ -866,8 +918,16 @@ const NewCompanyForm: React.FC<Props> = ({
       // Trigger data refresh in parent component
       // eventBus.emit('refreshCompanies');
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      // Surface the real reason instead of failing silently (which looked like
+      // "Save does nothing"). Handles both raw axios errors and unwrapped bodies.
+      const message =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        "Failed to save the company. Please review the form and try again.";
+      errorConfirmation(message);
     } finally {
       setSubmitting(false);
     }
@@ -1110,7 +1170,7 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
-                            <div className="col-md-4">
+                            <div className="col-md-12">
                               <TextInput
                                 formikField="companyName"
                                 label="Company Name"
@@ -1134,14 +1194,14 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             <div className="col-md-4">
-                              {/* Sub-type — children of the selected main type(s). */}
-                              <label className="d-flex align-items-center fs-6 form-label mb-2">Sub-type</label>
+                              {/* Services — children of the selected company type(s). */}
+                              <label className="d-flex align-items-center fs-6 form-label mb-2">Services</label>
                               <Select
                                 isMulti
                                 placeholder={
                                   (values.companyTypes || []).length === 0
                                     ? "Select a company type first…"
-                                    : "Select sub-type(s)..."
+                                    : "Select service(s)..."
                                 }
                                 classNamePrefix="react-select"
                                 className="react-select-styled"
@@ -1174,7 +1234,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             <div className="col-md-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
-                                inputLabel="Services"
+                                inputLabel="Sub-services"
                                 options={(() => {
                                   // Strict cascade: when a type/sub-type is chosen, show ONLY services
                                   // filed under it. No type chosen → show all. Broken-link (filed under a
@@ -1190,77 +1250,20 @@ const NewCompanyForm: React.FC<Props> = ({
                                   );
                                   return transformToOptions(visible);
                                 })()}
-                                placeholder="Select services..."
+                                placeholder="Select sub-services..."
                                 isRequired={false}
                                 onCreate={createNewCompanyService}
                                 onRefreshOptions={handleRefreshServices}
-                                createModalTitle="Create New Service"
-                                createButtonText="Add New Service"
-                                createFieldLabel="Service Name"
-                                createFieldPlaceholder="Enter service name..."
+                                createModalTitle="Create New Sub-service"
+                                createButtonText="Add New Sub-service"
+                                createFieldLabel="Sub-service Name"
+                                createFieldPlaceholder="Enter sub-service name..."
                               />
                               {((values.companyTypes || []).length > 0 || (values.subTypes || []).length > 0) && (
                                 <small className="text-muted d-block mt-1">
-                                  Showing services filed under the selected type(s). Assign services to a type in <b>Configure → Company Type &amp; Services</b>.
+                                  Showing sub-services filed under the selected service(s). Manage these in <b>Configure → Company Type &amp; Services</b>.
                                 </small>
                               )}
-                            </div>
-                          </div>
-
-                          {/* Sub-services — hierarchical children of the selected Services */}
-                          <div className="row g-3 mt-1">
-                            <div className="col-md-8">
-                              <label className="d-flex align-items-center fs-6 form-label mb-2">Sub-services</label>
-                              <Select
-                                isMulti
-                                placeholder={
-                                  (values.services || []).length === 0
-                                    ? "Select services first, or pick any sub-service"
-                                    : "Select sub-services..."
-                                }
-                                classNamePrefix="react-select"
-                                className="react-select-styled"
-                                options={(() => {
-                                  // Group sub-services by their parent service; when services are
-                                  // selected, show only those services' children.
-                                  const selected = new Set(values.services || []);
-                                  const groups: Record<string, { label: string; options: any[] }> = {};
-                                  subServices.forEach((ss: any) => {
-                                    if (selected.size && ss.parentServiceId && !selected.has(ss.parentServiceId)) return;
-                                    const parentName =
-                                      ss.parentService?.name ||
-                                      services.find((s: any) => s.id === ss.parentServiceId)?.name ||
-                                      "Other";
-                                    (groups[parentName] ||= { label: parentName, options: [] }).options.push({
-                                      value: ss.id,
-                                      label: ss.name,
-                                    });
-                                  });
-                                  // Sort the groups A–Z and each group's sub-services A–Z.
-                                  return Object.values(groups)
-                                    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true }))
-                                    .map((g) => ({ ...g, options: sortOptionsAlphabetically(g.options) }));
-                                })()}
-                                value={subServices
-                                  .filter((ss: any) => (values.subServiceIds || []).includes(ss.id))
-                                  .map((ss: any) => ({ value: ss.id, label: ss.name }))}
-                                onChange={(selectedOpts: any) =>
-                                  setFieldValue(
-                                    "subServiceIds",
-                                    (selectedOpts || []).map((o: any) => o.value)
-                                  )
-                                }
-                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                                menuPosition="fixed"
-                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-                              />
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowSubServiceModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Sub-service
-                              </small>
                             </div>
                           </div>
                         </div>
@@ -1361,12 +1364,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                               formikField={`referenceType.${index}.internalReferenceEmployeeId`}
                                               inputLabel="Referral Contact"
                                               isRequired={false}
-                                              options={allEmployees.map(
-                                                (employee) => ({
-                                                  label: `${employee.users?.firstName} ${employee.users?.lastName}`,
-                                                  value: employee.id,
-                                                })
-                                              )}
+                                              options={employeeOptions}
                                             />
                                           </div>
                                         )}
@@ -1379,12 +1377,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 formikField={`referenceType.${index}.externalReferenceCompanyTypeId`}
                                                 inputLabel="Referral Company Type"
                                                 isRequired={false}
-                                                options={companyTypes.map(
-                                                  (ct) => ({
-                                                    label: ct.name,
-                                                    value: ct.id,
-                                                  })
-                                                )}
+                                                options={companyTypeOptions}
                                                 onChange={(option: any) => {
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyTypeId`, option?.value || "");
                                                   // Clear company selection when company type changes
@@ -1398,30 +1391,11 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 formikField={`referenceType.${index}.externalReferenceCompanyId`}
                                                 inputLabel="Referral Company"
                                                 isRequired={false}
-                                                options={(() => {
-                                                  const selectedCompanyTypeId = reference.externalReferenceCompanyTypeId;
-
-                                                  if (!selectedCompanyTypeId) {
-                                                    return allCompanies.map((company) => ({
-                                                      label: company.companyName,
-                                                      value: company.id,
-                                                    }));
-                                                  }
-
-                                                  const filteredCompanies = allCompanies.filter((company) => {
-                                                    // Check if companyTypeId is an array
-                                                    if (Array.isArray(company.companyTypeId)) {
-                                                      return company.companyTypeId.includes(selectedCompanyTypeId);
-                                                    }
-                                                    // Check if it's a direct string match
-                                                    return company.companyTypeId === selectedCompanyTypeId;
-                                                  });
-
-                                                  return filteredCompanies.map((company) => ({
-                                                    label: company.companyName,
-                                                    value: company.id,
-                                                  }));
-                                                })()}
+                                                options={
+                                                  reference.externalReferenceCompanyTypeId
+                                                    ? (companiesByTypeId.get(reference.externalReferenceCompanyTypeId) || [])
+                                                    : companyOptions
+                                                }
                                                 placeholder={
                                                   !reference.externalReferenceCompanyTypeId
                                                     ? "Please select company type first"
@@ -1435,9 +1409,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 value={
                                                   reference.externalReferenceCompanyId
                                                     ? {
-                                                        label: allCompanies.find(
-                                                          (c) => c.id === reference.externalReferenceCompanyId
-                                                        )?.companyName,
+                                                        label: companyById.get(reference.externalReferenceCompanyId)?.companyName,
                                                         value: reference.externalReferenceCompanyId,
                                                       }
                                                     : null
@@ -1450,34 +1422,11 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 formikField={`referenceType.${index}.externalReferenceSubCompanyId`}
                                                 inputLabel="Referral Sub Company"
                                                 isRequired={false}
-                                                options={(() => {
-                                                  const selectedCompanyId = reference.externalReferenceCompanyId;
-
-                                                  if (!selectedCompanyId) {
-                                                    return subCompanies.map((subCompany) => ({
-                                                      label: subCompany.subCompanyName,
-                                                      value: subCompany.id,
-                                                    }));
-                                                  }
-
-                                                  // Find the selected company
-                                                  const selectedCompany = allCompanies.find(
-                                                    (company) => company.id === selectedCompanyId
-                                                  );
-
-                                                  if (!selectedCompany || !selectedCompany.subCompanies) {
-                                                    return [];
-                                                  }
-
-                                                  const companySubCompanies = Array.isArray(selectedCompany.subCompanies)
-                                                    ? selectedCompany.subCompanies
-                                                    : [];
-
-                                                  return companySubCompanies.map((subCompany:any) => ({
-                                                    label: subCompany.subCompanyName || subCompany.name,
-                                                    value: subCompany.id,
-                                                  }));
-                                                })()}
+                                                options={
+                                                  reference.externalReferenceCompanyId
+                                                    ? (subCompaniesByCompanyId.get(reference.externalReferenceCompanyId) || [])
+                                                    : subCompanyOptionsAll
+                                                }
                                                 placeholder={
                                                   !reference.externalReferenceCompanyId
                                                     ? "Please select company first"
@@ -1488,18 +1437,9 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 }}
                                                 value={
                                                   reference.externalReferenceSubCompanyId
-                                                    ? (() => {
-                                                        const selectedCompany = allCompanies.find(
-                                                          (c) => c.id === reference.externalReferenceCompanyId
-                                                        );
-                                                        const subCompany = selectedCompany?.subCompanies?.find(
-                                                          (sc: any) => sc.id === reference.externalReferenceSubCompanyId
-                                                        );
-                                                        return subCompany ? {
-                                                          label: subCompany.subCompanyName || subCompany.name,
-                                                          value: subCompany.id,
-                                                        } : null;
-                                                      })()
+                                                    ? (subCompaniesByCompanyId
+                                                        .get(reference.externalReferenceCompanyId || "")
+                                                        ?.find((o) => o.value === reference.externalReferenceSubCompanyId) || null)
                                                     : null
                                                 }
                                               />
@@ -1510,13 +1450,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 formikField={`referenceType.${index}.externalReferenceContactId`}
                                                 inputLabel="Referral Contact"
                                                 isRequired={false}
-                                                options={contacts.map(
-                                                  (contact) => ({
-                                                    label: contact.fullName,
-                                                    value: contact.id,
-                                                    avatar: contact.profilePhoto
-                                                  })
-                                                )}
+                                                options={contactOptions}
                                                 showColor={true}
                                               />
                                             </div>
@@ -2143,12 +2077,6 @@ const NewCompanyForm: React.FC<Props> = ({
           setShowSchemaManager(false);
         }}
         onClose={() => setShowSchemaManager(false)}
-      />
-      <SubServiceModal
-        show={showSubServiceModal}
-        onClose={() => setShowSubServiceModal(false)}
-        services={services}
-        onCreated={() => loadSubServices()}
       />
     </>
   );

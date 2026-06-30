@@ -74,6 +74,7 @@ const PendingRequestsTable = () => {
   const [batchRejectTarget, setBatchRejectTarget] = useState<BatchRow | null>(null);
   const [batchRejectSubmitting, setBatchRejectSubmitting] = useState(false);
   const [batchProcessingId, setBatchProcessingId] = useState<string | null>(null);
+  const [trackingBatchRow, setTrackingBatchRow] = useState<BatchRow | null>(null);
 
   const [employeeThresholds, setEmployeeThresholds] = useState<any>([]);
   const [earlyCheckOutThreshold, setEarlyCheckOutThreshold] = useState('');
@@ -104,10 +105,11 @@ const PendingRequestsTable = () => {
     }
   }, []);
 
-  const openTracker = async (requestId: string, requestModel: 'AttendanceRequests' | 'LeaveTracker' | 'ReimbursementBatch') => {
+  const openTracker = useCallback(async (requestId: string, requestModel: 'AttendanceRequests' | 'LeaveTracker' | 'ReimbursementBatch', batchRow?: BatchRow) => {
     setTrackingId(requestId);
     setTrackInstanceId(null);
     setTrackInstanceLoading(true);
+    setTrackingBatchRow(batchRow ?? null);
     try {
       const res = await fetchApprovalInstanceByRequest(requestModel, requestId);
       const instance = res?.data ?? res;
@@ -117,7 +119,7 @@ const PendingRequestsTable = () => {
     } finally {
       setTrackInstanceLoading(false);
     }
-  };
+  }, []);
 
   // Fetch pending attendance requests
   const fetchAttendanceRequests = useCallback(async () => {
@@ -589,18 +591,14 @@ const PendingRequestsTable = () => {
     [leaveTypeColors, actionableApprovals, approvalProcessingId, approveWorkflowRequest, fetchLeaveRequests]
   );
 
+  const reimbursementTotal = useMemo(
+    () => reimbursementBatches.reduce((sum, b) => sum + Number(b.totalAmount || 0), 0),
+    [reimbursementBatches],
+  );
+
   // Reimbursement batch columns (same as Approval → Reimbursement)
   const reimbursementColumns = useMemo<MRT_ColumnDef<BatchRow>[]>(
     () => [
-      {
-        accessorKey: 'employee.employeeCode',
-        header: 'Employee ID',
-        size: 130,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => (
-          <span className='text-dark fw-semibold fs-7'>{row.original.employee?.employeeCode || '—'}</span>
-        ),
-      },
       {
         accessorKey: 'employeeName',
         header: 'Employee Name',
@@ -620,6 +618,7 @@ const PendingRequestsTable = () => {
             </button>
           );
         },
+        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
       },
       {
         accessorKey: 'totalAmount',
@@ -627,6 +626,7 @@ const PendingRequestsTable = () => {
         size: 150,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }) => <span className='text-dark fs-7'>₹{fmtAmount(row.original.totalAmount)}</span>,
+        Footer: () => <span className='text-dark fw-bold fs-7'>₹{fmtAmount(reimbursementTotal)}</span>,
       },
       {
         accessorKey: 'totalRequests',
@@ -654,41 +654,54 @@ const PendingRequestsTable = () => {
       {
         accessorKey: 'actions',
         header: 'Action',
-        size: 120,
+        size: 160,
         enableSorting: false,
         enableColumnActions: false,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }: any) => {
-          const r = row.original;
+          const r = row.original as BatchRow;
+          const isActionable = actionableApprovals.has(r.id);
           const isProcessing = batchProcessingId === r.id;
           return (
-            <div className='d-flex gap-2 align-items-center'>
+            <div className='d-flex align-items-center gap-1'>
+              {isActionable && (
+                <>
+                  <button
+                    type='button'
+                    className='btn btn-icon btn-sm'
+                    title='Approve'
+                    disabled={isProcessing}
+                    onClick={(e) => { e.stopPropagation(); handleBatchApprove(r); }}
+                  >
+                    {isProcessing
+                      ? <span className='spinner-border spinner-border-sm text-success' />
+                      : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='Approve' />
+                    }
+                  </button>
+                  <button
+                    type='button'
+                    className='btn btn-icon btn-sm'
+                    title='Reject'
+                    disabled={isProcessing}
+                    onClick={(e) => { e.stopPropagation(); setBatchRejectTarget(r); }}
+                  >
+                    <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='Reject' />
+                  </button>
+                </>
+              )}
               <button
-                className='btn btn-icon btn-sm rounded-circle'
-                style={{ background: '#10b981', color: 'white', width: 32, height: 32, minWidth: 32, padding: 0 }}
-                title='Approve'
-                disabled={isProcessing}
-                onClick={() => handleBatchApprove(r)}
+                className='btn btn-icon btn-bg-light btn-active-color-info btn-sm'
+                title='View Approval Status'
+                onClick={(e) => { e.stopPropagation(); openTracker(r.id, 'ReimbursementBatch', r); }}
               >
-                {isProcessing
-                  ? <span className='spinner-border spinner-border-sm' style={{ color: 'white', width: 14, height: 14 }} />
-                  : <i className='bi bi-check-lg fs-6' style={{ color: 'white' }} />}
-              </button>
-              <button
-                className='btn btn-icon btn-sm rounded-circle'
-                style={{ background: '#ef4444', color: 'white', width: 32, height: 32, minWidth: 32, padding: 0 }}
-                title='Reject'
-                disabled={isProcessing}
-                onClick={() => setBatchRejectTarget(r)}
-              >
-                <i className='bi bi-x-lg fs-6' style={{ color: 'white' }} />
+                <KTIcon iconName='map' className='fs-3' />
               </button>
             </div>
           );
         },
       },
     ],
-    [batchProcessingId, openBatchDetail, handleBatchApprove]
+    [openBatchDetail, openTracker, reimbursementTotal, actionableApprovals, batchProcessingId, handleBatchApprove, setBatchRejectTarget]
   );
 
   if (isLoading) {
@@ -929,6 +942,7 @@ const PendingRequestsTable = () => {
             hideFilters={true}
             hideExportCenter={false}
             hidePagination={true}
+            showColumnFooter={true}
             enableSorting={false}
             enableColumnActions={false}
             enableFilters={false}
@@ -945,6 +959,10 @@ const PendingRequestsTable = () => {
                 "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
                 "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
               },
+              muiTableBodyRowProps: ({ row }: any) => ({
+                onClick: () => openBatchDetail(row.original),
+                sx: { cursor: 'pointer' },
+              }),
             }}
             muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
           />
@@ -969,10 +987,10 @@ const PendingRequestsTable = () => {
       title='Reject Reimbursement Batch'
     />
 
-    {/* Approval tracker for attendance / leaves */}
+    {/* Approval tracker for attendance / leaves / reimbursements */}
     <Modal
       show={!!trackingId}
-      onHide={() => { setTrackingId(null); setTrackInstanceId(null); }}
+      onHide={() => { setTrackingId(null); setTrackInstanceId(null); setTrackingBatchRow(null); }}
       centered
       size='lg'
     >
@@ -1013,17 +1031,13 @@ const PendingRequestsTable = () => {
         <textarea
           rows={3}
           className='form-control'
-          placeholder='Describe why this request is being rejected (min 10 characters)…'
+          placeholder='Describe why this request is being rejected…'
           value={approvalRejectReason}
           onChange={(e) => setApprovalRejectReason(e.target.value)}
           style={{ resize: 'vertical', fontSize: 13 }}
           disabled={approvalRejectSubmitting}
         />
-        {approvalRejectReason.trim().length > 0 && approvalRejectReason.trim().length < 10 && (
-          <div style={{ fontSize: 11, color: '#f1416c', marginTop: 4 }}>
-            Reason must be at least 10 characters ({approvalRejectReason.trim().length}/10)
-          </div>
-        )}
+
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
         <button
@@ -1036,7 +1050,7 @@ const PendingRequestsTable = () => {
         <button
           className='btn btn-sm btn-danger d-flex align-items-center gap-2'
           onClick={confirmWorkflowReject}
-          disabled={approvalRejectReason.trim().length < 10 || approvalRejectSubmitting}
+          disabled={approvalRejectReason.trim().length === 0 || approvalRejectSubmitting}
         >
           {approvalRejectSubmitting && <span className='spinner-border spinner-border-sm' />}
           Confirm Rejection

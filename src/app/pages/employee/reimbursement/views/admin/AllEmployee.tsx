@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
@@ -18,6 +19,8 @@ import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
+import { useEventBus } from '@hooks/useEventBus';
+import { EVENT_KEYS } from '@constants/eventKeys';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,6 +48,8 @@ interface EmployeeSummary {
   totalApprovedAmount: number;
   totalPendingAmount: number;
   totalRejectedAmount: number;
+  totalPaidAmount: number;
+  totalRemainingAmount: number;
   totalRequests: number;
   approvedCount: number;
   pendingCount: number;
@@ -59,6 +64,7 @@ const fmtINR = (n: number) =>
 // ── Component ─────────────────────────────────────────────────────────────────
 
 function AllEmployee() {
+  const navigate = useNavigate();
   const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
   const [month, setMonth] = useState<Dayjs>(dayjs());
   const [year, setYear] = useState<Dayjs>(dayjs());
@@ -127,6 +133,9 @@ function AllEmployee() {
     fetchReimbursements();
   }, [fetchReimbursements]);
 
+  // Refresh when any reimbursement changes on any connected client (WebSocket)
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { fetchReimbursements(); });
+
   // ── Navigation handlers ───────────────────────────────────────────────────
 
   const handlePrevMonth = useCallback(() => setMonth(m => m.subtract(1, 'month')), []);
@@ -157,6 +166,8 @@ function AllEmployee() {
           totalApprovedAmount: 0,
           totalPendingAmount: 0,
           totalRejectedAmount: 0,
+          totalPaidAmount: 0,
+          totalRemainingAmount: 0,
           totalRequests: 0,
           approvedCount: 0,
           pendingCount: 0,
@@ -172,6 +183,11 @@ function AllEmployee() {
       if (r.status === 'Approved' || r.status === 1) {
         emp.totalApprovedAmount += amount;
         emp.approvedCount += 1;
+        if (r.paymentStatus === 'PAID') {
+          emp.totalPaidAmount += amount;
+        } else {
+          emp.totalRemainingAmount += amount;
+        }
       } else if (r.status === 'Pending' || r.status === 0) {
         emp.totalPendingAmount += amount;
         emp.pendingCount += 1;
@@ -218,9 +234,11 @@ function AllEmployee() {
         acc.totalApprovedAmount += emp.totalApprovedAmount;
         acc.totalPendingAmount += emp.totalPendingAmount;
         acc.totalRejectedAmount += emp.totalRejectedAmount;
+        acc.totalPaidAmount += emp.totalPaidAmount;
+        acc.totalRemainingAmount += emp.totalRemainingAmount;
         return acc;
       },
-      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0 }
+      { totalRequestAmount: 0, totalApprovedAmount: 0, totalPendingAmount: 0, totalRejectedAmount: 0, totalPaidAmount: 0, totalRemainingAmount: 0 }
     );
   }, [filteredSummaries]);
 
@@ -241,6 +259,8 @@ function AllEmployee() {
         acc.totalApprovedAmount += r.totalApprovedAmount;
         acc.totalPendingAmount += r.totalPendingAmount;
         acc.totalRejectedAmount += r.totalRejectedAmount;
+        acc.totalPaidAmount += r.totalPaidAmount;
+        acc.totalRemainingAmount += r.totalRemainingAmount;
         acc.totalRequests += r.totalRequests;
         acc.approvedCount += r.approvedCount;
         acc.pendingCount += r.pendingCount;
@@ -250,6 +270,7 @@ function AllEmployee() {
       {
         totalRequestAmount: 0, totalApprovedAmount: 0,
         totalPendingAmount: 0, totalRejectedAmount: 0,
+        totalPaidAmount: 0, totalRemainingAmount: 0,
         totalRequests: 0, approvedCount: 0, pendingCount: 0, rejectedCount: 0,
       }
     );
@@ -355,8 +376,10 @@ function AllEmployee() {
     { key: 'totalRequestAmount',   header: 'Total Request Amount',    type: 'currency' as const, showTotal: true },
     { key: 'totalApprovedAmount',  header: 'Total Approved Amount',   type: 'currency' as const, showTotal: true },
     { key: 'totalPendingAmount',   header: 'Total Pending Amount',    type: 'currency' as const, showTotal: true },
-    { key: 'totalRejectedAmount',  header: 'Total Rejected Amount',   type: 'currency' as const, showTotal: true },
-    { key: 'totalRequests',        header: 'Total Requests',          type: 'number'   as const, showTotal: true },
+    { key: 'totalRejectedAmount',   header: 'Total Rejected Amount',   type: 'currency' as const, showTotal: true },
+    { key: 'totalPaidAmount',       header: 'Total Amount Paid',       type: 'currency' as const, showTotal: true },
+    { key: 'totalRemainingAmount',  header: 'Total Amount Remaining',  type: 'currency' as const, showTotal: true },
+    { key: 'totalRequests',         header: 'Total Requests',          type: 'number'   as const, showTotal: true },
     { key: 'approvedCount',        header: 'Requests Approved',       type: 'number'   as const, showTotal: true },
     { key: 'pendingCount',         header: 'Requests Pending',        type: 'number'   as const, showTotal: true },
     { key: 'rejectedCount',        header: 'Requests Rejected',       type: 'number'   as const, showTotal: true },
@@ -390,6 +413,8 @@ function AllEmployee() {
         totalApprovedAmount={cardTotals.totalApprovedAmount}
         totalPendingAmount={cardTotals.totalPendingAmount}
         totalRejectedAmount={cardTotals.totalRejectedAmount}
+        totalPaidAmount={cardTotals.totalPaidAmount}
+        totalRemainingAmount={cardTotals.totalRemainingAmount}
         isLoading={isLoading}
       />
 
@@ -413,15 +438,13 @@ function AllEmployee() {
           )}
           columns={[
             {
-              accessorKey: 'employeeCode',
-              header: 'ID',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-              Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
-            },
-            {
               accessorKey: 'name',
               header: 'Name',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
+              Cell: ({ renderedCellValue, row }: any) => (
+                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
+                  {renderedCellValue || 'N/A'}
+                </span>
+              ),
             },
             {
               accessorKey: 'subOrganization',
@@ -440,7 +463,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'totalRequestAmount',
-              header: 'Total Request Amount',
+              header: 'Total Requested Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 return val > 0 ? fmtINR(val) : '₹0';
@@ -462,10 +485,29 @@ function AllEmployee() {
               header: 'Total Pending Amount',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                if (!val) return '-';
                 return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtINR(val)}</span>;
               },
               Footer: () => <span style={{ color: '#0891b2' }}>{fmtINR(columnTotals.totalPendingAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalPaidAmount',
+              header: 'Total Paid Amount',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#7c3aed' }}>{fmtINR(columnTotals.totalPaidAmount)}</span>,
+            },
+            {
+              accessorKey: 'totalRemainingAmount',
+              header: 'Total Remaining Amount',
+              Cell: ({ renderedCellValue }: any) => {
+                const val = Number(renderedCellValue);
+                if (!val) return '-';
+                return <span style={{ color: '#ea580c', fontWeight: 600 }}>{fmtINR(val)}</span>;
+              },
+              Footer: () => <span style={{ color: '#ea580c' }}>{fmtINR(columnTotals.totalRemainingAmount)}</span>,
             },
             {
               accessorKey: 'totalRejectedAmount',
@@ -485,7 +527,7 @@ function AllEmployee() {
             },
             {
               accessorKey: 'approvedCount',
-              header: 'Requests Approved',
+              header: 'Total Approved Requests',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -495,17 +537,16 @@ function AllEmployee() {
             },
             {
               accessorKey: 'pendingCount',
-              header: 'Requests Pending',
+              header: 'Total Pending Requests',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
-                if (!val) return '-';
                 return <span style={{ color: '#0891b2', fontWeight: 600 }}>{val}</span>;
               },
               Footer: () => <span style={{ color: '#0891b2' }}>{columnTotals.pendingCount}</span>,
             },
             {
               accessorKey: 'rejectedCount',
-              header: 'Requests Rejected',
+              header: 'Total Rejected Requests',
               Cell: ({ renderedCellValue }: any) => {
                 const val = Number(renderedCellValue);
                 if (!val) return '-';
@@ -519,6 +560,15 @@ function AllEmployee() {
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => ({
+              onClick: () => {
+                const empId = row.original.employeeId;
+                if (empId) navigate('/finance/bills', { state: { goToSearchEmployee: true, employeeId: empId } });
+              },
+              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
+            }),
+          }}
         />
       </div>
     </>

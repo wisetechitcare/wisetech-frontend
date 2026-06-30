@@ -1,11 +1,11 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import DetailsModal from "@pages/employee/leads/lead/DetailsModal";
 import { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
@@ -50,9 +50,7 @@ const MyEmployeeTimeSheetToggle = ({
     dateSettingsEnabled,
 }: MaterialToggleProps) => {
     const today = useMemo(() => dayjs(), []);
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    
+
     // Core state
     const [alignment, setAlignment] = useState("daily");
     const [startDate, setStartDate] = useState<Dayjs | null>(today);
@@ -193,26 +191,6 @@ const MyEmployeeTimeSheetToggle = ({
         }
     }, [alignment]);
 
-    // Navigation button component
-    const NavigationButtons = useMemo(() => ({
-        onPrev,
-        onNext,
-        displayText,
-    }: {
-        onPrev: () => void;
-        onNext: () => void;
-        displayText: string;
-    }) => (
-        <div className="d-flex align-items-center">
-            <button className="btn btn-sm p-0" onClick={onPrev} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-            </button>
-            <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-            <button className="btn btn-sm p-0" onClick={onNext} type="button">
-                <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-            </button>
-        </div>
-    ), []);
 
     // Display text calculations
     const displayText = useMemo(() => {
@@ -261,100 +239,32 @@ const MyEmployeeTimeSheetToggle = ({
                     {/* Optional content */}
                 </div>
                 <div className="d-flex flex-row justify-content-end align-items-center gap-4">
-                    <div className="d-flex flex-column align-items-center d-md-block">
-                        {isMobile ? (
-                            <TimePeriodDropdown
-                                value={alignment}
-                                onChange={(e) => handleAlignmentChange(e as any, e.target.value)}
-                                fullWidth
-                                showCustom={false}
-                            />
-                        ) : (
-                            <ToggleButtonGroup
-                                value={alignment}
-                                exclusive
-                                onChange={handleAlignmentChange}
-                                aria-label="view selection"
-                                sx={{
-                                    display: "flex",
-                                    flexWrap: "wrap",
-                                    gap: "8px",
-                                    justifyContent: "center",
-                                    width: "100%",
-                                    "& .MuiToggleButton-root": {
-                                        borderRadius: "20px",
-                                        borderColor: "#A0B4D2 !important",
-                                        color: "#000000 !important",
-                                        paddingX: {
-                                            xs: "32px",
-                                            md: "45px",
-                                        },
-                                        borderWidth: "2px",
-                                        fontWeight: "600",
-                                        width: {
-                                            xs: "65px",
-                                            sm: "75px",
-                                        },
-                                        fontSize: {
-                                            xs: "10px",
-                                            sm: "12px",
-                                        },
-                                        height: { xs: "30px", sm: "36px" },
-                                        fontFamily: "Inter",
-                                        backgroundColor: "transparent !important",
-                                        "&:hover": {
-                                            backgroundColor: "transparent !important",
-                                            borderColor: "#9D4141 !important",
-                                            color: "#9D4141 !important",
-                                        },
-                                    },
-                                    "& .Mui-selected": {
-                                        borderColor: "#9D4141 !important",
-                                        color: "#9D4141 !important",
-                                        backgroundColor: "transparent !important",
-                                    },
-                                }}
-                            >
-                                <ToggleButton value="daily">Daily</ToggleButton>
-                                <ToggleButton value="weekly">Weekly</ToggleButton>
-                                <ToggleButton value="monthly">Monthly</ToggleButton>
-                                <ToggleButton value="yearly">Yearly</ToggleButton>
-                            </ToggleButtonGroup>
-                        )}
-                    </div>
-                    <div>
-                        {alignment === "daily" && (
-                            <NavigationButtons
-                                onPrev={() => navigateDaily("prev")}
-                                onNext={() => navigateDaily("next")}
-                                displayText={displayText}
-                            />
-                        )}
-
-                        {alignment === "weekly" && (
-                            <NavigationButtons
-                                onPrev={() => navigateWeekly("prev")}
-                                onNext={() => navigateWeekly("next")}
-                                displayText={displayText}
-                            />
-                        )}
-
-                        {alignment === "monthly" && (
-                            <NavigationButtons
-                                onPrev={() => navigateMonthly("prev")}
-                                onNext={() => navigateMonthly("next")}
-                                displayText={displayText}
-                            />
-                        )}
-
-                        {alignment === "yearly" && (
-                            <NavigationButtons
-                                onPrev={() => navigateYearly("prev")}
-                                onNext={() => navigateYearly("next")}
-                                displayText={displayText}
-                            />
-                        )}
-                    </div>
+                    <PeriodTabs
+                        value={alignment}
+                        options={[
+                            { label: 'Daily', value: 'daily' },
+                            { label: 'Weekly', value: 'weekly' },
+                            { label: 'Monthly', value: 'monthly' },
+                            { label: 'Yearly', value: 'yearly' },
+                        ]}
+                        onChange={(val) => handleAlignmentChange(null as any, val)}
+                        ariaLabel="view selection"
+                    />
+                    <PeriodNavigator
+                        label={displayText}
+                        onPrevious={() => {
+                            if (alignment === "daily") navigateDaily("prev");
+                            else if (alignment === "weekly") navigateWeekly("prev");
+                            else if (alignment === "monthly") navigateMonthly("prev");
+                            else if (alignment === "yearly") navigateYearly("prev");
+                        }}
+                        onNext={() => {
+                            if (alignment === "daily") navigateDaily("next");
+                            else if (alignment === "weekly") navigateWeekly("next");
+                            else if (alignment === "monthly") navigateMonthly("next");
+                            else if (alignment === "yearly") navigateYearly("next");
+                        }}
+                    />
                 </div>
             </div>
 

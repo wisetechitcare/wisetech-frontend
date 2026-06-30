@@ -2,9 +2,42 @@ import { Field, useField } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import  Select  from "react-select";
 import { useState, useMemo } from "react";
+import { FixedSizeList as List } from "react-window";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
 import { ColourOption, SingleValue, DropdownIndicator } from "./ColorInDropdwon";
+
+// Plain react-select renders EVERY option to the DOM, so menus with thousands of
+// options (e.g. the full contacts list) are slow to open and scroll. For large lists
+// we swap in a windowed MenuList that only renders the visible rows. Small lists keep
+// the default rendering so nothing changes for the rest of the app.
+const VIRTUALIZE_THRESHOLD = 80;
+const OPTION_ROW_HEIGHT = 40; // fits the avatar/colour option rows (25px icon + padding)
+
+function VirtualizedMenuList(props: any) {
+    const { options, children, maxHeight, getValue } = props;
+    // react-select passes a single element (e.g. "No options") when there's nothing to list.
+    if (!Array.isArray(children)) return children;
+
+    const selected = (getValue && getValue()) || [];
+    const selectedIndex = selected.length
+        ? options.findIndex((o: any) => o.value === selected[0]?.value)
+        : -1;
+    const initialOffset = selectedIndex > 0 ? selectedIndex * OPTION_ROW_HEIGHT : 0;
+    const height = Math.min(maxHeight, children.length * OPTION_ROW_HEIGHT);
+
+    return (
+        <List
+            height={height}
+            itemCount={children.length}
+            itemSize={OPTION_ROW_HEIGHT}
+            initialScrollOffset={initialOffset}
+            width="100%"
+        >
+            {({ index, style }: any) => <div style={style}>{children[index]}</div>}
+        </List>
+    );
+}
 
 interface DropDownInputProps {
     isRequired: boolean;
@@ -181,11 +214,14 @@ function DropDownInput({
             className={`react-select-styled ${hasError ? "is-invalid" : ""}`}
             value={selectedValue}
             isDisabled={disabled}
-            components={showColor ? {
-                Option: ColourOption,
-                SingleValue,
-                DropdownIndicator
-            } : undefined}
+            components={{
+                ...(sortedOptions.length > VIRTUALIZE_THRESHOLD ? { MenuList: VirtualizedMenuList } : {}),
+                ...(showColor ? {
+                    Option: ColourOption,
+                    SingleValue,
+                    DropdownIndicator,
+                } : {}),
+            }}
             styles={getCustomStyles(showColor ? selectedValue?.color : undefined)}
             menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
             menuPosition="fixed"

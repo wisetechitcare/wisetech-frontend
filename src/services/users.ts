@@ -103,3 +103,25 @@ export const getLeadPeriodPreference = async () => {
         throw error;
     }
 };
+
+// POST: Save attendance period preference
+export const saveAttendancePeriodPreference = async (period: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}${USERS.SAVE_ATTENDANCE_PERIOD_PREFERENCE}`;
+        const { data } = await axios.post(endpoint, { period });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// GET: Get attendance period preference
+export const getAttendancePeriodPreference = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}${USERS.GET_ATTENDANCE_PERIOD_PREFERENCE}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
