@@ -5,6 +5,7 @@ import AnalyticsHeader from "./AnalyticsHeader";
 import PipelinePerformance from "./PipelinePerformance";
 import LeadServiceTreemap from "./LeadServiceTreemap";
 import RankedBarChart from "./RankedBarChart";
+import AcquisitionGauge from "./AcquisitionGauge";
 import CategorySunburst from "./CategorySunburst";
 import {
   ChartDatum,
@@ -174,21 +175,21 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             {showSource && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
-                  <RankedBarChart data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
+                  <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
             {showReferral && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
-                  <RankedBarChart data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
+                  <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
             {showDirect && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
-                  <RankedBarChart data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
+                  <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
