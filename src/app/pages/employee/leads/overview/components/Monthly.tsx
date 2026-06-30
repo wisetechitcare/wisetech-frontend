@@ -676,12 +676,20 @@ const Monthly = ({ month, endDate }: Props) => {
           />
         </div>
 
-        {/* Featured Analytics Row */}
-        <div className="col-12 mb-2">
-          <MonthlyLeadsChart
-            startDate={startDate}
-            endDate={endDates}
+        {/* Daily Inquiry Trend */}
+        <div className="col-12">
+          <AnalyticsHeader
+            title="Daily Inquiry Trend"
+            subtitle="Cumulative inquiries, forecast, and target tracking"
+            icon="bi-graph-up"
+            accent="#3B82F6"
           />
+          <div className="mt-3">
+            <MonthlyLeadsChart
+              startDate={startDate}
+              endDate={endDates}
+            />
+          </div>
         </div>
 
         {/* Lead By Company Type */}
