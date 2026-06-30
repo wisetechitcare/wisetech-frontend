@@ -481,9 +481,10 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
         const transformedLeads = leadsData.map((lead: any) => {
           const project = lead?.project || null;
+          const exec = lead?.execution || null;
           const isProject = isProjectEntity(lead);
-          const s = project?.startDate ? new Date(project.startDate) : null;
-          const e = project?.endDate ? new Date(project.endDate) : null;
+          const s = (lead?.startDate || project?.startDate) ? new Date(lead?.startDate || project.startDate) : null;
+          const e = (lead?.endDate || project?.endDate) ? new Date(lead?.endDate || project.endDate) : null;
           const duration =
             s && e
               ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
@@ -530,11 +531,16 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             cityId,
             state: statesMap.get(String(stateId))?.name || String(stateId),
             stateId,
+            // Area home order: summed commercial work-areas first, then the
+            // technical-spec areas (project → built-up → plot), so a record with
+            // specs but no commercial rows still shows its area instead of blank.
             area:
               (Array.isArray(lead.commercials) && lead.commercials.length > 0
-                ? lead.commercials[0]?.area
-                : null) ||
-              lead?.additionalDetails?.projectArea ||
+                ? lead.commercials.reduce((acc: number, c: any) => acc + (parseFloat(c.area) || 0), 0)
+                : 0) ||
+              parseFloat(lead?.additionalDetails?.projectArea) ||
+              parseFloat(lead?.additionalDetails?.builtUpArea) ||
+              parseFloat(lead?.additionalDetails?.plotArea) ||
               lead?.addresses?.[0]?.projectArea ||
               "",
             cost: commercialsTotal,
@@ -553,23 +559,25 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             isProject,
             entityPhase: getProjectPhase(lead),
             isDelayed: isDelayedProject(lead),
+            // Lead-as-master: project-only fields live on the 1:1 execution
+            // extension + lead scalars now; the legacy `project` row is a fallback.
             projectId: lead?.projectId || project?.id || "",
             projectPrefix: project?.prefix || "",
-            projectStatus: project?.status || null,
-            projectStartDate: project?.startDate || "",
-            projectEndDate: project?.endDate || "",
-            projectManagerId: project?.projectManagerId || "",
-            projectTeamName: project?.team?.name || "",
+            projectStatus: exec?.projectStatus || project?.status || null,
+            projectStartDate: lead?.startDate || project?.startDate || "",
+            projectEndDate: lead?.endDate || project?.endDate || "",
+            projectManagerId: exec?.projectManagerId || project?.projectManagerId || "",
+            projectTeamName: exec?.team?.name || project?.team?.name || "",
             projectTeams: project?.projectTeams || [],
             projectCompanyMappings: project?.projectCompanyMappings || [],
-            projectCost: parseFloat(project?.cost) || 0,
-            projectRate: parseFloat(project?.rate) || 0,
+            projectCost: parseFloat(exec?.cost ?? project?.cost) || 0,
+            projectRate: parseFloat(exec?.rate ?? project?.rate) || 0,
             projectServiceId: project?.serviceId || "",
             projectCategoryId: project?.projectCategoryId || "",
             projectCountry: project?.country || "",
             projectState: project?.state || "",
             projectCity: project?.city || "",
-            projectIsLive: project?.isLive || false,
+            projectIsLive: exec?.isLive ?? project?.isLive ?? false,
           };
         });
 

@@ -748,7 +748,10 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                             ? `${item.label.slice(0, 18)}...`
                             : item.label}
                         </span>
-                        {totalCost > 0 ? (
+                        {/* Show the segment's revenue only when there is one — the
+                            count-based breakdowns (status/service/category/source)
+                            carry no cost, so we render nothing instead of "N/A". */}
+                        {totalCost > 0 && (
                           <span
                             style={{
                               fontFamily: "Inter",
@@ -761,12 +764,6 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
                               currency: "INR",
                             })}
                           </span>
-                        ) : (
-                          <span style={{
-                            fontFamily: "Inter",
-                            fontSize: "12px",
-                            color: "#808A98",
-                          }}>N/A</span>
                         )}
 
                       </div>

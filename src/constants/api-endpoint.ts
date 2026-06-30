@@ -490,6 +490,7 @@ export const LEAD_PROJECT_COMPANY = {
     GET_LEAD_BRANCHES_BY_COMPANY_ID: 'api/lead-project-companies/lead-branches/company/:companyId',
 
     GET_LEADS_BY_STATUS_ANALYTICS: "api/lead-project-companies/lead-analytics/status",
+    GET_PROJECTS_BY_STATUS_ANALYTICS: "api/lead-project-companies/lead-analytics/project-status",
     GET_LEADS_BY_SERVICE_ANALYTICS: "api/lead-project-companies/lead-analytics/service",
     GET_LEADS_BY_PROJECT_CATEGORY_ANALYTICS: "api/lead-project-companies/lead-analytics/project-category",
     GET_LEADS_BY_SUBCATEGORY_ANALYTICS: "api/lead-project-companies/lead-analytics/subcategory",

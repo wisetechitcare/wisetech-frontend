@@ -84,7 +84,8 @@ const EntityDetailPage: React.FC = () => {
     }
     setIsLoading(true);
     try {
-      const leadResponse = await getLeadById(leadId);
+      // Add cache-busting parameter to ensure fresh data
+      const leadResponse = await getLeadById(leadId, { _t: Date.now() });
       const leadData = leadResponse.data.data.lead;
       setLead(leadData);
       const promises: Promise<any>[] = [];
@@ -108,9 +109,16 @@ const EntityDetailPage: React.FC = () => {
     fetchLeadDetails();
   }, [fetchLeadDetails]);
 
-  useEventBus(EVENT_KEYS.leadUpdated, fetchLeadDetails);
-  useEventBus(EVENT_KEYS.projectUpdated, fetchLeadDetails);
-  useEventBus(EVENT_KEYS.projectCreated, fetchLeadDetails);
+  useEventBus(EVENT_KEYS.leadUpdated, () => {
+    // Small delay to ensure backend has persisted the change
+    setTimeout(fetchLeadDetails, 150);
+  });
+  useEventBus(EVENT_KEYS.projectUpdated, () => {
+    setTimeout(fetchLeadDetails, 150);
+  });
+  useEventBus(EVENT_KEYS.projectCreated, () => {
+    setTimeout(fetchLeadDetails, 150);
+  });
 
   const openEdit = useCallback(() => lead && setFormValues(mapLeadToFormInitialValues(lead)), [lead]);
 

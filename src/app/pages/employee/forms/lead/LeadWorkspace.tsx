@@ -214,6 +214,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         "leadInquiryDate",
         "leadAssignedTo",
       ],
+      requiredFields: ["projectName"],
       icon: <AssignmentOutlined />,
       render: (p) => (
         <>
@@ -325,6 +326,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       title: "Lead Status",
       subtitle: "Set the lead status — converting it to a project unlocks execution",
       fields: ["statusId"],
+      requiredFields: ["statusId"],
       icon: <TrackChanges />,
       render: (p) => (
         <L.StatusSection

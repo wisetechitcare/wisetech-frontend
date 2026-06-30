@@ -268,6 +268,17 @@ export const getLeadsByStatusAnalytics = async (startDate: string, endDate: stri
     }
 }
 
+// Get Projects By Project-Status Analytics (received leads grouped by execution.projectStatus)
+export const getProjectsByStatusAnalytics = async (startDate: string, endDate: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_STATUS_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 // Get Leads By Service Analytics
 export const getLeadsByServiceAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {

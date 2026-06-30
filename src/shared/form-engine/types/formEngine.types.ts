@@ -93,6 +93,14 @@ export interface FormEngineConfig<TValues = any> {
 
 export interface EnterpriseWizardStep<TProps = any> extends NavigationSection {
   title: string;
+  /**
+   * Fields that MUST be filled for this step to count as completed. When omitted
+   * (or empty) the step has no hard requirement and is treated as completed once
+   * the user has engaged with it (filled any tracked field, or moved past it) —
+   * so optional-only steps don't stay perpetually "pending". `fields` stays the
+   * full set used for navigation/summary; `requiredFields` is the gate subset.
+   */
+  requiredFields?: string[];
   subtitle?: string;
   defaultOpen?: boolean;
   hidden?: boolean;

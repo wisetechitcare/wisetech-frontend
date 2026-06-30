@@ -127,45 +127,12 @@ function WeekendsAndWorkingDays() {
         getBranchDetails();
     }, [refetch]);
 
-<<<<<<< HEAD
     const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => {
         const cols: MRT_ColumnDef<weekends>[] = [
             {
                 accessorKey: 'branchName',
                 header: 'Branch Name',
                 Cell: ({ renderedCellValue }) => <span>{renderedCellValue}</span>,
-=======
-    const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => [
-        {
-            accessorKey: 'orgName',
-            header: 'Organisation',
-            Cell: ({ renderedCellValue }) => renderedCellValue,
-        },
-        {
-            accessorKey: 'branchName',
-            header: 'Branch Name',
-            Cell: ({ renderedCellValue }) => renderedCellValue,
-        },
-        {
-            accessorKey: 'type',
-            header: 'Type',
-            Cell: ({ renderedCellValue }) => renderedCellValue,
-        },
-        ...(isAdmin ? [{
-            accessorKey: 'actions',
-            header: 'Actions',
-            Cell: ({ row }: any) => {
-                return ( hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) ?
-                <div className="flex items-center justify-center space-x-4">
-                    {" "}
-                    <button
-                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                        onClick={() => handleEdit(row.original)}
-                    >
-                        <KTIcon iconName="pencil" className=" inline fs-4 text-red-500" />
-                    </button>
-                </div>: "Not Allowed")
->>>>>>> ad25fbab7f9b8d30e86448974337cd68e794b7d3
             },
             {
                 accessorKey: 'type',

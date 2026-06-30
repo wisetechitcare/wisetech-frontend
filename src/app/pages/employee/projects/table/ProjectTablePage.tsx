@@ -253,20 +253,43 @@ const ProjectTablePage = () => {
         (countriesData || []).forEach((c: any) => countriesMap.set(c.id.toString(), c));
 
         const transformedProjects = projectLeads.map((lead: any) => {
+          // Lead-as-master: project-execution fields live on lead.execution; the
+          // dates live on the lead itself. lead.project is a transitional fallback.
           const project = lead?.project || null;
-          const s = project?.startDate ? new Date(project.startDate) : null;
-          const e = project?.endDate ? new Date(project.endDate) : null;
+          const exec = lead?.execution || null;
+          const startVal = lead?.startDate || project?.startDate || null;
+          const endVal = lead?.endDate || project?.endDate || null;
+          const s = startVal ? new Date(startVal) : null;
+          const e = endVal ? new Date(endVal) : null;
           const duration =
             s && e
               ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
               : "N/A";
-          const commercialsTotal =
-            Array.isArray(lead.commercials) && lead.commercials.length > 0
-              ? lead.commercials.reduce(
-                  (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                  0,
-                )
-              : 0;
+          const commercialRows: any[] = Array.isArray(lead.commercials)
+            ? lead.commercials
+            : [];
+          const commercialsTotal = commercialRows.reduce(
+            (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+            0,
+          );
+          const commercialsArea = commercialRows.reduce(
+            (acc: number, c: any) => acc + (parseFloat(c.area) || 0),
+            0,
+          );
+          // Area home order: summed commercial work-areas first, then the
+          // technical-spec areas captured in additionalDetails (project → built-up
+          // → plot), so a project with specs but no commercial rows still shows.
+          const ad = lead?.additionalDetails || {};
+          const fallbackArea =
+            parseFloat(ad.projectArea) ||
+            parseFloat(ad.builtUpArea) ||
+            parseFloat(ad.plotArea) ||
+            0;
+          const resolvedArea = commercialsArea || fallbackArea;
+          // Rate is derived: total cost per unit area (matches the detail page's
+          // "Total Rate"). execution.rate is a fallback when commercials are absent.
+          const derivedRate =
+            commercialsArea > 0 ? commercialsTotal / commercialsArea : 0;
 
           // Handle inquiryDate - check multiple field names, ensure ISO string
           let inquiryDate: string;
@@ -298,30 +321,33 @@ const ProjectTablePage = () => {
             subCategory:
               lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "N/A",
             status: lead?.status || null,
+            poStatus: lead?.poStatus || null,
             assignedTo: lead?.assignedToId || "N/A",
             inquiryDate: inquiryDate,
             contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
             createdAt: lead?.createdAt ? new Date(lead.createdAt).toISOString() : new Date().toISOString(),
             updatedAt: lead?.updatedAt ? new Date(lead.updatedAt).toISOString() : new Date().toISOString(),
 
-            // Project-specific fields
+            // Project-specific fields — sourced from lead.execution (lead-as-master)
+            // with lead scalars and the transitional lead.project as fallbacks.
             projectId: lead?.projectId || project?.id || "N/A",
-            projectPrefix: project?.prefix || "N/A",
-            projectStatus: project?.status || null,
-            projectStartDate: project?.startDate || "N/A",
-            projectEndDate: project?.endDate || "N/A",
-            projectManagerId: project?.projectManagerId || "N/A",
-            projectTeamName: project?.team?.name || "N/A",
+            projectPrefix: lead?.prefix || project?.prefix || "N/A",
+            projectStatus: exec?.projectStatus || project?.status || null,
+            projectStartDate: startVal || "N/A",
+            projectEndDate: endVal || "N/A",
+            projectManagerId: exec?.projectManagerId || project?.projectManagerId || "N/A",
+            projectTeamName: exec?.team?.name || project?.team?.name || "N/A",
             projectTeams: project?.projectTeams || [],
             projectCompanyMappings: project?.projectCompanyMappings || [],
-            projectCost: parseFloat(project?.cost) || 0,
-            projectRate: parseFloat(project?.rate) || 0,
-            projectServiceId: project?.serviceId || "N/A",
-            projectCategoryId: project?.projectCategoryId || "N/A",
+            projectCost: parseFloat(exec?.cost ?? project?.cost) || commercialsTotal || 0,
+            projectRate: derivedRate || parseFloat(exec?.rate ?? project?.rate) || 0,
+            projectArea: resolvedArea,
+            projectServiceId: lead?.projectServiceId || project?.serviceId || "N/A",
+            projectCategoryId: lead?.projectCategoryId || project?.projectCategoryId || "N/A",
             projectCountry: project?.country || "N/A",
             projectState: project?.state || "N/A",
             projectCity: project?.city || "N/A",
-            projectIsLive: project?.isLive || false,
+            projectIsLive: exec?.isLive ?? project?.isLive ?? false,
             entityPhase: getProjectPhase(lead),
             isDelayed: isDelayedProject(lead),
             duration,
@@ -386,6 +412,15 @@ const ProjectTablePage = () => {
         },
       },
       {
+        accessorKey: "contact",
+        header: "Contact",
+        size: 150,
+        Cell: ({ cell }: { cell: any }) => {
+          const v = cell.getValue();
+          return typeof v === "object" ? v?.name || v?.email || "N/A" : v || "N/A";
+        },
+      },
+      {
         accessorKey: "category",
         header: "Category",
         size: 150,
@@ -412,6 +447,30 @@ const ProjectTablePage = () => {
           ) : (
             "N/A"
           );
+        },
+      },
+      {
+        accessorKey: "poStatus",
+        header: "PO Status",
+        size: 130,
+        Cell: ({ cell }: { cell: any }) => {
+          const poStatus = cell.getValue();
+          if (!poStatus) return "N/A";
+          const color = poStatus === "Received" ? "#28A745" : "#FFC107";
+          return (
+            <div className="badge badge-light" style={{ backgroundColor: color, color: poStatus === "Received" ? "white" : "#333" }}>
+              {poStatus}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "inquiryDate",
+        header: "Inquiry Date",
+        size: 140,
+        Cell: ({ cell }: { cell: any }) => {
+          const v = cell.getValue();
+          return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
         },
       },
       {
@@ -473,11 +532,20 @@ const ProjectTablePage = () => {
           cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
       },
       {
+        accessorKey: "projectArea",
+        header: "Area",
+        size: 120,
+        Cell: ({ cell }: { cell: any }) =>
+          cell.getValue() ? `${Number(cell.getValue()).toLocaleString()} SFT` : "N/A",
+      },
+      {
         accessorKey: "projectRate",
         header: "Rate",
         size: 110,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "N/A",
+        Cell: ({ cell }: { cell: any }) => {
+          const v = Number(cell.getValue());
+          return v ? `₹${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A";
+        },
       },
       {
         accessorKey: "projectManagerId",
@@ -491,6 +559,13 @@ const ProjectTablePage = () => {
         header: "Team",
         size: 140,
         Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+      },
+      {
+        accessorKey: "assignedTo",
+        header: "Assigned To",
+        size: 150,
+        Cell: ({ cell }: { cell: any }) =>
+          allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
       },
       {
         accessorKey: "service",
@@ -530,22 +605,30 @@ const ProjectTablePage = () => {
       { key: 'projectPrefix', header: 'Project Number', type: 'text' as const },
       { key: 'projectName', header: 'Project Name', type: 'text' as const },
       { key: 'client', header: 'Client Company', type: 'text' as const },
+      { key: 'contact', header: 'Contact', type: 'text' as const },
       { key: 'category', header: 'Category', type: 'text' as const },
       { key: 'subCategory', header: 'Subcategory', type: 'text' as const },
       {
         key: 'projectStatus', header: 'Project Status', type: 'text' as const,
         format: (val: any) => val?.name || String(val || ''),
       },
+      { key: 'poStatus', header: 'PO Status', type: 'text' as const },
+      { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
       { key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
       { key: 'projectEndDate', header: 'End Date', type: 'text' as const },
       { key: 'projectCost', header: 'Budget', type: 'currency' as const, showTotal: true },
       { key: 'totalCost', header: 'Cost', type: 'currency' as const, showTotal: true },
+      { key: 'projectArea', header: 'Area (SFT)', type: 'number' as const, showTotal: true },
       { key: 'projectRate', header: 'Rate', type: 'currency' as const },
       { key: 'projectManagerId', header: 'Project Manager', type: 'text' as const },
       { key: 'projectTeamName', header: 'Team', type: 'text' as const },
+      {
+        key: 'assignedTo', header: 'Assigned To', type: 'text' as const,
+        format: (val: any) => allemployees?.find((e: any) => e.employeeId === val)?.employeeName || '',
+      },
       { key: 'service', header: 'Service', type: 'text' as const },
     ],
-    [],
+    [allemployees],
   );
 
   if (loading) return <Loader />;

@@ -49,16 +49,16 @@ const ProjectsMain = () => {
   
   const tabItems: TabItem[] = [
     {
-      title: "Projects",
-      component: <ProjectTablePage />,
+      title: "Overview",
+      component: <ProjectOverview />,
       icon:
         activeTab === 0
           ? projectsIcons.projectsIcon.active
           : projectsIcons.projectsIcon.default,
     },
     {
-      title: "Overview",
-      component: <ProjectOverview />,
+      title: "Projects",
+      component: <ProjectTablePage />,
       icon:
         activeTab === 1
           ? projectsIcons.projectsIcon.active

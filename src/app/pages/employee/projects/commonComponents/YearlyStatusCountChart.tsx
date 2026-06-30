@@ -74,7 +74,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
 
   const options: ApexCharts.ApexOptions = {
     chart: {
-      type: "bar",
+      type: "area",
       stacked: stacked,
       events: {
         dataPointSelection: (event: any, chartContext: any, config: any) => {
@@ -104,27 +104,52 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
       },
     },
     colors: data.map((item) => item.color),
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: "55%",
-        dataLabels: {
-          position: "center",
-        },
+    // Smooth trend line with a soft gradient fill — reads as a trend, not blocks.
+    stroke: {
+      curve: "smooth",
+      width: 3,
+    },
+    fill: {
+      type: "gradient",
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.4,
+        opacityTo: 0.05,
+        stops: [0, 90, 100],
       },
+    },
+    markers: {
+      size: 4,
+      strokeWidth: 2,
+      strokeColors: "#ffffff",
+      hover: { size: 7 },
+    },
+    grid: {
+      borderColor: "#EEF2F7",
+      strokeDashArray: 4,
+      yaxis: { lines: { show: true } },
+      xaxis: { lines: { show: false } },
     },
     dataLabels: {
       enabled: true,
       formatter: function (val: number, opts: any) {
-        if (val === 0) return "";
+        if (!val) return "";
         return val.toString();
       },
-      offsetY: 0,
+      offsetY: -8,
+      background: {
+        enabled: true,
+        foreColor: "#0F172A",
+        borderRadius: 6,
+        padding: 4,
+        opacity: 0.9,
+        borderWidth: 0,
+      } as any,
       style: {
-        fontSize: "14px",
-        fontWeight: "600",
+        fontSize: "12px",
+        fontWeight: "700",
         fontFamily: "Inter",
-        colors: ["#ffffff"],
+        colors: ["#0F172A"],
       },
     },
     xaxis: {
@@ -328,7 +353,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
                 <ReactApexChart
                   options={options}
                   series={series}
-                  type="bar"
+                  type="area"
                   width="100%"
                   height={height}
                 />
@@ -348,7 +373,7 @@ const YearlyStatusCountChart: React.FC<YearlyStatusCountChartProps> = ({
                   }}
                 >
                   <div>
-                    <i className="bi bi-bar-chart" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
+                    <i className="bi bi-graph-up-arrow" style={{ fontSize: "32px", color: "#9CAFC9" }}></i>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

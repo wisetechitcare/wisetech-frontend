@@ -246,11 +246,13 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
   };
 
   // Map grouped data into the shared chart format (volume-ranked, ₹ in tooltip).
+  // NOTE: no per-row color — the lean bars use one flat accent so the chart looks
+  // identical in both Lead Overview and Project Overview (previously the bars were
+  // tinted by each row's status color, which made the two views look different).
   const locationChartData: ChartDatum[] = grouped.map((g) => ({
     label: g.name,
     value: g.totalCount,
     totalCost: Math.round(g.totalBudget),
-    color: g.color,
   }));
 
   const getChartTitle = () => {
@@ -568,7 +570,9 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
                   data={locationChartData}
                   onSelect={handleLocationChartClick}
                   showRevenue
-                  height={Math.max(320, locationChartData.length * 46)}
+                  lean
+                  barColor="#0EA5E9"
+                  height={Math.max(220, locationChartData.length * 34)}
                 />
               ) : (
 

@@ -201,12 +201,16 @@ export const computeMissingInfo = (lead: any): MissingItem[] => {
     out.push({ label: 'Address / location', step: 4 });
   if (!has(lead?.inquiryDate)) out.push({ label: 'Inquiry date', step: 0 });
 
-  // Project-stage extras
+  // Project-stage extras. Lead-as-master: execution fields live on the 1:1
+  // `lead.execution` extension and the timeline dates on the lead scalars — the
+  // legacy `lead.project` row is no longer loaded, so read the live homes (with a
+  // transitional fallback to the project row) instead of always flagging missing.
   if (lead?.status?.isProjectTrigger) {
     const p = lead?.project;
-    if (!has(p?.projectManagerId)) out.push({ label: 'Project manager', step: 6 });
-    if (!has(p?.startDate)) out.push({ label: 'Start date', step: 6 });
-    if (!has(p?.endDate)) out.push({ label: 'Expected closure', step: 6 });
+    const exec = lead?.execution || {};
+    if (!has(exec.projectManagerId ?? p?.projectManagerId)) out.push({ label: 'Project manager', step: 6 });
+    if (!has(lead?.startDate ?? p?.startDate)) out.push({ label: 'Start date', step: 6 });
+    if (!has(lead?.endDate ?? p?.endDate)) out.push({ label: 'Expected closure', step: 6 });
   }
   return out;
 };

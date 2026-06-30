@@ -39,12 +39,21 @@ export const getProjectPhase = (lead: any): ProjectPhase => {
   // Transformed table rows carry the phase precomputed from the raw lead.
   if (lead?.entityPhase) return lead.entityPhase as ProjectPhase;
   if (!isProjectEntity(lead)) return 'none';
-  const name: string = (lead?.project?.status?.name || lead?.projectStatus?.name || '').toLowerCase();
+  // Lead-as-master: the live project status lives on the 1:1 execution extension.
+  // Keep the legacy `project.status` / `projectStatus` reads as transitional
+  // fallbacks, but execution wins — otherwise the phase is always stuck "ongoing".
+  const name: string = (
+    lead?.execution?.projectStatus?.name ||
+    lead?.project?.status?.name ||
+    lead?.projectStatus?.name ||
+    ''
+  ).toLowerCase();
   // "Partly Completed" is an in-progress state — test before the completed match.
   if (/(partly|partial)/.test(name)) return 'ongoing';
   if (/(complete|finish|closed|delivered|handover)/.test(name)) return 'completed';
   if (/(hold|paused|stalled|suspend)/.test(name)) return 'onhold';
-  if (lead?.project?.isProjectOpen === false && name === '') return 'completed';
+  const open = lead?.execution?.isProjectOpen ?? lead?.project?.isProjectOpen;
+  if (open === false && name === '') return 'completed';
   return 'ongoing';
 };
 
@@ -91,7 +100,8 @@ export const getTimelineProgress = (startDate?: string | Date | null, endDate?: 
 /** True when the project end date is in the past but the phase is still ongoing. */
 export const isDelayedProject = (lead: any): boolean => {
   if (getProjectPhase(lead) !== 'ongoing') return false;
-  const end = lead?.project?.endDate;
+  // Timeline dates live on the lead scalars now (project row is a fallback).
+  const end = lead?.endDate || lead?.project?.endDate;
   return !!end && new Date(end).getTime() < Date.now();
 };
 

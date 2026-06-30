@@ -2,21 +2,19 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import {
-  getLeadsByStatusAnalytics,
+  getProjectsByStatusAnalytics,
   getLeadsByServiceAnalytics,
   getLeadsByProjectCategoryAnalytics,
   getLeadsBySourceAnalytics,
   getLeadsByCompanyTypeAnalytics,
   getLeadsByLocationAnalytics,
   getMonthlyLeadAnalytics,
-  getAllLeadStatus,
 } from "@services/lead";
 import {
   convertToChartData,
   convertCompanyTypeData,
   transformYearlyDatas,
 } from "@utils/leadsProjectCompaniesStatistics";
-import CustomPieCharts from "@pages/employee/leads/overview/commonComponents/LeadsCustomGraph";
 import LeadByLocationChart from "@pages/employee/leads/overview/commonComponents/LeadByLocationChart";
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
@@ -24,12 +22,12 @@ import { ProjectLeadAnalyticsDashboard } from "@pages/dashboard/projectAnalytics
 import Loader from "@app/modules/common/utils/Loader";
 
 /**
- * Project section analytics = Received Leads Analytics.
+ * Project Overview Analytics — Project-focused dashboard.
  *
- * Every chart here is sourced from the lead table but restricted to
- * project-trigger ("Received") leads via the backend `receivedOnly` flag, and
- * every drill-down opens the lead/entity table filtered to received leads.
- * Project = Received Lead — this does NOT show all leads.
+ * Status chart shows PROJECT statuses (On Hold, In Progress, Completed, etc.)
+ * instead of lead statuses. Other metrics (service, category, source, location)
+ * still show project-related data for received leads. Every drill-down opens
+ * the lead/entity table filtered to received leads only.
  */
 type Period = "month" | "year";
 
@@ -57,13 +55,11 @@ const ProjectOverview = () => {
   });
 
   // Raw responses kept for click -> id resolution
+  const [statusRes, setStatusRes] = useState<any>(null);
   const [serviceRes, setServiceRes] = useState<any>(null);
   const [categoryRes, setCategoryRes] = useState<any>(null);
   const [sourceRes, setSourceRes] = useState<any>(null);
   const [companyTypeRes, setCompanyTypeRes] = useState<any>(null);
-  const [leadStatusesID, setLeadStatusesID] = useState<any[]>([]);
-
-  const [filters, setFilters] = useState<any>({});
 
   // Drill-down state
   const [openStatus, setOpenStatus] = useState(false);
@@ -79,12 +75,9 @@ const ProjectOverview = () => {
 
   const settings = useSelector((state: any) => state.chartSettings);
 
-  const handleFilterChange = (key: string, value: string) =>
-    setFilters((prev: any) => ({ ...prev, [key]: value }));
-
   const handleStatusChartClick = (label: string) => {
-    const found = leadStatusesID.find((s: any) => s.name === label);
-    setStatusId(found ? found.id.toString() : label);
+    const found = (statusRes?.data || []).find((s: any) => s.status === label);
+    setStatusId(found ? found.statusId : label);
     setOpenStatus(true);
   };
 
@@ -119,20 +112,6 @@ const ProjectOverview = () => {
   };
 
   useEffect(() => {
-    const fetchLeadStatuses = async () => {
-      try {
-        const res = await getAllLeadStatus();
-        setLeadStatusesID(
-          (res?.leadStatuses || []).map((s: any) => ({ name: s.name, id: s.id }))
-        );
-      } catch (err) {
-        console.error("Error fetching lead statuses:", err);
-      }
-    };
-    fetchLeadStatuses();
-  }, []);
-
-  useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -147,7 +126,7 @@ const ProjectOverview = () => {
           locationResData,
           monthlyResData,
         ] = await Promise.all([
-          getLeadsByStatusAnalytics(startStr, endStr, true),
+          getProjectsByStatusAnalytics(startStr, endStr),
           getLeadsByServiceAnalytics(startStr, endStr, true),
           getLeadsByProjectCategoryAnalytics(startStr, endStr, "", true),
           getLeadsBySourceAnalytics(startStr, endStr, true),
@@ -156,6 +135,7 @@ const ProjectOverview = () => {
           getMonthlyLeadAnalytics(startStr, endStr, true),
         ]);
 
+        setStatusRes(statusResData);
         setServiceRes(serviceResData);
         setCategoryRes(categoryResData);
         setSourceRes(sourceResData);
@@ -249,105 +229,8 @@ const ProjectOverview = () => {
         />
       </div>
 
-      {/* ── Legacy Charts (Existing Project Analytics) ── */}
+      {/* ── Project Trend & Location ── */}
       <div className="row g-3">
-        {/* Projects (Received Leads) By Status */}
-        <div className="col-12 col-md-6">
-          <CustomPieCharts
-            data={chartData.statusData}
-            title="Projects By Status"
-            height={250}
-            width={250}
-            chartType="pie"
-            showFilter={true}
-            filterOptions={chartData.statusData
-              .map((item: any) => item.label)
-              .sort((a: string, b: string) => a.localeCompare(b))}
-            filterValue={filters.status || ""}
-            onFilterChange={(value: string) => handleFilterChange("status", value)}
-            filterPlaceholder="All Status"
-            key="project-status-chart"
-            onChartClick={handleStatusChartClick}
-          />
-        </div>
-
-        {/* Projects By Service */}
-        <div className="col-12 col-md-6">
-          <CustomPieCharts
-            data={chartData.serviceData}
-            title="Projects By Service"
-            height={250}
-            width={250}
-            chartType="donut"
-            showFilter={true}
-            filterOptions={chartData.serviceData
-              .map((item: any) => item.label)
-              .sort((a: string, b: string) => a.localeCompare(b))}
-            filterValue={filters.service || ""}
-            onFilterChange={(value: string) => handleFilterChange("service", value)}
-            filterPlaceholder="All Services"
-            key="project-service-chart"
-            onChartClick={handleServiceChartClick}
-          />
-        </div>
-
-        {/* Projects By Category */}
-        <div className="col-12 col-md-6">
-          <CustomPieCharts
-            data={chartData.categoryData}
-            title="Projects By Category"
-            height={250}
-            width={250}
-            chartType="pie"
-            showFilter={true}
-            filterOptions={chartData.categoryData
-              .map((item: any) => item.label)
-              .sort((a: string, b: string) => a.localeCompare(b))}
-            filterValue={filters.category || ""}
-            onFilterChange={(value: string) => handleFilterChange("category", value)}
-            filterPlaceholder="All Categories"
-            key="project-category-chart"
-            onChartClick={handleCategoryChartClick}
-          />
-        </div>
-
-        {/* Projects By Source */}
-        <div className="col-12 col-md-6">
-          <CustomPieCharts
-            data={chartData.sourceData}
-            title="Projects By Source"
-            height={250}
-            width={250}
-            chartType="donut"
-            showFilter={true}
-            filterOptions={chartData.sourceData.map((item: any) => item.label)}
-            filterValue={filters.source || ""}
-            onFilterChange={(value: string) => handleFilterChange("source", value)}
-            filterPlaceholder="All Source"
-            key="project-source-chart"
-            onChartClick={handleSourceChartClick}
-          />
-        </div>
-
-        {/* Projects By Company Type */}
-        <div className="col-12 col-md-6">
-          <CustomPieCharts
-            data={chartData.companyTypeData}
-            title="Projects By Company Type"
-            height={250}
-            width={250}
-            showFilter={true}
-            filterOptions={chartData.companyTypeData.map((item: any) => item.label)}
-            filterValue={filters.companyType || ""}
-            onFilterChange={(value: string) =>
-              handleFilterChange("companyType", value)
-            }
-            filterPlaceholder="All Company Types"
-            key="project-company-type-chart"
-            onChartClick={handleCompanyTypeChartClick}
-          />
-        </div>
-
         {/* Monthly Projects Trend (by status) */}
         <div className="col-12">
           <YearlyStatusCountChart

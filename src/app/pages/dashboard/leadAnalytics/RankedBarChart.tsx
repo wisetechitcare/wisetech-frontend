@@ -10,6 +10,10 @@ interface RankedBarChartProps {
   /** Show ₹ revenue (totalCost) in the tooltip. */
   showRevenue?: boolean;
   height?: number;
+  /** Single flat color for ALL bars (overrides per-row/palette colors). */
+  barColor?: string;
+  /** Lean profile — thinner bars + lighter track for a cleaner, minimal look. */
+  lean?: boolean;
 }
 
 const formatINR = (n: number) =>
@@ -25,6 +29,8 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
   limit,
   showRevenue = false,
   height = 280,
+  barColor,
+  lean = false,
 }) => {
   const ranked = useMemo(() => toRanked(data, limit), [data, limit]);
 
@@ -51,7 +57,11 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
           return `<strong>${row?.label}</strong><br/>${volumeText}${row?.share}%${rev}`;
         },
       },
-      xAxis: { type: "value", splitLine: { lineStyle: { color: "#F1F5F9" } }, axisLabel: { color: "#94A3B8" } },
+      xAxis: {
+        type: "value",
+        splitLine: { show: !lean, lineStyle: { color: "#F1F5F9" } },
+        axisLabel: { show: !lean, color: "#94A3B8" },
+      },
       yAxis: {
         type: "category",
         data: rows.map((r) => r.label),
@@ -65,11 +75,15 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
           data: rows.map((r, i) => ({
             value: r.value,
             itemStyle: {
-              color: r.color || palette[ranked.length - 1 - i],
-              borderRadius: [0, 6, 6, 0],
+              color: barColor || r.color || palette[ranked.length - 1 - i],
+              borderRadius: lean ? [4, 4, 4, 4] : [0, 6, 6, 0],
             },
           })),
-          barWidth: "60%",
+          barWidth: lean ? "38%" : "60%",
+          // Lean mode draws a faint full-width track behind each bar so short bars
+          // stay readable without heavy gridlines.
+          showBackground: lean,
+          backgroundStyle: lean ? { color: "#F1F5F9", borderRadius: 4 } : undefined,
           label: {
             show: true,
             position: "right",
@@ -85,7 +99,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
       animationDuration: 700,
       animationEasing: "cubicOut",
     };
-  }, [ranked, showRevenue]);
+  }, [ranked, showRevenue, barColor, lean]);
 
   const onEvents = useMemo(
     () => ({

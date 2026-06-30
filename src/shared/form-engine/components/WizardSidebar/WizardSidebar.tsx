@@ -39,22 +39,28 @@ export const WizardSidebar: React.FC<WizardSidebarProps> = ({
   const getSectionStatus = (section: EnterpriseWizardStep<any>, sectionIndex: number) => {
     const hasError = section.fields.some((f) => errors[f] && touched[f]);
     if (hasError) return "error";
-
-    const sectionFields = Array.from(new Set(section.fields || []));
-    const isFullyFilled = sectionFields.length > 0 
-      ? sectionFields.every((f) => hasValue(values[f]))
-      : (sectionIndex < currentStep); // If no fields to track, assume completed if passed
-
     if (sectionIndex === currentStep) return "active";
-    if (isFullyFilled) return "completed";
+
+    // A step is gated only by its REQUIRED fields. Optional blanks must never
+    // hold a step at "pending" — that was why fully-handled steps stayed grey.
+    const required = section.requiredFields ?? [];
+    const requiredFilled = required.every((f) => hasValue(values[f]));
+    if (!requiredFilled) return "pending";
+
+    // Requirements satisfied. Count the step done once the user has engaged with
+    // it: a hard-required step is done outright; an optional step is done once
+    // any tracked field is filled, it has nothing to track, or it's been passed.
+    if (required.length > 0) return "completed";
+    const sectionFields = Array.from(new Set(section.fields || []));
+    const anyFilled = sectionFields.some((f) => hasValue(values[f]));
+    if (anyFilled || sectionFields.length === 0 || sectionIndex < currentStep) return "completed";
     return "pending";
   };
 
-  // Page-wise progress: how many tracked fields in the CURRENT section are filled
-  const currentSectionFields = Array.from(new Set(sections[currentStep]?.fields || []));
-  const filled = currentSectionFields.filter((f) => hasValue(values[f])).length;
-  const progressPercent = currentSectionFields.length > 0 ? Math.round((filled / currentSectionFields.length) * 100) : 0;
+  // Overall progress: share of steps fully completed across the whole wizard, so
+  // the headline percentage and the "X of N steps completed" line always agree.
   const completedCount = sections.filter((s, index) => getSectionStatus(s, index) === "completed").length;
+  const progressPercent = sections.length > 0 ? Math.round((completedCount / sections.length) * 100) : 0;
 
   return (
     <nav className="wizard-nav-sidebar" aria-label="Wizard step navigation">
