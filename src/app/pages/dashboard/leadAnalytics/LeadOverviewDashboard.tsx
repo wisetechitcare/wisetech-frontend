@@ -5,8 +5,7 @@ import AnalyticsHeader from "./AnalyticsHeader";
 import PipelinePerformance from "./PipelinePerformance";
 import LeadServiceTreemap from "./LeadServiceTreemap";
 import RankedBarChart from "./RankedBarChart";
-import AcquisitionChart from "./AcquisitionChart";
-import CategorySunburst from "./CategorySunburst";
+import AcquisitionGauge from "./AcquisitionGauge";
 import {
   ChartDatum,
   computeExecutiveKpis,
@@ -47,7 +46,7 @@ const isEmpty = (d?: ChartDatum[]) =>
  *   2. Pipeline Performance (funnel)
  *   3. Service Performance (treemap + ranked contribution)
  *   4. Lead Acquisition (ranked bars: source / referral / direct)
- *   5. Category Intelligence (category → sub-category sunburst)
+ *   5. Category Intelligence (ranked categories by lead volume)
  *
  * Each section honours the existing chartSettings toggles and reuses the
  * shared design-system components.
@@ -85,16 +84,6 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
       { label: "Active Opportunities", value: kpis.pipeline, accent: "#8B5CF6", icon: "bi-hourglass-split" },
     ],
     [kpis]
-  );
-
-  const serviceDataByRevenue = useMemo(
-    () =>
-      serviceData.map((s) => ({
-        ...s,
-        value: s.totalCost || 0,
-        volumeValue: s.value,
-      })),
-    [serviceData]
   );
 
   const showStatus = settings?.showLeadsStatusChart;
@@ -158,14 +147,14 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             </div>
             <div className="col-12 col-lg-6">
               <AnalyticsCard
-                title="Service Value"
-                subtitle="Ranked by revenue · lead count in tooltip"
+                title="Service Contribution"
+                subtitle="Ranked by lead volume · revenue in tooltip"
                 index={1}
                 insights={serviceInsights}
                 isEmpty={isEmpty(serviceData)}
                 emptyHint="Add services to see the ranking."
               >
-                <RankedBarChart data={serviceDataByRevenue} onSelect={onServiceSelect} showRevenue />
+                <RankedBarChart data={serviceData} onSelect={onServiceSelect} showRevenue />
               </AnalyticsCard>
             </div>
           </div>
@@ -185,21 +174,21 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             {showSource && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Source" index={0} isEmpty={isEmpty(sourceData)} emptyHint="No source data.">
-                  <AcquisitionChart variant="gauge" data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
+                  <AcquisitionGauge data={sourceData} onSelect={onSourceSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
             {showReferral && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Referral Source" index={1} isEmpty={isEmpty(referralSourceData)} emptyHint="No referral data.">
-                  <AcquisitionChart variant="donut" data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
+                  <AcquisitionGauge data={referralSourceData} onSelect={onReferralSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
             {showDirect && (
               <div className="col-12 col-lg-4">
                 <AnalyticsCard title="By Direct Source" index={2} isEmpty={isEmpty(directSourceData)} emptyHint="No direct-source data.">
-                  <AcquisitionChart variant="rose" data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
+                  <AcquisitionGauge data={directSourceData} onSelect={onDirectSelect} limit={8} height={260} />
                 </AnalyticsCard>
               </div>
             )}
@@ -212,33 +201,19 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
         <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <AnalyticsHeader
             title="Category Intelligence"
-            subtitle="Category → sub-category — click an arc to drill down"
+            subtitle="Top project categories ranked by lead volume"
             icon="bi-diagram-3"
             accent="#8B5CF6"
           />
-          <div className="row g-3">
-            <div className="col-12 col-lg-7">
-              <AnalyticsCard
-                title="Category Breakdown"
-                index={0}
-                isEmpty={isEmpty(categoryData) && (!subcategoryRaw || subcategoryRaw.length === 0)}
-                emptyHint="Create project categories to view the breakdown."
-              >
-                <CategorySunburst raw={subcategoryRaw} onSelect={onCategorySelect} />
-              </AnalyticsCard>
-            </div>
-            <div className="col-12 col-lg-5">
-              <AnalyticsCard
-                title="Top Categories"
-                subtitle="Ranked by lead volume"
-                index={1}
-                isEmpty={isEmpty(categoryData)}
-                emptyHint="No category data."
-              >
-                <RankedBarChart data={categoryData} onSelect={onCategorySelect} limit={8} showRevenue />
-              </AnalyticsCard>
-            </div>
-          </div>
+          <AnalyticsCard
+            title="Top Categories"
+            subtitle="Ranked by lead volume · revenue in tooltip"
+            index={0}
+            isEmpty={isEmpty(categoryData)}
+            emptyHint="Create project categories to view the ranking."
+          >
+            <RankedBarChart data={categoryData} onSelect={onCategorySelect} limit={10} showRevenue />
+          </AnalyticsCard>
         </section>
       )}
     </div>

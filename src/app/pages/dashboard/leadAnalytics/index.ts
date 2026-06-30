@@ -9,7 +9,6 @@ export { default as PipelineDistribution } from "./PipelineDistribution";
 export { default as PipelineHealthRing } from "./PipelineHealthRing";
 export { default as LeadServiceTreemap } from "./LeadServiceTreemap";
 export { default as RankedBarChart } from "./RankedBarChart";
-export { default as LocationBubbleChart } from "./LocationBubbleChart";
 export { default as CategorySunburst } from "./CategorySunburst";
 export { default as YearlyGrowthChart } from "./YearlyGrowthChart";
 export { default as YearlyInsightsPanel } from "./YearlyInsightsPanel";
