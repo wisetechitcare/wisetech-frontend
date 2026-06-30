@@ -4,13 +4,12 @@ import { Button } from "react-bootstrap";
 import { getClientContactById } from "@services/companies";
 import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
 import { useEventBus } from "@hooks/useEventBus";
-import ContactLeadsOverview from "./ContactLeadsOverview";
 import ContactOverview from "./ContactOverview";
 import ContactProject from "./ContactProject";
 import ClientContactsForm from "./ClientContactsForm";
-import ContactLeadReferences from "./ContactLeadReferences";
+import ContactLeadReferenceTab from "./ContactLeadReferenceTab";
 
-type TabType = "overview" | "leads" | "projects" | "lead-reference";
+type TabType = "overview" | "lead-reference" | "projects";
 
 const ContactMainToggle = () => {
   const { contactId } = useParams<{ contactId: string }>();
@@ -48,9 +47,8 @@ const ContactMainToggle = () => {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "leads", label: "Leads" },
-    { key: "projects", label: "Projects" },
     { key: "lead-reference", label: "Lead Reference" },
+    { key: "projects", label: "Projects" },
   ];
 
   const renderTabContent = () => {
@@ -59,12 +57,10 @@ const ContactMainToggle = () => {
     switch (activeTab) {
       case "overview":
         return <ContactOverview contact={contact} />;
-      case "leads":
-        return <ContactLeadsOverview contact={contact}/>
+      case "lead-reference":
+        return <ContactLeadReferenceTab referrals={contact?.referrals} />;
       case "projects":
         return <ContactProject contact={contact}/>;
-      case "lead-reference":
-        return <ContactLeadReferences referrals={contact?.referrals} />;
       default:
         return <ContactOverview contact={contact} />;
     }

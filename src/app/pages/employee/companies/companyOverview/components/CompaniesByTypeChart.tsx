@@ -16,20 +16,11 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from "react"
  */
 
 // --- Types ---------------------------------------------------------------
-export interface SubServiceCount {
-  id: string;
-  name: string;
-  count: number;
-  color?: string | null;
-}
-
 export interface ServiceCount {
   id: string;
   name: string;
   count: number;
   color?: string;
-  /** Optional 4th level: this service's sub-services among the same company set. */
-  subServices?: SubServiceCount[];
 }
 
 export interface DataItem {
@@ -46,10 +37,8 @@ interface Props {
   data: DataItem[];
   /** Existing contract — fires when a type / sub-type / Others bar is clicked. */
   onBarClick: (typeId: string | null, isOthers?: boolean, top10Ids?: string[]) => void;
-  /** Optional — fires when a Service bar is clicked (typeId = the parent type). */
+  /** Optional — fires when a Sub-service bar (a Service row) is clicked (typeId = the owning (sub-)type). */
   onServiceClick?: (serviceId: string, typeId: string | null) => void;
-  /** Optional — fires when a Sub-service bar is clicked (typeId = the owning (sub-)type). */
-  onSubServiceClick?: (subServiceId: string, typeId: string | null) => void;
   /** Collapse the tail into "Others" beyond this many top-level rows. Default 10. */
   topNLimit?: number;
   /** When set, the toolbar selections (sort, By Type/Service, type filter, Show All) are
@@ -102,7 +91,6 @@ const CompaniesByTypeChart: React.FC<Props> = ({
   data,
   onBarClick,
   onServiceClick,
-  onSubServiceClick,
   topNLimit = 10,
   persistKey,
 }) => {
@@ -200,6 +188,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
       }
     });
 
+    // Leaf "Sub-service" nodes (these are Service rows; the 4th level was removed).
     const serviceNodes = (item: DataItem, baseColor: string): Node[] =>
       (item.services || []).map((s) => ({
         id: `${item.id}/svc/${s.id}`,
@@ -207,17 +196,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
         count: s.count,
         color: s.color || lighten(baseColor, 0.46),
         kind: "service" as const,
-        // 4th level: sub-services under this service (id encodes the owning type for the modal filter).
-        children: (s.subServices || []).map((ss) => ({
-          id: `${item.id}/svc/${s.id}/sub/${ss.id}`,
-          name: ss.name,
-          count: ss.count,
-          color: ss.color || lighten(baseColor, 0.62),
-          kind: "subservice" as const,
-          children: [],
-          parentId: item.id,
-          parentName: s.name,
-        })),
+        children: [],
         parentId: item.id,
         parentName: item.name,
       }));
@@ -372,16 +351,10 @@ const CompaniesByTypeChart: React.FC<Props> = ({
   // Expanding/collapsing is done via the caret control (which stops propagation).
   const onRowClick = (r: FlatRow) => {
     if (r.isOthers) { onBarClick(null, true, top10Ids); return; }
-    if (r.node.kind === "subservice") {
-      // id = {ownerTypeId}/svc/{serviceId}/sub/{subServiceId}
-      const subId = r.node.id.split("/sub/")[1] || r.node.id;
-      const ownerTypeId = r.node.id.split("/svc/")[0] || null;
-      onSubServiceClick?.(subId, ownerTypeId);
-      return;
-    }
     if (r.node.kind === "service") {
-      // Service nodes pass their owning (sub-)type so the modal can show type ∩ service.
-      onServiceClick?.(r.node.id.split("/svc/")[1].split("/sub/")[0] || r.node.id, r.node.parentId ?? null);
+      // "Sub-service" leaf (a Service row): pass its owning (sub-)type so the modal can
+      // show type ∩ service.
+      onServiceClick?.(r.node.id.split("/svc/")[1] || r.node.id, r.node.parentId ?? null);
       return;
     }
     onBarClick(r.node.id);
@@ -414,7 +387,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
           <div style={{ fontSize: isMobile ? 16 : 17, fontWeight: 700, letterSpacing: "-.2px" }}>Companies by Type</div>
           {hasGroups && (
             <div style={{ fontSize: 12, color: "#8a93a0", marginTop: 3, lineHeight: 1.45 }}>
-              <b style={{ color: ACCENT, fontWeight: 600 }}>Type</b> → <b style={{ color: "#b8736f", fontWeight: 600 }}>Sub-type</b> → <b style={{ color: "#c79b98", fontWeight: 600 }}>Service</b> → <b style={{ color: "#d4b3b0", fontWeight: 600 }}>Sub-service</b> · click the <b style={{ color: ACCENT }}>▸</b> to expand · click a row to view its companies.
+              <b style={{ color: ACCENT, fontWeight: 600 }}>Type</b> → <b style={{ color: "#b8736f", fontWeight: 600 }}>Service</b> → <b style={{ color: "#c79b98", fontWeight: 600 }}>Sub-service</b> · click the <b style={{ color: ACCENT }}>▸</b> to expand · click a row to view its companies.
             </div>
           )}
         </div>
@@ -428,12 +401,12 @@ const CompaniesByTypeChart: React.FC<Props> = ({
       <div style={{ padding: isMobile ? "0 16px 12px" : "0 24px 14px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: isMobile ? 8 : 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", background: "#f1f3f6", border: "1px solid #e6e9ee", borderRadius: 8, padding: 3, width: isMobile ? "100%" : undefined }}>
           <button style={segBtn(group === "type")} onClick={() => setGroup("type")}>By Type</button>
-          <button style={segBtn(group === "service")} onClick={() => { setGroup("service"); setFilterOpen(false); }}>By Service</button>
+          <button style={segBtn(group === "service")} onClick={() => { setGroup("service"); setFilterOpen(false); }}>By Sub-service</button>
         </div>
 
         <div style={{ position: "relative", width: isMobile ? "100%" : undefined, flex: isMobile ? undefined : "1", minWidth: isMobile ? undefined : 200, maxWidth: isMobile ? undefined : 300 }}>
           <i className="bi bi-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#aab2bd", fontSize: 13 }} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search type, sub-type or service…"
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search type, service or sub-service…"
             style={{ width: "100%", height: 34, border: "1px solid #dde2e8", borderRadius: 8, padding: "0 12px 0 30px", fontSize: 13, fontFamily: "inherit", outline: "none", color: "#1f2733", boxSizing: "border-box" }} />
         </div>
 
@@ -531,11 +504,11 @@ const CompaniesByTypeChart: React.FC<Props> = ({
           // Every row is actionable: a row opens the modal; the caret expands a group.
           const clickable = true;
           const childKindLabel = r.hasChildren
-            ? (r.node.children[0].kind === "service"
+            ? (r.node.children[0].kind === "subtype"
                 ? "services"
-                : r.node.children[0].kind === "subservice"
+                : r.node.children[0].kind === "service"
                   ? "sub-services"
-                  : "sub-types")
+                  : "")
             : "";
           const hint = r.hasChildren ? `· ${r.node.children.length} ${childKindLabel}` : "";
 

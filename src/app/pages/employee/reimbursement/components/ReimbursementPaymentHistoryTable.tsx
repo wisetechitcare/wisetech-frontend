@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { KTIcon } from '@metronic/helpers';
-import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import dayjs from 'dayjs';
 import { IReimbursementPayment } from '@models/employee';
 import { fetchReimbursementPayments, fetchReimbursementBatchById } from '@services/employee';
-import DateSelector from '@components/DateSelector';
+import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
@@ -32,48 +32,6 @@ function fmtDate(d?: string) {
     if (!d) return 'N/A';
     return dayjs(d).format('DD MMM YYYY');
 }
-
-const toggleSx = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 0,
-    height: 30,
-    p: '2px',
-    borderRadius: '5px',
-    backgroundColor: '#f1f5f9',
-    border: '1px solid #eef2f7',
-    width: 'fit-content',
-    maxWidth: '100%',
-    overflowX: 'auto',
-    '& .MuiToggleButtonGroup-grouped': {
-        border: 0,
-        borderRadius: '4px !important',
-        minWidth: 0,
-        minHeight: 24,
-        px: 1.6,
-        py: 0,
-        color: '#475569',
-        fontSize: 12,
-        fontWeight: 500,
-        lineHeight: '24px',
-        textTransform: 'none',
-        whiteSpace: 'nowrap',
-        letterSpacing: 0,
-    },
-    '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-        marginLeft: 0,
-        borderLeft: 0,
-    },
-    '& .MuiToggleButton-root:hover': {
-        backgroundColor: '#e8eef6',
-    },
-    '& .Mui-selected': {
-        backgroundColor: '#ffffff !important',
-        color: '#aa393d !important',
-        fontWeight: 700,
-        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
-    },
-};
 
 interface BatchRow {
     id: string;
@@ -354,23 +312,21 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             <div className="card shadow-sm">
                 <div className="card-body p-6">
                     <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0 mb-3">
-                        <ToggleButtonGroup
+                        <PeriodTabs
                             value={filter}
-                            exclusive
-                            onChange={handleFilterChange}
-                            aria-label="payment history period"
-                            sx={toggleSx}
-                        >
-                            <ToggleButton value="monthly">Monthly</ToggleButton>
-                            <ToggleButton value="yearly">Yearly</ToggleButton>
-                            <ToggleButton value="allTime">All Time</ToggleButton>
-                        </ToggleButtonGroup>
-
+                            options={[
+                                { label: 'Monthly', value: 'monthly' },
+                                { label: 'Yearly', value: 'yearly' },
+                                { label: 'All Time', value: 'allTime' },
+                            ]}
+                            onChange={(val) => handleFilterChange(null as any, val as PeriodFilter)}
+                            ariaLabel="payment history period"
+                        />
                         {filter !== 'allTime' && (
-                            <DateSelector
+                            <PeriodNavigator
+                                label={periodLabel}
                                 onPrevious={() => navigate(-1)}
                                 onNext={() => navigate(1)}
-                                displayValue={periodLabel}
                             />
                         )}
                     </div>

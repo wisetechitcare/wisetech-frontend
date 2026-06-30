@@ -3,47 +3,42 @@ import React, { useMemo, useState, useCallback } from "react";
 /**
  * CompanyTypeServiceTree
  * ------------------------------------------------------------------
- * One unified explorer for the whole Company hierarchy:
- *   Company Type → Company Sub-type → Company Service → Company Sub-service
+ * One unified explorer for the Company classification:
+ *   Company Type → Service → Sub-service   (3 levels)
  *
- * Replaces the three separate Configure sections (Types tree + Services list +
- * Sub-services list). Each node gets its own add/edit/delete actions that call
- * back to the right CRUD.
+ * Under the hood these map to existing tables (unchanged):
+ *   - Company Type  → a top-level CompanyType (parentTypeId = null)
+ *   - Service       → a CompanyType sub-type (parentTypeId set)        [created via onAddService]
+ *   - Sub-service   → a Service row (companyTypeId = the sub-type)     [created via onAddSubService]
  *
  * Robustness (never-vanish): nothing is ever filtered out.
- *  - A "grandchild" type (its parent is itself a child) or a type whose parent is
- *    missing is PROMOTED to a top-level row instead of disappearing.
- *  - Services with no type (or a missing type) live under an "Unassigned" group.
- *  - Sub-services whose parent service is missing live under their own group.
+ *  - A "grandchild" type or a type whose parent is missing is PROMOTED to a top-level row.
+ *  - Sub-services (Service rows) with no/invalid parent live under an "Unassigned" group.
  */
 
 const ACCENT = "#9D4141";
 
 // Row-action palette — harmonized with the maroon theme, each action a distinct hue.
 const ACTION = {
-  subType: "#9D4141",  // theme maroon — hierarchy / add sub-type
-  service: "#1f7a4d",  // green — add service
-  subService: "#0f766e", // teal — add sub-service
+  service: "#9D4141",  // theme maroon — add Service (a sub-type under a company type)
+  subService: "#1f7a4d", // green — add Sub-service (a service under a sub-type)
   edit: "#2f6fb3",     // blue — edit
   remove: "#c0392b",   // red — delete
 };
 
 interface CompanyTypeRow { id: string; name: string; color?: string | null; parentTypeId?: string | null; }
 interface ServiceRow { id: string; name: string; companyTypeId?: string | null; }
-interface SubServiceRow { id: string; name: string; color?: string | null; parentServiceId?: string | null; parentService?: { id: string; name: string } | null; }
 
 interface Props {
   companyTypes: CompanyTypeRow[];
   services: ServiceRow[];
-  subServices: SubServiceRow[];
-  onAddSubType: (parentTypeId: string) => void;
+  // "Add Service" — creates a CompanyType sub-type under the given top-level type.
+  onAddService: (parentTypeId: string) => void;
   onEditType: (type: CompanyTypeRow) => void;
   onDeleteType: (id: string) => void;
-  onAddService: (companyTypeId: string | null) => void;
-  onEditService: (service: ServiceRow) => void;
-  onDeleteService: (id: string) => void;
-  onAddSubService: (parentServiceId: string) => void;
-  onEditSubService: (subService: SubServiceRow) => void;
+  // "Add Sub-service" — creates a Service row under the given sub-type (companyTypeId).
+  onAddSubService: (companyTypeId: string | null) => void;
+  onEditSubService: (service: ServiceRow) => void;
   onDeleteSubService: (id: string) => void;
 }
 
@@ -56,9 +51,7 @@ interface TNode {
   color?: string | null;
   entity?: any;
   children: TNode[];
-  canAddType?: boolean;
-  canAddService?: boolean;
-  canAddSubService?: boolean;
+  isTopType?: boolean;
 }
 
 const byName = (a: { name?: string }, b: { name?: string }) =>
@@ -105,20 +98,18 @@ const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (
 };
 
 const CompanyTypeServiceTree: React.FC<Props> = ({
-  companyTypes, services, subServices,
-  onAddSubType, onEditType, onDeleteType,
-  onAddService, onEditService, onDeleteService,
+  companyTypes, services,
+  onAddService, onEditType, onDeleteType,
   onAddSubService, onEditSubService, onDeleteSubService,
 }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
-  // ── Build the tree (with orphan promotion + fallback buckets) ──────────────
+  // ── Build the tree (with orphan promotion + fallback bucket) ───────────────
   const tree = useMemo<TNode[]>(() => {
     const typeById = new Map(companyTypes.map((t) => [t.id, t]));
     const validTypeIds = new Set(companyTypes.map((t) => t.id));
-    const serviceIds = new Set(services.map((s) => s.id));
 
     const isParentTopLevel = (pid?: string | null): boolean => {
       if (!pid) return false;
@@ -126,8 +117,8 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
       if (!p) return false;
       return !p.parentTypeId || !typeById.has(p.parentTypeId);
     };
-    // A genuine sub-type: has a parent that is itself a top-level type. Anything else
-    // (no parent, missing parent, or a grandchild) is promoted to a top-level row.
+    // A genuine sub-type (shown as "Service"): has a parent that is itself a top-level type.
+    // Anything else (no parent, missing parent, or a grandchild) is promoted to a top-level row.
     const isSubType = (t: CompanyTypeRow) => !!(t.parentTypeId && typeById.has(t.parentTypeId) && isParentTopLevel(t.parentTypeId));
 
     const subTypesByParent = new Map<string, CompanyTypeRow[]>();
@@ -140,6 +131,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
     });
     const topTypes = companyTypes.filter((t) => !isSubType(t)).slice().sort(byName);
 
+    // Services (shown as "Sub-services") attach to a type/sub-type via companyTypeId.
     const servicesByType = new Map<string, ServiceRow[]>();
     const unassignedServices: ServiceRow[] = [];
     services.forEach((s) => {
@@ -152,40 +144,26 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
       }
     });
 
-    const subByService = new Map<string, SubServiceRow[]>();
-    const orphanSubs: SubServiceRow[] = [];
-    subServices.forEach((ss) => {
-      if (ss.parentServiceId && serviceIds.has(ss.parentServiceId)) {
-        const arr = subByService.get(ss.parentServiceId) || [];
-        arr.push(ss);
-        subByService.set(ss.parentServiceId, arr);
-      } else {
-        orphanSubs.push(ss);
-      }
+    // A Service row is a leaf "Sub-service".
+    const subServiceNode = (s: ServiceRow): TNode => ({
+      key: `svc-${s.id}`, kind: "subservice", id: s.id, name: s.name, entity: s, children: [],
     });
-
-    const subNode = (ss: SubServiceRow): TNode => ({ key: `sub-${ss.id}`, kind: "subservice", id: ss.id, name: ss.name, color: ss.color, entity: ss, children: [] });
-    const serviceNode = (s: ServiceRow): TNode => ({
-      key: `svc-${s.id}`, kind: "service", id: s.id, name: s.name, entity: s, canAddSubService: true,
-      children: (subByService.get(s.id) || []).slice().sort(byName).map(subNode),
-    });
-    const typeNode = (t: CompanyTypeRow): TNode => ({
-      key: `type-${t.id}`, kind: "type", id: t.id, name: t.name, color: t.color, entity: t,
-      canAddType: !t.parentTypeId, canAddService: true,
-      children: [
-        ...(subTypesByParent.get(t.id) || []).slice().sort(byName).map(typeNode),
-        ...(servicesByType.get(t.id) || []).slice().sort(byName).map(serviceNode),
-      ],
-    });
+    const typeNode = (t: CompanyTypeRow): TNode => {
+      const isTop = !isSubType(t);
+      return {
+        key: `type-${t.id}`, kind: "type", id: t.id, name: t.name, color: t.color, entity: t, isTopType: isTop,
+        children: [
+          ...(subTypesByParent.get(t.id) || []).slice().sort(byName).map(typeNode),
+          ...(servicesByType.get(t.id) || []).slice().sort(byName).map(subServiceNode),
+        ],
+      };
+    };
 
     const roots: TNode[] = topTypes.map(typeNode);
-    // Always present so admins can add a type-less service even when none exist yet.
-    roots.push({ key: "grp-unassigned", kind: "group", id: "__unassigned__", name: "Unassigned (no type)", canAddService: true, children: unassignedServices.slice().sort(byName).map(serviceNode) });
-    if (orphanSubs.length) {
-      roots.push({ key: "grp-orphan-sub", kind: "group", id: "__orphansub__", name: "Sub-services without a service", children: orphanSubs.slice().sort(byName).map(subNode) });
-    }
+    // Always present so admins can see/keep type-less services (orphan sub-services).
+    roots.push({ key: "grp-unassigned", kind: "group", id: "__unassigned__", name: "Unassigned (no service)", children: unassignedServices.slice().sort(byName).map(subServiceNode) });
     return roots;
-  }, [companyTypes, services, subServices]);
+  }, [companyTypes, services]);
 
   const matches = useCallback((n: TNode): boolean => n.name.toLowerCase().includes(q) || n.children.some(matches), [q]);
 
@@ -219,13 +197,12 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
 
   const dotColor = (n: TNode) =>
     n.kind === "type" ? (n.color || "#9aa0ad")
-    : n.kind === "service" ? "#b8736f"
-    : n.kind === "subservice" ? (n.color || "#cbb0ae")
+    : n.kind === "subservice" ? "#b8736f"
     : "#aab2bd";
 
+  // Labels: top type = "company type", sub-type = "service", service row = "sub-service".
   const kindLabel = (n: TNode) =>
-    n.kind === "type" ? (n.entity?.parentTypeId ? "sub-type" : "type")
-    : n.kind === "service" ? "service"
+    n.kind === "type" ? (n.isTopType ? "company type" : "service")
     : n.kind === "subservice" ? "sub-service"
     : "";
 
@@ -297,25 +274,18 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
 
               {/* Hover actions */}
               <div className="ctst-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                {node.kind === "type" && node.canAddType && (
-                  <IconBtn icon="bi-diagram-3" title="Add sub-type" color={ACTION.subType} onClick={() => onAddSubType(node.id)} />
+                {/* Top-level Company Type → add a Service (a sub-type). */}
+                {node.kind === "type" && node.isTopType && (
+                  <IconBtn icon="bi-diagram-3" title="Add service" color={ACTION.service} onClick={() => onAddService(node.id)} />
                 )}
-                {(node.kind === "type" || (node.kind === "group" && node.canAddService)) && (
-                  <IconBtn icon="bi-plus-lg" title="Add service" color={ACTION.service} onClick={() => onAddService(node.kind === "group" ? null : node.id)} />
-                )}
-                {node.kind === "service" && (
+                {/* Service (sub-type) → add a Sub-service (a service row). */}
+                {node.kind === "type" && !node.isTopType && (
                   <IconBtn icon="bi-plus-lg" title="Add sub-service" color={ACTION.subService} onClick={() => onAddSubService(node.id)} />
                 )}
                 {node.kind === "type" && (
                   <>
-                    <IconBtn icon="bi-pencil" title="Edit type" color={ACTION.edit} onClick={() => onEditType(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete type" color={ACTION.remove} onClick={() => onDeleteType(node.id)} />
-                  </>
-                )}
-                {node.kind === "service" && (
-                  <>
-                    <IconBtn icon="bi-pencil" title="Edit service" color={ACTION.edit} onClick={() => onEditService(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete service" color={ACTION.remove} onClick={() => onDeleteService(node.id)} />
+                    <IconBtn icon="bi-pencil" title="Edit" color={ACTION.edit} onClick={() => onEditType(node.entity)} />
+                    <IconBtn icon="bi-trash" title="Delete" color={ACTION.remove} onClick={() => onDeleteType(node.id)} />
                   </>
                 )}
                 {node.kind === "subservice" && (

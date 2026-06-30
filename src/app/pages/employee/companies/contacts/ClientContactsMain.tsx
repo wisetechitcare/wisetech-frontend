@@ -289,22 +289,13 @@ const ClientContactsMain = ({
       },
       {
         accessorKey: "services",
-        header: "Services",
+        header: "Sub-services",
         // Flatten the serviceMappings relation into a plain comma-separated string so the
-        // "Search in All Columns" global filter can match on it.
+        // "Search in All Columns" global filter can match on it. (These Service rows are
+        // the new "Sub-services" after the 4-level → 3-level flatten.)
         accessorFn: (row: any) =>
           (row.serviceMappings || [])
             .map((m: any) => m?.service?.name)
-            .filter(Boolean)
-            .join(", "),
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
-      },
-      {
-        accessorKey: "subServices",
-        header: "Sub-services",
-        accessorFn: (row: any) =>
-          (row.subServiceMappings || [])
-            .map((m: any) => m?.subService?.name)
             .filter(Boolean)
             .join(", "),
         Cell: ({ cell }) => cell.getValue<string>() || "NA",

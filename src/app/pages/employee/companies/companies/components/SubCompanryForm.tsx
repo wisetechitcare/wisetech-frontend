@@ -809,16 +809,16 @@ const SubCompanyForm: React.FC<Props> = ({
                             <div className="col-md-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
-                                inputLabel="Services"
+                                inputLabel="Sub-services"
                                 options={(() => {
                                   const options = transformToOptions(services);
                                   return options;
                                 })()}
-                                placeholder="Select services..."
+                                placeholder="Select sub-services..."
                                 isRequired={false}
                                 onCreate={createNewCompanyService}
                                 onRefreshOptions={handleRefreshServices}
-                                createModalTitle="Create New Service"
+                                createModalTitle="Create New Sub-service"
                                 createButtonText="Add New Service"
                                 createFieldLabel="Service Name"
                                 createFieldPlaceholder="Enter service name..."

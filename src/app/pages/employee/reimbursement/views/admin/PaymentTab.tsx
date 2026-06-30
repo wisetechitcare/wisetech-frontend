@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
-import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { Modal } from 'react-bootstrap';
 import dayjs from 'dayjs';
-import DateSelector from '@components/DateSelector';
+import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import {
   fetchReimbursementBatches,
   fetchReimbursementBatchById,
@@ -62,48 +62,6 @@ function getDateRange(filter: PeriodFilter, date: dayjs.Dayjs) {
   return { startDate: undefined, endDate: undefined };
 }
 
-const toggleSx = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 0,
-  height: 30,
-  p: '2px',
-  borderRadius: '5px',
-  backgroundColor: '#f1f5f9',
-  border: '1px solid #eef2f7',
-  width: 'fit-content',
-  maxWidth: '100%',
-  overflowX: 'auto',
-  '& .MuiToggleButtonGroup-grouped': {
-    border: 0,
-    borderRadius: '4px !important',
-    minWidth: 0,
-    minHeight: 24,
-    px: 1.6,
-    py: 0,
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: 500,
-    lineHeight: '24px',
-    textTransform: 'none',
-    whiteSpace: 'nowrap',
-    letterSpacing: 0,
-  },
-  '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-    marginLeft: 0,
-    borderLeft: 0,
-  },
-  '& .MuiToggleButton-root:hover': {
-    backgroundColor: '#e8eef6',
-  },
-  '& .Mui-selected': {
-    backgroundColor: '#ffffff !important',
-    color: '#aa393d !important',
-    fontWeight: 700,
-    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
-  },
-};
-
 function PeriodFilterBar({
   filter,
   date,
@@ -133,23 +91,21 @@ function PeriodFilterBar({
 
   return (
     <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0 mb-3">
-      <ToggleButtonGroup
+      <PeriodTabs
         value={filter}
-        exclusive
-        onChange={(_: any, val: PeriodFilter | null) => {
-          if (val) onFilterChange(val);
-        }}
-        sx={toggleSx}
-      >
-        <ToggleButton value="monthly">Monthly</ToggleButton>
-        <ToggleButton value="yearly">Yearly</ToggleButton>
-        <ToggleButton value="allTime">All Time</ToggleButton>
-      </ToggleButtonGroup>
+        options={[
+          { label: 'Monthly', value: 'monthly' },
+          { label: 'Yearly', value: 'yearly' },
+          { label: 'All Time', value: 'allTime' },
+        ]}
+        onChange={(val) => onFilterChange(val as PeriodFilter)}
+        ariaLabel="payment period"
+      />
       {filter !== 'allTime' && (
-        <DateSelector
+        <PeriodNavigator
+          label={periodLabel}
           onPrevious={() => onNavigate(-1)}
           onNext={() => onNavigate(1)}
-          displayValue={periodLabel}
         />
       )}
     </div>
