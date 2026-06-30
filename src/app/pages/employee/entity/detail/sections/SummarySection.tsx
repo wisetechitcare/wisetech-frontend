@@ -214,10 +214,9 @@ const SummarySection: React.FC<{
       <StatGrid
         items={[
           { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', accent: 'blue' },
-          { label: 'Owner', value: owner, icon: 'bi bi-person-badge', accent: 'primary' },
+          { label: 'Assigned To', value: owner, icon: 'bi bi-person-badge', accent: 'primary' },
           { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
           { label: 'Value', value: compactMoney(value), icon: 'bi bi-currency-rupee', accent: 'green' },
-          { label: 'Activities', value: (lead?.connections?.length || 0) + (p?.connections?.length || 0), icon: 'bi bi-chat-dots', accent: 'purple' },
         ]}
       />
 
