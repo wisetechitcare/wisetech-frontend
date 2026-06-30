@@ -1,16 +1,19 @@
 import React, { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import CountUp from "react-countup";
 import AnalyticsHeader from "./AnalyticsHeader";
 import AnalyticsCard from "./AnalyticsCard";
 import PipelineDistribution from "./PipelineDistribution";
+import PipelineHealthRing from "./PipelineHealthRing";
 import {
   ChartDatum,
   StatusDistributionRow,
   buildStatusDistribution,
   computeLeadStatusKpis,
+  computePipelineHealth,
   generatePipelineInsights,
   summarizeStatusGroups,
+  toneColor,
 } from "./leadAnalyticsUtils";
 
 interface PipelinePerformanceProps {
@@ -211,6 +214,37 @@ const GroupSummaryBar: React.FC<{
   );
 };
 
+/* ── Conversion analytics mini-stat ─────────────────────────────────────── */
+
+const AnalyticStat: React.FC<{
+  label: string;
+  value: number;
+  suffix: string;
+  color: string;
+  hint: string;
+}> = ({ label, value, suffix, color, hint }) => (
+  <div
+    title={hint}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "10px 12px",
+      borderRadius: 12,
+      background: "#F8FAFC",
+      border: "1px solid #EEF2F7",
+    }}
+  >
+    <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12.5, fontWeight: 500, color: "#475569" }}>
+      {label}
+    </span>
+    <span style={{ fontFamily: "Barlow, sans-serif", fontSize: 17, fontWeight: 700, color }}>
+      <CountUp end={value} duration={1.1} decimals={value % 1 === 0 ? 0 : 1} />
+      {suffix}
+    </span>
+  </div>
+);
+
 /* ── Skeleton ───────────────────────────────────────────────────────────── */
 
 const shimmer: React.CSSProperties = {
@@ -314,15 +348,15 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <AnalyticsHeader
-        title="Pipeline Performance"
-        subtitle="Lead distribution, conversion health & what needs attention"
+        title="How Your Leads Are Doing"
+        subtitle="A simple look at where your leads stand and what needs attention"
         icon="bi-bar-chart-steps"
         accent="#F59E0B"
       />
 
       <AnalyticsCard
-        title="Lead Distribution"
-        subtitle="Share of every status · click a row to drill into the leads"
+        title="Where Your Leads Stand"
+        subtitle="Tap any row to see those leads"
         index={index}
         isEmpty={!loading && isEmpty}
         emptyHint="Create leads to see the pipeline distribution."
@@ -330,39 +364,63 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
         {loading ? (
           <PipelineSkeleton />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            {/* ── KPI pills ──────────────────────────────────────────── */}
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              {pills.map((p) => (
-                <KpiPill key={p.label} {...p} />
-              ))}
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* KPI pills removed — Active/Converted/Lost/Conversion-Rate just
+                restated the per-status bars below (Converted=Received,
+                Lost=Not Received, Active=Pending+Hold). The bars are the single
+                source of truth; the health ring carries the summary score. */}
 
-            {/* ── Status distribution + lifecycle summary ────────────────── */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <PipelineDistribution rows={rows} onSelect={onSelect} />
-
-              <div style={{ paddingTop: 6, borderTop: "1px solid #EEF2F7" }}>
+            {/* ── Health  |  distribution ────────────────────────────── */}
+            <div style={{ display: "flex", gap: 22, flexWrap: "wrap", alignItems: "center" }}>
+              {/* Left column */}
+              <div
+                style={{
+                  flex: "1 1 240px",
+                  maxWidth: 300,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                  alignItems: "center",
+                }}
+              >
                 <div
                   style={{
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    letterSpacing: 0.3,
-                    textTransform: "uppercase",
-                    color: "#94A3B8",
-                    margin: "10px 0 12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                    width: "100%",
                   }}
                 >
-                  Lifecycle Summary
+                  <PipelineHealthRing health={health} />
+                  <span
+                    style={{
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 11.5,
+                      color: "#94A3B8",
+                      textAlign: "center",
+                    }}
+                  >
+                    Overall Health
+                  </span>
                 </div>
-                <GroupSummaryBar
-                  segments={[
-                    { label: "Active", value: groups.active, pct: groups.activePct, color: "#F59E0B" },
-                    { label: "Converted", value: groups.won, pct: groups.wonPct, color: "#22C55E" },
-                    { label: "Lost", value: groups.lost, pct: groups.lostPct, color: "#EF4444" },
-                  ]}
-                />
+                {/* Conversion / Loss Rate / Active Pipeline stats removed —
+                    they exactly repeated the KPI pills above. */}
+              </div>
+
+              {/* Right column */}
+              <div
+                style={{
+                  flex: "2 1 360px",
+                  minWidth: 300,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 18,
+                }}
+              >
+                <PipelineDistribution rows={rows} onSelect={onSelect} />
+                {/* Lifecycle roll-up removed — its Active/Converted/Lost numbers
+                    duplicated the KPI pills above. */}
               </div>
             </div>
 
@@ -399,7 +457,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                   }}
                 >
                   <i className="bi bi-stars" style={{ color: "#F59E0B" }} />
-                  Smart Insights
+                  What This Means
                   <span
                     style={{
                       marginLeft: "auto",

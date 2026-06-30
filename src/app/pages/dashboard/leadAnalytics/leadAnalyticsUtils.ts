@@ -457,45 +457,45 @@ export const generatePipelineInsights = (
   pool.push(
     push(
       health.tone,
-      `Pipeline health is ${health.label.toLowerCase()} (${health.score}/100).`
+      `Overall, your leads are doing ${health.label.toLowerCase()} — a score of ${health.score} out of 100.`
     )
   );
 
-  // 2) Conversion.
+  // 2) Conversion (leads that turned into work).
   if (kpis.conversionRate >= 25) {
-    pool.push(push("positive", `Strong conversion rate of ${kpis.conversionRate}%.`));
+    pool.push(push("positive", `Good news — ${kpis.conversionRate}% of your leads turned into work.`));
   } else if (kpis.conversionRate > 0) {
-    pool.push(push("neutral", `Conversion rate is ${kpis.conversionRate}%.`));
+    pool.push(push("neutral", `So far, ${kpis.conversionRate}% of your leads turned into work.`));
   } else {
-    pool.push(push("warning", "No leads have converted yet."));
+    pool.push(push("warning", "None of your leads have turned into work yet."));
   }
 
-  // 3) Loss rate.
+  // 3) Lost leads.
   if (kpis.notReceived > 0) {
     if (kpis.lostRate >= 30) {
-      pool.push(push("critical", `Loss rate is high at ${kpis.lostRate}% — investigate drop-off.`));
+      pool.push(push("critical", `${kpis.lostRate}% of leads were lost — worth finding out why.`));
     } else if (kpis.lostRate <= 10) {
-      pool.push(push("positive", `Loss rate is contained at ${kpis.lostRate}%.`));
+      pool.push(push("positive", `Only ${kpis.lostRate}% of leads were lost — that's well under control.`));
     } else {
-      pool.push(push("warning", `Loss rate is ${kpis.lostRate}%.`));
+      pool.push(push("warning", `${kpis.lostRate}% of leads were lost.`));
     }
   }
 
-  // 4) Active pipeline pressure.
+  // 4) Still-in-progress pressure.
   if (kpis.pipelinePct >= 60) {
-    pool.push(push("warning", `${kpis.pipelinePct}% of leads are still active — keep the pipeline moving.`));
+    pool.push(push("warning", `${kpis.pipelinePct}% of your leads are still in progress — keep following up.`));
   }
 
   // 5) Dominant status.
   const top = [...rows].sort((a, b) => b.value - a.value)[0];
   if (top && top.value > 0 && top.pct >= 40) {
     const dominanceTone: InsightTone = top.group === "lost" ? "critical" : "warning";
-    pool.push(push(dominanceTone, `${top.label} dominates the pipeline at ${top.pct}%.`));
+    pool.push(push(dominanceTone, `Most of your leads (${top.pct}%) are in "${top.label}".`));
   }
 
   // 6) Hold follow-up.
   if (kpis.hold > 0) {
-    pool.push(push("warning", `${kpis.hold} hold lead${kpis.hold === 1 ? "" : "s"} need follow-up.`));
+    pool.push(push("warning", `${kpis.hold} lead${kpis.hold === 1 ? "" : "s"} on hold — time for a follow-up.`));
   }
 
   // De-duplicate by text, keep priority order, cap at `limit`.

@@ -86,6 +86,17 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
     [kpis]
   );
 
+  // Transform service data for revenue ranking: swap value (volume) and totalCost (revenue)
+  const serviceDataByRevenue = useMemo(
+    () =>
+      serviceData.map((s) => ({
+        ...s,
+        volumeValue: s.value, // Store original volume
+        value: s.totalCost || 0, // Use revenue as ranking value
+      })),
+    [serviceData]
+  );
+
   const showStatus = settings?.showLeadsStatusChart;
   const showService = settings?.showLeadsByServiceChart;
   const showCategory = settings?.showLeadsByProjectCategory;
@@ -137,7 +148,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             <div className="col-12 col-lg-6">
               <AnalyticsCard
                 title="Service Mix"
-                subtitle="Area = lead volume"
+                subtitle="Distribution by lead volume"
                 index={0}
                 isEmpty={isEmpty(serviceData)}
                 emptyHint="Add services to see the distribution."
@@ -147,14 +158,13 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             </div>
             <div className="col-12 col-lg-6">
               <AnalyticsCard
-                title="Service Contribution"
-                subtitle="Ranked by lead volume · revenue in tooltip"
+                title="Service Value"
+                subtitle="Ranked by revenue · lead count in tooltip"
                 index={1}
-                insights={serviceInsights}
-                isEmpty={isEmpty(serviceData)}
+                isEmpty={isEmpty(serviceDataByRevenue)}
                 emptyHint="Add services to see the ranking."
               >
-                <RankedBarChart data={serviceData} onSelect={onServiceSelect} showRevenue />
+                <RankedBarChart data={serviceDataByRevenue} onSelect={onServiceSelect} showRevenue />
               </AnalyticsCard>
             </div>
           </div>

@@ -60,7 +60,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
               gridTemplateColumns: "minmax(108px, 150px) 1fr auto",
               alignItems: "center",
               gap: 14,
-              padding: "5px 10px",
+              padding: "6px 10px",
               borderRadius: 12,
               cursor: interactive ? "pointer" : "default",
               background: isHover ? `${row.color}12` : "transparent",
