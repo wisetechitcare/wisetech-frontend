@@ -29,7 +29,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {rows.map((row, i) => {
         const isHover = hover === row.key;
         // Non-zero statuses always keep a sliver of bar so they stay visible
@@ -60,7 +60,7 @@ const PipelineDistribution: React.FC<PipelineDistributionProps> = ({
               gridTemplateColumns: "minmax(108px, 150px) 1fr auto",
               alignItems: "center",
               gap: 14,
-              padding: "8px 10px",
+              padding: "5px 10px",
               borderRadius: 12,
               cursor: interactive ? "pointer" : "default",
               background: isHover ? `${row.color}12` : "transparent",

@@ -66,16 +66,40 @@ const AcquisitionGauge: React.FC<AcquisitionGaugeProps> = ({
         icon: "roundRect",
         textStyle: { color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: 500, fontSize: 12 },
       },
-      // Total in the center, just under the arc.
-      title: {
-        text: String(total),
-        subtext: "Total Leads",
-        left: "center",
-        top: "46%",
-        textAlign: "center",
-        textStyle: { color: "#0F172A", fontFamily: "Inter, sans-serif", fontWeight: 800, fontSize: 26 },
-        subtextStyle: { color: "#94A3B8", fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: 500 },
-      },
+      // Center label rendered as graphic text anchored to the donut's center
+      // (['50%','68%']). `left:'center'` + textAlign/textVerticalAlign 'middle'
+      // guarantees the number and caption sit dead-center in the half-ring bowl —
+      // the previous `title` positioned by its top edge and drifted off-center.
+      graphic: [
+        {
+          type: "text",
+          left: "center",
+          top: "55%",
+          style: {
+            text: String(total),
+            textAlign: "center",
+            textVerticalAlign: "middle",
+            fill: "#0F172A",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 800,
+            fontSize: 26,
+          },
+        },
+        {
+          type: "text",
+          left: "center",
+          top: "66%",
+          style: {
+            text: "Total Leads",
+            textAlign: "center",
+            textVerticalAlign: "middle",
+            fill: "#94A3B8",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 500,
+            fontSize: 11,
+          },
+        },
+      ],
       series: [
         {
           type: "pie",

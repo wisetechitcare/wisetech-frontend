@@ -1,19 +1,16 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import CountUp from "react-countup";
 import AnalyticsHeader from "./AnalyticsHeader";
 import AnalyticsCard from "./AnalyticsCard";
 import PipelineDistribution from "./PipelineDistribution";
-import PipelineHealthRing from "./PipelineHealthRing";
 import {
   ChartDatum,
   StatusDistributionRow,
   buildStatusDistribution,
   computeLeadStatusKpis,
-  computePipelineHealth,
   generatePipelineInsights,
   summarizeStatusGroups,
-  toneColor,
 } from "./leadAnalyticsUtils";
 
 interface PipelinePerformanceProps {
@@ -214,37 +211,6 @@ const GroupSummaryBar: React.FC<{
   );
 };
 
-/* ── Conversion analytics mini-stat ─────────────────────────────────────── */
-
-const AnalyticStat: React.FC<{
-  label: string;
-  value: number;
-  suffix: string;
-  color: string;
-  hint: string;
-}> = ({ label, value, suffix, color, hint }) => (
-  <div
-    title={hint}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "10px 12px",
-      borderRadius: 12,
-      background: "#F8FAFC",
-      border: "1px solid #EEF2F7",
-    }}
-  >
-    <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12.5, fontWeight: 500, color: "#475569" }}>
-      {label}
-    </span>
-    <span style={{ fontFamily: "Barlow, sans-serif", fontSize: 17, fontWeight: 700, color }}>
-      <CountUp end={value} duration={1.1} decimals={value % 1 === 0 ? 0 : 1} />
-      {suffix}
-    </span>
-  </div>
-);
-
 /* ── Skeleton ───────────────────────────────────────────────────────────── */
 
 const shimmer: React.CSSProperties = {
@@ -291,6 +257,9 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
     () => generatePipelineInsights(kpis, rows, health),
     [kpis, rows, health]
   );
+  // Smart Insights is a collapsible dropdown — collapsed by default to keep the
+  // card compact; click the header to expand.
+  const [insightsOpen, setInsightsOpen] = useState(false);
 
   const isEmpty = kpis.total === 0;
 
@@ -369,100 +338,31 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
               ))}
             </div>
 
-            {/* ── Health + analytics  |  distribution ────────────────── */}
-            <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
-              {/* Left column */}
-              <div
-                style={{
-                  flex: "1 1 240px",
-                  maxWidth: 300,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 16,
-                  alignItems: "center",
-                }}
-              >
+            {/* ── Status distribution + lifecycle summary ────────────────── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <PipelineDistribution rows={rows} onSelect={onSelect} />
+
+              <div style={{ paddingTop: 6, borderTop: "1px solid #EEF2F7" }}>
                 <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 4,
-                    width: "100%",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    letterSpacing: 0.3,
+                    textTransform: "uppercase",
+                    color: "#94A3B8",
+                    margin: "10px 0 12px",
                   }}
                 >
-                  <PipelineHealthRing health={health} />
-                  <span
-                    style={{
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 11.5,
-                      color: "#94A3B8",
-                      textAlign: "center",
-                    }}
-                  >
-                    Pipeline Health Score
-                  </span>
+                  Lifecycle Summary
                 </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-                  <AnalyticStat
-                    label="Conversion"
-                    value={kpis.conversionRate}
-                    suffix="%"
-                    color="#22C55E"
-                    hint="Received ÷ Total leads"
-                  />
-                  <AnalyticStat
-                    label="Loss Rate"
-                    value={kpis.lostRate}
-                    suffix="%"
-                    color="#EF4444"
-                    hint="Not Received ÷ Total leads"
-                  />
-                  <AnalyticStat
-                    label="Active Pipeline"
-                    value={kpis.pipelinePct}
-                    suffix="%"
-                    color="#F59E0B"
-                    hint="(Pending + Hold) ÷ Total leads"
-                  />
-                </div>
-              </div>
-
-              {/* Right column */}
-              <div
-                style={{
-                  flex: "2 1 360px",
-                  minWidth: 300,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 18,
-                }}
-              >
-                <PipelineDistribution rows={rows} onSelect={onSelect} />
-
-                <div style={{ paddingTop: 6, borderTop: "1px solid #EEF2F7" }}>
-                  <div
-                    style={{
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      letterSpacing: 0.3,
-                      textTransform: "uppercase",
-                      color: "#94A3B8",
-                      margin: "10px 0 12px",
-                    }}
-                  >
-                    Lifecycle roll-up
-                  </div>
-                  <GroupSummaryBar
-                    segments={[
-                      { label: "Active", value: groups.active, pct: groups.activePct, color: "#F59E0B" },
-                      { label: "Converted", value: groups.won, pct: groups.wonPct, color: "#22C55E" },
-                      { label: "Lost", value: groups.lost, pct: groups.lostPct, color: "#EF4444" },
-                    ]}
-                  />
-                </div>
+                <GroupSummaryBar
+                  segments={[
+                    { label: "Active", value: groups.active, pct: groups.activePct, color: "#F59E0B" },
+                    { label: "Converted", value: groups.won, pct: groups.wonPct, color: "#22C55E" },
+                    { label: "Lost", value: groups.lost, pct: groups.lostPct, color: "#EF4444" },
+                  ]}
+                />
               </div>
             </div>
 
@@ -477,7 +377,10 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                   borderTop: "1px solid #EEF2F7",
                 }}
               >
-                <div
+                <button
+                  type="button"
+                  onClick={() => setInsightsOpen((o) => !o)}
+                  aria-expanded={insightsOpen}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -488,45 +391,83 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                     letterSpacing: 0.3,
                     textTransform: "uppercase",
                     color: "#94A3B8",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    width: "100%",
                   }}
                 >
                   <i className="bi bi-stars" style={{ color: "#F59E0B" }} />
                   Smart Insights
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {insights.map((ins, i) => {
-                    const c = toneColor(ins.tone);
-                    return (
-                      <motion.div
-                        key={ins.text}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.35, delay: i * 0.08 }}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 9,
-                          padding: "9px 12px",
-                          borderRadius: 10,
-                          background: `${c}10`,
-                          borderLeft: `3px solid ${c}`,
-                        }}
-                      >
-                        <i className={`bi ${ins.icon}`} style={{ color: c, fontSize: 13, marginTop: 1, flexShrink: 0 }} />
-                        <span
-                          style={{
-                            fontFamily: "Inter, sans-serif",
-                            fontSize: 13,
-                            color: "#334155",
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {ins.text}
-                        </span>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      textTransform: "none",
+                      letterSpacing: 0,
+                      fontSize: 11,
+                      color: "#CBD5E1",
+                    }}
+                  >
+                    {insights.length}
+                    <motion.i
+                      className="bi bi-chevron-down"
+                      animate={{ rotate: insightsOpen ? 180 : 0 }}
+                      transition={{ duration: 0.25 }}
+                      style={{ display: "inline-block", color: "#94A3B8", fontSize: 12 }}
+                    />
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {insightsOpen && (
+                    <motion.div
+                      key="insights-body"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.28, ease: "easeInOut" }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {insights.map((ins, i) => {
+                          const c = toneColor(ins.tone);
+                          return (
+                            <motion.div
+                              key={ins.text}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.35, delay: i * 0.06 }}
+                              style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 9,
+                                padding: "9px 12px",
+                                borderRadius: 10,
+                                background: `${c}10`,
+                                borderLeft: `3px solid ${c}`,
+                              }}
+                            >
+                              <i className={`bi ${ins.icon}`} style={{ color: c, fontSize: 13, marginTop: 1, flexShrink: 0 }} />
+                              <span
+                                style={{
+                                  fontFamily: "Inter, sans-serif",
+                                  fontSize: 13,
+                                  color: "#334155",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {ins.text}
+                              </span>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </div>
