@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { ChartDialogModal } from "../components/ChartDialogModal";
 import dayjs from "dayjs";
-import { AnalyticsCard, RankedBarChart, ChartDatum } from "@pages/dashboard/leadAnalytics";
+import { AnalyticsCard, LocationBubbleChart, ChartDatum } from "@pages/dashboard/leadAnalytics";
 
 
 type Filters = {
@@ -564,11 +564,11 @@ export default function LeadByLocationAndStatus({data, startDate, endDate}: {dat
 
             <Box sx={{ mt: 3, }}>
               {grouped.length > 0 ? (
-                <RankedBarChart
+                <LocationBubbleChart
                   data={locationChartData}
                   onSelect={handleLocationChartClick}
                   showRevenue
-                  height={Math.max(320, locationChartData.length * 46)}
+                  height={Math.max(360, Math.min(560, locationChartData.length * 70))}
                 />
               ) : (
 
