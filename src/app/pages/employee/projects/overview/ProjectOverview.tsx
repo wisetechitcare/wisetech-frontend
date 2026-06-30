@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import {
   getLeadsByStatusAnalytics,
@@ -19,6 +20,7 @@ import CustomPieCharts from "@pages/employee/leads/overview/commonComponents/Lea
 import LeadByLocationChart from "@pages/employee/leads/overview/commonComponents/LeadByLocationChart";
 import YearlyStatusCountChart from "@pages/employee/projects/commonComponents/YearlyStatusCountChart";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
+import { ProjectLeadAnalyticsDashboard } from "@pages/dashboard/projectAnalytics";
 import Loader from "@app/modules/common/utils/Loader";
 
 /**
@@ -74,6 +76,8 @@ const ProjectOverview = () => {
   const [sourceId, setSourceId] = useState("");
   const [openCompanyType, setOpenCompanyType] = useState(false);
   const [companyTypeId, setCompanyTypeId] = useState("");
+
+  const settings = useSelector((state: any) => state.chartSettings);
 
   const handleFilterChange = (key: string, value: string) =>
     setFilters((prev: any) => ({ ...prev, [key]: value }));
@@ -226,6 +230,26 @@ const ProjectOverview = () => {
         </select>
       </div>
 
+      {/* ── Unified Lead Analytics Dashboard (Project-scoped with receivedOnly=true) ── */}
+      <div style={{ marginBottom: 40 }}>
+        <ProjectLeadAnalyticsDashboard
+          statusData={chartData.statusData}
+          serviceData={chartData.serviceData}
+          categoryData={chartData.categoryData}
+          sourceData={chartData.sourceData}
+          companyTypeData={chartData.companyTypeData}
+          locationData={chartData.locationData}
+          settings={settings}
+          showKpis={false}
+          onStatusSelect={handleStatusChartClick}
+          onServiceSelect={handleServiceChartClick}
+          onCategorySelect={handleCategoryChartClick}
+          onSourceSelect={handleSourceChartClick}
+          onCompanyTypeSelect={handleCompanyTypeChartClick}
+        />
+      </div>
+
+      {/* ── Legacy Charts (Existing Project Analytics) ── */}
       <div className="row g-3">
         {/* Projects (Received Leads) By Status */}
         <div className="col-12 col-md-6">
