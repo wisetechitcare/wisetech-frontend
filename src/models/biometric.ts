@@ -7,6 +7,7 @@ export interface IBiometricDevice {
   deviceIp: string;
   devicePort: string;
   serialNumber: string;
+  sourceDeviceName: string | null;
   username: string;
   password: string; // always '••••••' from API
   isActive: boolean;
@@ -26,6 +27,7 @@ export interface ICreateBiometricDevice {
   deviceIp: string;
   devicePort: string;
   serialNumber: string;
+  sourceDeviceName?: string | null;
   username: string;
   password: string;
   isActive?: boolean;
@@ -38,6 +40,7 @@ export interface IUpdateBiometricDevice {
   deviceIp?: string;
   devicePort?: string;
   serialNumber?: string;
+  sourceDeviceName?: string | null;
   username?: string;
   password?: string;
   isActive?: boolean;

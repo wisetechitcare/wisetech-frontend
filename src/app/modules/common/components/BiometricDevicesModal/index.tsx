@@ -39,7 +39,7 @@ const deviceSchema = Yup.object({
   connectionMode: Yup.string().oneOf(['PUSH', 'PULL', 'BOTH'], 'Invalid connection mode').required('Connection mode is required'),
 });
 
-const EMPTY_FORM = { branchId: '', name: '', deviceIp: '', devicePort: '88', serialNumber: '', username: 'essl', password: '', connectionMode: 'PUSH' as ConnectionMode };
+const EMPTY_FORM = { branchId: '', name: '', deviceIp: '', devicePort: '88', serialNumber: '', username: 'essl', password: '', connectionMode: 'BOTH' as ConnectionMode };
 
 const MODE_META: Record<ConnectionMode, { label: string; color: string; desc: string; hint: string }> = {
   PUSH: { label: 'Push', color: T.color.indigo, desc: 'Device sends punches to the server (recommended for cloud)', hint: 'Server never dials the device. The device must POST to the webhook.' },
@@ -155,7 +155,7 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
   const openCreate = () => { setFormInit({ ...EMPTY_FORM, branchId }); setEditMode(false); setEditingId(null); setShowPass(false); setShowForm(true); };
 
   const openEdit = (d: IBiometricDevice) => {
-    setFormInit({ branchId: d.branchId, name: d.name, deviceIp: d.deviceIp, devicePort: d.devicePort, serialNumber: d.serialNumber, username: d.username, password: '', connectionMode: d.connectionMode ?? 'PUSH' });
+    setFormInit({ branchId: d.branchId, name: d.name, deviceIp: d.deviceIp, devicePort: d.devicePort, serialNumber: d.serialNumber, username: d.username, password: '', connectionMode: d.connectionMode ?? 'BOTH' });
     setEditMode(true); setEditingId(d.id); setShowPass(false); setShowForm(true);
   };
 
