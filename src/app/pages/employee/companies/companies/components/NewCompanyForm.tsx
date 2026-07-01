@@ -8,7 +8,6 @@ import {
   getClientContactsByCompanyId,
   getAllCompanyServices,
   createCompanyService,
-  getAllSubServices,
 } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
 import {
@@ -42,7 +41,6 @@ import FormSchemaManager from "@app/modules/common/components/FormSchemaManager"
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 import { IFormField, IFormSection } from "@models/company";
 import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
-import SubServiceModal from "./SubServiceModal";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 
 // Type definitions
@@ -173,8 +171,6 @@ const NewCompanyForm: React.FC<Props> = ({
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
   const [clientContacts, setClientContacts] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
-  const [subServices, setSubServices] = useState<any[]>([]);
-  const [showSubServiceModal, setShowSubServiceModal] = useState(false);
   const [subCompanies, setSubCompanies] = useState<any[]>([]);
   const [initialValues, setInitialValues] = useState<FormValues>({
     companyName: "",
@@ -532,15 +528,15 @@ const NewCompanyForm: React.FC<Props> = ({
 
                 return serviceIds;
               })(),
-              subServiceIds: Array.isArray(company.subServiceMappings)
-                ? company.subServiceMappings.map((m: any) => m.subServiceId || m.subService?.id).filter((id: any) => id)
-                : [],
+              subServiceIds: [],
               referenceType: company.references?.map((ref: any) => ({
                 referenceType: ref.referenceType || "",
                 internalReferenceEmployeeId: ref.internalReferenceEmployeeId || "",
                 externalReferenceContactId: ref.externalReferenceContactId || "",
                 externalReferenceCompanyTypeId: ref.externalReferenceCompanyTypeId || "",
-                externalReferenceCompanyId: ref.externalReferenceCompanyId || "",
+                // The referral company is stored in `referralCompanyId` (the
+                // `company_id`/externalReferenceCompanyId is the owning company).
+                externalReferenceCompanyId: ref.referralCompanyId || "",
                 externalReferenceSubCompanyId: ref.externalReferenceSubCompanyId || "",
               })) || [{
                 referenceType: "",
@@ -771,22 +767,6 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
-  // Load + refresh the hierarchical sub-services catalog.
-  const loadSubServices = async () => {
-    try {
-      const response = await getAllSubServices();
-      setSubServices(response?.subServices || []);
-    } catch (error) {
-      console.error('Error fetching sub-services:', error);
-    }
-  };
-  useEffect(() => {
-    loadSubServices();
-  }, []);
-  useEventBus(EVENT_KEYS.subServiceCreated, () => {
-    loadSubServices();
-  });
-
   const handleRefreshCompanyTypes = async () => {
     try {
       const types = await getAllCompanyTypes();
@@ -891,7 +871,6 @@ const NewCompanyForm: React.FC<Props> = ({
             : undefined,
         references: references,
         services: values.services,
-        subServiceIds: values.subServiceIds || [],
         // Per-company custom form layout + inline values.
         sectionConfig: formSections,
         customSections: formSections,
@@ -1191,7 +1170,7 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="row g-3">
-                            <div className="col-md-4">
+                            <div className="col-md-12">
                               <TextInput
                                 formikField="companyName"
                                 label="Company Name"
@@ -1215,14 +1194,14 @@ const NewCompanyForm: React.FC<Props> = ({
                               />
                             </div>
                             <div className="col-md-4">
-                              {/* Sub-type — children of the selected main type(s). */}
-                              <label className="d-flex align-items-center fs-6 form-label mb-2">Sub-type</label>
+                              {/* Services — children of the selected company type(s). */}
+                              <label className="d-flex align-items-center fs-6 form-label mb-2">Services</label>
                               <Select
                                 isMulti
                                 placeholder={
                                   (values.companyTypes || []).length === 0
                                     ? "Select a company type first…"
-                                    : "Select sub-type(s)..."
+                                    : "Select service(s)..."
                                 }
                                 classNamePrefix="react-select"
                                 className="react-select-styled"
@@ -1255,7 +1234,7 @@ const NewCompanyForm: React.FC<Props> = ({
                             <div className="col-md-4">
                               <MultiSelectWithInlineCreate
                                 formikField="services"
-                                inputLabel="Services"
+                                inputLabel="Sub-services"
                                 options={(() => {
                                   // Strict cascade: when a type/sub-type is chosen, show ONLY services
                                   // filed under it. No type chosen → show all. Broken-link (filed under a
@@ -1271,77 +1250,20 @@ const NewCompanyForm: React.FC<Props> = ({
                                   );
                                   return transformToOptions(visible);
                                 })()}
-                                placeholder="Select services..."
+                                placeholder="Select sub-services..."
                                 isRequired={false}
                                 onCreate={createNewCompanyService}
                                 onRefreshOptions={handleRefreshServices}
-                                createModalTitle="Create New Service"
-                                createButtonText="Add New Service"
-                                createFieldLabel="Service Name"
-                                createFieldPlaceholder="Enter service name..."
+                                createModalTitle="Create New Sub-service"
+                                createButtonText="Add New Sub-service"
+                                createFieldLabel="Sub-service Name"
+                                createFieldPlaceholder="Enter sub-service name..."
                               />
                               {((values.companyTypes || []).length > 0 || (values.subTypes || []).length > 0) && (
                                 <small className="text-muted d-block mt-1">
-                                  Showing services filed under the selected type(s). Assign services to a type in <b>Configure → Company Type &amp; Services</b>.
+                                  Showing sub-services filed under the selected service(s). Manage these in <b>Configure → Company Type &amp; Services</b>.
                                 </small>
                               )}
-                            </div>
-                          </div>
-
-                          {/* Sub-services — hierarchical children of the selected Services */}
-                          <div className="row g-3 mt-1">
-                            <div className="col-md-8">
-                              <label className="d-flex align-items-center fs-6 form-label mb-2">Sub-services</label>
-                              <Select
-                                isMulti
-                                placeholder={
-                                  (values.services || []).length === 0
-                                    ? "Select services first, or pick any sub-service"
-                                    : "Select sub-services..."
-                                }
-                                classNamePrefix="react-select"
-                                className="react-select-styled"
-                                options={(() => {
-                                  // Group sub-services by their parent service; when services are
-                                  // selected, show only those services' children.
-                                  const selected = new Set(values.services || []);
-                                  const groups: Record<string, { label: string; options: any[] }> = {};
-                                  subServices.forEach((ss: any) => {
-                                    if (selected.size && ss.parentServiceId && !selected.has(ss.parentServiceId)) return;
-                                    const parentName =
-                                      ss.parentService?.name ||
-                                      services.find((s: any) => s.id === ss.parentServiceId)?.name ||
-                                      "Other";
-                                    (groups[parentName] ||= { label: parentName, options: [] }).options.push({
-                                      value: ss.id,
-                                      label: ss.name,
-                                    });
-                                  });
-                                  // Sort the groups A–Z and each group's sub-services A–Z.
-                                  return Object.values(groups)
-                                    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true }))
-                                    .map((g) => ({ ...g, options: sortOptionsAlphabetically(g.options) }));
-                                })()}
-                                value={subServices
-                                  .filter((ss: any) => (values.subServiceIds || []).includes(ss.id))
-                                  .map((ss: any) => ({ value: ss.id, label: ss.name }))}
-                                onChange={(selectedOpts: any) =>
-                                  setFieldValue(
-                                    "subServiceIds",
-                                    (selectedOpts || []).map((o: any) => o.value)
-                                  )
-                                }
-                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                                menuPosition="fixed"
-                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-                              />
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowSubServiceModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Sub-service
-                              </small>
                             </div>
                           </div>
                         </div>
@@ -2155,12 +2077,6 @@ const NewCompanyForm: React.FC<Props> = ({
           setShowSchemaManager(false);
         }}
         onClose={() => setShowSchemaManager(false)}
-      />
-      <SubServiceModal
-        show={showSubServiceModal}
-        onClose={() => setShowSubServiceModal(false)}
-        services={services}
-        onCreated={() => loadSubServices()}
       />
     </>
   );

@@ -1,5 +1,4 @@
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 import AllTime from "@pages/employee/reimbursement/views/AllTime";
 import Daily from "@pages/employee/reimbursement/views/AllTime";
 import Monthly from "@pages/employee/reimbursement/views/Monthly";
@@ -7,7 +6,8 @@ import Yearly from "@pages/employee/reimbursement/views/Yearly";
 import SubmissionsTable from "@pages/employee/reimbursement/views/SubmissionsTable";
 import dayjs, { Dayjs, ManipulateType } from "dayjs";
 import React, { useEffect, useState } from "react";
-import DateSelector from "@components/DateSelector";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { IReimbursements, IReimbursementsUpdate } from "@models/employee";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
@@ -113,93 +113,50 @@ const MaterialToggleReimbursement = ({
   return (
     <>
       <div className="d-flex flex-md-row flex-column justify-content-lg-between align-items-lg-center gap-5 gap-lg-0">
-        <ToggleButtonGroup
+        <PeriodTabs
           value={alignment}
-          exclusive
-          onChange={(event: React.MouseEvent<HTMLElement>, value: any) =>
-            handleChange(event, value)
-          }
-          aria-label="view selection"
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0,
-            height: 30,
-            p: '2px',
-            borderRadius: '5px',
-            backgroundColor: '#f1f5f9',
-            border: '1px solid #eef2f7',
-            width: 'fit-content',
-            maxWidth: '100%',
-            overflowX: 'auto',
-            '& .MuiToggleButtonGroup-grouped': {
-              border: 0,
-              borderRadius: '4px !important',
-              minWidth: 0,
-              minHeight: 24,
-              px: 1.6,
-              py: 0,
-              color: '#475569',
-              fontSize: 12,
-              fontWeight: 500,
-              lineHeight: '24px',
-              textTransform: 'none',
-              whiteSpace: 'nowrap',
-              letterSpacing: 0,
-            },
-            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-              marginLeft: 0,
-              borderLeft: 0,
-            },
-            '& .MuiToggleButton-root:hover': {
-              backgroundColor: '#e8eef6',
-            },
-            '& .Mui-selected': {
-              backgroundColor: '#ffffff !important',
-              color: '#aa393d !important',
-              fontWeight: 700,
-              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.08)',
-            },
-          }}
-        >
-          <ToggleButton value="monthly">Monthly</ToggleButton>
-          <ToggleButton value="yearly">Yearly</ToggleButton>
-          <ToggleButton value="allTime">All Time</ToggleButton>
-        </ToggleButtonGroup>
+          options={[
+            { label: "Monthly", value: "monthly" },
+            { label: "Yearly", value: "yearly" },
+            { label: "All Time", value: "allTime" },
+          ]}
+          onChange={(val) => handleChange(null as any, val as PeriodAlignment)}
+          ariaLabel="view selection"
+        />
 
-        {alignment == "monthly" && (
-          <DateSelector
+        {alignment === "monthly" && (
+          <PeriodNavigator
+            label={month.format("MMM YYYY")}
             onPrevious={() => {
               const newMonth = month.subtract(1, "month");
               handleDatesChange("decrement", "month", setMonth);
               toggleItemsActions?.monthly(newMonth);
-              onPeriodChange?.('monthly', newMonth);
+              onPeriodChange?.("monthly", newMonth);
             }}
             onNext={() => {
               const newMonth = month.add(1, "month");
               handleDatesChange("increment", "month", setMonth);
               toggleItemsActions?.monthly(newMonth);
-              onPeriodChange?.('monthly', newMonth);
+              onPeriodChange?.("monthly", newMonth);
             }}
-            displayValue={month.format("MMM YYYY")}
           />
         )}
 
-        {alignment == "yearly" && (
-          <DateSelector
+        {alignment === "yearly" && (
+          <PeriodNavigator
+            label={formatFiscalYearLabel(fiscalYear)}
             onPrevious={() => {
               const newYear = year.subtract(1, "year");
               handleDatesChange("decrement", "year", setYear);
               toggleItemsActions?.yearly(newYear);
-              onPeriodChange?.('yearly', newYear);
+              onPeriodChange?.("yearly", newYear);
             }}
             onNext={() => {
               const newYear = year.add(1, "year");
               handleDatesChange("increment", "year", setYear);
               toggleItemsActions?.yearly(newYear);
-              onPeriodChange?.('yearly', newYear);
+              onPeriodChange?.("yearly", newYear);
             }}
-            displayValue={formatFiscalYearLabel(fiscalYear)}
           />
         )}
       </div>

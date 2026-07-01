@@ -173,6 +173,22 @@ export const formatCurrencyRounded = (
 };
 
 /**
+ * Compact currency for dashboards/chips — Indian scale (Cr / L).
+ * e.g. 249470070000 → "₹24,947.01 Cr", 350000 → "₹3.50 L", 4200 → "₹4,200".
+ */
+export const formatCurrencyCompact = (
+  amount: number | string,
+  branchCurrency: string = 'INR'
+): string => {
+  const n = Number(amount) || 0;
+  const symbol = getCurrencySymbol(branchCurrency);
+  const abs = Math.abs(n);
+  if (abs >= 1e7) return `${symbol}${(n / 1e7).toLocaleString('en-IN', { maximumFractionDigits: 2 })} Cr`;
+  if (abs >= 1e5) return `${symbol}${(n / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 2 })} L`;
+  return formatCurrencyRounded(n, branchCurrency);
+};
+
+/**
  * Get the currency symbol for a given currency code
  *
  * @param currencyCode - ISO currency code (e.g., 'INR', 'USD')
