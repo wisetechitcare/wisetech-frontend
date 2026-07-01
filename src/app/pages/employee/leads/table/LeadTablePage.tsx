@@ -12,9 +12,9 @@ import {
   useMediaQuery,
   Autocomplete,
 } from "@mui/material";
-import { deleteLead, getAllLeads } from "@services/leads";
+import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
@@ -72,6 +72,19 @@ const LeadTablePage = () => {
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [projectServices, setProjectServices] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
+
+  // ── Column visibility & selective fetching ──────────────────────────────────
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
+  }, []);
 
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   const [searchText, setSearchText] = useState("");
@@ -226,13 +239,13 @@ const LeadTablePage = () => {
     loadPreference();
   }, []);
 
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (fields?: string[]) => {
     try {
       setLoading(true);
       // Fetch the full set — this table filters & paginates client-side, so the
       // default 50-row page would otherwise cap the list (root cause of "only 50
       // leads"). High pageSize mirrors the projects endpoint's bulk fetch.
-      const leadsResponse = await getAllLeads({ pageSize: 100000 });
+      const leadsResponse = await getAllLeadsComplete(fields);
       const leadsData = leadsResponse?.data?.data?.leads || [];
 
       // Filter to show: non-project leads + received status leads (transitioning)
@@ -396,6 +409,31 @@ const LeadTablePage = () => {
     }
   }, []);
 
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        fetchAllData(keys);
+      }, 500);
+    },
+    [fetchAllData],
+  );
+
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
@@ -404,9 +442,9 @@ const LeadTablePage = () => {
     dispatch(fetchAllEmployeesAsync());
   }, []);
 
-  useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
+  useEventBus(EVENT_KEYS.leadCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadUpdated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadDeleted, () => fetchAllData());
 
   const columns = useMemo(() => {
     const base: any[] = [
@@ -1234,6 +1272,7 @@ const LeadTablePage = () => {
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         enableColumnResizing={true}
         layoutMode="semantic"
         muiTableContainerProps={{

@@ -53,7 +53,7 @@ export const getProjectPhase = (lead: any): ProjectPhase => {
   if (/(complete|finish|closed|delivered|handover)/.test(name)) return 'completed';
   if (/(hold|paused|stalled|suspend)/.test(name)) return 'onhold';
   const open = lead?.execution?.isProjectOpen ?? lead?.project?.isProjectOpen;
-  if (open === false && name === '') return 'completed';
+  if (open === false) return 'completed';
   return 'ongoing';
 };
 

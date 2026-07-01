@@ -12,9 +12,9 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { deleteLead, getAllLeads } from "@services/leads";
+import { deleteLead, getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
@@ -223,6 +223,19 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const [rawLeadsDatas, setRawLeadsDatas] = useState<any[]>([]);
   const [showBulkImport, setShowBulkImport] = useState(false);
 
+  // ── Column visibility & selective fetching ──────────────────────────────────
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
+  }, []);
+
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   const [searchText, setSearchText] = useState("");
@@ -394,12 +407,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   }, []);
 
   // ── Data fetch ───────────────────────────────────────────────────────────────
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (fields?: string[]) => {
     try {
       setLoading(true);
       // Full set — table filters & paginates client-side; default 50-row page
       // would otherwise truncate the unified entity list.
-      const leadsResponse = await getAllLeads({ pageSize: 100000 });
+      const leadsResponse = await getAllLeadsComplete(fields);
       const leadsData = leadsResponse?.data?.data?.leads || [];
       setRawLeadsDatas(leadsData);
 
@@ -592,6 +605,31 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     }
   }, []);
 
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        fetchAllData(keys);
+      }, 500);
+    },
+    [fetchAllData],
+  );
+
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
@@ -600,12 +638,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   }, []);
 
   // ── Event bus subscriptions ───────────────────────────────────────────────────
-  useEventBus(EVENT_KEYS.leadCreated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadUpdated, fetchAllData);
-  useEventBus(EVENT_KEYS.leadDeleted, fetchAllData);
-  useEventBus(EVENT_KEYS.projectCreated, fetchAllData);
-  useEventBus(EVENT_KEYS.projectUpdated, fetchAllData);
-  useEventBus(EVENT_KEYS.chartSettingsUpdated, fetchAllData);
+  useEventBus(EVENT_KEYS.leadCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadUpdated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.leadDeleted, () => fetchAllData());
+  useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.chartSettingsUpdated, () => fetchAllData());
 
   const isDrillDown = !!(
     statusId ||
@@ -1893,6 +1931,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         enableColumnResizing={true}
         layoutMode="semantic"
         muiTableContainerProps={{

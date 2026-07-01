@@ -24,6 +24,7 @@ export const ChartDialogModal = ({
   startDate,
   endDate,
   receivedOnly,
+  entityScope = "lead",
 }: {
   open: boolean;
   onClose: () => void;
@@ -43,6 +44,10 @@ export const ChartDialogModal = ({
   endDate?: dayjs.Dayjs;
   // Project section drill-down: restrict the table to received/project leads.
   receivedOnly?: boolean;
+  // Which entity the drill-down ids refer to. "project" makes status/service/category/
+  // company-type match the project fields (execution.projectStatus, projectServiceId, …)
+  // instead of the lead fields. Defaults to "lead" for the lead-overview drill-downs.
+  entityScope?: "lead" | "project";
 }) => {
   // Listen for the closeChartDialogModal event
   useEventBus(EVENT_KEYS.closeChartDialogModal, onClose);
@@ -73,7 +78,7 @@ export const ChartDialogModal = ({
         <div className="flex flex-col w-full max-w-4xl mx-auto p-0 bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
           <div className="overflow-y-auto max-h-[50vh]">
             <EntityTablePage
-              entityScope="lead"
+              entityScope={entityScope}
               statusId={statusId || undefined}
               serviceId={serviceId || undefined}
               categoryId={categoryId || undefined}

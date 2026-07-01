@@ -10,18 +10,12 @@ import {
   InputAdornment,
   useTheme,
   useMediaQuery,
-  Autocomplete,
 } from "@mui/material";
-import { getAllLeads } from "@services/leads";
+import { getAllLeadsComplete } from "@services/leads";
 import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllLeadStatus } from "@services/lead";
 import Loader from "@app/modules/common/utils/Loader";
-import {
-  errorConfirmation,
-  successConfirmation,
-} from "@utils/modal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -68,6 +62,19 @@ const ProjectTablePage = () => {
   const [projectServices, setProjectServices] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
   const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
+
+  // ── Column visibility & selective fetching ──────────────────────────────────
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
+  }, []);
 
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   const [searchText, setSearchText] = useState("");
@@ -206,12 +213,12 @@ const ProjectTablePage = () => {
     loadPreference();
   }, []);
 
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (fields?: string[]) => {
     try {
       setLoading(true);
       // Fetch the full set — the default 50-row page capped this to ~15 projects
       // (only the project-trigger leads within the first 50). Filtered client-side.
-      const leadsResponse = await getAllLeads({ pageSize: 100000 });
+      const leadsResponse = await getAllLeadsComplete(fields);
       const leadsData = leadsResponse?.data?.data?.leads || [];
 
       // Filter to ONLY project leads (isProjectTrigger === true)
@@ -365,6 +372,31 @@ const ProjectTablePage = () => {
     }
   }, []);
 
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        fetchAllData(keys);
+      }, 500);
+    },
+    [fetchAllData],
+  );
+
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
@@ -373,8 +405,8 @@ const ProjectTablePage = () => {
     dispatch(fetchAllEmployeesAsync());
   }, []);
 
-  useEventBus(EVENT_KEYS.projectCreated, fetchAllData);
-  useEventBus(EVENT_KEYS.projectUpdated, fetchAllData);
+  useEventBus(EVENT_KEYS.projectCreated, () => fetchAllData());
+  useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
 
   const columns = useMemo(() => {
     const base: any[] = [
@@ -1040,6 +1072,7 @@ const ProjectTablePage = () => {
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         enableColumnResizing={true}
         layoutMode="semantic"
         muiTableContainerProps={{

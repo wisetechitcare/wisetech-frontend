@@ -9,7 +9,7 @@ import CompanyConfigForm from "./components/CompanyConfigForm";
 import { Container } from "react-bootstrap";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
+import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import {
   ConfigPageLayout,

@@ -16,7 +16,7 @@ import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
 import AllTime from "./AllTime";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
+import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import { Modal } from "react-bootstrap";
 import { Typography } from "@mui/material";
@@ -406,7 +406,7 @@ const LeadsOverviewToggle = ({
               >
                 Customize Cards Visisbility
               </Typography>
-              <LeadsProjectCompanyChartSettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD} />
+              <ChartVisibilitySettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD} />
             </div>
         </Modal.Body>
       </Modal>

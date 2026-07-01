@@ -133,6 +133,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
               R{cs.revisionNumber}
             </span>
             <CategoryBadge category={cs.category} />
+            
             <span
               title={fullDateTime(cs.changedAt)}
               style={{
@@ -145,6 +146,32 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
             >
               {fromNow(cs.changedAt)}
             </span>
+            
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Dummy click handler
+              }}
+              style={{
+                fontFamily: FONT.body,
+                fontSize: 11,
+                fontWeight: 600,
+                color: C.primary,
+                backgroundColor: C.primaryLight,
+                padding: '4px 8px',
+                borderRadius: RADIUS.md,
+                border: `1px solid ${C.primary}33`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                cursor: 'pointer',
+                marginLeft: 4,
+              }}
+            >
+              <i className="bi bi-download" aria-hidden />
+              Download Offer
+            </button>
           </div>
 
           <div

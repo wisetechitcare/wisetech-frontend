@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { Formik, Form } from "formik";
@@ -99,10 +99,10 @@ const CONFIG_ITEMS: ConfigItem[] = [
 ];
 
 
-interface leadProjectCompanyCHartSettingsProp {
+interface ChartVisibilitySettingsProps {
   type?:string
 }
-const LeadsProjectCompanyChartSettings: React.FC<leadProjectCompanyCHartSettingsProp> = ({type}) => {
+const ChartVisibilitySettings: React.FC<ChartVisibilitySettingsProps> = ({type}) => {
   const dispatch = useDispatch<AppDispatch>();
   const chartSettings = useSelector(selectChartSettings);
   const isLoading = useSelector(selectIsLoading);
@@ -137,27 +137,71 @@ const LeadsProjectCompanyChartSettings: React.FC<leadProjectCompanyCHartSettings
   };
 
   const renderSection = (title: string, items: ConfigItem[]) => (
-    <div className="mb-4">
-      <h5 className="border-bottom pb-2">{title}</h5>
-      {items.map((item) => (
-        <div key={item.key} className="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-          <label className="form-label mb-0" htmlFor={item.key}>
-            {item.label}
-          </label>
-          <div className="form-check form-switch">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id={item.key}
-              name={item.key}
-              checked={Boolean(chartSettings[item.key as keyof typeof chartSettings])}
-              onChange={(e) => {
-                dispatch(updateSetting({ key: item.key, value: e.target.checked }));
-              }}
-            />
+    <div className="mb-5">
+      <h5 style={{
+        fontSize: "15px",
+        fontWeight: 700,
+        color: "#64748B",
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        borderBottom: "2px solid #E2E8F0",
+        paddingBottom: "10px",
+        marginBottom: "20px"
+      }}>
+        {title}
+      </h5>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
+        gap: "16px"
+      }}>
+        {items.map((item) => (
+          <div key={item.key} style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 20px",
+            backgroundColor: "#F8FAFC",
+            borderRadius: "8px",
+            border: "1px solid #F1F5F9",
+            transition: "all 0.2s ease-in-out",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "#FFFFFF";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
+            e.currentTarget.style.borderColor = "#E2E8F0";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "#F8FAFC";
+            e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.02)";
+            e.currentTarget.style.borderColor = "#F1F5F9";
+          }}
+          >
+            <label style={{
+              margin: 0,
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#334155",
+              cursor: "pointer"
+            }} htmlFor={item.key}>
+              {item.label}
+            </label>
+            <label className="premium-switch">
+              <input
+                type="checkbox"
+                id={item.key}
+                name={item.key}
+                checked={Boolean(chartSettings[item.key as keyof typeof chartSettings])}
+                onChange={(e) => {
+                  dispatch(updateSetting({ key: item.key, value: e.target.checked }));
+                }}
+              />
+              <span className="premium-slider"></span>
+            </label>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 
@@ -166,7 +210,50 @@ const LeadsProjectCompanyChartSettings: React.FC<leadProjectCompanyCHartSettings
   }
 
   return (
-    <div className="container mt-4">
+    <div className="container-fluid py-2">
+      <style>{`
+        .premium-switch {
+          position: relative;
+          display: inline-block;
+          width: 48px;
+          height: 24px;
+        }
+        .premium-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .premium-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: #CBD5E1;
+          transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
+          border-radius: 4px;
+        }
+        .premium-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
+          border-radius: 3px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .premium-switch input:checked + .premium-slider {
+          background-color: #9D4141;
+        }
+        .premium-switch input:checked + .premium-slider:before {
+          transform: translateX(24px);
+        }
+        .premium-switch input:focus + .premium-slider {
+          box-shadow: 0 0 0 3px rgba(157, 65, 65, 0.2);
+        }
+      `}</style>
+
       {error && (
         <div className="alert alert-danger" role="alert">
           {error}
@@ -193,14 +280,17 @@ const LeadsProjectCompanyChartSettings: React.FC<leadProjectCompanyCHartSettings
               CONFIG_ITEMS.filter((item) => item.section === "Companies")
             )}
 
-            <button
-              type="button"
-              className="btn btn-primary mt-3"
-              onClick={() => handleSubmit()}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Saving..." : "Save Settings"}
-            </button>
+            <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+              <button
+                type="button"
+                className="btn text-white fw-bold px-4 py-2 shadow-sm"
+                style={{ backgroundColor: "#9D4141", border: "none", borderRadius: "6px" }}
+                onClick={() => handleSubmit()}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save Settings"}
+              </button>
+            </div>
           </Form>
         )}
       </Formik>
@@ -208,4 +298,4 @@ const LeadsProjectCompanyChartSettings: React.FC<leadProjectCompanyCHartSettings
   );
 };
 
-export default LeadsProjectCompanyChartSettings;
+export default ChartVisibilitySettings;

@@ -79,12 +79,16 @@ const ProjectLeadAnalyticsDashboard: React.FC<ProjectLeadAnalyticsDashboardProps
     [serviceData]
   );
 
-  const showStatus = settings?.showLeadsStatusChart;
-  const showService = settings?.showLeadsByServiceChart;
-  const showCategory = settings?.showLeadsByProjectCategory;
-  const showSource = settings?.showLeadsBySource;
-  const showCompanyType = settings?.showLeadsByCompanyType;
-  const showLocation = settings?.showLeadsByLocationAnalytics;
+  const showStatus = settings?.showProjectsStatus ?? true;
+  const showService = settings?.showProjectsByService ?? true;
+  const showCategory = settings?.showProjectsByCategory ?? true;
+  
+  // There is no explicit "showProjectsBySource" in the settings schema, so we default to showing it or hiding it.
+  // Actually we can tie it to something related or just hide it. Let's show it by default or use a sensible fallback.
+  const showSource = false; // We can hide it since it's not in the toggle list for Projects.
+  
+  const showCompanyType = (settings?.showProjectsMonthlyCompanyType || settings?.showProjectYealyCustomCompanyType) ?? true;
+  const showLocation = settings?.showProjectsByLocation ?? true;
   const showAcquisition = showSource || showCompanyType || showLocation;
 
   return (
