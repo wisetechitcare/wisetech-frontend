@@ -79,7 +79,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
                 }
             }
             const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
-            setWeeklyWorkingAndOffDays(workingAndOffDays);
+            setWeeklyWorkingAndOffDays(workingAndOffDays as unknown as IBranchWorkingAndOffDays);
         } catch (error) {
             console.error("Error fetching data:", error);
         }

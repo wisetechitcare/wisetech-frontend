@@ -1855,7 +1855,7 @@ export const StatisticsTable = ({
                         location={employee.checkInLocation}
                         fullAddress={employee.checkInLocation}
                         coordinates={coords}
-                        timeColor={checkInColor.color}
+                        timeTone={checkInColor.tone}
                         timeTooltip={checkInColor.tooltip}
                     />
                 );
@@ -1901,7 +1901,7 @@ export const StatisticsTable = ({
                         location={employee.checkOutLocation}
                         fullAddress={employee.checkOutLocation}
                         coordinates={coords}
-                        timeColor={checkOutColor.color}
+                        timeTone={checkOutColor.tone}
                     />
                 );
             }

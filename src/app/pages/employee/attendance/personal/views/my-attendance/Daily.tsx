@@ -5,6 +5,7 @@ import { RootState } from '@redux/store';
 import { fetchConfiguration } from '@services/company';
 import { calculateDuration, convertToTimeZone, formatTime } from '@utils/date';
 import { shouldShowBranchSetupGuide } from '@utils/shouldShowBranchSetupGuide';
+import { parseWorkingDays } from '@utils/workingDays';
 import { currentDayWorkingHours, fetchEmpDailyStatistics, filterLeavesPublicHolidays, formatDisplay, pieAreaData, pieAreaLabels, todayProgressPercent } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -26,7 +27,7 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
