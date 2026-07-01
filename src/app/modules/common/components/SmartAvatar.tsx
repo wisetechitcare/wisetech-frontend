@@ -261,7 +261,7 @@ const SmartAvatar: React.FC<Props> = ({
         position: "relative",
         width: sz,
         height: sz,
-        borderRadius: "50%",           // always circular
+        borderRadius: Math.round(sz * 0.18),
         padding: 2.5,
         background: ring,
         flexShrink: 0,
@@ -272,15 +272,16 @@ const SmartAvatar: React.FC<Props> = ({
         style={{
           width: "100%",
           height: "100%",
-          borderRadius: "50%",          // inner circle
+          borderRadius: Math.round(sz * 0.14),
           overflow: "hidden",
           background: hasImage
-            ? "#ffffff"
+            ? "linear-gradient(145deg, #ffffff, #f8fafc)"
             : `linear-gradient(140deg, ${palette.from}, ${palette.to})`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: innerPad,
+          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)",
           position: "relative",
         }}
       >
@@ -295,9 +296,10 @@ const SmartAvatar: React.FC<Props> = ({
             style={{
               width: "100%",
               height: "100%",
-              objectFit: imageFit,      // "contain" keeps logo uncropped; "cover" fills profile photos
+              objectFit: imageFit,
               objectPosition: "center",
               display: "block",
+              borderRadius: 0,
             }}
           />
         ) : (
@@ -307,9 +309,9 @@ const SmartAvatar: React.FC<Props> = ({
               position: "relative",
               zIndex: 1,
               color: palette.text,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: "-0.02em",
-              fontSize: sz * 0.34,
+              fontSize: sz * 0.35,
               fontFamily: "Inter, system-ui, sans-serif",
               lineHeight: 1,
             }}
@@ -319,21 +321,19 @@ const SmartAvatar: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Status badge — sits at the bottom-right corner, outside the inner circle */}
       {badge && (
         <span
           title={status || undefined}
           style={{
             position: "absolute",
-            right: 0,
-            bottom: 0,
-            width: badgeSz,
-            height: badgeSz,
+            right: Math.round(sz * 0.01),
+            bottom: Math.round(sz * 0.01),
+            width: Math.max(10, Math.round(sz * 0.21)),
+            height: Math.max(10, Math.round(sz * 0.21)),
             borderRadius: "50%",
             background: badge,
-            border: `${badgeBorder}px solid #fff`,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
-            zIndex: 2,
+            border: `${Math.max(2, Math.round(sz * 0.035))}px solid #fff`,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
           }}
         />
       )}
