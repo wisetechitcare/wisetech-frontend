@@ -277,7 +277,7 @@ function CustomCalendar() {
             };
           });
         //   debugger;
-          const workingAndOffDays = JSON.parse(branchRes?.data?.branch?.workingAndOffDays || '{}');
+          const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
           setBranchWorkingAndOffDays(workingAndOffDays);
       
           const weekendHolidays: any[] = [];

@@ -1,4 +1,5 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { parseWorkingDays } from "@utils/workingDays";
 import { LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
@@ -47,7 +48,7 @@ function OpenLeaveRequests() {
 
     // Get employee's working and off days configuration
     const branchDetails = useSelector((state: RootState) => state.employee?.currentEmployee?.branches);
-    const employeeWorkingAndOffDays = JSON.parse(branchDetails?.workingAndOffDays || '{}');
+    const employeeWorkingAndOffDays = parseWorkingDays(branchDetails?.workingAndOffDays);
 
     // Map leave type names to color keys
     const getLeaveTypeColor = (leaveType: string): string => {

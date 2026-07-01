@@ -12,6 +12,7 @@ import {
     shouldApplyCheckInColoring,
 } from '@utils/attendanceColorUtils';
 import { RootState, store } from '@redux/store';
+import { parseWorkingDays } from '@utils/workingDays';
 import ReactApexChart from 'react-apexcharts';
 import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
 import Identifiers from '../utils/Identifiers';
@@ -1414,11 +1415,11 @@ export const StatisticsTable = ({
     const branchWorkingDays = fromAdmin
         ? useSelector((state: RootState) => {
             const workingAndOffDays = state.employee.selectedEmployee?.branches?.workingAndOffDays;
-            return workingAndOffDays ? JSON.parse(workingAndOffDays) : {};
+            return parseWorkingDays(workingAndOffDays);
         })
         : useSelector((state: RootState) => {
             const workingAndOffDays = state.employee.currentEmployee?.branches?.workingAndOffDays;
-            return workingAndOffDays ? JSON.parse(workingAndOffDays) : {};
+            return parseWorkingDays(workingAndOffDays);
         });
 
 

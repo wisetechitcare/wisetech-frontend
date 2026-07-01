@@ -4,6 +4,7 @@ import * as Yup from 'yup';
 import Select from 'react-select';
 import { KTCardBody } from '@metronic/helpers';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { parseWorkingDays } from '@utils/workingDays';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { createEmployeeLeaveRequest, fetchEmployeeLeaves, updateEmployeeRequestById, fetchEmployeeLeaveBalance, getAllLeaveManagements, fetchEmployeeDiscretionaryBalanceById } from '@services/employee';
 import { validateMonthlyLeaveLimit } from '@utils/monthlyLeaveValidator';
@@ -98,7 +99,7 @@ export default function LeaveRequestForm({ onClose, leave, selectedDateTimeInfo,
 
   // Get branch working/off days configuration
   const workingAndOffDaysString = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays);
-  const workingAndOffDays = workingAndOffDaysString ? JSON.parse(workingAndOffDaysString) : {};
+  const workingAndOffDays = parseWorkingDays(workingAndOffDaysString);
 
   // Get public holidays from Redux
   const publicHolidays = useSelector((state: RootState) => state.attendanceStats.publicHolidays) || [];

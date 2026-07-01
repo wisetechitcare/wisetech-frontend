@@ -1,4 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import { KTCard, KTCardBody, KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { RootState, store } from "@redux/store";
@@ -45,7 +46,7 @@ function DashboardAttendance() {
     const [longitudeNew, setLongitudeNew] = useState(0)
     const workingAndOfDaysDetails = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays);
     const workingAndOfDays = useMemo(() => {
-        return JSON.parse(workingAndOfDaysDetails || "{}");
+        return parseWorkingDays(workingAndOfDaysDetails);
       }, [workingAndOfDaysDetails]);
 
     const [offDaysForTheBranch, setOffDaysForTheBranch] = useState<string[]>([]);

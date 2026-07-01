@@ -10,6 +10,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 import { convertTo12HourFormat, convertToTimeZone, findTimeDifference, getWeekDay, isDateBeforeOrSameAsCurrDate, timeToMinutes } from "./date";
+import { parseWorkingDays } from "@utils/workingDays";
 import { ABSENT, CHECK_OUT_MISSING, checkInTime, checkOutTime, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HEATMAPLABELS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, monthDays, months, ON_LEAVE, onSiteAndHolidayWeekendSettingsOnOffName, PRESENT, TOTAL_ANNUAL_LEAVES, TOTAL_FLOATER_LEAVES, TOTAL_SICK_LEAVES, TOTAL_WORKING_DAYS, totalShiftTimeMins, week, weekDays, WEEKEND } from "@constants/statistics";
 import { ATTENDANCE_STATUS, LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { IPublicHoliday } from "@models/company";
@@ -865,7 +866,7 @@ export const countWeekdays = (start: Dayjs, end: Dayjs): number => {
     let currentDay = start;
 
     const workingAndOffDays = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays;
-    const weeklyWorkingAndOffDays = JSON.parse(workingAndOffDays || "{}");
+    const weeklyWorkingAndOffDays = parseWorkingDays(workingAndOffDays);
     const workingDaysMapWithDay: { [key: number]: string } = {
         0: "sunday",
         1: "monday",
@@ -896,7 +897,7 @@ export function getWorkingDaysInMonth(year: string, month: string | number): num
     let workingDays = 0;
     const daysInMonth = dayjs(`${year}-${month}`).daysInMonth();
     const workingAndOffDays = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays;
-    const weeklyWorkingAndOffDays = JSON.parse(workingAndOffDays || "{}");
+    const weeklyWorkingAndOffDays = parseWorkingDays(workingAndOffDays);
     const workingDaysMapWithDay: { [key: number]: string } = {
         0: "sunday",
         1: "monday",
@@ -1424,7 +1425,7 @@ export function multipleRadialBarData(stats: Attendance[], dayWiseShifts?: any[]
     // public holidays and weekends..
     const publicHolidays = store.getState().attendanceStats.publicHolidays;
     let allWeekendsInString = store.getState().employee?.currentEmployee?.branches?.workingAndOffDays || JSON.stringify({})
-    let allWeekends = JSON.parse(allWeekendsInString)
+    let allWeekends = parseWorkingDays(allWeekendsInString)
 
     const graceTimeAllowance = leaveConfigurations[onSiteAndHolidayWeekendSettingsOnOffName];
     const onSiteSettingsOn = Number(graceTimeAllowance) > 0 ? true : false;
@@ -1964,7 +1965,7 @@ const generatingHeatMapSeries = (
 
     // Get weekend configuration
     const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     yearMap.forEach((value, key) => {
 
@@ -2170,7 +2171,7 @@ export const weekHeatMap = (
     const doj = dateOfJoining ? dayjs(dateOfJoining, "YYYY-MM-DD") : null;
 
     const weekends = store.getState().employee.currentEmployee?.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     const startDate = startWeek.format("YYYY-MM-DD");
     const endDate = endWeek.format("YYYY-MM-DD");
@@ -2334,7 +2335,7 @@ export const generatingHeatMapSeriesForFiscalYear = (
 
     // Get weekend configuration
     const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     const fiscalMonths = [
         'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec',
@@ -2527,7 +2528,7 @@ export const customHeatMap = (stats: IAttendance[], startDate: string | Dayjs, e
     const dateOfJoining = rawDOJ ? dayjs(rawDOJ) : null;
 
     const weekends = store.getState().employee.currentEmployee.branches.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     // Debug: Log weekend configuration
 
@@ -3852,7 +3853,7 @@ export const formatDateFromISTString = (dateString: string | undefined | null): 
 //       allHolidays.map(h => new Date(h.date).toISOString().split("T")[0])
 //     );
 
-//     const allWeekendsJson = JSON.parse(allWeekends);
+//     const allWeekendsJson = parseWorkingDays(allWeekends);
 
 //     return attendance.map(entry => {
 //       const dayKey = entry.day?.toLowerCase() || '';
@@ -3904,7 +3905,7 @@ export const markWeekendOrHoliday = (attendance: any[], allWeekends: any, allHol
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    const allWeekendsJson = parseWorkingDays(allWeekends);
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 
@@ -3938,7 +3939,7 @@ export const markWeekendOrHolidayForReportsTable = (attendance: any[], allWeeken
 
     // const weekndsList = holidayDates?.filter()
 
-    const allWeekendsJson = JSON.parse(allWeekends);
+    const allWeekendsJson = parseWorkingDays(allWeekends);
 
     const alternateWeekends = allHolidays?.filter(data => data?.isWeekend)
 

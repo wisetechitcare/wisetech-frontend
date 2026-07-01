@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import isLeapYear from 'dayjs/plugin/isLeapYear';
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { parseWorkingDays } from "@utils/workingDays";
 import { fetchBranchById } from "@services/company";
 import { IBranchWorkingAndOffDays } from "@models/company";
 import MeetingList from "./MeetingList";
@@ -77,7 +78,7 @@ function PublicHolidaysListNew({selectedStartDate, selectedEndDate, holidaysToSh
                     console.error("Error parsing attendanceCalendar colors:", e);
                 }
             }
-            const workingAndOffDays = JSON.parse(branchRes?.data?.branch?.workingAndOffDays || '{}');
+            const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
             setWeeklyWorkingAndOffDays(workingAndOffDays);
         } catch (error) {
             console.error("Error fetching data:", error);

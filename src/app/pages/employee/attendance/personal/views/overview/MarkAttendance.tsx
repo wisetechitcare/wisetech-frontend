@@ -1,4 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import { KTIcon } from "@metronic/helpers";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
@@ -48,7 +49,7 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
     const [longitudeNew, setLongitudeNew] = useState(0)
     const workingAndOfDaysDetails = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays);
     const workingAndOfDays = useMemo(() => {
-        return JSON.parse(workingAndOfDaysDetails || "{}");
+        return parseWorkingDays(workingAndOfDaysDetails);
       }, [workingAndOfDaysDetails]);
 
     const [offDaysForTheBranch, setOffDaysForTheBranch] = useState<string[]>([]);
