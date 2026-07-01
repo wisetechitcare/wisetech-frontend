@@ -21,6 +21,7 @@ import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDi
 import dayjs, { Dayjs } from "dayjs";
 import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { WorkingMethod as ModelWorkingMethod } from '@models/employee';
 import { onSiteAndHolidayWeekendSettingsOnOffName, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -549,8 +550,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         },
     ], [StatusBadge, lateCheckInThreshold, earlyCheckOutThreshold, employeeThresholds, leaveConfiguration]);
 
-    useEffect(() => {
-        const callEndpoint = async () => {
+    const reloadDailyAttendance = useCallback(async () => {
             try {
                 const attendance = await fetchEmpsAttendance(date);
                 // Fetch today's leaves for all employees
@@ -617,10 +617,14 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             } catch (error) {
                 console.error('Error fetching attendance:', error);
             }
-        };
-
-        callEndpoint();
     }, [date, dispatch]);
+
+    useEffect(() => {
+        reloadDailyAttendance();
+    }, [reloadDailyAttendance]);
+
+    // Realtime: refetch when attendance changes anywhere (biometric punch, admin edit, self check-in/out).
+    useAttendanceRealtime(() => reloadDailyAttendance());
 
     // fetch grace based thresholds
     useEffect(() => {

@@ -9,6 +9,7 @@ import { EARLY_CHECKOUT, EXTRA_DAYS, onSiteAndHolidayWeekendSettingsOnOffName, p
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import { fetchDayWiseShifts } from "@services/dayWiseShift";
 import { fetchConfiguration } from "@services/company";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 // import { EARLY_CHECKOUT } from "@constants/statistics";
 // import { multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
@@ -1114,76 +1115,66 @@ const DashboardDailyAttendanceOverview = () => {
     fetchTimeConfiguration();
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  // Reload the day's employees + attendance. `silent` skips the loading spinner —
+  // used by the realtime refetch so live updates don't flash the whole board.
+  const reloadAttendance = useCallback(async (silent = false) => {
+    if (!rolesAndPermissionsLoaded) return;
+    try {
+      if (!silent) setIsLoading(true);
+      setError(null);
 
-    // Wait for roles and permissions to be loaded
-    if (!rolesAndPermissionsLoaded) {
-      return;
+      const { data: { employees } } = await fetchAllEmployees();
+      const response = await fetchEmployeesOnLeaveToday(dateString);
+      const employeesOnLeave = response?.data?.employeesOnLeave || [];
+      const employesLeaveData = response?.data?.employeeLeaveDetails || [];
+      const allAttendance = await fetchEmpsAttendance(dayjs(dateString));
+
+      // Transform employees to match EmployeeWithAttendance interface
+      const transformedEmployees = employees.map((emp: any) => ({
+        _id: emp.id || '',
+        firstName: emp.users?.firstName || 'Unknown',
+        lastName: emp.users?.lastName || 'Employee',
+        designation: emp.designations?.role || 'No designation',
+        avatar: emp.avatar || null,
+        isActive: emp.isActive ?? true,  // Default to true if not specified
+        branchName: emp.branches?.name || '',
+        subOrgName: emp.companyOverview?.name || '',
+      }));
+
+      // Filter only active employees for state
+      const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
+
+      // Transform attendance data for Redux
+      const transformedAttendance = allAttendance.map((att: any) => ({
+        id: att.id,
+        employeeId: att.employeeId,
+        checkIn: att.checkIn,
+        checkOut: att.checkOut,
+        date: att.date,
+        workingMethod: att.workingMethod
+      }));
+
+      setAllEmployees(activeEmployees);
+      setEmployeesOnLeave(employeesOnLeave);
+      setEmployesLeaveDatas(employesLeaveData);
+      setAttendance(allAttendance);
+      dispatch(saveTotalEmployeeCount(activeEmployees.length));
+      dispatch(saveEmployeesAttendance(transformedAttendance));
+    } catch (err) {
+      console.error('Error fetching employee data:', err);
+      if (!silent) setError('Failed to load employee data. Please refresh the page to try again.');
+    } finally {
+      if (!silent) setIsLoading(false);
     }
-
-    async function fetchEmployeeData() {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const { data: { employees } } = await fetchAllEmployees();
-        const response = await fetchEmployeesOnLeaveToday(dateString);
-        const employeesOnLeave = response?.data?.employeesOnLeave || [];
-        const employesLeaveData = response?.data?.employeeLeaveDetails || [];
-        const allAttendance = await fetchEmpsAttendance(dayjs(dateString));
-
-        // Transform employees to match EmployeeWithAttendance interface
-        const transformedEmployees = employees.map((emp: any) => ({
-          _id: emp.id || '',
-          firstName: emp.users?.firstName || 'Unknown',
-          lastName: emp.users?.lastName || 'Employee',
-          designation: emp.designations?.role || 'No designation',
-          avatar: emp.avatar || null,
-          isActive: emp.isActive ?? true,  // Default to true if not specified
-          branchName: emp.branches?.name || '',
-          subOrgName: emp.companyOverview?.name || '',
-        }));
-
-        if (isMounted) {
-          // Filter only active employees for state
-          const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
-
-          // Transform attendance data for Redux
-          const transformedAttendance = allAttendance.map((att: any) => ({
-            id: att.id,
-            employeeId: att.employeeId,
-            checkIn: att.checkIn,
-            checkOut: att.checkOut,
-            date: att.date,
-            workingMethod: att.workingMethod
-          }));
-
-          setAllEmployees(activeEmployees);
-          setEmployeesOnLeave(employeesOnLeave);
-          setEmployesLeaveDatas(employesLeaveData);
-          setAttendance(allAttendance);
-          dispatch(saveTotalEmployeeCount(activeEmployees.length));
-          dispatch(saveEmployeesAttendance(transformedAttendance));
-        }
-      } catch (err) {
-        console.error('Error fetching employee data:', err);
-        if (isMounted) {
-          setError('Failed to load employee data. Please refresh the page to try again.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchEmployeeData();
-
-    return () => {
-      isMounted = false;
-    };
   }, [dispatch, dateString, rolesAndPermissionsLoaded]);
+
+  useEffect(() => {
+    reloadAttendance();
+  }, [reloadAttendance]);
+
+  // Realtime: refetch quietly when attendance changes anywhere (biometric punch,
+  // admin edit, self check-in/out). Debounced in the hook to coalesce bursts.
+  useAttendanceRealtime(() => reloadAttendance(true));
 
   // Get data for card previews
   const workingEmployees = getAllWorkingEmployees();
