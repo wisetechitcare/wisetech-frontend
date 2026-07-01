@@ -22,6 +22,7 @@ import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
 import CompanyReferences from "./CompanyReferences";
 import LeadReferenceTab from "./LeadReferenceTab";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
 
 type TabType =
@@ -210,8 +211,13 @@ const CompanyDetails = () => {
   return (
     <div className="p-2 p-md-4">
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-3 pt-md-6">
-        <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
+      <div
+        className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-3 pt-md-6 px-2 px-md-3"
+        style={{
+          borderRadius: 14,
+        }}
+      >
+        <div className="d-flex align-items-center gap-3 gap-md-4 flex-grow-1">
           <button
             className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
             onClick={handleBackClick}
@@ -237,6 +243,15 @@ const CompanyDetails = () => {
               className="d-none d-md-block"
             />
           </button>
+          {/* Smart, brand-aware company avatar (logo color ring, or a
+              deterministic generated avatar when there's no logo). */}
+          <SmartAvatar
+            name={company?.companyName}
+            id={company?.id}
+            imageUrl={company?.logo}
+            size={84}
+            status={company?.status === "ACTIVE" ? "active" : "inactive"}
+          />
           <div className="flex-grow-1">
             <div className="text-muted small">Company #{company?.prefix || "N/A"}</div>
             <div className="d-flex align-items-center gap-2">
@@ -256,30 +271,6 @@ const CompanyDetails = () => {
               </div>
             </div>
           </div>
-        </div>
-        <div className="d-flex align-items-center gap-2 flex-shrink-0">
-          <img
-            src={company.logo}
-            alt=""
-            style={{
-              width: "60px",
-              height: "36px",
-              cursor: "pointer",
-              objectFit: "contain"
-            }}
-            className="d-block d-md-none"
-          />
-          <img
-            src={company.logo}
-            alt=""
-            style={{
-              width: "100px",
-              height: "60px",
-              cursor: "pointer",
-              objectFit: "contain"
-            }}
-            className="d-none d-md-block"
-          />
         </div>
       </div>
 

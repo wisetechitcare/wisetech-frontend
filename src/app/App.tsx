@@ -11,6 +11,8 @@ import GlobalTimerModal from '../components/GlobalTimerModal';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
+import { wisetechTheme } from '@app/theme/wisetechTheme';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -152,12 +154,16 @@ const App = () => {
         <I18nProvider>
           <LayoutProvider>
             <ThemeModeProvider>
-              <Outlet />
-              <MasterInit />
-              <Toaster richColors position="top-right" />
-              
-              {/* Global Timer Modal - only render when authenticated */}
-              {isAuthenticated && <GlobalTimerModal />}
+              {/* Branded MUI theme — one source of truth for all MUI components.
+                  No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
+              <MuiThemeProvider theme={wisetechTheme}>
+                <Outlet />
+                <MasterInit />
+                <Toaster richColors position="top-right" />
+
+                {/* Global Timer Modal - only render when authenticated */}
+                {isAuthenticated && <GlobalTimerModal />}
+              </MuiThemeProvider>
             </ThemeModeProvider>
           </LayoutProvider>
         </I18nProvider>

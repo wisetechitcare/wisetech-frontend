@@ -8,8 +8,10 @@ import ContactOverview from "./ContactOverview";
 import ContactProject from "./ContactProject";
 import ClientContactsForm from "./ClientContactsForm";
 import ContactLeadReferenceTab from "./ContactLeadReferenceTab";
+import CompanyReferences from "../../companies/components/CompanyReferences";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
-type TabType = "overview" | "lead-reference" | "projects";
+type TabType = "overview" | "lead-reference" | "company-references" | "projects";
 
 const ContactMainToggle = () => {
   const { contactId } = useParams<{ contactId: string }>();
@@ -48,6 +50,7 @@ const ContactMainToggle = () => {
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "lead-reference", label: "Lead Reference" },
+    { key: "company-references", label: "Company References" },
     { key: "projects", label: "Projects" },
   ];
 
@@ -59,6 +62,9 @@ const ContactMainToggle = () => {
         return <ContactOverview contact={contact} />;
       case "lead-reference":
         return <ContactLeadReferenceTab referrals={contact?.referrals} />;
+      case "company-references":
+        // Companies this contact referred (it is the external referrer).
+        return <CompanyReferences referredCompanies={contact?.companyReferences} />;
       case "projects":
         return <ContactProject contact={contact}/>;
       default:
@@ -96,7 +102,12 @@ const ContactMainToggle = () => {
   return (
     <div className="p-2 p-md-4">
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-md-0">
+      <div
+        className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-md-0 px-2 px-md-3"
+        style={{
+          borderRadius: 14,
+        }}
+      >
         <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
           <button
             className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
@@ -123,6 +134,16 @@ const ContactMainToggle = () => {
               className="d-none d-md-block"
             />
           </button>
+          {/* Smart, brand-aware contact avatar (photo colour ring + glow, or a
+              deterministic generated avatar when there's no photo). */}
+          <SmartAvatar
+            name={contact.fullName}
+            id={contact.id}
+            imageUrl={contact.profilePhoto}
+            size={80}
+            imageFit="cover"
+            status={contact.isContactActive === false ? "inactive" : "active"}
+          />
           <div className="flex-grow-1">
             <div className="text-muted small">Contact #{contact.id}</div>
             <div className="d-flex align-items-center gap-2">

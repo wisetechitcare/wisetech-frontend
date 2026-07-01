@@ -17,7 +17,7 @@ import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
-import { companyLogoIcons } from "@metronic/assets/sidepanelicons";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
 // All selectable company-table column keys (must match the `accessorKey`s below).
 const COMPANY_COLUMN_KEYS = [
@@ -251,11 +251,13 @@ const ClientCompaniesMain = ({
       {
         accessorKey: "logo",
         header: "Logo",
-        Cell: ({ cell }) => (
-          <img
-            src={cell.getValue() ?? companyLogoIcons.companyLogoIcon.default}
-            alt="logo"
-            style={{ width: 33, height: 33, objectFit: "contain" }}
+        Cell: ({ row }) => (
+          <SmartAvatar
+            name={row.original.companyName}
+            id={row.original.id}
+            imageUrl={row.original.logo}
+            size={42}
+            imageFit="contain"
           />
         ),
       },
