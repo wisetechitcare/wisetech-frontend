@@ -466,8 +466,16 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
       </Box>
     </Dialog>
 
-    {/* Sync-history drawer */}
-    <Drawer anchor="right" open={!!history.device} onClose={closeHistory} PaperProps={{ sx: { width: { xs: '100%', sm: 420 } } }}>
+    {/* Sync-history drawer — opened from within the device Dialog, so it must sit
+        ABOVE it. MUI Drawer defaults to zIndex.drawer (1200) < Dialog (1300), which
+        would let the modal occlude the drawer's left edge. Bump above the modal. */}
+    <Drawer
+      anchor="right"
+      open={!!history.device}
+      onClose={closeHistory}
+      sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
+      PaperProps={{ sx: { width: { xs: '100%', sm: 420 } } }}
+    >
       <Box sx={{ px: 2.25, py: 1.75, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontWeight: 750, fontSize: 15, color: '#fff' }}>Sync History</Typography>

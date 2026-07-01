@@ -9,7 +9,8 @@ import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employe
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { Card, Col, Row, Image, Spinner, Alert, Modal, Button, Form, InputGroup, Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
@@ -1229,12 +1230,17 @@ function Overview({ date }: OverviewProps) {
 
 
 
+    const isMountedRef = useRef(true);
     useEffect(() => {
-        let isMounted = true;
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
-        async function fetchEmployeeData() {
+    // `silent` skips the loader/error UI — used by the realtime refetch so live
+    // updates don't flash the whole board.
+    const reloadOverviewAttendance = useCallback(async (silent = false) => {
             try {
-                setIsLoading(true);
+                if (!silent) setIsLoading(true);
                 setError(null);
 
                 const { data: { employees } } = await fetchAllEmployees();
@@ -1264,7 +1270,7 @@ function Overview({ date }: OverviewProps) {
                     isActive: emp.isActive ?? true,  // Default to true if not specified
                 }));
 
-                if (isMounted) {
+                if (isMountedRef.current) {
                     // console.log('Setting state with data:', {
                     //     allEmployees: transformedEmployees.length,
                     //     employeesOnLeave: employeesOnLeave.length,
@@ -1286,22 +1292,22 @@ function Overview({ date }: OverviewProps) {
                 // console.log("employesLeaveData:=============>", employesLeaveData)
             } catch (err) {
                 console.error('Error fetching employee data:', err);
-                if (isMounted) {
+                if (isMountedRef.current && !silent) {
                     setError('Failed to load employee data. Please refresh the page to try again.');
                 }
             } finally {
-                if (isMounted) {
+                if (isMountedRef.current && !silent) {
                     setIsLoading(false);
                 }
             }
-        }
-
-        fetchEmployeeData();
-
-        return () => {
-            isMounted = false;
-        };
     }, [dispatch, date]); // Add date to dependencies
+
+    useEffect(() => {
+        reloadOverviewAttendance();
+    }, [reloadOverviewAttendance]);
+
+    // Realtime: refetch quietly when attendance changes anywhere (biometric punch, admin edit, self check-in/out).
+    useAttendanceRealtime(() => reloadOverviewAttendance(true));
 
     // Fetch day-wise shifts
     useEffect(() => {

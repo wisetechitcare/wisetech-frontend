@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { fetchAddressDetails } from "@services/location";
 import { fetchEmpAttendanceStatistics } from "@services/employee";
 import { useEffect, useState } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import dayjs from "dayjs";
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
@@ -65,7 +66,10 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
   useEffect(() => {
     fetchAttendanceData();
   }, [notificationToggle]);
-  
+
+  // Realtime: refresh this user's today attendance when it changes (e.g. their biometric punch).
+  useAttendanceRealtime(() => fetchAttendanceData());
+
 
   // Update attendance data when dailyAttendance changes
   useEffect(() => {

@@ -3,6 +3,7 @@ import { KTIcon } from "@metronic/helpers";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { Modal } from "react-bootstrap";
 import GoogleMaps from './GoogleMaps';
@@ -62,6 +63,9 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
     const [hasCheckin, setHasCheckin] = useState<string | null>(null);
     const [hasCheckout, setHasCheckout] = useState<string | null>(null);
     const [raiseRequest, setRaiseRequest] = useState(false);
+    // Realtime: reuse the existing raiseRequest trigger to re-run the status fetch
+    // when this user's attendance changes elsewhere (e.g. their biometric punch).
+    useAttendanceRealtime(() => setRaiseRequest(true));
     const DateOfJoining = useSelector((state:RootState)=> state?.employee?.currentEmployee?.dateOfJoining);
     const isFirstDay = dayjs().format('YYYY-MM-DD') === dayjs(DateOfJoining).format('YYYY-MM-DD');
     const [isLocationLoading, setIsLocationLoading] = useState(false);
