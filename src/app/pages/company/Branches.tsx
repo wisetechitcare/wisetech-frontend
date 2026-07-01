@@ -2,7 +2,7 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import React, { useEffect, useState } from 'react'
 import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
 import * as Yup from 'yup'
-import { Col, Modal, Row } from 'react-bootstrap'
+import { Col, Row } from 'react-bootstrap'
 import { KTIcon } from '@metronic/helpers'
 import { PageLink, PageTitle } from '@metronic/layout/core'
 import {
@@ -26,6 +26,11 @@ import {
 } from '@services/company'
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal'
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal'
+import BiometricDevicesModal from '@app/modules/common/components/BiometricDevicesModal'
+import BranchCard from '@app/modules/common/components/BranchCard'
+import {
+  Dialog, Box, Stack, Typography, Button as MuiButton, Paper, CircularProgress, IconButton,
+} from '@mui/material'
 import Swal from 'sweetalert2'
 import TextInput from '@app/modules/common/inputs/TextInput'
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
@@ -95,6 +100,24 @@ let initialState = {
   showDateIn12HourFormat: '0',
 }
 
+/** Titled card section for the branch form (MUI). Reused for each field group. */
+function FormSection({ title, description, icon, children }: { title: string; description?: React.ReactNode; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mb: 1.75, borderRadius: 2 }}>
+      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
+        {icon != null && (
+          <Box sx={{ width: 30, height: 30, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: 'primary.light', color: 'primary.main', border: 1, borderColor: 'divider' }}>{icon}</Box>
+        )}
+        <Box>
+          <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>{title}</Typography>
+          {description != null && <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{description}</Typography>}
+        </Box>
+      </Stack>
+      {children}
+    </Paper>
+  );
+}
+
 interface BranchesProps {
   /** Scope the list + new-branch creation to this organization. */
   companyId?: string;
@@ -138,6 +161,7 @@ function Branches({ companyId, embedded = false, hideHeading = false }: Branches
   const [branches, setBranches] = useState([])
   const [orgOptions, setOrgOptions] = useState<{ value: string; label: string }[]>([])
   const [empModal, setEmpModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
+  const [devicesModal, setDevicesModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [loading, setLoading] = useState(false)
 
   const handlePromoteBranch = async (branch: any) => {
@@ -605,21 +629,29 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
  
   const newBranchButton = isAdmin &&
     hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
-      <div className='card-toolbar text-end' title='Add a branch'>
-        <button onClick={() => handleNew()} className='btn btn-sm btn-light-primary'>
-          <KTIcon iconName='plus' className='fs-3' />
-          New Branch
-        </button>
-      </div>
+      <MuiButton
+        variant="contained"
+        color="primary"
+        size="small"
+        title="Add a branch"
+        startIcon={<KTIcon iconName="plus" className="fs-5" />}
+        onClick={() => handleNew()}
+      >
+        New Branch
+      </MuiButton>
     )
 
   return (
     <>
       {embedded ? (
-        <div className={`d-flex flex-wrap align-items-center px-lg-9 px-4 pt-6 pb-2 ${hideHeading ? 'justify-content-end' : 'justify-content-between'}`}>
-          {!hideHeading && <h3 className="mb-0" style={{ fontFamily: 'Barlow', fontWeight: 600, fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>Branches</h3>}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, px: { xs: 2, lg: 3 }, pt: 2.5, pb: 1 }}>
+          {!hideHeading
+            ? <Typography sx={{ fontFamily: 'Barlow', fontWeight: 600, fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '0.24px', color: '#000' }}>Branches</Typography>
+            : <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.secondary' }}>
+                {Array.isArray(branches) ? branches.length : 0} {Array.isArray(branches) && branches.length === 1 ? 'branch' : 'branches'}
+              </Typography>}
           {newBranchButton}
-        </div>
+        </Box>
       ) : (
         <div className="d-flex flex-wrap justify-content-between align-items-center px-lg-9 px-4 py-5">
           <PageTitle breadcrumbs={branchesBreadCrumb}>Branches</PageTitle>
@@ -630,7 +662,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
         </div>
       )}
         
-<div className="px-8">
+<div className="px-lg-6 px-4 pb-6 pt-1">
   <Row>
     {hasPermission(
       resourceNameMapWithCamelCase.branch,
@@ -639,97 +671,51 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       Array.isArray(branches) && branches.length > 0 ? (
         branches.map((branch: any, index: number) => (
           <Col key={`branch-${index}`} xs={12} sm={12} md={6} lg={4} className="pt-4">
-            <div className="card border-primary border-top-5 border-end-0 border-bottom-0 border-start-0">
-             
-              <div className="card-body d-flex align-items-start pt-3 pb-0">
-                <div className="d-flex flex-column flex-grow-1 py-2 py-lg-13 me-2">
-                  <span className="fw-bold text-gray-900 fs-4 mb-2">
-                    {branch.name} 
-                  </span>
-                  <span
-                    className="fw-semibold text-muted fs-5"
-                    dangerouslySetInnerHTML={{ __html: branch.address }}
-                  />
-                  <div className="d-flex justify-content-between align-items-center pt-5">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-light-primary d-inline-flex align-items-center"
-                      style={{ gap: 6 }}
-                      title="View employees in this branch"
-                      onClick={() => setEmpModal({ show: true, branch })}
-                    >
-                      <KTIcon iconName="people" className="fs-5" />
-                      {branch._count?.Employees ?? 0} Employees
-                    </button>
-                    {isAdmin && (
-                      <div className="d-flex gap-2">
-                        {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) && (
-                          <button
-                            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                            title="Promote this branch to a sub-organization"
-                            onClick={() => handlePromoteBranch(branch)}
-                          >
-                            <KTIcon iconName="arrow-up-right" className="fs-3" />
-                          </button>
-                        )}
-                        {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) && (
-                          <button
-                            className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-                            title="Edit branch"
-                            onClick={() => handleEdit(branch.id)}
-                          >
-                            <KTIcon iconName="pencil" className="fs-3" />
-                          </button>
-                        )}
-                        {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) && (
-                          <button
-                            className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
-                            title="Delete branch"
-                            onClick={() => handleDeleteBranch(branch)}
-                          >
-                            <KTIcon iconName="trash" className="fs-3" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <BranchCard
+              branch={branch}
+              isAdmin={isAdmin}
+              canManage={hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)}
+              onViewEmployees={() => setEmpModal({ show: true, branch })}
+              onManageDevices={() => setDevicesModal({ show: true, branch })}
+              onPromote={() => handlePromoteBranch(branch)}
+              onEdit={() => handleEdit(branch.id)}
+              onDelete={() => handleDeleteBranch(branch)}
+            />
           </Col>
         ))
       ) : (
-        <div
-          style={{
-            minHeight: '50vh',
-            backgroundColor: 'white',
-            padding: '20px',
-          }}
-          className="card d-flex justify-content-center align-items-center w-100"
-        >
-          <div
-            className="d-flex flex-column align-items-center justify-content-center h-100 w-100 card"
-            style={{ color: '#9CAFC9', backgroundColor: '#F9FBFF' }}
-          >
-            <img
-              src={sidePanelIcons.company}
-              alt="No branches icon"
-              style={{ maxHeight: '100px', marginBottom: '1rem' }}
-            />
-            <div className="fs-14 text-center">No branches found</div>
-          </div>
-        </div>
+        <Col xs={12} className="pt-4">
+          <Paper variant="outlined" sx={{ borderRadius: 2, minHeight: '46vh', display: 'grid', placeItems: 'center' }}>
+            <Stack alignItems="center" sx={{ textAlign: 'center', p: 4 }}>
+              <Box component="img" src={sidePanelIcons.company} alt="" sx={{ maxHeight: 64, mb: 2 }} />
+              <Typography sx={{ fontWeight: 700, fontSize: 15 }}>No branches yet</Typography>
+              <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 360 }}>
+                Branches you create will appear here. Use “New Branch” to add your first location.
+              </Typography>
+            </Stack>
+          </Paper>
+        </Col>
       )
     ) : null}
   </Row>
 </div>
-        {/* Bumped z-index so the branch form sits above the host Branches modal when embedded */}
-        <style>{`.branch-form-backdrop.modal-backdrop{z-index:1086;} .branch-form-dialog{z-index:1090;}`}</style>
-        <Modal show={show} onHide={handleClose} centered backdropClassName="branch-form-backdrop" className="branch-form-dialog" style={{ zIndex: 1090 }}>
-        <Modal.Header closeButton>
-          <Modal.Title>Create a new branch</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+        {/* MUI Dialog (z-index 1300) naturally stacks above the host Bootstrap Branches modal. */}
+        {/* disableEnforceFocus/RestoreFocus: let the portaled react-select menus
+            (Country/State/Town/Org) receive focus & clicks inside the dialog. */}
+        <Dialog open={show} onClose={handleClose} maxWidth="md" fullWidth disableEnforceFocus disableRestoreFocus PaperProps={{ sx: { borderRadius: '16px' } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff' }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)' }}>
+                <KTIcon iconName="bank" className="fs-1" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 750, fontSize: 16.5, color: '#fff' }}>{editMode ? 'Edit Branch' : 'Create a New Branch'}</Typography>
+                <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.72)' }}>Location, address &amp; attendance coordinates</Typography>
+              </Box>
+            </Stack>
+            <IconButton onClick={handleClose} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
+          </Box>
+          <Box sx={{ bgcolor: 'background.default', p: 2, maxHeight: '74vh', overflowY: 'auto' }}>
           <Formik
             initialValues={initialState}
             onSubmit={handleSubmit}
@@ -770,24 +756,28 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                   id='employee_onboarding_form'
                  
                 >
-                  <div className='row'>
-                    <div className='col-lg-12'>
-                      <TextInput
-                        isRequired={true}
-                        label='Branch Name'
-                        margin='mb-7'
-                        formikField='name'
-                      />
+                  <FormSection title="Branch Details" icon={<KTIcon iconName="bank" className="fs-5" />}>
+                    <div className='row'>
+                      <div className='col-lg-12'>
+                        <TextInput
+                          isRequired={true}
+                          label='Branch Name'
+                          margin='mb-7'
+                          formikField='name'
+                        />
+                      </div>
+                      <div className='col-lg-12'>
+                        <DropDownInput
+                          isRequired={true}
+                          formikField='companyId'
+                          inputLabel='Organization'
+                          options={orgOptions}
+                        />
+                      </div>
                     </div>
-                    <div className='col-lg-12 mb-7'>
-                      <DropDownInput
-                        isRequired={true}
-                        formikField='companyId'
-                        inputLabel='Organization'
-                        options={orgOptions}
-                      />
-                    </div>
-                  </div>
+                  </FormSection>
+
+                  <FormSection title="Location" icon={<KTIcon iconName="geolocation" className="fs-5" />}>
 
                   <div className='row'>
                     {/* <div className='col-lg-12 mb-7'>
@@ -904,8 +894,9 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                       />
                     </div>
                   </div>
-                  <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
-                    <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
+                  </FormSection>
+
+                  <FormSection title="Map Coordinates" icon={<KTIcon iconName="map" className="fs-5" />} description="Used to validate on-site attendance check-ins.">
                     <div className='row g-3'>
                       <div className='col-lg-6'>
                         <TextInput
@@ -922,102 +913,88 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         />
                       </div>
                     </div>
-                    <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
-                      <span
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.25, flexWrap: 'wrap', gap: 1 }}>
+                      <Typography
+                        component="span"
                         onClick={() => geocodeAddressToLatLng(formikProps)}
-                        style={{ cursor: 'pointer', color: '#0D47A1', fontWeight: 600, fontSize: 13 }}
                         title="Fill coordinates from the Branch Address below"
+                        sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600, fontSize: 12.5 }}
                       >
                         📍 Get coordinates from Address
-                      </span>
-                      <span
+                      </Typography>
+                      <Typography
+                        component="span"
                         onClick={() => handleDetectLocation(formikProps)}
-                        style={{ cursor: 'pointer', color: '#0D47A1', fontWeight: 600, fontSize: 13 }}
+                        sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600, fontSize: 12.5 }}
                       >
                         Detect Current Location
-                      </span>
-                    </div>
-                  </div>
-                  <div className='col-lg'>
-                    <TextInput
-                      isRequired={true}
-                      label='Branch Address'
-                      margin='mb-7'
-                      formikField='address'
-                    />
-                  </div>
-
-                  {/* Date Settings */}
-                  <div className='row'>
-                    <div className='col-lg-12 mb-7'>
-                      <RadioInput
-                        isRequired={false}
-                        inputLabel='Show Time In 12 Hour Format'
-                        radioBtns={[
-                          { label: 'Yes', value: '1' },
-                          { label: 'No', value: '0' },
-                        ]}
-                        formikField='showDateIn12HourFormat'
+                      </Typography>
+                    </Stack>
+                    <div className='mt-4'>
+                      <TextInput
+                        isRequired={true}
+                        label='Branch Address'
+                        margin=''
+                        formikField='address'
                       />
                     </div>
-                  </div>
+                  </FormSection>
 
-                  <div className='d-flex justify-content-between flex-wrap gap-2'>
-                    {!isDeviceNotDesktop && (
-                      <div className='alert alert-warning' role='alert'>
-                        Automatic Location Detection is not allowed on
-                        Desktop/Laptop devices
-                      </div>
-                    )}
+                  <FormSection title="Preferences" icon={<KTIcon iconName="setting-2" className="fs-5" />}>
+                    <RadioInput
+                      isRequired={false}
+                      inputLabel='Show Time In 12 Hour Format'
+                      radioBtns={[
+                        { label: 'Yes', value: '1' },
+                        { label: 'No', value: '0' },
+                      ]}
+                      formikField='showDateIn12HourFormat'
+                    />
+                  </FormSection>
 
-                    <button
-                      className='btn btn-primary'
+                  {!isDeviceNotDesktop && (
+                    <Box sx={{ bgcolor: 'warning.light', color: 'warning.dark', border: 1, borderColor: 'warning.main', borderRadius: 2, px: 1.75, py: 1.25, fontSize: 12.5, fontWeight: 500, mb: 1.5 }}>
+                      Automatic location detection is only available on mobile / tablet devices.
+                    </Box>
+                  )}
+
+                  <Stack direction="row" spacing={1.25} justifyContent="flex-end" sx={{ flexWrap: 'wrap', gap: 1.25 }}>
+                    <MuiButton variant="text" color="inherit" onClick={handleClose}>Cancel</MuiButton>
+                    <MuiButton
+                      variant="outlined" color="primary"
                       disabled={loading || !isDeviceNotDesktop}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        handleDetectLocation(formikProps)
-                      }}
+                      startIcon={detectingLocation ? <CircularProgress size={14} /> : undefined}
+                      onClick={(e: any) => { e.preventDefault(); handleDetectLocation(formikProps); }}
                     >
-                      {!detectingLocation && 'Automatic Location Detection'}
-                      {detectingLocation && (
-                        <span
-                          className='indicator-progress'
-                          style={{ display: 'block' }}
-                        >
-                          Please wait...{' '}
-                          <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      type='submit'
-                      className='btn btn-primary'
+                      Detect Location
+                    </MuiButton>
+                    <MuiButton
+                      type="submit" variant="contained"
                       disabled={loading || !formikProps.isValid}
+                      startIcon={loading ? <CircularProgress size={14} color="inherit" /> : undefined}
                     >
-                      {!loading && 'Save Changes'}
-                      {loading && (
-                        <span
-                          className='indicator-progress'
-                          style={{ display: 'block' }}
-                        >
-                          Please wait...{' '}
-                          <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                        </span>
-                      )}
-                    </button>
-                  </div>
+                      {editMode ? 'Save Changes' : 'Create Branch'}
+                    </MuiButton>
+                  </Stack>
                 </Form>
               )
             }}
           </Formik>
-        </Modal.Body>
-      </Modal>
+          </Box>
+        </Dialog>
 
       <BranchEmployeesModal
         show={empModal.show}
         branchId={empModal.branch?.id}
         branchName={empModal.branch?.name}
         onClose={() => setEmpModal({ show: false, branch: null })}
+      />
+
+      <BiometricDevicesModal
+        show={devicesModal.show}
+        branchId={devicesModal.branch?.id ?? ''}
+        branchName={devicesModal.branch?.name ?? ''}
+        onClose={() => setDevicesModal({ show: false, branch: null })}
       />
     </>
   )
