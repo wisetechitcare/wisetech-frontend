@@ -914,17 +914,15 @@ const NewCompanyForm: React.FC<Props> = ({
         onClose();
         eventBus.emit("companyCreated");
       }
-
-      // Trigger data refresh in parent component
-      // eventBus.emit('refreshCompanies');
-      onClose();
     } catch (err: any) {
       console.error(err);
       // Surface the real reason instead of failing silently (which looked like
       // "Save does nothing"). Handles both raw axios errors and unwrapped bodies.
       const message =
         err?.response?.data?.message ||
+        err?.response?.data?.detail ||
         err?.data?.message ||
+        err?.data?.detail ||
         err?.message ||
         "Failed to save the company. Please review the form and try again.";
       errorConfirmation(message);

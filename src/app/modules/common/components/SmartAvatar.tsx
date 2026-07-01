@@ -244,8 +244,12 @@ const SmartAvatar: React.FC<Props> = ({
 
   const badge = status ? STATUS_COLORS[status] : null;
 
-  // Logos (contain mode) get inner padding so they don't touch the ring.
-  const innerPad = hasImage && imageFit === "contain" ? Math.max(4, Math.round(sz * 0.09)) : 0;
+  // Contain-mode logos get a small inset so the image doesn't press against the ring.
+  const innerPad = hasImage && imageFit === "contain" ? Math.max(3, Math.round(sz * 0.08)) : 0;
+
+  // Badge dimensions — large enough to be legible at small table sizes.
+  const badgeSz = Math.max(11, Math.round(sz * 0.24));
+  const badgeBorder = Math.max(2, Math.round(sz * 0.04));
 
   return (
     <div

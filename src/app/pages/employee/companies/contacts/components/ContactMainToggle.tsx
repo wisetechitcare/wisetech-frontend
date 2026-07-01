@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { getClientContactById } from "@services/companies";
 import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
@@ -18,7 +18,9 @@ const ContactMainToggle = () => {
   // console.log("idd", contactId);
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [contact, setContact] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [show, setShow] = useState(false);

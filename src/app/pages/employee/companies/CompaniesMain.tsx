@@ -1,6 +1,5 @@
 import MaterialHeaderTab, {TabItem} from "@app/modules/common/components/MaterialHeaderTab";
 import { calenderIcons, leadsIcons, reimbursementsIcons, worldIcons } from "@metronic/assets/sidepanelicons";
-import { useState } from "react";
 import CompanyConfigMain from "./companyConfig/CompanyConfigMain";
 import CompanyOverview from "./companyOverview/CompanyOverview";
 import { companiesIcons } from "@metronic/assets/sidepanelicons";
@@ -13,14 +12,22 @@ import {
   selectIsInitialized,
 } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
 import CalenderMain from "./calender/CalenderMain";
 import Maps from "./companyOverview/components/Map";
 import { getAllClientCompanies } from "@services/companies";
 
+const TAB_KEYS = ["overview", "companies", "map", "configure"] as const;
+
 const CompaniesMain = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabKey = searchParams.get("tab") || "overview";
+  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  const setActiveTab = (index: number) => {
+    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+  };
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
   const [companyData, setCompanyData] = useState<any>([]);
 

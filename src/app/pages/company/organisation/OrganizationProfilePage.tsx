@@ -33,7 +33,7 @@ export default function OrganizationProfilePage() {
       <OrganisationProfileForm
         key={orgId}
         organizationId={orgId}
-        onBack={() => navigate('/company/organisation-profile')}
+        onBack={() => navigate(-1)}
         onBranchesClick={() => setShowBranches(true)}
       />
 
