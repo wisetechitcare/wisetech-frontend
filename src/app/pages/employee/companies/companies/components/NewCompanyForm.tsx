@@ -1080,42 +1080,37 @@ const NewCompanyForm: React.FC<Props> = ({
                             }}
                           ></div>
                         </label>
-                        <div className="d-flex align-items-center ms-6">
-                          <div className="me-3">
-                            {logoPreview ? (
-                              <label
-                                htmlFor="logo"
-                                style={{ cursor: "pointer" }}
-                              >
+                        <div className="d-flex align-items-center ms-6" style={{ gap: 16 }}>
+                          {/* Circular logo preview — matches how the logo appears in SmartAvatar */}
+                          <label htmlFor="logo" style={{ cursor: "pointer", flexShrink: 0 }}>
+                            <div
+                              style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: "50%",
+                                border: logoPreview ? "2.5px solid #9D4141" : "2px dashed #ccc",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                overflow: "hidden",
+                                background: "#f8f9fa",
+                                boxShadow: logoPreview ? "0 2px 10px rgba(157,65,65,0.15)" : "none",
+                                transition: "border-color .2s, box-shadow .2s",
+                              }}
+                            >
+                              {logoPreview ? (
                                 <img
                                   src={logoPreview}
                                   alt="Logo"
-                                  style={{
-                                    width: 100,
-                                    height: 60,
-                                    objectFit: "contain",
-                                    border: "1px solid #ddd",
-                                  }}
+                                  style={{ width: "82%", height: "82%", objectFit: "contain" }}
                                 />
-                              </label>
-                            ) : (
-                              <label
-                                htmlFor="logo"
-                                style={{
-                                  width: 100,
-                                  height: 60,
-                                  border: "1px dashed #ccc",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  cursor: "pointer",
-                                  gap: "8px",
-                                }}
-                              >
-                                Choose Logo
-                              </label>
-                            )}
-                          </div>
+                              ) : (
+                                <span style={{ fontSize: 11, color: "#aab2bd", textAlign: "center", lineHeight: 1.4, padding: "0 6px" }}>
+                                  Choose<br />Logo
+                                </span>
+                              )}
+                            </div>
+                          </label>
                           <div>
                             <input
                               type="file"
@@ -1124,10 +1119,8 @@ const NewCompanyForm: React.FC<Props> = ({
                               onChange={handleLogoChange}
                               style={{ display: "none" }}
                             />
-                            {/* <label htmlFor="logo" className="btn btn-outline-secondary btn-sm">Choose File</label> */}
-                            <div className="text-muted small mt-1">
-                              {logoFile?.name || "No file chosen"}
-                            </div>
+                            <div className="text-muted small">{logoFile?.name || "No file chosen"}</div>
+                            <div style={{ fontSize: 11, color: "#aab2bd", marginTop: 3 }}>Click the circle to change</div>
                           </div>
                         </div>
                       </div>

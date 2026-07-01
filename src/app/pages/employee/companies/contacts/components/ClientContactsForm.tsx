@@ -216,6 +216,15 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
     return values;
   }, [key, initialData, contactId, contactStatuses, selectedCompanyId]);
+
+  // Seed the photo preview with the contact's existing image when editing, so it
+  // shows in the upload box instead of the empty placeholder. (The form field
+  // stays null until a NEW file is picked — save preserves the existing URL.)
+  useEffect(() => {
+    const existing = (initialData as any)?.profilePhoto;
+    setProfilePhotoPreview(key !== "add-new" && typeof existing === "string" && existing ? existing : null);
+  }, [key, contactId, (initialData as any)?.profilePhoto]);
+
   useEffect(() => {
     loadInitialData();
   }, []);
