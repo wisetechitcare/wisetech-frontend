@@ -1,4 +1,5 @@
 import React from "react";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -193,30 +194,16 @@ const ClientContactsMain = ({
       {
         accessorKey: "profile",
         header: "Profile",
-        Cell: ({ row }) => {
-          const { profilePhoto } = row.original;
-          if (profilePhoto) {
-            return (
-              <img
-                src={profilePhoto}
-                alt=""
-                style={{ width: "33px", height: "33px", borderRadius: "50%" }}
-              />
-            );
-          }
-          return (
-            <div
-              className="rounded-circle bg-light d-flex align-items-center justify-content-center"
-              style={{
-                width: "33px",
-                height: "33px",
-                overflow: "hidden",
-              }}
-            >
-              <i className="fas fa-user text-muted fs-2"></i>
-            </div>
-          );
-        },
+        Cell: ({ row }) => (
+          <SmartAvatar
+            name={row.original.fullName}
+            id={row.original.id}
+            imageUrl={row.original.profilePhoto}
+            size={42}
+            imageFit="cover"
+            status={row.original.isContactActive === false ? "inactive" : "active"}
+          />
+        ),
       },
       {
         accessorKey: "fullName",

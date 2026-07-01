@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
@@ -81,20 +82,16 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       {
         accessorKey: "profile",
         header: "Profile",
-        Cell: ({ row }) => {
-          const { profilePhoto, fullName } = row.original;
-          const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            fullName || "User"
-          )}&background=eeeeee&color=888888&size=50&rounded=true`;
-
-          return (
-            <img
-              src={profilePhoto || fallbackAvatar}
-              alt=""
-              style={{ width: "50px", height: "50px", borderRadius: "50%" }}
-            />
-          );
-        },
+        Cell: ({ row }) => (
+          <SmartAvatar
+            name={row.original.fullName}
+            id={row.original.id}
+            imageUrl={row.original.profilePhoto}
+            size={42}
+            imageFit="cover"
+            status={row.original.isContactActive === false ? "inactive" : "active"}
+          />
+        ),
       },
       {
         accessorKey: "fullName",
