@@ -1088,6 +1088,7 @@ import { RootState, store } from '@redux/store';
 import { Field, Form, Formik, FormikValues } from 'formik';
 import { useDispatch, useSelector } from 'react-redux';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { parseWorkingDays } from '@utils/workingDays';
 import { fetchPublicHolidays, fetchConfiguration } from "@services/company";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -1158,7 +1159,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     const branchLongitude = allEmpDetails.branches?.longitude!;
     const publicHolidays = useSelector((state: RootState) => state.attendanceStats.publicHolidays);
     const branchDetails = useSelector((state: RootState) => state.employee?.currentEmployee?.branches);
-    const employeeWorkingAndOffDays = JSON.parse(branchDetails?.workingAndOffDays || '{}');
+    const employeeWorkingAndOffDays = parseWorkingDays(branchDetails?.workingAndOffDays);
     const [yesterdayAttendanceRequest, setYesterdayAttendanceRequest] = useState<IAttendanceRequests>()
 
     // Day-wise shift state

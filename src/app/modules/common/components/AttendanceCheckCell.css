@@ -5,66 +5,87 @@
 
 .attendance-check-cell__time {
   font-weight: 600;
-  color: #212529;
   white-space: nowrap;
 }
 
 .attendance-check-cell__meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
-  margin-top: 2px;
-  font-size: 0.8125rem;
-  color: #6c757d;
+  margin-top: 4px;
   min-width: 0;
 }
 
-.attendance-check-cell__dot {
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.attendance-check-cell__method {
-  flex-shrink: 0;
+/* ── Shared chip base ── */
+.attendance-check-cell__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.6;
   white-space: nowrap;
-}
-
-.attendance-check-cell__sep {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.attendance-check-cell__location {
-  min-width: 0;
-  max-width: 180px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.attendance-check-cell__location--interactive {
+/* Method chips */
+.attendance-check-cell__chip--office {
+  background-color: #e7f1ff;
+  color: #0d6efd;
+}
+
+.attendance-check-cell__chip--onsite {
+  background-color: #fff8e1;
+  color: #b45309;
+}
+
+.attendance-check-cell__chip--muted {
+  background-color: #f0f2f5;
+  color: #6c757d;
+}
+
+/* Location chip */
+.attendance-check-cell__chip--location {
+  background-color: #f0f2f5;
+  color: #495057;
+  max-width: 180px;
+}
+
+/* Interactive (GPS-linked) location chip */
+.attendance-check-cell__chip--interactive {
+  background-color: #e7f1ff;
   color: #0d6efd;
   cursor: pointer;
-  border-bottom: 1px dashed transparent;
-  transition: border-color 0.15s ease;
+  border: 1px solid transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.attendance-check-cell__location--interactive:hover,
-.attendance-check-cell__location--interactive:focus-visible {
-  border-bottom-color: #0d6efd;
+.attendance-check-cell__chip--interactive:hover,
+.attendance-check-cell__chip--interactive:focus-visible {
+  background-color: #cfe2ff;
+  border-color: #0d6efd;
   outline: none;
 }
 
-.attendance-check-cell__icon {
+.attendance-check-cell__chip-icon {
+  font-size: 0.7rem;
   flex-shrink: 0;
-  font-size: 0.75rem;
-  color: #0d6efd;
+}
+
+/* Tooltip hint line */
+.attendance-check-cell__tooltip-hint {
+  font-size: 0.72rem;
+  color: #adb5bd;
+  margin-top: 3px;
 }
 
 @media (max-width: 767.98px) {
-  .attendance-check-cell__location {
-    max-width: 120px;
+  .attendance-check-cell__chip--location {
+    max-width: 110px;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { parseWorkingDays } from '@utils/workingDays';
 import { createRoot } from 'react-dom/client';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
@@ -277,7 +278,7 @@ function CustomCalendar() {
             };
           });
         //   debugger;
-          const workingAndOffDays = JSON.parse(branchRes?.data?.branch?.workingAndOffDays || '{}');
+          const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
           setBranchWorkingAndOffDays(workingAndOffDays);
       
           const weekendHolidays: any[] = [];
