@@ -3315,21 +3315,21 @@ export async function getCompletionAmountOfLoanByLoanIdAndEndDate(loanId: any) {
 }
 // 🔥 KPI API SAFETY: Exponential backoff retry helper
 const fetchWithRetry = async <T>(
-  fn: () => Promise<T>,
-  retries = 2,
-  delay = 1200
+    fn: () => Promise<T>,
+    retries = 2,
+    delay = 1200
 ): Promise<T> => {
-  try {
-    return await fn();
-  } catch (error: any) {
-    const isCancel = error?.name === 'AbortError' || error?.name === 'CanceledError' || axios.isCancel(error);
-    if (retries > 0 && !isCancel) {
-      console.warn(`[KPI-RETRY] Request failed, retrying in ${delay}ms... (${retries} attempts left)`);
-      await new Promise(r => setTimeout(r, delay));
-      return fetchWithRetry(fn, retries - 1, delay * 2);
+    try {
+        return await fn();
+    } catch (error: any) {
+        const isCancel = error?.name === 'AbortError' || error?.name === 'CanceledError' || axios.isCancel(error);
+        if (retries > 0 && !isCancel) {
+            console.warn(`[KPI-RETRY] Request failed, retrying in ${delay}ms... (${retries} attempts left)`);
+            await new Promise(r => setTimeout(r, delay));
+            return fetchWithRetry(fn, retries - 1, delay * 2);
+        }
+        throw error;
     }
-    throw error;
-  }
 };
 
 export const fetchLeaderboard = async (
