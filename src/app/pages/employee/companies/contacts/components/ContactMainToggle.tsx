@@ -140,7 +140,7 @@ const ContactMainToggle = () => {
             name={contact.fullName}
             id={contact.id}
             imageUrl={contact.profilePhoto}
-            size={52}
+            size={80}
             imageFit="cover"
             status={contact.isContactActive === false ? "inactive" : "active"}
           />

@@ -51,7 +51,6 @@ const CompanyDetails = () => {
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [rating, setRating] = useState<number>();
   const [companyRatings, setCompanyRatings] = useState<any>();
-  const [avatarTint, setAvatarTint] = useState<string | null>(null);
 
   const handleNewCompanyClick = () => {
     setShowNewCompanyModal(true);
@@ -218,9 +217,6 @@ const CompanyDetails = () => {
         className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-3 pt-md-6 px-2 px-md-3"
         style={{
           borderRadius: 14,
-          background: avatarTint
-            ? `linear-gradient(90deg, rgba(${avatarTint}, 0.055), rgba(${avatarTint}, 0))`
-            : undefined,
         }}
       >
         <div className="d-flex align-items-center gap-3 gap-md-4 flex-grow-1">
@@ -255,9 +251,8 @@ const CompanyDetails = () => {
             name={company?.companyName}
             id={company?.id}
             imageUrl={company?.logo}
-            size={64}
+            size={84}
             status={company?.status === "ACTIVE" ? "active" : "inactive"}
-            onDominantColor={setAvatarTint}
           />
           <div className="flex-grow-1">
             <div className="text-muted small">Company #{company?.prefix || "N/A"}</div>
