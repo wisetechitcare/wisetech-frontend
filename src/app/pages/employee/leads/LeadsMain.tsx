@@ -2,19 +2,26 @@ import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
 import { leadsIcons, projectsIcons } from "@metronic/assets/sidepanelicons";
-import { useState } from "react";
 import LeadsConfigurationMain from "./configuration/LeadsConfigurationMain";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
 import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import GlobalFilesView from "./GlobalFilesView";
 
+const TAB_KEYS = ["overview", "leads", "files", "configure"] as const;
+
 const LeadsMain = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabKey = searchParams.get("tab") || "overview";
+  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  const setActiveTab = (index: number) => {
+    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+  };
 
   const dispatch = useDispatch<AppDispatch>();
 

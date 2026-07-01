@@ -52,6 +52,7 @@ const ClientContactsMain = ({
     (state: RootState) => state.employee.currentEmployee?.id,
   );
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
 
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
@@ -332,6 +333,42 @@ const ClientContactsMain = ({
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
+        accessorKey: "createdAt",
+        header: "Created Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "createdById",
+        header: "Created By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.createdById
+          );
+          return emp?.employeeName || "N/A";
+        },
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Last Edited Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "updatedById",
+        header: "Last Edited By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.updatedById
+          );
+          return emp?.employeeName || "N/A";
+        },
+      },
+      {
         accessorKey: "actions",
         header: "Actions",
         Cell: ({ row }) => {
@@ -458,6 +495,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
         viewOthers={true}
         checkOwnWithOthers={true}
         employeeId={employeeId}
+        defaultSorting={[{ id: "fullName", desc: false }]}
         onVisibleColumnsChange={handleVisibleColumnsChange}
         muiTableProps={{
           sx: {

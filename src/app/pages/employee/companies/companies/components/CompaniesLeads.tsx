@@ -161,6 +161,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
     columns={columns}
     tableName="Company Leads"
     employeeId={employeeId}
+    defaultSorting={[{ id: "title", desc: false }]}
     muiTableProps={{
       sx: {
         borderCollapse: "separate",

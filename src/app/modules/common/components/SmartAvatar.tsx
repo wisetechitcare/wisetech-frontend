@@ -244,8 +244,12 @@ const SmartAvatar: React.FC<Props> = ({
 
   const badge = status ? STATUS_COLORS[status] : null;
 
-  // Logos (contain mode) get inner padding so they don't touch the ring.
-  const innerPad = hasImage && imageFit === "contain" ? Math.max(4, Math.round(sz * 0.09)) : 0;
+  // Contain-mode logos get a small inset so the image doesn't press against the ring.
+  const innerPad = hasImage && imageFit === "contain" ? Math.max(3, Math.round(sz * 0.08)) : 0;
+
+  // Badge dimensions — large enough to be legible at small table sizes.
+  const badgeSz = Math.max(11, Math.round(sz * 0.24));
+  const badgeBorder = Math.max(2, Math.round(sz * 0.04));
 
   return (
     <div
@@ -257,7 +261,7 @@ const SmartAvatar: React.FC<Props> = ({
         position: "relative",
         width: sz,
         height: sz,
-        borderRadius: Math.round(sz * 0.18),
+        borderRadius: "50%",           // always circular
         padding: 2.5,
         background: ring,
         flexShrink: 0,
@@ -268,16 +272,15 @@ const SmartAvatar: React.FC<Props> = ({
         style={{
           width: "100%",
           height: "100%",
-          borderRadius: Math.round(sz * 0.14),
+          borderRadius: "50%",          // inner circle
           overflow: "hidden",
           background: hasImage
-            ? "linear-gradient(145deg, #ffffff, #f8fafc)"
+            ? "#ffffff"
             : `linear-gradient(140deg, ${palette.from}, ${palette.to})`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: innerPad,
-          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.06)",
           position: "relative",
         }}
       >
@@ -292,10 +295,9 @@ const SmartAvatar: React.FC<Props> = ({
             style={{
               width: "100%",
               height: "100%",
-              objectFit: imageFit,
+              objectFit: imageFit,      // "contain" keeps logo uncropped; "cover" fills profile photos
               objectPosition: "center",
               display: "block",
-              borderRadius: 0,
             }}
           />
         ) : (
@@ -305,9 +307,9 @@ const SmartAvatar: React.FC<Props> = ({
               position: "relative",
               zIndex: 1,
               color: palette.text,
-              fontWeight: 600,
+              fontWeight: 700,
               letterSpacing: "-0.02em",
-              fontSize: sz * 0.35,
+              fontSize: sz * 0.34,
               fontFamily: "Inter, system-ui, sans-serif",
               lineHeight: 1,
             }}
@@ -317,19 +319,21 @@ const SmartAvatar: React.FC<Props> = ({
         )}
       </div>
 
+      {/* Status badge — sits at the bottom-right corner, outside the inner circle */}
       {badge && (
         <span
           title={status || undefined}
           style={{
             position: "absolute",
-            right: Math.round(sz * 0.01),
-            bottom: Math.round(sz * 0.01),
-            width: Math.max(10, Math.round(sz * 0.21)),
-            height: Math.max(10, Math.round(sz * 0.21)),
+            right: 0,
+            bottom: 0,
+            width: badgeSz,
+            height: badgeSz,
             borderRadius: "50%",
             background: badge,
-            border: `${Math.max(2, Math.round(sz * 0.035))}px solid #fff`,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+            border: `${badgeBorder}px solid #fff`,
+            boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
+            zIndex: 2,
           }}
         />
       )}

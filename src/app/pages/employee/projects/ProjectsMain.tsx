@@ -10,13 +10,21 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
+import { useSearchParams } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
 import Maps from "../companies/companyOverview/components/Map";
 import { getProjectMapPoints } from "@services/projects";
 import { worldIcons } from "@metronic/assets/sidepanelicons";
- 
+
+const TAB_KEYS = ["overview", "projects", "map", "configure"] as const;
+
 const ProjectsMain = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabKey = searchParams.get("tab") || "overview";
+  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  const setActiveTab = (index: number) => {
+    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+  };
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
   const [projectData, setProjectData] = useState<any>([]);
 

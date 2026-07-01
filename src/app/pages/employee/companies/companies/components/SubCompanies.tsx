@@ -305,6 +305,7 @@ const SubCompanies = ({companyId, companyTypeId}: {companyId: string; companyTyp
         tableName="SubCompanies"
         employeeId={employeeIdCurrent}
         resource="SUB_COMPANIES"
+        defaultSorting={[{ id: "subCompanyName", desc: false }]}
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}

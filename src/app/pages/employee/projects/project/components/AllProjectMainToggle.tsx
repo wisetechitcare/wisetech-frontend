@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
 import { getAllProjectDataForOverviewById } from "@services/projects";
@@ -18,7 +18,9 @@ type TabType = "overview" | "tasks" | "timelog" | "files" | "reimbursements";
 const AllProjectMainToggle = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [projectData, setProjectData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showBlankBasicProjectForm, setShowBlankBasicProjectForm] = useState(false);

@@ -188,6 +188,7 @@ const CompaniesBranch = ({companyId}: {companyId: string}) => {
         tableName="ClientBranches"
         employeeId={employeeIdCurrent}
         resource="BRANCHES"
+        defaultSorting={[{ id: "name", desc: false }]}
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}

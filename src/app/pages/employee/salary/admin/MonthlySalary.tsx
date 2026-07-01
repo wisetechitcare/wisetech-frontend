@@ -107,7 +107,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         branch: summary.branch || 'N/A',
         basicSalary: rawTotals.basicSalary ?? '-',
         overTimeAmount: rawTotals?.overTimeAmount ?? '-',
-        totalSalaryAfterAttendance: (rawTotals.basicSalary ?? 0) + (rawTotals?.overTimeAmount ?? 0),
+        totalSalaryAfterAttendance: rawTotals.totalSalaryAfterAttendance ?? '-',
         netAmount: rawTotals.netAmount ?? '-',
         amountPaid: rawTotals.amountPaid ?? '-',
         dueAmount: rawTotals.dueAmount ?? '-',

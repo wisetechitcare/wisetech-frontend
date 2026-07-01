@@ -564,8 +564,16 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       eventBus.emit("clientContactUpdated");
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving contact:", error);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        "Failed to save the contact. Please try again.";
+      errorConfirmation(message);
     } finally {
       setLoading(false);
       clearContactId?.();

@@ -5,6 +5,14 @@ import { useEffect, useState } from "react";
 import NoteModal from "./NoteModal";
 import { getClientBranchesByCompanyId } from "@services/lead";
 import { getAllCompanyTypes } from "@services/companies";
+import dayjs from "dayjs";
+
+// Resolve an audit relation (createdBy/updatedBy) — loaded via getById — into a display name.
+const auditName = (rel: any): string => {
+  if (!rel) return "N/A";
+  const full = [rel?.users?.firstName, rel?.users?.lastName].filter(Boolean).join(" ").trim();
+  return full || rel?.nickName || "N/A";
+};
 interface OverviewProps {
   company: Company;
 }
@@ -119,6 +127,45 @@ const Overview = ({ company }: OverviewProps) => {
               </div>
               <div className="col-sm-8 d-flex align-items-center justify-content-end">
                 <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.visibility || 'N/A'}</div>
+              </div>
+            </div>
+
+            {/* Audit trail — who created/last-edited this company and when */}
+            <div className="separator my-3" />
+
+            <div className="row mb-4">
+              <div className="col-sm-4">
+                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Created By</div>
+              </div>
+              <div className="col-sm-8 d-flex align-items-center justify-content-end">
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{auditName((company as any).createdBy)}</div>
+              </div>
+            </div>
+
+            <div className="row mb-4">
+              <div className="col-sm-4">
+                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Created Date</div>
+              </div>
+              <div className="col-sm-8 d-flex align-items-center justify-content-end">
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.createdAt ? dayjs(company.createdAt).format("DD/MM/YYYY, h:mm A") : 'N/A'}</div>
+              </div>
+            </div>
+
+            <div className="row mb-4">
+              <div className="col-sm-4">
+                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Last Edited By</div>
+              </div>
+              <div className="col-sm-8 d-flex align-items-center justify-content-end">
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{auditName((company as any).updatedBy)}</div>
+              </div>
+            </div>
+
+            <div className="row mb-4">
+              <div className="col-sm-4">
+                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Last Edited Date</div>
+              </div>
+              <div className="col-sm-8 d-flex align-items-center justify-content-end">
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>{company.updatedAt ? dayjs(company.updatedAt).format("DD/MM/YYYY, h:mm A") : 'N/A'}</div>
               </div>
             </div>
           </div>

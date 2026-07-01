@@ -258,6 +258,7 @@ const ClientCompaniesMain = ({
             imageUrl={row.original.logo}
             size={42}
             imageFit="contain"
+            status={row.original.status === "ACTIVE" ? "active" : "inactive"}
           />
         ),
       },
@@ -419,6 +420,42 @@ const ClientCompaniesMain = ({
         accessorKey: "isActive",
         header: "Active",
         Cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "createdById",
+        header: "Created By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.createdById
+          );
+          return emp?.employeeName || "N/A";
+        },
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Last Edited Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "updatedById",
+        header: "Last Edited By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.updatedById
+          );
+          return emp?.employeeName || "N/A";
+        },
       },
       ...(!hideNewCompanyButton
         ? [
@@ -611,6 +648,7 @@ const ClientCompaniesMain = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        defaultSorting={[{ id: "companyName", desc: false }]}
         onVisibleColumnsChange={handleVisibleColumnsChange}
         muiTableProps={{
           sx: {
