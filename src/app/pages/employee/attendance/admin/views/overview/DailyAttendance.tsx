@@ -1,4 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import './DailyAttendance.css';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
 import AttendanceCheckCell, {
@@ -390,14 +391,20 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
 
     const columns = useMemo<MRT_ColumnDef<IEmployeesAttendance>[]>(() => [
         {
-            accessorKey: "code",
-            header: "ID",
-            size: 120,
-        },
-        {
-            accessorKey: "name",
-            header: "Name",
-            size: 120,
+            id: "employee",
+            header: "Employee",
+            size: 180,
+            accessorFn: (row) => `${row.name} ${row.code}`,
+            Cell: ({ row }) => (
+                <div className="daily-attendance__employee-cell">
+                    <div className="daily-attendance__employee-name">
+                        {row.original.name}
+                    </div>
+                    <div className="daily-attendance__employee-code">
+                        {row.original.code}
+                    </div>
+                </div>
+            ),
         },
         {
             accessorKey: "status",
@@ -459,7 +466,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                         location={employee.checkInLocation}
                         fullAddress={employee.checkInLocation}
                         coordinates={checkInCoords}
-                        timeColor={checkInColor.color}
+                        timeTone={checkInColor.tone}
                         timeTooltip={checkInColor.tooltip}
                     />
                 );
@@ -513,7 +520,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                         location={employee.checkOutLocation}
                         fullAddress={employee.checkOutLocation}
                         coordinates={checkOutCoords}
-                        timeColor={checkOutColor.color}
+                        timeTone={checkOutColor.tone}
                     />
                 );
             },

@@ -2,7 +2,7 @@ import React, { memo, useCallback, useMemo } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { WORKING_METHOD_TYPE } from '@constants/attendance';
-import { ATTENDANCE_COLORS } from '@utils/attendanceColorUtils';
+import { AttendanceColorTone } from '@utils/attendanceColorUtils';
 import './AttendanceCheckCell.css';
 
 export interface AttendanceCoordinates {
@@ -18,8 +18,8 @@ export interface AttendanceCheckCellProps {
   coordinates?: AttendanceCoordinates | null;
   label: 'Check-In' | 'Check-Out';
   type?: 'in' | 'out';
-  /** Time line color from resolveCheckInColor / resolveCheckOutColor */
-  timeColor?: string;
+  /** Semantic tone from resolveCheckInColor / resolveCheckOutColor */
+  timeTone?: AttendanceColorTone;
   /** Explains late check-in (hover) */
   timeTooltip?: string;
 }
@@ -53,12 +53,19 @@ function formatMethodLabel(method: string): string {
   return method;
 }
 
-function getMethodDotColor(method: string, hasTime: boolean): string {
-  if (!hasTime) return '#6C757D';
+function getMethodChipClass(method: string, hasTime: boolean): string {
+  if (!hasTime) return 'attendance-check-cell__chip attendance-check-cell__chip--muted';
   const key = method.trim().replace(/-/g, '').replace(/\s+/g, '').toLowerCase();
-  if (key === 'office') return '#0D6EFD';
-  if (key === 'onsite') return '#FFC107';
-  return '#6C757D';
+  if (key === 'office') return 'attendance-check-cell__chip attendance-check-cell__chip--office';
+  if (key === 'onsite') return 'attendance-check-cell__chip attendance-check-cell__chip--onsite';
+  return 'attendance-check-cell__chip attendance-check-cell__chip--muted';
+}
+
+function toneToClass(tone?: AttendanceColorTone): string {
+  if (tone === 'success') return 'text-success';
+  if (tone === 'danger') return 'text-danger';
+  if (tone === 'muted') return 'text-muted';
+  return 'text-dark';
 }
 
 function openGoogleMaps(lat: number, lng: number) {
@@ -67,7 +74,7 @@ function openGoogleMaps(lat: number, lng: number) {
 }
 
 /**
- * Stacked check-in / check-out cell: time + method • location.
+ * Stacked check-in / check-out cell: time + method chip + location chip.
  * Map link and tooltip only when GPS coordinates exist (on-site).
  */
 function AttendanceCheckCell({
@@ -77,7 +84,7 @@ function AttendanceCheckCell({
   fullAddress,
   coordinates = null,
   label,
-  timeColor,
+  timeTone,
   timeTooltip,
 }: AttendanceCheckCellProps) {
   const hasTime = !isAttendanceValueMissing(time);
@@ -92,7 +99,8 @@ function AttendanceCheckCell({
     ? fullAddress
     : (hasLocation ? location : '');
 
-  const dotColor = getMethodDotColor(hasMethod ? method : '', hasTime);
+  const methodChipClass = getMethodChipClass(hasMethod ? method : '', hasTime);
+  const timeClass = `attendance-check-cell__time ${toneToClass(timeTone)}`;
 
   const handleMapActivate = useCallback(
     (event: React.MouseEvent | React.KeyboardEvent) => {
@@ -110,7 +118,7 @@ function AttendanceCheckCell({
       <Tooltip id={`${label}-location-tooltip`}>
         <div>{tooltipAddress || '—'}</div>
         {isMapInteractive && (
-          <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: 4 }}>
+          <div className="attendance-check-cell__tooltip-hint">
             Click to open in Maps ↗
           </div>
         )}
@@ -124,33 +132,29 @@ function AttendanceCheckCell({
       <span
         role="link"
         tabIndex={0}
-        className="attendance-check-cell__location attendance-check-cell__location--interactive"
-        title={tooltipAddress}
+        className="attendance-check-cell__chip attendance-check-cell__chip--location attendance-check-cell__chip--interactive"
         aria-label={`View ${label.toLowerCase()} location on Google Maps`}
         onClick={handleMapActivate}
         onKeyDown={handleMapActivate}
       >
+        <KTIcon iconName="geolocation" className="attendance-check-cell__chip-icon" />
         {locationText}
       </span>
     </OverlayTrigger>
   ) : hasLocation ? (
     <span
-      className="attendance-check-cell__location"
+      className="attendance-check-cell__chip attendance-check-cell__chip--location"
       title={tooltipAddress.length > 40 ? tooltipAddress : undefined}
     >
+      <KTIcon iconName="geolocation" className="attendance-check-cell__chip-icon" />
       {locationText}
     </span>
   ) : (
-    <span className="attendance-check-cell__location">—</span>
+    <span className="attendance-check-cell__chip attendance-check-cell__chip--muted">—</span>
   );
 
-  const resolvedTimeColor = timeColor ?? ATTENDANCE_COLORS.normal;
-
   const timeLine = (
-    <div
-      className="attendance-check-cell__time"
-      style={{ color: resolvedTimeColor }}
-    >
+    <div className={timeClass}>
       {displayTime}
     </div>
   );
@@ -168,19 +172,8 @@ function AttendanceCheckCell({
         timeLine
       )}
       <div className="attendance-check-cell__meta">
-        <span
-          className="attendance-check-cell__dot"
-          style={{ backgroundColor: dotColor }}
-          aria-hidden
-        />
-        <span className="attendance-check-cell__method">{displayMethod}</span>
-        <span className="attendance-check-cell__sep" aria-hidden>
-          •
-        </span>
+        <span className={methodChipClass}>{displayMethod}</span>
         {locationNode}
-        {isMapInteractive && (
-          <KTIcon iconName="geolocation" className="attendance-check-cell__icon" />
-        )}
       </div>
     </div>
   );
