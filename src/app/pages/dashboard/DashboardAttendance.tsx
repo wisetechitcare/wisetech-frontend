@@ -4,6 +4,7 @@ import eventBus from "@utils/EventBus";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { Modal } from "react-bootstrap";
 import GoogleMaps from '@pages/employee/attendance/personal/views/overview/GoogleMaps';
@@ -352,18 +353,26 @@ useEffect(() => {
     };
 
     // checkin checkout for today
-    useEffect(()=>{
-        const fetchData = async () => {
-            const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD'));
-            if(empAttendanceStatistics.length > 0){
-                setHasCheckin(empAttendanceStatistics[0].checkIn);
-                setCheckInTime(empAttendanceStatistics[0].checkIn ? dayjs(empAttendanceStatistics[0].checkIn).format('h:mm A') : '');
-                setCheckOutTime(empAttendanceStatistics[0].checkOut ? dayjs(empAttendanceStatistics[0].checkOut).format('h:mm A') : '');
-                setWorkingMethod(empAttendanceStatistics[0].workingMethod || '');
-            }
+    const refreshTodayStatus = useCallback(async () => {
+        const { data: { empAttendanceStatistics } } = await fetchEmpAttendanceStatistics(employeeId, dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD'));
+        if(empAttendanceStatistics.length > 0){
+            setHasCheckin(empAttendanceStatistics[0].checkIn);
+            setCheckInTime(empAttendanceStatistics[0].checkIn ? dayjs(empAttendanceStatistics[0].checkIn).format('h:mm A') : '');
+            setCheckOutTime(empAttendanceStatistics[0].checkOut ? dayjs(empAttendanceStatistics[0].checkOut).format('h:mm A') : '');
+            setWorkingMethod(empAttendanceStatistics[0].workingMethod || '');
         }
-        fetchData();
-    },[employeeId])
+    }, [employeeId]);
+
+    useEffect(()=>{
+        refreshTodayStatus();
+    },[refreshTodayStatus])
+
+    // Realtime: this user's own attendance changed (e.g. their biometric punch) →
+    // refresh today's check-in/out status and the attendance history quietly.
+    useAttendanceRealtime(() => {
+        refreshTodayStatus();
+        fetchAttendanceData();
+    });
 
 
     useEffect(() => {
