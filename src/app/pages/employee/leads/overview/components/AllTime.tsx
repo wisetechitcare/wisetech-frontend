@@ -9,6 +9,7 @@ import {
   getLeadsByCompanyTypeAnalytics,
   getMonthlyTopLeads,
   getLeadsByLocationAnalytics,
+  getLeadsByCancellationReasonAnalytics,
   getAllLeadStatus,
 } from "@services/lead";
 import dayjs from "dayjs";
@@ -51,6 +52,7 @@ const AllTime = () => {
     companyTypeData: [],
     topLeadsData: [],
     locationData: [],
+    cancellationReasonData: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -312,6 +314,7 @@ const AllTime = () => {
           companyTypeApiRes,
           monthlyTopLeadsApiRes,
           locationApiRes,
+          cancellationApiRes,
         ] = await Promise.all([
           getLeadsByStatusAnalytics(startDates, endDates),
           getLeadsByServiceAnalytics(startDates, endDates),
@@ -327,6 +330,7 @@ const AllTime = () => {
           getLeadsByCompanyTypeAnalytics(startDates, endDates),
           getMonthlyTopLeads(startDates, endDates, filters.topLeadsType),
           getLeadsByLocationAnalytics(startDates, endDates),
+          getLeadsByCancellationReasonAnalytics(startDates, endDates),
         ]);
 
         setDirectSourceRes(directSourceApiRes);
@@ -373,7 +377,8 @@ const AllTime = () => {
             "name",
             "budget"
           ),
-          topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsApiRes?.data || [], {
+          cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
+            topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsApiRes?.data || [], {
             groupBy: filters.topLeadsType,
             status: filters.topLeadsStatus,
             referralType: filters.topLeadsReferralType,
@@ -440,7 +445,8 @@ const AllTime = () => {
     if (monthlyTopLeadsRes?.data) {
       setChartData((prevData: any) => ({
         ...prevData,
-        topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsRes.data, {
+        cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
+            topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsRes.data, {
           groupBy: filters.topLeadsType,
           status: filters.topLeadsStatus,
           referralType: filters.topLeadsReferralType,
@@ -498,6 +504,7 @@ const AllTime = () => {
           sourceData={chartData.sourceData}
           referralSourceData={chartData.referralSourceData}
           directSourceData={chartData.directSourceData}
+            cancellationReasonData={chartData.cancellationReasonData}
           settings={settings}
           showKpis={false}
           onStatusSelect={handleStatusChartClick}
@@ -607,3 +614,4 @@ const AllTime = () => {
 };
 
 export default AllTime;
+

@@ -256,6 +256,17 @@ export const getLeadsByCompanyId = async (companyId: string) => {
     }
 }
 
+// Get Leads By Cancellation Reason Analytics
+export const getLeadsByCancellationReasonAnalytics = async (startDate: string, endDate: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_CANCELLATION_REASON_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Get Leads By Status Analytics
 // receivedOnly=true restricts to project-trigger ("Received") leads — used by the Project section.
 export const getLeadsByStatusAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {

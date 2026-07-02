@@ -12,6 +12,7 @@ import {
   getMonthlyLeadsByDirectSources,
   getMonthlyTopLeads,
   getLeadsByLocationAnalytics,
+  getLeadsByCancellationReasonAnalytics,
   getAllLeadStatus,
 } from "@services/lead";
 import dayjs from "dayjs";
@@ -75,6 +76,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
     yearlyDirectSourceData: [],
     topLeadsData: [],
     locationData: [],
+    cancellationReasonData: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -397,6 +399,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
           yearlyDirectSourceRes,
           monthlyTopLeadsApiRes,
           locationApiRes,
+          cancellationApiRes,
         ] = await Promise.all([
           getLeadsByStatusAnalytics(startDates, endDates),
           getLeadsByServiceAnalytics(startDates, endDates),
@@ -416,6 +419,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
           getMonthlyLeadsByDirectSources(startDates, endDates),
           getMonthlyTopLeads(startDates, endDates, filters.topLeadsType),
           getLeadsByLocationAnalytics(startDates, endDates),
+          getLeadsByCancellationReasonAnalytics(startDates, endDates),
         ]);
 
         setDirectSourceRes(directSourceApiRes);
@@ -471,6 +475,12 @@ const Yearly = ({ startDate, endDate }: Props) => {
             yearlyDirectSourceRes?.data || []
           ),
           topLeadsData: getFilteredTopLeadsData(),
+          cancellationReasonData: convertToChartData(
+            cancellationApiRes?.data || [],
+            "value",
+            "name",
+            ""
+          ),
         });
       } catch (error) {
         console.error("Error fetching chart data:", error);
@@ -590,6 +600,7 @@ const Yearly = ({ startDate, endDate }: Props) => {
           sourceData={chartData.sourceData}
           referralSourceData={chartData.referralSourceData}
           directSourceData={chartData.directSourceData}
+          cancellationReasonData={chartData.cancellationReasonData}
           settings={settings}
           showKpis={false}
           onStatusSelect={handleStatusChartClick}
@@ -659,43 +670,6 @@ const Yearly = ({ startDate, endDate }: Props) => {
             </AnalyticsCard>
           </section>
         )}
-
-        {/* ── Section 10: Source Trends Over Time (yearly time-series) ────── */}
-        {(settings?.showLeadsByYearlyReferralSource || settings?.showLeadsFromReferral) &&
-          chartData.yearlyReferralSourceData?.length > 0 && (
-            <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <AnalyticsHeader
-                title="Source Trends Over Time"
-                subtitle="Month-by-month contribution of each acquisition channel"
-                icon="bi-activity"
-                accent="#0EA5E9"
-              />
-              <div className="row g-3">
-                <div className="col-12 col-xl-6">
-                  <YearlyStatusCountChart
-                    data={chartData.yearlyReferralSourceData}
-                    title="Referral Sources by Month"
-                    height={380}
-                    stacked={true}
-                    showBudget={true}
-                    isThisLead={true}
-                  />
-                </div>
-                {chartData.yearlyDirectSourceData?.length > 0 && (
-                  <div className="col-12 col-xl-6">
-                    <YearlyStatusCountChart
-                      data={chartData.yearlyDirectSourceData}
-                      title="Direct Sources by Month"
-                      height={380}
-                      stacked={true}
-                      showBudget={true}
-                      isThisLead={true}
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
 
         {/* ── Section 11: Top Performers ─────────────────────────────────── */}
         {settings?.showTopLeads && (

@@ -21,6 +21,7 @@ export interface LeadOverviewDashboardProps {
   sourceData: ChartDatum[];
   referralSourceData: ChartDatum[];
   directSourceData: ChartDatum[];
+  cancellationReasonData?: ChartDatum[];
   /** Redux chartSettings — controls which sections are visible. */
   settings: any;
   /**
@@ -35,6 +36,7 @@ export interface LeadOverviewDashboardProps {
   onSourceSelect?: (label: string) => void;
   onReferralSelect?: (label: string) => void;
   onDirectSelect?: (label: string) => void;
+  onCancellationReasonSelect?: (label: string) => void;
 }
 
 const isEmpty = (d?: ChartDatum[]) =>
@@ -59,6 +61,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   sourceData,
   referralSourceData,
   directSourceData,
+  cancellationReasonData = [],
   settings,
   showKpis = true,
   onStatusSelect,
@@ -67,6 +70,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   onSourceSelect,
   onReferralSelect,
   onDirectSelect,
+  onCancellationReasonSelect,
 }) => {
   const kpis = useMemo(
     () => computeExecutiveKpis(statusData, serviceData),
@@ -104,6 +108,7 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
   const showReferral = settings?.showLeadsFromReferral;
   const showDirect = settings?.showLeadsFromDirect;
   const showAcquisition = showSource || showReferral || showDirect;
+  const showCancellation = settings?.showLeadsByCancellationReason !== false; // Default to true if undefined
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
@@ -223,6 +228,27 @@ const LeadOverviewDashboard: React.FC<LeadOverviewDashboardProps> = ({
             emptyHint="Create project categories to view the ranking."
           >
             <RankedBarChart data={categoryData} onSelect={onCategorySelect} limit={10} showRevenue />
+          </AnalyticsCard>
+        </section>
+      )}
+
+      {/* ── Section 6: Lead Cancellation Analytics ──────────────────────────────────────────────── */}
+      {showCancellation && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <AnalyticsHeader
+            title="Cancellation Intelligence"
+            subtitle="Why leads are being cancelled"
+            icon="bi-x-octagon"
+            accent="#EF4444"
+          />
+          <AnalyticsCard
+            title="Cancellation Reasons"
+            subtitle="Ranked by volume"
+            index={0}
+            isEmpty={isEmpty(cancellationReasonData)}
+            emptyHint="No cancelled leads in this period."
+          >
+            <RankedBarChart data={cancellationReasonData} onSelect={onCancellationReasonSelect} limit={10} />
           </AnalyticsCard>
         </section>
       )}

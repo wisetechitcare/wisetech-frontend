@@ -27,6 +27,7 @@ type ChartSettings = {
   showLeadsFromDirect: boolean;
   showLeadsBySubCategory: boolean;
   showLeadsByLocation: boolean;
+  showLeadsByCancellationReason: boolean;
   showTopLeads: boolean;
   showLeadsByCompanyType: boolean;
   
@@ -75,6 +76,7 @@ const CONFIG_ITEMS: ConfigItem[] = [
   { key: "showLeadsFromDirect", label: "Leads From Direct Sources", section: "Leads" },
   { key: "showLeadsBySubCategory", label: "Leads By Sub Category", section: "Leads" },
   { key: "showLeadsByLocation", label: "Leads By Location", section: "Leads" },
+  { key: "showLeadsByCancellationReason", label: "Leads By Cancellation Reason", section: "Leads" },
   { key: "showTopLeads", label: "Top Leads", section: "Leads" },
   { key: "showLeadsByCompanyType", label: "Leads By Company Type", section: "Leads" },
 

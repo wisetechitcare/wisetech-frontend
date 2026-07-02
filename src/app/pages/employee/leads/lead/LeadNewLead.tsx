@@ -728,7 +728,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "totalCost",
+      meta: { defaultVisible: false }, accessorKey: "totalCost",
       header: "Total Cost",
       size: 130,
       meta: { defaultVisible: false },
@@ -738,7 +738,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "client",
+      meta: { defaultVisible: false }, accessorKey: "client",
       header: "Client",
       size: 150,
       meta: { defaultVisible: false },
@@ -748,7 +748,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "service",
+      meta: { defaultVisible: false }, accessorKey: "service",
       header: "Service",
       size: 150,
       meta: { defaultVisible: false },
@@ -757,7 +757,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         "N/A",
     },
     {
-      accessorKey: "category",
+      meta: { defaultVisible: false }, accessorKey: "category",
       header: "Category",
       size: 150,
       meta: { defaultVisible: false },
@@ -766,7 +766,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         "N/A",
     },
     {
-      accessorKey: "subCategory",
+      meta: { defaultVisible: false }, accessorKey: "subCategory",
       header: "Sub Category",
       size: 150,
       meta: { defaultVisible: false },
@@ -793,7 +793,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "receivedDate",
+      meta: { defaultVisible: false }, accessorKey: "receivedDate",
       header: "Received Date",
       size: 150,
       meta: { defaultVisible: false },
@@ -803,7 +803,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "poStatus",
+      meta: { defaultVisible: false }, accessorKey: "poStatus",
       header: "PO Status",
       size: 130,
       meta: { defaultVisible: false },
@@ -834,7 +834,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           ?.employeeName || "N/A",
     },
     {
-      accessorKey: "startDate",
+      meta: { defaultVisible: false }, accessorKey: "startDate",
       header: "Date",
       size: 120,
       meta: { defaultVisible: false },
@@ -844,14 +844,14 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "duration",
+      meta: { defaultVisible: false }, accessorKey: "duration",
       header: "Duration",
       size: 120,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
-      accessorKey: "contact",
+      meta: { defaultVisible: false }, accessorKey: "contact",
       header: "Contact",
       size: 160,
       meta: { defaultVisible: false },
@@ -861,7 +861,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       },
     },
     {
-      accessorKey: "createdAt",
+      meta: { defaultVisible: false }, accessorKey: "createdAt",
       header: "Created Date",
       size: 150,
       meta: { defaultVisible: false },
@@ -869,7 +869,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
     },
     {
-      accessorKey: "createdBy",
+      meta: { defaultVisible: false }, accessorKey: "createdBy",
       header: "Created By",
       size: 150,
       meta: { defaultVisible: false },
@@ -878,7 +878,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           ?.employeeName || "N/A",
     },
     {
-      accessorKey: "updatedBy",
+      meta: { defaultVisible: false }, accessorKey: "updatedBy",
       header: "Edited By",
       size: 140,
       meta: { defaultVisible: false },
@@ -887,35 +887,35 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           ?.employeeName || "N/A",
     },
     {
-      accessorKey: "country",
+      meta: { defaultVisible: false }, accessorKey: "country",
       header: "Country",
       size: 120,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
-      accessorKey: "city",
+      meta: { defaultVisible: false }, accessorKey: "city",
       header: "City",
       size: 110,
       meta: { defaultVisible: false },
       Cell: ({ row }: { row: any }) => row.original.city || "N/A",
     },
     {
-      accessorKey: "state",
+      meta: { defaultVisible: false }, accessorKey: "state",
       header: "State",
       size: 110,
       meta: { defaultVisible: false },
       Cell: ({ row }: { row: any }) => row.original.state || "N/A",
     },
     {
-      accessorKey: "area",
+      meta: { defaultVisible: false }, accessorKey: "area",
       header: "Area",
       size: 120,
       meta: { defaultVisible: false },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
-      accessorKey: "cost",
+      meta: { defaultVisible: false }, accessorKey: "cost",
       header: "Cost",
       size: 120,
       meta: { defaultVisible: false },

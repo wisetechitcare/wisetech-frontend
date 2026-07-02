@@ -1015,12 +1015,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
       { key: 'prefix', header: 'Inquiry ID', type: 'text' as const },
       { key: 'projectName', header: 'Name', type: 'text' as const },
-      { key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
-      { key: 'client', header: 'Client', type: 'text' as const },
-      { key: 'contact', header: 'Contact', type: 'text' as const },
-      { key: 'service', header: 'Service', type: 'text' as const },
-      { key: 'category', header: 'Category', type: 'text' as const },
-      { key: 'subCategory', header: 'Sub Category', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
+      { meta: { defaultVisible: false }, key: 'client', header: 'Client', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'contact', header: 'Contact', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'service', header: 'Service', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'category', header: 'Category', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'subCategory', header: 'Sub Category', type: 'text' as const },
       {
         key: 'status', header: 'Lead Status', type: 'text' as const,
         format: (val: any) => val?.name || String(val || ''),
@@ -1029,28 +1029,28 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     ];
     const projectPart = projectColumnsActive
       ? [
-        { key: 'projectPrefix', header: 'Project Number', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'projectPrefix', header: 'Project Number', type: 'text' as const },
         {
           key: 'projectStatus', header: 'Project Status', type: 'text' as const,
           format: (val: any) => val?.name || String(val || ''),
         },
-        { key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
-        { key: 'projectEndDate', header: 'Expected Closure', type: 'text' as const },
-        { key: 'projectCost', header: 'Project Cost', type: 'currency' as const, showTotal: true },
-        { key: 'projectRate', header: 'Rate', type: 'currency' as const },
-        { key: 'projectTeamName', header: 'Team', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'projectEndDate', header: 'Expected Closure', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'projectCost', header: 'Project Cost', type: 'currency' as const, showTotal: true },
+        { meta: { defaultVisible: false }, key: 'projectRate', header: 'Rate', type: 'currency' as const },
+        { meta: { defaultVisible: false }, key: 'projectTeamName', header: 'Team', type: 'text' as const },
       ]
       : [
-        { key: 'receivedDate', header: 'Received Date', type: 'text' as const },
-        { key: 'poStatus', header: 'PO Status', type: 'text' as const },
-        { key: 'leadSource', header: 'Source', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'receivedDate', header: 'Received Date', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'poStatus', header: 'PO Status', type: 'text' as const },
+        { meta: { defaultVisible: false }, key: 'leadSource', header: 'Source', type: 'text' as const },
       ];
     const tail = [
-      { key: 'country', header: 'Country', type: 'text' as const },
-      { key: 'state', header: 'State', type: 'text' as const },
-      { key: 'city', header: 'City', type: 'text' as const },
-      { key: 'area', header: 'Area', type: 'text' as const },
-      { key: 'createdAt', header: 'Created Date', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'country', header: 'Country', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'state', header: 'State', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'city', header: 'City', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'area', header: 'Area', type: 'text' as const },
+      { meta: { defaultVisible: false }, key: 'createdAt', header: 'Created Date', type: 'text' as const },
     ];
     return [...base, ...projectPart, ...tail];
   }, [projectColumnsActive]);

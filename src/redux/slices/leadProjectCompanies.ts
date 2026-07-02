@@ -46,6 +46,7 @@ interface ILeadProjectCompanies {
   showLeadsFromDirect: boolean;
   showLeadsBySubCategory: boolean;
   showLeadsByLocation: boolean;
+  showLeadsByCancellationReason: boolean;
   showTopLeads: boolean;
   showLeadsByCompanyType: boolean;
   
@@ -86,6 +87,7 @@ const initialState: ILeadProjectCompanies = {
   showLeadsFromDirect: true,
   showLeadsBySubCategory: true,
   showLeadsByLocation: true,
+  showLeadsByCancellationReason: true,
   showTopLeads: true,
   showLeadsByCompanyType: true,
   
@@ -155,6 +157,7 @@ export const fetchAllConfigurations = createAsyncThunk(
         showLeadsFromDirect: true,
         showLeadsBySubCategory: true,
         showLeadsByLocation: true,
+  showLeadsByCancellationReason: true,
         showTopLeads: true,
         showLeadsByCompanyType: true,
         

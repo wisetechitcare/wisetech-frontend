@@ -9,6 +9,7 @@ import {
   getLeadsByCompanyTypeAnalytics,
   getMonthlyTopLeads,
   getLeadsByLocationAnalytics,
+  getLeadsByCancellationReasonAnalytics,
   getAllLeadStatus,
 } from "@services/lead";
 import dayjs from "dayjs";
@@ -457,6 +458,7 @@ const Monthly = ({ month, endDate }: Props) => {
           companyTypeRes,
           monthlyTopLeadsRes,
           locationRes,
+          cancellationRes,
         ] = await Promise.all([
           getLeadsByStatusAnalytics(startDate, endDates),
           getLeadsByServiceAnalytics(startDate, endDates),
@@ -472,6 +474,7 @@ const Monthly = ({ month, endDate }: Props) => {
           getLeadsByCompanyTypeAnalytics(startDate, endDates),
           getMonthlyTopLeads(startDate, endDates, filters.topLeadsType),
           getLeadsByLocationAnalytics(startDate, endDates),
+          getLeadsByCancellationReasonAnalytics(startDate, endDates),
         ]);
 
         setDirectSourceRes(directSourceApiRes);
@@ -535,6 +538,12 @@ const Monthly = ({ month, endDate }: Props) => {
               "budget"
             ),
             topLeadsData: getFilteredTopLeadsData(),
+            cancellationReasonData: convertToChartData(
+              cancellationRes?.data || [],
+              "value",
+              "name",
+              ""
+            ),
           });
       } catch (error) {
         console.error("Error fetching chart data:", error);
@@ -667,6 +676,7 @@ const Monthly = ({ month, endDate }: Props) => {
             sourceData={chartData.sourceData}
             referralSourceData={chartData.referralSourceData}
             directSourceData={chartData.directSourceData}
+            cancellationReasonData={chartData.cancellationReasonData}
             settings={settings}
             showKpis={false}
             onStatusSelect={handleStatusChartClick}
