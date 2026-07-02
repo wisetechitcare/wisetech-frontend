@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { Polar, ProgessBar, ReportsTable, StatisticsTable, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { resourseAndView } from '@models/company';
@@ -76,7 +77,7 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
     // get working hours
     const fetchWorkingHours = async () => {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
-        const jsonObject = JSON.parse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
         const totalWorkingHoursString = jsonObject["Working time"];
 

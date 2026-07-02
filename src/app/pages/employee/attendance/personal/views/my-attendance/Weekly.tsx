@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
@@ -248,7 +249,7 @@ const Weekly = ({
         const fetchWorkingHours = async () => {
             try {
                 const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
-                const jsonObject = JSON.parse(configuration.configuration.configuration);
+                const jsonObject = safeJsonParse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 // const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 

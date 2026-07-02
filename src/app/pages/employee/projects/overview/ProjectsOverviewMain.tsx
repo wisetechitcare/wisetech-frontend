@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, {useState, useEffect } from 'react'
 import ProjectOverViewToggle from './components/ProjectOverViewToggle'
 import { DATE_SETTINGS_KEY } from '@constants/configurations-key';
@@ -13,7 +14,7 @@ const ProjectsOverviewMain = () => {
                 try {
                     const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
                     const parsed = typeof configuration.configuration === "string"
-                        ? JSON.parse(configuration.configuration)
+                        ? safeJsonParse(configuration.configuration)
                         : configuration.configuration;
                     setDateSettingsEnabled(parsed?.useDateSettings ?? false);
                 } catch (err) {

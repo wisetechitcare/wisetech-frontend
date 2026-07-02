@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import AllEmployeesSearchDropdown from '@app/modules/common/components/AllEmployeesSearchDropdown';
 import MyAttendanceView from '../personal/MyAttendanceView';
 import BalanceProgress from '../personal/views/my-leaves/BalanceProgress';
@@ -38,7 +39,7 @@ const IndividualView = () => {
             try {
                 const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
                 const parsed = typeof configuration.configuration === "string"
-                    ? JSON.parse(configuration.configuration)
+                    ? safeJsonParse(configuration.configuration)
                     : configuration.configuration;
                 setDateSettingsEnabled(parsed?.useDateSettings ?? false);
             } catch (err) {

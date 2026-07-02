@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
@@ -322,7 +323,7 @@ const AttendanceConfig: React.FC = () => {
       });
       setDailyShiftData(sorted);
 
-      const leaveConfig = JSON.parse(leaveManagementRes?.data?.configuration?.configuration || '{}');
+      const leaveConfig = safeJsonParse(leaveManagementRes?.data?.configuration?.configuration || '{}');
       setLunchTime(leaveConfig?.['Lunch Time'] || '12:30 PM - 1:30 PM');
       setDeductionTime(leaveConfig?.['Deduction Time'] || '1:00 Hrs');
       setGraceTimeOffice(leaveConfig?.['Grace Time'] || '00:30');
@@ -354,10 +355,10 @@ const AttendanceConfig: React.FC = () => {
         fetchCompanySettings(),
       ]);
 
-      const lunchConfig    = JSON.parse(lunchRes?.data?.configuration?.configuration || '{}');
-      const leaveConfig    = JSON.parse(leaveRes?.data?.configuration?.configuration || '{}');
-      const restrictConfig = JSON.parse(restrictRes?.data?.configuration?.configuration || '{}');
-      const dateConfig     = JSON.parse(dateRes?.data?.configuration?.configuration || '{}');
+      const lunchConfig    = safeJsonParse(lunchRes?.data?.configuration?.configuration || '{}');
+      const leaveConfig    = safeJsonParse(leaveRes?.data?.configuration?.configuration || '{}');
+      const restrictConfig = safeJsonParse(restrictRes?.data?.configuration?.configuration || '{}');
+      const dateConfig     = safeJsonParse(dateRes?.data?.configuration?.configuration || '{}');
       const appSettings    = settingsRes?.data?.appSettings;
 
       let restrictDays = restrictConfig?.restrictAttendanceTo7Days;

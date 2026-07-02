@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { convertToTimeZone, formatTime, convertTo12HourFormat } from '@utils/date';
 import { parseWorkingDays } from '@utils/workingDays';
 import { allStreaksIndicator, donutaDataLabel, getWorkingDaysInYear, handleDatesChange, todayProgressPercent, totalProgressPercent,currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
@@ -229,7 +230,7 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
             try {
                 const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
                 const parsed = typeof configuration.configuration === "string"
-                    ? JSON.parse(configuration.configuration)
+                    ? safeJsonParse(configuration.configuration)
                     : configuration.configuration;
                 setDateSettings(parsed?.useDateSettings);
             } catch (error) {

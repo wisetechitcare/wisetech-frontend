@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { Attendance, AttendanceRequest, CustomLeaves, IAttendance, IAttendanceRequests, IEmployeesAttendance, IReimbursementsFetch, IReimbursementTypeCreate, IReimbursementTypeFetch, Leaves } from "@models/employee";
 import { attendanceStatsSlice, saveDailyRequestTable, saveDailyStatistics, saveDailyTable, saveFilteredLeaves, saveFilteredPublicHolidays, saveMonthlyRequestTable, saveMonthlyStatistics, saveMonthlyTable, saveWeeklyRequestTable, saveWeeklyStatistics, saveWeeklyTable, saveYearlyRequestTable, saveYearlyStatistics, saveYearlyTable } from "@redux/slices/attendanceStats";
 import { RootState, store } from "@redux/store";
@@ -1071,8 +1072,8 @@ export function donutaDataLabel(
     statMap.set(CHECK_OUT_MISSING, 0);
 
     // Get weekend configuration
-    const allWeekends = JSON.parse(
-        store.getState().employee.currentEmployee.branches?.workingAndOffDays || "{}"
+    const allWeekends = safeJsonParse(
+        store.getState().employee.currentEmployee.branches?.workingAndOffDays
     );
 
     // Following heatmap logic:
@@ -1232,7 +1233,7 @@ let leaveConfigurations: any = {
 async function fetchCompanyTimings() {
     try {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = JSON.parse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
         leaveConfigurations = jsonObject;
         const companyCheckIn = jsonObject["Check-in time"];
@@ -2760,7 +2761,7 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
     const getAllAttnedanceRequest = requests
 
     const branches = store.getState().employee?.currentEmployee.branches?.workingAndOffDays;
-    const workingAndOffDays = JSON.parse(branches || "{}");
+    const workingAndOffDays = safeJsonParse(branches);
 
     const publicHolidays = store.getState().attendanceStats?.publicHolidays;
 

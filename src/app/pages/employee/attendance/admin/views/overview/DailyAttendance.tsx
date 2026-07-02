@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import './DailyAttendance.css';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -191,7 +192,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
 
 
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
-    const weekends = JSON.parse(getAllWeekends || '{}');
+    const weekends = safeJsonParse(getAllWeekends);
     const employeeId = useSelector((state: RootState) => state?.employee?.currentEmployee?.id);
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
@@ -212,7 +213,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         fetchColorAndStoreInSlice();
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = JSON.parse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
             setLeaveConfiguration(jsonObject);
         }

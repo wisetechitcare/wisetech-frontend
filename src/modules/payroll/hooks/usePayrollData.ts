@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -71,15 +72,15 @@ export const usePayrollData = (
                 PayrollService.fetchGlobalConfig(CONFIG_KEYS.LEAVE_MANAGEMENT, monthStart, monthEnd)
             ]);
 
-            setAllowances(JSON.parse(grossRes.data.configuration.configuration));
-            setDeductionsRule(JSON.parse(deductRes.data.configuration.configuration));
+            setAllowances(safeJsonParse(grossRes.data.configuration.configuration));
+            setDeductionsRule(safeJsonParse(deductRes.data.configuration.configuration));
             
-            const customJson = JSON.parse(customRes.data.configuration.configuration);
+            const customJson = safeJsonParse(customRes.data.configuration.configuration);
             setMultiLateCheckinDeductionPercent(Number(customJson["Late Checkin"]?.deduction_amount) || 0);
             setMultipleLateCheckinCountLimit(Number(customJson["Late Checkin"]?.period) || 0);
 
-            setSandwhichConfiguration(JSON.parse(sandwichRes.data.configuration.configuration));
-            setLeaveConfigurations(JSON.parse(leaveRes.data.configuration.configuration));
+            setSandwhichConfiguration(safeJsonParse(sandwichRes.data.configuration.configuration));
+            setLeaveConfigurations(safeJsonParse(leaveRes.data.configuration.configuration));
         } catch (error) {
             console.error("Error fetching configurations:", error);
         }

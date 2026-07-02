@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { LeaveTypes, LeaveStatus } from "@constants/attendance";
 import { SANDWICH_LEAVE_KEY } from "@constants/configurations-key";
 import { Employee } from "@redux/slices/employee";
@@ -49,7 +50,7 @@ interface LeaveBlock {
 
 export async function fetchSandwhichConfiguration() {
     const sandwhichConfiguration = await fetchConfiguration(SANDWICH_LEAVE_KEY)
-    const jsonObjectSandwhich = JSON.parse(sandwhichConfiguration.data.configuration.configuration);
+    const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration.data.configuration.configuration);
     return jsonObjectSandwhich;
 }
 

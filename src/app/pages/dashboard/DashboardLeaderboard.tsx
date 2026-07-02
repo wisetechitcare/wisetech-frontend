@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { useState, useEffect } from "react";
 import { ToggleButton, ToggleButtonGroup, Container } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -54,7 +55,7 @@ const DashboardLeaderboard = () => {
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
           typeof configuration.configuration === "string"
-            ? JSON.parse(configuration.configuration)
+            ? safeJsonParse(configuration.configuration)
             : configuration.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {
