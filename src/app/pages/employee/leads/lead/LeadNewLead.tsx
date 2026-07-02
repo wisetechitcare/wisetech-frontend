@@ -1834,7 +1834,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
-        tableName="LeadsTablesMain"
+        tableName="LeadsTablesMainV2"
         defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton

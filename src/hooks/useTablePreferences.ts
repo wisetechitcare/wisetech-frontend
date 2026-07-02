@@ -189,13 +189,23 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
 
                 // Columns were genuinely added/removed: preserve every existing
                 // choice, add defaults only for brand-new columns, drop stale ones.
+                // ALSO: respect new meta.defaultVisible settings to apply new defaults
+                // when a column's visibility rule changes (e.g., meta.defaultVisible added).
                 const nextVisibility: Record<string, boolean> = {};
                 columns.forEach((col: any) => {
                     const k = col.accessorKey;
                     if (!k) return;
-                    nextVisibility[k] = k in (prevPrefs.columnVisibility || {})
-                        ? prevPrefs.columnVisibility[k]
-                        : col.meta?.defaultVisible !== false;
+                    const hasMeta = col.meta?.defaultVisible !== undefined;
+                    const isNewColumn = !(k in (prevPrefs.columnVisibility || {}));
+                    // If column has explicit meta.defaultVisible and is NOT brand-new,
+                    // apply the new meta rule (override any saved preference).
+                    if (hasMeta && !isNewColumn) {
+                        nextVisibility[k] = col.meta?.defaultVisible !== false;
+                    } else {
+                        nextVisibility[k] = k in (prevPrefs.columnVisibility || {})
+                            ? prevPrefs.columnVisibility[k]
+                            : col.meta?.defaultVisible !== false;
+                    }
                 });
 
                 return {

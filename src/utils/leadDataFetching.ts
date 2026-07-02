@@ -259,7 +259,7 @@ export const fetchLeadDataOptimized = async (
   let resolvedFields: string[] | undefined;
   if (fields === "auto" && currentEmployeeId && getUserTablePreferences && computeLeadFields) {
     try {
-      const prefsRes = await getUserTablePreferences(currentEmployeeId, "LeadsTablesMain");
+      const prefsRes = await getUserTablePreferences(currentEmployeeId, "LeadsTablesMainV2");
       resolvedFields = computeLeadFields(prefsRes?.data?.preferences?.columnVisibility);
     } catch {
       resolvedFields = undefined;

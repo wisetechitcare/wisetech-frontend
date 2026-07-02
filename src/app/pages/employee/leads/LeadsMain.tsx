@@ -8,7 +8,7 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { PageTitle } from "@metronic/layout/core";
-import LeadTablePage from "./table/LeadTablePage";
+import LeadNewLead from "./lead/LeadNewLead";
 import LeadsOverviewMain from "./overview/LeadsOverviewMain";
 import GlobalFilesView from "./GlobalFilesView";
 
@@ -33,7 +33,7 @@ const LeadsMain = () => {
     },
     {
       title: "Leads",
-      component: <LeadTablePage />,
+      component: <LeadNewLead />,
       icon:
         activeTab === 1
           ? leadsIcons.leadsIcon.active

@@ -437,6 +437,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "client",
         header: "Client Company",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
@@ -446,6 +447,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "contact",
         header: "Contact",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
@@ -455,6 +457,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "category",
         header: "Category",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           projectCategories?.find((c: any) => c.id === cell.getValue())?.name || "N/A",
@@ -462,6 +465,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "subCategory",
         header: "Subcategory",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           projectSubcategories?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
@@ -484,6 +488,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "poStatus",
         header: "PO Status",
+        meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) => {
           const poStatus = cell.getValue();
@@ -508,6 +513,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectStartDate",
         header: "Start Date",
+        meta: { defaultVisible: false },
         size: 140,
         enableSorting: true,
         Cell: ({ cell }: { cell: any }) => {
@@ -524,6 +530,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectEndDate",
         header: "End Date",
+        meta: { defaultVisible: false },
         size: 150,
         enableSorting: true,
         Cell: ({ row }: { row: any }) => {
@@ -546,12 +553,14 @@ const ProjectTablePage = () => {
       {
         accessorKey: "duration",
         header: "Timeline",
+        meta: { defaultVisible: false },
         size: 120,
         Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "projectCost",
         header: "Budget",
+        meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) =>
           cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
@@ -559,6 +568,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "totalCost",
         header: "Cost",
+        meta: { defaultVisible: false },
         size: 130,
         Cell: ({ cell }: { cell: any }) =>
           cell.getValue() ? `₹${Number(cell.getValue()).toLocaleString()}` : "₹0",
@@ -566,6 +576,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectArea",
         header: "Area",
+        meta: { defaultVisible: false },
         size: 120,
         Cell: ({ cell }: { cell: any }) =>
           cell.getValue() ? `${Number(cell.getValue()).toLocaleString()} SFT` : "N/A",
@@ -573,6 +584,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectRate",
         header: "Rate",
+        meta: { defaultVisible: false },
         size: 110,
         Cell: ({ cell }: { cell: any }) => {
           const v = Number(cell.getValue());
@@ -582,6 +594,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectManagerId",
         header: "Project Manager",
+        meta: { defaultVisible: false },
         size: 160,
         Cell: ({ cell }: { cell: any }) =>
           allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
@@ -589,6 +602,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectTeamName",
         header: "Team",
+        meta: { defaultVisible: false },
         size: 140,
         Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
       },
@@ -602,6 +616,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "service",
         header: "Service",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           projectServices?.find((s: any) => s.id === cell.getValue())?.name || "N/A",
@@ -609,6 +624,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "createdAt",
         header: "Created Date",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
@@ -616,6 +632,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "updatedAt",
         header: "Updated Date",
+        meta: { defaultVisible: false },
         size: 150,
         Cell: ({ cell }: { cell: any }) =>
           cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
@@ -623,6 +640,7 @@ const ProjectTablePage = () => {
       {
         accessorKey: "projectIsLive",
         header: "Live",
+        meta: { defaultVisible: false },
         size: 80,
         Cell: ({ cell }: { cell: any }) =>
           cell.getValue() ? <span style={{ color: "#0A5C2A", fontWeight: 600 }}>Live</span> : <span style={{ color: "#64748B" }}>On Hold</span>,
@@ -1052,7 +1070,7 @@ const ProjectTablePage = () => {
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
-        tableName="ProjectTable"
+        tableName="ProjectTableV2"
         defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
