@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
 import AttendanceCheckCell, {
@@ -1525,7 +1526,7 @@ export const StatisticsTable = ({
         async function fetchLeaveConfig() {
 
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = JSON.parse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
             setLeaveConfiguration(jsonObject);
         }
@@ -2407,7 +2408,7 @@ export const ReportsTable = ({
         getWorkingMethods();
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = JSON.parse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration.configuration);
             setLeaveConfiguration(jsonObject);
         }
         fetchLeaveConfig();

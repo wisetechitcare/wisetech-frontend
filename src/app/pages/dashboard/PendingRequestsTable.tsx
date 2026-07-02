@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useMemo, useEffect, useCallback } from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -156,7 +157,7 @@ const PendingRequestsTable = () => {
     async function fetchLeaveConfig() {
       try {
         const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = JSON.parse(configuration.configuration.configuration);
+        const jsonObject = safeJsonParse(configuration.configuration.configuration);
         setLeaveConfiguration(jsonObject);
       } catch (error) {
         console.error('Error fetching leave configuration:', error);

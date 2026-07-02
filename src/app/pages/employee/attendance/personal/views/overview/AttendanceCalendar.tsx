@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 ﻿import { useEffect, useState } from "react";
 import dayjs from "dayjs";
@@ -220,7 +221,7 @@ function AttendanceCalendar({ calendarCells, activeStartDate, setActiveStartDate
         const loadRestrictAttendanceConfiguration = async () => {
             try {
                 const response = await fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY);
-                const parsed = JSON.parse(response?.data?.configuration?.configuration || '{}');
+                const parsed = safeJsonParse(response?.data?.configuration?.configuration || '{}');
                 let restrictValue = parsed?.restrictAttendanceTo7Days;
                 console.log("response:: ", response);
 

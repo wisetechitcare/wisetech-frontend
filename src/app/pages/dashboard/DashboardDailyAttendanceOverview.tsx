@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { useCallback, useEffect, useState, useMemo, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
@@ -1094,7 +1095,7 @@ const DashboardDailyAttendanceOverview = () => {
     async function fetchTimeConfiguration() {
       try {
         const { data: { configuration } } = await fetchConfiguration('leave management');
-        const leaveConfig = JSON.parse(configuration.configuration || '{}');
+        const leaveConfig = safeJsonParse(configuration.configuration || '{}');
         const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
         const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
         const lunchTimeStr = leaveConfig?.['Lunch Time'] || '1:00 Hrs';

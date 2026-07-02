@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
@@ -107,7 +108,7 @@ function CustomRules() {
 
   async function fetchPayrollConfiguration() {
     const { data: { configuration } } = await fetchConfiguration(CUSTOM_SALARY);
-    const jsonObject = JSON.parse(configuration.configuration);
+    const jsonObject = safeJsonParse(configuration.configuration);
     setConfigurationRule(jsonObject);
     setConfigurationId(configuration.id);
 

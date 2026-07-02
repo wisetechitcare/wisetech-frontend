@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { useEffect, useRef, useState } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
 import { createRoot } from 'react-dom/client';
@@ -237,9 +238,9 @@ function CustomCalendar() {
             fetchAllEmployees()
           ]);
           const colors = colorsRes?.data?.colors;
-          const showBirthdays = JSON.parse(showBirthdaysRes?.data?.configuration?.configuration || '{}');
+          const showBirthdays = safeJsonParse(showBirthdaysRes?.data?.configuration?.configuration || '{}');
         //   debugger;
-          const showWorkAnniversary = JSON.parse(showWorkAnniversaryRes?.data?.configuration?.configuration || '{}');
+          const showWorkAnniversary = safeJsonParse(showWorkAnniversaryRes?.data?.configuration?.configuration || '{}');
             
           let weekendColor = null;
           if (colors?.length) {

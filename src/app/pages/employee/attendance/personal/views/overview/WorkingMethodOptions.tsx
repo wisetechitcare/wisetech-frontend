@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿// import * as Yup from 'yup';
 // import { RootState, store } from '@redux/store';
 // import { Field, Form, Formik, FormikValues } from 'formik';
@@ -1916,7 +1917,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
         async function fetchGraceTimeOnSite() {
             try {
                 const { data: { configuration } } = await fetchConfiguration('leave management');
-                const leaveConfig = JSON.parse(configuration.configuration || '{}');
+                const leaveConfig = safeJsonParse(configuration.configuration || '{}');
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:30';
                 setGraceTimeOnSite(graceTimeOnSiteStr.replace(' Hrs', ''));
             } catch (error) {

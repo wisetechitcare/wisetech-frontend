@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { KTIcon } from '@metronic/helpers';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { useEffect, useState } from 'react';
@@ -104,7 +105,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         const { data: { configuration } } = await fetchConfiguration(LOAN_KEY);
 
         const configData = typeof configuration.configuration === 'string'
-            ? JSON.parse(configuration.configuration)
+            ? safeJsonParse(configuration.configuration)
             : configuration.configuration;
 
         setConfiguration(configData);

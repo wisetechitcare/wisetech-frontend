@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { Row, Col, Card } from "react-bootstrap";
 import { useEffect, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -65,7 +66,7 @@ const Information = () => {
     const loadRestrictConfig = async () => {
         try {
             const response = await fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY);
-            const parsed = JSON.parse(response?.data?.configuration?.configuration || '{}');
+            const parsed = safeJsonParse(response?.data?.configuration?.configuration || '{}');
             let restrictValue = parsed?.restrictAttendanceTo7Days;
             
             // Handle migration from boolean to number
@@ -161,7 +162,7 @@ const Information = () => {
                 ]);
 
                 // Parse lunch deduction config manually for initial values
-                const lunchConfig = JSON.parse(lunchConfigRes?.data?.configuration?.configuration || '{}');
+                const lunchConfig = safeJsonParse(lunchConfigRes?.data?.configuration?.configuration || '{}');
                 // Priority: disableLaunchDeductionTime (correct) -> disableLunchDeductionTime (fallback) -> false
                 const lunchEnabled = lunchConfig?.disableLaunchDeductionTime ?? lunchConfig?.disableLunchDeductionTime ?? false;
                 console.log('[Information] Parsed lunch config:', lunchEnabled);
@@ -170,7 +171,7 @@ const Information = () => {
                 await loadLunchConfig();
                 console.log('[Information] After loadLunchConfig, disableLunchDeductionTime:', disableLunchDeductionTime);
 
-                const parsedLeaveMgmt = JSON.parse(
+                const parsedLeaveMgmt = safeJsonParse(
                     leaveManagementRes?.data?.configuration?.configuration || "{}"
                 );
 

@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { fetchConfiguration } from "@services/company";
@@ -57,7 +58,7 @@ export const getGraceBasedThresholds = async (
           branchId: store.getState().employee?.currentEmployee?.branchId,
         };
     const { data: { configuration: { configuration } } } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, thresholdScope);
-    const settings = JSON.parse(configuration);
+    const settings = safeJsonParse(configuration);
 
     const checkInTime = settings["Check-in time"]; // "9:30 AM"
     const checkOutTime = settings["Check-out time"]; // "5:30 PM"
