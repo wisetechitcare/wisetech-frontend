@@ -106,14 +106,14 @@ const HeaderToolbar = () => {
         //   "fluid"
         // )}
         //  py-0 py-lg-0 d-flex flex-column flex-lg-row align-items-lg-stretch justify-content-lg-between bg-primary `}
-        className="py-0 py-lg-0 d-flex flex-column flex-lg-row align-items-lg-stretch justify-content-lg-between container-fluid"
+        className="wt-header-bar py-0 py-lg-0 d-flex flex-column flex-lg-row align-items-lg-stretch justify-content-lg-between container-fluid"
       >
         <DefaultTitle />
         <div className="d-flex align-items-stretch overflow-visible pt-0 pt-lg-0">
           <div className="d-flex align-items-center">
-            <div className="d-flex align-items-center me-5"><BirthdayConfetti /></div>
+            <div className="wt-greeting d-flex align-items-center me-5"><BirthdayConfetti /></div>
             <div className="d-flex gap-3">
-              <div className="d-flex gap-lg-3 gap-5" >
+              <div className="wt-header-actions d-flex gap-lg-3 gap-5" >
                 <div className="d-flex align-items-center">
                   <GlobalSearch />
                 </div>
