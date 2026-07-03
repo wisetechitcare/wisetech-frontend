@@ -254,7 +254,9 @@ const CompanyDetails = () => {
             id={company?.id}
             imageUrl={company?.logo}
             size={84}
+            imageFit="cover"
             status={company?.status === "ACTIVE" ? "active" : "inactive"}
+            enablePreview
           />
           <div className="flex-grow-1">
             <div className="text-muted small">Company #{company?.prefix || "N/A"}</div>

@@ -66,12 +66,23 @@ const Overview = ({ company }: OverviewProps) => {
                 <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Status</div>
               </div>
               <div className="col-sm-8 d-flex align-items-center justify-content-end">
-                <span className="badge align-items-center justify-content-center" style={{backgroundColor:company.status === 'ACTIVE' ? 'green' : 'red', color: "white", padding: "7px 12px 7px 12px", borderRadius: "20px", height: "32px", opacity: "0.7", width: "97px", fontFamily:'Inter', fontSize:'14px', fontWeight:'400' }}>
-                  {company.status}
+                <span className="badge align-items-center justify-content-center" style={{backgroundColor:company.status === 'ACTIVE' ? '#50cd89' : '#f1416c', color: "white", padding: "7px 12px 7px 12px", borderRadius: "20px", height: "32px", opacity: "0.7", width: "97px", fontFamily:'Inter', fontSize:'14px', fontWeight:'400' }}>
+                  {company.status === 'ACTIVE' ? 'Active' : company.status === 'CLOSED' ? 'Inactive' : company.status}
                 </span>
               </div>
             </div>
-            
+
+            <div className="row mb-4">
+              <div className="col-sm-4">
+                <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Blacklisted</div>
+              </div>
+              <div className="col-sm-8 d-flex align-items-center justify-content-end">
+                <div style={{fontFamily: "Inter", fontWeight: 400, fontSize: "14px"}}>
+                  {company.blacklisted ? 'Yes' : 'No'}
+                </div>
+              </div>
+            </div>
+
             <div className="row mb-4">
               <div className="col-sm-4">
                 <div className="fw-semibold" style={{fontFamily: "Inter", fontWeight: 500, fontSize: "14px"}}>Company</div>

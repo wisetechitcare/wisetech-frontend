@@ -1241,7 +1241,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                     fontSize: "14px",
                                   }}
                                 >
-                                  Is Blacklisted?
+                                  Is Blacklisted
                                 </span>
                                 <label className="form-check m-0">
                                   <Field

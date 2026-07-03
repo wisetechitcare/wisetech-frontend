@@ -1,6 +1,7 @@
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
 import { leadsIcons, projectsIcons, projectOverviewIcons, calenderIcons, worldIcons } from "@metronic/assets/sidepanelicons";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
+import { useEventBus } from "@hooks/useEventBus";
 import ContactOverview from "./components/ContactOverview";
 import ContactLeadsOverview from "./components/ContactLeadsOverview";
 import ContactProject from "./components/ContactProject";
@@ -39,21 +40,27 @@ const ContactsNavbar = () => {
     dispatch(loadAllEmployeesIfNeeded());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (contactId) {
-      setLoading(true);
-      getClientContactById(contactId)
-        .then((response) => {
-          setContact(response?.data?.contact);
-        })
-        .catch((error) => {
-          console.error("Error loading contact:", error);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
+  const loadContact = useCallback(() => {
+    if (!contactId) return;
+    setLoading(true);
+    getClientContactById(contactId)
+      .then((response) => {
+        setContact(response?.data?.contact);
+      })
+      .catch((error) => {
+        console.error("Error loading contact:", error);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [contactId]);
+
+  useEffect(() => {
+    loadContact();
+  }, [loadContact]);
+
+  // Refetch so an edit made anywhere (e.g. the Contacts tab) reflects here without a page refresh.
+  useEventBus("clientContactUpdated", () => loadContact());
 
   useEffect(() => {
     getAllClientContacts({}, true).then((res) => {

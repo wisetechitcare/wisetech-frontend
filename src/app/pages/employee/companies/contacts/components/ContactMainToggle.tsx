@@ -145,6 +145,7 @@ const ContactMainToggle = () => {
             size={80}
             imageFit="cover"
             status={contact.isContactActive === false ? "inactive" : "active"}
+            enablePreview
           />
           <div className="flex-grow-1">
             <div className="text-muted small">Contact #{contact.id}</div>

@@ -257,7 +257,7 @@ const ClientCompaniesMain = ({
             id={row.original.id}
             imageUrl={row.original.logo}
             size={42}
-            imageFit="contain"
+            imageFit="cover"
             status={row.original.status === "ACTIVE" ? "active" : "inactive"}
           />
         ),
@@ -318,7 +318,13 @@ const ClientCompaniesMain = ({
       {
         accessorKey: "status",
         header: "Status",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        // CLOSED is shown as "Inactive" to match the Active/Inactive wording used in the form.
+        Cell: ({ cell }) => {
+          const v = cell.getValue();
+          if (v === "ACTIVE") return "Active";
+          if (v === "CLOSED") return "Inactive";
+          return v || "N/A";
+        },
       },
       {
         accessorKey: "projectCount",
@@ -665,7 +671,11 @@ const ClientCompaniesMain = ({
             // },
             sx: {
               cursor: "pointer",
-              backgroundColor: `${row.original?.companyTypeName?.color}30`,
+              // Blacklisted companies are shown as a solid black row (text turns white below
+              // so it stays readable against the black background).
+              backgroundColor: row.original?.blacklisted
+                ? "#1a1a1a"
+                : `${row.original?.companyTypeName?.color}30`,
               // borderBottom:"5px solid red !important",
               padding: "10px !important",
 
@@ -676,6 +686,10 @@ const ClientCompaniesMain = ({
                 fontSize: "14px",
                 fontFamily: "Inter",
                 fontWeight: "400",
+                // Solid black on the CELLS (not just the row) with readable white text, so the
+                // table's default hover highlight can't wash the blacklisted row out.
+                color: row.original?.blacklisted ? "#ffffff !important" : undefined,
+                backgroundColor: row.original?.blacklisted ? "#1a1a1a !important" : undefined,
                 padding: "8px 16px !important",
                 borderBottom: "2px solid white",
                 borderTop: "2px solid white",
@@ -694,11 +708,21 @@ const ClientCompaniesMain = ({
                 borderRight: "3px solid white",
               },
               "&:hover": {
-                backgroundColor: `${row.original?.status?.color}99`,
+                // Blacklisted rows shift to a slightly lighter charcoal on hover (a subtle,
+                // visible change) while keeping WHITE text so the content stays fully readable.
+                backgroundColor: row.original?.blacklisted
+                  ? "#3a3a3a"
+                  : `${row.original?.status?.color}99`,
                 "& td": {
-                  color: "black",
+                  color: row.original?.blacklisted ? "#ffffff !important" : "black",
                 },
               },
+              // A global rule (`.MuiTableBody-root tr.MuiTableRow-root:hover td`) forces a light
+              // hover background with !important; this higher-specificity selector overrides it so
+              // the blacklisted row keeps its dark background + white text on hover.
+              "&.MuiTableRow-root:hover .MuiTableCell-root": row.original?.blacklisted
+                ? { backgroundColor: "#3a3a3a !important", color: "#ffffff !important" }
+                : {},
             },
 
             // onClick: () => {
