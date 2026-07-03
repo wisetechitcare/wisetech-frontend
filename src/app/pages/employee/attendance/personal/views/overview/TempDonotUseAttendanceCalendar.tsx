@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import Calendar from "react-calendar";
 import { convertToTimeZone, findTimeDifference, formatTime, generateDatesForMonth, isDateBeforeOrSameAsCurrDate } from "@utils/date";
+import { parseWorkingDays } from "@utils/workingDays";
 import { ATTENDANCE_STATUS } from "@constants/attendance";
 import { useDispatch, useSelector } from "react-redux";
 import { trackMonthChange } from "@redux/slices/attendance";
@@ -106,11 +107,10 @@ function AttendanceCalendar({ calendarCells , activeStartDate, setActiveStartDat
     if(holidayColorValues?.holidayColor) document.documentElement.style.setProperty("--holiday", holidayColorValues?.holidayColor);
     
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const branchWorkingDays = useSelector((state: RootState) => 
-        state.employee.currentEmployee?.branches?.workingAndOffDays 
-        ? JSON.parse(state.employee.currentEmployee.branches.workingAndOffDays)
-        : null
-    );
+    const branchWorkingDays = useSelector((state: RootState) => {
+        const _wd = parseWorkingDays(state.employee.currentEmployee?.branches?.workingAndOffDays);
+        return Object.keys(_wd).length ? _wd : null;
+    });
     const [disableRaiseRequest, setDisableRaiseRequest] = useState(false);
     const maxAttendanceRequestLimit = useSelector((state: RootState) => state.employee.currentEmployee.attendanceRequestRaiseLimit);
     const [requestLimitResetLoading, setRequestLimitResetLoading] = useState(false)

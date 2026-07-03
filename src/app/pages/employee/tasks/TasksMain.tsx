@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
@@ -39,7 +40,7 @@ const TasksMain = () => {
           } = await fetchConfiguration(DATE_SETTINGS_KEY);
           const parsed =
             typeof configuration.configuration === "string"
-              ? JSON.parse(configuration.configuration)
+              ? safeJsonParse(configuration.configuration)
               : configuration.configuration;
           setDateSettingsEnabled(parsed?.useDateSettings ?? false);
         } catch (err) {

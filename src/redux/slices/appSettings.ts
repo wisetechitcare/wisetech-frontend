@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { timeToMinutes } from "@pages/employee/attendance/personal/views/information/Rules";
 import { store } from "@redux/store";
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
@@ -43,7 +44,7 @@ export const fetchAppSettings = createAsyncThunk(
                 branchId: store.getState().employee?.currentEmployee?.branchId,
             };
             const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, scope);
-            const jsonObject = JSON.parse(configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration);
             
             const workingTimeString = jsonObject["Working time"];
             deductionTime = jsonObject["Deduction Time"];            

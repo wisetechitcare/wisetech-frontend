@@ -1,6 +1,7 @@
 import { EXTRA_DAYS, LATE_CHECKIN, PRESENT } from '@constants/statistics';
 import { Attendance, CustomLeaves } from '@models/employee';
 import { RootState, store } from '@redux/store';
+import { parseWorkingDays } from '@utils/workingDays';
 import { fetchAttendanceClassification, fetchEmployeeLeaveBalance, fetchEmployeeLeaves } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, getWorkingDaysInRange, getWorkingDaysInYear, totalWorkingTime } from '@utils/statistics';
@@ -35,7 +36,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     const disableLunchTimeDeduction = store.getState().featureConfiguration?.disableLaunchDeductionTime;
 
     const lunchTime = leaveManagement?.["Lunch Time"];
-    const allWeekends = JSON.parse(weekends || "{}");  
+    const allWeekends = parseWorkingDays(weekends);
     const presentDay = donutaDataLabel(yearlyStats, [], [], fromAdmin).get(PRESENT);
     const extraDay = donutaDataLabel(yearlyStats, [], [], fromAdmin).get(EXTRA_DAYS);
     

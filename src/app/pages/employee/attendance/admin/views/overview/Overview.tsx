@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
@@ -329,7 +330,7 @@ function Overview({ date }: OverviewProps) {
     const lateEarlyCheckInOut = multipleRadialBarData(attendance, dayWiseShifts) || new Map();
     const workingLocationColors = useSelector((state: RootState) => state?.customColors?.workingLocation);
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
-    const weekends = getAllWeekends ? JSON.parse(getAllWeekends) : {};
+    const weekends = safeJsonParse(getAllWeekends);
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
     const appSettings = useSelector((state: RootState) => state.appSettings);
     const graceTimeFromStore = appSettings.graceTime;
@@ -1328,7 +1329,7 @@ function Overview({ date }: OverviewProps) {
         async function fetchTimeConfiguration() {
             try {
                 const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, shiftScope);
-                const leaveConfig = JSON.parse(configuration.configuration || '{}');
+                const leaveConfig = safeJsonParse(configuration.configuration || '{}');
                 const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
                 const lunchTimeStr = leaveConfig?.['Lunch Time'] || '1:00 Hrs';

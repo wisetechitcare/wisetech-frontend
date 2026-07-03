@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
 import { Card, Modal } from 'react-bootstrap';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
@@ -88,7 +89,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
         setDayWiseShifts(sortedShifts);
 
         // Parse LEAVE_MANAGEMENT configuration for time-related settings
-        const leaveConfig = JSON.parse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
+        const leaveConfig = safeJsonParse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
 
         // Parse lunch time
         const lunchTimeStr = leaveConfig?.['Lunch Time'] || '12:30 PM - 1:30 PM';
@@ -105,7 +106,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
         setDeductionTime(deductionTimeStr);
 
         // Parse lunch deduction config (from separate configuration)
-        const lunchConfig = JSON.parse(lunchConfigRes?.data?.configuration?.configuration || '{}');
+        const lunchConfig = safeJsonParse(lunchConfigRes?.data?.configuration?.configuration || '{}');
         const lunchEnabled = lunchConfig?.disableLaunchDeductionTime ?? false;
         setEnableLunchDeduction(lunchEnabled);
 
@@ -115,7 +116,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
         setOnSiteHolidayWeekendSettings(onSiteEnabled);
 
         // Parse restrict attendance days config (from separate configuration)
-        const restrictConfig = JSON.parse(restrictConfigRes?.data?.configuration?.configuration || '{}');
+        const restrictConfig = safeJsonParse(restrictConfigRes?.data?.configuration?.configuration || '{}');
         let restrictDays = restrictConfig?.restrictAttendanceTo7Days;
         // Handle migration from boolean to number
         if (typeof restrictDays === 'boolean') {
@@ -126,7 +127,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
         setRestrictAttendanceRequestDays(restrictDays);
 
         // Parse date settings config (from separate configuration)
-        const dateConfig = JSON.parse(dateConfigRes?.data?.configuration?.configuration || '{}');
+        const dateConfig = safeJsonParse(dateConfigRes?.data?.configuration?.configuration || '{}');
         const dateSettingsEnabled = dateConfig?.useDateSettings ?? false;
         setShowDataUpToToday(dateSettingsEnabled);
 

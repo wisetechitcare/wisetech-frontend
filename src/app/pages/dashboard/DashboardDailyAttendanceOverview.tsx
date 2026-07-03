@@ -1,6 +1,8 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { useCallback, useEffect, useState, useMemo, memo } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
+import { parseWorkingDays } from "@utils/workingDays";
 import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employee";
 import { fetchEmpsAttendance } from "@pages/employee/attendance/admin/views/overview/DailyAttendance";
 import { saveTotalEmployeeCount, saveEmployeesAttendance } from "@redux/slices/attendance";
@@ -280,9 +282,7 @@ const DashboardDailyAttendanceOverview = () => {
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee, shallowEqual);
 
   // Extract only the weekendConfig to prevent unnecessary re-renders
-  const weekendConfig = currentEmployee?.branches?.workingAndOffDays
-    ? JSON.parse(currentEmployee.branches.workingAndOffDays)
-    : {};
+  const weekendConfig = parseWorkingDays(currentEmployee?.branches?.workingAndOffDays);
 
   // ── Branch / Sub-Organization filters ───────────────────────────────────────
   // Options come from the FULL employee set; the root org is excluded from the
@@ -1095,7 +1095,7 @@ const DashboardDailyAttendanceOverview = () => {
     async function fetchTimeConfiguration() {
       try {
         const { data: { configuration } } = await fetchConfiguration('leave management');
-        const leaveConfig = JSON.parse(configuration.configuration || '{}');
+        const leaveConfig = safeJsonParse(configuration.configuration || '{}');
         const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
         const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
         const lunchTimeStr = leaveConfig?.['Lunch Time'] || '1:00 Hrs';

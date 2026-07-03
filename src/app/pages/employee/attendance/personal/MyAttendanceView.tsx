@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import AttendanceGraphicalToggle, { ToggleItemsCallBackFunctions } from '@pages/employee/attendance/personal/views/my-attendance/AttendanceGraphicalToggle';
 import dayjs, { Dayjs } from 'dayjs';
 import { fetchEmpDailyStatistics, fetchEmpMonthlyStatistics, fetchEmpWeeklyStatistics, fetchEmpYearlyStatistics } from '@utils/statistics';
@@ -19,7 +20,7 @@ const MyAttendanceView = ({ fromAdmin = false, resourseAndView, checkOwnWithOthe
             try {
                 const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
                 const parsed = typeof configuration.configuration === "string"
-                    ? JSON.parse(configuration.configuration)
+                    ? safeJsonParse(configuration.configuration)
                     : configuration.configuration;
                 setDateSettingsEnabled(parsed?.useDateSettings ?? false);
             } catch (err) {

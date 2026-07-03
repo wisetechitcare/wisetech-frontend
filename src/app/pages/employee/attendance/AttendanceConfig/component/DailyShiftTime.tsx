@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Button, Form } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
@@ -213,7 +214,7 @@ const DailyShiftTime: React.FC<DailyShiftTimeProps> = ({ scope }) => {
         // Load LEAVE_MANAGEMENT configuration for lunch and grace times (scoped).
         try {
           const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope);
-          const leaveConfig = JSON.parse(leaveConfigResponse?.data?.configuration?.configuration || '{}');
+          const leaveConfig = safeJsonParse(leaveConfigResponse?.data?.configuration?.configuration || '{}');
           const configId = leaveConfigResponse?.data?.configuration?.id;
 
           
@@ -340,7 +341,7 @@ const handleSubmit = async (values: ShiftValues) => {
     // Step 2: Save lunch & grace configuration (unchanged)
     try {
       const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, scope);
-      const existingConfig = JSON.parse(
+      const existingConfig = safeJsonParse(
         leaveConfigResponse?.data?.configuration?.configuration || '{}'
       );
 

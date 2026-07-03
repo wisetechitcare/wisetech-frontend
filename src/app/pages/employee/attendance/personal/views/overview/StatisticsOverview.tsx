@@ -1,4 +1,6 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { convertToTimeZone, formatTime, convertTo12HourFormat } from '@utils/date';
+import { parseWorkingDays } from '@utils/workingDays';
 import { allStreaksIndicator, donutaDataLabel, getWorkingDaysInYear, handleDatesChange, todayProgressPercent, totalProgressPercent,currentDayWorkingHours, fetchEmpYearlyStatistics, getWorkingDaysInRange, formatDisplay } from '@utils/statistics';
 import { Card, Row, Col } from 'react-bootstrap';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -29,8 +31,8 @@ const StatisticsOverview: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
     const year = dayjs();
     const holidays = useSelector((state: RootState) => state.attendanceStats.filteredPublicHolidays); 
     const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays; 
-    const allWeekends = JSON.parse(weekends || "{}");  
-        
+    const allWeekends = parseWorkingDays(weekends);
+
     const totalWorkingDay = getWorkingDaysInRange(dayjs(startDates), dayjs(endDates), true, allWeekends, holidays );
 
     return (
@@ -207,7 +209,7 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
     const [dateSettings, setDateSettings] = useState(false);
     const [loading, setLoading] = useState(false);
     const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     const handleYearChange = (action: string) => {
         switch (action) {
@@ -228,7 +230,7 @@ const OverviewAttendance: React.FC<StatisticsOverviewProps> = ({ yearlyStats, st
             try {
                 const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
                 const parsed = typeof configuration.configuration === "string"
-                    ? JSON.parse(configuration.configuration)
+                    ? safeJsonParse(configuration.configuration)
                     : configuration.configuration;
                 setDateSettings(parsed?.useDateSettings);
             } catch (error) {

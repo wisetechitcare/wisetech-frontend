@@ -1,4 +1,6 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StokedCircle, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
 import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
@@ -47,7 +49,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     // Resolve the viewed employee's org/branch so the display's per-day shifts match what
@@ -70,7 +72,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
             || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
         : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
@@ -205,7 +207,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         const fetchWorkingHours = async () => {
             try {
                 const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
-                const jsonObject = JSON.parse(configuration.configuration.configuration);
+                const jsonObject = safeJsonParse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 

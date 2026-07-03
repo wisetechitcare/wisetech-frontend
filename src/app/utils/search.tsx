@@ -7,7 +7,10 @@ import { getAllTasks } from '@services/tasks';
 
 /**
  * Intelligent Search Filter for Material React Table.
- * Implements OR logic between keywords across all searchable fields.
+ * Implements AND logic between keywords across all searchable fields: every keyword in the
+ * query must appear somewhere in the row. A multi-word query (e.g. "d mart") must narrow the
+ * result set, not widen it — OR logic here made "d mart" match any row containing a word with
+ * "d" OR "mart", returning hundreds of false positives.
  */
 export const intelligentSearchFilterFn = (row: any, columnId: string, filterValue: any): boolean => {
   if (!filterValue || filterValue.trim() === '') return true;
@@ -36,9 +39,9 @@ export const intelligentSearchFilterFn = (row: any, columnId: string, filterValu
 
   extractValues(rowData);
 
-  // Requirement: Use OR logic (some) for maximum recall, 
-  // but the ranking logic in the caller will ensure best matches (AND/Exact) are at top.
-  return keywords.some((keyword: string) => 
+  // AND logic: every keyword must be found in at least one of the row's values.
+  // Ranking in the caller still surfaces exact/phrase matches at the top.
+  return keywords.every((keyword: string) =>
     searchableValues.some((val: string) => val.includes(keyword))
   );
 };

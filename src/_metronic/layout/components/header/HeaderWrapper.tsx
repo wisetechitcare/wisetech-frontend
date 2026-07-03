@@ -1,34 +1,30 @@
 
 import clsx from 'clsx'
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLayout } from '../../core'
+import { useSidebarCollapse } from '../../core/SidebarCollapseContext'
 import { HeaderToolbar } from './HeaderToolbar'
-import { fetchCompanyLogo } from '@services/company'
 import { KTIcon } from '@metronic/helpers'
 import { useMediaQuery, useTheme } from '@mui/material';
 
+// Compact WiseTech mark (favicon) shown when the sidebar is collapsed.
+const WtSquareLogo = () => (
+  <img
+    src={`${import.meta.env.BASE_URL}WT-logo.ico`}
+    className='wt-logo-square'
+    alt='WiseTech'
+  />
+)
 
 // Metronics logo and the entire top bar
 export function HeaderWrapper() {
-  const defaultLogo = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
-  const { config, classes, attributes } = useLayout()
-  const [logoSrc, setLogoSrc] = useState(defaultLogo)
-  const { aside } = config
+  // Exact asset the splash screen uses (see index.html) so the expanded sidebar
+  // brand matches the loading screen instead of the org's uploaded logo.
+  const splashLogo = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
+  const { classes, attributes } = useLayout()
+  const { collapsed, toggle } = useSidebarCollapse()
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
-  useEffect(() => {
-    async function getCompanyLogo() {
-      try {
-        const { data: { logo } } = await fetchCompanyLogo();
-        // Only replace the default when a real logo is returned (a logo-less org
-        // would otherwise blank out the brand and show the alt "Logo" text).
-        if (logo) setLogoSrc(logo);
-      } catch { /* keep default logo */ }
-    }
-
-    getCompanyLogo();
-  }, [])
 
   return (
     <div
@@ -55,30 +51,29 @@ export function HeaderWrapper() {
           </div>
         )}
 
-        <Link to='/' className='d-none d-lg-block'>
+        <Link to='/' className='wt-brand-link d-none d-lg-flex'>
           <img
-            alt='Logo'
-            src={logoSrc}
-            className='h-30px h-lg-40px'
-            title='logo'
-            onError={(e) => { if (e.currentTarget.src !== defaultLogo) e.currentTarget.src = defaultLogo; }}
+            alt='WiseTech'
+            src={splashLogo}
+            className='wt-logo-full'
+            title='WiseTech'
           />
+          <WtSquareLogo />
         </Link>
 
-
-        {aside.minimize && (
-          <div
-            id='kt_aside_toggle'
-            className='btn btn-icon w-auto px-0 btn-active-color-primary aside-minimize position-absolute end-0 mx-5'
-            data-kt-toggle='true'
-            data-kt-toggle-state='active'
-            data-kt-toggle-target='body'
-            data-kt-toggle-name='aside-minimize'
-          >
-            <KTIcon iconName='exit-left' className='fs-2qx me-n1 minimize-default' />
-            <KTIcon iconName='entrance-left' className='fs-2qx minimize-active' />
-          </div>
-        )}
+        {/* Premium collapse / expand toggle (desktop only) */}
+        <button
+          type='button'
+          onClick={toggle}
+          className='wt-aside-toggle d-none d-lg-flex'
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>
+            <path d='M15 6l-6 6 6 6' stroke='currentColor' strokeWidth='2.2'
+              strokeLinecap='round' strokeLinejoin='round' />
+          </svg>
+        </button>
       </div>
       {!isMobile && <HeaderToolbar />}
     </div>

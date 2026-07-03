@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import React, { useEffect, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { Form, Formik } from "formik";
@@ -153,7 +154,7 @@ function DeductionRules() {
   async function fetchPayrollConfiguration() {
     try {
       const { data: { configuration } } = await fetchConfiguration(DEDUCTIONS);
-      const configurationComplete = JSON.parse(configuration.configuration || '{}');
+      const configurationComplete = safeJsonParse(configuration.configuration || '{}');
       console.log("configurationComplete:: ", configurationComplete);
       console.log("typeofconfigurationComplete:: ", typeof(configurationComplete));
 
