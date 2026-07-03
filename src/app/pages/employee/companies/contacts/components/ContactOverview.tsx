@@ -55,7 +55,7 @@ ${contact?.phone2 ? `• Phone 2: ${contact.phone2}` : ''}
 
 🏢 COMPANY DETAILS:
 • Company: ${contact?.company?.companyName || 'N/A'}
-• Status: ${contact?.company?.status || 'N/A'}
+• Status: ${contact?.company?.status === 'ACTIVE' ? 'Active' : contact?.company?.status === 'CLOSED' ? 'Inactive' : (contact?.company?.status || 'N/A')}
 • Rating: ${contact?.company?.overallRating ? `${contact.company.overallRating}/5` : 'N/A'}
 • Phone: ${contact?.company?.phone || 'N/A'}
 ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
@@ -310,7 +310,7 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                 <div
                   style={{
                     backgroundColor:
-                      contact?.isContactActive ? "green" : "red",
+                      contact?.isContactActive ? "#50cd89" : "#f1416c",
                     color: "white",
                     padding: "5px 12px",
                     borderRadius: "20px",
@@ -566,7 +566,7 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                 </div>
                 <div
                   style={{
-                    backgroundColor: contact?.company?.status === "ACTIVE" ? "green" : "gray",
+                    backgroundColor: contact?.company?.status === "ACTIVE" ? "#50cd89" : "#f1416c",
                     color: "white",
                     padding: "5px 12px",
                     borderRadius: "20px",
@@ -576,7 +576,7 @@ ${contact?.company?.phone2 ? `• Phone 2: ${contact.company.phone2}` : ''}
                     fontFamily: "Inter",
                   }}
                 >
-                  {contact?.company?.status || "-"}
+                  {contact?.company?.status === "ACTIVE" ? "Active" : contact?.company?.status === "CLOSED" ? "Inactive" : (contact?.company?.status || "-")}
                 </div>
               </div>
 

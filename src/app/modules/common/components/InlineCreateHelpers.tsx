@@ -171,12 +171,18 @@ export const transformToOptions = (
 /**
  * Create a new company service
  */
-export const createNewCompanyService = async (name: string): Promise<Option> => {
+export const createNewCompanyService = async (
+  name: string,
+  companyTypeId?: string
+): Promise<Option> => {
   try {
-    const payload = {
+    // A sub-service (company Service row) is filed under a parent "Service"
+    // (a company-type sub-type) via companyTypeId. Omitted → Unassigned.
+    const payload: any = {
       name: name.trim(),
       isActive: true
     };
+    if (companyTypeId) payload.companyTypeId = companyTypeId;
 
     console.log('Creating company service with payload:', payload);
     const response = await createCompanyService(payload);
@@ -252,5 +258,45 @@ export const createNewCompanyType = async (name: string): Promise<Option> => {
   } catch (error) {
     console.error('Error creating company type:', error);
     throw new Error('Failed to create company type. Please try again.');
+  }
+};
+
+/**
+ * Create a new "Service" (the middle layer of the 3-level Company Type → Service
+ * → Sub-service hierarchy). A Service is stored as a company-type sub-type, i.e. a
+ * CompanyType row whose parentTypeId points at the chosen top-level company type.
+ */
+export const createNewServiceUnderType = async (
+  name: string,
+  parentTypeId?: string
+): Promise<Option> => {
+  try {
+    if (!parentTypeId) {
+      throw new Error('A company type must be selected before creating a service');
+    }
+
+    const response = await createCompanyType({ name: name.trim(), parentTypeId, isActive: true });
+    const ct =
+      response?.data?.companyType ??
+      response?.companyType ??
+      response?.data ??
+      response;
+
+    if (!ct?.id) {
+      console.error('Unexpected company type response structure:', response);
+      throw new Error('Invalid response structure');
+    }
+
+    const newOption: Option = {
+      value: ct.id,
+      label: ct.name || name,
+      color: ct.color || undefined,
+    };
+
+    eventBus.emit(EVENT_KEYS.companyTypeCreated, { id: newOption.value });
+    return newOption;
+  } catch (error) {
+    console.error('Error creating service:', error);
+    throw error instanceof Error ? error : new Error('Failed to create service. Please try again.');
   }
 };

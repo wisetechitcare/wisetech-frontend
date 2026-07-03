@@ -5,7 +5,6 @@ import * as Yup from "yup";
 import Select from "react-select";
 import { createCompanyType, updateCompanyType, createContactRoleType, updateContactRoleType, createRatingFactor, updateRatingFactor, createContactStatus, updateContactStatus, createCompanyService, updateCompanyService, getAllCompanyTypes } from "@services/companies";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
-import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 
@@ -109,7 +108,6 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                          type === "company-services" ? (id: string, p: any) => updateCompanyService(id, p) :
                          updateRatingFactor;
         await updateFn(initialData.id, payload);
-        successConfirmation(`${title} updated successfully`);
       } else {
         const createFn = type === "company-type" ? createCompanyType :
                          type === "contact-role-type" ? createContactRoleType :
@@ -117,7 +115,6 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                          type === "company-services" ? createCompanyService :
                          createRatingFactor;
         const res = await createFn(payload);
-        successConfirmation(`${title} created successfully`);
       }
 
       const eventKey = type === "company-type" ? EVENT_KEYS.companyTypeCreated :

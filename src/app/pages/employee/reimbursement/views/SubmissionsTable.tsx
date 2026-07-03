@@ -11,6 +11,7 @@ import {
   fetchReimbursementBatchById,
   deleteEmployeeReimbursement,
   fetchApprovalInstanceByRequest,
+  fetchAllReimbursementsForEmployee,
 } from '@services/employee';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { deleteConfirmation } from '@utils/modal';
@@ -25,6 +26,12 @@ import { RootState } from '@redux/store';
 import { Tooltip } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
+
+// Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
+// These are legacy/imported records that were never submitted through the
+// batch workflow; we group them into a synthetic "Legacy" submission so they
+// can never silently disappear from the UI.
+const UNGROUPED_BATCH_ID = '__ungrouped__';
 
 function fmtDate(d?: string) {
   if (!d) return 'N/A';
@@ -156,6 +163,8 @@ interface SubmissionDetailModalProps {
   showEditDeleteOption?: boolean;
   /** When 1 or 2, restricts the table to only show reimbursements with that approval status. */
   filterStatus?: number | null;
+  /** Raw reimbursements to render when batchId is the UNGROUPED sentinel (no real batch to fetch). */
+  ungroupedReimbursements?: any[];
 }
 
 function SubmissionDetailModal({
@@ -164,6 +173,7 @@ function SubmissionDetailModal({
   onRefresh,
   showEditDeleteOption,
   filterStatus,
+  ungroupedReimbursements = [],
 }: SubmissionDetailModalProps) {
   const [batch, setBatch] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -196,6 +206,18 @@ function SubmissionDetailModal({
 
   const loadBatch = useCallback(async () => {
     if (!batchId) return;
+    // Legacy records have no real batch — render them directly from the passed list.
+    if (batchId === UNGROUPED_BATCH_ID) {
+      setBatch({
+        submissionId: 'Legacy (No Submission)',
+        submittedAt: null,
+        reimbursements: ungroupedReimbursements,
+      });
+      setApprovalCurrentLevel(1);
+      setApprovalInstanceId(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [batchRes, instanceRes] = await Promise.all([
@@ -214,7 +236,7 @@ function SubmissionDetailModal({
     } finally {
       setLoading(false);
     }
-  }, [batchId]);
+  }, [batchId, ungroupedReimbursements]);
 
   useEffect(() => {
     if (batchId) {
@@ -678,6 +700,9 @@ function SubmissionsTable({
   const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [detailFilterStatus, setDetailFilterStatus] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Reimbursements with no batch (batch_id = NULL) for the current scope/period.
+  // Surfaced as a synthetic "Legacy" submission so orphaned records stay visible.
+  const [ungroupedReimbursements, setUngroupedReimbursements] = useState<any[]>([]);
 
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
@@ -784,13 +809,87 @@ function SubmissionsTable({
         }
       }
 
-      setRows(groupedRows);
+      // ── Orphaned (legacy) reimbursements: batch_id = NULL ──────────────────
+      // These never went through the batch workflow, so the batch iteration
+      // above misses them entirely. Fetch reimbursements directly, keep the
+      // ones with no batch, and expose them as a synthetic "Legacy" submission.
+      const scopedEmpId = selectedEmployeeId || employeeId;
+      let orphanList: any[] = [];
+      const orphanRows: any[] = [];
+      if (scopedEmpId) {
+        try {
+          const res = await fetchAllReimbursementsForEmployee(scopedEmpId);
+          const all: any[] = res?.data?.reimbursements || res?.reimbursements || [];
+          orphanList = all.filter((r: any) => r.batchId == null && r.isActive !== false);
+
+          // Match the same period the batch rows are filtered by, but keyed on
+          // expenseDate since orphans have no submittedAt.
+          if (period === 'monthly') {
+            const monthStr = date.format('YYYY-MM');
+            orphanList = orphanList.filter(
+              (r: any) => r.expenseDate && dayjs(r.expenseDate).format('YYYY-MM') === monthStr,
+            );
+          } else if (period === 'yearly') {
+            const targetYear = date.year();
+            orphanList = orphanList.filter(
+              (r: any) => r.expenseDate && dayjs(r.expenseDate).year() === targetYear,
+            );
+          }
+
+          // Group into one summary row per approval status, mirroring completed batches.
+          const statusGroups: Record<number, any[]> = {};
+          for (const r of orphanList) {
+            const s = typeof r.status === 'number' ? r.status : 0;
+            if (!statusGroups[s]) statusGroups[s] = [];
+            statusGroups[s].push(r);
+          }
+          for (const [statusStr, items] of Object.entries(statusGroups)) {
+            const status = Number(statusStr);
+            const totalAmount = items.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+            let paymentStatus: string | null = null;
+            if (status === 1) {
+              const paidCount = items.filter((r) => r.paymentStatus === 'PAID').length;
+              const partialCount = items.filter((r) => r.paymentStatus === 'PARTIAL').length;
+              if (paidCount === items.length) paymentStatus = 'PAID';
+              else if (paidCount > 0 || partialCount > 0) paymentStatus = 'PARTIAL';
+              else paymentStatus = 'UNPAID';
+            }
+
+            const rejectReason =
+              status === 2
+                ? items.find((r) => r.rejectReason)?.rejectReason ||
+                  items.find((r) => r.rejectionReason)?.rejectionReason ||
+                  null
+                : null;
+
+            orphanRows.push({
+              _batchId: UNGROUPED_BATCH_ID,
+              _submissionId: 'Legacy',
+              _submittedAt: null,
+              _status: status,
+              _totalRequests: items.length,
+              _totalAmount: totalAmount,
+              _paymentStatus: paymentStatus,
+              _rejectReason: rejectReason,
+              _ungrouped: true,
+            });
+          }
+        } catch {
+          // Non-fatal: if the orphan fetch fails, still show the batch rows.
+          orphanList = [];
+        }
+      }
+
+      setUngroupedReimbursements(orphanList);
+      setRows([...groupedRows, ...orphanRows]);
     } catch {
       setRows([]);
+      setUngroupedReimbursements([]);
     } finally {
       setTableLoading(false);
     }
-  }, [filterBatches, refreshKey]);
+  }, [filterBatches, refreshKey, period, date, selectedEmployeeId, employeeId]);
 
   useEffect(() => {
     loadBatches();
@@ -821,12 +920,17 @@ function SubmissionsTable({
         size: 160,
         Cell: ({ row }: any) => (
           <button
-            className="btn btn-link p-0 fw-bold fs-7"
+            className="btn btn-link p-0 fw-bold fs-7 d-inline-flex align-items-center gap-2"
             style={{ textDecoration: 'none', color: '#AA393D', cursor: 'pointer' }}
             onClick={(e) => { e.stopPropagation(); setDetailBatchId(row.original._batchId); setDetailFilterStatus(row.original._status ?? null); }}
-            title="View all requests in this submission"
+            title={row.original._ungrouped
+              ? 'Imported/legacy records not tied to a submission — click to view'
+              : 'View all requests in this submission'}
           >
-            {row.original._submissionId || 'N/A'}
+            {row.original._ungrouped ? 'Legacy' : (row.original._submissionId || 'N/A')}
+            {row.original._ungrouped && (
+              <span className="badge badge-light-secondary fw-semibold fs-9">Imported</span>
+            )}
           </button>
         ),
       },
@@ -928,6 +1032,7 @@ function SubmissionsTable({
       <SubmissionDetailModal
         batchId={detailBatchId}
         filterStatus={detailFilterStatus}
+        ungroupedReimbursements={ungroupedReimbursements}
         onClose={() => { setDetailBatchId(null); setDetailFilterStatus(null); }}
         onRefresh={() => setRefreshKey((k) => k + 1)}
         onEdit={onEdit}
