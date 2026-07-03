@@ -507,22 +507,20 @@ function MaterialTable({
             .toLowerCase();
 
           if (columnToSearch === "all" || columnToSearch === "") {
-            // Calculate individual field scores
+            // Calculate individual field scores (used only for ranking the matches).
             rowSearchableValues.forEach((val) => {
               if (typeof val === "string" || typeof val === "number") {
                 score += calculateMatchScore(String(val), queryInfo);
               }
             });
 
-            // Require either a decent score (>0) OR all keywords matching row-wide for it to be a match
-            // This prevents single characters like 'a' from returning 6000 results if score threshold is adjusted.
-            // Also, AND logic across the row is preferred.
+            // A row matches only when EVERY keyword appears somewhere in the row (AND logic).
+            // A multi-word query like "d mart" must narrow results, not widen them: a partial
+            // single-token score (e.g. any word starting with "d") must NOT qualify a row on
+            // its own, otherwise the query behaves like OR and returns hundreds of false hits.
             if (keywords.every((k) => allRowText.includes(k))) {
               score += 50; // High bonus for row-wide AND match
               isMatch = true;
-            } else if (score >= 10) {
-               // Require at least 10 score to be considered a match to filter out noise
-               isMatch = true;
             }
           } else {
             // Use memoized column map for O(1) lookup instead of O(n) .find()
@@ -532,9 +530,8 @@ function MaterialTable({
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
-              isMatch =
-                score >= 10 ||
-                keywords.every((k) => valStr.toLowerCase().includes(k));
+              // Same AND rule for a single column: every keyword must be present in it.
+              isMatch = keywords.every((k) => valStr.toLowerCase().includes(k));
             }
           }
 

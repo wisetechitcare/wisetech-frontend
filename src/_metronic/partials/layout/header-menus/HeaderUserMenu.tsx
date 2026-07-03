@@ -21,7 +21,13 @@ const HeaderUserMenu: FC = () => {
   const navigate = useNavigate()
   const ls = localStorage.getItem("wise_tech_login")
   const parsedLs = ls ? JSON.parse(ls) : null
-  const showAppSettings = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.showAppSettings)
+  const currEmployee = useSelector((state: RootState) => state.employee.currentEmployee as any)
+  const showAppSettings = currEmployee?.showAppSettings;
+
+  const user = currEmployee?.users;
+  const fullName = user ? `${user.firstName} ${user.lastName}` : 'User';
+  const email = user?.personalEmailId || currEmployee?.companyEmailId || '';
+  const avatarUrl = currEmployee?.avatar;
 
   async function signout() {
     const response = await logout(parsedLs.token, parsedLs.id)
@@ -37,28 +43,48 @@ const HeaderUserMenu: FC = () => {
 
   return (
     <div
-      className='menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg menu-state-primary fw-bold fs-6 w-275px mt-3'
+      className='menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg menu-state-primary fw-bold fs-6 w-275px mt-3 header-user-menu-wrapper'
       data-kt-menu='true'
     >
-      <div className='menu-item px-5 mt-3'>
-        <Link to={'/employee/profile/overview'} className='menu-link px-5 d-flex align-items-center gap-2'>
-          <KTIcon iconName='profile-circle' className='fs-5 text-muted' />
-          My Profile
-        </Link>
+      {/* User Info Header */}
+      <div className='menu-item px-5 py-4 border-bottom d-flex align-items-center gap-3 bg-light-muted' style={{ borderRadius: '12px 12px 0 0' }}>
+        <div className='symbol symbol-40px symbol-circle'>
+          {avatarUrl ? (
+            <img src={avatarUrl} alt='Avatar' style={{ objectFit: 'cover' }} />
+          ) : (
+            <span className='symbol-label bg-light-primary'>
+              <KTIcon iconName='profile-circle' className='fs-2 text-primary' />
+            </span>
+          )}
+        </div>
+        <div className='d-flex flex-column min-w-0'>
+          <span className='fw-bold text-gray-800 text-truncate fs-6'>{fullName}</span>
+          {email && <span className='text-muted fs-8 text-truncate'>{email}</span>}
+        </div>
       </div>
-      {showAppSettings && (
-        <div className='menu-item px-5 mt-1'>
-          <Link to={'/company/settings'} className='menu-link px-5 d-flex align-items-center gap-2'>
-            <KTIcon iconName='setting-2' className='fs-5 text-muted' />
-            Settings
+
+      <div className='py-2'>
+        <div className='menu-item px-3 mt-1'>
+          <Link to={'/employee/profile/overview'} className='menu-link d-flex align-items-center gap-2'>
+            <KTIcon iconName='profile-circle' className='fs-5 text-muted' />
+            My Profile
           </Link>
         </div>
-      )}
-      <div className='separator my-2'></div>
-      <div className='aside-footer flex-column-auto py-3' id='kt_aside_footer'>
-        <a onClick={signout} className='menu-item px-10 mt-1' style={{ ...styles.hoverStyle, cursor: 'pointer' }} >
-          <span className='btn-label'>SIGN OUT</span>
-        </a>
+        {showAppSettings && (
+          <div className='menu-item px-3 mt-1'>
+            <Link to={'/company/settings'} className='menu-link d-flex align-items-center gap-2'>
+              <KTIcon iconName='setting-2' className='fs-5 text-muted' />
+              Settings
+            </Link>
+          </div>
+        )}
+        <div className='separator my-2'></div>
+        <div className='menu-item px-3 mb-1'>
+          <a onClick={signout} className='menu-link d-flex align-items-center gap-2 logout-link' style={{ cursor: 'pointer' }}>
+            <KTIcon iconName='exit-right-corner' className='fs-5 text-danger' />
+            Sign Out
+          </a>
+        </div>
       </div>
       {/* <div className='menu-item px-5'>
         <Link to={'/company/public-holiday'} className='menu-link px-5'>

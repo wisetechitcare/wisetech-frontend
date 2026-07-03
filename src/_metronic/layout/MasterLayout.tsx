@@ -6,8 +6,10 @@ import {HeaderWrapper} from './components/header/HeaderWrapper'
 import {ScrollTop} from './components/ScrollTop'
 import {Content} from './components/Content'
 import {PageDataProvider} from './core'
+import {SidebarCollapseProvider} from './core/SidebarCollapseContext'
 import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../partials'
 import {MenuComponent} from '../assets/ts/components'
+import './premium-layout.css'
 
 const MasterLayout = () => {
   const location = useLocation()
@@ -20,6 +22,7 @@ const MasterLayout = () => {
 
   return (
     <PageDataProvider>
+      <SidebarCollapseProvider>
       <div className='page d-flex flex-row flex-column-fluid'>
         <AsideDefault />
         <div className='wrapper d-flex flex-column flex-row-fluid' id='kt_wrapper'>
@@ -46,6 +49,7 @@ const MasterLayout = () => {
       <UpgradePlan />
       {/* end:: Modals */}
       <ScrollTop />
+      </SidebarCollapseProvider>
     </PageDataProvider>
   )
 }
