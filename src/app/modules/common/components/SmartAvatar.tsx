@@ -213,6 +213,7 @@ const SmartAvatar: React.FC<Props> = ({
   const cleanUrl = imageUrl?.trim() || null;
   const [imageFailed, setImageFailed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [imageAspect, setImageAspect] = useState<number | null>(null);
   const [brand, setBrand] = useState<BrandPalette | null>(() =>
     cleanUrl ? colorCache.get(cleanUrl) ?? null : null
   );
@@ -224,6 +225,7 @@ const SmartAvatar: React.FC<Props> = ({
 
   useEffect(() => {
     setImageFailed(false);
+    setImageAspect(null);
     setBrand(cleanUrl ? colorCache.get(cleanUrl) ?? null : null);
   }, [cleanUrl]);
 
@@ -320,15 +322,26 @@ const SmartAvatar: React.FC<Props> = ({
             src={cleanUrl || undefined}
             alt=""
             onError={() => setImageFailed(true)}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) {
+                setImageAspect(img.naturalWidth / img.naturalHeight);
+              }
+            }}
             draggable={false}
             style={{
               width: "100%",
               height: "100%",
-              objectFit: imageFit,
+              // Wide images (aspect > 1.5): use contain to show full image.
+              // Other images: use cover for tight circular fit.
+              objectFit: (imageAspect && imageAspect > 1.5) ? "contain" : imageFit === "cover" ? "cover" : "contain",
               objectPosition: "center",
               display: "block",
               borderRadius: 0,
-            }}
+              // High-quality rendering: preserve crisp pixels without smoothing
+              imageRendering: "-webkit-optimize-contrast",
+              backfaceVisibility: "hidden",
+            } as React.CSSProperties}
           />
         ) : (
           <span
@@ -415,13 +428,19 @@ const SmartAvatar: React.FC<Props> = ({
             alt={name || ""}
             onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: "92vw",
-              maxHeight: "88vh",
+              // Display the full image without cropping, at maximum usable size.
+              maxWidth: "95vw",
+              maxHeight: "90vh",
+              width: "auto",
+              height: "auto",
               objectFit: "contain",
+              objectPosition: "center",
               borderRadius: 8,
               boxShadow: "0 12px 48px rgba(0,0,0,0.55)",
               cursor: "default",
-            }}
+              // High-quality image rendering — preserves clarity across zoom levels
+              imageRendering: "-webkit-optimize-contrast",
+            } as React.CSSProperties}
           />
         </div>,
         document.body
