@@ -1,12 +1,10 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { useEffect, useRef, useState } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
-import { createRoot } from 'react-dom/client';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
 import { Modal } from 'react-bootstrap';
 import dayjs from 'dayjs';
-import Select from 'react-select';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -35,6 +33,17 @@ import { fetchAllUsers } from '@services/users';
 import { fetchAllEmployees } from '@services/employee';
 import { SHOW_BIRTHDAY_ON_CALENDAR, SHOW_WORK_ANIVERSARY_ON_CALENDAR } from '@constants/configurations-key';
 import { fetchColorAndStoreInSlice } from '@utils/file';
+import { Box, Button } from '@mui/material';
+import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
+import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+
+// View options shown in the shared PeriodTabs (same control used app-wide).
+const CALENDAR_VIEW_OPTIONS = [
+    { label: 'Day', value: 'dayGridDay' },
+    { label: 'Week', value: 'dayGridWeek' },
+    { label: 'Month', value: 'dayGridMonth' },
+    { label: 'Year', value: 'multiMonthYear' },
+];
 
 const initialValues: ICalendarEvent = {
     employeeId: "",
@@ -95,6 +104,9 @@ function CustomCalendar() {
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear() + '');
     // console.log("currentYear => =>",currentYear)
     const [selectedViewForCalendar, setSelectedViewForCalendar] = useState('dayGridMonth');
+    // Title shown in the shared PeriodNavigator (e.g. "July 2026"). Kept in sync
+    // with FullCalendar via datesSet.
+    const [periodTitle, setPeriodTitle] = useState('');
     const [selectedStartDate, setSelectedStartDate] = useState('');
     const [selectedEndDate, setSelectedEndDate] = useState('');
     const [maxColumns, setMaxColumns] = useState(2);
@@ -107,14 +119,14 @@ function CustomCalendar() {
         }, []);
     
 
-    const handleViewChange = (event: any) => {
-        const selectedView = event.value;
-        setSelectedViewForCalendar(selectedView);
-        const calendarApi = calendarRef?.current?.getApi();
-        if (calendarApi) {
-            calendarApi.changeView(selectedView);
-        }
+    // Drive FullCalendar from the shared Period toolbar controls.
+    const handleViewChangeByValue = (value: string) => {
+        setSelectedViewForCalendar(value);
+        calendarRef?.current?.getApi()?.changeView(value);
     };
+    const handleToday = () => calendarRef?.current?.getApi()?.today();
+    const handlePrevPeriod = () => calendarRef?.current?.getApi()?.prev();
+    const handleNextPeriod = () => calendarRef?.current?.getApi()?.next();
     const formik = useFormik<ICalendarEvent>({
         initialValues,
         validationSchema: calendarEventSchema,
@@ -209,6 +221,8 @@ function CustomCalendar() {
         if (!calendarApi) return;
         const currentYear = calendarApi.getDate().getFullYear();
         setCurrentYear(currentYear + "");
+        setPeriodTitle(calendarApi.view?.title ?? "");
+        setSelectedViewForCalendar(calendarApi.view?.type ?? selectedViewForCalendar);
     };
 
     // const handleEventClick = async (clickInfo: any) => {
@@ -235,7 +249,9 @@ function CustomCalendar() {
             fetchAllUsers(),
             fetchConfiguration(SHOW_BIRTHDAY_ON_CALENDAR),
             fetchConfiguration(SHOW_WORK_ANIVERSARY_ON_CALENDAR),
-            fetchAllEmployees()
+            // Active employees only — inactive/former employees must not surface
+            // birthdays or work anniversaries on the calendar.
+            fetchAllEmployees(true)
           ]);
           const colors = colorsRes?.data?.colors;
           const showBirthdays = safeJsonParse(showBirthdaysRes?.data?.configuration?.configuration || '{}');
@@ -286,11 +302,20 @@ function CustomCalendar() {
           const start = dayjs(`${currentYear}-01-01`);
           const end = dayjs(`${currentYear}-12-31`);
 
+          // Users linked to an ACTIVE employee record. A user account can stay
+          // active after the employee is deactivated, so user.isActive alone is
+          // not enough — birthdays must be limited to current employees.
+          const activeEmployeeUserIds = new Set(
+            (allEmployeeDateOfjoining?.data?.employees || [])
+              .map((employee: any) => employee?.users?.id ?? employee?.userId)
+              .filter(Boolean)
+          );
+
           // Process user birthdays for the calendar
           let userBirthdays: any[] = [];
           if (showBirthdays.showBirthdaysOnCalendar === true) {
           userBirthdays = allUsers?.data?.users
-            ?.filter((user: any) => user?.isActive === true && user.dateOfBirth) // Only include users with birth dates
+            ?.filter((user: any) => user?.isActive === true && user.dateOfBirth && activeEmployeeUserIds.has(user.id)) // Active employees with birth dates only
             .map((user: any) => {
               const birthDate = dayjs(user.dateOfBirth);
               const today = dayjs().startOf('day');
@@ -329,7 +354,8 @@ function CustomCalendar() {
           let employeeAnniversaries: any[] = [];
           if (showWorkAnniversary.showWorkAnniversaryOnCalendar === true) {
             employeeAnniversaries = allEmployeeDateOfjoining?.data?.employees
-            ?.filter((employee: any) => employee.dateOfJoining)
+            // Guard isActive here as well in case the API filter is ever bypassed.
+            ?.filter((employee: any) => employee.dateOfJoining && employee?.isActive !== false && employee?.users)
             .map((employee: any) => {
               const anniversaryDate = dayjs(employee.dateOfJoining);
               const today = dayjs().startOf('day');
@@ -409,64 +435,6 @@ function CustomCalendar() {
         // console.log("=> => =>",currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh)
       }, [currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh]);
 
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            const selectButton = document.querySelector('.fc-viewSelectButton-button');
-            if (selectButton) {
-                const root = createRoot(selectButton);
-                root.render(
-                    <Select
-                        menuPortalTarget={document.body}
-                        classNamePrefix={"react-select"}
-                        className='react-select-styled'
-                        defaultValue={{ label: 'Month', value: 'dayGridMonth' }} 
-                        menuPlacement='bottom'
-                        options={
-                            [
-                                {
-                                    label: 'Day',
-                                    value: 'dayGridDay'
-                                },
-                                {
-                                    label: 'Week',
-                                    value: 'dayGridWeek'
-                                },
-                                {
-                                    label: 'Month',
-                                    value: 'dayGridMonth'
-                                },
-                                {
-                                    label: 'Year',
-                                    value: 'multiMonthYear'
-                                },
-                            ]
-                        }
-                        onChange={(e) => handleViewChange(e)}
-                        styles={{
-                            control: (base) => ({
-                                ...base,
-                                minWidth: "200px",
-                                fontSize: "14px",
-                            }),
-                            menuPortal: (base) => ({
-                                ...base,
-                                zIndex: 9999,
-                            }),
-                        }}
-                    />
-                );
-                clearInterval(intervalId);
-            }
-        }, 100);
-        return () => {
-            const selectButton = document.querySelector('.fc-viewSelectButton-button');
-            if (selectButton) {
-                const root = createRoot(selectButton);
-                root.unmount();
-            }
-        };
-    }, []);
-
     function handleDayCellClassNames(arg: any) {
         let classNamesToAdd = [];
         if (arg.date.toDateString() === new Date().toDateString()) {
@@ -498,30 +466,75 @@ function CustomCalendar() {
             <div id="fullcalendar__wrapper" className='d-flex flex-column'>
                 <div className='w-100 pl-10 pr-10'>
                     <PageTitle breadcrumbs={calendarBreadcrumbs}>Calendar</PageTitle>
+
+                    {/* Calendar header built from the shared Period components
+                        (PeriodTabs + PeriodNavigator) used across the app, so the
+                        controls look and behave consistently everywhere. */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexDirection: { xs: 'column', md: 'row' },
+                            alignItems: { xs: 'stretch', md: 'center' },
+                            justifyContent: 'space-between',
+                            gap: 1.5,
+                            mb: 2,
+                        }}
+                    >
+                        <PeriodTabs
+                            value={selectedViewForCalendar}
+                            options={CALENDAR_VIEW_OPTIONS}
+                            onChange={handleViewChangeByValue}
+                            ariaLabel="calendar view selection"
+                            sx={{ width: { xs: '100%', md: 'fit-content' } }}
+                        />
+
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: { xs: 'space-between', md: 'flex-end' },
+                                gap: 1.5,
+                            }}
+                        >
+                            <Button
+                                onClick={handleToday}
+                                disableElevation
+                                sx={{
+                                    height: 32,
+                                    minWidth: 'fit-content',
+                                    px: 1.75,
+                                    borderRadius: '4px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #eef2f7',
+                                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
+                                    color: '#9d4141',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    lineHeight: '32px',
+                                    textTransform: 'none',
+                                    '&:hover': { backgroundColor: '#f8fafc' },
+                                }}
+                            >
+                                Today
+                            </Button>
+
+                            <PeriodNavigator
+                                label={periodTitle}
+                                onPrevious={handlePrevPeriod}
+                                onNext={handleNextPeriod}
+                                previousTitle="Previous"
+                                nextTitle="Next"
+                                minWidth={180}
+                                sx={{ flex: { xs: 1, md: 'unset' } }}
+                            />
+                        </Box>
+                    </Box>
+
                     <FullCalendar
                         dayCellClassNames={(e) => handleDayCellClassNames(e)}
                         locale={enGbLocale}
                         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
-                        customButtons={{
-                            'todayButton': {
-                                text: 'Today',
-                                click: function () {
-                                    const calendarApi = calendarRef?.current?.getApi();
-                                    if (calendarApi) {
-                                        calendarApi.today();
-                                    }
-                                }
-                            },
-                            'viewSelectButton': {
-                                text: '',
-                                click: () => { },
-                            },
-                        }}
-                        headerToolbar={{
-                            left: 'todayButton prev next',
-                            center: 'title',
-                            right: 'viewSelectButton',
-                        }}
+                        headerToolbar={false}
                         views={{
                             multiMonthYear: {
                                 type: "multiMonthYear",

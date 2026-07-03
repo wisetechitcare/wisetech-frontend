@@ -97,7 +97,7 @@ const HeaderToolbar = () => {
   };
 
   return (
-    <div className="w-md-100 d-flex align-items-stretch">
+    <div className="w-md-100 d-flex align-items-center h-100">
       {/* begin::Toolbar container */}
       <div
         // className={
@@ -106,12 +106,12 @@ const HeaderToolbar = () => {
         //   "fluid"
         // )}
         //  py-0 py-lg-0 d-flex flex-column flex-lg-row align-items-lg-stretch justify-content-lg-between bg-primary `}
-        className="wt-header-bar py-0 py-lg-0 d-flex flex-column flex-lg-row align-items-lg-stretch justify-content-lg-between container-fluid"
+        className="wt-header-bar py-0 py-lg-0 d-flex flex-row align-items-center justify-content-between container-fluid h-100"
       >
         <DefaultTitle />
-        <div className="d-flex align-items-stretch overflow-visible pt-0 pt-lg-0">
-          <div className="d-flex align-items-center">
-            <div className="wt-greeting d-flex align-items-center me-5"><BirthdayConfetti /></div>
+        <div className="d-flex align-items-center overflow-visible h-100 pt-0 pt-lg-0">
+          <div className="d-flex align-items-center h-100">
+            <div className="wt-greeting d-none d-lg-flex align-items-center me-5"><BirthdayConfetti /></div>
             <div className="d-flex gap-3">
               <div className="wt-header-actions d-flex gap-lg-3 gap-5" >
                 <div className="d-flex align-items-center">
@@ -120,11 +120,11 @@ const HeaderToolbar = () => {
                 {/* notification */}
                 <NotificationBell employeeId={employeeId} />
 
-                <div className="d-flex align-items-end">
+                <div className="d-flex align-items-center">
                   {/*begin::Action*/}
                   <a
                     href="#"
-                    className="btn-icon btn-sm btn-active-color-primary mt-n2"
+                    className="btn-icon btn-sm btn-active-color-primary"
                     data-kt-menu-trigger="{default: 'click', lg: 'hover'}"
                     data-kt-menu-placement="bottom-end"
                     data-kt-menu-overflow="false"

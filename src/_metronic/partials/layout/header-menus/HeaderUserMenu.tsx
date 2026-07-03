@@ -47,7 +47,7 @@ const HeaderUserMenu: FC = () => {
       data-kt-menu='true'
     >
       {/* User Info Header */}
-      <div className='menu-item px-5 py-4 border-bottom d-flex align-items-center gap-3 bg-light-muted' style={{ borderRadius: '12px 12px 0 0' }}>
+      <div className='menu-item px-4 py-3 border-bottom d-flex align-items-center gap-3 bg-light-muted' style={{ borderRadius: '12px 12px 0 0' }}>
         <div className='symbol symbol-40px symbol-circle'>
           {avatarUrl ? (
             <img src={avatarUrl} alt='Avatar' style={{ objectFit: 'cover' }} />
@@ -63,23 +63,23 @@ const HeaderUserMenu: FC = () => {
         </div>
       </div>
 
-      <div className='py-2'>
-        <div className='menu-item px-3 mt-1'>
+      <div className='py-1'>
+        <div className='menu-item px-2'>
           <Link to={'/employee/profile/overview'} className='menu-link d-flex align-items-center gap-2'>
             <KTIcon iconName='profile-circle' className='fs-5 text-muted' />
             My Profile
           </Link>
         </div>
         {showAppSettings && (
-          <div className='menu-item px-3 mt-1'>
+          <div className='menu-item px-2'>
             <Link to={'/company/settings'} className='menu-link d-flex align-items-center gap-2'>
               <KTIcon iconName='setting-2' className='fs-5 text-muted' />
               Settings
             </Link>
           </div>
         )}
-        <div className='separator my-2'></div>
-        <div className='menu-item px-3 mb-1'>
+        <div className='separator my-1'></div>
+        <div className='menu-item px-2'>
           <a onClick={signout} className='menu-link d-flex align-items-center gap-2 logout-link' style={{ cursor: 'pointer' }}>
             <KTIcon iconName='exit-right-corner' className='fs-5 text-danger' />
             Sign Out

@@ -36,7 +36,7 @@ export function HeaderWrapper() {
       <div className='header-brand justify-content-left position-relative bg-white'>
 
         {isMobile && (
-          <div className='d-flex w-100 justify-content-between align-items-center px-3 mb-5'>
+          <div className='d-flex w-100 justify-content-between align-items-center ps-3 pe-2 h-100'>
             {/* Left side: Hamburger menu */}
             <div
               className='btn btn-icon btn-active-color-primary w-30px h-30px'

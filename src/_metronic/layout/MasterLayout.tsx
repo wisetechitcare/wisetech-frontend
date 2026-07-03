@@ -9,6 +9,7 @@ import {PageDataProvider} from './core'
 import {SidebarCollapseProvider} from './core/SidebarCollapseContext'
 import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../partials'
 import {MenuComponent} from '../assets/ts/components'
+import {BottomNav} from '@components/navigation/BottomNavigation'
 import './premium-layout.css'
 
 const MasterLayout = () => {
@@ -48,6 +49,10 @@ const MasterLayout = () => {
       <InviteUsers />
       <UpgradePlan />
       {/* end:: Modals */}
+
+      {/* Mobile-only bottom navigation (renders null on desktop) */}
+      <BottomNav />
+
       <ScrollTop />
       </SidebarCollapseProvider>
     </PageDataProvider>
