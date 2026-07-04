@@ -452,6 +452,9 @@ const CompanyConfigMain = () => {
         type="company-type"
         // A sub-type (has a parent) is presented as a "Service"; a top-level row is a "Company Type".
         title={editingCompanyType?.parentTypeId ? "Service" : "Company Type"}
+        // Already loaded for the tree — pass it down so the Parent Type picker's initial value
+        // resolves immediately instead of racing the form's own fetch on first open.
+        companyTypes={companyTypes}
       />
       {/* Contact-related modals moved to ContactConfigMain */}
       {/* <CompanyConfigForm
@@ -489,6 +492,7 @@ const CompanyConfigMain = () => {
         isEditing={!!editingCompanyService}
         type="company-services"
         title="Sub-service"
+        companyTypes={companyTypes}
       />
 
       {/* Delete Confirmation Modal for Company Types */}

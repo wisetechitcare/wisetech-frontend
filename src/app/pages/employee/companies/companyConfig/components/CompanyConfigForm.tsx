@@ -36,13 +36,17 @@ interface ConfigFormProps {
   type: "company-type" | "contact-role-type" | "rating-factor" | "contact-status" | "company-services";
   title: string;
   companyId?: string;
+  // company-type/company-services callers that already hold this list (e.g. CompanyConfigMain, which
+  // loads it for the tree) should pass it here — avoids an internal re-fetch racing the modal's
+  // first open, which could momentarily show the parent/type picker as empty before it resolved.
+  companyTypes?: any[];
 }
 
-const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, initialData, isEditing = false, type, title, companyId }) => {
+const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, initialData, isEditing = false, type, title, companyId, companyTypes: companyTypesProp }) => {
   // Dynamic validation schema based on type
   const validationSchema = Yup.object().shape({
     name: Yup.string().required('Name is required'),
-    color: type === "company-services" ? Yup.string() : Yup.string().required('Color is required'),
+    color: Yup.string().required('Color is required'),
     // weight: type === "rating-factor"
     //   ? Yup.number().required('Weight is required')
     //   : Yup.number(),
@@ -51,15 +55,16 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // company-type → list of possible parents; company-services → list of types to file under.
-  const [companyTypes, setCompanyTypes] = useState<any[]>([]);
+  const [fetchedCompanyTypes, setFetchedCompanyTypes] = useState<any[]>([]);
+  const companyTypes = companyTypesProp || fetchedCompanyTypes;
 
   useEffect(() => {
-    if (show && (type === "company-type" || type === "company-services")) {
+    if (!companyTypesProp && show && (type === "company-type" || type === "company-services")) {
       getAllCompanyTypes()
-        .then((res: any) => setCompanyTypes(res?.companyTypes || []))
-        .catch(() => setCompanyTypes([]));
+        .then((res: any) => setFetchedCompanyTypes(res?.companyTypes || []))
+        .catch(() => setFetchedCompanyTypes([]));
     }
-  }, [show, type]);
+  }, [show, type, companyTypesProp]);
 
   // Parent options: top-level types only (no parent themselves) and never the type being edited,
   // keeping the hierarchy a single level deep.
@@ -82,7 +87,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
 
   const initialValues = {
     name: initialData?.name || "",
-    color: type === "company-services" ? "" : (initialData?.color || "#8B4444"),
+    color: initialData?.color || "#8B4444",
     isActive: initialData?.isActive ?? true,
     parentTypeId: initialData?.parentTypeId || "",
     companyTypeId: initialData?.companyTypeId || "",
@@ -165,11 +170,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                     marginBottom: '8px' 
                   }}
                 >
-                  {type === "company-type" ? "Company Type" :
-                   type === "contact-role-type" ? "Contact Designation" :
-                   type === "contact-status" ? "Contact Status" :
-                   type === "company-services" ? "Company Service" :
-                   "Rating Factor"}
+                  {title}
                   <span 
                     style={{ 
                       color: '#dc3545', 
@@ -183,11 +184,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                 <Field
                   name="name"
                   type="text"
-                  placeholder={type === "company-type" ? "Enter company type" :
-                               type === "contact-role-type" ? "Enter Designation" :
-                               type === "contact-status" ? "Enter Contact Status" :
-                               type === "company-services" ? "Enter Company Service" :
-                               "Enter rating factor"}
+                  placeholder={`Enter ${title}`}
                   className="form-control mb-5"
                   style={{
                     backgroundColor: '#f8f9fa',
@@ -202,9 +199,8 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                 <ErrorMessage name="name" component="div" className="text-danger mt-1" />
               </div>
 
-              {/* Color Picker - Hidden for company-services */}
-              {type !== "company-services" && (
-                <div className="mb-4">
+              {/* Color Picker */}
+              <div className="mb-4">
                   <label
                     className="form-label"
                     style={{
@@ -214,10 +210,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                       marginBottom: '8px'
                     }}
                   >
-                    Choose {type === "company-type" ? "Company" :
-                            type === "contact-role-type" ? "Contact Designation" :
-                            type === "contact-status" ? "Contact Status" :
-                            "Rating Factor"} Color
+                    Choose {title} Color
                   </label>
                   <div className="position-relative">
                     <div
@@ -318,8 +311,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                       </div>
                     )} */}
                   </div>
-                </div>
-              )}
+              </div>
 
               {/* Parent Type — groups this type under another in the "Companies by Type" chart */}
               {type === "company-type" && (
@@ -354,18 +346,18 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                 </div>
               )}
 
-              {/* Company Type — files this service under a (sub-)type for the tree + tagging filter */}
+              {/* Service — files this sub-service under a Service (a company-type sub-type) for the tree + tagging filter */}
               {type === "company-services" && (
                 <div className="mb-4">
                   <label
                     className="form-label"
                     style={{ fontWeight: '500', color: '#1a1a1a', fontSize: '14px', marginBottom: '8px' }}
                   >
-                    Company Type <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
+                    Service <span style={{ color: '#6c757d', fontWeight: 400 }}>(optional)</span>
                   </label>
                   <Select
                     isClearable
-                    placeholder="Unassigned — no type"
+                    placeholder="Unassigned — no service"
                     classNamePrefix="react-select"
                     options={serviceTypeOptions}
                     value={
@@ -379,7 +371,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                     styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                   />
                   <div className="text-muted mt-1" style={{ fontSize: '12px' }}>
-                    Files this service under a company type/sub-type. Leave empty to keep it under “Unassigned”.
+                    Files this sub-service under a Service. Leave empty to keep it under “Unassigned”.
                   </div>
                 </div>
               )}

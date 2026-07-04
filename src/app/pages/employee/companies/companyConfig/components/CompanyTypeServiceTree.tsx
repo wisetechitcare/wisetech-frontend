@@ -27,7 +27,7 @@ const ACTION = {
 };
 
 interface CompanyTypeRow { id: string; name: string; color?: string | null; parentTypeId?: string | null; }
-interface ServiceRow { id: string; name: string; companyTypeId?: string | null; }
+interface ServiceRow { id: string; name: string; color?: string | null; companyTypeId?: string | null; }
 
 interface Props {
   companyTypes: CompanyTypeRow[];
@@ -59,11 +59,21 @@ const byName = (a: { name?: string }, b: { name?: string }) =>
 
 // hex (#rrggbb) → rgba string, so we can derive soft tints from a single accent color.
 const hexToRgba = (hex: string, a: number): string => {
-  const m = hex.replace("#", "");
-  const r = parseInt(m.substring(0, 2), 16);
-  const g = parseInt(m.substring(2, 4), 16);
-  const b = parseInt(m.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
+  try {
+    const m = hex.replace("#", "");
+    if (m.length === 3) {
+      const r = parseInt(m.charAt(0) + m.charAt(0), 16);
+      const g = parseInt(m.charAt(1) + m.charAt(1), 16);
+      const b = parseInt(m.charAt(2) + m.charAt(2), 16);
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+    const r = parseInt(m.substring(0, 2), 16) || 0;
+    const g = parseInt(m.substring(2, 4), 16) || 0;
+    const b = parseInt(m.substring(4, 6), 16) || 0;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  } catch (e) {
+    return `rgba(154, 160, 173, ${a})`;
+  }
 };
 
 const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => {
@@ -146,7 +156,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
 
     // A Service row is a leaf "Sub-service".
     const subServiceNode = (s: ServiceRow): TNode => ({
-      key: `svc-${s.id}`, kind: "subservice", id: s.id, name: s.name, entity: s, children: [],
+      key: `svc-${s.id}`, kind: "subservice", id: s.id, name: s.name, color: s.color, entity: s, children: [],
     });
     const typeNode = (t: CompanyTypeRow): TNode => {
       const isTop = !isSubType(t);
@@ -197,7 +207,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
 
   const dotColor = (n: TNode) =>
     n.kind === "type" ? (n.color || "#9aa0ad")
-    : n.kind === "subservice" ? "#b8736f"
+    : n.kind === "subservice" ? (n.color || "#b8736f")
     : "#aab2bd";
 
   // Labels: top type = "company type", sub-type = "service", service row = "sub-service".
@@ -245,62 +255,126 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
             No types, services or sub-services match “{query}”.
           </div>
         ) : (
-          flat.map(({ node, depth, open, hasChildren }) => (
-            <div
-              key={node.key}
-              className="ctst-row"
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 10px", paddingLeft: 10 + depth * 22, borderRadius: 8, transition: "background .12s ease" }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#f5f6f9")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                <span
-                  onClick={() => hasChildren && toggle(node.key)}
-                  style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
-                >
-                  <i className="bi bi-chevron-right" style={{ fontSize: 10 }} />
-                </span>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: dotColor(node), flexShrink: 0, boxShadow: node.kind === "type" ? `0 0 0 2px ${dotColor(node)}28` : "none" }} />
-                <span style={{ fontWeight: node.kind === "type" ? 600 : node.kind === "group" ? 600 : 400, fontSize: node.kind === "type" ? 13.5 : 12.5, color: node.kind === "group" ? "#8893a0" : "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {node.name}
-                </span>
-                {kindLabel(node) && (
-                  <span style={{ fontSize: 10, color: "#aeb6c1", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>{kindLabel(node)}</span>
-                )}
-                {hasChildren && (
-                  <span style={{ fontSize: 10, fontWeight: 600, background: "#f0f2f5", color: "#8893a0", borderRadius: 999, padding: "1px 7px", flexShrink: 0 }}>{node.children.length}</span>
-                )}
-              </div>
+          flat.map(({ node, depth, open, hasChildren }) => {
+            const color = dotColor(node);
+            const isTop = depth === 0;
+            const isMiddle = depth === 1;
 
-              {/* Hover actions */}
-              <div className="ctst-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                {/* Top-level Company Type → add a Service (a sub-type). */}
-                {node.kind === "type" && node.isTopType && (
-                  <IconBtn icon="bi-diagram-3" title="Add service" color={ACTION.service} onClick={() => onAddService(node.id)} />
-                )}
-                {/* Service (sub-type) → add a Sub-service (a service row). */}
-                {node.kind === "type" && !node.isTopType && (
-                  <IconBtn icon="bi-plus-lg" title="Add sub-service" color={ACTION.subService} onClick={() => onAddSubService(node.id)} />
-                )}
-                {node.kind === "type" && (
-                  <>
-                    <IconBtn icon="bi-pencil" title="Edit" color={ACTION.edit} onClick={() => onEditType(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete" color={ACTION.remove} onClick={() => onDeleteType(node.id)} />
-                  </>
-                )}
-                {node.kind === "subservice" && (
-                  <>
-                    <IconBtn icon="bi-pencil" title="Edit sub-service" color={ACTION.edit} onClick={() => onEditSubService(node.entity)} />
-                    <IconBtn icon="bi-trash" title="Delete sub-service" color={ACTION.remove} onClick={() => onDeleteSubService(node.id)} />
-                  </>
-                )}
+            // Soft backgrounds and borders based on custom colors for brand harmony
+            const tintBg = hexToRgba(color, isTop ? 0.035 : isMiddle ? 0.02 : 0.015);
+            const tintHoverBg = hexToRgba(color, isTop ? 0.07 : isMiddle ? 0.05 : 0.04);
+            const tintBorder = hexToRgba(color, isTop ? 0.12 : isMiddle ? 0.08 : 0.06);
+            const borderLeftWidth = isTop ? "4px" : isMiddle ? "3px" : "2px";
+
+            return (
+              <div
+                key={node.key}
+                className={`ctst-row ctst-row-depth-${depth}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: isTop ? "10px 14px" : isMiddle ? "8px 12px" : "7px 12px",
+                  marginLeft: depth * 24,
+                  borderRadius: isTop ? 8 : 6,
+                  transition: "all 0.15s ease",
+                  marginBottom: isTop ? 6 : isMiddle ? 4 : 3,
+                  cursor: "default",
+                  // Set CSS variables for cleaner CSS transitions and hover states
+                  "--row-bg": tintBg,
+                  "--row-hover-bg": tintHoverBg,
+                  "--row-border": tintBorder,
+                  "--row-border-left": `${borderLeftWidth} solid ${color}`,
+                } as React.CSSProperties}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                  <span
+                    onClick={() => hasChildren && toggle(node.key)}
+                    style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
+                  >
+                    <i className="bi bi-chevron-right" style={{ fontSize: 10 }} />
+                  </span>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: dotColor(node), flexShrink: 0, boxShadow: node.kind === "type" ? `0 0 0 2px ${dotColor(node)}28` : "none" }} />
+                  <span style={{ fontWeight: node.kind === "type" ? 600 : node.kind === "group" ? 600 : 400, fontSize: node.kind === "type" ? 13.5 : 12.5, color: node.kind === "group" ? "#8893a0" : "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {node.name}
+                  </span>
+                  {kindLabel(node) && (
+                    <span style={{
+                      fontSize: 9,
+                      fontWeight: 600,
+                      color: node.kind === "type" && node.isTopType ? ACCENT : "#656f7d",
+                      background: node.kind === "type" && node.isTopType ? hexToRgba(ACCENT, 0.08) : "#f1f3f5",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      textTransform: "uppercase",
+                      letterSpacing: ".5px",
+                      flexShrink: 0
+                    }}>{kindLabel(node)}</span>
+                  )}
+                  {hasChildren && (
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      background: hexToRgba(color, 0.08),
+                      color: color,
+                      borderRadius: 999,
+                      padding: "1px 6px",
+                      minWidth: 18,
+                      height: 18,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0
+                    }}>{node.children.length}</span>
+                  )}
+                </div>
+
+                {/* Hover actions */}
+                <div className="ctst-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {/* Top-level Company Type → add a Service (a sub-type). */}
+                  {node.kind === "type" && node.isTopType && (
+                    <IconBtn icon="bi-diagram-3" title="Add service" color={ACTION.service} onClick={() => onAddService(node.id)} />
+                  )}
+                  {/* Service (sub-type) → add a Sub-service (a service row). */}
+                  {node.kind === "type" && !node.isTopType && (
+                    <IconBtn icon="bi-plus-lg" title="Add sub-service" color={ACTION.subService} onClick={() => onAddSubService(node.id)} />
+                  )}
+                  {node.kind === "type" && (
+                    <>
+                      <IconBtn icon="bi-pencil" title="Edit" color={ACTION.edit} onClick={() => onEditType(node.entity)} />
+                      <IconBtn icon="bi-trash" title="Delete" color={ACTION.remove} onClick={() => onDeleteType(node.id)} />
+                    </>
+                  )}
+                  {node.kind === "subservice" && (
+                    <>
+                      <IconBtn icon="bi-pencil" title="Edit sub-service" color={ACTION.edit} onClick={() => onEditSubService(node.entity)} />
+                      <IconBtn icon="bi-trash" title="Delete sub-service" color={ACTION.remove} onClick={() => onDeleteSubService(node.id)} />
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
-      <style>{`.ctst-actions{opacity:.65;transition:opacity .15s ease}.ctst-row:hover .ctst-actions{opacity:1}`}</style>
+      <style>{`
+        .ctst-row {
+          background: var(--row-bg);
+          border: 1px solid var(--row-border);
+          border-left: var(--row-border-left);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.015);
+        }
+        .ctst-row:hover {
+          background: var(--row-hover-bg) !important;
+          border-color: var(--row-border) !important;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+        }
+        .ctst-actions {
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 };
