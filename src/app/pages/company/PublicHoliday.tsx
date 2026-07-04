@@ -17,7 +17,6 @@ import { Modal } from 'react-bootstrap';
 import Holiday from "./Holiday";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import dayjs from "dayjs";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { components } from 'react-select';

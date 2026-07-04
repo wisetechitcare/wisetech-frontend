@@ -242,13 +242,65 @@ body[data-aside-collapsed='true'] {
   transform: translateY(-1px);
 }
 
+/* -----------------------------------------------------------------------------
+   Pin (favourite) toggle — reveals on row hover, stays visible once pinned.
+   Absolutely positioned so it sits over the row without nesting in the <a>.
+   -------------------------------------------------------------------------- */
+.aside .menu-item-pinnable {
+  position: relative;
+}
+.aside .menu-item-pinnable > .menu-link {
+  /* leave room so long titles don't run under the pin button */
+  padding-right: 38px;
+}
+.aside .menu-pin-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 1;
+  color: var(--wt-ink-soft);
+  opacity: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: opacity 0.15s var(--wt-ease), color 0.15s var(--wt-ease),
+    background 0.15s var(--wt-ease);
+}
+.aside .menu-pin-btn i {
+  font-size: 15px;
+  vertical-align: middle;
+}
+.aside .menu-item-pinnable:hover .menu-pin-btn,
+.aside .menu-pin-btn:focus-visible {
+  opacity: 1;
+}
+.aside .menu-pin-btn:hover {
+  color: var(--wt-accent);
+  background: rgba(var(--wt-accent-rgb), 0.12);
+}
+/* Pinned rows keep the filled pin visible as an on-state indicator. */
+.aside .menu-pin-btn.pinned {
+  opacity: 1;
+  color: var(--wt-accent);
+}
+
 /* =============================================================================
    COLLAPSED RAIL (desktop only)
    ========================================================================== */
 @media (min-width: 992px) {
   body[data-aside-collapsed='true'] .aside .menu-title,
   body[data-aside-collapsed='true'] .aside .menu-arrow,
-  body[data-aside-collapsed='true'] .aside .menu-section {
+  body[data-aside-collapsed='true'] .aside .menu-section,
+  body[data-aside-collapsed='true'] .aside .menu-pin-btn {
     opacity: 0;
     width: 0;
     display: none !important;

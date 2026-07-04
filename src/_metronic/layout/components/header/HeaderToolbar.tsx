@@ -111,7 +111,7 @@ const HeaderToolbar = () => {
         <DefaultTitle />
         <div className="d-flex align-items-center overflow-visible h-100 pt-0 pt-lg-0">
           <div className="d-flex align-items-center h-100">
-            <div className="wt-greeting d-none d-lg-flex align-items-center me-5"><BirthdayConfetti /></div>
+            <BirthdayConfetti />
             <div className="d-flex gap-3">
               <div className="wt-header-actions d-flex gap-lg-3 gap-5" >
                 <div className="d-flex align-items-center">
