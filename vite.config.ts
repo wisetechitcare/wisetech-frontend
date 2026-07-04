@@ -9,6 +9,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    // Allow reverse-proxy / tunnel hosts (e.g. cloudflared *.trycloudflare.com,
+    // ngrok) so you can test biometric attendance over HTTPS on a real phone.
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:9000',

@@ -2,6 +2,7 @@ import axios from "axios";
 import { EMPLOYEE } from "@constants/api-endpoint";
 import { ICheckInPayload, ICheckOutPayload, IValidateTokenInOut, ILeaveRequest, IReimbursementsCreate, IGrossPayDeductions, IPayment, AttendanceRequest, Attendance, ApprovedAttendanceRequest, IGrossPayConfiguration, IGrossPayConfigurationResponse, IGrossPayConfigurationHistoryResponse, IValidationResult, DynamicFieldConfig, IDeductionConfiguration, IDeductionConfigurationResponse, IDeductionConfigurationHistoryResponse } from "@models/employee";
 import dayjs, { Dayjs } from "dayjs";
+import { ensureBiometricForAttendance } from "@services/webauthn";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 export const fetchLeaveAllocations = async (employeeId?: string) => {
@@ -356,8 +357,14 @@ export const fetchAttendanceDetails = async (employeeId: string, month: number, 
 
 export const saveCheckIn = async (payload: ICheckInPayload) => {
     try {
+        // MANDATORY phone biometric (Face ID / fingerprint) before any check-in, for all
+        // working methods (Office / On Site / Hybrid). If the employee has no registered
+        // device this prompts them to add one; if they cancel or it fails, this throws and
+        // the punch is NOT saved.
+        const attendanceGrant = await ensureBiometricForAttendance();
+
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_EMPLOYEE_ATTENDANCE}`;
-        const { data } = await axios.post(endpoint, payload);
+        const { data } = await axios.post(endpoint, { ...payload, attendanceGrant });
         return data;
     }
     catch (err) {
@@ -378,8 +385,11 @@ export const validateTokenInOut = async (payload: IValidateTokenInOut) => {
 
 export const saveCheckOut = async (payload: ICheckOutPayload) => {
     try {
+        // MANDATORY biometric on checkout too, so both punches are device-verified.
+        const attendanceGrant = await ensureBiometricForAttendance();
+
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.MARK_CHECKOUT_ATTENDANCE}`;
-        const { data } = await axios.put(endpoint, payload);
+        const { data } = await axios.put(endpoint, { ...payload, attendanceGrant });
         return data;
     }
     catch (err) {

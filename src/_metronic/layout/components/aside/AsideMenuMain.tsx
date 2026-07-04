@@ -87,6 +87,8 @@ export function AsideMenuMain() {
         fontIcon='bi-app-indicator'
       />
 
+
+
       {isSubsectionVisible('calendar', hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) && <AsideMenuItem
         to='/employees/calendar'
         icon={sidePanelIcons.calendar.default}

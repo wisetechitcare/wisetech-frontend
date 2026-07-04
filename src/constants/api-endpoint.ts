@@ -662,3 +662,16 @@ export const BIOMETRIC = {
     SYNC_DEVICE:    'api/biometric/devices',
     DEVICE_LOGS:    'api/biometric/devices',
 };
+
+// Phone biometric (WebAuthn) attendance device binding — Face ID / Fingerprint
+export const DEVICE = {
+    REGISTRATION_OPTIONS: 'api/device/registration/options',
+    REGISTRATION_VERIFY:  'api/device/registration/verify',
+    ASSERTION_OPTIONS:    'api/device/assertion/options',
+    ASSERTION_VERIFY:     'api/device/assertion/verify',
+    MY_DEVICES:           'api/device/mine',
+    DELETE_DEVICE:        'api/device',   // + /:id
+    // Native app (Capacitor) — strong biometric enforced client-side, no PIN
+    NATIVE_REGISTER:      'api/device/native/register',
+    NATIVE_VERIFY:        'api/device/native/verify',
+};

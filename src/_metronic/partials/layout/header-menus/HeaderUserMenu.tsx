@@ -70,6 +70,12 @@ const HeaderUserMenu: FC = () => {
             My Profile
           </Link>
         </div>
+        <div className='menu-item px-2'>
+          <Link to={'/my-devices'} className='menu-link d-flex align-items-center gap-2'>
+            <KTIcon iconName='phone' className='fs-5 text-muted' />
+            My Devices
+          </Link>
+        </div>
         {showAppSettings && (
           <div className='menu-item px-2'>
             <Link to={'/company/settings'} className='menu-link d-flex align-items-center gap-2'>

@@ -18,6 +18,7 @@ import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
 import { can } from '@utils/can'
 
+const MyDevices = lazy(() => import('@pages/employee/devices/MyDevices'))
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
 const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
 const Overview = lazy(() => import('@pages/company/Overview'))
@@ -111,6 +112,14 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        <Route
+          path='my-devices'
+          element={
+            <SuspensedView>
+              <MyDevices />
+            </SuspensedView>
+          }
+        />
         {NEW_MY_TEAM_IA && <Route path='my-team' element={<MyTeamLayout />}>
           <Route index element={<Navigate to='/my-team/overview' replace />} />
           <Route path='overview' element={<MyTeamOverview />} />

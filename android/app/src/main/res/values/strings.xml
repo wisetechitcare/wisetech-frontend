@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WiseTech HRMS</string>
+    <string name="title_activity_main">WiseTech HRMS</string>
+    <string name="package_name">com.wisetech.hrms</string>
+    <string name="custom_url_scheme">com.wisetech.hrms</string>
+</resources>
