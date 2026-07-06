@@ -269,7 +269,11 @@ export function LeaveCalendarGrid({
               (p: any) => dayjs(p?.date).format('YYYY-MM-DD') === iso,
             );
             const holName =
-              holRecord?.name || holRecord?.holiday_name || holRecord?.title || 'Holiday';
+              holRecord?.holiday?.name ||
+              holRecord?.name ||
+              holRecord?.holiday_name ||
+              holRecord?.title ||
+              'Holiday';
 
             if (!inMonth) {
               return <div key={iso} className="lrc-day lrc-day--outside" aria-hidden="true" />;

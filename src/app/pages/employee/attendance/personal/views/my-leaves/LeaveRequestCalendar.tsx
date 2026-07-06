@@ -168,7 +168,7 @@ const LeaveRequestCalendar = ({
 
         date: dayjs(h?.date).format('YYYY-MM-DD'),
 
-        name: h?.name || h?.holiday_name || h?.title || 'Holiday',
+        name: h?.holiday?.name || h?.name || h?.holiday_name || h?.title || 'Holiday',
 
       })),
 
