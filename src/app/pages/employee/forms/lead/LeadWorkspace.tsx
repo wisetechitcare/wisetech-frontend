@@ -10,12 +10,10 @@ import {
   MonetizationOn,
   LocationOn,
   SettingsOutlined,
-  Engineering,
   EventNote,
   DescriptionOutlined,
   TrackChanges,
 } from "@mui/icons-material";
-import { ProjectExecutionSection } from "./ProjectExecutionSection";
 
 /**
  * Placeholder body for wizard steps that exist in the flow but are not built yet.
@@ -338,28 +336,12 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
     },
   ];
 
-  // ── Project Execution step — only shown when status.isProjectTrigger ──────
-  const executionStep: EnterpriseWizardStep<LeadWorkspaceProps> = {
-    id: "project-execution",
-    label: "Project Execution",
-    title: "Project Execution",
-    subtitle: "Execution team, timeline, contract financials and project status",
-    fields: ["projectMeta"],
-    icon: <Engineering />,
-    render: (p) => (
-      <ProjectExecutionSection
-        employees={p.employees}
-        teams={p.teams}
-        formikProps={p.formikProps}
-      />
-    ),
-  };
-
-  const steps = React.useMemo(
-    () => isReceivedStatus ? [...baseSteps, executionStep] : baseSteps,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isReceivedStatus],
-  );
+  // Project Execution is no longer a wizard step. Execution team, timeline,
+  // contract financials, purchase order and custody are edited INLINE on the
+  // Project section of the entity detail page (section-scoped PATCH → audited
+  // revision). The wizard now covers lead capture only; execution defaults
+  // (PRIVATE / not-live / open) apply on create and are refined on the detail page.
+  const steps = baseSteps;
 
   // ── Right panel: Live summary rows ────────────────────────────────────────
   const getSummaryRows = (): SummaryRow[] => {

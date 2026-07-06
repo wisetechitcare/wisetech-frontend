@@ -539,6 +539,7 @@ export const CLIENT_COMPANIES = {
     GET_LEAD_BY_ID: "api/lead-project-companies/client-companies/leads/:id",
     CREATE_LEAD: "api/lead-project-companies/client-companies/leads",
     UPDATE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
+    UPDATE_LEAD_SECTION: "api/lead-project-companies/client-companies/leads/:id/section",
     DELETE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
 
     GET_ALL_CLIENT_COMPANIES: "api/lead-project-companies/client-companies",
