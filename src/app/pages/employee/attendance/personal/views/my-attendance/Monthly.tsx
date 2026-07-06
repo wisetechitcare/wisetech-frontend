@@ -1,14 +1,16 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, Dumbell, HeatMap, MultipleRadialBar, Polar, ReportsTable, StatisticsTable, StokedCircle, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { usePagination } from '@pages/employee/attendance/personal/views/my-attendance/hooks/usePagination';
-import { EXTRA_DAYS, HOLIDAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, monthDays, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { saveFilteredPublicHolidays, saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
 import { RootState, store } from '@redux/store';
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from '@services/company';
-import { fetchEmployeeLeaves } from '@services/employee';
+import { fetchAttendanceClassification, fetchEmployeeLeaves } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { barMonthlyData, dumbellSeriesMonthlyData, fetchEmpMonthlyStatistics, multipleRadialBarData, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInMonth, monthHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime, filterLeavesPublicHolidays } from '@utils/statistics';
+import { barMonthlyData, dumbellSeriesMonthlyData, fetchEmpMonthlyStatistics, pieAreaData, pieAreaLabels, donutaDataLabel, totalWorkingTime, getWorkingDaysInMonth, monthHeatMap, totalProgressPercent, allStreaksIndicator, customLeaves, getWorkingDaysInRange, formatDisplay, getWorkingDaysInRangeForTotalTime, filterLeavesPublicHolidays } from '@utils/statistics';
 import { hasPermission } from '@utils/authAbac';
 import dayjs, { Dayjs } from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -47,8 +49,19 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
+
+    // Resolve the viewed employee's org/branch so the display's per-day shifts match what
+    // payroll uses (branch override → org → global). No scoped shift = global (unchanged).
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
 
     const dispatch = useDispatch();
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
@@ -59,10 +72,13 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
         ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
             || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
         : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
+    const [classificationData, setClassificationData] = useState<Map<string, number>>(
+        new Map([[TOTAL_WORKING_DAYS, 0], [EARLY_CHECKIN, 0], [LATE_CHECKIN, 0], [EARLY_CHECKOUT, 0], [LATE_CHECKOUT, 0], [MISSING_CHECKOUT, 0]])
+    );
 
     // Use custom pagination hook
     // const { pagination, setPagination, resetPagination } = usePagination(10);
@@ -190,8 +206,8 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     useEffect(() => {
         const fetchWorkingHours = async () => {
             try {
-                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-                const jsonObject = JSON.parse(configuration.configuration.configuration);
+                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
+                const jsonObject = safeJsonParse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 
@@ -210,7 +226,7 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -218,7 +234,26 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
+
+    // Fetch backend attendance classification (scoped config — matches salary deductions).
+    useEffect(() => {
+        if (!selectedEmployeeId) return;
+        const start = month.startOf('month').format('YYYY-MM-DD');
+        const end = endDate.format('YYYY-MM-DD');
+        fetchAttendanceClassification(selectedEmployeeId, start, end)
+            .then(({ data: c }) => {
+                setClassificationData(new Map([
+                    [TOTAL_WORKING_DAYS, c.totalWorkingDays],
+                    [EARLY_CHECKIN, c.earlyCheckins],
+                    [LATE_CHECKIN, c.lateCheckins],
+                    [EARLY_CHECKOUT, c.earlyCheckouts],
+                    [LATE_CHECKOUT, c.lateCheckouts],
+                    [MISSING_CHECKOUT, c.missingCheckouts],
+                ]));
+            })
+            .catch(console.error);
+    }, [selectedEmployeeId, month, endDate]);
 
     useEffect(() => {
         const startDate = dayjs(month).startOf('month').format('YYYY-MM-DD');
@@ -251,21 +286,8 @@ const Monthly = ({ month, endDate, fromAdmin = false, resourseAndView, dateSetti
     
     const donutLabels = useMemo(() => Array.from(donutData.keys()), [donutData]);
     const donutSeries = useMemo(() => Array.from(donutData.values()), [donutData]);
-    const multiRadialBarData = useMemo(() =>
-        multipleRadialBarData(filteredMonthlyStats, dayWiseShifts),
-        [filteredMonthlyStats, dayWiseShifts]
-    );
-    // debugger;
-    
-    const multipleRadialBarLabels = useMemo(() => 
-        Array.from(multiRadialBarData.keys()), 
-        [multiRadialBarData]
-    );
-    
-    const multipleRadialBarSeries = useMemo(() => 
-        Array.from(multiRadialBarData.values()), 
-        [multiRadialBarData]
-    );
+    const multipleRadialBarLabels = useMemo(() => Array.from(classificationData.keys()), [classificationData]);
+    const multipleRadialBarSeries = useMemo(() => Array.from(classificationData.values()), [classificationData]);
 
     const polarLabels = useMemo(() => 
         pieAreaLabels(filteredMonthlyStats), 

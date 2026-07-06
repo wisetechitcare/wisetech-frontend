@@ -9,6 +9,8 @@ export const CompanyDialogModal = ({
   onClose,
   statusId,
   companyTypeId,
+  serviceId,
+  subServiceId,
   locationId,
   contactByRolesId,
   startDate,
@@ -20,6 +22,8 @@ export const CompanyDialogModal = ({
   onClose: () => void;
   statusId?: string;
   companyTypeId?: string;
+  serviceId?: string;
+  subServiceId?: string;
   locationId?: string;
   contactByRolesId?: string;
   startDate?: Dayjs;
@@ -61,6 +65,8 @@ export const CompanyDialogModal = ({
             <ClientCompaniesMain
               statusId={statusId || undefined}
               companyTypeId={companyTypeId || undefined}
+              serviceId={serviceId || undefined}
+              subServiceId={subServiceId || undefined}
               locationId={locationId || undefined}
               startDate={startDate}
               endDate={endDate}

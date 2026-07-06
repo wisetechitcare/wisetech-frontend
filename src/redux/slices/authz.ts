@@ -3,19 +3,24 @@ import { fetchCapabilities } from '@services/auth';
 
 interface AuthzState {
   capabilities: string[];
+  blockedSections: string[];
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: AuthzState = {
   capabilities: [],
+  blockedSections: [],
   isLoading: false,
   error: null,
 };
 
 export const fetchAuthzCapabilities = createAsyncThunk('authz/fetchCapabilities', async () => {
   const response = await fetchCapabilities();
-  return response?.data?.capabilities || [];
+  return {
+    capabilities: response?.data?.capabilities || [],
+    blockedSections: response?.data?.blockedSections || [],
+  };
 });
 
 export const authzSlice = createSlice({
@@ -27,6 +32,7 @@ export const authzSlice = createSlice({
     },
     clearCapabilities: (state) => {
       state.capabilities = [];
+      state.blockedSections = [];
       state.error = null;
       state.isLoading = false;
     },
@@ -38,7 +44,8 @@ export const authzSlice = createSlice({
     });
     builder.addCase(fetchAuthzCapabilities.fulfilled, (state, action) => {
       state.isLoading = false;
-      state.capabilities = action.payload;
+      state.capabilities = action.payload.capabilities;
+      state.blockedSections = action.payload.blockedSections;
     });
     builder.addCase(fetchAuthzCapabilities.rejected, (state, action) => {
       state.isLoading = false;

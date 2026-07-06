@@ -1,4 +1,5 @@
 import React from "react";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -6,7 +7,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
 import { deleteClientContact, getAllClientContacts } from "@services/companies";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import ClientContactsForm from "./components/ClientContactsForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { getAllClientBranches } from "@services/lead";
@@ -14,6 +15,26 @@ import { getAllClientCompanies, getAllSubCompanies } from "@services/companies";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
+
+// All selectable contact-table column keys (must match the `accessorKey`s below).
+const CONTACT_COLUMN_KEYS = [
+  "company", "fullName", "role", "email", "phone", "branch",
+  "category", "createdAt", "updatedAt",
+];
+
+const computeContactFields = (
+  visibility?: Record<string, boolean>,
+): string[] | undefined => {
+  if (!visibility) return undefined;
+  const visible = CONTACT_COLUMN_KEYS.filter((k) => visibility[k] !== false);
+  return visible.length >= CONTACT_COLUMN_KEYS.length ? undefined : visible;
+};
+
+const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
+  Object.fromEntries(CONTACT_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
+
+const getFieldsKey = (fields: string[] | undefined): string =>
+  fields ? [...fields].sort().join(",") : "ALL";
 interface Props {
   contactByRolesId?: string;
   startDate?: Dayjs;
@@ -25,10 +46,13 @@ const ClientContactsMain = ({
   startDate,
   endDate,
 }: Props) => {
+  // Use the same id source as the (working) Companies table so table preferences
+  // (column visibility, sorting, page size, …) persist across reloads/login.
   const employeeId = useSelector(
-    (state: RootState) => state.auth.currentUser?.id,
+    (state: RootState) => state.employee.currentEmployee?.id,
   );
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const allEmployees = useSelector((state: RootState) => state.allEmployees?.list);
 
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
@@ -38,10 +62,19 @@ const ClientContactsMain = ({
   const [allCompanies, setAllCompanies] = useState<any>([]);
   const [allSubCompanies, setAllSubCompanies] = useState<any>([]);
   const [newContactModal, setNewContactModal] = useState(false);
-  const loadAllContacts = async () => {
+
+  // Column visibility & selective fetching
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadAllContacts = useCallback(async (fields?: string[]) => {
     try {
-      const contactsData = await getAllClientContacts();
-      const companiesData = await getAllClientCompanies();
+      // No pagination params → backend returns ALL contacts (passing pageSize
+      // flips it into paginated mode and caps the result).
+      const contactsData = await getAllClientContacts({}, false, fields);
+      const companiesData = await getAllClientCompanies(true);
 
       const contacts = contactsData?.data?.contacts || [];
       const companies = companiesData?.data?.companies || [];
@@ -71,7 +104,7 @@ const ClientContactsMain = ({
     } catch (error) {
       console.error("Error loading contacts:", error);
     }
-  };
+  }, []);
 
   const companyMap = useMemo(() => {
     const map = new Map();
@@ -90,12 +123,49 @@ const ClientContactsMain = ({
     allSubCompanies.forEach((s: any) => map.set(s.id, s));
     return map;
   }, [allSubCompanies]);
+
   useEventBus("clientContactUpdated", () => {
     loadAllContacts();
   });
+
   useEffect(() => {
     loadAllContacts();
+  }, [loadAllContacts]);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
   }, []);
+
+  // Handle column visibility changes and trigger selective refetch
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      // Pass the raw visible column accessorKeys; the backend gates heavy relations
+      // (services / sub-services) on these.
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        loadAllContacts(keys);
+      }, 500);
+    },
+    [loadAllContacts],
+  );
 
   const handleEditClick = (id: string) => {
     setEditingContactId(id);
@@ -125,36 +195,33 @@ const ClientContactsMain = ({
       {
         accessorKey: "profile",
         header: "Profile",
-        Cell: ({ row }) => {
-          const { profilePhoto } = row.original;
-          if (profilePhoto) {
-            return (
-              <img
-                src={profilePhoto}
-                alt=""
-                style={{ width: "33px", height: "33px", borderRadius: "50%" }}
-              />
-            );
-          }
-          return (
-            <div
-              className="rounded-circle bg-light d-flex align-items-center justify-content-center"
-              style={{
-                width: "33px",
-                height: "33px",
-                overflow: "hidden",
-              }}
-            >
-              <i className="fas fa-user text-muted fs-2"></i>
-            </div>
-          );
-        },
+        Cell: ({ row }) => (
+          <SmartAvatar
+            name={row.original.fullName}
+            id={row.original.id}
+            imageUrl={row.original.profilePhoto}
+            size={42}
+            imageFit="cover"
+            status={row.original.isContactActive === false ? "inactive" : "active"}
+          />
+        ),
       },
       {
         accessorKey: "fullName",
         header: "Full Name",
         Cell: ({ row }) => {
-          const { id } = row.original;
+          const { id, companyId, subCompanyId } = row.original;
+
+          // Resolve the contact's company name (same logic as the Company Name column)
+          // so it can be shown in brackets next to the full name.
+          let companyName = companyMap.get(companyId);
+          if (!companyName && subCompanyId) {
+            const subCompany = subCompanyMap.get(subCompanyId);
+            if (subCompany) {
+              const mainCompName = companyMap.get(subCompany.mainCompanyId);
+              companyName = `${mainCompName || "N/A"} (${subCompany.name})`;
+            }
+          }
 
           return (
             <button
@@ -169,6 +236,12 @@ const ClientContactsMain = ({
               }}
             >
               {row.original.fullName || "NA"}
+              {companyName ? (
+                <span style={{ color: "#9CA3AF", fontWeight: 500 }}>
+                  {" "}
+                  ({companyName})
+                </span>
+              ) : null}
             </button>
           );
         },
@@ -200,6 +273,19 @@ const ClientContactsMain = ({
       {
         accessorKey: "roleInCompany",
         header: "Role in Company",
+        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+      },
+      {
+        accessorKey: "services",
+        header: "Sub-services",
+        // Flatten the serviceMappings relation into a plain comma-separated string so the
+        // "Search in All Columns" global filter can match on it. (These Service rows are
+        // the new "Sub-services" after the 4-level → 3-level flatten.)
+        accessorFn: (row: any) =>
+          (row.serviceMappings || [])
+            .map((m: any) => m?.service?.name)
+            .filter(Boolean)
+            .join(", "),
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
@@ -245,6 +331,42 @@ const ClientContactsMain = ({
         accessorKey: "note",
         header: "Note",
         Cell: ({ cell }) => cell.getValue<string>() || "NA",
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "createdById",
+        header: "Created By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.createdById
+          );
+          return emp?.employeeName || "N/A";
+        },
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Last Edited Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "updatedById",
+        header: "Last Edited By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.updatedById
+          );
+          return emp?.employeeName || "N/A";
+        },
       },
       {
         accessorKey: "actions",
@@ -367,12 +489,14 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
       <MaterialTable
         columns={columns}
         data={filterData}
-        tableName="Client Contacts"
+        tableName="Client-Contacts"
         resource="CLIENT_CONTACTS"
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
         employeeId={employeeId}
+        defaultSorting={[{ id: "fullName", desc: false }]}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         muiTableProps={{
           sx: {
             borderCollapse: "separate",

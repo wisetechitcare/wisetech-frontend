@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useEffect, useMemo, useState } from "react";
 import CurrentYearOverview from "./CurrentYearOverview";
 import StatisticsOverview from "./StatisticsOverview";
@@ -37,7 +38,7 @@ const AttendanceGraphicalOverview: React.FC = () => {
                 try {
                     const { data: { configuration } } = await fetchConfiguration(DATE_SETTINGS_KEY);
                     const parsed = typeof configuration.configuration === "string"
-                        ? JSON.parse(configuration.configuration)
+                        ? safeJsonParse(configuration.configuration)
                         : configuration.configuration;
                     setDateSettingsEnabled(parsed?.useDateSettings ?? false);
                 } catch (err) {

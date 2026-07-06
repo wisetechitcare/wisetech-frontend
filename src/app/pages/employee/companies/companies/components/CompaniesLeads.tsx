@@ -29,7 +29,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
   
   useEffect(()=>{
     setLoading(true);
-    getAllClientContacts()
+    getAllClientContacts({}, true)
       .then((res) => setContacts(res.data.contacts || []))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -161,6 +161,7 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
     columns={columns}
     tableName="Company Leads"
     employeeId={employeeId}
+    defaultSorting={[{ id: "title", desc: false }]}
     muiTableProps={{
       sx: {
         borderCollapse: "separate",

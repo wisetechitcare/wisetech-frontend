@@ -2,7 +2,9 @@ import React from 'react';
 
 /**
  * Intelligent Search Filter for Material React Table.
- * Implements OR logic between keywords across all searchable fields.
+ * Implements AND logic between keywords: every keyword must appear somewhere in the row so a
+ * multi-word query narrows results instead of widening them.
+ * NOTE: this module is currently unused — the live copy is @app/utils/search.
  */
 export const intelligentSearchFilterFn = (row: any, id: string, filterValue: string): boolean => {
   if (!filterValue || filterValue.trim() === '') return true;
@@ -30,7 +32,7 @@ export const intelligentSearchFilterFn = (row: any, id: string, filterValue: str
 
   extractValues(rowData);
 
-  return keywords.some(keyword => 
+  return keywords.every(keyword =>
     searchableValues.some(val => val.includes(keyword))
   );
 };

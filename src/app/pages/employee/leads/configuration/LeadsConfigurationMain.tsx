@@ -10,6 +10,7 @@ import { deleteConfirmation } from "@utils/modal";
 import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
+import CategoryTreeExplorer from "./components/CategoryTreeExplorer";
 import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason } from "@models/leads";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "../../../../../hooks/useDeleteConfirmation";
@@ -31,6 +32,7 @@ import {
   KEYFRAMES,
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
+import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -162,197 +164,6 @@ const EmptyState: React.FC<{ label: string }> = ({ label }) => (
   }}>
     <i className="bi bi-inbox" style={{ fontSize: '28px', display: 'block', marginBottom: '8px', opacity: 0.4 }} />
     No {label} configured yet
-  </div>
-);
-
-// ─── SubChip (inline subcategory row) ────────────────────────────────────────
-
-const SubChip: React.FC<{ sub: ProjectItem; onEdit: () => void; onDelete: () => void }> = ({ sub, onEdit, onDelete }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '6px 10px', borderRadius: RADIUS.md,
-        backgroundColor: hov ? '#f7f8fa' : 'transparent',
-        transition: 'background 0.15s ease', cursor: 'default',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: sub.color || '#ccc', flexShrink: 0 }} />
-        <span style={{ fontFamily: FONT.body, fontWeight: 400, fontSize: '12.5px', color: C.textPrimary }}>{sub.name}</span>
-      </div>
-      <div style={{ display: 'flex', gap: '4px', opacity: hov ? 1 : 0, transition: 'opacity 0.15s ease' }}>
-        <button onClick={onEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4f82c4', padding: '2px 5px', borderRadius: RADIUS.sm, display: 'flex', alignItems: 'center' }}>
-          <i className="bi bi-pencil" style={{ fontSize: '10px' }} />
-        </button>
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, padding: '2px 5px', borderRadius: RADIUS.sm, display: 'flex', alignItems: 'center' }}>
-          <i className="bi bi-trash" style={{ fontSize: '10px' }} />
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ─── CategoryTreeItem ─────────────────────────────────────────────────────────
-
-interface CategoryTreeItemProps {
-  category: ProjectItem;
-  subcategories: ProjectItem[];
-  onCategoryEdit: () => void;
-  onCategoryDelete: () => void;
-  onSubcategoryEdit: (sub: ProjectItem) => void;
-  onSubcategoryDelete: (id: string) => void;
-  onAddSubcategory: () => void;
-  // spans both grid columns when expanded
-  gridColumn?: string;
-}
-
-const CategoryTreeItem: React.FC<CategoryTreeItemProps> = ({
-  category, subcategories,
-  onCategoryEdit, onCategoryDelete,
-  onSubcategoryEdit, onSubcategoryDelete, onAddSubcategory,
-}) => {
-  const [expanded, setExpanded] = useState(false);
-  const [hovCat, setHovCat] = useState(false);
-
-  return (
-    <div style={{
-      border: `1px solid ${hovCat ? '#d1d5e0' : '#eaecf0'}`,
-      borderRadius: RADIUS.md, overflow: 'hidden',
-      transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-      boxShadow: hovCat ? '0 2px 8px rgba(24,28,50,0.07)' : 'none',
-      position: 'relative',
-      // span both columns when expanded so subcategories can use full width
-      gridColumn: expanded ? '1 / -1' : undefined,
-    }}>
-      {/* Left color accent */}
-      <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '3px', backgroundColor: category.color || '#ccc' }} />
-
-      {/* Category header row — compact */}
-      <div
-        onMouseEnter={() => setHovCat(true)}
-        onMouseLeave={() => setHovCat(false)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          padding: '7px 10px 7px 16px',
-          backgroundColor: expanded ? '#f8f9fb' : '#fff',
-          cursor: 'default',
-        }}
-      >
-        <button
-          onClick={() => setExpanded(e => !e)}
-          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '1px 3px', borderRadius: RADIUS.sm, display: 'flex', alignItems: 'center', color: C.textMuted, flexShrink: 0 }}
-        >
-          <i className={`bi bi-chevron-${expanded ? 'down' : 'right'}`} style={{ fontSize: '10px' }} />
-        </button>
-
-        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: category.color || '#ccc', flexShrink: 0 }} />
-
-        <span style={{ fontFamily: FONT.body, fontWeight: 500, fontSize: '12.5px', color: C.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {category.name}
-        </span>
-
-        {subcategories.length > 0 && (
-          <span style={{
-            fontFamily: FONT.body, fontWeight: 600, fontSize: '10px',
-            backgroundColor: category.color ? category.color + '18' : '#f0f2f5',
-            color: category.color || C.textMuted,
-            borderRadius: RADIUS.full, padding: '1px 7px', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>
-            {subcategories.length}
-          </span>
-        )}
-
-        <div style={{ display: 'flex', gap: '2px', flexShrink: 0, opacity: hovCat ? 1 : 0, transition: 'opacity 0.15s ease' }}>
-          <button onClick={onAddSubcategory} title="Add subcategory"
-            style={{ background: 'none', border: 'none', borderRadius: RADIUS.sm, padding: '2px 5px', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center' }}>
-            <i className="bi bi-plus-lg" style={{ fontSize: '10px' }} />
-          </button>
-          <button onClick={onCategoryEdit}
-            style={{ background: 'none', border: 'none', borderRadius: RADIUS.sm, padding: '2px 5px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center' }}>
-            <i className="bi bi-pencil" style={{ fontSize: '10px' }} />
-          </button>
-          <button onClick={onCategoryDelete}
-            style={{ background: 'none', border: 'none', borderRadius: RADIUS.sm, padding: '2px 5px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center' }}>
-            <i className="bi bi-trash" style={{ fontSize: '10px' }} />
-          </button>
-        </div>
-      </div>
-
-      {/* Subcategories panel */}
-      {expanded && (
-        <div style={{ borderTop: '1px solid #f0f2f6', backgroundColor: '#fff', padding: '4px 10px 6px 36px' }}>
-          {subcategories.length === 0
-            ? (
-              <div style={{ padding: '6px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <i className="bi bi-dash" style={{ opacity: 0.4 }} />
-                No subcategories —
-                <button onClick={onAddSubcategory}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, fontFamily: FONT.body, fontSize: '11.5px', fontWeight: 500, padding: 0 }}>
-                  Add one
-                </button>
-              </div>
-            )
-            : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '2px' }}>
-                {subcategories.map(sub => (
-                  <SubChip
-                    key={sub.id} sub={sub}
-                    onEdit={() => onSubcategoryEdit(sub)}
-                    onDelete={() => onSubcategoryDelete(sub.id)}
-                  />
-                ))}
-              </div>
-            )
-          }
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── CategoryTree (2-column grid wrapper) ─────────────────────────────────────
-
-interface CategoryTreeProps {
-  categories: ProjectItem[];
-  subcategories: ProjectItem[];
-  onCategoryEdit: (cat: ProjectItem) => void;
-  onCategoryDelete: (id: string) => void;
-  onSubcategoryEdit: (sub: ProjectItem) => void;
-  onSubcategoryDelete: (id: string) => void;
-  onAddSubcategory: () => void;
-}
-
-const CategoryTree: React.FC<CategoryTreeProps> = ({
-  categories, subcategories,
-  onCategoryEdit, onCategoryDelete,
-  onSubcategoryEdit, onSubcategoryDelete, onAddSubcategory,
-}) => (
-  <div style={{
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gap: '4px',
-    marginTop: SP.md,
-    alignItems: 'start',
-  }}>
-    {categories.map(cat => {
-      const subs = sortItemsAlphabetically(subcategories.filter(s => s.categoryId === cat.id));
-      return (
-        <CategoryTreeItem
-          key={cat.id}
-          category={cat}
-          subcategories={subs}
-          onCategoryEdit={() => onCategoryEdit(cat)}
-          onCategoryDelete={() => onCategoryDelete(cat.id)}
-          onSubcategoryEdit={onSubcategoryEdit}
-          onSubcategoryDelete={onSubcategoryDelete}
-          onAddSubcategory={onAddSubcategory}
-        />
-      );
-    })}
   </div>
 );
 
@@ -876,6 +687,9 @@ const LeadsConfigurationMain = () => {
               }
             </ConfigSectionCard>
 
+            {/* Project Points — dynamic master templates */}
+            <ProjectPointsConfigSection />
+
             {/* Project Categories & Subcategories — tree view */}
             <ConfigSectionCard
               title="Project Categories & Subcategories"
@@ -899,8 +713,8 @@ const LeadsConfigurationMain = () => {
               {projectCategories.length === 0
                 ? <EmptyState label="categories" />
                 : (
-                  <CategoryTree
-                    categories={sortItemsAlphabetically(projectCategories)}
+                  <CategoryTreeExplorer
+                    categories={projectCategories}
                     subcategories={projectSubcategories}
                     onCategoryEdit={handleCategoryEdit}
                     onCategoryDelete={handleCategoryDelete}

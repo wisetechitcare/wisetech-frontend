@@ -73,6 +73,14 @@ import {
   exportLeadPdf,
 } from "@services/leads";
 import { uploadUserAsset } from "@services/uploader";
+import { ProjectPointsSection } from "@app/modules/projectPoints";
+import {
+  getLeadProjectPoints,
+  getActiveProjectPointMasters,
+  saveLeadProjectPoints,
+  buildInitialPointRowsFromMasters,
+  type ProjectPointValue,
+} from "@services/projectPoints";
 import {
   customConfirmation,
   errorConfirmation,
@@ -331,7 +339,7 @@ const LeadFormModal = ({
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
 
   useEffect(() => {
-    getAllLeads()
+    getAllLeads({ pageSize: 500 })
       .then((res: any) => setExistingLeads(res?.data?.leads || res?.data?.data?.leads || res?.leads || res?.data || res || []))
       .catch(() => { });
   }, []);
@@ -800,12 +808,6 @@ const LeadFormModal = ({
         builtUpArea: "",
         builtUpAreaUnit: "sqft",
         buildingDetail: "",
-        otherPoint1Heading: "",
-        otherPoint1Description: "",
-        otherPoint2Heading: "",
-        otherPoint2Description: "",
-        otherPoint3Heading: "",
-        otherPoint3Description: "",
         exportTemplate: "placeholder.docx", // Default template
         revision_number: "01",
 
@@ -1173,15 +1175,6 @@ const LeadFormModal = ({
       builtUpArea: leadData.additionalDetails?.builtUpArea || "",
       builtUpAreaUnit: leadData.additionalDetails?.builtUpAreaUnit || "sqft",
       buildingDetail: leadData.additionalDetails?.buildingDetail || "",
-      otherPoint1Heading: leadData.additionalDetails?.otherPoint1Heading || "",
-      otherPoint1Description:
-        leadData.additionalDetails?.otherPoint1Description || "",
-      otherPoint2Heading: leadData.additionalDetails?.otherPoint2Heading || "",
-      otherPoint2Description:
-        leadData.additionalDetails?.otherPoint2Description || "",
-      otherPoint3Heading: leadData.additionalDetails?.otherPoint3Heading || "",
-      otherPoint3Description:
-        leadData.additionalDetails?.otherPoint3Description || "",
 
       // Additional fields for web-dev type
       ...(leadTemplateId?.toString() ===
@@ -1238,9 +1231,32 @@ const LeadFormModal = ({
   };
 
   // Form initial values - memoized, rebuilds whenever lead data is fetched
+  // ── Project Points (dynamic, replaces the hardcoded Other Point 1/2/3 fields) ──
+  // New lead  → seed editable rows from the active master templates.
+  // Edit lead → load the lead's previously-saved point values.
+  const [projectPoints, setProjectPoints] = useState<ProjectPointValue[]>([]);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        if (isEditMode && initialFormData?.id) {
+          const res = await getLeadProjectPoints(initialFormData.id);
+          if (active) setProjectPoints(res?.points ?? []);
+        } else {
+          const res = await getActiveProjectPointMasters();
+          if (active) setProjectPoints(buildInitialPointRowsFromMasters(res?.points ?? []));
+        }
+      } catch (e) {
+        console.error("Error loading project points:", e);
+        if (active) setProjectPoints([]);
+      }
+    })();
+    return () => { active = false; };
+  }, [isEditMode, initialFormData?.id]);
+
   const initialValues = useMemo(() => {
-    return buildInitialValues(currLeadData);
-  }, [currLeadData, initialFormData?.id, isEditMode]);
+    return { ...buildInitialValues(currLeadData), projectPoints };
+  }, [currLeadData, initialFormData?.id, isEditMode, projectPoints]);
 
   // console.log("Form initial values:", initialValues);
 
@@ -2609,24 +2625,8 @@ const LeadFormModal = ({
         ...(formData.buildingDetail !== undefined && {
           buildingDetail: formData.buildingDetail,
         }),
-        ...(formData.otherPoint1Heading !== undefined && {
-          otherPoint1Heading: formData.otherPoint1Heading,
-        }),
-        ...(formData.otherPoint1Description !== undefined && {
-          otherPoint1Description: formData.otherPoint1Description,
-        }),
-        ...(formData.otherPoint2Heading !== undefined && {
-          otherPoint2Heading: formData.otherPoint2Heading,
-        }),
-        ...(formData.otherPoint2Description !== undefined && {
-          otherPoint2Description: formData.otherPoint2Description,
-        }),
-        ...(formData.otherPoint3Heading !== undefined && {
-          otherPoint3Heading: formData.otherPoint3Heading,
-        }),
-        ...(formData.otherPoint3Description !== undefined && {
-          otherPoint3Description: formData.otherPoint3Description,
-        }),
+        // Other Point 1/2/3 are replaced by the dynamic Project Points system,
+        // persisted separately via saveLeadProjectPoints() after the lead is saved.
       },
       // Also include addresses array for backend compatibility
       addresses: mappedAddresses || [],
@@ -2736,6 +2736,11 @@ const LeadFormModal = ({
         if (res?.hasError) {
           errorConfirmation("Failed to update lead. Please try again.");
         } else {
+          try {
+            await saveLeadProjectPoints(finalCleanPayload.id, formData.projectPoints || []);
+          } catch (ppErr) {
+            console.error("Failed to save project points:", ppErr);
+          }
           successConfirmation("Lead Updated successfully!");
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
           if (onClose) onClose();
@@ -2745,6 +2750,11 @@ const LeadFormModal = ({
         if (res?.hasError) {
           errorConfirmation("Failed to create lead. Please try again.");
         } else {
+          try {
+            if (res?.id) await saveLeadProjectPoints(res.id, formData.projectPoints || []);
+          } catch (ppErr) {
+            console.error("Failed to save project points:", ppErr);
+          }
           eventBus.emit(EVENT_KEYS.leadCreated, { id: res.id });
           successConfirmation("Lead created successfully!");
           if (onClose) onClose();
@@ -3154,7 +3164,7 @@ const LeadFormModal = ({
                                 }}
                               >
                                 <div className="ms-5" style={{ borderTop: "1px solid #9D4141", width: "30px", height: "0px" }}></div>
-                                TEAM DETAILS
+                                ADDRESSING TO 
                               </legend>
 
                               <FieldArray name="leadTeams">
@@ -3178,8 +3188,15 @@ const LeadFormModal = ({
                                         return (
                                           <div
                                             key={index}
-                                            className="card-body card responsive-card p-md-10 p-3 mb-3"
-                                            style={{ position: 'relative' }}
+                                            className="mb-3"
+                                            style={{
+                                              position: 'relative',
+                                              background: '#fff',
+                                              border: '1px solid #e8e0e0',
+                                              borderRadius: '10px',
+                                              padding: '20px 20px 12px',
+                                              boxShadow: '0 1px 4px rgba(157,65,65,0.07)',
+                                            }}
                                           >
                                             <Row>
                                               <Col md={3}>
@@ -3278,13 +3295,24 @@ const LeadFormModal = ({
                                             {values.leadTeams.length > 1 && (
                                               <div
                                                 onClick={() => remove(index)}
+                                                title="Remove"
                                                 style={{
                                                   cursor: "pointer",
                                                   color: "#9D4141",
-                                                  fontSize: "20px",
+                                                  fontSize: "16px",
+                                                  fontWeight: 700,
+                                                  lineHeight: 1,
                                                   position: "absolute",
-                                                  right: "15px",
-                                                  top: "5px",
+                                                  right: "12px",
+                                                  top: "10px",
+                                                  width: "24px",
+                                                  height: "24px",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  justifyContent: "center",
+                                                  borderRadius: "50%",
+                                                  border: "1px solid #e8d4d4",
+                                                  background: "#fdf5f5",
                                                 }}
                                               >
                                                 ×
@@ -3308,11 +3336,16 @@ const LeadFormModal = ({
                                       style={{
                                         cursor: "pointer",
                                         color: "#9D4141",
-                                        border: "1px dotted #9D4141",
-                                        borderRadius: "5px",
-                                        padding: "8px 10px",
+                                        border: "1.5px dashed #c9898980",
+                                        borderRadius: "8px",
+                                        padding: "10px 16px",
                                         textAlign: "center",
-                                        marginTop: "10px",
+                                        marginTop: "12px",
+                                        fontSize: "13px",
+                                        fontWeight: 600,
+                                        letterSpacing: "0.02em",
+                                        background: "#fdf8f8",
+                                        transition: "background 0.15s",
                                       }}
                                       className="justify-content-center align-items-center"
                                     >
@@ -3582,183 +3615,14 @@ const LeadFormModal = ({
                             />
                           </Grid>
 
-                          {/* Other Points header */}
+                          {/* Project Points — dynamic, replaces hardcoded Other Point 1/2/3 */}
                           <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-center"
-                              style={{ gap: "8px", marginBottom: "4px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  fontWeight: 500,
-                                  fontSize: "13px",
-                                  color: "#555",
-                                  fontFamily: "Inter",
-                                }}
-                              ></div>
-                              <div
-                                style={{
-                                  flex: 1,
-                                  fontWeight: 600,
-                                  fontSize: "13px",
-                                  color: "#444",
-                                  fontFamily: "Inter",
-                                }}
-                              >
-                                Heading
-                              </div>
-                              <div
-                                style={{
-                                  flex: 2,
-                                  fontWeight: 600,
-                                  fontSize: "13px",
-                                  color: "#444",
-                                  fontFamily: "Inter",
-                                }}
-                              >
-                                Description
-                              </div>
-                            </div>
+                            <ProjectPointsSection
+                              value={values.projectPoints || []}
+                              onChange={(rows) => setFieldValue("projectPoints", rows)}
+                            />
                           </Grid>
 
-                          {/* Other Point 1 */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-start"
-                              style={{ gap: "8px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  paddingTop: "10px",
-                                  fontWeight: 500,
-                                  fontSize: "14px",
-                                  color: "#333",
-                                  fontFamily: "Inter",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Other Point - 1
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint1Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint1Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 2 */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-start"
-                              style={{ gap: "8px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  paddingTop: "10px",
-                                  fontWeight: 500,
-                                  fontSize: "14px",
-                                  color: "#333",
-                                  fontFamily: "Inter",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Other Point - 2
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint2Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint2Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
-
-                          {/* Other Point 3 */}
-                          <Grid item xs={12}>
-                            <div
-                              className="d-flex align-items-start"
-                              style={{ gap: "8px" }}
-                            >
-                              <div
-                                style={{
-                                  width: "110px",
-                                  paddingTop: "10px",
-                                  fontWeight: 500,
-                                  fontSize: "14px",
-                                  color: "#333",
-                                  fontFamily: "Inter",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Other Point - 3
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Field name="otherPoint3Heading">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Heading"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                              <div style={{ flex: 2 }}>
-                                <Field name="otherPoint3Description">
-                                  {({ field }: { field: any }) => (
-                                    <input
-                                      {...field}
-                                      type="text"
-                                      className="employee__form_wizard__input form-control"
-                                      placeholder="Description"
-                                    />
-                                  )}
-                                </Field>
-                              </div>
-                            </div>
-                          </Grid>
                         </Grid>
                       </fieldset>
 

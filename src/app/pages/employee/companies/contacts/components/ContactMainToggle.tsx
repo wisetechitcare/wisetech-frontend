@@ -1,22 +1,26 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { getClientContactById } from "@services/companies";
 import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
 import { useEventBus } from "@hooks/useEventBus";
-import ContactLeadsOverview from "./ContactLeadsOverview";
 import ContactOverview from "./ContactOverview";
 import ContactProject from "./ContactProject";
 import ClientContactsForm from "./ClientContactsForm";
+import ContactLeadReferenceTab from "./ContactLeadReferenceTab";
+import CompanyReferences from "../../companies/components/CompanyReferences";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
-type TabType = "overview" | "leads" | "projects";
+type TabType = "overview" | "lead-reference" | "company-references" | "projects";
 
 const ContactMainToggle = () => {
   const { contactId } = useParams<{ contactId: string }>();
   // console.log("idd", contactId);
 
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [contact, setContact] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [show, setShow] = useState(false);
@@ -47,7 +51,8 @@ const ContactMainToggle = () => {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "leads", label: "Leads" },
+    { key: "lead-reference", label: "Lead Reference" },
+    { key: "company-references", label: "Company References" },
     { key: "projects", label: "Projects" },
   ];
 
@@ -57,8 +62,11 @@ const ContactMainToggle = () => {
     switch (activeTab) {
       case "overview":
         return <ContactOverview contact={contact} />;
-      case "leads":
-        return <ContactLeadsOverview contact={contact}/>
+      case "lead-reference":
+        return <ContactLeadReferenceTab referrals={contact?.referrals} />;
+      case "company-references":
+        // Companies this contact referred (it is the external referrer).
+        return <CompanyReferences referredCompanies={contact?.companyReferences} />;
       case "projects":
         return <ContactProject contact={contact}/>;
       default:
@@ -96,7 +104,12 @@ const ContactMainToggle = () => {
   return (
     <div className="p-2 p-md-4">
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-md-0">
+      <div
+        className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-md-0 px-2 px-md-3"
+        style={{
+          borderRadius: 14,
+        }}
+      >
         <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
           <button
             className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
@@ -123,6 +136,17 @@ const ContactMainToggle = () => {
               className="d-none d-md-block"
             />
           </button>
+          {/* Smart, brand-aware contact avatar (photo colour ring + glow, or a
+              deterministic generated avatar when there's no photo). */}
+          <SmartAvatar
+            name={contact.fullName}
+            id={contact.id}
+            imageUrl={contact.profilePhoto}
+            size={80}
+            imageFit="cover"
+            status={contact.isContactActive === false ? "inactive" : "active"}
+            enablePreview
+          />
           <div className="flex-grow-1">
             <div className="text-muted small">Contact #{contact.id}</div>
             <div className="d-flex align-items-center gap-2">

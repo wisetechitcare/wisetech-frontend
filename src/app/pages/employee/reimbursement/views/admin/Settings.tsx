@@ -1,6 +1,7 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { C, BTN, RADIUS, FONT } from "@app/modules/configuration";
 import {
   IReimbursementType,
   IReimbursementTypeCreate,
@@ -20,6 +21,8 @@ import { MRT_ColumnDef } from "material-react-table";
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal } from "react-bootstrap";
 import { useSelector } from "react-redux";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
 
@@ -28,11 +31,17 @@ import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
 const reimbursementTypeSchema = Yup.object({
   type: Yup.string().required().label("Name"),
   icon: Yup.string().label("Icon"),
+  amountLimit: Yup.number()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v))
+    .min(0, "Amount Limit must be 0 or greater")
+    .label("Amount Limit"),
 });
 
-let initialState = {
+let initialState: { type: string; icon: string; amountLimit: number | null } = {
   type: "",
   icon: "",
+  amountLimit: null,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -149,6 +158,8 @@ function Settings() {
   const [fetchAgain, setFetchAgain] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
 
+  useEventBus(EVENT_KEYS.reimbursementChanged, () => { setFetchAgain((prev) => !prev); });
+
   // We track the Formik setFieldValue separately so the icon picker can write to Formik
   const formikSetFieldRef = React.useRef<((field: string, value: any) => void) | null>(null);
   const [previewIconValue, setPreviewIconValue] = useState<string>("");
@@ -174,7 +185,7 @@ function Settings() {
   };
 
   const handleNew = () => {
-    initialState = { type: "", icon: "" };
+    initialState = { type: "", icon: "", amountLimit: null };
     setPreviewIconValue("");
     setSelectedReimbursement(null);
     setShow(true);
@@ -197,6 +208,7 @@ function Settings() {
         ...values,
         type: values.type,
         icon: values.icon,
+        amountLimit: values.amountLimit ?? null,
       };
 
       if (editMode && selectedReimbursement) {
@@ -245,7 +257,7 @@ function Settings() {
       {
         accessorKey: "icon",
         header: "Icon",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => (
           <IconCell value={renderedCellValue} />
@@ -254,9 +266,17 @@ function Settings() {
       {
         accessorKey: "type",
         header: "Name",
-        enableSorting: false,
+        enableSorting: true,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      },
+      {
+        accessorKey: "amountLimit",
+        header: "Amount Limit",
+        enableSorting: true,
+        enableColumnActions: false,
+        Cell: ({ renderedCellValue }: any) =>
+          renderedCellValue != null ? `₹${Number(renderedCellValue).toLocaleString("en-IN")}` : "N/A",
       },
       ...(isAdmin
         ? [
@@ -300,16 +320,14 @@ function Settings() {
 
   return (
     <>
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <h2>Reimbursement Categories</h2>
-        <div className="d-flex justify-content-end align-items-center pe-4">
-          <button
-            className="btn btn-lg btn-primary d-flex align-items-center fs-5"
-            onClick={handleNew}
-          >
-            Add New Category
-          </button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+        <button
+          style={{ ...BTN.primary, fontSize: '13.5px', padding: '9px 18px' }}
+          onClick={handleNew}
+        >
+          <i className="bi bi-plus-lg" style={{ fontSize: '14px' }} />
+          Add New Category
+        </button>
       </div>
 
       <MaterialTable
@@ -362,9 +380,36 @@ function Settings() {
                       <TextInput
                         isRequired={true}
                         label="Enter Name"
-                        margin="mb-7"
+                        margin="mb-3"
                         formikField="type"
                       />
+                      {/* Amount Limit field */}
+                      <div className="d-flex flex-column fv-row mb-7">
+                        <label className="d-flex align-items-center fs-6 form-label mb-2">
+                          <span>Amount Limit</span>
+                        </label>
+                        <input
+                          // type="number"
+                          min={0}
+                          name="amountLimit"
+                          placeholder=""
+                          value={formikProps.values.amountLimit ?? ""}
+                          onChange={(e) =>
+                            formikProps.setFieldValue(
+                              "amountLimit",
+                              e.target.value === "" ? null : Number(e.target.value)
+                            )
+                          }
+                          onBlur={formikProps.handleBlur}
+                          className={`form-control${formikProps.touched.amountLimit && formikProps.errors.amountLimit ? " is-invalid" : ""}`}
+                          style={{ height: 44 }}
+                        />
+                        {formikProps.touched.amountLimit && formikProps.errors.amountLimit && (
+                          <div className="fv-plugins-message-container mt-1">
+                            <div className="fv-help-block">{formikProps.errors.amountLimit as string}</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Icon picker field */}

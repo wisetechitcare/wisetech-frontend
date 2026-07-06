@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { CUSTOM_SALARY, DEDUCTIONS, GROSS_PAY, LEAVE_MANAGEMENT, SANDWICH_LEAVE_KEY } from '@constants/configurations-key';
@@ -392,6 +393,9 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const [employeeReimbursements, setEmployeeReimbursements] = useState([]);
     const userId = employee.userId;
     const employeeId = employee?.id;
+    // Scope the display's per-day shifts to the viewed employee so they match payroll
+    // (branch override → org → global). No scoped shift = global (unchanged).
+    const shiftScope = { companyId: (employee as any)?.companyId, branchId: (employee as any)?.branchId };
     const dateOfJoining = dayjs(new Date(employee.dateOfJoining));
     const [startDateForDaysCount, setStartDateForDaysCount] = useState<Dayjs>()
     const [endDateOdDaysCount, setEndDateOdDaysCount] = useState<Dayjs>()
@@ -775,7 +779,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -783,7 +787,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     // const publicHolidays = donutaDataLabel(stats);
     // const publicHolidays = useSelector((state:RootState)=>state.attendanceStats.filteredPublicHolidays)
@@ -1344,7 +1348,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 const response = await fetchConfiguration(GROSS_PAY, monthStart, monthEnd);
                 console.log("Fallback API response:", response);
 
-                const jsonObject = JSON.parse(response.data.configuration.configuration);
+                const jsonObject = safeJsonParse(response.data.configuration.configuration);
                 setGrossDistributionData(jsonObject);
 
                 // Transform data for form initial values
@@ -1622,15 +1626,15 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                 fetchConfiguration(LEAVE_MANAGEMENT, monthStart, monthEnd)
             ]);
 
-            const jsonObjectGrossPay = JSON.parse(grossPayConfiguration.data.configuration.configuration);
-            const jsonObjectCustom = JSON.parse(customConfiguration.data.configuration.configuration);
-            const jsonObjectDeductions = JSON.parse(deductionsConfiguration.data.configuration.configuration);
+            const jsonObjectGrossPay = safeJsonParse(grossPayConfiguration.data.configuration.configuration);
+            const jsonObjectCustom = safeJsonParse(customConfiguration.data.configuration.configuration);
+            const jsonObjectDeductions = safeJsonParse(deductionsConfiguration.data.configuration.configuration);
             console.log("jsonObjectGrossPay:: ", jsonObjectGrossPay);
             console.log("jsonObjectCustom:: ", jsonObjectCustom);
             console.log("jsonObjectDeductions:: ", jsonObjectDeductions);
 
-            const jsonObjectSandwhich = JSON.parse(sandwhichConfiguration.data.configuration.configuration);
-            const jsonObjectLeave = JSON.parse(leaveConfiguration.data.configuration.configuration);
+            const jsonObjectSandwhich = safeJsonParse(sandwhichConfiguration.data.configuration.configuration);
+            const jsonObjectLeave = safeJsonParse(leaveConfiguration.data.configuration.configuration);
 
             setAllowancesDeduct(jsonObjectGrossPay);
             setDeductionsRule(jsonObjectDeductions);

@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { Polar, ProgessBar, ReportsTable, StatisticsTable, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { resourseAndView } from '@models/company';
@@ -5,6 +6,7 @@ import { RootState } from '@redux/store';
 import { fetchConfiguration } from '@services/company';
 import { calculateDuration, convertToTimeZone, formatTime } from '@utils/date';
 import { shouldShowBranchSetupGuide } from '@utils/shouldShowBranchSetupGuide';
+import { parseWorkingDays } from '@utils/workingDays';
 import { currentDayWorkingHours, fetchEmpDailyStatistics, filterLeavesPublicHolidays, formatDisplay, pieAreaData, pieAreaLabels, todayProgressPercent } from '@utils/statistics';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -26,13 +28,24 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const selectedEmployeeId = useSelector((state: RootState) => fromAdmin ? state.employee.selectedEmployee?.id : state.employee.currentEmployee.id);
 
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
+
+    // Resolve the VIEWED employee's org/branch (selected when an admin views someone) so the
+    // working-time config is THEIR branch's, not the logged-in user's.
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
 
     const dailyStats = useSelector((state: RootState) => {
         const { attendanceStats } = state;
@@ -63,8 +76,8 @@ const Daily = ({ day, fromAdmin = false, resourseAndView, checkOwnWithOthers = f
 
     // get working hours
     const fetchWorkingHours = async () => {
-        const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const jsonObject = JSON.parse(configuration.configuration.configuration);
+        const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
+        const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
         const totalWorkingHoursString = jsonObject["Working time"];
 

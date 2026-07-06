@@ -3,6 +3,7 @@ export type AppEventMap = {
     userRaisedRequestSubmitted: { formId: string }; 
     weekendColor: { color: string }; 
     reimbursementRecords: { records: any };
+    reimbursementChanged: { action: string; employeeId?: string };
     holidayUpdated: { id: string };
     holidayDeleted: { id: string };
     leadStatusCreated: { id: string };
@@ -38,6 +39,7 @@ export type AppEventMap = {
     contactStatusCreated: { id: string };
     contactStatusUpdated: { id: string };
     contactStatusDeleted: { id: string };
+    subServiceCreated: { id: string };
     companyCreated: { id: string };
     companyServiceCreated: { id: string };
     companyServiceUpdated: { id: string };
@@ -95,6 +97,8 @@ export type AppEventMap = {
     faqUpdated: { id: string };
     faqDeleted: { id: string };
     dashboardSettingsUpdated: { sections: any[] };
+    biometricDeviceUpdated: { branchIds?: string[] };
+    attendanceUpdated: { date?: string; employeeId?: string; branchIds?: string[]; source?: string };
   };
 
   export type AppEventKey = keyof AppEventMap;
@@ -103,6 +107,7 @@ export type AppEventMap = {
     userRaisedRequestSubmitted: 'userRaisedRequestSubmitted',
     weekendColor: 'weekendColor',
     reimbursementRecords: 'reimbursementRecords',
+    reimbursementChanged: 'reimbursementChanged',
     holidayUpdated: 'holidayUpdated',
     holidayDeleted: 'holidayDeleted',
     leadStatusCreated: 'leadStatusCreated',
@@ -138,6 +143,7 @@ export type AppEventMap = {
     contactStatusCreated: 'contactStatusCreated',
     contactStatusUpdated: 'contactStatusUpdated',
     contactStatusDeleted: 'contactStatusDeleted',
+    subServiceCreated: 'subServiceCreated',
     companyCreated: 'companyCreated',
     companyServiceCreated: 'companyServiceCreated',
     companyServiceUpdated: 'companyServiceUpdated',
@@ -195,5 +201,7 @@ export type AppEventMap = {
     faqUpdated: 'faqUpdated',
     faqDeleted: 'faqDeleted',
     dashboardSettingsUpdated: 'dashboardSettingsUpdated',
+    biometricDeviceUpdated: 'biometricDeviceUpdated',
+    attendanceUpdated: 'attendanceUpdated',
 
   };

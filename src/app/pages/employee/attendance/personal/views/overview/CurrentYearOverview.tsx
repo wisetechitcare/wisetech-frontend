@@ -1,9 +1,10 @@
 import { EXTRA_DAYS, LATE_CHECKIN, PRESENT } from '@constants/statistics';
 import { Attendance, CustomLeaves } from '@models/employee';
 import { RootState, store } from '@redux/store';
-import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves } from '@services/employee';
+import { parseWorkingDays } from '@utils/workingDays';
+import { fetchAttendanceClassification, fetchEmployeeLeaveBalance, fetchEmployeeLeaves } from '@services/employee';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
-import { donutaDataLabel, getWorkingDaysInRange, getWorkingDaysInYear, multipleRadialBarData, totalWorkingTime } from '@utils/statistics';
+import { donutaDataLabel, getWorkingDaysInRange, getWorkingDaysInYear, totalWorkingTime } from '@utils/statistics';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Row, Col, Image } from 'react-bootstrap';
@@ -26,14 +27,18 @@ interface CurrentYearOverviewProps {
 const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, showLevesColumn, startDate, endDate, fiscalYearDisplay, fromAdmin }) => {
     const checkInCheckOut = useSelector((state: RootState) => state.attendance.openModal);
     const holidays = useSelector((state: RootState) => state.attendanceStats.filteredPublicHolidays);  
-    const weekends = store.getState().employee.currentEmployee.branches?.workingAndOffDays;
+    // Weekends/working days must follow the VIEWED employee (selected when admin), not the
+    // logged-in user — otherwise the working-days count uses the admin's branch weekoffs.
+    const weekends = fromAdmin
+        ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
+        : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
     const leaveManagement = store.getState().featureConfiguration?.leaveManagement;
     const disableLunchTimeDeduction = store.getState().featureConfiguration?.disableLaunchDeductionTime;
 
     const lunchTime = leaveManagement?.["Lunch Time"];
-    const allWeekends = JSON.parse(weekends || "{}");  
-    const presentDay = donutaDataLabel(yearlyStats).get(PRESENT);
-    const extraDay = donutaDataLabel(yearlyStats).get(EXTRA_DAYS);
+    const allWeekends = parseWorkingDays(weekends);
+    const presentDay = donutaDataLabel(yearlyStats, [], [], fromAdmin).get(PRESENT);
+    const extraDay = donutaDataLabel(yearlyStats, [], [], fromAdmin).get(EXTRA_DAYS);
     
     
     const totalWorkingDay = getWorkingDaysInRange(dayjs(startDate), dayjs(endDate), true, allWeekends, holidays );
@@ -49,16 +54,25 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     const selectedEmployeeId = useSelector((state: RootState) => state.employee.selectedEmployee?.id);
     const currentEmployeeId = useSelector((state:RootState) => state?.employee?.currentEmployee?.id);
 
+    // Resolve the viewed employee's org/branch so the display's per-day shifts match what
+    // payroll uses (branch override → org → global). No scoped shift = global (unchanged).
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
+
     const [totalLeavesCount, setTotalLeavesCount] = useState(0);
     const [leaveBalances, setLeaveBalances] = useState<number>(0);
     const [leavesTaken, setLeavesTaken] = useState(0);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
+    const [lateCheckIns, setLateCheckIns] = useState<number>(0);
     const dispatch = useDispatch();
 
-    // const totalMinutes = totalWorkingTime(yearlyStats);
     const totalWorkedTime = calculateTotalDuration(yearlyStats);
-
-    const lateCheckIns = multipleRadialBarData(yearlyStats, dayWiseShifts).get(LATE_CHECKIN);
 
     useEffect(() => {
         async function fetchLeaves() {
@@ -86,7 +100,7 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -94,7 +108,16 @@ const CurrentYearOverview: React.FC<CurrentYearOverviewProps> = ({ yearlyStats, 
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
+
+    // Fetch late check-in count from backend (scoped config — matches salary deductions).
+    useEffect(() => {
+        const employeeId = (selectedEmployeeId && selectedEmployeeId !== '' && fromAdmin) ? selectedEmployeeId : currentEmployeeId;
+        if (!employeeId || !startDate || !endDate) return;
+        fetchAttendanceClassification(employeeId, startDate, endDate)
+            .then(({ data: c }) => setLateCheckIns(c.lateCheckins))
+            .catch(console.error);
+    }, [selectedEmployeeId, currentEmployeeId, fromAdmin, startDate, endDate]);
 
    const fetchEmployeeLeaveBlance = async () => {
     if(!selectedEmployeeId) return;

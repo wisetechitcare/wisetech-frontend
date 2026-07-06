@@ -8,7 +8,7 @@ import { StepperComponent } from "@metronic/assets/ts/components";
 import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
-import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD } from "./steps/Step2";
+import Step2, { NAV_SECTIONS, COMPLETION_FNS, SECTION_OF_FIELD, ALL_SECTION_IDS } from "./steps/Step2";
 import ObSectionsSidebar from "./steps/ObSectionsSidebar";
 import Step3 from "./steps/Step3";
 import Step4 from "./steps/Step4";
@@ -434,6 +434,7 @@ const initialState = {
   professionalFeesPercentage: "", professionalFeesType: "FIXED",
   tds2Enabled: "false", tds2Type: "FIXED", tds2Amount: "", tds2Percentage: "",
   isHiddenFromStaff: false,
+  reimbursementLimitPerRequest: "",
 };
 
 const newEmployeeWizardBreadcrumb: Array<PageLink> = [
@@ -493,6 +494,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     professionalFeesEnabled, professionalFeesAmount,
     professionalFeesPercentage, professionalFeesType, isHiddenFromStaff,
     tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
+    reimbursementLimitPerRequest: reimbLimitNew,
   } = values;
 
   let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -549,14 +551,16 @@ const saveNewEmployee = async (values: any, userId: string) => {
     ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
     ...(employeeLevelId && { employeeLevelId }),
     ...(allowOverTime && { allowOverTime }),
-    ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
+    // Leave Settings section removed — no longer needed
+    // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
     ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
     ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
     isHiddenFromStaff: isHiddenFromStaff === true,
+    reimbursementLimitPerRequest: (reimbLimitNew !== "" && reimbLimitNew != null && !isNaN(Number(reimbLimitNew))) ? Number(reimbLimitNew) : null,
   };
 
   Object.keys(employee).forEach((key) => {
-    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
+    if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
     if (!employee[key] && employee[key] !== 0 && employee[key] !== false) delete employee[key];
   });
   if (!employee.employeeTypeConfigId) delete employee.employeeTypeConfigId;
@@ -684,6 +688,24 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const [defaultState, setDefaultState] = useState(initialState);
   const [activeSection, setActiveSection] = useState("personal-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ordered left-hand sections per top step. The floating "Continue" button walks the sections
+  // of WHATEVER step you're on (not only step 1) before advancing to the next step. Keep these
+  // in sync with each step component's own `sections` list.
+  const STEP_SECTIONS: Record<number, string[]> = {
+    1: ALL_SECTION_IDS,
+    2: ["employee_info", "contact_info", "hiring_info", "work_experience"],
+    3: ["reporting", "financial", "access", "privacy"],
+    4: ["upload_docs"],
+  };
+
+  // When the top step changes, snap to that step's FIRST section (unless we're already on a
+  // section that belongs to the new step), so every step opens at its start.
+  useEffect(() => {
+    const sections = STEP_SECTIONS[activeStepIndex] ?? ["personal-info"];
+    setActiveSection((prev) => (sections.includes(prev) ? prev : sections[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStepIndex]);
   const [mobileProfilePhotoPreview, setMobileProfilePhotoPreview] = useState("");
   const [sidebarProfileHasAppeared, setSidebarProfileHasAppeared] = useState(false);
   const [sidebarProfileShouldAnimate, setSidebarProfileShouldAnimate] = useState(false);
@@ -813,16 +835,17 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   const prevStep = () => {
     if (activeStepIndex <= 1) return;
+    let targetStep: number;
     if (stepper) {
       stepper.goPrev();
-      setActiveStepIndex(stepper.currentStepIndex);
-      setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+      targetStep = stepper.currentStepIndex;
     } else {
-      const prev = activeStepIndex - 1;
-      setActiveStepIndex(prev);
-      setCurrentSchema(newEmployeeWizardSchema[prev - 1]);
+      targetStep = activeStepIndex - 1;
     }
-    if (activeStepIndex === 2) setActiveSection("personal-info");
+    setActiveStepIndex(targetStep);
+    setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+    // Land on the target step's first section (shared activeSection across all steps).
+    setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
     scrollWizardToTop();
   };
 
@@ -889,6 +912,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       professionalFeesPercentage, professionalFeesType, isAdmin, rejoinHistory, teamId,
       roomOrBlock, shift, experienceLevel, employeeLevelId, isHiddenFromStaff: isHiddenFromStaffEdit,
       tds2Enabled, tds2Type, tds2Amount, tds2Percentage,
+      reimbursementLimitPerRequest: reimbLimitEdit,
     } = values;
 
     let { aadharCardPath, panCardPath, aadharNumber, panNumber } = values;
@@ -948,14 +972,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       ...(teamId && { teamId }), ...(roomOrBlock && { roomOrBlock }),
       ...(shift && { shift }), ...(experienceLevel && { experienceLevel }),
       ...(employeeLevelId && { employeeLevelId }),
-      ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
+      // Leave Settings section removed — no longer needed
+      // ...(Array.isArray(values.leaveAllocations) && { leaveAllocations: values.leaveAllocations }),
       ...buildProfessionalFeesPayload({ professionalFeesEnabled, professionalFeesAmount, professionalFeesPercentage, professionalFeesType }),
       ...buildTds2Payload({ tds2Enabled, tds2Type, tds2Amount, tds2Percentage }),
       isHiddenFromStaff: isHiddenFromStaffEdit === true,
+      reimbursementLimitPerRequest: (reimbLimitEdit !== "" && reimbLimitEdit != null && !isNaN(Number(reimbLimitEdit))) ? Number(reimbLimitEdit) : null,
     };
 
     Object.keys(employeePayload).forEach((key) => {
-      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
+      if (key === "gender" || key === "maritalStatus" || key === "isHiddenFromStaff" || key === "reimbursementLimitPerRequest" || PROF_FEES_KEYS.has(key) || TDS2_KEYS.has(key)) return;
       if (!employeePayload[key] && employeePayload[key] !== 0 && employeePayload[key] !== false) delete employeePayload[key];
     });
     if (!employeePayload.employeeTypeConfigId) delete employeePayload.employeeTypeConfigId;
@@ -1045,16 +1071,17 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
 
     if (currentStepIndex !== totalStepsNumber) {
+      let targetStep: number;
       if (stepper) {
         stepper.goNext();
-        setActiveStepIndex(stepper.currentStepIndex);
-        setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+        targetStep = stepper.currentStepIndex;
       } else {
-        const next = currentStepIndex + 1;
-        setActiveStepIndex(next);
-        setCurrentSchema(newEmployeeWizardSchema[next - 1]);
+        targetStep = currentStepIndex + 1;
       }
-      setActiveSection("personal-info");
+      setActiveStepIndex(targetStep);
+      setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
+      // Open the new step at its OWN first section (activeSection is shared across steps).
+      setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
       actions.setTouched({});
       scrollWizardToTop();
     } else {
@@ -1163,7 +1190,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
           stepper.goto(targetStep);
           setActiveStepIndex(targetStep);
           setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-          if (targetStep === 1) setActiveSection("personal-info");
+          setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
           scrollWizardToTop(); return;
         }
         e.stopImmediatePropagation();
@@ -1240,6 +1267,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         tds2Type: (wizardData as any)?.tds2Type || (wizardData as any)?.tds2_type || "FIXED",
         tds2Amount: (() => { const v = (wizardData as any)?.tds2Amount ?? (wizardData as any)?.tds2_amount; return v != null && v !== "" ? String(v) : ""; })(),
         tds2Percentage: (() => { const v = (wizardData as any)?.tds2Percentage ?? (wizardData as any)?.tds2_percentage; return v != null && v !== "" ? String(v) : ""; })(),
+        reimbursementLimitPerRequest: wizardData?.reimbursementLimitPerRequest != null ? String(wizardData.reimbursementLimitPerRequest) : "",
       };
       setDefaultState(newState);
     }
@@ -1451,9 +1479,9 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                           </div>
                         )}
 
-                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} />}
-                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} />}
-                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} />}
+                        {activeStepIndex === 2 && <Step3 formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
+                        {activeStepIndex === 3 && <StepAppSettings formikProps={formikProps} editMode={editMode} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
+                        {activeStepIndex === 4 && <Step4 formikProps={formikProps} setFile={addFileToState} sidebarProfile={sidebarProfile} activeSection={activeSection} onSectionChange={setActiveSection} />}
                       </div>
                     </main>
 
@@ -1473,71 +1501,104 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                         </button>
                       )}
 
-                      {/* Continue / Submit */}
-                      {activeStepIndex === 1 ? (
-                        <button
-                          type="button"
-                          className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
-                          disabled={isSubmitting}
-                          onClick={() => {
-                            formikProps.validateForm().then((errors) => {
-                              if (Object.keys(errors).length === 0) {
-                                if (stepper) {
-                                  stepper.goNext();
-                                  setActiveStepIndex(stepper.currentStepIndex);
-                                  setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
-                                } else {
-                                  setActiveStepIndex(2);
-                                  setCurrentSchema(newEmployeeWizardSchema[1]);
-                                }
-                                formikProps.setTouched({});
+                      {/* Continue / Submit — walks the current step's left-hand sections first,
+                          and only advances to the next top step from the LAST section. Applies to
+                          every step, so the button behaves consistently throughout the wizard. */}
+                      {(() => {
+                        const stepSections = STEP_SECTIONS[activeStepIndex] ?? [];
+                        const sectionIdx = stepSections.indexOf(activeSection);
+                        const isLastSection = sectionIdx < 0 || sectionIdx >= stepSections.length - 1;
+
+                        // Not on the last section of this step → just move to the next section.
+                        if (!isLastSection) {
+                          return (
+                            <button
+                              type="button"
+                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                setActiveSection(stepSections[sectionIdx + 1]);
                                 scrollWizardToTop();
-                              } else {
-                                formikProps.submitForm();
-                              }
-                            });
-                          }}
-                        >
-                          Continue
-                          <KTIcon iconName="arrow-right" className="fs-5" />
-                        </button>
-                      ) : isLastStep ? (
-                        <button
-                          type="submit"
-                          className="ob-float-submit-btn"
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <>
-                              Saving...
-                              <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                            </>
-                          ) : (
-                            <>
-                              Submit
-                              <KTIcon iconName="check" className="fs-5" />
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <button
-                          type="submit"
-                          className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting ? (
-                            <>
-                              Please wait...
-                              <span className="spinner-border spinner-border-sm align-middle ms-1" />
-                            </>
-                          ) : (
-                            <>
+                              }}
+                            >
                               Continue
                               <KTIcon iconName="arrow-right" className="fs-5" />
-                            </>
-                          )}
-                        </button>
-                      )}
+                            </button>
+                          );
+                        }
+
+                        // Last section of step 1 → validate the step, then go to Company Details.
+                        if (activeStepIndex === 1) {
+                          return (
+                            <button
+                              type="button"
+                              className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                formikProps.validateForm().then((errors) => {
+                                  if (Object.keys(errors).length === 0) {
+                                    if (stepper) {
+                                      stepper.goNext();
+                                      setActiveStepIndex(stepper.currentStepIndex);
+                                      setCurrentSchema(newEmployeeWizardSchema[stepper.currentStepIndex - 1]);
+                                    } else {
+                                      setActiveStepIndex(2);
+                                      setCurrentSchema(newEmployeeWizardSchema[1]);
+                                    }
+                                    formikProps.setTouched({});
+                                    scrollWizardToTop();
+                                  } else {
+                                    formikProps.submitForm();
+                                  }
+                                });
+                              }}
+                            >
+                              Continue to Company Details
+                              <KTIcon iconName="arrow-right" className="fs-5" />
+                            </button>
+                          );
+                        }
+
+                        // Last section of the final step → submit the whole form.
+                        if (isLastStep) {
+                          return (
+                            <button type="submit" className="ob-float-submit-btn" disabled={isSubmitting}>
+                              {isSubmitting ? (
+                                <>
+                                  Saving...
+                                  <span className="spinner-border spinner-border-sm align-middle ms-1" />
+                                </>
+                              ) : (
+                                <>
+                                  Submit
+                                  <KTIcon iconName="check" className="fs-5" />
+                                </>
+                              )}
+                            </button>
+                          );
+                        }
+
+                        // Last section of steps 2/3 → submit (the form's onSubmit advances the step).
+                        return (
+                          <button
+                            type="submit"
+                            className={`ob-float-continue-btn ${isStepReady ? "is-ready" : "is-incomplete"}`}
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? (
+                              <>
+                                Please wait...
+                                <span className="spinner-border spinner-border-sm align-middle ms-1" />
+                              </>
+                            ) : (
+                              <>
+                                Continue
+                                <KTIcon iconName="arrow-right" className="fs-5" />
+                              </>
+                            )}
+                          </button>
+                        );
+                      })()}
 
                       {/* <span className="ob-float-shortcut">Ctrl + Enter</span> */}
                     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { getClientCompanyById } from "@services/companies";
@@ -22,6 +22,9 @@ import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import Loader from "@app/modules/common/utils/Loader";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
+import CompanyReferences from "./CompanyReferences";
+import LeadReferenceTab from "./LeadReferenceTab";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 
 
 type TabType =
@@ -31,12 +34,16 @@ type TabType =
   | "contacts"
   | "subcompanies"
   | "branches"
-  | "rating";
+  | "rating"
+  | "references"
+  | "lead-reference";
 
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
@@ -129,7 +136,8 @@ const CompanyDetails = () => {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "leads", label: "Leads" },
+    { key: "lead-reference", label: "Lead Reference" },
+    { key: "references", label: "Company References" },
     { key: "projects", label: "Projects" },
     { key: "contacts", label: "Contacts" },
     { key: "subcompanies", label: "Subcompanies" },
@@ -173,6 +181,13 @@ const CompanyDetails = () => {
         return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} />;
       case "rating":
         return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} toggleMounted={true} />
+      case "references":
+        // Companies this company referred (it is their referral company).
+        return <CompanyReferences referredCompanies={(company as any).referredCompanyReferences} />;
+      case "lead-reference":
+        // Leads this company referred (it is the referring company): analytics chart
+        // (stacked by status, with value) + period filter driving the table below.
+        return <LeadReferenceTab referredLeads={(company as any).referredLeads} />;
       default:
         return <Overview company={company} />;
     }
@@ -200,8 +215,13 @@ const CompanyDetails = () => {
   return (
     <div className="p-2 p-md-4">
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-3 pt-md-6">
-        <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
+      <div
+        className="d-flex align-items-center justify-content-between mb-3 mb-md-4 pt-3 pt-md-6 px-2 px-md-3"
+        style={{
+          borderRadius: 14,
+        }}
+      >
+        <div className="d-flex align-items-center gap-3 gap-md-4 flex-grow-1">
           <button
             className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
             onClick={handleBackClick}
@@ -227,6 +247,17 @@ const CompanyDetails = () => {
               className="d-none d-md-block"
             />
           </button>
+          {/* Smart, brand-aware company avatar (logo color ring, or a
+              deterministic generated avatar when there's no logo). */}
+          <SmartAvatar
+            name={company?.companyName}
+            id={company?.id}
+            imageUrl={company?.logo}
+            size={84}
+            imageFit="cover"
+            status={company?.status === "ACTIVE" ? "active" : "inactive"}
+            enablePreview
+          />
           <div className="flex-grow-1">
             <div className="text-muted small">Company #{company?.prefix || "N/A"}</div>
             <div className="d-flex align-items-center gap-2">
@@ -246,30 +277,6 @@ const CompanyDetails = () => {
               </div>
             </div>
           </div>
-        </div>
-        <div className="d-flex align-items-center gap-2 flex-shrink-0">
-          <img
-            src={company.logo}
-            alt=""
-            style={{
-              width: "60px",
-              height: "36px",
-              cursor: "pointer",
-              objectFit: "contain"
-            }}
-            className="d-block d-md-none"
-          />
-          <img
-            src={company.logo}
-            alt=""
-            style={{
-              width: "100px",
-              height: "60px",
-              cursor: "pointer",
-              objectFit: "contain"
-            }}
-            className="d-none d-md-block"
-          />
         </div>
       </div>
 

@@ -1,4 +1,6 @@
+import { safeJsonParse } from '@utils/safeJson';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { parseWorkingDays } from "@utils/workingDays";
 import { LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
@@ -47,7 +49,7 @@ function OpenLeaveRequests() {
 
     // Get employee's working and off days configuration
     const branchDetails = useSelector((state: RootState) => state.employee?.currentEmployee?.branches);
-    const employeeWorkingAndOffDays = JSON.parse(branchDetails?.workingAndOffDays || '{}');
+    const employeeWorkingAndOffDays = parseWorkingDays(branchDetails?.workingAndOffDays);
 
     // Map leave type names to color keys
     const getLeaveTypeColor = (leaveType: string): string => {
@@ -125,7 +127,7 @@ function OpenLeaveRequests() {
           const fetchConfigurations = async () => {
               try {
                 const configuration = await fetchConfiguration(SANDWICH_LEAVE_KEY);
-                const jsonObjectSandwhich = JSON.parse(configuration.data.configuration.configuration);
+                const jsonObjectSandwhich = safeJsonParse(configuration.data.configuration.configuration);
                 const customRules = jsonObjectSandwhich.isSandwichLeaveSixthEnabled===true || jsonObjectSandwhich.isSandwichLeaveFifthEnabled===true
                 setsandwhichConfiguration(customRules);
               }

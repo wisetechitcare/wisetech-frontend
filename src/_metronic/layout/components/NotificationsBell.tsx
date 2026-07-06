@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSocket } from '../../../utils/socketClient';
 import { Modal, Button } from 'react-bootstrap';
 import { KTIcon } from '../../helpers';
-import { fetchNotificationsByEmployeeId } from '../../../services/employee';
-import { Link, useNavigate } from 'react-router-dom';
+import {
+  fetchNotificationsByEmployeeId,
+  updateNotificationStatus,
+  markAllAsRead,
+} from '../../../services/employee';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { formatNotificationDate } from '../../../utils/date';
 import {
@@ -32,24 +36,59 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async (updateUnread: boolean = false) => {
     try {
       const response = await fetchNotificationsByEmployeeId(employeeId);
-      setNotifications(response.data ?? []);
+      const data = response.data ?? [];
+      setNotifications(data);
+      if (updateUnread) {
+        setUnreadCount(data.length);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
+      if (updateUnread) {
+        setUnreadCount(0);
+      }
     }
-  };
+  }, [employeeId]);
+
+  useEffect(() => {
+    if (!employeeId) return;
+    fetchNotifications(true);
+  }, [employeeId, location.pathname, fetchNotifications]);
 
   const handleOpen = () => {
     setShow(true);
     setNotifications([]);
-    fetchNotifications();
+    fetchNotifications(false);
     setUnreadCount(0);
   };
 
   const handleClose = () => setShow(false);
+
+  const handleClearSingle = useCallback(async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation();
+    try {
+      await updateNotificationStatus(employeeId, notificationId, true);
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Failed to clear notification:', error);
+    }
+  }, [employeeId]);
+
+  const handleClearAll = useCallback(async () => {
+    try {
+      await markAllAsRead(employeeId);
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+    }
+  }, [employeeId]);
 
   const handleNavigation = (path: string) => {
     setShow(false);
@@ -119,16 +158,35 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
         dialogClassName="notification-side-panel"
         contentClassName="notification-panel-content"
       >
-        <Modal.Header closeButton className="border-0 pb-1">
+        <Modal.Header className="border-0 pb-1 d-flex align-items-center justify-content-between">
           <Modal.Title className="fs-5 fw-bold d-flex align-items-center gap-2">
             <KTIcon iconName="notification-on" className="text-primary fs-3" />
             Notifications
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <span className="badge rounded-pill text-white ms-1" style={{ backgroundColor: '#9D4141', fontSize: '0.7rem' }}>
-                {unreadCount}
+                {notifications.length}
               </span>
             )}
           </Modal.Title>
+          <div className="d-flex align-items-center gap-3">
+            {notifications.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="btn btn-sm btn-light-danger fw-semibold fs-8 py-1 px-3 rounded-pill"
+                style={{ transition: 'all 0.15s' }}
+              >
+                Clear all
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-icon btn-sm btn-active-light-primary border-0 bg-transparent p-0"
+              onClick={handleClose}
+              style={{ width: '28px', height: '28px' }}
+            >
+              <KTIcon iconName="cross" className="fs-2 text-gray-500" />
+            </button>
+          </div>
         </Modal.Header>
 
         <Modal.Body className="notification-scroll p-2">
@@ -162,9 +220,19 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
                   </span>
 
                   <div className="flex-grow-1 overflow-hidden">
-                    <p className="mb-0 fw-semibold small text-truncate" style={{ color: text }}>
-                      {n.title}
-                    </p>
+                    <div className="d-flex justify-content-between align-items-start gap-2">
+                      <p className="mb-0 fw-semibold small text-truncate" style={{ color: text, flex: 1 }}>
+                        {n.title ? n.title.replace(/^\?\s*/, '') : ''}
+                      </p>
+                      <button
+                        onClick={(e) => handleClearSingle(e, n.id)}
+                        className="btn btn-icon btn-sm btn-active-light-danger p-0 border-0 bg-transparent"
+                        style={{ width: '20px', height: '20px', minWidth: '20px' }}
+                        title="Clear notification"
+                      >
+                        <KTIcon iconName="cross" className="fs-6 text-muted text-hover-danger" />
+                      </button>
+                    </div>
                     <p className="mb-1 text-muted" style={{ fontSize: '0.78rem', lineHeight: 1.4 }}>
                       {n.message}
                     </p>
@@ -183,12 +251,12 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
           )}
         </Modal.Body>
 
-        <Modal.Footer className="border-0 pt-1">
-          <Button variant="primary" size="sm" className="w-100" onClick={handleClose}>
-            <Link to="employees/notifications" className="text-white text-decoration-none">
+        <Modal.Footer className="border-top pt-3 pb-5 pb-lg-3 px-4 bg-body" style={{ zIndex: 10 }}>
+          <Link to="/employees/notifications" className="w-100 text-decoration-none" onClick={handleClose}>
+            <Button variant="primary" className="w-100 py-3 fw-semibold fs-7" style={{ borderRadius: '8px' }}>
               View all notifications
-            </Link>
-          </Button>
+            </Button>
+          </Link>
         </Modal.Footer>
       </Modal>
 
@@ -200,6 +268,11 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
           100% { box-shadow: 0 0 0 0 rgba(157,65,65,0); }
         }
         .notification-badge-pulse { animation: notif-pulse 1.8s infinite; }
+
+        @keyframes slideUpMobile {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
 
         /* Side-panel positioning */
         .notification-side-panel {
@@ -235,8 +308,25 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
 
         @media (max-width: 768px) {
           .notification-side-panel {
-            left: 10px; right: 10px; width: calc(100% - 20px);
-            height: calc(100vh - 60px); top: 50px;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            z-index: 999999 !important;
+            animation: slideUpMobile 0.28s cubic-bezier(0.32, 0.94, 0.6, 1) forwards !important;
+          }
+          .notification-panel-content {
+            height: 100% !important;
+            border-radius: 0 !important;
+            border: none !important;
+          }
+          .notification-scroll {
+            max-height: calc(100vh - 120px) !important;
           }
         }
       `}</style>

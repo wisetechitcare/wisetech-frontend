@@ -9,6 +9,7 @@ import { formatDate } from "@utils/date";
 import { getAllAnnouncements } from "@services/company";
 import { RootState, store } from "@redux/store";
 import { ShareWith } from "@constants/statistics";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 
 interface IAnnouncement {
   id: string;
@@ -31,6 +32,7 @@ const DashboardAnnouncements = () => {
   const [currAnnouncementIndex, setCurrAnnouncementIndex] = useState(0);
   const [show, setShow] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [imageRatio, setImageRatio] = useState<number>(1.5);
 
   const navigate = useNavigate();
 
@@ -54,6 +56,21 @@ const DashboardAnnouncements = () => {
       setcurrentAnnouncement(filteredAnnouncements[currAnnouncementIndex]);
     }
   }, [currAnnouncementIndex, filteredAnnouncements]);
+
+  // Calculate aspect ratio of current image dynamically
+  useEffect(() => {
+    if (currentAnnouncement?.imageUrl) {
+      const img = new Image();
+      img.src = currentAnnouncement.imageUrl;
+      img.onload = () => {
+        if (img.width && img.height) {
+          setImageRatio(img.width / img.height);
+        }
+      };
+    } else {
+      setImageRatio(1.5);
+    }
+  }, [currentAnnouncement]);
 
   // Auto scroll through announcements
   useEffect(() => {
@@ -131,8 +148,8 @@ const DashboardAnnouncements = () => {
 
   return (
     <>
-      <div className="col-lg-7 col-md-12 mb-3 mb-lg-0">
-        <div className="card border-0 rounded-3" style={{ boxShadow: '12px 12px 44px 0px rgba(0,0,0,0.08)' }}>
+      <div className="col-lg-7 col-md-12 mb-3 mb-lg-0 d-flex flex-column">
+        <div className="card border-0 rounded-3 h-100 announcement-card-hover" style={{ boxShadow: '12px 12px 44px 0px rgba(0,0,0,0.08)' }}>
           <div className="card-body p-3 p-md-4">
             {/* Header */}
             <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -172,37 +189,44 @@ const DashboardAnnouncements = () => {
                   {/* Image */}
                   {currentAnnouncement?.imageUrl && (
                     <div
-                      className="flex-shrink-0 mx-auto mx-md-0"
+                      className="flex-shrink-0 mx-auto mx-md-0 d-flex align-items-center justify-content-center rounded-2"
                       style={{
                         width: '100%',
-                        maxWidth: '225px',
-                        height: '168px'
+                        maxWidth: (imageRatio >= 0.8 && imageRatio <= 1.2) ? '150px' : '200px',
+                        height: '150px',
+                        overflow: 'hidden',
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #eef2f7',
+                        padding: (imageRatio >= 0.8 && imageRatio <= 1.2) ? '10px' : '0px'
                       }}
                     >
                       <img
                         src={currentAnnouncement.imageUrl}
                         alt="Announcement"
-                        className="rounded-2 w-100 h-100"
-                        style={{ objectFit: 'cover' }}
+                        className="w-100 h-100 rounded-2"
+                        style={{
+                          objectFit: (imageRatio >= 0.8 && imageRatio <= 1.2) ? 'contain' : 'cover'
+                        }}
                       />
                     </div>
                   )}
 
                   {/* Content */}
-                  <div className="d-flex flex-column justify-content-center flex-grow-1">
-                    <div className="mb-3">
+                  <div className="d-flex flex-column justify-content-between flex-grow-1" style={{ minHeight: '150px' }}>
+                    <div className="mb-2">
                       {/* Title */}
                       <h6 className="fw-semibold mb-2" style={{
                         fontFamily: 'Barlow',
-                        fontSize: 'clamp(16px, 3.5vw, 18px)',
+                        fontSize: 'clamp(15px, 3.5vw, 17px)',
                         letterSpacing: '0.18px',
-                        lineHeight: '1.2'
+                        lineHeight: '1.3',
+                        color: '#1e293b'
                       }}>
                         {currentAnnouncement.title}
                       </h6>
 
                       {/* Description */}
-                      <p className="text-muted mb-2" style={{
+                      <p className="text-muted mb-0" style={{
                         fontSize: 'clamp(11px, 2.5vw, 12px)',
                         lineHeight: '1.4',
                         fontFamily: 'Inter'
@@ -213,71 +237,32 @@ const DashboardAnnouncements = () => {
                       </p>
                     </div>
 
-                    {/* Posted Date */}
-                    {currentAnnouncement.createdAt && (
-                      <p className="text-muted mb-3" style={{
-                        fontSize: 'clamp(11px, 2.5vw, 12px)',
-                        fontWeight: '500',
-                        fontFamily: 'Inter',
-                        color: '#70829a'
-                      }}>
-                        Posted on {formatDate(new Date(currentAnnouncement.createdAt))}
-                      </p>
-                    )}
-
-                    {/* Bottom Controls */}
-                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                      {/* Pagination Dots */}
-                      {filteredAnnouncements.length > 1 && (
-                        <div className="d-flex align-items-center gap-1">
-                          {filteredAnnouncements.map((_, index) => (
-                            <span
-                              key={index}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCurrAnnouncementIndex(index);
-                              }}
-                              style={{
-                                width: currAnnouncementIndex === index ? '6px' : '4px',
-                                height: currAnnouncementIndex === index ? '6px' : '4px',
-                                borderRadius: '50%',
-                                backgroundColor: currAnnouncementIndex === index ? '#9d4141' : '#bec7d4',
-                                cursor: 'pointer',
-                                display: 'inline-block',
-                                transition: 'all 0.2s'
-                              }}
-                            />
-                          ))}
-                        </div>
+                    {/* Bottom Controls & Posted Date Row */}
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-auto pt-3 border-top" style={{ borderColor: '#f1f5f9' }}>
+                      {currentAnnouncement.createdAt && (
+                        <span className="text-muted fs-8 fw-semibold" style={{
+                          fontFamily: 'Inter',
+                          color: '#64748b'
+                        }}>
+                          Posted on {formatDate(new Date(currentAnnouncement.createdAt))}
+                        </span>
                       )}
 
-                      {/* Navigation Arrows */}
                       {filteredAnnouncements.length > 1 && (
-                        <div className="d-flex align-items-center gap-2">
-                          <button
-                            className="btn btn-link p-0 border-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <PeriodNavigator
+                            label={`${currAnnouncementIndex + 1} of ${filteredAnnouncements.length}`}
+                            onPrevious={() => {
                               currAnnouncementIndex > 0
                                 ? setCurrAnnouncementIndex((prev) => prev - 1)
                                 : setCurrAnnouncementIndex(filteredAnnouncements.length - 1);
                             }}
-                            style={{ width: '28px', height: '28px' }}
-                          >
-                            <i className="fa fa-chevron-left" style={{ fontSize: '14px', color: '#6c757d' }}></i>
-                          </button>
-                          <button
-                            className="btn btn-link p-0 border-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onNext={() => {
                               currAnnouncementIndex < filteredAnnouncements.length - 1
                                 ? setCurrAnnouncementIndex((prev) => prev + 1)
                                 : setCurrAnnouncementIndex(0);
                             }}
-                            style={{ width: '28px', height: '28px' }}
-                          >
-                            <i className="fa fa-chevron-right" style={{ fontSize: '14px', color: '#6c757d' }}></i>
-                          </button>
+                          />
                         </div>
                       )}
                     </div>

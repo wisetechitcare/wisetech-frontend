@@ -7,14 +7,23 @@ import MySalary from "./admin/MySalary";
 import SalaryView from "./personal/SalaryView";
 import AllEmployeeData from "./admin/AllEmployeesData";
 import { financeSalaryAllIcoon, leadsIcons } from "@metronic/assets/sidepanelicons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SalaryEmployeeData from "./admin/SalaryEmployeeData";
 
 function Salary() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState(0);
-  
+
+  useEffect(() => {
+    if ((location.state as any)?.goToSearchEmployee) {
+      const idx = tabItems.findIndex(t => t.title === "Search Employee");
+      if (idx !== -1) setActiveTab(idx);
+    }
+  }, [location.state]);
+
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Salary", 
@@ -65,7 +74,7 @@ function Salary() {
         Salary
       </PageTitle>
       {/* <SalaryView /> */}
-      <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab} />
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab} />
     </>
   );
 }

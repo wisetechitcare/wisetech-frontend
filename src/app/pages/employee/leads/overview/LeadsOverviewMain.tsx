@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useEffect, useState } from "react";
 import LeadsOverviewToggle from "./components/LeadsOverviewToggle";
 import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
@@ -16,7 +17,7 @@ const LeadsOverviewMain = () => {
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
           typeof configuration.configuration === "string"
-            ? JSON.parse(configuration.configuration)
+            ? safeJsonParse(configuration.configuration)
             : configuration.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {

@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
 import { fetchConfiguration } from '@services/company';
@@ -23,7 +24,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
 
         // Load GROSS_PAY configuration
         const grossPayResponse = await fetchConfiguration(GROSS_PAY);
-        const grossPayConfig = JSON.parse(grossPayResponse?.data?.configuration?.configuration || '{}');
+        const grossPayConfig = safeJsonParse(grossPayResponse?.data?.configuration?.configuration || '{}');
 
         // Convert grossPay object to array
         const grossPayArray = Object.entries(grossPayConfig || {}).map(([key, value]) => ({
@@ -34,7 +35,7 @@ const SalarySection: React.FC<SalarySectionProps> = ({ sectionRef }) => {
 
         // Load DEDUCTIONS configuration
         const deductionsResponse = await fetchConfiguration(DEDUCTIONS);
-        const deductionsConfig = JSON.parse(deductionsResponse?.data?.configuration?.configuration || '{}');
+        const deductionsConfig = safeJsonParse(deductionsResponse?.data?.configuration?.configuration || '{}');
 
         // Parse deduction rules (assuming it's stored in a specific format)
         if (deductionsConfig['Late Check-in']) {

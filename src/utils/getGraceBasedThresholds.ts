@@ -1,6 +1,8 @@
+import { safeJsonParse } from '@utils/safeJson';
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { fetchConfiguration } from "@services/company";
+import { store } from "@redux/store";
 import {
   ENFORCE_ONSITE_DEADLINE_KEY,
   GRACE_TIME_ON_SITE_KEY,
@@ -39,11 +41,24 @@ const calculateThresholds = (checkInTime: string, checkOutTime: string, graceTim
   };
 };
 
-export const getGraceBasedThresholds = async (attendance: any[] = []) => {
+export const getGraceBasedThresholds = async (
+  attendance: any[] = [],
+  scope?: { companyId?: string; branchId?: string },
+) => {
   try {
 
-    const { data: { configuration: { configuration } } } = await fetchConfiguration(LEAVE_MANAGEMENT);
-    const settings = JSON.parse(configuration);
+    // Scope late thresholds to the VIEWED employee's org/branch so they match that employee's
+    // shift config (branch override → org → global) — i.e. the same scope the backend graph
+    // uses. Callers viewing another employee (admin) must pass that employee's scope; when no
+    // scope is given we fall back to the logged-in user (the self-view case). Empty = global.
+    const thresholdScope = (scope && (scope.companyId || scope.branchId))
+      ? scope
+      : {
+          companyId: store.getState().employee?.currentEmployee?.companyId,
+          branchId: store.getState().employee?.currentEmployee?.branchId,
+        };
+    const { data: { configuration: { configuration } } } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, thresholdScope);
+    const settings = safeJsonParse(configuration);
 
     const checkInTime = settings["Check-in time"]; // "9:30 AM"
     const checkOutTime = settings["Check-out time"]; // "5:30 PM"

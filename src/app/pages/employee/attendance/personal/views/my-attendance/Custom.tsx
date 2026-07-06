@@ -1,4 +1,6 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import dayjs, { Dayjs } from "dayjs";
 import { resourseAndView } from "@models/company";
 import { useDispatch, useSelector } from "react-redux";
@@ -28,8 +30,19 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
+
+    // Resolve the viewed employee's org/branch so the display's per-day shifts match what
+    // payroll uses (branch override → org → global). No scoped shift = global (unchanged).
+    const currentEmployeeCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const currentEmployeeBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selectedEmployeeCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selectedEmployeeBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const shiftScope = {
+        companyId: fromAdmin ? (selectedEmployeeCompanyId || currentEmployeeCompanyId) : currentEmployeeCompanyId,
+        branchId: fromAdmin ? (selectedEmployeeBranchId || currentEmployeeBranchId) : currentEmployeeBranchId,
+    };
 
     // Use safe fallbacks so hooks below don't crash when dates are missing
     const safeStartDate = startDate ?? dayjs();
@@ -43,7 +56,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const weekends = fromAdmin
         ? store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
         : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     // filter yearly stats according to DateOfJoining
     const yearlyStats = useSelector((state: RootState) => {
@@ -159,8 +172,8 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     useEffect(() => {
         const fetchWorkingHours = async () => {
             try {
-                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-                const jsonObject = JSON.parse(configuration.configuration.configuration);
+                const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
+                const jsonObject = safeJsonParse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 // const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 
@@ -179,7 +192,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -187,7 +200,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
 
 
@@ -209,8 +222,8 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const donutLabels: string[] = Array.from(donutData.keys());
     const donutSeries: number[] = Array.from(donutData.values());
     
-    const multipleRadialBarLabels: string[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts).keys());
-    const multipleRadialBarSeries: number[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts).values());
+    const multipleRadialBarLabels: string[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts, fromAdmin).keys());
+    const multipleRadialBarSeries: number[] = Array.from(multipleRadialBarData(yearlyStats, dayWiseShifts, fromAdmin).values());
 
     const polarLabels: string[] = useMemo(() => pieAreaLabels(yearlyStats), [yearlyStats]);
     const polarSeries: number[] = useMemo(() => pieAreaData(yearlyStats), [yearlyStats]);

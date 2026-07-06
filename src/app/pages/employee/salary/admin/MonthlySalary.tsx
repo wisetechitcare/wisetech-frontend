@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -27,6 +28,7 @@ interface SalarySummary {
 
 const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isLoading = false, onStatusFilterChange }) => {
 
+  const navigate = useNavigate();
   const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   const filters = useSalaryFilters(employeesData);
@@ -98,12 +100,14 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
 
       return {
         id: summary.employeeCode || 'N/A',
+        employeeId: summary.employeeId || null,
         name: summary.fullName || 'N/A',
         subOrganization: summary.subOrganization || 'N/A',
         department: summary.department || 'N/A',
         branch: summary.branch || 'N/A',
         basicSalary: rawTotals.basicSalary ?? '-',
         overTimeAmount: rawTotals?.overTimeAmount ?? '-',
+        totalSalaryAfterAttendance: rawTotals.totalSalaryAfterAttendance ?? '-',
         netAmount: rawTotals.netAmount ?? '-',
         amountPaid: rawTotals.amountPaid ?? '-',
         dueAmount: rawTotals.dueAmount ?? '-',
@@ -118,13 +122,14 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
         present: rawTotals.presentDays ?? 0,
         absent: (rawTotals?.absentDays < 0 ? 0 : rawTotals?.absentDays) ?? 0,
         late: rawTotals.lateCheckinDays ?? 0,
-        leaves: rawTotals.leavesDays ?? 0,
+        paidLeave: rawTotals.leavesDays ?? 0,
+        unpaidLeave: rawTotals.unpaidLeaveDays ?? 0,
         extraDay: rawTotals.extraDaysWorked ?? 0,
       };
     });
 
     const dataScore = (r: any) => {
-      const numFields = ['basicSalary', 'overTimeAmount', 'netAmount', 'amountPaid',
+      const numFields = ['basicSalary', 'overTimeAmount', 'totalSalaryAfterAttendance', 'netAmount', 'amountPaid',
         'professionalFees', 'tds2', 'professionalTax', 'totalDays', 'present'];
       return numFields.reduce((s, k) => {
         const v = Number(r[k]);
@@ -153,17 +158,18 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
     return tableData.reduce(
       (acc: any, r: any) => {
-        acc.basicSalary      += num(r.basicSalary);
-        acc.overTimeAmount   += num(r.overTimeAmount);
-        acc.professionalFees += num(r.professionalFees);
-        acc.tds2             += num(r.tds2);
-        acc.professionalTax  += num(r.professionalTax);
-        acc.netAmount        += num(r.netAmount);
-        acc.amountPaid       += num(r.amountPaid);
-        acc.dueAmount        += num(r.dueAmount);
+        acc.basicSalary             += num(r.basicSalary);
+        acc.overTimeAmount          += num(r.overTimeAmount);
+        acc.totalSalaryAfterAttendance += num(r.totalSalaryAfterAttendance);
+        acc.professionalFees        += num(r.professionalFees);
+        acc.tds2                    += num(r.tds2);
+        acc.professionalTax         += num(r.professionalTax);
+        acc.netAmount               += num(r.netAmount);
+        acc.amountPaid              += num(r.amountPaid);
+        acc.dueAmount               += num(r.dueAmount);
         return acc;
       },
-      { basicSalary: 0, overTimeAmount: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
+      { basicSalary: 0, overTimeAmount: 0, totalSalaryAfterAttendance: 0, professionalFees: 0, tds2: 0, professionalTax: 0, netAmount: 0, amountPaid: 0, dueAmount: 0 }
     );
   }, [tableData]);
 
@@ -175,6 +181,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'branch',          header: 'Branch',              type: 'text'     as const },
     { key: 'basicSalary',     header: 'Basic Salary',        type: 'currency' as const, showTotal: true },
     { key: 'overTimeAmount',  header: 'Over Time Amount',    type: 'currency' as const, showTotal: true },
+    { key: 'totalSalaryAfterAttendance', header: 'Total Salary After Attendance Adjustments', type: 'currency' as const, showTotal: true },
     { key: 'professionalFees',header: tds1Name,              type: 'currency' as const, showTotal: true },
     { key: 'tds2',            header: tds2Name,              type: 'currency' as const, showTotal: true },
     { key: 'professionalTax', header: 'Prof. Tax',           type: 'currency' as const, showTotal: true },
@@ -196,7 +203,8 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
     { key: 'present',         header: 'Present',             type: 'number'   as const },
     { key: 'absent',          header: 'Absent',              type: 'number'   as const },
     { key: 'late',            header: 'Late',                type: 'number'   as const },
-    { key: 'leaves',          header: 'Leaves',              type: 'number'   as const },
+    { key: 'paidLeave',       header: 'Paid Leave',          type: 'number'   as const },
+    { key: 'unpaidLeave',     header: 'Unpaid Leave',        type: 'number'   as const },
     { key: 'extraDay',        header: 'Extra Day',           type: 'number'   as const },
   ], [tds1Name, tds2Name]);
 
@@ -239,12 +247,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               accessorKey: "id",
               header: "ID",
               Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
-              Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+              Footer: () => <span style={{ fontWeight: 900, color: '#AA393D', fontSize: '1.05rem', letterSpacing: '0.08em' }}>TOTAL</span>,
             },
             {
               accessorKey: "name",
               header: "Name",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+              Cell: ({ renderedCellValue, row }: any) => (
+                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
+                  {renderedCellValue || "N/A"}
+                </span>
+              ),
             },
             {
               accessorKey: "subOrganization",
@@ -279,7 +291,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               },
               Footer: () => fmtINR(columnTotals.overTimeAmount),
             },
-                        {
+            {
+              accessorKey: "totalSalaryAfterAttendance",
+              header: "Total Salary After Attendance Adjustments",
+              Cell: ({ renderedCellValue }: any) => {
+                if (renderedCellValue === "-" || !renderedCellValue) return "-";
+                return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              },
+              Footer: () => fmtINR(columnTotals.totalSalaryAfterAttendance),
+            },
+            {
               accessorKey: "professionalFees",
               header: tds1Name,
               Cell: ({ renderedCellValue }: any) => {
@@ -325,7 +346,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 if (renderedCellValue === "-" || !renderedCellValue) return "-";
                 return `₹${Math.round(Number(renderedCellValue))?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => <span style={{ color: '#1d4ed8' }}>{fmtINR(columnTotals.amountPaid)}</span>,
+              Footer: () => <span style={{ color: '#1d4ed8', fontWeight: 800 }}>{fmtINR(columnTotals.amountPaid)}</span>,
             },
             {
               accessorKey: "dueAmount",
@@ -344,7 +365,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Footer: () => {
                 const t = Math.round(columnTotals.dueAmount);
                 const color = t > 0 ? '#dc2626' : t < 0 ? '#0369a1' : '#16a34a';
-                return <span style={{ color }}>{fmtINR(t)}</span>;
+                return <span style={{ color, fontWeight: 800 }}>{fmtINR(t)}</span>;
               },
             },
             {
@@ -389,8 +410,13 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {
-              accessorKey: "leaves",
-              header: "Leaves",
+              accessorKey: "paidLeave",
+              header: "Paid Leave",
+              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+            },
+            {
+              accessorKey: "unpaidLeave",
+              header: "Unpaid Leave",
               Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
             },
             {
@@ -404,6 +430,15 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
           showColumnFooter={true}
+          muiTableProps={{
+            muiTableBodyRowProps: ({ row }: any) => ({
+              onClick: () => {
+                const empId = row.original.employeeId;
+                if (empId) navigate('/finance/salary', { state: { goToSearchEmployee: true, employeeId: empId } });
+              },
+              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
+            }),
+          }}
         />
       </div>
     </>

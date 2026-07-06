@@ -58,9 +58,9 @@ const BirthdayCelebration = () => {
   const extraNames = birthdayUsers.slice(MAX_INLINE).map((u) => `${u.firstName} ${u.lastName}`);
 
   return (
-    <div>
+    <>
       {birthdayUsers.length > 0 && (
-        <div>
+        <div className="wt-greeting d-none d-lg-flex align-items-center me-5">
           <div
             className="text-center d-flex justify-content-center align-items-center"
             style={{
@@ -102,7 +102,7 @@ const BirthdayCelebration = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

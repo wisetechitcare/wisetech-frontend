@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
@@ -8,7 +9,6 @@ import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { PageTitle } from "@metronic/layout/core";
-import { getAllProjects } from "@services/projects";
 import TasksMainTable from "./tasks/TasksMainTable";
 import TasksConfigure from "./configure/TasksConfigure";
 // import TaskOverviewToggle from "./taskOverView/TaskOverviewToggle";
@@ -18,8 +18,6 @@ import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
  
 const TasksMain = () => {
   const [activeTab, setActiveTab] = useState(0);
-  const [coordinates, setCoordinates] = useState<{lat: number, lng: number}[]>([]);
-  const [projectData, setProjectData] = useState<any>([]);
   const [dateSettingsEnabled, setDateSettingsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,18 +29,6 @@ const TasksMain = () => {
     dispatch(initializeChartSettings());
   }, [dispatch]);
 
-  useEffect(() => {
-    getAllProjects().then((res) => { 
-      setProjectData(res?.data?.projects);
-      const allCoordinates = res?.data?.projects
-        ?.filter((item: any) => item.latitude && item.longitude) 
-        ?.map((item: any) => ({
-          lat: parseFloat(item.latitude),
-          lng: parseFloat(item.longitude)
-        })) || [];
-      setCoordinates(allCoordinates);
-    });
-  }, []);
 
 
   
@@ -54,7 +40,7 @@ const TasksMain = () => {
           } = await fetchConfiguration(DATE_SETTINGS_KEY);
           const parsed =
             typeof configuration.configuration === "string"
-              ? JSON.parse(configuration.configuration)
+              ? safeJsonParse(configuration.configuration)
               : configuration.configuration;
           setDateSettingsEnabled(parsed?.useDateSettings ?? false);
         } catch (err) {
@@ -69,8 +55,6 @@ const TasksMain = () => {
     }, []);
 
 
-  const points = coordinates;
-  
   const tabItems: TabItem[] = [
     // {
     //   title: "Overview",

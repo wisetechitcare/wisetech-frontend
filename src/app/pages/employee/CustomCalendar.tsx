@@ -1,10 +1,10 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { useEffect, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { parseWorkingDays } from '@utils/workingDays';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
 import { Modal } from 'react-bootstrap';
 import dayjs from 'dayjs';
-import Select from 'react-select';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -30,9 +30,31 @@ import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { fetchAllColors } from '@services/options';
 import { fetchAllUsers } from '@services/users';
-import { fetchAllEmployees } from '@services/employee';
-import { SHOW_BIRTHDAY_ON_CALENDAR, SHOW_WORK_ANIVERSARY_ON_CALENDAR } from '@constants/configurations-key';
+import { fetchAllEmployees, getMeetings } from '@services/employee';
+import { 
+  SHOW_BIRTHDAYS_INTERNAL, 
+  SHOW_BIRTHDAYS_INTERNAL_INACTIVE,
+  SHOW_BIRTHDAYS_EXTERNAL, 
+  SHOW_ANNIVERSARIES_INTERNAL, 
+  SHOW_ANNIVERSARIES_INTERNAL_INACTIVE,
+  SHOW_ANNIVERSARIES_EXTERNAL,
+  SHOW_SATURDAY_ON_CALENDAR,
+  SHOW_SUNDAY_ON_CALENDAR,
+  SHOW_MEETINGS_ON_CALENDAR
+} from '@constants/configurations-key';
+import { getUpcomingContactsBirthdays } from '@services/companies';
 import { fetchColorAndStoreInSlice } from '@utils/file';
+import { Box, Button } from '@mui/material';
+import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
+import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+
+// View options shown in the shared PeriodTabs (same control used app-wide).
+const CALENDAR_VIEW_OPTIONS = [
+    { label: 'Day', value: 'dayGridDay' },
+    { label: 'Week', value: 'dayGridWeek' },
+    { label: 'Month', value: 'dayGridMonth' },
+    { label: 'Year', value: 'multiMonthYear' },
+];
 
 const initialValues: ICalendarEvent = {
     employeeId: "",
@@ -79,6 +101,17 @@ function CustomCalendar() {
     // console.log("hodlidays","holidays =>",holidays)
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     // console.log("calendarEvents=>",calendarEvents)
+    const [meetings, setMeetings] = useState<any[]>([]);
+    const [filterInternalBirthdays, setFilterInternalBirthdays] = useState(true);
+    const [filterExternalBirthdays, setFilterExternalBirthdays] = useState(true);
+    const [filterInternalAnniversaries, setFilterInternalAnniversaries] = useState(true);
+    const [filterExternalAnniversaries, setFilterExternalAnniversaries] = useState(true);
+    const [colorInternalBday, setColorInternalBday] = useState('#E91E63');
+    const [colorExternalBday, setColorExternalBday] = useState('#0288d1');
+    const [colorInternalAnny, setColorInternalAnny] = useState('#9C27B0');
+    const [colorExternalAnny, setColorExternalAnny] = useState('#f57c00');
+    const [colorSaturday, setColorSaturday] = useState('#FFB300');
+    const [colorSunday, setColorSunday] = useState('#F44336');
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showEventForm, setShowEventForm] = useState(false);
     const [showHolidayForm, setShowHolidayForm] = useState(false);
@@ -93,6 +126,9 @@ function CustomCalendar() {
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear() + '');
     // console.log("currentYear => =>",currentYear)
     const [selectedViewForCalendar, setSelectedViewForCalendar] = useState('dayGridMonth');
+    // Title shown in the shared PeriodNavigator (e.g. "July 2026"). Kept in sync
+    // with FullCalendar via datesSet.
+    const [periodTitle, setPeriodTitle] = useState('');
     const [selectedStartDate, setSelectedStartDate] = useState('');
     const [selectedEndDate, setSelectedEndDate] = useState('');
     const [maxColumns, setMaxColumns] = useState(2);
@@ -105,14 +141,14 @@ function CustomCalendar() {
         }, []);
     
 
-    const handleViewChange = (event: any) => {
-        const selectedView = event.value;
-        setSelectedViewForCalendar(selectedView);
-        const calendarApi = calendarRef?.current?.getApi();
-        if (calendarApi) {
-            calendarApi.changeView(selectedView);
-        }
+    // Drive FullCalendar from the shared Period toolbar controls.
+    const handleViewChangeByValue = (value: string) => {
+        setSelectedViewForCalendar(value);
+        calendarRef?.current?.getApi()?.changeView(value);
     };
+    const handleToday = () => calendarRef?.current?.getApi()?.today();
+    const handlePrevPeriod = () => calendarRef?.current?.getApi()?.prev();
+    const handleNextPeriod = () => calendarRef?.current?.getApi()?.next();
     const formik = useFormik<ICalendarEvent>({
         initialValues,
         validationSchema: calendarEventSchema,
@@ -203,10 +239,12 @@ function CustomCalendar() {
     const handleDatesSet = (e: any) => {
         setSelectedStartDate(e?.startStr);
         setSelectedEndDate(e?.endStr);
-        const calendarApi = calendarRef.current?.getApi();
+        const calendarApi = e?.view?.calendar || calendarRef.current?.getApi();
         if (!calendarApi) return;
         const currentYear = calendarApi.getDate().getFullYear();
         setCurrentYear(currentYear + "");
+        setPeriodTitle(e?.view?.title || calendarApi.view?.title || "");
+        setSelectedViewForCalendar(e?.view?.type || calendarApi.view?.type || selectedViewForCalendar);
     };
 
     // const handleEventClick = async (clickInfo: any) => {
@@ -228,17 +266,76 @@ function CustomCalendar() {
           
           const branchRes = await fetchBranchById(branchId);
           const calendarRes = await fetchCalendarEvents(employeeId);
-          const [colorsRes, allUsers, showBirthdaysRes, showWorkAnniversaryRes, allEmployeeDateOfjoining] = await Promise.all([
+          const [
+            colorsRes,
+            allUsers,
+            showBirthdaysInternalRes,
+            showBirthdaysInternalInactiveRes,
+            showBirthdaysExternalRes,
+            showAnniversariesInternalRes,
+            showAnniversariesInternalInactiveRes,
+            showAnniversariesExternalRes,
+            showSaturdayRes,
+            showSundayRes,
+            showMeetingsRes,
+            allEmployeeDateOfjoining,
+            meetingsRes
+          ] = await Promise.all([
             fetchAllColors(),
             fetchAllUsers(),
-            fetchConfiguration(SHOW_BIRTHDAY_ON_CALENDAR),
-            fetchConfiguration(SHOW_WORK_ANIVERSARY_ON_CALENDAR),
-            fetchAllEmployees()
+            fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL),
+            fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL_INACTIVE),
+            fetchConfiguration(SHOW_BIRTHDAYS_EXTERNAL),
+            fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL),
+            fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL_INACTIVE),
+            fetchConfiguration(SHOW_ANNIVERSARIES_EXTERNAL),
+            fetchConfiguration(SHOW_SATURDAY_ON_CALENDAR),
+            fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR),
+            fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR),
+            fetchAllEmployees(true),
+            getMeetings(employeeId)
           ]);
           const colors = colorsRes?.data?.colors;
-          const showBirthdays = JSON.parse(showBirthdaysRes?.data?.configuration?.configuration || '{}');
-        //   debugger;
-          const showWorkAnniversary = JSON.parse(showWorkAnniversaryRes?.data?.configuration?.configuration || '{}');
+          const parsedBdayInt = safeJsonParse(showBirthdaysInternalRes?.data?.configuration?.configuration || '{}');
+          const parsedBdayIntInactive = safeJsonParse(showBirthdaysInternalInactiveRes?.data?.configuration?.configuration || '{}');
+          const parsedBdayExt = safeJsonParse(showBirthdaysExternalRes?.data?.configuration?.configuration || '{}');
+          const parsedAnnyInt = safeJsonParse(showAnniversariesInternalRes?.data?.configuration?.configuration || '{}');
+          const parsedAnnyIntInactive = safeJsonParse(showAnniversariesInternalInactiveRes?.data?.configuration?.configuration || '{}');
+          const parsedAnnyExt = safeJsonParse(showAnniversariesExternalRes?.data?.configuration?.configuration || '{}');
+          const parsedSaturday = safeJsonParse(showSaturdayRes?.data?.configuration?.configuration || '{}');
+          const parsedSunday = safeJsonParse(showSundayRes?.data?.configuration?.configuration || '{}');
+          const parsedMeetings = safeJsonParse(showMeetingsRes?.data?.configuration?.configuration || '{}');
+
+          const showBirthdaysInternalEnabled = parsedBdayInt.enabled ?? parsedBdayInt.showBirthdaysInternal ?? false;
+          const showBirthdaysInternalInactiveEnabled = parsedBdayIntInactive.enabled ?? false;
+          const showBirthdaysExternalEnabled = parsedBdayExt.enabled ?? parsedBdayExt.showBirthdaysExternal ?? false;
+          const showAnniversariesInternalEnabled = parsedAnnyInt.enabled ?? parsedAnnyInt.showAnniversariesInternal ?? false;
+          const showAnniversariesInternalInactiveEnabled = parsedAnnyIntInactive.enabled ?? false;
+          const showAnniversariesExternalEnabled = parsedAnnyExt.enabled ?? parsedAnnyExt.showAnniversariesExternal ?? false;
+          const showSaturdayEnabled = parsedSaturday.enabled ?? false;
+          const showSundayEnabled = parsedSunday.enabled ?? false;
+          const showMeetingsEnabled = parsedMeetings.enabled ?? false;
+
+          const parsedColorBdayInt = parsedBdayInt.color || birthdaysColor || '#E91E63';
+          const parsedColorBdayIntInactive = parsedBdayIntInactive.color || '#E91E63';
+          const parsedColorBdayExt = parsedBdayExt.color || '#0288d1';
+          const parsedColorAnnyInt = parsedAnnyInt.color || anniversariesColor || '#9C27B0';
+          const parsedColorAnnyIntInactive = parsedAnnyIntInactive.color || '#9C27B0';
+          const parsedColorAnnyExt = parsedAnnyExt.color || '#f57c00';
+          const parsedColorSaturday = parsedSaturday.color || '#FFB300';
+          const parsedColorSunday = parsedSunday.color || '#F44336';
+          const parsedColorMeetings = parsedMeetings.color || '#2196F3';
+
+          setColorInternalBday(parsedColorBdayInt);
+          setColorExternalBday(parsedColorBdayExt);
+          setColorInternalAnny(parsedColorAnnyInt);
+          setColorExternalAnny(parsedColorAnnyExt);
+          setColorSaturday(parsedColorSaturday);
+          setColorSunday(parsedColorSunday);
+          
+          const meetingsData = meetingsRes?.data?.meetings || meetingsRes?.meetings || meetingsRes?.data || meetingsRes || [];
+          const finalMeetingsData = Array.isArray(meetingsData) ? meetingsData : [];
+          setMeetings(finalMeetingsData);
             
           let weekendColor = null;
           if (colors?.length) {
@@ -277,40 +374,64 @@ function CustomCalendar() {
             };
           });
         //   debugger;
-          const workingAndOffDays = JSON.parse(branchRes?.data?.branch?.workingAndOffDays || '{}');
+          const workingAndOffDays = parseWorkingDays(branchRes?.data?.branch?.workingAndOffDays);
           setBranchWorkingAndOffDays(workingAndOffDays);
       
           const weekendHolidays: any[] = [];
           const start = dayjs(`${currentYear}-01-01`);
           const end = dayjs(`${currentYear}-12-31`);
 
-          // Process user birthdays for the calendar
+          // Users linked to an ACTIVE employee record. A user account can stay
+          // active after the employee is deactivated, so user.isActive alone is
+          // not enough — birthdays must be limited to current employees.
+          const activeEmployeeUserIds = new Set(
+            (allEmployeeDateOfjoining?.data?.employees || [])
+              .map((employee: any) => employee?.users?.id ?? employee?.userId)
+              .filter(Boolean)
+          );
+
+          // Fetch contacts birthdays if external configs are enabled
+          let allContacts: any[] = [];
+          if (showBirthdaysExternalEnabled || showAnniversariesExternalEnabled) {
+            try {
+              const contactsRes = await getUpcomingContactsBirthdays(`${currentYear}-01-01`, `${currentYear}-12-31`);
+              allContacts = contactsRes?.allContacts || [];
+            } catch (err) {
+              console.error("Error fetching contacts birthdays:", err);
+            }
+          }
+
+          // 1. Process user birthdays (Internal Team)
           let userBirthdays: any[] = [];
-          if (showBirthdays.showBirthdaysOnCalendar === true) {
+          
           userBirthdays = allUsers?.data?.users
-            ?.filter((user: any) => user?.isActive === true && user.dateOfBirth) // Only include users with birth dates
+            ?.filter((user: any) => user.dateOfBirth)
             .map((user: any) => {
               const birthDate = dayjs(user.dateOfBirth);
               const today = dayjs().startOf('day');
               let nextBirthday = dayjs(birthDate).year(today.year());
-              
-              // If birthday has already passed this year, use next year's date
               if (nextBirthday.isBefore(today, 'day')) {
-                const nextyear = dayjs(currentYear);
-                nextBirthday = dayjs(birthDate).year(nextyear.year());
-                // console.log("Next birthday", nextBirthday);
+                nextBirthday = dayjs(birthDate).year(Number(currentYear));
               }
+              const isInactive = !user.isActive || !activeEmployeeUserIds.has(user.id);
               
+              if (isInactive && !showBirthdaysInternalInactiveEnabled) return null;
+              if (!isInactive && !showBirthdaysInternalEnabled) return null;
+
+              const bgColor = isInactive ? parsedColorBdayIntInactive : parsedColorBdayInt;
+              const iconToUse = isInactive ? parsedBdayIntInactive.icon : parsedBdayInt.icon;
+
               return {
-                title: `${user.firstName} ${user.lastName}'s Birthday`,
+                title: `${user.firstName} ${user.lastName}'s Birthday${isInactive ? ' (Inactive Employee)' : ''}`,
                 start: nextBirthday.format('YYYY-MM-DD'),
                 allDay: true,
-                color: birthdaysColor,
+                color: bgColor,
                 textColor: '#FFFFFF',
-                borderColor: birthdaysColor,
+                borderColor: bgColor,
                 className: 'birthday-event',
                 extendedProps: {
                   type: 'birthday',
+                  icon: iconToUse,
                   user: {
                     id: user.id,
                     name: `${user.firstName} ${user.lastName}`,
@@ -318,29 +439,68 @@ function CustomCalendar() {
                   }
                 }
               };
-            }) || [];
+            }).filter(Boolean) || [];
+
+          // 2. Process contact birthdays (External Team)
+          let contactBirthdays: any[] = [];
+          if (showBirthdaysExternalEnabled) {
+            contactBirthdays = allContacts
+              .filter((c: any) => c.dateOfBirth)
+              .map((c: any) => {
+                const birthDate = dayjs(c.dateOfBirth);
+                const today = dayjs().startOf('day');
+                let nextBirthday = dayjs(birthDate).year(today.year());
+                if (nextBirthday.isBefore(today, 'day')) {
+                  nextBirthday = dayjs(birthDate).year(Number(currentYear));
+                }
+                return {
+                  title: `${c.name}'s Birthday`,
+                  start: nextBirthday.format('YYYY-MM-DD'),
+                  allDay: true,
+                  color: parsedColorBdayExt,
+                  textColor: '#FFFFFF',
+                  borderColor: parsedColorBdayExt,
+                  className: 'birthday-event-external',
+                  extendedProps: {
+                    type: 'contact-birthday',
+                    icon: parsedBdayExt.icon,
+                    contact: c
+                  }
+                };
+              });
           }
 
-          // Process employee anniversaries for the calendar
+          // 3. Process employee anniversaries (Internal Team)
           let employeeAnniversaries: any[] = [];
-          if (showWorkAnniversary.showWorkAnniversaryOnCalendar === true) {
-            employeeAnniversaries = allEmployeeDateOfjoining?.data?.employees
-            ?.filter((employee: any) => employee.dateOfJoining)
+          
+          employeeAnniversaries = allEmployeeDateOfjoining?.data?.employees
+            ?.filter((employee: any) => employee.dateOfJoining && employee?.users)
             .map((employee: any) => {
               const anniversaryDate = dayjs(employee.dateOfJoining);
               const today = dayjs().startOf('day');
               let nextAnniversary = dayjs(anniversaryDate).year(today.year());
+              if (nextAnniversary.isBefore(today, 'day')) {
+                nextAnniversary = dayjs(anniversaryDate).year(Number(currentYear));
+              }
+              const isInactive = employee.isActive === false || employee.users?.isActive === false;
               
+              if (isInactive && !showAnniversariesInternalInactiveEnabled) return null;
+              if (!isInactive && !showAnniversariesInternalEnabled) return null;
+
+              const bgColor = isInactive ? parsedColorAnnyIntInactive : parsedColorAnnyInt;
+              const iconToUse = isInactive ? parsedAnnyIntInactive.icon : parsedAnnyInt.icon;
+
               return {
-                title: `${employee.users.firstName} ${employee.users.lastName}'s Work Anniversary`,
+                title: `${employee.users.firstName} ${employee.users.lastName}'s Work Anniversary${isInactive ? ' (Inactive Employee)' : ''}`,
                 start: nextAnniversary.format('YYYY-MM-DD'),
                 allDay: true,
-                color: anniversariesColor,
+                color: bgColor,
                 textColor: '#FFFFFF',
-                borderColor: anniversariesColor,
+                borderColor: bgColor,
                 className: 'anniversary-event',
                 extendedProps: {
                   type: 'anniversary',
+                  icon: iconToUse,
                   user: {
                     id: employee.users.id,
                     name: `${employee.users.firstName} ${employee.users.lastName}`,
@@ -348,7 +508,35 @@ function CustomCalendar() {
                   }
                 }
               };
-            }) || [];
+            }).filter(Boolean) || [];
+
+          // 4. Process contact anniversaries (External Team)
+          let contactAnniversaries: any[] = [];
+          if (showAnniversariesExternalEnabled) {
+            contactAnniversaries = allContacts
+              .filter((c: any) => c.anniversary)
+              .map((c: any) => {
+                const anniversaryDate = dayjs(c.anniversary);
+                const today = dayjs().startOf('day');
+                let nextAnniversary = dayjs(anniversaryDate).year(today.year());
+                if (nextAnniversary.isBefore(today, 'day')) {
+                  nextAnniversary = dayjs(anniversaryDate).year(Number(currentYear));
+                }
+                return {
+                  title: `${c.name}'s Anniversary`,
+                  start: nextAnniversary.format('YYYY-MM-DD'),
+                  allDay: true,
+                  color: parsedColorAnnyExt,
+                  textColor: '#FFFFFF',
+                  borderColor: parsedColorAnnyExt,
+                  className: 'anniversary-event-external',
+                  extendedProps: {
+                    type: 'contact-anniversary',
+                    icon: parsedAnnyExt.icon,
+                    contact: c
+                  }
+                };
+              });
           }
 
           for (let d = start; d.isBefore(end); d = d.add(1, 'day')) {
@@ -356,17 +544,47 @@ function CustomCalendar() {
             const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
             const dayName = dayNames[dayIndex];
             
-            if (workingAndOffDays[dayName] === "0") {
+            if (dayName === "saturday" && workingAndOffDays[dayName] === "0" && showSaturdayEnabled) {
               weekendHolidays.push({
-                title: `${dayName.charAt(0).toUpperCase() + dayName.slice(1)}`,
-                color: weekendColor,
+                title: `Saturday`,
+                color: parsedColorSaturday,
                 date: d.format('YYYY-MM-DD'),
-                fixed: true
+                fixed: true,
+                extendedProps: {
+                  icon: parsedSaturday.icon
+                }
+              });
+            } else if (dayName === "sunday" && workingAndOffDays[dayName] === "0" && showSundayEnabled) {
+              weekendHolidays.push({
+                title: `Sunday`,
+                color: parsedColorSunday,
+                date: d.format('YYYY-MM-DD'),
+                fixed: true,
+                extendedProps: {
+                  icon: parsedSunday.icon
+                }
               });
             }
           }
+          
+          // 5. Process Meetings
+          let meetingEvents: any[] = [];
+          if (showMeetingsEnabled) {
+            meetingEvents = finalMeetingsData.map((meeting: any) => ({
+              title: meeting.title,
+              start: dayjs(meeting.startDate).format(),
+              end: dayjs(meeting.endDate).format(),
+              color: parsedColorMeetings,
+              className: 'meeting-event',
+              extendedProps: {
+                type: 'meeting',
+                icon: parsedMeetings.icon,
+                meeting: meeting
+              }
+            }));
+          }
       
-          // Add user birthdays to calendar events
+          // Add user birthdays and meetings to calendar events
           const calendarEventList = [
             ...(calendarRes?.data?.calendarEvents?.map((event: any) => ({
               title: event.eventName,
@@ -375,7 +593,10 @@ function CustomCalendar() {
               color: "#AA393D"
             })) || []),
             ...userBirthdays,
-            ...employeeAnniversaries
+            ...contactBirthdays,
+            ...employeeAnniversaries,
+            ...contactAnniversaries,
+            ...meetingEvents
           ];
       
         //   const specialDates = [];
@@ -404,64 +625,6 @@ function CustomCalendar() {
 
         // console.log("=> => =>",currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh)
       }, [currentYear, employeeId, branchId, dateOfBirth, anniversaryDate, holidayRefresh]);
-
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            const selectButton = document.querySelector('.fc-viewSelectButton-button');
-            if (selectButton) {
-                const root = createRoot(selectButton);
-                root.render(
-                    <Select
-                        menuPortalTarget={document.body}
-                        classNamePrefix={"react-select"}
-                        className='react-select-styled'
-                        defaultValue={{ label: 'Month', value: 'dayGridMonth' }} 
-                        menuPlacement='bottom'
-                        options={
-                            [
-                                {
-                                    label: 'Day',
-                                    value: 'dayGridDay'
-                                },
-                                {
-                                    label: 'Week',
-                                    value: 'dayGridWeek'
-                                },
-                                {
-                                    label: 'Month',
-                                    value: 'dayGridMonth'
-                                },
-                                {
-                                    label: 'Year',
-                                    value: 'multiMonthYear'
-                                },
-                            ]
-                        }
-                        onChange={(e) => handleViewChange(e)}
-                        styles={{
-                            control: (base) => ({
-                                ...base,
-                                minWidth: "200px",
-                                fontSize: "14px",
-                            }),
-                            menuPortal: (base) => ({
-                                ...base,
-                                zIndex: 9999,
-                            }),
-                        }}
-                    />
-                );
-                clearInterval(intervalId);
-            }
-        }, 100);
-        return () => {
-            const selectButton = document.querySelector('.fc-viewSelectButton-button');
-            if (selectButton) {
-                const root = createRoot(selectButton);
-                root.unmount();
-            }
-        };
-    }, []);
 
     function handleDayCellClassNames(arg: any) {
         let classNamesToAdd = [];
@@ -494,30 +657,75 @@ function CustomCalendar() {
             <div id="fullcalendar__wrapper" className='d-flex flex-column'>
                 <div className='w-100 pl-10 pr-10'>
                     <PageTitle breadcrumbs={calendarBreadcrumbs}>Calendar</PageTitle>
+
+                    {/* Calendar header built from the shared Period components
+                        (PeriodTabs + PeriodNavigator) used across the app, so the
+                        controls look and behave consistently everywhere. */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexDirection: { xs: 'column', md: 'row' },
+                            alignItems: { xs: 'stretch', md: 'center' },
+                            justifyContent: 'space-between',
+                            gap: 1.5,
+                            mb: 2,
+                        }}
+                    >
+                        <PeriodTabs
+                            value={selectedViewForCalendar}
+                            options={CALENDAR_VIEW_OPTIONS}
+                            onChange={handleViewChangeByValue}
+                            ariaLabel="calendar view selection"
+                            sx={{ width: { xs: '100%', md: 'fit-content' } }}
+                        />
+
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: { xs: 'space-between', md: 'flex-end' },
+                                gap: 1.5,
+                            }}
+                        >
+                            <Button
+                                onClick={handleToday}
+                                disableElevation
+                                sx={{
+                                    height: 32,
+                                    minWidth: 'fit-content',
+                                    px: 1.75,
+                                    borderRadius: '4px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #eef2f7',
+                                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
+                                    color: '#9d4141',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    lineHeight: '32px',
+                                    textTransform: 'none',
+                                    '&:hover': { backgroundColor: '#f8fafc' },
+                                }}
+                            >
+                                Today
+                            </Button>
+
+                            <PeriodNavigator
+                                label={periodTitle}
+                                onPrevious={handlePrevPeriod}
+                                onNext={handleNextPeriod}
+                                previousTitle="Previous"
+                                nextTitle="Next"
+                                minWidth={180}
+                                sx={{ flex: { xs: 1, md: 'unset' } }}
+                            />
+                        </Box>
+                    </Box>
+
                     <FullCalendar
                         dayCellClassNames={(e) => handleDayCellClassNames(e)}
                         locale={enGbLocale}
                         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
-                        customButtons={{
-                            'todayButton': {
-                                text: 'Today',
-                                click: function () {
-                                    const calendarApi = calendarRef?.current?.getApi();
-                                    if (calendarApi) {
-                                        calendarApi.today();
-                                    }
-                                }
-                            },
-                            'viewSelectButton': {
-                                text: '',
-                                click: () => { },
-                            },
-                        }}
-                        headerToolbar={{
-                            left: 'todayButton prev next',
-                            center: 'title',
-                            right: 'viewSelectButton',
-                        }}
+                        headerToolbar={false}
                         views={{
                             multiMonthYear: {
                                 type: "multiMonthYear",
@@ -587,7 +795,7 @@ function CustomCalendar() {
                                                     </span>
                                                 </span>
                                             </label>
-                                            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && <label
+                                            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) && <label
                                                 className='btn btn-outline btn-outline-dashed btn-outline-default p-3 d-flex align-items-center mb-3'
                                                 onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }}
                                             >
@@ -788,8 +996,20 @@ function CustomCalendar() {
     );
 }
 function renderEventContent(eventInfo: any) {
+    const icon = eventInfo.event.extendedProps?.icon;
+    const isKtIcon = icon?.startsWith("kt:");
+    
     return (
-        <div className='fullcalendar__event__wrapper' style={{ backgroundColor: eventInfo.backgroundColor }}>
+        <div className='fullcalendar__event__wrapper d-flex align-items-center gap-1' style={{ backgroundColor: eventInfo.backgroundColor }}>
+            {icon && (
+                isKtIcon ? (
+                    <span style={{ color: eventInfo.textColor || '#fff', marginRight: '4px', display: 'flex', alignItems: 'center' }}>
+                        <KTIcon iconName={icon.slice(3)} className="fs-6" />
+                    </span>
+                ) : (
+                    <img src={icon} alt="icon" style={{ width: 14, height: 14, objectFit: 'contain', marginRight: '4px' }} />
+                )
+            )}
             <span>{eventInfo.event.title}</span>
         </div>
     )

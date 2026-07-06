@@ -1,5 +1,4 @@
-import { toAbsoluteUrl } from "@metronic/helpers";
-import { Container, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Container } from "@mui/material";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import dayjs, { Dayjs } from "dayjs";
@@ -8,10 +7,8 @@ import { useDispatch } from "react-redux";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
+import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
@@ -64,8 +61,6 @@ const LeadsOverviewToggle = ({
   const [yearStart, setYearStart] = useState<Dayjs | null>(null);
   const [yearEnd, setYearEnd] = useState<Dayjs | null>(null);
   const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
     undefined
   );
@@ -208,26 +203,6 @@ const LeadsOverviewToggle = ({
     setShowChartSettingsModal(false);
   };
 
-  const NavigationButtons = ({
-    onPrev,
-    onNext,
-    displayText,
-  }: {
-    onPrev: () => void;
-    onNext: () => void;
-    displayText: string;
-  }) => (
-    <div className="d-flex align-items-center">
-      <button className="btn btn-sm p-0 " onClick={onPrev}>
-        <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" />
-      </button>
-      <span className="mx-2 mt-0 fw-bold lh-base font-barlow">{displayText}</span>
-      <button className="btn btn-sm p-0" onClick={onNext}>
-        <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" />
-      </button>
-    </div>
-  );
-
   return (
     <>
       <div className="d-flex align-items-center justify-content-between mb-4">
@@ -269,51 +244,31 @@ const LeadsOverviewToggle = ({
         </div>
       </div>
 
-      <div className="d-flex flex-row justify-content-between align-items-center mb-6 ">
-        <div className="d-flex flex-column align-items-center d-md-block">
-
-          <Select
-            value={alignment}
-            onChange={(e) => handleChange(e as any, e.target.value)}
-            displayEmpty
-            variant="outlined"
-            size="small"
-            sx={{
-              width: { xs: "100%", md: "200px" },
-              borderRadius: "8px",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#A0B4D2",
-              },
-              "&:hover .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#9D4141",
-              },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#9D4141",
-              },
-            }}
-          >
-            <MenuItem value="monthly">Monthly</MenuItem>
-            <MenuItem value="yearly">Yearly</MenuItem>
-            <MenuItem value="custom">Custom</MenuItem>
-          </Select>
-        </div>
+      <div className="d-flex flex-row justify-content-between align-items-center mb-6">
+        <PeriodTabs
+          value={alignment}
+          options={[
+            { label: 'Monthly', value: 'monthly' },
+            { label: 'Yearly', value: 'yearly' },
+            { label: 'Custom', value: 'custom' },
+          ]}
+          onChange={(val) => handleChange(null as any, val)}
+          ariaLabel="view selection"
+        />
         <div>
-
           {alignment === "monthly" && (
-            <NavigationButtons
-              onPrev={() => navigateMonth("prev")}
+            <PeriodNavigator
+              label={`${monthStart.format("DD MMM")} - ${monthEnd.format("DD MMM")}`}
+              onPrevious={() => navigateMonth("prev")}
               onNext={() => navigateMonth("next")}
-              displayText={`${monthStart.format("DD MMM")} - ${monthEnd.format(
-                "DD MMM"
-              )}`}
             />
           )}
 
           {alignment === "yearly" && yearStart && yearEnd && (
-            <NavigationButtons
-              onPrev={() => navigateYear("prev")}
+            <PeriodNavigator
+              label={fiscalYearDisplay}
+              onPrevious={() => navigateYear("prev")}
               onNext={() => navigateYear("next")}
-              displayText={fiscalYearDisplay}
             />
           )}
 

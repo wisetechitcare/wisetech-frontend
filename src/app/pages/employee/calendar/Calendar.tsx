@@ -3,6 +3,7 @@ import CustomCalendar from '../CustomCalendar';
 import { BarChart } from "@mui/icons-material";
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
 import Holidays from './admin/Holidays';
+import Meetings from './views/Meetings';
 import { PageTitle } from '@metronic/layout/core';
 import { calenderIcons } from "@metronic/assets/sidepanelicons";
 import RenameHoliday from './views/RenameHoliday';
@@ -23,12 +24,21 @@ function Calendar() {
           ? calenderIcons.calenderIcon.active
           : calenderIcons.calenderIcon.default,
     },
+    ...(hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.readOwn) ? [
+    {
+      title: "Meetings",
+      component: <Meetings />,
+      icon:
+        activeTab === 1
+          ? calenderIcons.holidayesIcon.active
+          : calenderIcons.holidayesIcon.default, // Using holiday icon temporarily if meeting icon doesn't exist
+    }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) ? [
     {
       title: "Holidays",
       component: <Holidays />,
       icon:
-        activeTab === 1
+        activeTab === 2
           ? calenderIcons.holidayesIcon.active
           : calenderIcons.holidayesIcon.default,
     }]:[]),
@@ -36,7 +46,7 @@ function Calendar() {
       title: "Configure",
       component: <CalendarConfigure/>,
       icon:
-        activeTab === 2
+        activeTab === 3
           ? leadsIcons.leadsConfigIcon.active
           : leadsIcons.leadsConfigIcon.default,
     }] : [])

@@ -1,15 +1,16 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
-import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction } from '@services/employee';
+import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { Modal } from 'react-bootstrap';
 import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
+import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 
 type RequestDetails = {
   subType?: string | null;
@@ -19,6 +20,8 @@ type RequestDetails = {
   description?: string | null;
   isHalfDay?: boolean | null;
   halfDaySession?: string | null;
+  totalAmount?: number | string | null;
+  totalRequests?: number | null;
 };
 
 type ApprovalStep = {
@@ -50,9 +53,22 @@ type DomainApprovalQueueProps = {
   mode?: 'include' | 'exclude';
 };
 
+type BatchStatusSummary = {
+  approved: number;
+  rejected: number;
+  approvedAmt: number;
+  rejectedAmt: number;
+};
+
+type DisplayStep = ApprovalStep & {
+  _uid: string;
+  _splitStatus?: 1 | 2;
+  _splitCount?: number;
+  _splitAmount?: number;
+};
+
 const ATTENDANCE_BADGE_COLOR = '#f1bc00';
 const REIMBURSEMENT_BADGE_COLOR = '#50cd89';
-const CONVEYANCE_BADGE_COLOR = '#7239ea';
 
 const MIN_REASON_LENGTH = 10;
 
@@ -90,8 +106,7 @@ interface RejectModalProps {
 function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps) {
   const [reason, setReason] = useState('');
   const trimmed = reason.trim();
-  const tooShort = trimmed.length > 0 && trimmed.length < MIN_REASON_LENGTH;
-  const canSubmit = trimmed.length >= MIN_REASON_LENGTH && !submitting;
+  const canSubmit = trimmed.length > 0 && !submitting;
 
   useEffect(() => { if (!step) setReason(''); }, [step]);
 
@@ -126,17 +141,12 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
               <textarea
                 rows={3}
                 className='form-control'
-                placeholder='Describe why this request is being rejected (min 10 characters)…'
+                placeholder='Describe why this request is being rejected…'
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 style={{ resize: 'vertical', fontSize: 13 }}
                 disabled={submitting}
               />
-              {tooShort && (
-                <div style={{ fontSize: 11, color: '#f1416c', marginTop: 4 }}>
-                  Reason must be at least {MIN_REASON_LENGTH} characters ({trimmed.length}/{MIN_REASON_LENGTH})
-                </div>
-              )}
               {!trimmed && (
                 <div style={{ fontSize: 11, color: '#a1a5b7', marginTop: 4 }}>
                   A rejection reason is required.
@@ -165,10 +175,14 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
 
 // ─── Expanded row detail ───────────────────────────────────────────────────────
 
-function ExpandedDetail({ instanceId }: { instanceId: string }) {
+function ExpandedDetail({ instanceId, splitStatus }: { instanceId: string; splitStatus?: 1 | 2 }) {
   return (
     <div style={{ padding: '16px 20px', background: '#fafafa', borderTop: '1px solid #eff2f5' }}>
-      <ApprovalStatusTracker instanceId={instanceId} showAuditLog />
+      <ApprovalStatusTracker
+        instanceId={instanceId}
+        showAuditLog
+        overrideStatus={splitStatus === 2 ? 'rejected' : splitStatus === 1 ? 'approved' : undefined}
+      />
     </div>
   );
 }
@@ -184,6 +198,10 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ApprovalStep | null>(null);
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  const [batchDetailId, setBatchDetailId] = useState<string | null>(null);
+  const [batchDetailInstanceId, setBatchDetailInstanceId] = useState<string | null>(null);
+  const [batchDetailsMap, setBatchDetailsMap] = useState<Record<string, BatchStatusSummary>>({});
+  const [batchDetailFilterStatus, setBatchDetailFilterStatus] = useState<number | null>(null);
 
   const getLeaveTypeColor = (leaveType: string): string => {
     if (!leaveTypeColors) return '#3498DB';
@@ -199,16 +217,54 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
   const load = useCallback(async (tab: TabKey = activeTab) => {
     setLoading(true);
+    setBatchDetailsMap({});
     try {
       const res = tab === 'pending'
         ? await fetchPendingApprovals()
         : await fetchAllApprovalInstances(tab);
       const raw = res?.data ?? res ?? [];
       const rows = Array.isArray(raw) ? raw : [];
-      setSteps(rows.filter((item: ApprovalStep) => {
+      const filtered = rows.filter((item: ApprovalStep) => {
         const workflowType = (item.instance.workflowType || '').toLowerCase();
         return mode === 'exclude' ? !domainTypes.includes(workflowType) : domainTypes.includes(workflowType);
-      }));
+      });
+      setSteps(filtered);
+
+      if (tab === 'completed') {
+        const reimbSteps = filtered.filter((s: ApprovalStep) => s.instance.workflowType === 'reimbursement');
+        const seen = new Set<string>();
+        const batchIds: string[] = [];
+        for (const s of reimbSteps) {
+          if (!seen.has(s.instance.requestId)) {
+            seen.add(s.instance.requestId);
+            batchIds.push(s.instance.requestId);
+          }
+        }
+        if (batchIds.length > 0) {
+          Promise.allSettled(
+            batchIds.map((id: string) =>
+              fetchReimbursementBatchById(id).then((r: any) => ({ id, batch: r?.data?.batch || r?.batch }))
+            )
+          ).then((results) => {
+            const map: Record<string, BatchStatusSummary> = {};
+            for (const r of results) {
+              if (r.status === 'fulfilled' && r.value?.batch) {
+                const { id, batch } = r.value;
+                const reimbs: any[] = batch.reimbursements ?? [];
+                const appr = reimbs.filter((x: any) => x.status === 1);
+                const rej = reimbs.filter((x: any) => x.status === 2);
+                map[id] = {
+                  approved: appr.length,
+                  rejected: rej.length,
+                  approvedAmt: appr.reduce((s: number, x: any) => s + Number(x.amount || 0), 0),
+                  rejectedAmt: rej.reduce((s: number, x: any) => s + Number(x.amount || 0), 0),
+                };
+              }
+            }
+            setBatchDetailsMap(map);
+          });
+        }
+      }
     } catch {
       setSteps([]);
     } finally {
@@ -254,6 +310,10 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     }
   };
 
+  const isReimbursementFlow = mode === 'include'
+    ? domainTypes.includes('reimbursement')
+    : !domainTypes.includes('reimbursement');
+
   const columns = useMemo<MRT_ColumnDef<ApprovalStep>[]>(() => [
     {
       accessorKey: 'requester',
@@ -273,6 +333,45 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         );
       },
     },
+    ...(isReimbursementFlow ? [
+      {
+        accessorKey: 'totalRequests',
+        header: 'Total Requests',
+        size: 130,
+        Cell: ({ row }: any) => {
+          const ds = row.original as DisplayStep;
+          const count = ds._splitCount != null ? ds._splitCount : ds.requestDetails?.totalRequests;
+          if (count == null) return <span className='text-muted fs-7'>—</span>;
+          return (
+            <span
+              role='button'
+              className='fw-bold fs-6 text-primary'
+              style={{ cursor: 'pointer' }}
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                setBatchDetailId(ds.instance.requestId);
+                setBatchDetailInstanceId(ds.instance.id);
+                setBatchDetailFilterStatus(ds._splitStatus ?? null);
+              }}
+            >
+              {count}
+            </span>
+          );
+        },
+      } as MRT_ColumnDef<ApprovalStep>,
+      {
+        accessorKey: 'totalAmount',
+        header: 'Total Amount',
+        size: 150,
+        Cell: ({ row }: any) => {
+          const ds = row.original as DisplayStep;
+          const amount = ds._splitAmount != null ? ds._splitAmount : ds.requestDetails?.totalAmount;
+          if (amount == null) return <span className='text-muted fs-7'>—</span>;
+          return <span className='text-dark fw-semibold fs-7'>₹{fmtAmount(amount)}</span>;
+        },
+      } as MRT_ColumnDef<ApprovalStep>
+      
+    ] : []),
     {
       accessorKey: 'workflowType',
       header: 'Type',
@@ -291,11 +390,16 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           label = subType ?? 'Regularization';
           color = ATTENDANCE_BADGE_COLOR;
         } else if (type === 'reimbursement') {
-          label = subType ?? 'Reimbursement';
-          color = REIMBURSEMENT_BADGE_COLOR;
-        } else if (type === 'conveyance') {
-          label = subType ?? 'Conveyance';
-          color = CONVEYANCE_BADGE_COLOR;
+          const ds = row.original as DisplayStep;
+          if (ds._splitStatus) {
+            label = ds._splitStatus === 1
+              ? `Approved (${ds._splitCount ?? 0})`
+              : `Rejected (${ds._splitCount ?? 0})`;
+            color = ds._splitStatus === 1 ? '#10b981' : '#ef4444';
+          } else {
+            label = subType ?? 'Reimbursement';
+            color = REIMBURSEMENT_BADGE_COLOR;
+          }
         } else {
           label = subType ?? type;
           color = '#a1a5b7';
@@ -380,7 +484,8 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           );
         }
         if (activeTab === 'completed') {
-          const isApproved = step.instance.status === 'approved';
+          const ds = step as DisplayStep;
+          const isApproved = ds._splitStatus === 1 || (ds._splitStatus == null && step.instance.status === 'approved');
           return (
             <span className={`badge ${isApproved ? 'badge-light-success' : 'badge-light-danger'} fw-semibold fs-8`}>
               {isApproved ? 'Approved' : 'Rejected'}
@@ -400,7 +505,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               className='btn btn-icon btn-sm'
               title='Approve'
               disabled={isProcessing}
-              onClick={() => approve(step)}
+              onClick={(e) => { e.stopPropagation(); approve(step); }}
             >
               {isProcessing ? (
                 <span className='spinner-border spinner-border-sm text-success' />
@@ -412,7 +517,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
               className='btn btn-icon btn-sm'
               title='Reject'
               disabled={isProcessing}
-              onClick={() => setRejectTarget(step)}
+              onClick={(e) => { e.stopPropagation(); setRejectTarget(step); }}
             >
               <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='' />
             </button>
@@ -420,7 +525,42 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         );
       },
     },
-  ], [processingId, leaveTypeColors, activeTab]);
+  ], [processingId, leaveTypeColors, activeTab, isReimbursementFlow]);
+
+  const displaySteps = useMemo<DisplayStep[]>(() => {
+    if (activeTab !== 'completed') {
+      return steps.map((s) => ({ ...s, _uid: s.id }));
+    }
+    const result: DisplayStep[] = [];
+    for (const step of steps) {
+      if (step.instance.workflowType !== 'reimbursement') {
+        result.push({ ...step, _uid: step.id });
+        continue;
+      }
+      const details = batchDetailsMap[step.instance.requestId];
+      if (details && details.approved > 0 && details.rejected > 0) {
+        result.push({
+          ...step,
+          id: `${step.id}-approved`,
+          _uid: `${step.id}-approved`,
+          _splitStatus: 1,
+          _splitCount: details.approved,
+          _splitAmount: details.approvedAmt,
+        });
+        result.push({
+          ...step,
+          id: `${step.id}-rejected`,
+          _uid: `${step.id}-rejected`,
+          _splitStatus: 2,
+          _splitCount: details.rejected,
+          _splitAmount: details.rejectedAmt,
+        });
+      } else {
+        result.push({ ...step, _uid: step.id });
+      }
+    }
+    return result;
+  }, [steps, activeTab, batchDetailsMap]);
 
   if (!canApprove) {
     return (
@@ -441,37 +581,47 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
 
   return (
     <>
-      <div className='d-flex align-items-center justify-content-end pt-0 pb-4'>
+      {/* Tab strip + Refresh */}
+      <div className='d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2'>
+        <div className='d-flex gap-2 flex-wrap'>
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
+              onClick={() => setActiveTab(t.key)}
+            >
+              {t.label}
+              {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
+                <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
         <button className='btn btn-sm btn-light-primary d-flex align-items-center gap-2' onClick={() => load(activeTab)} disabled={loading}>
           <KTIcon iconName='arrows-circle' className='fs-5' />{loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 
-      {/* Tab strip */}
-      <div className='d-flex gap-2 mb-4'>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.label}
-            {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
-              <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
       <MaterialTable
-        data={steps}
+        data={displaySteps}
         columns={columns}
         tableName='Approvals'
         hideFilters={false}
         hideExportCenter
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
-          <ExpandedDetail instanceId={row.original.instance.id} />
+          <ExpandedDetail instanceId={row.original.instance.id} splitStatus={(row.original as DisplayStep)._splitStatus} />
         )}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: () => {
+              const ds = row.original as DisplayStep;
+              setBatchDetailId(ds.instance.requestId);
+              setBatchDetailInstanceId(ds.instance.id);
+              setBatchDetailFilterStatus(ds._splitStatus ?? null);
+            },
+            sx: { cursor: 'pointer' },
+          }),
+        }}
       />
 
       <RejectModal
@@ -479,6 +629,14 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         onClose={() => setRejectTarget(null)}
         onConfirm={handleRejectConfirm}
         submitting={rejectSubmitting}
+      />
+
+      <BatchDetailModal
+        batchId={batchDetailId}
+        onClose={() => { setBatchDetailId(null); setBatchDetailInstanceId(null); setBatchDetailFilterStatus(null); }}
+        onBatchActionDone={() => load(activeTab)}
+        approvalInstanceId={batchDetailInstanceId}
+        filterStatus={batchDetailFilterStatus}
       />
     </>
   );

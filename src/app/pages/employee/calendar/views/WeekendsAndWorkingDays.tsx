@@ -1,4 +1,5 @@
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { parseWorkingDays } from '@utils/workingDays';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
 import { IWeekend } from '@models/company';
@@ -17,6 +18,7 @@ import * as Yup from 'yup';
 
 interface weekends {
     id: string,
+    orgName: string,
     branchName: string,
     type: string,
     workingAndOffDays: any
@@ -95,13 +97,16 @@ function WeekendsAndWorkingDays() {
                 const { data: { branches } } = res;
                 
                 const transformedRes = branches.map((branch: any) => {
-                    const weekendMesages = getWeekendSentenceBasedOnWorkingDaysJson(JSON.parse(branch?.workingAndOffDays));
+                    const weekendMesages = getWeekendSentenceBasedOnWorkingDaysJson(parseWorkingDays(branch?.workingAndOffDays));
                     
                     return {
                         id: branch.id,
+                        // Show the owning org/sub-org so duplicate branch names (e.g. two
+                        // "Jogeshwari", "VASHI" vs "Vashi") are no longer ambiguous.
+                        orgName: branch.company?.name ?? '—',
                         branchName: branch.name,
                         type: weekendMesages ? `Every ${weekendMesages}` : 'No Holidays',
-                        workingAndOffDays: JSON.parse(branch?.workingAndOffDays),
+                        workingAndOffDays: parseWorkingDays(branch?.workingAndOffDays),
                     }
                 })
 
@@ -117,6 +122,11 @@ function WeekendsAndWorkingDays() {
     }, [refetch]);
 
     const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => [
+        {
+            accessorKey: 'orgName',
+            header: 'Organisation',
+            Cell: ({ renderedCellValue }) => renderedCellValue,
+        },
         {
             accessorKey: 'branchName',
             header: 'Branch Name',
@@ -184,6 +194,17 @@ function WeekendsAndWorkingDays() {
         enableReinitialize: true,
         validateOnMount: true,
     });
+
+    // Hard-reset the form to the OPENED branch's saved values every time a different branch is
+    // edited. Without this, an unsaved checkbox change in one branch carried over into the next
+    // branch's modal (the form kept its dirty state). currWeekendId flips to '' on close, so this
+    // also fires correctly when reopening the same branch.
+    useEffect(() => {
+        if (currWeekendId) {
+            formik.resetForm({ values: currWeekendValues });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currWeekendId]);
 
 
     return (

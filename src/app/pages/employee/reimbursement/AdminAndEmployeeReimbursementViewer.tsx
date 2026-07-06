@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
 import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
-import { BarChart } from "@mui/icons-material";
 import SearchEmployee from "./views/admin/SearchEmployee";
+import PaymentTab from "./views/admin/PaymentTab";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import Settings from "./views/admin/Settings";
+import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
 import overviewIcon from '../../../../_metronic/assets/sidepanelicons/overview.svg'
-import { leadsIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
+import { leadsIcons, loanIcons, reimbursementsIcons } from "@metronic/assets/sidepanelicons";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 
+
 function AdminAndEmployeeReimbursementViewer() {
   const dispatch = useDispatch();
+  const location = useLocation();
 
   const [activeTab, setActiveTab] = useState(0);
   const isAdmin = useSelector(
@@ -26,6 +29,13 @@ function AdminAndEmployeeReimbursementViewer() {
   useEffect(()=>{
     dispatch(fetchRolesAndPermissions() as any);
   },[])
+
+  useEffect(() => {
+    if ((location.state as any)?.goToSearchEmployee) {
+      const idx = tabItems.findIndex(t => t.title === "Search Employee");
+      if (idx !== -1) setActiveTab(idx);
+    }
+  }, [location.state]);
 
   const tabItems: TabItem[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
@@ -44,9 +54,14 @@ function AdminAndEmployeeReimbursementViewer() {
       icon: activeTab === 2 ? reimbursementsIcons.serchEmployee.active : reimbursementsIcons.serchEmployee.default,
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
+      title: "Payment",
+      component: <PaymentTab />,
+      icon: activeTab === 3 ? loanIcons.installmentsIcon.active : loanIcons.installmentsIcon.default,
+    }]:[]),
+    ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Configure",
-      component: <Settings />,
-      icon: activeTab === 3 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
+      component: <ReimbursementConfiguration />,
+      icon: activeTab === 4 ? leadsIcons.leadsConfigIcon.active : leadsIcons.leadsConfigIcon.default,
     }]:[]),
   ];
 
@@ -71,7 +86,7 @@ function AdminAndEmployeeReimbursementViewer() {
         Reimbursements
       </PageTitle>
       
-      <MaterialHeaderTab tabItems={tabItems} onTabChange={setActiveTab}/>
+      <MaterialHeaderTab tabItems={tabItems} activeTab={activeTab} onTabChange={setActiveTab}/>
     </>
   );
 }

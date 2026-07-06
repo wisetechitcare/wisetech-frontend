@@ -2,9 +2,13 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { MaterialReactTable } from "material-react-table";
 import {
+  Button,
+  ButtonGroup,
   Container,
   createTheme,
   Icon,
+  Menu,
+  MenuItem,
   ThemeProvider,
   useMediaQuery,
   useTheme,
@@ -87,6 +91,9 @@ interface MaterialTableProps {
   /** Opt-in: render the column footer row (e.g. totals). Off by default to preserve existing tables. */
   showColumnFooter?: boolean;
   defaultSorting?: Array<{ id: string; desc: boolean }>;
+  /** Notifies the parent of the currently-visible column keys (after preferences load
+   *  and on every show/hide toggle). Lets a page fetch only the data those columns need. */
+  onVisibleColumnsChange?: (visibleKeys: string[]) => void;
 }
 
 const defaultColumnSizes = {
@@ -137,6 +144,7 @@ function MaterialTable({
   renderExportActions,
   showColumnFooter = false,
   defaultSorting,
+  onVisibleColumnsChange,
 }: MaterialTableProps) {
   // Column-specific search state
   const [selectedSearchColumn, setSelectedSearchColumn] =
@@ -252,6 +260,94 @@ function MaterialTable({
   const { mode: metronicMode } = useThemeMode();
   const mode = metronicMode === "system" ? "light" : metronicMode;
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const scrollTrackRef = useRef<HTMLDivElement>(null);
+  const scrollThumbRef = useRef<HTMLDivElement>(null);
+  const scrollBarWrapRef = useRef<HTMLDivElement>(null);
+  const isDraggingHScroll = useRef(false);
+  const dragOriginX = useRef(0);
+  const dragOriginScrollLeft = useRef(0);
+
+  // 100% DOM-driven — no React state, no re-renders, no flicker
+  const syncThumb = useCallback(() => {
+    const el = tableContainerRef.current;
+    const thumb = scrollThumbRef.current;
+    const wrap = scrollBarWrapRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const overflows = scrollWidth > clientWidth + 2;
+    if (wrap) {
+      // Own-row scrollbar: collapse it entirely when the table doesn't overflow so it
+      // never takes space / overlaps the pagination footer.
+      wrap.style.display = overflows ? 'flex' : 'none';
+    }
+    if (!thumb || !overflows) return;
+    const widthPct = (clientWidth / scrollWidth) * 100;
+    const leftPct = (scrollLeft / (scrollWidth - clientWidth)) * (100 - widthPct);
+    // Own left+width directly — React never sets these so they won't be reset
+    thumb.style.width = `${widthPct}%`;
+    thumb.style.left = `${leftPct}%`;
+  }, []);
+
+  useEffect(() => {
+    // MRT mounts its container asynchronously — retry until ref is populated
+    let cleanupFn: (() => void) | undefined;
+    let attempts = 0;
+    const trySetup = () => {
+      const el = tableContainerRef.current;
+      if (!el) {
+        if (attempts++ < 30) { setTimeout(trySetup, 100); }
+        return;
+      }
+      el.addEventListener('scroll', syncThumb, { passive: true });
+      const onWheel = (e: WheelEvent) => {
+        if (!e.shiftKey) return;
+        e.preventDefault();
+        el.scrollLeft += e.deltaY * 1.5;
+      };
+      el.addEventListener('wheel', onWheel, { passive: false });
+      const ro = new ResizeObserver(syncThumb);
+      ro.observe(el);
+      syncThumb();
+      cleanupFn = () => {
+        el.removeEventListener('scroll', syncThumb);
+        el.removeEventListener('wheel', onWheel);
+        ro.disconnect();
+      };
+    };
+    trySetup();
+    return () => { cleanupFn?.(); };
+  }, [syncThumb]);
+
+  // Pointer-capture drag — no window listeners needed, works on touch too
+  const onThumbPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    isDraggingHScroll.current = true;
+    dragOriginX.current = e.clientX;
+    dragOriginScrollLeft.current = tableContainerRef.current?.scrollLeft ?? 0;
+    const t = scrollThumbRef.current;
+    if (t) { t.style.backgroundColor = '#AA393D'; t.style.boxShadow = '0 0 0 4px rgba(170,57,61,0.25)'; t.style.cursor = 'grabbing'; }
+  }, []);
+
+  const onThumbPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingHScroll.current) return;
+    const el = tableContainerRef.current;
+    const track = scrollTrackRef.current;
+    if (!el || !track) return;
+    const { scrollWidth, clientWidth } = el;
+    const trackW = track.clientWidth;
+    const thumbW = (clientWidth / scrollWidth) * trackW;
+    const delta = e.clientX - dragOriginX.current;
+    el.scrollLeft = dragOriginScrollLeft.current + (delta / (trackW - thumbW)) * (scrollWidth - clientWidth);
+  }, []);
+
+  const onThumbPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingHScroll.current) return;
+    isDraggingHScroll.current = false;
+    (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    const t = scrollThumbRef.current;
+    if (t) { t.style.backgroundColor = ''; t.style.boxShadow = ''; t.style.cursor = 'grab'; }
+  }, []);
 
   // Auto-generate searchable columns from columns prop (only when search is enabled)
   const autoGeneratedSearchableColumns = useMemo(() => {
@@ -298,10 +394,22 @@ function MaterialTable({
     resetPreferences,
   } = useTablePreferences(tableName, finalColumns, employeeId, defaultSorting);
 
+  // Surface the visible column keys to the parent once preferences resolve and on every
+  // toggle. A column is visible unless its visibility flag is explicitly false.
+  useEffect(() => {
+    if (!isInitialized || !onVisibleColumnsChange) return;
+    const vis = preferences.columnVisibility || {};
+    const visibleKeys = finalColumns
+      .map((c: any) => c.accessorKey)
+      .filter((k: any) => k && vis[k] !== false);
+    onVisibleColumnsChange(visibleKeys);
+  }, [isInitialized, preferences.columnVisibility, finalColumns, onVisibleColumnsChange]);
+
   const [exportTypeSelected, setExportTypeSelected] = useState<string | null>(
     null,
   );
   const [isExportInitialized, setIsExportInitialized] = useState(false);
+  const [rowsAnchorEl, setRowsAnchorEl] = useState<null | HTMLElement>(null);
 
   // Mobile detection
   const theme = useTheme();
@@ -356,6 +464,17 @@ function MaterialTable({
     [updateExportType],
   );
 
+  // Memoized column lookup map for O(1) access (instead of O(n) .find() per row)
+  const columnDefMap = useMemo(() => {
+    const map = new Map<string, any>();
+    effectiveSearchableColumns.forEach((col: any) => {
+      if (col.accessorKey) {
+        map.set(col.accessorKey, col);
+      }
+    });
+    return map;
+  }, [effectiveSearchableColumns]);
+
   // Apply column-specific filtering and ranking
   const applyColumnFilter = useCallback(
     (searchValue: string, columnToSearch: string) => {
@@ -387,34 +506,32 @@ function MaterialTable({
             .join(" ")
             .toLowerCase();
 
-          if (columnToSearch === "all") {
-            // Calculate individual field scores
+          if (columnToSearch === "all" || columnToSearch === "") {
+            // Calculate individual field scores (used only for ranking the matches).
             rowSearchableValues.forEach((val) => {
               if (typeof val === "string" || typeof val === "number") {
                 score += calculateMatchScore(String(val), queryInfo);
               }
             });
 
-            // Require either a decent score (>0) OR all keywords matching row-wide for it to be a match
-            // This prevents single characters like 'a' from returning 6000 results if score threshold is adjusted.
-            // Also, AND logic across the row is preferred.
+            // A row matches only when EVERY keyword appears somewhere in the row (AND logic).
+            // A multi-word query like "d mart" must narrow results, not widen them: a partial
+            // single-token score (e.g. any word starting with "d") must NOT qualify a row on
+            // its own, otherwise the query behaves like OR and returns hundreds of false hits.
             if (keywords.every((k) => allRowText.includes(k))) {
               score += 50; // High bonus for row-wide AND match
               isMatch = true;
-            } else if (score >= 10) { 
-               // Require at least 10 score to be considered a match to filter out noise
-               isMatch = true;
             }
           } else {
-            const colDef = effectiveSearchableColumns.find((c: any) => c.accessorKey === columnToSearch);
+            // Use memoized column map for O(1) lookup instead of O(n) .find()
+            const colDef = columnDefMap.get(columnToSearch);
             const columnValue = colDef ? (colDef.accessorFn ? colDef.accessorFn(row) : row[colDef.accessorKey]) : row[columnToSearch];
-            
+
             if (columnValue != null) {
               const valStr = String(columnValue);
               score = calculateMatchScore(valStr, queryInfo);
-              isMatch =
-                score >= 10 ||
-                keywords.every((k) => valStr.toLowerCase().includes(k));
+              // Same AND rule for a single column: every keyword must be present in it.
+              isMatch = keywords.every((k) => valStr.toLowerCase().includes(k));
             }
           }
 
@@ -429,7 +546,7 @@ function MaterialTable({
 
       setFilteredData(sortedResults);
     },
-    [finalData, effectiveSearchableColumns],
+    [finalData, effectiveSearchableColumns, columnDefMap],
   );
 
   // Handle column selector change
@@ -483,17 +600,6 @@ function MaterialTable({
     [manualPagination, onPaginationChange],
   );
 
-  const scrollLeft = useCallback(() => {
-    if (tableContainerRef.current) {
-      tableContainerRef.current.scrollLeft -= 1200;
-    }
-  }, []);
-
-  const scrollRight = useCallback(() => {
-    if (tableContainerRef.current) {
-      tableContainerRef.current.scrollLeft += 1200;
-    }
-  }, []);
 
   const exportOptions = useMemo(
     () => [
@@ -1238,11 +1344,20 @@ function MaterialTable({
             sx: showColumnFooter
               ? {
                   "& .MuiTableCell-footer": {
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "#f8f9fa",
                     color: "#0f172a",
-                    fontWeight: 700,
-                    borderTop: "2px solid #e2e8f0",
-                    fontSize: "0.8rem",
+                    fontWeight: 800,
+                    borderTop: "2.5px solid #AA393D",
+                    fontSize: "1rem",
+                    letterSpacing: "0.01em",
+                    paddingTop: "14px",
+                    paddingBottom: "14px",
+                  },
+                  "& .MuiTableCell-footer:first-of-type": {
+                    borderBottomLeftRadius: "8px",
+                  },
+                  "& .MuiTableCell-footer:last-of-type": {
+                    borderBottomRightRadius: "8px",
                   },
                 }
               : {
@@ -1485,6 +1600,83 @@ function MaterialTable({
 
             return (
               <Box sx={{ width: "100%" }}>
+                {/* Custom horizontal scrollbar — its own row above the pagination so it
+                    never overlaps the footer text (esp. inside narrow modals). Collapsed
+                    to display:none by syncThumb when the table doesn't overflow. */}
+                {!hideExportCenter && (
+                  <div
+                    ref={scrollBarWrapRef}
+                    style={{
+                      display: "none",
+                      alignItems: "center",
+                      gap: "10px",
+                      width: "100%",
+                      maxWidth: "560px",
+                      margin: "8px auto 0",
+                      padding: "0 16px",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    {/* Track */}
+                    <div
+                      ref={scrollTrackRef}
+                      onClick={(e) => {
+                        const track = scrollTrackRef.current;
+                        const el = tableContainerRef.current;
+                        if (!track || !el || isDraggingHScroll.current) return;
+                        const rect = track.getBoundingClientRect();
+                        const ratio = (e.clientX - rect.left) / rect.width;
+                        el.scrollLeft = ratio * (el.scrollWidth - el.clientWidth);
+                      }}
+                      style={{
+                        flex: 1,
+                        height: '6px',
+                        borderRadius: '99px',
+                        backgroundColor: '#d1d5db',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'height 0.18s ease',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.height = '8px'; }}
+                      onMouseLeave={e => { if (!isDraggingHScroll.current) (e.currentTarget as HTMLDivElement).style.height = '6px'; }}
+                    >
+                      {/* Thumb */}
+                      <div
+                        ref={scrollThumbRef}
+                        onPointerDown={onThumbPointerDown}
+                        onPointerMove={onThumbPointerMove}
+                        onPointerUp={onThumbPointerUp}
+                        onPointerCancel={onThumbPointerUp}
+                        onMouseEnter={e => {
+                          if (!isDraggingHScroll.current) {
+                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#6b7280';
+                            (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 3px rgba(107,114,128,0.2)';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isDraggingHScroll.current) {
+                            (e.currentTarget as HTMLDivElement).style.backgroundColor = '#9ca3af';
+                            (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                          }
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          /* left + width intentionally omitted — owned by syncThumb via direct DOM */
+                          height: '140%',
+                          minWidth: '24px',
+                          borderRadius: '99px',
+                          backgroundColor: '#9ca3af',
+                          cursor: 'grab',
+                          transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
+                          userSelect: 'none',
+                          touchAction: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <Box
                   sx={{
                     display: "flex",
@@ -1539,33 +1731,88 @@ function MaterialTable({
                       >
                         {isMobile ? "Rows:" : "Rows per page:"}
                       </span>
-                      <select
-                        value={pageSize}
-                        onChange={(e) => {
-                          table.setPageSize(
-                            Number(e.target.value) as PageSizeOption,
-                          );
-                          table.setPageIndex(0);
-                        }}
-                        style={{
-                          padding: isMobile ? "4px 8px" : "5px 10px",
-                          fontSize: "13px",
-                          border: "1px solid #E5E7EB",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          backgroundColor: "#fff",
-                          color: "#374151",
-                          fontWeight: 500,
-                          appearance: "auto",
-                          outline: "none",
+                      <ButtonGroup
+                        variant="outlined"
+                        size="small"
+                        sx={{
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                         }}
                       >
+                        <Button
+                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: isMobile ? 12 : 13,
+                            borderColor: '#e5e7eb',
+                            color: '#374151',
+                            borderRadius: '10px 0 0 10px',
+                            px: isMobile ? 1 : 1.5,
+                            py: 0.6,
+                            minWidth: 'unset',
+                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                          }}
+                        >
+                          {pageSize}
+                        </Button>
+                        <Button
+                          onClick={(e) => setRowsAnchorEl(e.currentTarget)}
+                          sx={{
+                            borderColor: '#e5e7eb',
+                            color: '#9ca3af',
+                            borderRadius: '0 10px 10px 0',
+                            px: 0.4,
+                            minWidth: 'unset',
+                            '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
+                          }}
+                        >
+                          <KTIcon iconName="down" className="fs-6" />
+                        </Button>
+                      </ButtonGroup>
+                      <Menu
+                        anchorEl={rowsAnchorEl}
+                        open={Boolean(rowsAnchorEl)}
+                        onClose={() => setRowsAnchorEl(null)}
+                        slotProps={{
+                          paper: {
+                            elevation: 3,
+                            sx: {
+                              mt: 0.5,
+                              minWidth: 100,
+                              borderRadius: '12px',
+                              border: '1px solid #e2e8f0',
+                              overflow: 'hidden',
+                              '& .MuiMenuItem-root': {
+                                px: 2,
+                                py: 0.9,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#1e293b',
+                                '&:hover': { bgcolor: '#f8fafc' },
+                                '&.Mui-selected': { bgcolor: '#fef2f2', color: '#AA393D', '&:hover': { bgcolor: '#fee2e2' } },
+                              },
+                            },
+                          },
+                        }}
+                        transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                        anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                      >
                         {PAGE_SIZE_OPTIONS.map((size) => (
-                          <option key={size} value={size}>
+                          <MenuItem
+                            key={size}
+                            selected={size === pageSize}
+                            onClick={() => {
+                              table.setPageSize(Number(size) as PageSizeOption);
+                              table.setPageIndex(0);
+                              setRowsAnchorEl(null);
+                            }}
+                          >
                             {size}
-                          </option>
+                          </MenuItem>
                         ))}
-                      </select>
+                      </Menu>
                       {!isMobile && totalRows > 0 && (
                         <span
                           style={{
@@ -1582,34 +1829,6 @@ function MaterialTable({
                       )}
                     </Box>
                   </Box>
-
-                  {/* Center: Scroll arrows */}
-                  {!hideExportCenter && (
-                    <Box
-                      sx={{
-                        display: { xs: "none", lg: "flex" },
-                        justifyContent: "center",
-                        alignItems: "center",
-                        gap: "8px",
-                        position: "absolute",
-                        left: "40%",
-                        transform: "translateX(-50%)",
-                      }}
-                    >
-                      <div
-                        className="p-2 cursor-pointer hover-bg-light rounded"
-                        onClick={scrollLeft}
-                      >
-                        <KTIcon iconName="black-left" className="fs-1" />
-                      </div>
-                      <div
-                        className="p-2 cursor-pointer hover-bg-light rounded"
-                        onClick={scrollRight}
-                      >
-                        <KTIcon iconName="black-right" className="fs-1" />
-                      </div>
-                    </Box>
-                  )}
 
                   {/* Right: Custom Pagination buttons */}
                   {!hidePagination && (

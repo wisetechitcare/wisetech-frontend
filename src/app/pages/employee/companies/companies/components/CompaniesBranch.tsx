@@ -47,7 +47,7 @@ const CompaniesBranch = ({companyId}: {companyId: string}) => {
       setCountries(countriesResponse || []);
       const response = await getClientBranchesByCompanyId(companyId);
       setBranches(response.leadBranches || []);
-      const contactsResponse = await getAllClientContacts();
+      const contactsResponse = await getAllClientContacts({}, true);
       setContacts(contactsResponse?.data?.contacts || []);
     } catch (error) {
       console.error("Failed to fetch branches", error);
@@ -188,6 +188,7 @@ const CompaniesBranch = ({companyId}: {companyId: string}) => {
         tableName="ClientBranches"
         employeeId={employeeIdCurrent}
         resource="BRANCHES"
+        defaultSorting={[{ id: "name", desc: false }]}
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}

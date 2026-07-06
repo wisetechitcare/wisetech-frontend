@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 //new
 import { getAllLeadCancellationReasons } from "@services/lead";
+import { getLeadProjectPoints, type ProjectPointValue } from "@services/projectPoints";
 import { useSelector, useDispatch } from "react-redux";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import type { AppDispatch, RootState } from "@redux/store";
@@ -64,15 +65,19 @@ interface ProjectData {
   builtUpArea?: string;
   builtUpAreaUnit?: string;
   buildingDetail?: string;
-  otherPoint1Heading?: string;
-  otherPoint1Description?: string;
-  otherPoint2Heading?: string;
-  otherPoint2Description?: string;
-  otherPoint3Heading?: string;
-  otherPoint3Description?: string;
 }
 
 const LeadOverview = ({ lead }: { lead: any }) => {
+  // Dynamic Project Points (replaces the hardcoded Other Point 1/2/3 display).
+  const [projectPoints, setProjectPoints] = useState<ProjectPointValue[]>([]);
+  useEffect(() => {
+    let active = true;
+    if (!lead?.id) { setProjectPoints([]); return; }
+    getLeadProjectPoints(lead.id)
+      .then((res) => { if (active) setProjectPoints(res?.points ?? []); })
+      .catch((e) => { console.error("Error loading project points:", e); if (active) setProjectPoints([]); });
+    return () => { active = false; };
+  }, [lead?.id]);
   let finalMappedData;
   if(lead){
     finalMappedData = mapLeadToProjectData(lead);
@@ -218,12 +223,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       builtUpArea: lead?.additionalDetails?.builtUpArea || '',
       builtUpAreaUnit: lead?.additionalDetails?.builtUpAreaUnit || 'sqft',
       buildingDetail: lead?.additionalDetails?.buildingDetail || '',
-      otherPoint1Heading: lead?.additionalDetails?.otherPoint1Heading || '',
-      otherPoint1Description: lead?.additionalDetails?.otherPoint1Description || '',
-      otherPoint2Heading: lead?.additionalDetails?.otherPoint2Heading || '',
-      otherPoint2Description: lead?.additionalDetails?.otherPoint2Description || '',
-      otherPoint3Heading: lead?.additionalDetails?.otherPoint3Heading || '',
-      otherPoint3Description: lead?.additionalDetails?.otherPoint3Description || '',
     };
   }
     
@@ -280,12 +279,6 @@ const LeadOverview = ({ lead }: { lead: any }) => {
     builtUpArea: '',
     builtUpAreaUnit: 'sqft',
     buildingDetail: '',
-    otherPoint1Heading: '',
-    otherPoint1Description: '',
-    otherPoint2Heading: '',
-    otherPoint2Description: '',
-    otherPoint3Heading: '',
-    otherPoint3Description: '',
     ...finalMappedData
   });
 
@@ -774,31 +767,15 @@ const LeadOverview = ({ lead }: { lead: any }) => {
               <div style={{ fontWeight: 500 }}>Building Details</div>
               <div style={{ fontWeight: 400 }}>{projectData.buildingDetail || '-'}</div>
             </div>
-            {/* Other Points — only show when they have data; same row style as above: label left, "heading : description" right */}
-            {(projectData.otherPoint1Heading || projectData.otherPoint1Description) && (
-              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
-                <div style={{ fontWeight: 500 }}>Other Point - 1</div>
-                <div style={{ fontWeight: 400 }}>
-                  {[projectData.otherPoint1Heading, projectData.otherPoint1Description].filter(Boolean).join(' : ')}
+            {/* Project Points — dynamic; heading is the label, description the value */}
+            {projectPoints
+              .filter((p) => p.heading || p.description)
+              .map((p, idx) => (
+                <div key={p.id || idx} className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
+                  <div style={{ fontWeight: 500 }}>{p.heading || `Point ${idx + 1}`}</div>
+                  <div style={{ fontWeight: 400 }}>{p.description || '-'}</div>
                 </div>
-              </div>
-            )}
-            {(projectData.otherPoint2Heading || projectData.otherPoint2Description) && (
-              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
-                <div style={{ fontWeight: 500 }}>Other Point - 2</div>
-                <div style={{ fontWeight: 400 }}>
-                  {[projectData.otherPoint2Heading, projectData.otherPoint2Description].filter(Boolean).join(' : ')}
-                </div>
-              </div>
-            )}
-            {(projectData.otherPoint3Heading || projectData.otherPoint3Description) && (
-              <div className="d-flex align-items-center justify-content-between" style={{ fontFamily: 'Inter', fontSize: '14px', color: 'black' }}>
-                <div style={{ fontWeight: 500 }}>Other Point - 3</div>
-                <div style={{ fontWeight: 400 }}>
-                  {[projectData.otherPoint3Heading, projectData.otherPoint3Description].filter(Boolean).join(' : ')}
-                </div>
-              </div>
-            )}
+              ))}
           </InfoCard>
         </div>
 

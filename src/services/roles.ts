@@ -171,3 +171,24 @@ export const removeEmployeeFromRole = async (roleId: string, employeeId: string)
     const { data } = await axios.delete(endpoint);
     return data;
 }
+
+/**
+ * Role-level section access (Settings → Roles & Permissions). The same section
+ * model as the per-employee Access tab, but applied to a whole role.
+ * @api "api/roles/:id/access"
+ */
+export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit'>; isSuperAdmin?: boolean; isSystem?: boolean; name?: string }> => {
+    const endpoint = `${API_BASE_URL}/${ROLES.GET_ROLE_ACCESS.replace(":id", roleId)}`;
+    const { data } = await axios.get(endpoint);
+    return data?.data;
+}
+
+/**
+ * Set one section's access level for the whole role. level ∈ none | view | edit.
+ * @api "api/roles/:id/access/section"
+ */
+export const setRoleSectionAccess = async (roleId: string, module: string, level: 'none' | 'view' | 'edit') => {
+    const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_SECTION_ACCESS.replace(":id", roleId)}`;
+    const { data } = await axios.put(endpoint, { module, level });
+    return data?.data;
+}

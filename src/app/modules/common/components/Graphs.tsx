@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';
 import AttendanceStatusBadge from './AttendanceStatusBadge';
 import AttendanceCheckCell, {
@@ -12,6 +13,7 @@ import {
     shouldApplyCheckInColoring,
 } from '@utils/attendanceColorUtils';
 import { RootState, store } from '@redux/store';
+import { parseWorkingDays } from '@utils/workingDays';
 import ReactApexChart from 'react-apexcharts';
 import { Image, Card, Col, Modal, OverlayTrigger } from 'react-bootstrap';
 import Identifiers from '../utils/Identifiers';
@@ -42,6 +44,7 @@ import Tooltip from "react-bootstrap/Tooltip";
 import TimePickerInput from '../inputs/TimeInput';
 import { fetchAddressDetails } from '@services/location';
 import { getGraceBasedThresholds } from '@utils/getGraceBasedThresholds';
+import { fetchAttendanceClassification } from '@services/employee';
 import { convertTo12HourFormat } from '@utils/date';
 import { UAParser } from 'ua-parser-js';
 import { Form as BootstrapForm } from "react-bootstrap";
@@ -49,62 +52,88 @@ import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
 import { validatePreviousDaysAttendance } from '@utils/attendanceValidation';
 
+// Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
+// so it can be matched against the backend's authoritative late-check-in dates.
+const ddmmyyyyToISO = (s: any): string | null => {
+    if (typeof s !== 'string') return null;
+    const m = s.split('/');
+    if (m.length !== 3) return null;
+    const [dd, mm, yyyy] = m;
+    if (!/^\d{1,2}$/.test(dd) || !/^\d{1,2}$/.test(mm) || !/^\d{4}$/.test(yyyy)) return null;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+};
+
 
 export const ProgessBar = ({ progessBarSeries, checkIn, checkOut, totalWorkingHours = "0h : 0m", totalAllowedHours = "0h : 0m" }: { progessBarSeries: any, checkIn?: string, checkOut?: string, totalWorkingHours?: string, totalAllowedHours?: string }) => {
-    const progessBarOptions: ApexCharts.ApexOptions = {
-        chart: {
-            type: 'radialBar',
-            // animations: {
-            //     enabled: false,
-            // },
-        },
-        plotOptions: {
-            radialBar: {
-                hollow: {
-                    size: '70%',
-                },
-                dataLabels: {
-                    name: {
-                        show: true,
-                        fontSize: '22px',
-                    },
-                    value: {
-                        show: true,
-                        fontSize: '16px',
-                        formatter: function (val: any) {
-                            return `${val}%`;
-                        },
-                    },
-                },
-            },
-        },
-        labels: ['Progress'],
-    };
+    const pct = progessBarSeries[0] || 0;
+    const r = 58, circ = 2 * Math.PI * r, filled = (pct / 100) * circ;
+    const checkInFmt = checkIn && checkIn !== 'N/A' ? convertTo12HourFormat(checkIn) : 'N/A';
+    const checkOutFmt = checkOut && checkOut !== 'N/A' ? convertTo12HourFormat(checkOut) : 'N/A';
 
     return (
-        <>
-            <Col md={4} className="mb-4">
-                <Card className="shadow-sm" style={{ height: '300px' }}>
-                    <Card.Body className="d-flex flex-column justify-content-between align-items-center">
-
-                        <h5 className="mb-3">Working Time</h5>
-                        <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
-                            <ReactApexChart
-                                options={progessBarOptions}
-                                series={progessBarSeries}
-                                type="radialBar"
-                                height={190}
+        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
+            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Working Time</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', background: '#eef2ff', padding: '3px 10px', borderRadius: 20 }}>Today</span>
+                </div>
+                {/* SVG Gauge */}
+                <div style={{ display: 'flex', justifyContent: 'center', flexGrow: 1, alignItems: 'center', padding: '10px 0 4px' }}>
+                    <div style={{ position: 'relative', width: 148, height: 148 }}>
+                        <svg width="148" height="148" viewBox="0 0 148 148">
+                            <defs>
+                                <linearGradient id="pbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor="#6366f1" />
+                                    <stop offset="100%" stopColor="#3b82f6" />
+                                </linearGradient>
+                                <filter id="pbGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                                </filter>
+                            </defs>
+                            <circle cx="74" cy="74" r="70" fill="none" stroke="#f1f5f9" strokeWidth="1.5" />
+                            <circle cx="74" cy="74" r={r} fill="none" stroke="#e0e7ff" strokeWidth="12" />
+                            <circle cx="74" cy="74" r={r} fill="none" stroke="url(#pbGrad)" strokeWidth="12"
+                                strokeLinecap="round"
+                                strokeDasharray={`${filled} ${circ}`}
+                                transform="rotate(-90 74 74)"
+                                filter="url(#pbGlow)"
+                                style={{ transition: 'stroke-dasharray 0.7s ease' }}
                             />
+                            <circle cx="74" cy="74" r="43" fill="none" stroke="#f1f5f9" strokeWidth="1" />
+                        </svg>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                            <span style={{ fontSize: 28, fontWeight: 900, color: '#312e81', lineHeight: 1, letterSpacing: '-0.04em' }}>{pct}<span style={{ fontSize: 15, fontWeight: 700, color: '#6366f1' }}>%</span></span>
+                            <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500 }}>of workday</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginTop: 1 }}>{totalWorkingHours}</span>
                         </div>
-                        <div>Check in: {checkIn && checkIn !== 'N/A' ? convertTo12HourFormat(checkIn) : 'N/A'}</div>
-                        <div>Check out: {checkOut && checkOut !== 'N/A' ? convertTo12HourFormat(checkOut) : 'N/A'}</div>
-                        <div className="mt-2 text-center fw-bold">
-                            {totalWorkingHours} out of {totalAllowedHours}
+                    </div>
+                </div>
+                {/* Target */}
+                <div style={{ textAlign: 'center', marginBottom: 8, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>Target <strong style={{ color: '#374151' }}>{totalAllowedHours}</strong></span>
+                </div>
+                {/* Check-in / Check-out footer */}
+                <div style={{ borderTop: '1px solid #f3f4f6', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: checkInFmt === 'N/A' ? '#e5e7eb' : '#22c55e', flexShrink: 0, display: 'inline-block' }} />
+                        <div>
+                            <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Check In</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{checkInFmt}</div>
                         </div>
-                    </Card.Body>
-                </Card>
-            </Col>
-        </>
+                    </div>
+                    <div style={{ width: 1, background: '#f3f4f6' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: checkOutFmt === 'N/A' ? '#e5e7eb' : '#ef4444', flexShrink: 0, display: 'inline-block' }} />
+                        <div>
+                            <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Check Out</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{checkOutFmt}</div>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        </Col>
     );
 };
 
@@ -113,55 +142,131 @@ export const Donut = ({ donutLabels, donutSeries, totalDays, customHeading, cust
     const checkoutMissingColor = useSelector((state: any) => state?.customColors?.workingPattern?.missingCheckoutColor);
     const weekendColor = useSelector((state: any) => state?.customColors?.attendanceCalendar?.weekendColor);
 
-    let colorsFinal = [customColors?.presentColor || '#000000', customColors?.absentColor || '#000000', customColors?.onLeaveColor || '#000000', customColors?.extraDayColor || '#000000', customColors?.holidayColor || '#000000', checkoutMissingColor || '#000000', weekendColor || '#000000']
-    if (customColorsForDonut && customColorsForDonut.length > 0) {
-        colorsFinal = customColorsForDonut;
-    }
+    let colorsFinal = [
+        customColors?.presentColor  || '#22c55e',
+        customColors?.absentColor   || '#ef4444',
+        customColors?.onLeaveColor  || '#f59e0b',
+        customColors?.extraDayColor || '#6366f1',
+        customColors?.holidayColor  || '#0ea5e9',
+        checkoutMissingColor        || '#9ca3af',
+        weekendColor                || '#d1d5db',
+    ];
+    if (customColorsForDonut && customColorsForDonut.length > 0) colorsFinal = customColorsForDonut;
+
+    const total = donutSeries.reduce((a, b) => a + b, 0) || 1;
+    const presentCount = donutSeries[0] || 0;
+    const presentPct = Math.round((presentCount / total) * 100);
 
     const donutOptions: ApexCharts.ApexOptions = {
-        chart: {
-            type: 'donut',
-        },
+        chart: { type: 'donut', toolbar: { show: false }, animations: { enabled: true, speed: 600 } },
         plotOptions: {
             pie: {
                 donut: {
-                    size: '45%',
-                }
-            }
+                    size: '74%',
+                    labels: { show: false }, // custom overlay handles center label
+                },
+                expandOnClick: false,
+            },
         },
         colors: colorsFinal,
-        labels: donutLabels.map((label, index) => `${label} ${donutSeries[index]}`),
-        responsive: [
-            {
-                breakpoint: 400,
-                options: {
-                    chart: {
-                        width: '100%',
-                    },
-                    legend: {
-                        position: 'bottom',
-                    },
-                },
-            },
-        ],
+        labels: donutLabels,
+        legend: { show: false },
+        dataLabels: { enabled: false },
+        stroke: { width: 3, colors: ['#fff'] },
+        tooltip: { y: { formatter: (val: number) => `${val} day${val !== 1 ? 's' : ''}` } },
+        states: { hover: { filter: { type: 'lighten' } } },
     };
 
+    const nonZeroItems = donutLabels
+        .map((label, i) => ({ label, value: donutSeries[i] ?? 0, color: colorsFinal[i], idx: i }))
+        .filter(item => item.value > 0);
+
+    const zeroItems = donutLabels
+        .map((label, i) => ({ label, value: donutSeries[i] ?? 0, color: colorsFinal[i], idx: i }))
+        .filter(item => item.value === 0);
+
+    const rateColor = presentPct >= 80 ? '#16a34a' : presentPct >= 60 ? '#0891b2' : '#f59e0b';
+    const rateGradient = presentPct >= 80 ? 'linear-gradient(90deg,#22c55e,#16a34a)' : presentPct >= 60 ? 'linear-gradient(90deg,#0ea5e9,#0891b2)' : 'linear-gradient(90deg,#f59e0b,#d97706)';
+
     return (
-        <>
-            <Col md={4} className="mb-4" style={{ ...customStylesForCol }}>
-                <Card className="" style={{ height: '300px', ...customStylesForCard }}>
-                    <Card.Body className="d-flex flex-column justify-content-between align-items-center">
-                        <h5 className="mb-3">{customHeading ? customHeading : "Overview"}</h5>
-                        <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
-                            <ReactApexChart options={donutOptions} series={donutSeries} type="donut" width={340} height={340} />
-                            {totalDays && <div className="mt-2 text-center">
-                                <small className="text-muted">Total: {totalDays} days</small>
-                            </div>}
+        <Col md={4} className="mb-4" style={{ ...customStylesForCol }}>
+            <Card style={{ borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', height: '100%', ...customStylesForCard }}>
+                <div style={{ padding: '18px 20px 16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                        <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#22c55e,#16a34a)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{customHeading || 'Overview'}</span>
+                        {totalDays && (
+                            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#6b7280', fontWeight: 600, background: '#f3f4f6', borderRadius: 20, padding: '2px 9px' }}>
+                                {totalDays} days
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Chart row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+
+                        {/* Donut + custom center overlay */}
+                        <div style={{ position: 'relative', flexShrink: 0, width: 160, height: 160 }}>
+                            <ReactApexChart options={donutOptions} series={donutSeries} type="donut" width={160} height={160} />
+                            <div style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                pointerEvents: 'none',
+                            }}>
+                                <span style={{ fontSize: 28, fontWeight: 900, color: '#111827', lineHeight: 1 }}>{presentCount}</span>
+                                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, marginTop: 3 }}>Present</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: rateColor, marginTop: 1 }}>{presentPct}%</span>
+                            </div>
                         </div>
-                    </Card.Body>
-                </Card>
-            </Col>
-        </>
+
+                        {/* Legend — non-zero only */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            {nonZeroItems.map(({ label, value, color }) => {
+                                const pct = Math.round((value / total) * 100);
+                                return (
+                                    <div key={label}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                            <span style={{ fontSize: 12, color: '#374151', fontWeight: 500, flex: 1 }}>{label}</span>
+                                            <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{value}</span>
+                                            <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 28, textAlign: 'right' }}>{pct}%</span>
+                                        </div>
+                                        <div style={{ height: 3, borderRadius: 99, background: '#f3f4f6' }}>
+                                            <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99, opacity: 0.7 }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {/* Zero items as small dimmed row */}
+                            {zeroItems.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', marginTop: 2 }}>
+                                    {zeroItems.map(({ label, color }) => (
+                                        <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#c4c9d2' }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, opacity: 0.4, flexShrink: 0 }} />
+                                            {label}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Attendance rate footer */}
+                    <div style={{ marginTop: 14, padding: '9px 12px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Attendance Rate</span>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: rateColor }}>{presentPct}%</span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 99, background: '#e5e7eb' }}>
+                            <div style={{ height: '100%', width: `${presentPct}%`, borderRadius: 99, background: rateGradient, transition: 'width 0.6s ease' }} />
+                        </div>
+                    </div>
+
+                </div>
+            </Card>
+        </Col>
     );
 };
 
@@ -169,608 +274,766 @@ export const Donut = ({ donutLabels, donutSeries, totalDays, customHeading, cust
 export const MultipleRadialBar = ({ multipleRadialBarLabels, multipleRadialBarSeries, totalWorkingDays }: { multipleRadialBarLabels: string[], multipleRadialBarSeries: number[], totalWorkingDays: number }) => {
     const customColors = useSelector((state: any) => state?.customColors?.workingPattern);
 
-    // Update first label to include "Total Working Days"
-    const updatedLabels = [...multipleRadialBarLabels];
-    if (updatedLabels.length > 0) {
-        updatedLabels[0] = `Total Working Days: ${multipleRadialBarSeries[0]} / ${totalWorkingDays}`;
-    }
+    const workedDays = multipleRadialBarSeries[0] || 0;
+    const workedPct = totalWorkingDays > 0 ? Math.min(100, Math.round((workedDays / totalWorkingDays) * 100)) : 0;
 
-    const multipleRadialBarOption: any = {
-        plotOptions: {
-            radialBar: {
-                offsetY: 15,
-                startAngle: 0,
-                endAngle: 230,
-                hollow: {
-                    margin: 5,
-                    size: '30%',
-                    background: 'transparent',
-                    image: undefined,
-                },
-                track: {
-                    show: true,
-                },
-                dataLabels: {
-                    name: {
-                        show: true,
-                        fontSize: '8px',
-                    },
-                    value: {
-                        show: true,
-                        fontSize: '8px',
-                        formatter: (val: number, { seriesIndex }: any) =>
-                            seriesIndex === 0 ? `${val} Days` : `${val}%`,
-                    },
-                },
-            },
-        },
-        colors: [customColors?.totalWorkingDaysColor || '#000000', customColors?.earlyCheckinColor || '#000000', customColors?.lateCheckinColor || '#000000', customColors?.earlyCheckoutColor || '#000000', customColors?.lateCheckoutColor || '#000000', customColors?.missingCheckoutColor || '#000000'],
-        labels: updatedLabels,
-        legend: {
-            show: true,
-            floating: true,
-            fontSize: '10px',
-            position: 'left',
-            offsetX: -30,
-            offsetY: -20,
-            labels: {
-                useSeriesColors: true,
-                fontSize: '2px',
-            },
-            markers: {
-                size: 0,
-            },
-            formatter: (seriesName: any, opts: any) => {
-                if (opts.seriesIndex === 0) return seriesName; // Prevents duplication of Total Working Days
-                return `${seriesName}: ${opts.w.globals.series[opts.seriesIndex]}`;
-            },
-            onItemClick: {
-                toggleDataSeries: false,
-            },
-            //   onItemHover: {
-            //     highlightDataSeries: true,
-            //   },
-        },
-        responsive: [{
-            breakpoint: 480,
-            options: {
-                legend: {
-                    show: true,
-                }
-            }
-        }]
-    };
+    const metrics = [
+        { label: 'Early Check-In',    icon: 'bi-arrow-up-circle',     color: customColors?.earlyCheckinColor    || '#22c55e', value: multipleRadialBarSeries[1] || 0 },
+        { label: 'Late Check-In',     icon: 'bi-clock-history',        color: customColors?.lateCheckinColor     || '#f59e0b', value: multipleRadialBarSeries[2] || 0 },
+        { label: 'Early Check-Out',   icon: 'bi-arrow-down-circle',    color: customColors?.earlyCheckoutColor   || '#6366f1', value: multipleRadialBarSeries[3] || 0 },
+        { label: 'Late Check-Out',    icon: 'bi-alarm',                color: customColors?.lateCheckoutColor    || '#ef4444', value: multipleRadialBarSeries[4] || 0 },
+        { label: 'Missing Check-Out', icon: 'bi-exclamation-circle',   color: customColors?.missingCheckoutColor || '#9ca3af', value: multipleRadialBarSeries[5] || 0 },
+    ];
 
     return (
-        <>
-            <Col md={4} className="mb-4">
-                <Card className="shadow-sm" style={{ height: '300px' }}>
-                    <Card.Body className="d-flex flex-column justify-content-between align-items-center">
-                        <h5 className="mb-3">Working Pattern</h5>
+        <Col md={4} className="mb-4">
+            <Card style={{ borderRadius: 16, border: '1px solid #f0f0f0', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', height: '100%' }}>
+                <div style={{ padding: '20px 20px 18px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                        <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#6366f1,#8b5cf6)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Working Pattern</span>
+                    </div>
 
-                        <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
-                            <ReactApexChart style={{ paddingLeft: '8px' }} options={multipleRadialBarOption} series={multipleRadialBarSeries} type="radialBar" />
+                    {/* Total Working Days hero tile */}
+                    <div style={{ background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', borderRadius: 12, padding: '11px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <i className="bi bi-calendar-check" style={{ fontSize: 17, color: '#fff' }} />
                         </div>
-                    </Card.Body>
-                </Card>
-            </Col>
-        </>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 10, color: '#0369a1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Working Days</div>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 1 }}>
+                                <span style={{ fontSize: 20, fontWeight: 800, color: '#0c4a6e', lineHeight: 1 }}>{workedDays}</span>
+                                <span style={{ fontSize: 12, color: '#0369a1' }}>/ {totalWorkingDays}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#0369a1', background: '#bae6fd', borderRadius: 20, padding: '1px 7px' }}>{workedPct}%</span>
+                            </div>
+                            <div style={{ height: 4, borderRadius: 99, background: '#bae6fd', marginTop: 5 }}>
+                                <div style={{ height: '100%', width: `${workedPct}%`, background: 'linear-gradient(90deg,#38bdf8,#0ea5e9)', borderRadius: 99, transition: 'width 0.6s ease' }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Metric rows */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
+                        {metrics.map(m => {
+                            const barPct = totalWorkingDays > 0 ? Math.min(100, Math.round((m.value / totalWorkingDays) * 100)) : 0;
+                            return (
+                                <div key={m.label}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                        <span style={{ width: 26, height: 26, borderRadius: 7, background: `${m.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <i className={`bi ${m.icon}`} style={{ fontSize: 12, color: m.color }} />
+                                        </span>
+                                        <span style={{ fontSize: 12, color: '#374151', fontWeight: 500, flex: 1 }}>{m.label}</span>
+                                        <span style={{
+                                            fontSize: 12, fontWeight: 700,
+                                            color: m.value > 0 ? m.color : '#d1d5db',
+                                            background: m.value > 0 ? `${m.color}14` : 'transparent',
+                                            borderRadius: 6, padding: '1px 6px',
+                                        }}>{m.value}</span>
+                                    </div>
+                                    <div style={{ height: 4, borderRadius: 99, background: '#f3f4f6', marginLeft: 34 }}>
+                                        <div style={{
+                                            height: '100%', width: `${barPct}%`,
+                                            background: m.value > 0 ? m.color : 'transparent',
+                                            borderRadius: 99, transition: 'width 0.6s ease',
+                                        }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </Card>
+        </Col>
     );
 };
 
 export const Polar = ({ polarLabels, polarSeries, totalDays }: { polarLabels: string[], polarSeries: number[], totalDays: number }) => {
     let customColors = useSelector((state: any) => state?.customColors?.workingLocation);
 
-    const polarOptions: ApexCharts.ApexOptions = {
-        chart: {
-            type: 'polarArea',
+    const resolveStyle = (label: string) => {
+        const l = label.toLowerCase();
+        if (l.includes('remote') || l.includes('wfh') || l.includes('home')) return { icon: 'bi-house-door', color: customColors?.remoteColor || '#6366f1' };
+        if (l.includes('site') || l.includes('field') || l.includes('visit'))  return { icon: 'bi-map',        color: customColors?.onSiteColor  || '#22c55e' };
+        return { icon: 'bi-building', color: customColors?.officeColor || '#0ea5e9' };
+    };
 
-        },
-        labels: polarLabels.map((label, index) => `${label} ${polarSeries[index]}`),
-        fill: {
-            opacity: 0.8,
-        },
-        stroke: {
-            width: 1,
-            colors: ['#fff'],
-        },
-        colors: [customColors?.remoteColor || '#000000', customColors?.onSiteColor || '#000000', customColors?.officeColor || '#000000'],
-        responsive: [
-            {
-                breakpoint: 480,
-                options: {
-                    chart: {
-                        width: 300,
-                    },
-                    legend: {
-                        position: 'right',
-                        horizontalAlign: 'center',
-                        floating: false,
+    const total = polarSeries.reduce((a: number, b: number) => a + b, 0) || 1;
+    const rows = polarLabels
+        .map((label, i) => ({ label, value: polarSeries[i] || 0, ...resolveStyle(label) }))
+        .filter(r => r.value > 0);
+
+    const chartColors  = rows.map(r => r.color);
+    const chartSeries  = rows.map(r => r.value);
+    const chartLabels  = rows.map(r => `${r.label}`);
+
+    const donutOptions: ApexCharts.ApexOptions = {
+        chart: { type: 'donut', background: 'transparent', toolbar: { show: false }, animations: { enabled: true, speed: 600 } },
+        labels: chartLabels,
+        colors: chartColors,
+        dataLabels: { enabled: false },
+        legend: { show: false },
+        stroke: { width: 2, colors: ['#fff'] },
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '68%',
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true,
+                            label: 'Total',
+                            fontSize: '11px',
+                            color: '#9ca3af',
+                            formatter: () => `${totalDays} ${totalDays === 1 ? 'day' : 'days'}`,
+                        },
+                        value: { show: false },
+                        name: { show: true, fontSize: '13px', fontWeight: '700', color: '#111827', offsetY: -4 },
                     },
                 },
             },
-        ],
-        legend: {
-            position: 'right',
-            offsetY: 0,
-            height: 230,
-            formatter: function (seriesName, opts) {
-                const value = opts.w.globals.series[opts.seriesIndex];
-                const percentage = ((value / totalDays) * 100).toFixed(1);
-                return `${seriesName}: ${value} (${percentage}%)`;
-            }
         },
-        yaxis: {
-            show: false,
+        tooltip: {
+            y: { formatter: (val: number) => `${val} day${val !== 1 ? 's' : ''} (${Math.round((val / total) * 100)}%)` },
         },
     };
 
     return (
-        <Col md={4} xs={12} className="mb-4">
-            <Card className="shadow-sm" style={{ height: '300px' }}>
-                <Card.Body className="d-flex flex-column justify-content-between align-items-center w-100" style={{ overflow: 'hidden' }}>
-                    <h5 className="mb-3">Working Locations</h5>
+        <Col md={4} xs={12} className="mb-4" style={{ display: 'flex' }}>
+            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1a2e', letterSpacing: '-0.01em' }}>Working Locations</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', background: '#f3f4f6', padding: '3px 10px', borderRadius: 20 }}>{totalDays} {totalDays === 1 ? 'day' : 'days'}</span>
+                </div>
 
-                    <div className="d-flex flex-column justify-content-center flex-grow-1">
-                        <ReactApexChart
-                            options={polarOptions}
-                            series={polarSeries}
-                            type="polarArea"
-                            // width='100%'
-                            width={340}
-                            height={340}
-                        />
+                {rows.length === 0 ? (
+                    <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+                        <i className="bi bi-geo-alt" style={{ fontSize: 36, color: '#e5e7eb', display: 'block', marginBottom: 10 }} />
+                        <span style={{ fontSize: 13, color: '#9ca3af' }}>No location data</span>
                     </div>
-                    <div className="text-center mt-2">
-                        <small className="text-muted">Total: {totalDays} days</small>
-                    </div>
-                </Card.Body>
+                ) : (
+                    <>
+                        {/* Donut chart — fills the visual space */}
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 0' }}>
+                            <ReactApexChart
+                                options={donutOptions}
+                                series={chartSeries}
+                                type="donut"
+                                height={190}
+                                width={220}
+                            />
+                        </div>
+
+                        {/* Legend rows — name + count only (chart already shows proportion) */}
+                        <div style={{ padding: '4px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {rows.map(({ label, value, color, icon }) => (
+                                <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <i className={`bi ${icon}`} style={{ fontSize: 13, color }} />
+                                        </div>
+                                        <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{label}</span>
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 800, color }}>{value} <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af' }}>days</span></span>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {/* Footer */}
+                <div style={{ borderTop: '1px solid #f3f4f6', padding: '10px 20px', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="bi bi-geo-alt" style={{ color: '#9ca3af', fontSize: 11 }} />
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>Location breakdown for the period</span>
+                </div>
             </Card>
         </Col>
     );
 };
 
 export const StokedCircle = ({ stokedCircleSeries, totalWorkedDays, totalDays = 30 }: { stokedCircleSeries: any; totalWorkedDays: number; totalDays?: number; }) => {
-    const stokedCircleOptions: ApexCharts.ApexOptions = {
-        chart: {
-            height: 350,
-            type: 'radialBar',
-            offsetY: 0,
-        },
-        plotOptions: {
-            radialBar: {
-                startAngle: -135,
-                endAngle: 135,
-                dataLabels: {
-                    name: {
-                        show: false,
-                    },
-                    value: {
-                        offsetY: 6,
-                        fontSize: '22px',
-                        color: '#333',
-                        formatter: function (val) {
-                            return val + "%";
-                        }
-                    }
-                }
-            }
-        },
-        fill: {
-            type: 'gradient',
-            gradient: {
-                shade: 'dark',
-                shadeIntensity: 0.15,
-                inverseColors: false,
-                opacityFrom: 1,
-                opacityTo: 1,
-                stops: [0, 50, 65, 91]
-            },
-        },
-        stroke: {
-            dashArray: 4
-        },
-    };
+    const pct = stokedCircleSeries[0] || 0;
+    // viewBox 0 0 260 148 — arc at (130,132), r=100, tick ring r=112 stays within bounds
+    const cx = 130, cy = 132, r = 100;
+    const circ = 2 * Math.PI * r;
+    const half = Math.PI * r;
+    const filled = (pct / 100) * half;
+    const absence = Math.max(0, totalDays - totalWorkedDays);
+
+    const rateColor = pct >= 80 ? '#16a34a' : pct >= 60 ? '#0891b2' : pct >= 40 ? '#f59e0b' : '#ef4444';
+    const rateLabel = pct >= 80 ? 'Excellent' : pct >= 60 ? 'Great' : pct >= 40 ? 'Good' : 'Keep Going';
+    const g1 = pct >= 80 ? '#22c55e' : '#6366f1';
+    const g2 = pct >= 80 ? '#16a34a' : '#3b82f6';
+
+    // Tick ring — r+12=112; left edge=18, right edge=242, top=20 — all within 260×148 viewBox
+    const tickR = r + 12;
+    const tickHalf = Math.PI * tickR;
+    const tickFull = 2 * Math.PI * tickR;
+    const numTicks = 26;
+    const tickDash = 3;
+    const tickGap = (tickHalf / numTicks) - tickDash;
 
     return (
-        <Col md={4} className="mb-4">
-            <Card className="shadow-sm" style={{ height: '300px' }}>
-                <Card.Body className="d-flex flex-column justify-content-between align-items-center">
-                    <h5 className="mb-3">Attendance</h5>
+        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
+            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ padding: '18px 20px 16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-                    <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
-                        <ReactApexChart
-                            options={stokedCircleOptions}
-                            series={stokedCircleSeries}
-                            type="radialBar"
-                        />
-                        <p className="mt-2 text-center">
-                            {totalWorkedDays} days out of {totalDays} days
-                        </p>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ width: 4, height: 18, background: `linear-gradient(180deg,${g1},${g2})`, borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Attendance</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: rateColor, background: `${rateColor}18`, padding: '3px 10px', borderRadius: 20 }}>{rateLabel}</span>
                     </div>
-                </Card.Body>
+
+                    {/* SVG gauge — constrained height so all three cards stay equal */}
+                    <div style={{ height: 136, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg viewBox="0 0 260 148" width="100%" height="136" style={{ display: 'block' }}>
+                            <defs>
+                                <linearGradient id="scGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor={g1} />
+                                    <stop offset="100%" stopColor={g2} />
+                                </linearGradient>
+                                <filter id="scGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="3" result="blur" />
+                                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                                </filter>
+                            </defs>
+
+                            {/* Tick marks — top-half only, contained within viewBox */}
+                            <circle cx={cx} cy={cy} r={tickR} fill="none" stroke="#d1d5db" strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeDasharray={`${tickDash} ${tickGap}`}
+                                strokeDashoffset={-(tickFull - tickHalf) / 2}
+                                transform={`rotate(180 ${cx} ${cy})`}
+                            />
+
+                            {/* Track arc */}
+                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth="13"
+                                strokeDasharray={`${half} ${circ}`}
+                                transform={`rotate(180 ${cx} ${cy})`}
+                                strokeLinecap="round"
+                            />
+
+                            {/* Progress arc */}
+                            <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#scGrad)" strokeWidth="13"
+                                strokeDasharray={`${filled} ${circ}`}
+                                transform={`rotate(180 ${cx} ${cy})`}
+                                strokeLinecap="round"
+                                filter="url(#scGlow)"
+                                style={{ transition: 'stroke-dasharray 0.8s ease' }}
+                            />
+
+                            {/* Percentage */}
+                            <text x={cx} y="102" textAnchor="middle" fontFamily="Inter,-apple-system,sans-serif">
+                                <tspan fontSize="34" fontWeight="900" fill="#111827" letterSpacing={-1}>{pct}</tspan>
+                                <tspan fontSize="16" fontWeight="700" fill={g1} dy={-10}>%</tspan>
+                            </text>
+
+                            {/* Sub-label */}
+                            <text x={cx} y="120" textAnchor="middle" fontSize="11" fontWeight="500" fill="#9ca3af"
+                                fontFamily="Inter,-apple-system,sans-serif">
+                                attendance rate
+                            </text>
+                        </svg>
+                    </div>
+
+                    {/* Stat tiles */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                        <div style={{ flex: 1, padding: '10px 10px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 11, textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{totalWorkedDays}</div>
+                            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Present</div>
+                        </div>
+                        <div style={{ flex: 1, padding: '10px 10px', background: 'linear-gradient(135deg,#fef2f2,#fee2e2)', borderRadius: 11, textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>{absence}</div>
+                            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Absent</div>
+                        </div>
+                        <div style={{ flex: 1, padding: '10px 10px', background: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', borderRadius: 11, textAlign: 'center' }}>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#0369a1', lineHeight: 1 }}>{totalDays}</div>
+                            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</div>
+                        </div>
+                    </div>
+
+                </div>
             </Card>
         </Col>
     );
 };
 
 export const StreakIndicator = ({ currentStreak, lastStreak, totalDays }: { currentStreak: string, lastStreak: string, totalDays: number }) => {
+    const current = parseInt(currentStreak) || 0;
+    const last = parseInt(lastStreak) || 0;
+    const pct = totalDays > 0 ? Math.min(100, Math.round((current / totalDays) * 100)) : 0;
+    const daysLeft = Math.max(0, totalDays - current);
+
+    const levels = [
+        { label: 'Keep Going', min: 0,  max: 39,  color: '#9ca3af', bg: '#f9fafb', next: 'Good',      nextMin: 40  },
+        { label: 'Good',       min: 40, max: 59,  color: '#f59e0b', bg: '#fffbeb', next: 'Great',     nextMin: 60  },
+        { label: 'Great',      min: 60, max: 79,  color: '#0891b2', bg: '#f0f9ff', next: 'Excellent', nextMin: 80  },
+        { label: 'Excellent',  min: 80, max: 100, color: '#16a34a', bg: '#f0fdf4', next: null,        nextMin: 100 },
+    ];
+    const rating = levels.find(l => pct >= l.min && pct <= l.max) || levels[0];
+    const nextLevel = levels.find(l => l.label === rating.next);
+    const daysToNext = nextLevel ? Math.max(0, Math.ceil((nextLevel.min / 100) * totalDays) - current) : 0;
+    const progressToNext = nextLevel
+        ? Math.min(100, Math.round(((pct - rating.min) / (nextLevel.min - rating.min)) * 100))
+        : 100;
+
     return (
-        <Col md={4} className="mb-4">
-            <Card className="shadow-sm" style={{ height: '300px' }}>
-                <Card.Body className="d-flex flex-column justify-content-between align-items-center">
-                    <h5 className="mb-3">Check-in Streak</h5>
+        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
+            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
 
-                    <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
-                        <Image src={toAbsoluteUrl('media/svg/misc/streak.svg')} alt="Streak Icon" style={{ width: '100px' }} />
-                        <h2 className="mt-3"> {currentStreak} / {totalDays} {parseInt(currentStreak) === 1 ? 'Day' : 'Days'} </h2>
+                {/* Header */}
+                <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#fbbf24,#f59e0b)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Check-in Streak</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: rating.color, background: rating.bg, padding: '3px 10px', borderRadius: 20 }}>{rating.label}</span>
+                </div>
 
-                        <div className="d-flex flex-row justify-content-between align-items-center mt-4" style={{ gap: '40px' }}>
-                            <p>Last Check-In Streak</p>
-                            <p>{lastStreak} {parseInt(lastStreak) === 1 ? 'Day' : 'Days'}</p>
+                {/* Hero row */}
+                <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{
+                        width: 54, height: 54, borderRadius: 15, flexShrink: 0,
+                        background: 'linear-gradient(135deg,#fbbf24,#f59e0b)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 4px 14px rgba(251,191,36,0.35)',
+                    }}>
+                        <i className="bi bi-lightning-charge-fill" style={{ fontSize: 24, color: '#fff' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#111827', lineHeight: 1, letterSpacing: '-0.03em' }}>
+                            {current}<span style={{ fontSize: 13, fontWeight: 500, color: '#9ca3af', marginLeft: 6 }}>days</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, fontWeight: 500 }}>
+                            out of <strong style={{ color: '#374151' }}>{totalDays}</strong> working days
+                        </div>
+                        {/* Inline progress bar */}
+                        <div style={{ marginTop: 9 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance Progress</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: rating.color }}>{pct}%</span>
+                            </div>
+                            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg,${rating.color}bb,${rating.color})`, borderRadius: 99, transition: 'width 0.5s ease' }} />
+                            </div>
                         </div>
                     </div>
-                </Card.Body>
+                </div>
+
+                {/* Stat tiles */}
+                <div style={{ padding: '0 20px 14px', display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, padding: '10px 12px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{last}<span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500, marginLeft: 4 }}>days</span></div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3, fontWeight: 500 }}>Last streak</div>
+                    </div>
+                    <div style={{ flex: 1, padding: '10px 12px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{daysLeft}<span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500, marginLeft: 4 }}>days</span></div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3, fontWeight: 500 }}>Remaining</div>
+                    </div>
+                </div>
+
+                {/* Next goal / Top performance */}
+                {nextLevel ? (
+                    <div style={{ margin: '0 20px 18px', padding: '13px 14px', background: nextLevel.bg, borderRadius: 12, border: `1px solid ${nextLevel.color}22`, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: nextLevel.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Next: {nextLevel.label}</span>
+                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500, background: '#fff', borderRadius: 20, padding: '1px 7px' }}>{daysToNext} days needed</span>
+                        </div>
+                        <div style={{ height: 5, background: `${nextLevel.color}22`, borderRadius: 99, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${progressToNext}%`, background: nextLevel.color, borderRadius: 99, transition: 'width 0.5s ease' }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: '#6b7280' }}>
+                            Reach <strong style={{ color: nextLevel.color }}>{nextLevel.min}%</strong> to unlock <strong style={{ color: nextLevel.color }}>{nextLevel.label}</strong>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ margin: '0 20px 18px', padding: '14px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 12, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#22c55e,#16a34a)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 10px rgba(34,197,94,0.3)' }}>
+                            <i className="bi bi-trophy-fill" style={{ fontSize: 18, color: '#fff' }} />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>Top Performance!</div>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>You've reached the highest level</div>
+                        </div>
+                    </div>
+                )}
+
             </Card>
         </Col>
     );
 };
 
 export const TotalWorkingTime = ({ totalWorkingTime, totalAllowedTime }: { totalWorkingTime: string, totalAllowedTime: string }) => {
+    const parseMin = (s: string) => {
+        const m = s?.match(/(\d+)h[^\d]*(\d+)m?/i);
+        return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : 0;
+    };
+    const workedMin = parseMin(totalWorkingTime);
+    const allowedMin = parseMin(totalAllowedTime);
+    const remainingMin = Math.max(0, allowedMin - workedMin);
+    const pct = allowedMin > 0 ? Math.min(100, Math.round((workedMin / allowedMin) * 100)) : 0;
+    const fmtMin = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+    const done = remainingMin === 0 && workedMin > 0;
 
     return (
-        <>
-            <Col md={4} className="mb-4">
-                <Card className="shadow-sm" style={{ height: '300px' }}>
-                    <Card.Body className="d-flex flex-column justify-content-between align-items-center">
-                        <h5 className="mb-3">Total Working Time</h5>
+        <Col md={4} className="mb-4" style={{ display: 'flex' }}>
+            <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 4, height: 18, background: done ? 'linear-gradient(180deg,#22c55e,#16a34a)' : 'linear-gradient(180deg,#6366f1,#3b82f6)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Total Working Time</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: done ? '#16a34a' : '#6366f1', background: done ? '#f0fdf4' : '#eef2ff', padding: '3px 10px', borderRadius: 20 }}>
+                        {pct}% done
+                    </span>
+                </div>
 
-                        <div className="d-flex flex-column justify-content-center align-items-center flex-grow-1">
-                            <i className="bi bi-clock mt-4" style={{ fontSize: '48px', color: 'lightblue' }}></i>
-                            <h2 className="mt-4 fs-3 d-flex">{totalWorkingTime} out of {totalAllowedTime}</h2>
+                {/* Hero row */}
+                <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 50, height: 50, borderRadius: 14, background: 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(99,102,241,0.18)' }}>
+                        <i className="bi bi-clock" style={{ fontSize: 22, color: '#6366f1' }} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: '#111827', lineHeight: 1, letterSpacing: '-0.03em' }}>{totalWorkingTime}</div>
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3, fontWeight: 500 }}>
+                            of <strong style={{ color: '#374151' }}>{totalAllowedTime}</strong> target
                         </div>
-                    </Card.Body>
-                </Card>
-            </Col>
-        </>
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ padding: '0 20px 14px' }}>
+                    <div style={{ height: 8, background: '#e0e7ff', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: done ? 'linear-gradient(90deg,#22c55e,#16a34a)' : 'linear-gradient(90deg,#6366f1,#3b82f6)', borderRadius: 99, transition: 'width 0.7s ease' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 10, color: '#9ca3af' }}>0h</span>
+                        <span style={{ fontSize: 10, color: '#9ca3af' }}>{totalAllowedTime}</span>
+                    </div>
+                </div>
+
+                {/* Worked / Remaining */}
+                <div style={{ margin: '0 20px', padding: '12px 16px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                    <div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Worked</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#6366f1', letterSpacing: '-0.02em' }}>{totalWorkingTime}</div>
+                    </div>
+                    <div style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: 16 }}>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Remaining</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: done ? '#16a34a' : '#374151', letterSpacing: '-0.02em' }}>{done ? 'Complete!' : fmtMin(remainingMin)}</div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '10px 20px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="bi bi-info-circle" style={{ color: '#9ca3af', fontSize: 11 }} />
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>Based on today's attendance</span>
+                </div>
+            </Card>
+        </Col>
     );
 };
 
 export const Dumbell = ({ dumbellSeriesData, height, cardHeight, totalWorkedDays, totalDays }: { dumbellSeriesData: any, height: number, cardHeight?: boolean, totalWorkedDays: number, totalDays: number }) => {
 
-    const colorValues = useSelector((state: RootState) => state?.customColors?.workingPattern)
+    const colorValues = useSelector((state: RootState) => state?.customColors?.workingPattern);
 
-    const datas = dumbellSeriesData;
-    const statusMap = {
-        checkIn: { label: 'CheckIn', color: colorValues?.checkInColor },
-        checkOut: { label: 'CheckOut', color: colorValues?.checkoutColor },
-        missingCheckOut: { label: 'MissingCheckOut', color: colorValues?.missingCheckoutColor }
-    };
+    const checkInColor = colorValues?.checkInColor || '#6366f1';
+    const checkOutColor = colorValues?.checkoutColor || '#06b6d4';
+    const missingColor = colorValues?.missingCheckoutColor || '#f43f5e';
 
-    // Initialize counts
-    const statusCounts = {
-        [statusMap.checkIn.label]: 0,
-        [statusMap.checkOut.label]: 0,
-        [statusMap.missingCheckOut.label]: 0
-    };
-
-    // Calculate actual counts based on data structure
+    let checkInCount = 0, checkOutCount = 0, missingCount = 0;
     dumbellSeriesData.forEach((item: any) => {
-        const [checkIn, checkOut] = item.y;
-
-        if (checkIn > 0) statusCounts.CheckIn++;
-        if (checkOut > 0) {
-            statusCounts.CheckOut++;
-        } else if (checkIn > 0) {
-            statusCounts.MissingCheckOut++;
-        }
+        const [ci, co] = item.y;
+        if (ci > 0) checkInCount++;
+        if (co > 0) checkOutCount++;
+        else if (ci > 0) missingCount++;
     });
 
+    const attendancePct = totalDays > 0 ? Math.round((totalWorkedDays / totalDays) * 100) : 0;
+    const pctColor = attendancePct >= 80 ? '#16a34a' : attendancePct >= 60 ? '#0891b2' : '#f59e0b';
+    const pctBg = attendancePct >= 80 ? '#f0fdf4' : attendancePct >= 60 ? '#f0f9ff' : '#fffbeb';
+
+    const fmtMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 
     const dumbellOptions: any = {
         chart: {
-            height: 350,
             type: 'rangeBar',
-            zoom: {
-                enabled: false
-            }
+            toolbar: { show: false },
+            background: 'transparent',
+            animations: { enabled: true, speed: 400 },
+            zoom: { enabled: false },
         },
         plotOptions: {
             bar: {
                 isDumbbell: true,
-                columnWidth: '10%',
-                colors: {
-                    ranges: [],
-                },
-                dumbbellShape: 'circle',
-                dumbbellSize: 8,
-            }
-        },
-        legend: {
-            show: true,
-            showForSingleSeries: true,
-            position: 'top',
-            horizontalAlign: 'left',
-            customLegendItems: [
-                `${statusMap.checkIn.label} ${statusCounts.CheckIn}`,
-                `${statusMap.checkOut.label} ${statusCounts.CheckOut}`,
-                `${statusMap.missingCheckOut.label} ${statusCounts.MissingCheckOut}`
-            ],
-            markers: {
-                fillColors: [
-                    statusMap.checkIn.color || "#0000FF",
-                    statusMap.checkOut.color || "#00E396",
-                    statusMap.missingCheckOut.color || "#FFA500"
-                ],
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-            },
-            labels: {
-                colors: "#333",
-                useSeriesColors: false,
+                columnWidth: '3px',
+                dumbbellColors: [[checkInColor, checkOutColor]],
             },
         },
-        fill: {
-            type: 'gradient',
-            gradient: {
-                type: 'vertical',
-                gradientToColors: ['#00E396'],
-                inverseColors: true,
-                stops: [0, 100]
-            }
-        },
+        legend: { show: false },
+        fill: { type: 'solid' },
         grid: {
-            xaxis: {
-                lines: {
-                    show: true
-                }
-            },
-            yaxis: {
-                lines: {
-                    show: false
-                }
-            }
+            borderColor: '#f1f5f9',
+            strokeDashArray: 4,
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } },
         },
         xaxis: {
-            tickPlacement: 'on'
+            tickPlacement: 'on',
+            labels: { style: { fontSize: '11px', colors: '#9ca3af', fontWeight: '600' } },
+            axisBorder: { show: false },
+            axisTicks: { show: false },
         },
         yaxis: {
-            type: 'numeric',
             min: 0,
             max: 1440,
-            tickAmount: 4,
+            tickAmount: 6,
             labels: {
-                formatter: function (val: any) {
-                    const hours = Math.floor(val / 60).toString().padStart(2, '0');
-                    const minutes: any = (val % 60).toFixed(0).padStart(2, '0');
-                    return `${hours}`;
-                }
-            }
+                style: { fontSize: '10px', colors: '#9ca3af' },
+                formatter: (val: number) => `${String(Math.floor(val / 60)).padStart(2, '0')}:00`,
+            },
         },
         tooltip: {
             shared: false,
-            custom: function ({ series, seriesIndex, dataPointIndex, w }: { series: any, seriesIndex: any, dataPointIndex: any, w: any }) {
+            custom: ({ seriesIndex, dataPointIndex, w }: any) => {
                 const data = w.config.series[seriesIndex].data[dataPointIndex];
-
-                // Extract check-in and check-out times (in minutes)
-                const checkInMinutesTotal = data.y[0];
-                const checkOutMinutesTotal = data.y[1];
-
-                // Convert to hours and minutes (hh:mm format)
-                const checkInHours = Math.floor(checkInMinutesTotal / 60);
-                const checkInMinutes = (checkInMinutesTotal % 60).toFixed(0).padStart(2, '0');
-
-                // Handle missing checkout case
-                let checkOut = "Missing";
-                let workDuration = "N/A";
-
-                if (checkOutMinutesTotal !== -1) {
-                    const checkOutHours = Math.floor(checkOutMinutesTotal / 60);
-                    const checkOutMinutes = (checkOutMinutesTotal % 60).toFixed(0).padStart(2, '0');
-                    checkOut = `${checkOutHours}:${checkOutMinutes}`;
-
-                    // Calculate total working hours
-                    const totalMinutesWorked = checkOutMinutesTotal - checkInMinutesTotal;
-                    const workHours = Math.floor(totalMinutesWorked / 60);
-                    const workMinutes = (totalMinutesWorked % 60).toFixed(0).padStart(2, '0');
-                    workDuration = `${workHours}:${workMinutes}`; // Final formatted working hours
-                }
-
-                const checkIn = `${checkInHours}:${checkInMinutes}`;
-
-                return `
-                    <div style="padding: 5px; border: 1px solid #ddd; background-color: #fff;">
-                        <strong>Total Work Hours:</strong> ${workDuration}<br>
-                        <strong>Day:</strong> ${data.x}<br/>
-                        <strong>Check-in:</strong> ${checkIn}<br/>
-                        <strong>Check-out:</strong> ${checkOut}
+                const [ci, co] = data.y;
+                const hasCO = co > 0 && co !== ci;
+                const dur = hasCO ? (() => { const d = co - ci; return `${Math.floor(d / 60)}h ${String(Math.round(d % 60)).padStart(2, '0')}m`; })() : 'N/A';
+                return `<div style="padding:10px 14px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.12);min-width:160px;font-family:inherit;border:1px solid #f0f0f0">
+                    <div style="font-weight:700;color:#111827;font-size:13px;margin-bottom:8px">${data.x}</div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                        <div style="width:8px;height:8px;border-radius:50%;background:${checkInColor};flex-shrink:0"></div>
+                        <span style="font-size:11px;color:#6b7280;flex:1">Check-in</span>
+                        <span style="font-size:12px;font-weight:700;color:#111827">${ci > 0 ? fmtMin(ci) : '—'}</span>
                     </div>
-                `;
-            }
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                        <div style="width:8px;height:8px;border-radius:50%;background:${hasCO ? checkOutColor : missingColor};flex-shrink:0"></div>
+                        <span style="font-size:11px;color:#6b7280;flex:1">Check-out</span>
+                        <span style="font-size:12px;font-weight:700;color:${hasCO ? '#111827' : missingColor}">${hasCO ? fmtMin(co) : 'Missing'}</span>
+                    </div>
+                    <div style="border-top:1px solid #f5f5f5;padding-top:7px;display:flex;justify-content:space-between;align-items:center">
+                        <span style="font-size:11px;color:#9ca3af">Duration</span>
+                        <span style="font-size:12px;font-weight:800;color:${checkInColor}">${dur}</span>
+                    </div>
+                </div>`;
+            },
         },
     };
 
-    const dumbellSeries = [
-        {
-            name: 'Work Hours',
-            data: dumbellSeriesData.map((item: any) => {
-                const [checkIn, checkOut] = item.y;
-
-                let barColor = statusMap.checkOut.color;
-                let checkInColor = statusMap.checkIn.color;
-
-                if (checkOut === -1) {
-                    barColor = statusMap.missingCheckOut.color;
-                }
-
-                return {
-                    x: item.x,
-                    y: item.y,
-                    fillColor: barColor,
-                    strokeColor: checkInColor,
-                    marker: {
-                        fillColors: [checkInColor, barColor],
-                    }
-                };
-            }),
-        }
-    ];
+    const dumbellSeries = [{
+        name: 'Work Hours',
+        data: dumbellSeriesData.map((item: any) => {
+            const [ci, co] = item.y;
+            const hasCO = co > 0;
+            return {
+                x: item.x,
+                y: hasCO ? [ci, co] : [ci, ci + 2],
+                fillColor: hasCO ? checkOutColor : missingColor,
+                strokeColor: checkInColor,
+            };
+        }),
+    }];
 
     return (
-        <>
-            <Card className="d-flex flex-column flex-md-row shadow-sm w-100 mb-4">
-                <Card.Body className="text-center ps-2" style={{ height: cardHeight ? '300px' : '' }}>
-                    <h5 className="mb-3">Regularity {totalWorkedDays} days out of {totalDays} days</h5>
-                    <ReactApexChart
-                        options={{
-                            ...dumbellOptions,
-                            responsive: [
-                                {
-                                    breakpoint: 768,
-                                    options: {
-                                        chart: {
-                                            height: 250,
-                                        },
-                                        xaxis: {
-                                            labels: {
-                                                rotate: 0,
-                                                style: { fontSize: "10px" },
-                                            }
-                                        },
-                                        dataLabels: { enabled: false },
-                                        grid: { show: false }
-                                    }
-                                }
-                            ]
-                        }}
-                        series={dumbellSeries}
-                        type="rangeBar"
-                        height={height}
-                        width="100%"
-                    />
-                </Card.Body>
-            </Card>
-        </>
+        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 4, height: 18, background: `linear-gradient(180deg,${checkInColor},${checkOutColor})`, borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Attendance Regularity</span>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, background: pctBg, padding: '3px 10px', borderRadius: 20 }}>
+                    {totalWorkedDays}/{totalDays} days
+                </span>
+            </div>
+
+            {/* Stat chips */}
+            <div style={{ padding: '0 20px 10px', display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: `1px solid ${checkInColor}25` }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: checkInColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Check-in</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: checkInColor }}>{checkInCount}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: `1px solid ${checkOutColor}25` }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: checkOutColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Check-out</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: checkOutColor }}>{checkOutCount}</span>
+                </div>
+                {missingCount > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff1f2', borderRadius: 8, padding: '5px 10px', border: `1px solid ${missingColor}30` }}>
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: missingColor, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Missing</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: missingColor }}>{missingCount}</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Chart */}
+            <div style={{ padding: '0 8px' }}>
+                <ReactApexChart
+                    options={dumbellOptions}
+                    series={dumbellSeries}
+                    type="rangeBar"
+                    height={height}
+                    width="100%"
+                />
+            </div>
+
+        </Card>
     );
 };
 
 export const Bar = ({ barOption, barSeriesData, height, cardHeight, totalWorkingTime, totalAllowedTime }: { barOption: string[], barSeriesData: number[], height: number, cardHeight?: boolean, totalWorkingTime: string, totalAllowedTime: string }) => {
+
+    const isMonthly = barOption.length === 12;
+
+    const parseTimeStr = (s: string) => {
+        const m = s?.match(/(\d+)h[^\d]*(\d+)m?/i);
+        if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+        const h = s?.match(/^(\d+)$/);
+        return h ? parseInt(h[1]) * 60 : 0;
+    };
+
+    const workedMin = parseTimeStr(totalWorkingTime);
+    const allowedMin = parseTimeStr(totalAllowedTime);
+    const overallPct = allowedMin > 0 ? Math.min(100, Math.round((workedMin / allowedMin) * 100)) : 0;
+    const pctColor = overallPct >= 80 ? '#16a34a' : overallPct >= 50 ? '#6366f1' : '#f59e0b';
+    const pctBg = overallPct >= 80 ? '#f0fdf4' : overallPct >= 50 ? '#eef2ff' : '#fffbeb';
+
+    const activeDays = barSeriesData.filter((v: number) => v > 0).length;
+    const dailyTarget = activeDays > 0 && allowedMin > 0 ? Math.round(allowedMin / activeDays) : 0;
+
+    const barColors = barSeriesData.map((v: number) => {
+        if (v === 0) return '#e5e7eb';
+        if (dailyTarget === 0) return '#6366f1';
+        const r = v / dailyTarget;
+        if (r >= 1) return '#22c55e';
+        if (r >= 0.75) return '#6366f1';
+        if (r >= 0.5) return '#f59e0b';
+        return '#f43f5e';
+    });
+
+    const fmtVal = (v: number) => isMonthly ? `${v}h` : convertMinutesIntoHrMinFormat(v);
+
     const barOptions: ApexCharts.ApexOptions = {
         chart: {
-            type: "bar",
-            height: 350,
-            toolbar: {
-                show: false,
-            },
+            type: 'bar',
+            toolbar: { show: false },
+            background: 'transparent',
+            animations: { enabled: true, speed: 400 },
         },
         plotOptions: {
             bar: {
                 horizontal: false,
-                columnWidth: "50%",
-                borderRadius: 12,
+                columnWidth: barOption.length > 20 ? '70%' : '55%',
+                borderRadius: 7,
+                borderRadiusApplication: 'end' as any,
+                distributed: true,
             },
         },
-        dataLabels: {
-            enabled: false,
-            formatter: function (val: number) {
-                return `${val}`;
-            },
-            offsetY: -20,
-            style: {
-                fontSize: "12px",
-                colors: ["#304758"],
-            },
+        colors: barColors,
+        dataLabels: { enabled: false },
+        legend: { show: false },
+        grid: {
+            borderColor: '#f1f5f9',
+            strokeDashArray: 4,
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } },
         },
         xaxis: {
             categories: barOption,
+            tickPlacement: 'between',
+            tickAmount: Math.min(10, Math.ceil(barOption.length / 2)),
             labels: {
-                style: {
-                    fontSize: barOption.length == 7 ? '11px' : '12px',
-                }
-            }
+                rotate: barOption.length > 15 ? -45 : 0,
+                style: { fontSize: barOption.length > 20 ? '9px' : '11px', colors: '#9ca3af', fontWeight: '600' },
+                formatter: (v: string) => v && v.length > 9 ? v.substring(0, 9) + '…' : v,
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false },
         },
         yaxis: {
             min: 0,
-            max: 1440,
+            max: isMonthly ? undefined : 1440,
             tickAmount: 4,
             labels: {
-                formatter: function (val: number) {
-                    let hours = Math.floor(val / 60);
-                    let formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
-                    return `${formattedHours}`;
-                },
+                style: { fontSize: '10px', colors: '#9ca3af' },
+                formatter: (val: number) => isMonthly ? `${val}h` : `${String(Math.floor(val / 60)).padStart(2, '0')}:00`,
             },
         },
-        fill: {
-            opacity: 1,
-        },
         tooltip: {
-            y: {
-                formatter: function (val: number) {
-                    let value = convertMinutesIntoHrMinFormat(val);
-                    if (barOption.length == 12) {
-                        value = val.toString();
-                    }
-                    return `${value}`;
-                },
+            custom: ({ series, seriesIndex, dataPointIndex }: any) => {
+                const val = series[seriesIndex][dataPointIndex];
+                const label = barOption[dataPointIndex];
+                const color = barColors[dataPointIndex] || '#6366f1';
+                const pctOfTarget = dailyTarget > 0 && val > 0 ? Math.min(100, Math.round((val / dailyTarget) * 100)) : 0;
+                return `<div style="padding:10px 14px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.12);min-width:155px;font-family:inherit;border:1px solid #f0f0f0">
+                    <div style="font-weight:700;color:#111827;font-size:13px;margin-bottom:8px">${label}</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                        <span style="font-size:11px;color:#6b7280">Worked</span>
+                        <span style="font-size:13px;font-weight:800;color:${color}">${val > 0 ? fmtVal(val) : '—'}</span>
+                    </div>
+                    ${dailyTarget > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <span style="font-size:11px;color:#6b7280">Target</span>
+                        <span style="font-size:11px;font-weight:600;color:#9ca3af">${fmtVal(dailyTarget)}</span>
+                    </div>
+                    ${val > 0 ? `<div style="height:3px;background:#f1f5f9;border-radius:99px;overflow:hidden">
+                        <div style="height:100%;width:${pctOfTarget}%;background:${color};border-radius:99px"></div>
+                    </div>` : ''}` : ''}
+                </div>`;
             },
         },
     };
 
-    const barSeries = [{ name: "Working Hours", data: barSeriesData }];
+    const barSeries = [{ name: 'Working Hours', data: barSeriesData }];
 
     return (
-        <>
-            <Card className="shadow-sm w-100 mb-4">
-                <Card.Body className="text-center ps-2 pb-2" style={{ height: cardHeight ? '300px' : '' }}>
-                    <h5 className="mt-4 text-center"> Working Time - {totalWorkingTime} / {totalAllowedTime} {barOption.length === 12 ? `(Hrs)` : `(H M)`}</h5>
+        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#3b82f6,#6366f1)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Working Time</span>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, background: pctBg, padding: '3px 10px', borderRadius: 20 }}>
+                    {overallPct}% done
+                </span>
+            </div>
 
-                    {/* Responsive Bar Chart */}
-                    <ReactApexChart
-                        options={{
-                            ...barOptions,
-                            chart: {
-                                ...barOptions.chart,
-                                toolbar: { show: false },
-                            },
-                            xaxis: {
-                                ...barOptions.xaxis,
-                                tickAmount: Math.min(10, barSeries[0]?.data.length / 2),
-                                tickPlacement: "between",
-                                labels: {
-                                    show: true,
-                                    rotate: -25,
-                                    maxHeight: 50,
-                                    style: { fontSize: '12px' },
-                                    formatter: function (value: string, index: number) {
-                                        return value.length > 10 ? value.substring(0, 10) + "..." : value;
-                                    }
-                                },
-                            },
-                            responsive: [
-                                {
-                                    breakpoint: 768,
-                                    options: {
-                                        chart: { height: 250 },
-                                        xaxis: {
-                                            labels: {
-                                                rotate: -49,
-                                                style: { fontSize: '9px' }
-                                            }
-                                        }
-                                    }
-                                }
-                            ],
-                        }}
-                        series={barSeries}
-                        type="bar"
-                        height={height}
-                        width="100%"
-                    />
-                </Card.Body>
-            </Card>
-        </>
+            {/* Time summary chips */}
+            <div style={{ padding: '0 20px 10px', display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: '1px solid #e0e7ff' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Worked</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#6366f1' }}>{totalWorkingTime}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', borderRadius: 8, padding: '5px 10px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#9ca3af', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Target</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#6b7280' }}>{totalAllowedTime}</span>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                    {[{ c: '#22c55e', l: '≥100%' }, { c: '#6366f1', l: '≥75%' }, { c: '#f59e0b', l: '≥50%' }, { c: '#f43f5e', l: '<50%' }].map(({ c, l }) => (
+                        <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
+                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{l}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Chart */}
+            <div style={{ padding: '0 8px' }}>
+                <ReactApexChart
+                    options={barOptions}
+                    series={barSeries}
+                    type="bar"
+                    height={height}
+                    width="100%"
+                />
+            </div>
+        </Card>
     );
 };
 export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: any, height: number, totalDays: number }) => {
@@ -778,133 +1041,188 @@ export const HeatMap = ({ heatMapSeries, height, totalDays }: { heatMapSeries: a
     const checkoutMissingColor = useSelector((state: any) => state?.customColors?.workingPattern?.missingCheckoutColor);
     const weekendColor = useSelector((state: any) => state?.customColors?.attendanceCalendar?.weekendColor);
 
-    // Define status mappings
-    const statusMap: Record<number, { label: string; color: string }> = {
-        0: { label: "Present", color: colorValues?.presentColor },
-        1: { label: "Absent", color: colorValues?.absentColor },
-        2: { label: "On Leave", color: colorValues?.onLeaveColor },
-        3: { label: "Extra Day", color: colorValues?.extraDayColor },
-        4: { label: "Holiday", color: colorValues?.holidayColor },
-        5: { label: "N/A", color: "#F0F0F0" },
-        6: { label: "Check Out Missing", color: checkoutMissingColor },
-        7: { label: "Weekend", color: weekendColor },
+    const statusMap: Record<number, { label: string; color: string; icon: string }> = {
+        0: { label: 'Present',           color: colorValues?.presentColor  || '#22c55e', icon: 'bi-check2'                  },
+        1: { label: 'Absent',            color: colorValues?.absentColor   || '#ef4444', icon: 'bi-x-lg'                    },
+        2: { label: 'On Leave',          color: colorValues?.onLeaveColor  || '#f59e0b', icon: 'bi-briefcase'               },
+        3: { label: 'Extra Day',         color: colorValues?.extraDayColor || '#6366f1', icon: 'bi-plus-circle'             },
+        4: { label: 'Holiday',           color: colorValues?.holidayColor  || '#8b5cf6', icon: 'bi-gift'                    },
+        5: { label: 'N/A',               color: '#d1d5db',                               icon: 'bi-dash'                    },
+        6: { label: 'Missing Check-Out', color: checkoutMissingColor       || '#f43f5e', icon: 'bi-exclamation-triangle'    },
+        7: { label: 'Weekend',           color: weekendColor               || '#94a3b8', icon: 'bi-moon-stars'              },
     };
 
-    // Count occurrences of each status
     const statusCounts: Record<string, number> = {};
     Object.values(statusMap).forEach(({ label }) => (statusCounts[label] = 0));
+    heatMapSeries.forEach((s: any) => s.data.forEach((v: number) => {
+        const info = statusMap[v]; if (info) statusCounts[info.label] = (statusCounts[info.label] || 0) + 1;
+    }));
 
-    heatMapSeries.forEach((seriesItem: any) => {
-        seriesItem.data.forEach((value: number) => {
-            const status = statusMap[value]?.label;
-            if (status) statusCounts[status] += 1;
-        });
-    });
+    if (!heatMapSeries?.length) return null;
+    const isWeekly = heatMapSeries.length === 1 && (heatMapSeries[0]?.data?.length ?? 0) <= 7;
+    const isMultiMonth = heatMapSeries.length > 1;
+    const DAY_HDRS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const today = dayjs();
 
-    const heatMapOptions: any = {
-        chart: { type: "heatmap" },
-        plotOptions: {
-            heatmap: {
-                shadeIntensity: 0.5,
-                colorScale: {
-                    ranges: Object.entries(statusMap).map(([key, { label, color }]) => ({
-                        from: Number(key),
-                        to: Number(key),
-                        name: label,
-                        color: color
-                    }))
-                }
-            }
-        },
-        xaxis: {
-            type: 'category',
-            categories: heatMapSeries[0].data.length === 7 ? weekDays : Array.from({ length: 31 }, (_, i) => i + 1),
-            title: {
-                text: `Days (${totalDays})`
-            },
-        },
-        yaxis: {
-            title: { text: heatMapSeries[0]?.data.length === 7 ? "Week" : "Month" }
-        },
-        dataLabels: { enabled: false },
-        tooltip: {
-            y: { formatter: (value: any) => statusMap[value]?.label || "Unknown" }
-        },
-        legend: { show: false } // Hide default legend
+    const inferMonthStart = (name: string): Dayjs | null => {
+        const abbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const full = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        let idx = abbr.findIndex(m => name.startsWith(m));
+        if (idx === -1) idx = full.findIndex(m => name.startsWith(m));
+        if (idx === -1) return null;
+        return today.year(today.year()).month(idx).date(1);
     };
 
-    return (
-        <>
-            <Card className="shadow-sm w-100 mb-4 p-0">
-                <Card.Body className="text-center p-2">
-                    <h5 className="mt-4 text-center">Heatmap</h5>
+    const ROW_H = 34, GAP = 3;
 
-                    {/* Custom Legend with Counts */}
-                    <div className="d-flex justify-content-center flex-wrap mb-3">
-                        {Object.entries(statusMap).map(([key, { label, color }]) => (
-                            <div key={label} className="d-flex align-items-center mx-2">
-                                <span
-                                    style={{
-                                        display: "inline-block",
-                                        width: "12px",
-                                        height: "12px",
-                                        backgroundColor: color,
-                                        borderRadius: "50%",
-                                        marginRight: "6px"
-                                    }}
-                                ></span>
-                                <span>{`${label} ${statusCounts[label] || 0}`}</span>
-                            </div>
+    const buildCounts = (data: number[]) => {
+        const counts: Record<string, number> = {};
+        Object.values(statusMap).forEach(({ label }) => (counts[label] = 0));
+        data.forEach(c => { const s = statusMap[c]; if (s) counts[s.label] = (counts[s.label] || 0) + 1; });
+        return counts;
+    };
+
+    const StatCards = ({ counts }: { counts: Record<string, number> }) => (
+        <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: 'repeat(2, 108px)', gap: 7, paddingTop: 18, alignContent: 'start' }}>
+            {Object.entries(statusMap).map(([key, { label, color }]) => (
+                <div key={key} style={{ padding: '8px 10px', borderRadius: 10, background: `${color}14`, border: `1px solid ${color}28`, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 18, fontWeight: 900, color, lineHeight: 1 }}>{counts[label] || 0}</span>
+                    <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+                </div>
+            ))}
+        </div>
+    );
+
+    const renderMonthCalendar = (series: any) => {
+        const data: number[] = series?.data || [];
+        const monthStart = inferMonthStart(series?.name || '');
+        const firstDow = monthStart ? monthStart.day() : 1;
+        const firstMonFirst = firstDow === 0 ? 6 : firstDow - 1;
+        const numWeeks = Math.max(1, Math.ceil((firstMonFirst + data.length) / 7));
+        const counts = buildCounts(data);
+
+        const cells: { dayNum: number | null; code: number | null }[] = [];
+        for (let i = 0; i < firstMonFirst; i++) cells.push({ dayNum: null, code: null });
+        data.forEach((code, i) => cells.push({ dayNum: i + 1, code }));
+        const remainder = numWeeks * 7 - cells.length;
+        for (let i = 0; i < remainder; i++) cells.push({ dayNum: null, code: null });
+
+        const weekHeaders = Array.from({ length: numWeeks }, (_, w) => {
+            const d = w * 7 - firstMonFirst + 1;
+            return d >= 1 && d <= data.length ? d : null;
+        });
+
+        return (
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', width: '100%' }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: GAP }}>
+                    {/* Day-of-week labels */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, paddingTop: 18, flexShrink: 0 }}>
+                        {DAY_HDRS.map(d => (
+                            <div key={d} style={{ height: ROW_H, display: 'flex', alignItems: 'center', fontSize: 9, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', width: 24 }}>{d}</div>
                         ))}
                     </div>
-                    {/* Responsive Heatmap Chart */}
-                    <ReactApexChart
-                        options={{
-                            ...heatMapOptions,
-                            chart: {
-                                ...heatMapOptions.chart,
-                                toolbar: { show: false },
-                            },
-                            xaxis: {
-                                ...heatMapOptions.xaxis,
-                                labels: {
-                                    rotate: -45,
-                                    style: {
-                                        fontSize: '12px',
-                                    },
-                                },
-                            },
-                            yaxis: {
-                                labels: {
-                                    style: { fontSize: '12px' },
-                                },
-                            },
-                            dataLabels: {
-                                enabled: false,
-                            },
-                            responsive: [
-                                {
-                                    breakpoint: 768,
-                                    options: {
-                                        chart: { height: 250 },
-                                        xaxis: {
-                                            labels: { rotate: 0 },
-                                        },
-                                        yaxis: {
-                                            labels: { style: { fontSize: '10px' } },
-                                        },
-                                    },
-                                },
-                            ],
-                        }}
-                        series={heatMapSeries}
-                        type="heatmap"
-                        height={height}
-                        width="100%"
-                    />
-                </Card.Body>
-            </Card>
-        </>
+                    {/* Grid */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${numWeeks}, 1fr)`, gap: GAP, marginBottom: 4 }}>
+                            {weekHeaders.map((d, w) => (
+                                <div key={w} style={{ textAlign: 'center', fontSize: 9, color: '#9ca3af', fontWeight: 600 }}>{d ?? ''}</div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${numWeeks}, 1fr)`, gridTemplateRows: `repeat(7, ${ROW_H}px)`, gap: GAP, gridAutoFlow: 'column' }}>
+                            {cells.map(({ dayNum, code }, idx) => {
+                                const st = dayNum !== null && code !== null ? statusMap[code] : null;
+                                const isToday = dayNum !== null && monthStart && monthStart.date(dayNum).isSame(today, 'day');
+                                return (
+                                    <div key={idx} title={dayNum !== null && st ? `${dayNum} ${series.name}: ${st.label}` : undefined} style={{
+                                        borderRadius: 6, cursor: 'default',
+                                        background: dayNum === null ? 'transparent' : code === 5 ? '#f1f5f9' : (st?.color || '#e5e7eb'),
+                                        opacity: code === 5 ? 0.3 : 1,
+                                        outline: isToday ? '2px solid #111827' : 'none',
+                                        outlineOffset: 1,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        {dayNum !== null && <span style={{ fontSize: 10, fontWeight: 700, color: code === 5 ? '#9ca3af' : 'rgba(255,255,255,0.9)', lineHeight: 1, userSelect: 'none' }}>{dayNum}</span>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+                <StatCards counts={counts} />
+            </div>
+        );
+    };
+
+    const renderWeekRow = (series: any) => {
+        const data: number[] = series?.data || [];
+        const counts = buildCounts(data);
+        return (
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', width: '100%' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: GAP, marginBottom: 4 }}>
+                        {DAY_HDRS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 9, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>{d}</div>)}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: GAP }}>
+                        {data.map((code: number, i: number) => {
+                            const st = statusMap[code];
+                            return (
+                                <div key={i} title={st?.label} style={{ height: ROW_H * 2, borderRadius: 8, background: code === 5 ? '#f1f5f9' : (st?.color || '#e5e7eb'), opacity: code === 5 ? 0.3 : 1, cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <i className={`bi ${st?.icon || 'bi-dash'}`} style={{ fontSize: 16, color: 'rgba(255,255,255,0.85)' }} />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                <StatCards counts={counts} />
+            </div>
+        );
+    };
+
+    const periodLabel = heatMapSeries.length === 1
+        ? heatMapSeries[0].name
+        : `${heatMapSeries[0]?.name} – ${heatMapSeries[heatMapSeries.length - 1]?.name}`;
+
+    return (
+        <Card style={{ border: '1px solid #f0f0f0', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', marginBottom: 24 }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 4, height: 18, background: 'linear-gradient(180deg,#22c55e,#6366f1)', borderRadius: 99, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Attendance Calendar</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', background: '#f1f5f9', padding: '3px 10px', borderRadius: 20 }}>{periodLabel}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a', background: '#f0fdf4', padding: '3px 10px', borderRadius: 20 }}>{totalDays} working days</span>
+                </div>
+            </div>
+
+            {/* Calendar */}
+            <div style={{ padding: '0 20px 16px' }}>
+                {isWeekly
+                    ? heatMapSeries.map((s: any, i: number) => <div key={i}>{renderWeekRow(s)}</div>)
+                    : isMultiMonth
+                        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            {heatMapSeries.map((s: any, i: number) => (
+                                <div key={i}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s?.name}</div>
+                                    {renderMonthCalendar(s)}
+                                </div>
+                            ))}
+                          </div>
+                        : heatMapSeries.map((s: any, i: number) => <div key={i}>{renderMonthCalendar(s)}</div>)
+                }
+            </div>
+
+            {/* Color key strip */}
+            <div style={{ padding: '10px 20px 14px', borderTop: '1px solid #f5f5f5', display: 'flex', flexWrap: 'wrap', gap: '5px 12px' }}>
+                {Object.entries(statusMap).map(([key, { label, color }]) => (
+                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ width: 14, height: 14, borderRadius: 4, background: color, opacity: key === '5' ? 0.35 : 1, flexShrink: 0 }} />
+                        <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 500 }}>{label}</span>
+                    </div>
+                ))}
+            </div>
+        </Card>
     );
 };
 
@@ -976,7 +1294,11 @@ export const StatisticsTable = ({
     const employeeDeatils = fromAdmin ? useSelector((state: RootState) => state.employee.selectedEmployee) : useSelector((state: RootState) => state.employee.currentEmployee);
     const reportsToId = employeeDeatils.reportsToId;
 
-    const allWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // Weekend/holiday status must use the VIEWED employee's branch config (selected when admin,
+    // else self) — NOT the logged-in admin's. Otherwise an employee on a Mon-working branch shows
+    // Mondays as "Working on weekend" because the admin's branch has Monday off.
+    const curWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const allWeekends = employeeDeatils?.branches?.workingAndOffDays || curWeekends;
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
     const colorValues = useSelector((state: RootState) => state?.customColors?.attendanceOverview);
@@ -1049,6 +1371,18 @@ export const StatisticsTable = ({
 
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const companyId = useSelector((state: RootState) => state.employee.currentEmployee.companyId);
+    // Late-threshold scope = the VIEWED employee (selected when admin, else self), so the table's
+    // red/green matches that employee's shift — same scope the backend graph uses.
+    const curThresholdCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const curThresholdBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const selThresholdCompanyId = useSelector((state: RootState) => state.employee?.selectedEmployee?.companyId);
+    const selThresholdBranchId = useSelector((state: RootState) => state.employee?.selectedEmployee?.branchId);
+    const selThresholdEmployeeId = useSelector((state: RootState) => state.employee?.selectedEmployee?.id);
+    // Authoritative late check-in dates from the backend (it resolves the VIEWED employee's own
+    // branch shift + grace — same engine as the graph/KPI/salary). The table colours from these so
+    // it can never disagree with the rest of the system due to a stale/empty Redux scope.
+    const [backendLateDates, setBackendLateDates] = useState<Set<string>>(new Set());
+    const [backendDatesReady, setBackendDatesReady] = useState(false);
     const showDateIn12HourFormat = useSelector((state: RootState) => state.employee.currentEmployee.branches.showDateIn12HourFormat);
     const leaveTypesColor = useSelector((state: RootState) => state?.customColors?.leaveTypes);
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
@@ -1082,11 +1416,11 @@ export const StatisticsTable = ({
     const branchWorkingDays = fromAdmin
         ? useSelector((state: RootState) => {
             const workingAndOffDays = state.employee.selectedEmployee?.branches?.workingAndOffDays;
-            return workingAndOffDays ? JSON.parse(workingAndOffDays) : {};
+            return parseWorkingDays(workingAndOffDays);
         })
         : useSelector((state: RootState) => {
             const workingAndOffDays = state.employee.currentEmployee?.branches?.workingAndOffDays;
-            return workingAndOffDays ? JSON.parse(workingAndOffDays) : {};
+            return parseWorkingDays(workingAndOffDays);
         });
 
 
@@ -1192,7 +1526,7 @@ export const StatisticsTable = ({
         async function fetchLeaveConfig() {
 
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = JSON.parse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
             setLeaveConfiguration(jsonObject);
         }
@@ -1376,10 +1710,14 @@ export const StatisticsTable = ({
         getWorkingMethods();
     }, []);
 
-    // fetch grace based thresholds
+    // fetch grace based thresholds — scoped to the VIEWED employee so coloring matches their shift
     useEffect(() => {
+        const thresholdScope = {
+            companyId: fromAdmin ? (selThresholdCompanyId || curThresholdCompanyId) : curThresholdCompanyId,
+            branchId: fromAdmin ? (selThresholdBranchId || curThresholdBranchId) : curThresholdBranchId,
+        };
         const initThresholds = async () => {
-            const thresholds = await getGraceBasedThresholds(attendance);
+            const thresholds = await getGraceBasedThresholds(attendance, thresholdScope);
 
             if (thresholds) {
                 setAllEmployeeThresholds(thresholds.employeesWithThresholds);
@@ -1389,7 +1727,43 @@ export const StatisticsTable = ({
         };
 
         initThresholds();
-    }, []);
+    }, [fromAdmin, selThresholdCompanyId, selThresholdBranchId, curThresholdCompanyId, curThresholdBranchId]);
+
+    // Derive STABLE primitives for the late-dates fetch. `attendance` is rebuilt with a new array
+    // reference every render, so depending on it directly would re-fetch on every render (an
+    // infinite loop that thrashes the table — e.g. resets pagination). These strings only change
+    // when the underlying data actually changes.
+    const lateFetchEmpId =
+        (attendance || []).map((r: any) => r?.employeeId).find((x: any) => x) ||
+        (fromAdmin ? (selThresholdEmployeeId || employeeId) : employeeId);
+    const lateFetchIsoDates = (attendance || [])
+        .map((r: any) => ddmmyyyyToISO(r?.formattedDate))
+        .filter((x: string | null): x is string => !!x)
+        .sort();
+    const lateFetchStart = lateFetchIsoDates[0] || '';
+    const lateFetchEnd = lateFetchIsoDates[lateFetchIsoDates.length - 1] || '';
+
+    // Pull the authoritative late check-in dates for the VIEWED employee from the backend.
+    useEffect(() => {
+        if (!lateFetchEmpId || !lateFetchStart || !lateFetchEnd) {
+            setBackendLateDates(new Set());
+            setBackendDatesReady(false);
+            return;
+        }
+        let cancelled = false;
+        fetchAttendanceClassification(lateFetchEmpId, lateFetchStart, lateFetchEnd)
+            .then(({ data }) => {
+                if (cancelled) return;
+                setBackendLateDates(new Set(data.lateCheckinDates || []));
+                setBackendDatesReady(true);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setBackendLateDates(new Set());
+                setBackendDatesReady(false);
+            });
+        return () => { cancelled = true; };
+    }, [lateFetchEmpId, lateFetchStart, lateFetchEnd]);
 
     // if employee working on weekend/holiday then no late marking and early check out marking
 
@@ -1410,18 +1784,19 @@ export const StatisticsTable = ({
         {
             accessorKey: "date",
             header: "Date",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ? renderedCellValue : "N/A"
-        },
-        {
-            accessorKey: "day",
-            header: "Day",
-            size: 120,
-            minSize: 100,
-            maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ? renderedCellValue : "N/A"
+            size: 150,
+            minSize: 130,
+            maxSize: 180,
+            Cell: ({ row }: any) => {
+                const date = row.original.date;
+                const day = row.original.day;
+                return (
+                    <div>
+                        <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>{date || 'N/A'}</div>
+                        {day && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{day}</div>}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: "checkIn",
@@ -1443,18 +1818,32 @@ export const StatisticsTable = ({
                 const employeeThreshold = allEmployeeThresholds?.find(
                     (emp: any) => emp.id === employee.id
                 );
-                const checkInColor = resolveCheckInColor({
+                const skipColoring = !shouldApplyCheckInColoring(
+                    employee.status,
+                    employee.isWeekendOrHoliday
+                );
+                let checkInColor = resolveCheckInColor({
                     checkIn,
                     workingMethod: employee.workingMethod,
                     date: employee.date,
                     lateCheckInThreshold:
                         employeeThreshold?.lateCheckInThreshold ?? lateCheckInThreshold,
                     leaveConfig: leaveConfiguration,
-                    skipColoring: !shouldApplyCheckInColoring(
-                        employee.status,
-                        employee.isWeekendOrHoliday
-                    ),
+                    skipColoring,
                 });
+
+                // Prefer the backend's authoritative late determination (resolves the viewed
+                // employee's own shift + grace). Only override real check-in rows (not weekend/
+                // missing) once the dates have loaded, so colouring matches the graph/KPI exactly.
+                if (backendDatesReady && !skipColoring && checkIn && checkIn !== '-NA-') {
+                    const istDate = ddmmyyyyToISO(employee.formattedDate);
+                    if (istDate) {
+                        const isLate = backendLateDates.has(istDate);
+                        checkInColor = isLate
+                            ? { tone: 'danger', color: '#DC3545', isLate: true, tooltip: 'Late check-in' }
+                            : { tone: 'success', color: '#28A745', isLate: false, tooltip: 'On time' };
+                    }
+                }
 
                 const coords = resolveAttendanceCoordinates(employee.id, location);
 
@@ -1467,7 +1856,7 @@ export const StatisticsTable = ({
                         location={employee.checkInLocation}
                         fullAddress={employee.checkInLocation}
                         coordinates={coords}
-                        timeColor={checkInColor.color}
+                        timeTone={checkInColor.tone}
                         timeTooltip={checkInColor.tooltip}
                     />
                 );
@@ -1513,7 +1902,7 @@ export const StatisticsTable = ({
                         location={employee.checkOutLocation}
                         fullAddress={employee.checkOutLocation}
                         coordinates={coords}
-                        timeColor={checkOutColor.color}
+                        timeTone={checkOutColor.tone}
                     />
                 );
             }
@@ -1700,7 +2089,7 @@ export const StatisticsTable = ({
                     </button > : 'Not Allowed'
             },
         }] : []),
-    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration]);
+    ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
 
 
     // Detect if device is iOS mobile        
@@ -1995,7 +2384,12 @@ export const ReportsTable = ({
     const [leaveConfiguration, setLeaveConfiguration] = useState<any>()
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const { longitude, latitude } = useSelector((state: RootState) => state.attendance.position);
-    const allWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    // Weekend/holiday status must use the VIEWED employee's branch config (selected when admin,
+    // else self) — NOT the logged-in admin's. Otherwise an employee on a Mon-working branch shows
+    // Mondays as "Working on weekend" because the admin's branch has Monday off.
+    const curWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
+    const selWeekends = useSelector((state: RootState) => state?.employee?.selectedEmployee?.branches?.workingAndOffDays);
+    const allWeekends = fromAdmin ? (selWeekends || curWeekends) : curWeekends;
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
 
     const [workingMethodOptions, setWorkingMethodOptions] = useState([]);
@@ -2014,7 +2408,7 @@ export const ReportsTable = ({
         getWorkingMethods();
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = JSON.parse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration.configuration);
             setLeaveConfiguration(jsonObject);
         }
         fetchLeaveConfig();
@@ -2078,10 +2472,14 @@ export const ReportsTable = ({
     }, [toggleChange]);
 
 
-    // fetch grace based thresholds
+    // fetch grace based thresholds — scoped to the VIEWED employee (selected when admin, else self)
     useEffect(() => {
+        const thresholdScope = {
+            companyId: employeeDeatils?.companyId,
+            branchId: employeeDeatils?.branchId,
+        };
         const initThresholds = async () => {
-            const thresholds = await getGraceBasedThresholds(attendanceRequests);
+            const thresholds = await getGraceBasedThresholds(attendanceRequests, thresholdScope);
 
             if (thresholds) {
                 setEmployeeThresholds(thresholds.employeesWithThresholds);
@@ -2091,7 +2489,7 @@ export const ReportsTable = ({
         };
 
         initThresholds();
-    }, []);
+    }, [employeeDeatils?.companyId, employeeDeatils?.branchId]);
 
 
     const columns = [

@@ -876,6 +876,24 @@ export const fetchEmpAttendanceStatistics = async (employeeId: string, startDate
     }
 }
 
+export const fetchAttendanceClassification = async (employeeId: string, startDate: string, endDate: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_CLASSIFICATION}`, {
+        params: { employeeId, startDate, endDate },
+    });
+    return data as {
+        data: {
+            totalWorkingDays: number;
+            earlyCheckins: number;
+            lateCheckins: number;
+            earlyCheckouts: number;
+            lateCheckouts: number;
+            missingCheckouts: number;
+            lateCheckinDates?: string[];
+            earlyCheckinDates?: string[];
+        };
+    };
+};
+
 export const fetchEmpAttendanceAllTimeRecords = async (employeeId: string, observedIn: string, companyId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.EMPLOYEE_ATTENDANCE_RECORDS}?employeeId=${employeeId}&observedIn=${observedIn}&companyId=${companyId}`;
@@ -1003,6 +1021,50 @@ export const fetchReimbursementsByProjectId = async (projectId: string) => {
         throw err;
     }
 }
+
+// ─── Pending draft reimbursements ────────────────────────────────────────────
+
+export const createPendingReimbursementDraft = async (data: any) => {
+    const { data: res } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.CREATE_PENDING_DRAFT}`, data);
+    return res;
+};
+
+export const fetchPendingReimbursementDrafts = async (employeeId: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_PENDING_DRAFTS}?employeeId=${employeeId}`);
+    return data;
+};
+
+export const updatePendingReimbursementDraft = async (id: string, data: any) => {
+    const { data: res } = await axios.put(`${API_BASE_URL}/${EMPLOYEE.UPDATE_PENDING_DRAFT}/${id}`, data);
+    return res;
+};
+
+export const deletePendingReimbursementDraft = async (id: string) => {
+    const { data } = await axios.delete(`${API_BASE_URL}/${EMPLOYEE.DELETE_PENDING_DRAFT}/${id}`);
+    return data;
+};
+
+export const submitReimbursementBatch = async (employeeId: string) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.SUBMIT_REIMBURSEMENT_BATCH}`, { employeeId });
+    return data;
+};
+
+export const fetchReimbursementBatches = async () => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCHES}`);
+    return data;
+};
+
+export const fetchReimbursementBatchById = async (batchId: string) => {
+    const { data } = await axios.get(`${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_BATCH}/${batchId}`);
+    return data;
+};
+
+export const processBatchRequestAction = async (batchId: string, requestId: string, action: 'approve' | 'reject', comments?: string) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${EMPLOYEE.PROCESS_BATCH_REQUEST}/${batchId}/requests/${requestId}`, { action, comments });
+    return data;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const fetchGrossPayDeductions = async (employeeId: string, month?: string, year?: string) => {
     try {
@@ -1291,6 +1353,20 @@ export const markAllAsRead = async (employeeId: string) => {
     }
 };
 
+export const updateNotificationStatus = async (
+    employeeId: string,
+    notificationId: string,
+    isRead: boolean
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_NOTIFICATION}`;
+        const { data } = await axios.put(endpoint, { employeeId, notificationId, isRead });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 
 /**
  * Fetches the permissions for a specific employee by their ID.
@@ -1334,7 +1410,7 @@ export const fetchApprovalWorkflowConfigs = async (employeeId: string, workflowT
 
 export const saveApprovalWorkflowChain = async (
     employeeId: string,
-    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'conveyance',
+    workflowType: 'attendance' | 'leave' | 'reimbursement',
     levels: Array<{ level: number; approverId?: string | null }>,
 ) => {
     try {
@@ -1748,15 +1824,7 @@ export const fetchAllStarEmployeeByStartAndEndDate = async (
   }
 };
 
-export const getAllKPIModules = async () => {
-    try {
-        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_ALL_KPI_MODULES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-}
+export const getAllKPIModules = getAllKpiModules;
 
 export const createKpiScore = async (payload: any) => {
     try {
@@ -1784,6 +1852,90 @@ export const approveMultipleReimbursements = async (payload: any) => {
         const endpoint = `${API_BASE_URL}/${EMPLOYEE.APPROVE_MULTIPLE_REIMBURSEMENTS}`;
         const { data } = await axios.put(endpoint, payload);
         return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const fetchUnpaidApprovedReimbursements = async (employeeId: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_UNPAID_APPROVED_REIMBURSEMENTS}?employeeId=${employeeId}`;
+        const { data } = await axios.get(endpoint);
+        return data?.data?.reimbursements ?? [];
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const createReimbursementPayment = async (payload: {
+    employeeId: string;
+    batchId?: string;
+    amountPaid: number;
+    paymentDate: string;
+    paymentMethod: string;
+    transactionId?: string;
+    remarks?: string;
+    reimbursementIds: string[];
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_REIMBURSEMENT_PAYMENT}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data?.data?.payment;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const fetchReimbursementPayments = async (employeeId: string, startDate?: string, endDate?: string) => {
+    try {
+        let endpoint = `${API_BASE_URL}/${EMPLOYEE.GET_REIMBURSEMENT_PAYMENTS}?employeeId=${employeeId}`;
+        if (startDate) endpoint += `&startDate=${startDate}`;
+        if (endDate) endpoint += `&endDate=${endDate}`;
+        const { data } = await axios.get(endpoint);
+        return data?.data?.payments ?? [];
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const deleteReimbursementPaymentById = async (id: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_REIMBURSEMENT_PAYMENT}/${id}`;
+        const { data } = await axios.delete(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const updateReimbursementPaymentById = async (id: string, payload: {
+    amountPaid?: number;
+    paymentDate?: string;
+    paymentMethod?: string;
+    transactionId?: string;
+    remarks?: string;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_REIMBURSEMENT_PAYMENT}/${id}`;
+        const { data } = await axios.patch(endpoint, payload);
+        return data?.data?.payment;
+    } catch (err) {
+        throw err;
+    }
+}
+
+export const createAdvanceReimbursementPayment = async (payload: {
+    employeeId: string;
+    amountPaid: number;
+    paymentDate: string;
+    paymentMethod: string;
+    transactionId?: string;
+    remarks?: string;
+}) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_ADVANCE_REIMBURSEMENT_PAYMENT}`;
+        const { data } = await axios.post(endpoint, payload);
+        return data?.data?.payment;
     } catch (err) {
         throw err;
     }

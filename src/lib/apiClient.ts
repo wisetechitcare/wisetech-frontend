@@ -12,11 +12,12 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const raw = localStorage.getItem('authData');
+        // App stores the JWT under 'wise_tech_login' as { token, id }
+        const raw = localStorage.getItem('wise_tech_login');
         if (raw) {
             try {
                 const parsed = JSON.parse(raw);
-                const token = parsed?.token ?? parsed?.accessToken ?? parsed;
+                const token = parsed?.token;
                 if (typeof token === 'string' && token) {
                     config.headers.Authorization = `Bearer ${token}`;
                 }
@@ -35,7 +36,7 @@ apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem('authData');
+            localStorage.removeItem('wise_tech_login');
             window.location.href = '/login';
         }
         // Unwrap server error body so callers get a consistent shape

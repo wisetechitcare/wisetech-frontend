@@ -6,12 +6,15 @@ export type TabItem = {
     title: string;
     icon?: React.ElementType<SvgIconProps> | string | null;
     component: any;
+    /** Optional count shown as a pill next to the tab title (hidden when 0). */
+    badge?: number;
 };
 
 interface MaterialTabProps {
     tabItems: TabItem[];
     activeTab?: number;
-    onTabChange?: (index: number) => void; 
+    onTabChange?: (index: number) => void;
+    aboveContent?: React.ReactNode;
 }
 
 const CustomizedTabs = styled(Tabs)({
@@ -59,7 +62,7 @@ const CustomizedTabs = styled(Tabs)({
     },
 });
 
-const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab }: MaterialTabProps) => {
+const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent }: MaterialTabProps) => {
     const [value, setValue] = useState(0);
     useEffect(() => {
         if (typeof activeTab === 'number') {
@@ -97,11 +100,40 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab }: MaterialTabProp
                                 return <Icon />;
                             })());
 
-                    return <Tab key={key} label={tabItem.title} icon={icon} />;
+                    const hasBadge = typeof tabItem.badge === 'number' && tabItem.badge > 0;
+                    const label = hasBadge ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                            {tabItem.title}
+                            <span
+                                style={{
+                                    marginLeft: '8px',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    padding: '0 5px',
+                                    borderRadius: '9px',
+                                    background: '#ffffff',
+                                    color: '#9D4141',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    lineHeight: '18px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                {tabItem.badge! > 99 ? '99+' : tabItem.badge}
+                            </span>
+                        </span>
+                    ) : tabItem.title;
+
+                    return <Tab key={key} label={label} icon={icon} />;
                 })}
             </CustomizedTabs>
 
-            <div className="row mt-7"></div>
+            {aboveContent
+              ? <div className="px-lg-9 px-5 pt-5 pb-5">{aboveContent}</div>
+              : <div className="row mt-7"></div>
+            }
 
             {tabItems.map((tabItem, index) => {
                 return (

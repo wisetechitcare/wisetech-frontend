@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 // import { Button } from "react-bootstrap";
 import { Button } from "@mui/material";
@@ -8,7 +8,6 @@ import {
   getAllClientCompanies,
   getAllCompanyTypes,
   deleteClientCompany,
-  getAllClientContacts,
 } from "@services/companies";
 import NewCompanyForm from "./components/NewCompanyForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -18,7 +17,27 @@ import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
-import { companyLogoIcons } from "@metronic/assets/sidepanelicons";
+import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+
+// All selectable company-table column keys (must match the `accessorKey`s below).
+const COMPANY_COLUMN_KEYS = [
+  "companyName", "companyTypeId", "industry", "location", "createdAt", "updatedAt",
+  "budget", "projectCount", "referenceType", "internalReference", "externalReference",
+];
+
+const computeCompanyFields = (
+  visibility?: Record<string, boolean>,
+): string[] | undefined => {
+  if (!visibility) return undefined;
+  const visible = COMPANY_COLUMN_KEYS.filter((k) => visibility[k] !== false);
+  return visible.length >= COMPANY_COLUMN_KEYS.length ? undefined : visible;
+};
+
+const visibilityFromKeys = (keys: string[]): Record<string, boolean> =>
+  Object.fromEntries(COMPANY_COLUMN_KEYS.map((k) => [k, keys.includes(k)]));
+
+const getFieldsKey = (fields: string[] | undefined): string =>
+  fields ? [...fields].sort().join(",") : "ALL";
 
 interface ProcessedCompany extends Company {
   companyTypeName: string;
@@ -26,11 +45,14 @@ interface ProcessedCompany extends Company {
   internalReferenceEmployeeId?: string;
   externalReferenceContactId?: string;
   totalBudget?: number;
+  projectCount?: number;
 }
 
 interface Props {
   statusId?: string;
   companyTypeId?: string;
+  serviceId?: string;
+  subServiceId?: string;
   locationId?: string;
   startDate?: Dayjs;
   endDate?: Dayjs;
@@ -41,6 +63,8 @@ interface Props {
 const ClientCompaniesMain = ({
   statusId,
   companyTypeId,
+  serviceId,
+  subServiceId,
   locationId,
   startDate,
   endDate,
@@ -62,8 +86,14 @@ const ClientCompaniesMain = ({
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
-  const [contacts, setContacts] = useState<any[]>([]);
-  const fetchData = async () => {
+
+  // Column visibility & selective fetching
+  const visibleColumnsRef = useRef<string[] | null>(null);
+  const lastFieldsKeyRef = useRef<string | null>(null);
+  const firstVisibilityEmissionRef = useRef(true);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchData = useCallback(async (fields?: string[]) => {
     setIsLoading(true);
     try {
       // First fetch company types
@@ -75,10 +105,8 @@ const ClientCompaniesMain = ({
       setCompanyTypesMap(typesMap);
 
       // Then fetch companies and map the types
-      const companiesResponse = await getAllClientCompanies();
-      const contactsResponse = await getAllClientContacts();
+      const companiesResponse = await getAllClientCompanies(false, fields);
       const companiesData = companiesResponse?.data?.companies || [];
-      const contactsData = contactsResponse?.data?.contacts || [];
       const processedCompanies = companiesData.map((company: Company) => {
         // Process references to handle multiple entries
         const referenceTypes =
@@ -87,11 +115,12 @@ const ClientCompaniesMain = ({
         const internalRefs =
           company.references
             ?.filter((ref) => ref.internalReferenceEmployeeId)
-            .map(
-              (ref) =>
-                ref.internalReferenceEmployee?.fullName ||
-                ref.internalReferenceEmployeeId,
-            )
+            .map((ref) => {
+              const emp = ref.internalReferenceEmployee;
+              if (!emp) return ref.internalReferenceEmployeeId;
+              if (emp.users) return `${emp.users.firstName} ${emp.users.lastName}`;
+              return emp.nickName || ref.internalReferenceEmployeeId;
+            })
             .join(", ") || "N/A";
         const externalRefs =
           company.references
@@ -108,33 +137,79 @@ const ClientCompaniesMain = ({
             return acc + Number(mapping.project?.cost || 0);
           }, 0) || 0;
 
+        // Show ALL of the company's types (a company can have many). Fall back to the legacy
+        // single primary type, then to "N/A".
+        const allTypeNames = (() => {
+          const mappings = (company as any).companyTypeMappings;
+          if (Array.isArray(mappings) && mappings.length > 0) {
+            const names = mappings
+              .map((m: any) => m.companyType?.name || (m.companyTypeId && typesMap[m.companyTypeId]) || m.companyTypeId)
+              .filter(Boolean);
+            if (names.length > 0) return names.join(", ");
+          }
+          return company.companyTypeId && typesMap[company.companyTypeId]
+            ? typesMap[company.companyTypeId]
+            : company.companyTypeId || "N/A";
+        })();
+
         return {
           ...company,
-          companyTypeName:
-            company.companyTypeId && typesMap[company.companyTypeId]
-              ? typesMap[company.companyTypeId]
-              : company.companyTypeId || "N/A",
+          companyTypeName: allTypeNames,
           referenceType: referenceTypes,
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
           totalBudget: totalBudget,
+          projectCount: (company as any)._count?.projectCompanyMappings ?? 0,
         };
       });
 
       setCompanies(processedCompanies);
-      setContacts(contactsData);
     } catch (error) {
       console.error("Failed to fetch data", error);
       setCompanies([]);
-      setContacts([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Clean up refetch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+    };
   }, []);
+
+  // Handle column visibility changes and trigger selective refetch
+  const handleVisibleColumnsChange = useCallback(
+    (keys: string[]) => {
+      visibleColumnsRef.current = keys;
+      // Pass the raw visible column accessorKeys; the backend gates the heavy
+      // `references` relation on these.
+      const key = [...keys].sort().join(",");
+
+      // First emission: record baseline, don't refetch
+      if (firstVisibilityEmissionRef.current) {
+        firstVisibilityEmissionRef.current = false;
+        lastFieldsKeyRef.current = key;
+        return;
+      }
+
+      // No change detected
+      if (key === lastFieldsKeyRef.current) return;
+      lastFieldsKeyRef.current = key;
+
+      // Debounce refetch
+      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      columnsRefetchTimerRef.current = setTimeout(() => {
+        fetchData(keys);
+      }, 500);
+    },
+    [fetchData],
+  );
 
   // Add event listener for data refresh
   useEffect(() => {
@@ -147,7 +222,7 @@ const ClientCompaniesMain = ({
     };
   }, []);
 
-  const hideNewCompanyButton = statusId || companyTypeId || locationId;
+  const hideNewCompanyButton = statusId || companyTypeId || serviceId || subServiceId || locationId;
   const columns = useMemo<MRT_ColumnDef<ProcessedCompany, any>[]>(
     () => [
       {
@@ -176,11 +251,14 @@ const ClientCompaniesMain = ({
       {
         accessorKey: "logo",
         header: "Logo",
-        Cell: ({ cell }) => (
-          <img
-            src={cell.getValue() ?? companyLogoIcons.companyLogoIcon.default}
-            alt="logo"
-            style={{ width: 33, height: 33, objectFit: "contain" }}
+        Cell: ({ row }) => (
+          <SmartAvatar
+            name={row.original.companyName}
+            id={row.original.id}
+            imageUrl={row.original.logo}
+            size={42}
+            imageFit="cover"
+            status={row.original.status === "ACTIVE" ? "active" : "inactive"}
           />
         ),
       },
@@ -240,7 +318,19 @@ const ClientCompaniesMain = ({
       {
         accessorKey: "status",
         header: "Status",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        // CLOSED is shown as "Inactive" to match the Active/Inactive wording used in the form.
+        Cell: ({ cell }) => {
+          const v = cell.getValue();
+          if (v === "ACTIVE") return "Active";
+          if (v === "CLOSED") return "Inactive";
+          return v || "N/A";
+        },
+      },
+      {
+        accessorKey: "projectCount",
+        header: "No. of Projects",
+        size: 110,
+        Cell: ({ cell }) => cell.getValue() ?? 0,
       },
       {
         accessorKey: "overallRating",
@@ -337,6 +427,42 @@ const ClientCompaniesMain = ({
         header: "Active",
         Cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
       },
+      {
+        accessorKey: "createdAt",
+        header: "Created Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "createdById",
+        header: "Created By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.createdById
+          );
+          return emp?.employeeName || "N/A";
+        },
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Last Edited Date",
+        meta: { defaultVisible: false },
+        Cell: ({ cell }: any) =>
+          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+      },
+      {
+        accessorKey: "updatedById",
+        header: "Last Edited By",
+        meta: { defaultVisible: false },
+        Cell: ({ row }: any) => {
+          const emp = allEmployees?.find(
+            (e: any) => e.employeeId === row.original.updatedById
+          );
+          return emp?.employeeName || "N/A";
+        },
+      },
       ...(!hideNewCompanyButton
         ? [
             {
@@ -405,12 +531,49 @@ const ClientCompaniesMain = ({
     return true;
   });
 
-  const filteredData = dateFilteredData?.filter((item: any) => {
-    if (isOthersView && top10Ids) {
-      if (top10Ids.includes(item.companyTypeId)) return false;
-    } else {
-      if (companyTypeId && item.companyTypeId !== companyTypeId) return false;
+  // All type ids a company belongs to (multi-type aware). Falls back to the legacy single type.
+  const getCompanyTypeIds = (item: any): string[] => {
+    const mappings = item.companyTypeMappings;
+    if (Array.isArray(mappings) && mappings.length > 0) {
+      const ids = mappings.map((m: any) => m.companyTypeId || m.companyType?.id).filter(Boolean);
+      if (ids.length > 0) return ids;
     }
+    return item.companyTypeId ? [item.companyTypeId] : [];
+  };
+
+  // All service ids a company is tagged with (via the company↔service join).
+  const getCompanyServiceIds = (item: any): string[] => {
+    const mappings = item.companyServicesMapping;
+    if (Array.isArray(mappings)) {
+      return mappings.map((m: any) => m.serviceId || m.service?.id).filter(Boolean);
+    }
+    return [];
+  };
+
+  // All sub-service ids a company is tagged with (via the company↔sub-service join).
+  const getCompanySubServiceIds = (item: any): string[] => {
+    const mappings = item.subServiceMappings || item.companySubServicesMapping;
+    if (Array.isArray(mappings)) {
+      return mappings.map((m: any) => m.subServiceId || m.subService?.id).filter(Boolean);
+    }
+    return [];
+  };
+
+  const filteredData = dateFilteredData?.filter((item: any) => {
+    const typeIds = getCompanyTypeIds(item);
+    if (isOthersView && top10Ids) {
+      // "Others" = companies that have at least one type outside the top 10.
+      if (!typeIds.some((id) => !top10Ids.includes(id))) return false;
+    } else {
+      // Match if ANY of the company's types is the selected type.
+      if (companyTypeId && !typeIds.includes(companyTypeId)) return false;
+    }
+
+    // Match if the company is tagged with the selected service.
+    if (serviceId && !getCompanyServiceIds(item).includes(serviceId)) return false;
+
+    // Match if the company is tagged with the selected sub-service.
+    if (subServiceId && !getCompanySubServiceIds(item).includes(subServiceId)) return false;
 
     if (statusId && item.status !== statusId) return false;
 
@@ -491,6 +654,8 @@ const ClientCompaniesMain = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        defaultSorting={[{ id: "companyName", desc: false }]}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         muiTableProps={{
           sx: {
             borderCollapse: "separate",
@@ -506,7 +671,11 @@ const ClientCompaniesMain = ({
             // },
             sx: {
               cursor: "pointer",
-              backgroundColor: `${row.original?.companyTypeName?.color}30`,
+              // Blacklisted companies are shown as a solid black row (text turns white below
+              // so it stays readable against the black background).
+              backgroundColor: row.original?.blacklisted
+                ? "#1a1a1a"
+                : `${row.original?.companyTypeName?.color}30`,
               // borderBottom:"5px solid red !important",
               padding: "10px !important",
 
@@ -517,6 +686,10 @@ const ClientCompaniesMain = ({
                 fontSize: "14px",
                 fontFamily: "Inter",
                 fontWeight: "400",
+                // Solid black on the CELLS (not just the row) with readable white text, so the
+                // table's default hover highlight can't wash the blacklisted row out.
+                color: row.original?.blacklisted ? "#ffffff !important" : undefined,
+                backgroundColor: row.original?.blacklisted ? "#1a1a1a !important" : undefined,
                 padding: "8px 16px !important",
                 borderBottom: "2px solid white",
                 borderTop: "2px solid white",
@@ -535,11 +708,21 @@ const ClientCompaniesMain = ({
                 borderRight: "3px solid white",
               },
               "&:hover": {
-                backgroundColor: `${row.original?.status?.color}99`,
+                // Blacklisted rows shift to a slightly lighter charcoal on hover (a subtle,
+                // visible change) while keeping WHITE text so the content stays fully readable.
+                backgroundColor: row.original?.blacklisted
+                  ? "#3a3a3a"
+                  : `${row.original?.status?.color}99`,
                 "& td": {
-                  color: "black",
+                  color: row.original?.blacklisted ? "#ffffff !important" : "black",
                 },
               },
+              // A global rule (`.MuiTableBody-root tr.MuiTableRow-root:hover td`) forces a light
+              // hover background with !important; this higher-specificity selector overrides it so
+              // the blacklisted row keeps its dark background + white text on hover.
+              "&.MuiTableRow-root:hover .MuiTableCell-root": row.original?.blacklisted
+                ? { backgroundColor: "#3a3a3a !important", color: "#ffffff !important" }
+                : {},
             },
 
             // onClick: () => {

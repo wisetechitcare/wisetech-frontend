@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { useState, useCallback } from 'react';
 import { fetchConfiguration, createNewConfiguration, updateConfigurationById } from '@services/company';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
@@ -24,7 +25,7 @@ export const useConfiguration = (
         try {
             setLoading(true);
             const response = await fetchConfiguration(configKey);
-            const parsed = JSON.parse(response?.data?.configuration?.configuration || '{}');
+            const parsed = safeJsonParse(response?.data?.configuration?.configuration || '{}');
 
             // Handle both "Launch" and "Lunch" spellings for backward compatibility
             // Priority: configField as-is -> fallback to "Lunch" spelling -> false

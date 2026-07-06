@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import KpiGraphicalToggle from "./my-kpi/KpiGraphicalToggle";
 import { ToggleItemsCallBackFunctions } from "@pages/employee/kpis/personal/views/my-kpi/KpiGraphicalToggle";
@@ -28,7 +29,7 @@ const MyKpi = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
           typeof configuration.configuration === "string"
-            ? JSON.parse(configuration.configuration)
+            ? safeJsonParse(configuration.configuration)
             : configuration.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {

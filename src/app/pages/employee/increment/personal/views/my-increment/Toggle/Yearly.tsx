@@ -61,7 +61,7 @@ const Yearly = ({
                        (d.isSame(fiscalEnd) || d.isBefore(fiscalEnd));
             });
             setRecords(yearRecords);
-            const an = await incrementService.fetchYearlyAnalytics(employee.id, yr);
+            const an = await incrementService.fetchYearlyAnalytics(employee.id, yr, hist);
             setAnalytics(an);
         } catch (err) {
             console.error('Failed to load yearly increment data', err);

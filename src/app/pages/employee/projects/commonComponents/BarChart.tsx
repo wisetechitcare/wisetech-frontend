@@ -48,6 +48,13 @@ interface CustomBarChartProps {
   filterPlaceholder?: string;
   isThisProjectToolTip?: boolean;
   onChartClick?: (selectedLabel: string) => void;
+  // "budget" (default) sorts/labels by cost; "count" sorts by the bar value (e.g. # of contacts).
+  sortMode?: "budget" | "count";
+  // When false, hides the value label drawn above each bar (e.g. the ₹0 on count-only charts).
+  showValueAnnotation?: boolean;
+  // When set, the Sort By selection is remembered in localStorage under this key — it stays
+  // applied across refreshes/logout/navigation until the user changes it.
+  persistKey?: string;
 }
 
 const CustomBarChart: React.FC<CustomBarChartProps> = ({
@@ -73,6 +80,9 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
   filterPlaceholder = "All Categories",
   isThisProjectToolTip = false,
   onChartClick = () => {},
+  sortMode = "budget",
+  showValueAnnotation = true,
+  persistKey,
 }) => {
   // Handle empty data - but let it pass through to show the improved empty state below
   // if (!data || data.length === 0) {
@@ -93,7 +103,14 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
 
 
 
-  const [sortOption, setSortOption] = useState("");
+  // Storage key for remembering the Sort By choice (only when persistKey is provided).
+  const sortStorageKey = persistKey ? `barchart-sort:${persistKey}` : null;
+  const [sortOption, setSortOption] = useState<string>(() => {
+    if (sortStorageKey && typeof window !== "undefined") {
+      return window.localStorage.getItem(sortStorageKey) || "";
+    }
+    return "";
+  });
 
   // Create sorted data based on sort option
   const sortedData = React.useMemo(() => {
@@ -114,6 +131,14 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
           const valB = Number(b.totalCost || 0);
           return valB - valA;
         });
+      case "count-asc":
+        return result.sort((a, b) =>
+          Number(a.value ?? a.count ?? 0) - Number(b.value ?? b.count ?? 0)
+        );
+      case "count-desc":
+        return result.sort((a, b) =>
+          Number(b.value ?? b.count ?? 0) - Number(a.value ?? a.count ?? 0)
+        );
       case "title-asc":
         return result.sort((a, b) =>
           (a.label || "").toLowerCase().localeCompare((b.label || "").toLowerCase())
@@ -128,7 +153,12 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
   }, [data, sortOption]);
 
   const handleSort = (e: SelectChangeEvent<string>) => {
-    setSortOption(e.target.value);
+    const next = e.target.value;
+    setSortOption(next);
+    // Remember the choice so it stays applied until the user changes it again.
+    if (sortStorageKey && typeof window !== "undefined") {
+      window.localStorage.setItem(sortStorageKey, next);
+    }
   };
 
 
@@ -285,7 +315,7 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
       },
     },
     annotations: {
-      points: sortedData
+      points: (showValueAnnotation ? sortedData : [])
         .filter((item) => {
           const totalCost = item.totalCost ?? item.budget ?? 0;
           const count = item.value || item.count || 0;
@@ -527,12 +557,26 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                     },
                     '& .MuiSelect-icon': {
                       color: '#9D4141',
+                      fontSize: '1.9rem',
+                    },
+                    // Leave room for the larger dropdown arrow.
+                    '& .MuiSelect-select': {
+                      paddingRight: '34px !important',
                     },
                   }}
                 >
                   <MenuItem value="">None</MenuItem>
-                  <MenuItem value="budget-asc">Budget (Low → High)</MenuItem>
-                  <MenuItem value="budget-desc">Budget (High → Low)</MenuItem>
+                  {sortMode === "count" ? (
+                    [
+                      <MenuItem key="count-asc" value="count-asc">Count (Low → High)</MenuItem>,
+                      <MenuItem key="count-desc" value="count-desc">Count (High → Low)</MenuItem>,
+                    ]
+                  ) : (
+                    [
+                      <MenuItem key="budget-asc" value="budget-asc">Budget (Low → High)</MenuItem>,
+                      <MenuItem key="budget-desc" value="budget-desc">Budget (High → Low)</MenuItem>,
+                    ]
+                  )}
                   <MenuItem value="title-asc">Title (A → Z)</MenuItem>
                   <MenuItem value="title-desc">Title (Z → A)</MenuItem>
                 </Select>
@@ -585,12 +629,26 @@ const CustomBarChart: React.FC<CustomBarChartProps> = ({
                     },
                     '& .MuiSelect-icon': {
                       color: '#9D4141',
+                      fontSize: '1.9rem',
+                    },
+                    // Leave room for the larger dropdown arrow.
+                    '& .MuiSelect-select': {
+                      paddingRight: '34px !important',
                     },
                   }}
                 >
                   <MenuItem value="">None</MenuItem>
-                  <MenuItem value="budget-asc">Budget (Low → High)</MenuItem>
-                  <MenuItem value="budget-desc">Budget (High → Low)</MenuItem>
+                  {sortMode === "count" ? (
+                    [
+                      <MenuItem key="count-asc" value="count-asc">Count (Low → High)</MenuItem>,
+                      <MenuItem key="count-desc" value="count-desc">Count (High → Low)</MenuItem>,
+                    ]
+                  ) : (
+                    [
+                      <MenuItem key="budget-asc" value="budget-asc">Budget (Low → High)</MenuItem>,
+                      <MenuItem key="budget-desc" value="budget-desc">Budget (High → Low)</MenuItem>,
+                    ]
+                  )}
                   <MenuItem value="title-asc">Title (A → Z)</MenuItem>
                   <MenuItem value="title-desc">Title (Z → A)</MenuItem>
                 </Select>

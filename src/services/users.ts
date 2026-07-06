@@ -71,7 +71,10 @@ export const upsertUserTablePreferences = async (employeeId: string, tableName: 
 // GET: Fetch user table preferences
 export const getUserTablePreferences = async (employeeId: string, tableName: string) => {
     try {
-        const endpoint = `${API_BASE_URL}${USERS.GET_USER_TABLE_PREFERENCES.replace(':employeeId', employeeId).replace(':tableName', tableName)}`;
+        // Encode the path params — table names may contain spaces/special chars (e.g.
+        // "Client Contacts"), which would otherwise break the URL and silently fail the
+        // load, so saved preferences never restore on reload/login.
+        const endpoint = `${API_BASE_URL}${USERS.GET_USER_TABLE_PREFERENCES.replace(':employeeId', encodeURIComponent(employeeId)).replace(':tableName', encodeURIComponent(tableName))}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (error) {
@@ -94,6 +97,28 @@ export const saveLeadPeriodPreference = async (period: string) => {
 export const getLeadPeriodPreference = async () => {
     try {
         const endpoint = `${API_BASE_URL}${USERS.GET_LEAD_PERIOD_PREFERENCE}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// POST: Save attendance period preference
+export const saveAttendancePeriodPreference = async (period: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}${USERS.SAVE_ATTENDANCE_PERIOD_PREFERENCE}`;
+        const { data } = await axios.post(endpoint, { period });
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// GET: Get attendance period preference
+export const getAttendancePeriodPreference = async () => {
+    try {
+        const endpoint = `${API_BASE_URL}${USERS.GET_ATTENDANCE_PERIOD_PREFERENCE}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (error) {

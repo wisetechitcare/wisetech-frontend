@@ -172,9 +172,9 @@ const DashboardPage = () => {
 
           {/* MarkAttendance Component */}
           {isSectionEnabled("attendance") && (
-          <div className="col-lg-5">
-            <KTCard>
-              <KTCardBody>
+          <div className="col-lg-5 col-md-12 mb-3 mb-lg-0 d-flex flex-column">
+            <KTCard className="h-100">
+              <KTCardBody className="h-100 d-flex flex-column">
                 <DashboardAttendance />
               </KTCardBody>
             </KTCard>

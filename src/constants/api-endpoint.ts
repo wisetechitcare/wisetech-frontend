@@ -19,6 +19,8 @@ export const USERS = {
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
     SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
     GET_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
+    SAVE_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
+    GET_ATTENDANCE_PERIOD_PREFERENCE: '/api/users/attendance-period-preference',
 }
 
 export const COMPANY = {
@@ -147,6 +149,7 @@ export const EMPLOYEE = {
     CREATE_LEAVE_OPTION: "api/company/leave-option",
     UPDATE_LEAVE_OPTION_BY_ID: "api/company/leave-option",
     EMPLOYEE_ATTENDANCE_STATISTICS: "api/employee/attendance/stats",
+    EMPLOYEE_ATTENDANCE_CLASSIFICATION: "api/employee/attendance/classification",
     GET_REIMBURSEMENT: "api/employee/reimbursement",
     CREATE_REIMBURSEMENT: "api/employee/reimbursement",
     EMPLOYEE_ATTENDANCE_RECORDS: "api/employee/attendance/records",
@@ -154,6 +157,21 @@ export const EMPLOYEE = {
     UPDATE_REIMBURSEMENT_BY_ID: "api/employee/reimbursement",
     APPROVE_MULTIPLE_REIMBURSEMENTS: "api/employee/reimbursements/approve-multiple",
     GET_REIMBURSEMENTS_BY_PROJECT_ID: "api/employee/reimbursements/by-project",
+    CREATE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
+    GET_PENDING_DRAFTS: "api/employee/reimbursement/pending-drafts",
+    UPDATE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
+    DELETE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
+    SUBMIT_REIMBURSEMENT_BATCH: "api/employee/reimbursement/submit-batch",
+    GET_REIMBURSEMENT_BATCHES: "api/employee/reimbursement/batches",
+    GET_REIMBURSEMENT_BATCH: "api/employee/reimbursement/batches",
+    PROCESS_BATCH_REQUEST: "api/employee/reimbursement/batches",
+    GET_UNPAID_APPROVED_REIMBURSEMENTS: "api/employee/reimbursement/unpaid-approved",
+    CREATE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
+    GET_REIMBURSEMENT_PAYMENTS: "api/employee/reimbursement/payment",
+    DELETE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
+    UPDATE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/payment",
+    CREATE_ADVANCE_REIMBURSEMENT_PAYMENT: "api/employee/reimbursement/advance-payment",
+    GET_EMPLOYEE_DISCRETIONARY_BALANCE: "api/employee/discretionary-balance/:id",
     EMAIL_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/email/attendance-request-limit-reset",
     GET_ATTENDANCE_REQUEST_LIMIT_RESET_REQUESTS: "api/employee/attendance-request-limit-reset/requests",
     APPROVE_ATTENDANCE_REQUEST_LIMIT_RESET: "api/employee/attendance-request-limit-reset/approve",
@@ -193,12 +211,15 @@ export const EMPLOYEE = {
     UPDATE_MEETING: "/api/employee/meetings",
     DELETE_MEETING: "/api/employee/meetings",
     UPDATE_EMPLOYEE_ROLES: "api/employee/:id/roles",
+    GET_EMPLOYEE_ACCESS: "api/employee/:id/access",
+    SET_SECTION_ACCESS: "api/employee/:id/access/section",
     GET_EMPLOYEE_PERMISSIONS: "api/employee/:id/permissions",
     CREATE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions",
     UPDATE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions/:permissionId",
     DELETE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions/:permissionId",
     CREATE_NOTIFICATION: "api/employee/notification",
     GET_NOTIFICATIONS: "api/employee/notification",
+    UPDATE_NOTIFICATION: "api/employee/notification",
     GET_ALL_NOTIFICATIONS: "api/employee/allnotification",
     MARK_ALL_AS_READ: "api/employee/mark-all-read",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
@@ -309,11 +330,16 @@ export const OPTIONS = {
     UPSERT_EMPLOYEE_LPC_CHART_SETTINGS: "api/options/employee-lpc-chart-settings",
     GET_EMPLOYEE_LPC_CHART_SETTINGS: "api/options/employee-lpc-chart-settings",
     GET_CURRENCIES: "api/options/currencies",
+    GET_REIMBURSEMENT_EMPLOYEE_LIMITS: "api/options/reimbursement-employee-limits",
 }
 
 export const LOCATION = {
     ADDRESS: 'api/location/address',
     FLAG_LOCATION: 'api/location/:type/:id/flag'
+}
+
+export const AUDIT = {
+    GET_RBAC_AUDIT_LOGS: "api/audit/rbac",
 }
 
 export const ROLES = {
@@ -328,6 +354,8 @@ export const ROLES = {
     DELETE_PERMISSION_FOR_ROLE: "api/roles/:roleId/permissions/:permissionId",
     ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
     REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
+    GET_ROLE_ACCESS: "api/roles/:id/access",
+    SET_ROLE_SECTION_ACCESS: "api/roles/:id/access/section",
 }
 
 export const DAY_WISE_SHIFT = {
@@ -419,6 +447,19 @@ export const LEAD_PROJECT_COMPANY = {
     UPDATE_PROJECT_SERVICE: "api/lead-project-companies/project-services/:id",
     DELETE_PROJECT_SERVICE: "api/lead-project-companies/project-services/:id",
 
+    // Project Points (dynamic master templates + per-lead/per-project values)
+    GET_ALL_PROJECT_POINT_MASTERS: "api/lead-project-companies/project-points",
+    GET_ACTIVE_PROJECT_POINT_MASTERS: "api/lead-project-companies/project-points/active",
+    GET_PROJECT_POINT_MASTER_BY_ID: "api/lead-project-companies/project-points/:id",
+    CREATE_PROJECT_POINT_MASTER: "api/lead-project-companies/project-points",
+    UPDATE_PROJECT_POINT_MASTER: "api/lead-project-companies/project-points/:id",
+    DELETE_PROJECT_POINT_MASTER: "api/lead-project-companies/project-points/:id",
+    REORDER_PROJECT_POINT_MASTERS: "api/lead-project-companies/project-points/reorder",
+    GET_LEAD_PROJECT_POINTS: "api/lead-project-companies/leads/:leadId/project-points",
+    SAVE_LEAD_PROJECT_POINTS: "api/lead-project-companies/leads/:leadId/project-points",
+    GET_PROJECT_PROJECT_POINTS: "api/lead-project-companies/projects/:projectId/project-points",
+    SAVE_PROJECT_PROJECT_POINTS: "api/lead-project-companies/projects/:projectId/project-points",
+
     GET_ALL_PROJECT_STATUSES: "api/lead-project-companies/project-statuses",
     GET_PROJECT_STATUS_BY_ID: "api/lead-project-companies/project-statuses/:id",
     CREATE_PROJECT_STATUS: "api/lead-project-companies/project-statuses",
@@ -448,6 +489,12 @@ export const LEAD_PROJECT_COMPANY = {
     CREATE_CONTACT_ROLE_TYPE: "api/lead-project-companies/contact-role-types",
     UPDATE_CONTACT_ROLE_TYPE: "api/lead-project-companies/contact-role-types/:id",
     DELETE_CONTACT_ROLE_TYPE: "api/lead-project-companies/contact-role-types/:id",
+
+    GET_ALL_SUB_SERVICES: "api/lead-project-companies/sub-services",
+    GET_SUB_SERVICE_BY_ID: "api/lead-project-companies/sub-services/:id",
+    CREATE_SUB_SERVICE: "api/lead-project-companies/sub-services",
+    UPDATE_SUB_SERVICE: "api/lead-project-companies/sub-services/:id",
+    DELETE_SUB_SERVICE: "api/lead-project-companies/sub-services/:id",
 
     GET_ALL_LEAD_BRANCHES: 'api/lead-project-companies/lead-branches',
     GET_LEAD_BRANCH_BY_ID: 'api/lead-project-companies/lead-branches/:id',
@@ -606,4 +653,15 @@ export const DRAFT = {
     SAVE: 'api/draft/save',
     GET: 'api/draft/:entityType/:entityId',
     DELETE: 'api/draft/:entityType/:entityId',
+};
+
+export const BIOMETRIC = {
+    LIST_DEVICES:   'api/biometric/devices',
+    CREATE_DEVICE:  'api/biometric/devices',
+    UPDATE_DEVICE:  'api/biometric/devices',
+    DELETE_DEVICE:  'api/biometric/devices',
+    TOGGLE_DEVICE:  'api/biometric/devices',
+    TEST_DEVICE:    'api/biometric/devices',
+    SYNC_DEVICE:    'api/biometric/devices',
+    DEVICE_LOGS:    'api/biometric/devices',
 };

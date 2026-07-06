@@ -51,8 +51,13 @@ const MonthlySalaryEmployData: React.FC<MonthlySalaryEmployDataProps> = ({
             Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
           },
           {
-            accessorKey: "leaves",
-            header: "Leaves",
+            accessorKey: "paidLeave",
+            header: "Paid Leave",
+            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+          },
+          {
+            accessorKey: "unpaidLeave",
+            header: "Unpaid Leave",
             Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
           },
           {

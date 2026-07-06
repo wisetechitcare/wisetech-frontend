@@ -50,16 +50,41 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       if (payload.projectId) eventBus.emit(EVENT_KEYS.projectDeleted, { id: payload.projectId });
     };
 
+    // biometric device sync-status / CRUD change (broadcast). Carries the affected
+    // branch ids so an open Devices modal refetches only when relevant.
+    const onBiometricDeviceUpdated = (payload: { branchIds?: string[] }) => {
+      eventBus.emit(EVENT_KEYS.biometricDeviceUpdated, { branchIds: payload?.branchIds });
+    };
+
+    // reimbursement mutations (create / update / delete / approve / payment)
+    const onReimbursementChanged = (payload: { action: string; employeeId?: string }) => {
+      eventBus.emit(EVENT_KEYS.reimbursementChanged, payload);
+      // Also wake up table views that listen to the legacy event key
+      eventBus.emit(EVENT_KEYS.reimbursementRecords, { records: [] });
+    };
+
+    // attendance changed (biometric push/pull, manual admin edit, or self check-in/out).
+    // Live "today" boards subscribe via useAttendanceRealtime and debounce-refetch.
+    const onAttendanceUpdated = (payload: { date?: string; employeeId?: string; branchIds?: string[]; source?: string }) => {
+      eventBus.emit(EVENT_KEYS.attendanceUpdated, payload || {});
+    };
+
     socket.on('connect', onConnect);
     socket.on('lead_project_synced', onLeadProjectSynced);
     socket.on('project_linked', onProjectLinked);
     socket.on('project_unlinked_deleted', onProjectUnlinkedDeleted);
+    socket.on('biometric_device_updated', onBiometricDeviceUpdated);
+    socket.on('reimbursement_changed', onReimbursementChanged);
+    socket.on('attendance_updated', onAttendanceUpdated);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('lead_project_synced', onLeadProjectSynced);
       socket.off('project_linked', onProjectLinked);
       socket.off('project_unlinked_deleted', onProjectUnlinkedDeleted);
+      socket.off('biometric_device_updated', onBiometricDeviceUpdated);
+      socket.off('reimbursement_changed', onReimbursementChanged);
+      socket.off('attendance_updated', onAttendanceUpdated);
     };
   }, [employeeId]);
 }

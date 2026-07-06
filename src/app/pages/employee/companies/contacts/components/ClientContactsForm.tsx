@@ -5,6 +5,8 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import Select from "react-select";
+import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import {
   getAllClientCompanies,
   createClientContact,
@@ -13,6 +15,7 @@ import {
   getClientContactById,
   getAllContactStatuses,
   getAllClientContacts,
+  getAllCompanyServices,
 } from "@services/companies";
 import {
   getAllClientBranches,
@@ -95,6 +98,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     []
   );
   const [contactStatuses, setContactStatuses] = useState<any[]>([]);
+  // Contacts share the company-service catalog (the same list companies use).
+  const [companyServices, setCompanyServices] = useState<any[]>([]);
   const [selectedRole, setSelectedRole] = useState<{
     id: string;
     name: string;
@@ -109,6 +114,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [dataLoaded, setDataLoaded] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showContactStatusModal, setShowContactStatusModal] = useState(false);
+  const [showCompanyServiceModal, setShowCompanyServiceModal] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [branchWarning, setBranchWarning] = useState('');
@@ -138,6 +144,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     roleInCompany: "",
     contactRoleId: "",
     statusId: "",
+    serviceIds: [],
+    subServiceIds: [],
     isPrimaryContact: false,
     fullName: "",
     dob: "",
@@ -171,6 +179,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       roleInCompany: initialData.roleInCompany || "",
       contactRoleId: initialData.contactRoleId || "",
       statusId: initialData.statusId || "",
+      serviceIds: initialData.serviceMappings?.map((m: any) => m.serviceId) || [],
+      subServiceIds: [],
       isPrimaryContact: initialData.isPrimaryContact || false,
       fullName: initialData.fullName || "",
       dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth) : "",
@@ -206,6 +216,15 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
     return values;
   }, [key, initialData, contactId, contactStatuses, selectedCompanyId]);
+
+  // Seed the photo preview with the contact's existing image when editing, so it
+  // shows in the upload box instead of the empty placeholder. (The form field
+  // stays null until a NEW file is picked — save preserves the existing URL.)
+  useEffect(() => {
+    const existing = (initialData as any)?.profilePhoto;
+    setProfilePhotoPreview(key !== "add-new" && typeof existing === "string" && existing ? existing : null);
+  }, [key, contactId, (initialData as any)?.profilePhoto]);
+
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -319,19 +338,21 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [companiesData, roleTypesData, countriesData, branchesData, contactStatusesData] = await Promise.all([
+      const [companiesData, roleTypesData, countriesData, branchesData, contactStatusesData, companyServicesData] = await Promise.all([
         getAllClientCompanies(),
         getAllContactRoleTypes(),
         fetchAllCountries(),
         getAllClientBranches(),
         getAllContactStatuses(),
+        getAllCompanyServices(),
       ]);
       setCompanies(companiesData?.data?.companies || []);
       setContactRoleTypes(roleTypesData?.contactRoleTypes || []);
       setCountries(countriesData);
       setBranches(branchesData?.leadBranches || []);
       setContactStatuses(contactStatusesData?.data?.contactConfigs || []);
-      const contactsData = await getAllClientContacts();
+      setCompanyServices(companyServicesData?.data?.services || companyServicesData?.services || []);
+      const contactsData = await getAllClientContacts({}, true);
       setExistingContacts(contactsData?.contacts || contactsData?.clients || contactsData?.data?.contacts || contactsData?.data?.clients || []);
       setDataLoaded(true);
     } catch (error) {
@@ -344,6 +365,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     loadInitialData();
   });
   useEventBus("contactStatusCreated", () => {
+    loadInitialData();
+  });
+  useEventBus("companyServiceCreated", () => {
     loadInitialData();
   });
   useEventBus("companyCreated", () => {
@@ -487,6 +511,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         roleInCompany: formValues.roleInCompany,
         contactRoleId: formValues.contactRoleId,
         statusId: formValues.statusId,
+        serviceIds: formValues.serviceIds || [],
         isPrimaryContact: formValues.isPrimaryContact === true ? 'true' : 'false',
 
         fullName: formValues.fullName,
@@ -516,7 +541,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
           ? formValues.visibility.toUpperCase().replace(/ /g, "_")
           : "ONLY_ME",
         note: formValues.note,
-        isContactActive: formValues.isContactActive,
+        // The Contact Status dropdown is the single source of truth for active/inactive:
+        // a status named "In Active"/"Inactive" makes the contact inactive; anything else is active.
+        isContactActive: (() => {
+          const s = contactStatuses.find((x) => x.id === formValues.statusId);
+          const name = (s?.name || "").toLowerCase();
+          return !/in\s*active|inactive/.test(name);
+        })(),
       };
 
       if (profilePhotoUrl !== null) {
@@ -539,8 +570,16 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       eventBus.emit("clientContactUpdated");
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving contact:", error);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        "Failed to save the contact. Please try again.";
+      errorConfirmation(message);
     } finally {
       setLoading(false);
       clearContactId?.();
@@ -710,7 +749,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <Row>
-                            <Col md={6}>
+                            <Col md={12}>
                               <DropDownInput
                                 inputLabel="Choose Company"
                                 placeholder="Select company"
@@ -735,6 +774,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   setFieldValue("companyId", companyId);
                                   setSelectedCompany(companyId);
                                   setFieldValue("branchId", ""); // Reset branch when company changes
+                                  setFieldValue("serviceIds", []); // Sub-services are company-scoped — reset on company change
                                   if (companyId) {
                                     loadBranches(companyId, true); // Show warnings for manual change
                                     setHasSelectedCompany(true);
@@ -757,7 +797,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 + New Company
                               </small>
                             </Col>
-                            <Col md={6}>
+                            <Col md={6} className="mt-2">
                               <DropDownInput
                                 inputLabel="Choose Branch"
                                 placeholder="Select branch"
@@ -912,6 +952,60 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 + New Status
                               </small>
                             </Col>
+                            <Col md={6} className="mt-2">
+                              <label className="form-label">Sub-services</label>
+                              <Select
+                                isMulti
+                                placeholder={
+                                  values.companyId
+                                    ? "Select sub-services"
+                                    : "Select a company first"
+                                }
+                                classNamePrefix="react-select"
+                                className="react-select-styled"
+                                options={sortOptionsAlphabetically(
+                                  (() => {
+                                    // Strict cascade (mirrors the 3-layer company form): a contact's
+                                    // sub-services are scoped to its COMPANY's tagged services. No company
+                                    // selected → show nothing. Already-selected services are always kept
+                                    // (edit mode) so a saved value is never silently dropped.
+                                    const selCompany: any = companies.find((c: any) => c.id === values.companyId);
+                                    const companyServiceIds = new Set<string>();
+                                    if (selCompany && Array.isArray(selCompany.companyServicesMapping)) {
+                                      selCompany.companyServicesMapping.forEach((m: any) => {
+                                        const id = m.serviceId || m.service?.id; if (id) companyServiceIds.add(id);
+                                      });
+                                    }
+                                    const selectedServiceIds = new Set(values.serviceIds || []);
+                                    return companyServices
+                                      .filter((s: any) =>
+                                        companyServiceIds.has(s.id) ||
+                                        selectedServiceIds.has(s.id)
+                                      )
+                                      .map((s) => ({ value: s.id, label: s.name }));
+                                  })()
+                                )}
+                                value={companyServices
+                                  .filter((s) => (values.serviceIds || []).includes(s.id))
+                                  .map((s) => ({ value: s.id, label: s.name }))}
+                                onChange={(selected: any) =>
+                                  setFieldValue(
+                                    "serviceIds",
+                                    (selected || []).map((o: any) => o.value)
+                                  )
+                                }
+                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                                menuPosition="fixed"
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                              />
+                              <small
+                                className="text-primary"
+                                onClick={() => setShowCompanyServiceModal(true)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                + New Sub-service
+                              </small>
+                            </Col>
                           </Row>
                           <div className="d-flex gap-5 mt-6">
                             <div className="d-flex align-items-center gap-2">
@@ -930,26 +1024,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   checked={values.isPrimaryContact}
                                   onChange={(e) =>
                                     setFieldValue("isPrimaryContact", e.target.checked)
-                                  }
-                                />
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center gap-2">
-                              <label
-                                className="form-check-label"
-                                htmlFor="activeContactToggle"
-                              >
-                                Is Contact Active
-                              </label>
-                              <div className="form-check form-switch m-0">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  role="switch"
-                                  id="activeContactToggle"
-                                  checked={values.isContactActive}
-                                  onChange={(e) =>
-                                    setFieldValue("isContactActive", e.target.checked)
                                   }
                                 />
                               </div>
@@ -1473,6 +1547,12 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         onClose={() => setShowContactStatusModal(false)}
         type="contact-status"
         title="Contact Status"
+      />
+      <CompanyConfigForm
+        show={showCompanyServiceModal}
+        onClose={() => setShowCompanyServiceModal(false)}
+        type="company-services"
+        title="Service"
       />
       <CompaniesBranchForm
         show={showBranchModal}

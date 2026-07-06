@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { EARLY_CHECKOUT, EXTRA_DAYS, LATE_CHECKIN, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { useTeamFilter } from '@/contexts/TeamFilterContext';
 import { toAbsoluteUrl } from "@metronic/helpers";
@@ -9,7 +10,8 @@ import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employe
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { donutaDataLabel, multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { Card, Col, Row, Image, Spinner, Alert, Modal, Button, Form, InputGroup, Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmpsAttendance } from "./DailyAttendance";
@@ -272,6 +274,11 @@ function Overview({ date }: OverviewProps) {
     const OVERVIEW_CARD_ORDER_KEY = 'attendanceOverviewCardOrder';
     const CARD_ORDER_PREF_NAME = 'attendanceOverviewCards';
     const currentEmployeeId = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
+    // Scope the org-wide overview's per-day shifts to the admin's own org so they match
+    // payroll (branch override → org → global). No scoped shift = global (unchanged).
+    const overviewShiftCompanyId = useSelector((state: RootState) => state.employee?.currentEmployee?.companyId);
+    const overviewShiftBranchId = useSelector((state: RootState) => state.employee?.currentEmployee?.branchId);
+    const shiftScope = { companyId: overviewShiftCompanyId, branchId: overviewShiftBranchId };
     const [cardOrder, setCardOrder] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem(OVERVIEW_CARD_ORDER_KEY);
@@ -323,7 +330,7 @@ function Overview({ date }: OverviewProps) {
     const lateEarlyCheckInOut = multipleRadialBarData(attendance, dayWiseShifts) || new Map();
     const workingLocationColors = useSelector((state: RootState) => state?.customColors?.workingLocation);
     const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
-    const weekends = getAllWeekends ? JSON.parse(getAllWeekends) : {};
+    const weekends = safeJsonParse(getAllWeekends);
     const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
     const appSettings = useSelector((state: RootState) => state.appSettings);
     const graceTimeFromStore = appSettings.graceTime;
@@ -1224,12 +1231,17 @@ function Overview({ date }: OverviewProps) {
 
 
 
+    const isMountedRef = useRef(true);
     useEffect(() => {
-        let isMounted = true;
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
 
-        async function fetchEmployeeData() {
+    // `silent` skips the loader/error UI — used by the realtime refetch so live
+    // updates don't flash the whole board.
+    const reloadOverviewAttendance = useCallback(async (silent = false) => {
             try {
-                setIsLoading(true);
+                if (!silent) setIsLoading(true);
                 setError(null);
 
                 const { data: { employees } } = await fetchAllEmployees();
@@ -1259,7 +1271,7 @@ function Overview({ date }: OverviewProps) {
                     isActive: emp.isActive ?? true,  // Default to true if not specified
                 }));
 
-                if (isMounted) {
+                if (isMountedRef.current) {
                     // console.log('Setting state with data:', {
                     //     allEmployees: transformedEmployees.length,
                     //     employeesOnLeave: employeesOnLeave.length,
@@ -1281,28 +1293,28 @@ function Overview({ date }: OverviewProps) {
                 // console.log("employesLeaveData:=============>", employesLeaveData)
             } catch (err) {
                 console.error('Error fetching employee data:', err);
-                if (isMounted) {
+                if (isMountedRef.current && !silent) {
                     setError('Failed to load employee data. Please refresh the page to try again.');
                 }
             } finally {
-                if (isMounted) {
+                if (isMountedRef.current && !silent) {
                     setIsLoading(false);
                 }
             }
-        }
-
-        fetchEmployeeData();
-
-        return () => {
-            isMounted = false;
-        };
     }, [dispatch, date]); // Add date to dependencies
+
+    useEffect(() => {
+        reloadOverviewAttendance();
+    }, [reloadOverviewAttendance]);
+
+    // Realtime: refetch quietly when attendance changes anywhere (biometric punch, admin edit, self check-in/out).
+    useAttendanceRealtime(() => reloadOverviewAttendance(true));
 
     // Fetch day-wise shifts
     useEffect(() => {
         async function loadDayWiseShifts() {
             try {
-                const response = await fetchDayWiseShifts();
+                const response = await fetchDayWiseShifts(shiftScope);
                 setDayWiseShifts(response.data || []);
             } catch (error) {
                 console.error("Error fetching day-wise shifts:", error);
@@ -1310,14 +1322,14 @@ function Overview({ date }: OverviewProps) {
             }
         }
         loadDayWiseShifts();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     // Fetch grace time for office, on-site, lunch time and on-site settings
     useEffect(() => {
         async function fetchTimeConfiguration() {
             try {
-                const { data: { configuration } } = await fetchConfiguration('leave management');
-                const leaveConfig = JSON.parse(configuration.configuration || '{}');
+                const { data: { configuration } } = await fetchConfiguration('leave management', undefined, undefined, shiftScope);
+                const leaveConfig = safeJsonParse(configuration.configuration || '{}');
                 const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
                 const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
                 const lunchTimeStr = leaveConfig?.['Lunch Time'] || '1:00 Hrs';
@@ -1335,7 +1347,7 @@ function Overview({ date }: OverviewProps) {
             }
         }
         fetchTimeConfiguration();
-    }, []);
+    }, [shiftScope.companyId, shiftScope.branchId]);
 
     const cardsData: StatCardConfig[] = [
         { type: 'working', accent: 'working', img: toAbsoluteUrl('media/svg/misc/working-employees.svg'), stat: `${employeePresent || 0}/${totalEmployee || 0}`, label: 'Working Employees' },

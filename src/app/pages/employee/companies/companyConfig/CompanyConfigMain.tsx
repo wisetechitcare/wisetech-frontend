@@ -1,6 +1,7 @@
 import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatingFactor, getAllCompanyServices, deleteCompanyService } from "@services/companies";
 import { useEffect, useState } from "react";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
+import CompanyTypeServiceTree from "./components/CompanyTypeServiceTree";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
@@ -70,6 +71,14 @@ const CompanyConfigMain = () => {
   };
 
   const handleModalOpen = () => {
+    setEditingCompanyType(null);
+    setShowModal(true);
+  };
+
+  // "Add subcategory" under a parent type → open the New Company Type modal with the
+  // parent preselected (no id → create mode).
+  const handleAddSubType = (parentTypeId?: string) => {
+    setEditingCompanyType(parentTypeId ? ({ parentTypeId } as any) : null);
     setShowModal(true);
   };
 
@@ -135,6 +144,13 @@ const CompanyConfigMain = () => {
     setShowCompanyServicesModal(true);
   };
 
+  // Tree wiring: add a "Sub-service" (a Service row) under a "Service" (a sub-type) —
+  // preset its companyTypeId (the sub-type id; null = Unassigned).
+  const handleAddServiceUnderType = (companyTypeId: string | null) => {
+    setEditingCompanyService(companyTypeId ? ({ companyTypeId } as any) : null);
+    setShowCompanyServicesModal(true);
+  };
+
 
 
   // fetch lead statuses
@@ -160,7 +176,7 @@ const CompanyConfigMain = () => {
       await Promise.all([
         fetchCompanyTypes(),
         fetchRatingFactors(),
-        fetchCompanyServices()
+        fetchCompanyServices(),
       ]);
     } catch (error) {
       console.error("Error loading initial data:", error);
@@ -270,13 +286,13 @@ const CompanyConfigMain = () => {
 
   const handleCompanyServiceDelete = async (id: string) => {
     try {
-      const confirmed = await deleteConfirmation("Company service deleted successfully");
+      const confirmed = await deleteConfirmation("Sub-service deleted successfully");
       if (confirmed) {
         await deleteCompanyService(id);
         fetchCompanyServices();
       }
     } catch (error) {
-      console.error("Error deleting company service:", error);
+      console.error("Error deleting sub-service:", error);
     }
   };
 
@@ -309,81 +325,23 @@ const CompanyConfigMain = () => {
         </div>
       </div>
 
-      {/* Company Services Card */}
-      <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Company Services</h5>
-            <button
-              onClick={handleCompanyServiceModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
-              New Company Service
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {companyServices.map((companyService: any) => (
-              <div key={companyService.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={companyService.name}>{companyService.name.length > 10 ? companyService.name.slice(0, 10) + '...' : companyService.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleCompanyServiceEdit(companyService)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCompanyServiceDelete(companyService.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Lead Status Card */}
+      {/* Unified Company Hierarchy: Type → Sub-type → Service → Sub-service */}
       <div className="card mt-5" style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}>
         <div className="card-body">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center ">
-            <h5 className="card-title" style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 600,
-              fontStyle: "normal",
-              fontSize: "16px",
-              lineHeight: "100%",
-              letterSpacing: "0"
-            }}>Company Type</h5>
+            <div>
+              <h5 className="card-title mb-1" style={{
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 600,
+                fontStyle: "normal",
+                fontSize: "16px",
+                lineHeight: "100%",
+                letterSpacing: "0"
+              }}>Company Type &amp; Services</h5>
+              <div className="text-muted" style={{ fontSize: "12px" }}>
+                Type → Service → Sub-service. Use the row actions to add a service or a sub-service.
+              </div>
+            </div>
             <button
               onClick={handleModalOpen}
               className="btn"
@@ -395,50 +353,19 @@ const CompanyConfigMain = () => {
             </button>
           </div>
 
-          <div className="row mt-4">
-            {companyTypes.map((companyType: any) => (
-              <div key={companyType.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    <div
-                      className="rounded-circle"
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        backgroundColor: companyType.color,
-                      }}
-                    ></div>
-                    <div style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 400,
-                      fontStyle: 'normal',
-                      fontSize: '14px',
-                      lineHeight: '100%',
-                      letterSpacing: '0',
-                      cursor: 'pointer'
-                    }} title={companyType.name}>{companyType.name.length > 10 ? companyType.name.slice(0, 10) + '...' : companyType.name}</div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleEdit(companyType)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleCompanyTypeDelete(companyType.id)}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="mt-4">
+            <CompanyTypeServiceTree
+              companyTypes={companyTypes}
+              services={companyServices}
+              // "Add Service" creates a CompanyType sub-type under the top-level type.
+              onAddService={(parentId: string) => handleAddSubType(parentId)}
+              onEditType={(type: any) => handleEdit(type)}
+              onDeleteType={(id: string) => handleCompanyTypeDelete(id)}
+              // "Add Sub-service" creates a Service row under the sub-type.
+              onAddSubService={(companyTypeId: string | null) => handleAddServiceUnderType(companyTypeId)}
+              onEditSubService={(service: any) => handleCompanyServiceEdit(service)}
+              onDeleteSubService={(id: string) => handleCompanyServiceDelete(id)}
+            />
           </div>
         </div>
       </div>
@@ -521,9 +448,13 @@ const CompanyConfigMain = () => {
         onClose={handleModalClose}
         onSuccess={fetchCompanyTypes}
         initialData={editingCompanyType}
-        isEditing={!!editingCompanyType}
+        isEditing={!!editingCompanyType?.id}
         type="company-type"
-        title="Company Type"
+        // A sub-type (has a parent) is presented as a "Service"; a top-level row is a "Company Type".
+        title={editingCompanyType?.parentTypeId ? "Service" : "Company Type"}
+        // Already loaded for the tree — pass it down so the Parent Type picker's initial value
+        // resolves immediately instead of racing the form's own fetch on first open.
+        companyTypes={companyTypes}
       />
       {/* Contact-related modals moved to ContactConfigMain */}
       {/* <CompanyConfigForm
@@ -560,7 +491,8 @@ const CompanyConfigMain = () => {
         initialData={editingCompanyService}
         isEditing={!!editingCompanyService}
         type="company-services"
-        title="Company Service"
+        title="Sub-service"
+        companyTypes={companyTypes}
       />
 
       {/* Delete Confirmation Modal for Company Types */}

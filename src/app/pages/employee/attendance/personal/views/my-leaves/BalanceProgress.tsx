@@ -7,6 +7,7 @@ import { fetchPublicHolidays, fetchLeaveOptions } from "@services/company";
 import { fetchEmployeeLeaveBalance, fetchEmployeeLeaves, getAllLeaveManagements } from "@services/employee";
 import { fetchAllAddonLeavesAllowances } from "@services/addonLeavesAllowance";
 import { hasPermission } from "@utils/authAbac";
+import { parseWorkingDays } from "@utils/workingDays";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { customLeaves, filterLeavesPublicHolidays, handleDatesChange, leavesBalance } from "@utils/statistics";
 import dayjs from "dayjs";
@@ -39,7 +40,7 @@ const BalanceProgress = ({ fromAdmin = false, resource, viewOwn = false, viewOth
 
     const workingAndOffDaysString = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays);
     const branchWorkingDays = useMemo(() => {
-        return workingAndOffDaysString ? JSON.parse(workingAndOffDaysString) : {}
+        return parseWorkingDays(workingAndOffDaysString)
     }, [workingAndOffDaysString]);
 
     const [currentYear] = useState(new Date().getFullYear() + "");

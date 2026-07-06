@@ -1,4 +1,5 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { safeJsonParse } from '@utils/safeJson';
 import { useEffect, useState, lazy, Suspense } from "react";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
@@ -67,7 +68,7 @@ export const transformAttendance = (dates: FormattedDate[], attendance: Attendan
         const { date: transformedDate, dbDate } = date;
         const employeeDetails = store.getState().employee.currentEmployee;
         const branches: any = (employeeDetails?.branches?.workingAndOffDays);        
-        const workingAndOffDays = JSON.parse(branches);        
+        const workingAndOffDays = safeJsonParse(branches);
         const isPastOrPresentDate = isDateBeforeOrSameAsCurrDate(dbDate);
         const isDateOnOrAfterEmployeeOnboardingDate = isDateAfterOrSameAsEmployeeOnboardingDate(dbDate);
         const weekDay = getWeekDay(transformedDate);

@@ -35,6 +35,13 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [filterType, setFilterType] = useState<string>('All');
   const [history, setHistory] = useState<string[]>([]);
+  const [modifierKey, setModifierKey] = useState('Ctrl');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0) {
+      setModifierKey('⌘');
+    }
+  }, []);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -251,11 +258,11 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
       ) : (
         <div className={`global-search-input-wrapper ${isOpen ? 'active' : ''}`}>
           {restrictType ? (
-            <span style={{ position: 'absolute', left: '12px', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
               <KTIcon iconName="magnifier" className="fs-4" />
             </span>
           ) : (
-            <AutoAwesomeIcon sx={{ fontSize: '1.6rem', color: '#009ef7', position: 'absolute', left: '12px', zIndex: 2 }} />
+            <AutoAwesomeIcon sx={{ fontSize: '1.25rem', color: 'var(--wt-accent, #009ef7)', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 2 }} />
           )}
           <input
             ref={inputRef}
@@ -268,6 +275,12 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
             onKeyDown={handleKeyDown}
             onFocus={() => setIsOpen(true)}
           />
+          {!query && !isLoading && (
+            <div className="search-shortcut-badge">
+              <span className="search-shortcut-btn">{modifierKey}</span>
+              <span className="search-shortcut-btn">K</span>
+            </div>
+          )}
           {isLoading && (
             <div className="search-spinner-wrapper">
               <span className="spinner-border spinner-border-sm text-primary"></span>
