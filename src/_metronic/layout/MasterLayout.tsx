@@ -7,8 +7,11 @@ import {ScrollTop} from './components/ScrollTop'
 import {Content} from './components/Content'
 import {PageDataProvider} from './core'
 import {SidebarCollapseProvider} from './core/SidebarCollapseContext'
+import {PinnedMenuProvider} from './core/PinnedMenuContext'
 import {ActivityDrawer, DrawerMessenger, InviteUsers, UpgradePlan} from '../partials'
 import {MenuComponent} from '../assets/ts/components'
+import {BottomNav} from '@components/navigation/BottomNavigation'
+import {NotificationCenter} from '@components/notifications'
 import './premium-layout.css'
 
 const MasterLayout = () => {
@@ -23,6 +26,7 @@ const MasterLayout = () => {
   return (
     <PageDataProvider>
       <SidebarCollapseProvider>
+      <PinnedMenuProvider>
       <div className='page d-flex flex-row flex-column-fluid'>
         <AsideDefault />
         <div className='wrapper d-flex flex-column flex-row-fluid' id='kt_wrapper'>
@@ -48,7 +52,15 @@ const MasterLayout = () => {
       <InviteUsers />
       <UpgradePlan />
       {/* end:: Modals */}
+
+      {/* Mobile-only bottom navigation (renders null on desktop) */}
+      <BottomNav />
+
+      {/* Floating notification snackbar + expandable notification center */}
+      <NotificationCenter />
+
       <ScrollTop />
+      </PinnedMenuProvider>
       </SidebarCollapseProvider>
     </PageDataProvider>
   )

@@ -1,0 +1,6 @@
+export { BottomNav } from './BottomNav'
+export { BottomNavProvider, useBottomNavBadges } from './BottomNavProvider'
+export { useBottomNavigation } from './useBottomNavigation'
+export { useIsMobile } from './useIsMobile'
+export { BOTTOM_NAV_ITEMS } from './navConfig'
+export type { BottomNavItemConfig, ComputedNavigation, BadgeMap } from './types'
