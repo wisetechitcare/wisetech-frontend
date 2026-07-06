@@ -260,9 +260,10 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
   const renderActions = (d: IBiometricDevice) => {
     const btnSx = (tone: string) => ({
       width: 40, height: 40, borderRadius: '10px', color: tone,
-      bgcolor: `${tone}12`, transition: 'background-color .15s',
-      '&:hover': { bgcolor: `${tone}24` },
-      '&.Mui-disabled': { color: `${tone}66`, bgcolor: `${tone}0A` },
+      bgcolor: `${tone}1A`, border: `1px solid ${tone}3D`,
+      transition: 'background-color .15s, border-color .15s',
+      '&:hover': { bgcolor: `${tone}30`, borderColor: `${tone}66` },
+      '&.Mui-disabled': { color: `${tone}59`, bgcolor: `${tone}0D`, borderColor: `${tone}1F` },
     });
     return (
       <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ rowGap: 0.75 }}>
