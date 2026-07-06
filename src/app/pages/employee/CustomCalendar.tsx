@@ -239,12 +239,12 @@ function CustomCalendar() {
     const handleDatesSet = (e: any) => {
         setSelectedStartDate(e?.startStr);
         setSelectedEndDate(e?.endStr);
-        const calendarApi = calendarRef.current?.getApi();
+        const calendarApi = e?.view?.calendar || calendarRef.current?.getApi();
         if (!calendarApi) return;
         const currentYear = calendarApi.getDate().getFullYear();
         setCurrentYear(currentYear + "");
-        setPeriodTitle(calendarApi.view?.title ?? "");
-        setSelectedViewForCalendar(calendarApi.view?.type ?? selectedViewForCalendar);
+        setPeriodTitle(e?.view?.title || calendarApi.view?.title || "");
+        setSelectedViewForCalendar(e?.view?.type || calendarApi.view?.type || selectedViewForCalendar);
     };
 
     // const handleEventClick = async (clickInfo: any) => {
