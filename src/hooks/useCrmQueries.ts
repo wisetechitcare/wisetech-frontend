@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { getAllLeads, getLeadById, createLead, updateLead, deleteLead } from '@services/leads';
-import { getAllProjects, getProjectsForTable, createProject, updateProjectById as updateProject, deleteProjectById as deleteProject } from '@services/projects';
+import { getAllProjects, createProject, updateProjectById as updateProject, deleteProjectById as deleteProject } from '@services/projects';
 
 /**
  * React Query wrappers around the existing lead/project services.
@@ -37,7 +37,7 @@ export const useProjects = () =>
 export const useProjectsForTable = () =>
   useQuery({
     queryKey: queryKeys.projects.list({ view: 'table' }),
-    queryFn: getProjectsForTable,
+    queryFn: () => getAllProjects(),
   });
 
 export const useProject = (id: string | undefined) =>

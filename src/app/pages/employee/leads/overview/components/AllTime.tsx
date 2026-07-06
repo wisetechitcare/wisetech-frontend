@@ -445,7 +445,6 @@ const AllTime = () => {
     if (monthlyTopLeadsRes?.data) {
       setChartData((prevData: any) => ({
         ...prevData,
-        cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
         topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsRes.data, {
           groupBy: filters.topLeadsType,
           status: filters.topLeadsStatus,
