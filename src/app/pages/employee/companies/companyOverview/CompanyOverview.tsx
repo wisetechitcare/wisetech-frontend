@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useEffect, useState } from "react";
 import NewCompanyForm from "../companies/components/NewCompanyForm";
 import ClientContacts from "../companies/components/ClientContacts";
@@ -22,7 +23,7 @@ function CompanyOverview() {
         } = await fetchConfiguration(DATE_SETTINGS_KEY);
         const parsed =
           typeof configuration.configuration === "string"
-            ? JSON.parse(configuration.configuration)
+            ? safeJsonParse(configuration.configuration)
             : configuration.configuration;
         setDateSettingsEnabled(parsed?.useDateSettings ?? false);
       } catch (err) {

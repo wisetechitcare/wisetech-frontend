@@ -1,4 +1,5 @@
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { parseWorkingDays } from '@utils/workingDays';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { IWeekend } from '@models/company';
 import { saveCurrentEmployee } from '@redux/slices/employee';
@@ -103,7 +104,7 @@ function WeekendsAndWorkingDays() {
                 const { data: { branches } } = res;
                 
                 const transformedRes = branches.map((branch: any) => {
-                    const weekendMesages = getWeekendSentenceBasedOnWorkingDaysJson(JSON.parse(branch?.workingAndOffDays));
+                    const weekendMesages = getWeekendSentenceBasedOnWorkingDaysJson(parseWorkingDays(branch?.workingAndOffDays));
                     
                     return {
                         id: branch.id,
@@ -112,7 +113,7 @@ function WeekendsAndWorkingDays() {
                         orgName: branch.company?.name ?? '—',
                         branchName: branch.name,
                         type: weekendMesages ? `Every ${weekendMesages}` : 'No Holidays',
-                        workingAndOffDays: JSON.parse(branch?.workingAndOffDays),
+                        workingAndOffDays: parseWorkingDays(branch?.workingAndOffDays),
                     }
                 })
 

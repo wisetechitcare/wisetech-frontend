@@ -18,7 +18,7 @@ export interface MultiSelectWithInlineCreateProps {
   placeholder?: string;
   isRequired?: boolean;
   disabled?: boolean;
-  onCreate?: (name: string) => Promise<Option | void>;
+  onCreate?: (name: string, parentId?: string) => Promise<Option | void>;
   onRefreshOptions?: () => Promise<void>;
   createModalTitle?: string;
   createButtonText?: string;
@@ -26,6 +26,16 @@ export interface MultiSelectWithInlineCreateProps {
   createFieldPlaceholder?: string;
   isLoading?: boolean;
   className?: string;
+  // Optional "parent" picker shown inside the create modal. When provided, the new
+  // item is filed under the chosen parent (its id is passed as the 2nd arg to
+  // onCreate) — e.g. a Service created under a Company Type, or a Sub-service under
+  // a Service. This makes the popup explicitly show which parent the item lands in.
+  parentOptions?: Option[];
+  parentSelectLabel?: string;
+  parentPlaceholder?: string;
+  defaultParentId?: string;
+  requireParent?: boolean;
+  parentEmptyHint?: string;
 }
 
 export interface MultiSelectWithInlineCreateRef {
@@ -79,21 +89,41 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
   createFieldLabel = 'Name',
   createFieldPlaceholder = 'Enter name...',
   isLoading = false,
-  className = ''
+  className = '',
+  parentOptions,
+  parentSelectLabel = 'Parent',
+  parentPlaceholder = 'Select parent...',
+  defaultParentId,
+  requireParent = false,
+  parentEmptyHint,
 }, ref) => {
   const { values, setFieldValue, errors, touched } = useFormikContext<any>();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createValue, setCreateValue] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [parentId, setParentId] = useState('');
+
+  const showParentPicker = Array.isArray(parentOptions);
 
   const sortedOptions = useMemo(() => {
     return sortOptionsAlphabetically(options || []);
   }, [options]);
 
+  // Options may be flat (Option[]) or grouped ({ label, options: Option[] }[]).
+  // Flatten so a selected value's label resolves in either shape.
+  const flatOptions: Option[] = useMemo(() => {
+    const flat: Option[] = [];
+    (options || []).forEach((o: any) => {
+      if (o && Array.isArray(o.options)) flat.push(...o.options);
+      else if (o) flat.push(o);
+    });
+    return flat;
+  }, [options]);
+
   // Get current field value - ensure it's always an array
   const fieldValue = values[formikField] || [];
-  const selectedOptions: Option[] = Array.isArray(fieldValue) 
-    ? fieldValue.map((val: string) => options.find(opt => opt.value === val)).filter((opt): opt is Option => opt !== undefined)
+  const selectedOptions: Option[] = Array.isArray(fieldValue)
+    ? fieldValue.map((val: string) => flatOptions.find(opt => opt.value === val)).filter((opt): opt is Option => opt !== undefined)
     : [];
 
   // Get error state
@@ -109,22 +139,29 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
   const handleOpenCreateModal = () => {
     setShowCreateModal(true);
     setCreateValue('');
+    // Pre-select the parent: the caller-provided default, or the only candidate.
+    const initialParent =
+      defaultParentId ||
+      (parentOptions && parentOptions.length === 1 ? parentOptions[0].value : '');
+    setParentId(initialParent);
   };
 
   // Handle closing create modal
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
     setCreateValue('');
+    setParentId('');
     setIsCreating(false);
   };
 
   // Handle creating new item
   const handleCreate = async () => {
     if (!createValue.trim() || !onCreate) return;
+    if (requireParent && !parentId) return;
 
     setIsCreating(true);
     try {
-      const newOption = await onCreate(createValue.trim());
+      const newOption = await onCreate(createValue.trim(), parentId || undefined);
       
       if (newOption) {
         // Add the new option to current selection
@@ -214,6 +251,31 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
             <Modal.Title>{createModalTitle}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {showParentPicker && (
+              <div className="fv-row mb-4">
+                <label className="required fs-6 fw-bold form-label mb-2">
+                  {parentSelectLabel}
+                </label>
+                {parentOptions && parentOptions.length > 0 ? (
+                  <Select
+                    options={sortOptionsAlphabetically(parentOptions)}
+                    value={parentOptions.find((o) => o.value === parentId) || null}
+                    onChange={(opt: any) => setParentId(opt?.value || '')}
+                    placeholder={parentPlaceholder}
+                    isDisabled={isCreating}
+                    classNamePrefix="react-select"
+                    className="react-select-styled"
+                    menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+                    menuPosition="fixed"
+                    styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                  />
+                ) : (
+                  <div className="text-muted fst-italic">
+                    {parentEmptyHint || `Select a ${parentSelectLabel.toLowerCase()} first.`}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="fv-row">
               <label className="required fs-6 fw-bold form-label mb-2">
                 {createFieldLabel}
@@ -243,7 +305,7 @@ const MultiSelectWithInlineCreate = forwardRef<MultiSelectWithInlineCreateRef, M
               type="button"
               className="btn btn-primary"
               onClick={handleCreate}
-              disabled={!createValue.trim() || isCreating}
+              disabled={!createValue.trim() || isCreating || (requireParent && !parentId)}
             >
               {isCreating ? (
                 <>

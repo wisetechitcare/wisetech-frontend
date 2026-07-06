@@ -1,4 +1,6 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import { Bar, Donut, HeatMap, MultipleRadialBar, Polar, ReportsTable, StokedCircle, StatisticsTable, StreakIndicator, TotalWorkingTime } from '@app/modules/common/components/Graphs';
 import { EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, TOTAL_WORKING_DAYS, months } from '@constants/statistics';
 import { saveLeaves, savePublicHolidays } from '@redux/slices/attendanceStats';
@@ -43,7 +45,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     // Resolve the viewed employee's org/branch so the display's per-day shifts match what
@@ -65,7 +67,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
         ? (store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
             || store.getState().employee.currentEmployee.branches?.workingAndOffDays)
         : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
     const [totalWorkingHours, setTotalWorkingHours] = useState("0h 0m");
     const [dataLoaded, setDataLoaded] = useState(false);
     const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
@@ -193,7 +195,7 @@ const Yearly = ({ year, endDate, fromAdmin = false, resourseAndView, dateSetting
         const fetchWorkingHours = async () => {
             try {
                 const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
-                const jsonObject = JSON.parse(configuration.configuration.configuration);
+                const jsonObject = safeJsonParse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 // const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 

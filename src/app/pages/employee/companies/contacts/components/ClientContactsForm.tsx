@@ -541,7 +541,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
           ? formValues.visibility.toUpperCase().replace(/ /g, "_")
           : "ONLY_ME",
         note: formValues.note,
-        isContactActive: formValues.isContactActive,
+        // The Contact Status dropdown is the single source of truth for active/inactive:
+        // a status named "In Active"/"Inactive" makes the contact inactive; anything else is active.
+        isContactActive: (() => {
+          const s = contactStatuses.find((x) => x.id === formValues.statusId);
+          const name = (s?.name || "").toLowerCase();
+          return !/in\s*active|inactive/.test(name);
+        })(),
       };
 
       if (profilePhotoUrl !== null) {
@@ -564,8 +570,16 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       eventBus.emit("clientContactUpdated");
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving contact:", error);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        "Failed to save the contact. Please try again.";
+      errorConfirmation(message);
     } finally {
       setLoading(false);
       clearContactId?.();
@@ -760,6 +774,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   setFieldValue("companyId", companyId);
                                   setSelectedCompany(companyId);
                                   setFieldValue("branchId", ""); // Reset branch when company changes
+                                  setFieldValue("serviceIds", []); // Sub-services are company-scoped — reset on company change
                                   if (companyId) {
                                     loadBranches(companyId, true); // Show warnings for manual change
                                     setHasSelectedCompany(true);
@@ -941,14 +956,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               <label className="form-label">Sub-services</label>
                               <Select
                                 isMulti
-                                placeholder="Select sub-services"
+                                placeholder={
+                                  values.companyId
+                                    ? "Select sub-services"
+                                    : "Select a company first"
+                                }
                                 classNamePrefix="react-select"
                                 className="react-select-styled"
                                 options={sortOptionsAlphabetically(
                                   (() => {
-                                    // A contact shares its COMPANY's services: scope the options to the
-                                    // chosen company's tagged services. No company / company has none →
-                                    // show the full catalog. Already-selected services are always kept.
+                                    // Strict cascade (mirrors the 3-layer company form): a contact's
+                                    // sub-services are scoped to its COMPANY's tagged services. No company
+                                    // selected → show nothing. Already-selected services are always kept
+                                    // (edit mode) so a saved value is never silently dropped.
                                     const selCompany: any = companies.find((c: any) => c.id === values.companyId);
                                     const companyServiceIds = new Set<string>();
                                     if (selCompany && Array.isArray(selCompany.companyServicesMapping)) {
@@ -959,8 +979,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                     const selectedServiceIds = new Set(values.serviceIds || []);
                                     return companyServices
                                       .filter((s: any) =>
-                                        !selCompany ||
-                                        companyServiceIds.size === 0 ||
                                         companyServiceIds.has(s.id) ||
                                         selectedServiceIds.has(s.id)
                                       )
@@ -1006,26 +1024,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   checked={values.isPrimaryContact}
                                   onChange={(e) =>
                                     setFieldValue("isPrimaryContact", e.target.checked)
-                                  }
-                                />
-                              </div>
-                            </div>
-                            <div className="d-flex align-items-center gap-2">
-                              <label
-                                className="form-check-label"
-                                htmlFor="activeContactToggle"
-                              >
-                                Is Contact Active
-                              </label>
-                              <div className="form-check form-switch m-0">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  role="switch"
-                                  id="activeContactToggle"
-                                  checked={values.isContactActive}
-                                  onChange={(e) =>
-                                    setFieldValue("isContactActive", e.target.checked)
                                   }
                                 />
                               </div>

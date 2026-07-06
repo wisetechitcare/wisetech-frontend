@@ -3,9 +3,12 @@ import { useSelector } from "react-redux";
 import { fetchAddressDetails } from "@services/location";
 import { fetchEmpAttendanceStatistics } from "@services/employee";
 import { useEffect, useState } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import dayjs from "dayjs";
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
+import { KTIcon } from "@metronic/helpers";
+
 
 interface AttendanceData {
   checkInTime: string;
@@ -65,7 +68,10 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
   useEffect(() => {
     fetchAttendanceData();
   }, [notificationToggle]);
-  
+
+  // Realtime: refresh this user's today attendance when it changes (e.g. their biometric punch).
+  useAttendanceRealtime(() => fetchAttendanceData());
+
 
   // Update attendance data when dailyAttendance changes
   useEffect(() => {
@@ -114,68 +120,145 @@ export default function AttendanceOverview({ notificationToggle,dashboard=true }
   
 
   return (
-    <div>
-      {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? (
-        <div className="text-success pb-6">You have checked out.</div>
-      ) : (
-        data.checkInTime && data.checkInTime !== "-NA-" && (
-          <div className="text-success pb-6">
-            {checkInTimeParsed && dayjs().isBefore(checkInTimeParsed.add(30, "second"))
-              ? "You have checked in."
-              : "You are working now.."}
+    <div className="attendance-overview-container mt-2">
+      {/* Dynamic Status Badge */}
+      <div className="mb-4">
+        {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? (
+          <div className="d-flex align-items-center gap-2 px-3 py-2 rounded-3" style={{ backgroundColor: '#EBF9F1', width: 'fit-content' }}>
+            <span className="bullet bullet-dot bg-success h-8px w-8px"></span>
+            <span className="text-success fs-7 fw-semibold">Session Completed</span>
           </div>
-        )
-      )}
-
-      <div className="d-flex align-content-center justify-content-between mb-1">
-        <div className="text-body">Check In Time</div>
-        <div className="mx-2">
-          {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format("hh:mm:ss A") : "-"}
-        </div>
+        ) : (
+          data.checkInTime && data.checkInTime !== "-NA-" && (
+            <div className="d-flex align-items-center gap-2 px-3 py-2 rounded-3" style={{ backgroundColor: '#EBF5FF', width: 'fit-content' }}>
+              <span className="bullet bullet-dot bg-primary h-8px w-8px animate-blink"></span>
+              <span className="text-primary fs-7 fw-semibold">
+                {checkInTimeParsed && dayjs().isBefore(checkInTimeParsed.add(30, "second"))
+                  ? "Checked In"
+                  : "You are working now.."}
+              </span>
+            </div>
+          )
+        )}
       </div>
 
-      <div className="d-flex align-content-center justify-content-between mb-1">
-        <div className="text-body">Check Out Time</div>
-        
-        <div className="mx-2">
-          {data.checkOutTime && data.checkOutTime !== "-NA-" ? dayjs(data.checkOutTime).format("hh:mm:ss A") : "-"}
-        </div>
-      </div>
-
-      {
-        dashboard ? 
-      <div className="d-flex align-content-center justify-content-between mb-1">
-        <div className="text-body">Working Method</div>
-        <div className="mx-2">
-          {data.workingMethod && data.workingMethod !== "-NA-" ? data.workingMethod : "-"}
-        </div>
-      </div>
-      : null
-      }
-
-      {
-        dashboard ?
-      <div className="d-flex align-content-center justify-content-between mb-1">
-        <div className="text-body">Location</div>
-        <div className="mx-2 text-end">
-          {data.location ? (
-            <OverlayTrigger
-              placement="top"
-              overlay={<Tooltip id="tooltip-top">{data.location}</Tooltip>}
+      {/* Grid of times */}
+      <div className="row g-3 mb-3">
+        {/* Check-In Card */}
+        <div className={dashboard ? "col-sm-6" : "col-6"}>
+          <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
+            <div 
+              className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+              style={{
+                width: '36px',
+                height: '36px',
+                backgroundColor: data.checkInTime && data.checkInTime !== "-NA-" ? '#EBF9F1' : '#F5F8FA',
+                color: data.checkInTime && data.checkInTime !== "-NA-" ? '#50CD89' : '#A1A5B7'
+              }}
             >
-              <div className="cursor-pointer">
-                {formattedAddress(data.location)}
-              </div>
-            </OverlayTrigger>
-          ) : (
-            "-"
-          )}
+              <KTIcon iconName="time" className="fs-3" />
+            </div>
+            <div className="overflow-hidden">
+              <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check In</span>
+              <span className="fw-bolder fs-7 text-gray-800 text-truncate">
+                {data.checkInTime && data.checkInTime !== "-NA-" ? dayjs(data.checkInTime).format("hh:mm:ss A") : "—"}
+              </span>
+            </div>
+          </div>
         </div>
+
+        {/* Check-Out Card */}
+        <div className={dashboard ? "col-sm-6" : "col-6"}>
+          <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
+            <div 
+              className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+              style={{
+                width: '36px',
+                height: '36px',
+                backgroundColor: data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? '#FFF5F8' : '#F5F8FA',
+                color: data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? '#F1416C' : '#A1A5B7'
+              }}
+            >
+              <KTIcon iconName="time" className="fs-3" />
+            </div>
+            <div className="overflow-hidden">
+              <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Check Out</span>
+              <span className="fw-bolder fs-7 text-gray-800 text-truncate">
+                {data.checkOutTime && data.checkOutTime !== "-NA-" && data.checkOutTime !== '' ? dayjs(data.checkOutTime).format("hh:mm:ss A") : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Working Method Card */}
+        {dashboard && (
+          <div className="col-sm-6">
+            <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
+              <div 
+                className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  backgroundColor: data.workingMethod && data.workingMethod !== "-NA-" ? '#FFF8F2' : '#F5F8FA',
+                  color: data.workingMethod && data.workingMethod !== "-NA-" ? '#FFC700' : '#A1A5B7'
+                }}
+              >
+                <KTIcon iconName="document" className="fs-3" />
+              </div>
+              <div className="overflow-hidden">
+                <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Method</span>
+                <span className="fw-bolder fs-7 text-gray-800 text-truncate">
+                  {data.workingMethod && data.workingMethod !== "-NA-" ? data.workingMethod : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Location Card */}
+        {dashboard && (
+          <div className="col-sm-6">
+            <div className="p-3 rounded-3 bg-light d-flex align-items-center gap-3 border border-gray-100 h-100">
+              <div 
+                className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  backgroundColor: data.location ? '#E8FFF3' : '#F5F8FA',
+                  color: data.location ? '#50CD89' : '#A1A5B7'
+                }}
+              >
+                <KTIcon iconName="geolocation" className="fs-3" />
+              </div>
+              <div className="overflow-hidden flex-grow-1">
+                <span className="text-muted d-block fs-8 fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>Location</span>
+                {data.location ? (
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={<Tooltip id="tooltip-top">{data.location}</Tooltip>}
+                  >
+                    <span className="fw-bolder fs-7 text-gray-800 text-truncate d-block cursor-pointer">
+                      {formattedAddress(data.location)}
+                    </span>
+                  </OverlayTrigger>
+                ) : (
+                  <span className="fw-bolder fs-7 text-gray-800">—</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-        : null 
-      }
-      
-      
+
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        .animate-blink {
+          animation: blink 1.8s infinite ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Modal } from 'react-bootstrap';
 import { fetchConfiguration } from '@services/company';
@@ -30,7 +31,7 @@ const LeavesSection: React.FC<LeavesSectionProps> = ({ sectionRef }) => {
         const leaveConfigResponse = await fetchConfiguration(LEAVE_MANAGEMENT);
         console.log('[LeavesSection] Raw LEAVE_MANAGEMENT response:', leaveConfigResponse);
 
-        const leaveConfig = JSON.parse(leaveConfigResponse?.data?.configuration?.configuration || '{}');
+        const leaveConfig = safeJsonParse(leaveConfigResponse?.data?.configuration?.configuration || '{}');
         console.log('[LeavesSection] Parsed LEAVE_MANAGEMENT config:', leaveConfig);
 
         // Get monthly annual leaves limit

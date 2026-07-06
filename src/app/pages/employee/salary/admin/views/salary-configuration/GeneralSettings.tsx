@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { fetchAllEmployeesSelectedData, updateEmployee } from '@services/employee';
 import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
@@ -271,7 +272,7 @@ function GeneralSettings() {
 
         // Process excluded employee IDs
         if (configResponse?.data?.configuration) {
-          const configurationComplete = JSON.parse(
+          const configurationComplete = safeJsonParse(
             configResponse.data.configuration.configuration || '{}'
           );
           console.log("configurationComplete:: ", configurationComplete);
@@ -289,7 +290,7 @@ function GeneralSettings() {
         }
 
         console.log("paymentModeResponse:: ",paymentModeResponse);
-        const selectedPaymentMode = typeof paymentModeResponse?.data?.configuration?.configuration === 'string' ? JSON.parse(paymentModeResponse?.data?.configuration?.configuration) : paymentModeResponse?.data?.configuration?.configuration;
+        const selectedPaymentMode = typeof paymentModeResponse?.data?.configuration?.configuration === 'string' ? safeJsonParse(paymentModeResponse?.data?.configuration?.configuration) : paymentModeResponse?.data?.configuration?.configuration;
         console.log("selectedPaymentMode:: ",selectedPaymentMode);
         setPaymentMode(selectedPaymentMode);
         setPaymentModeConfigurationId(paymentModeResponse?.data?.configuration?.id);

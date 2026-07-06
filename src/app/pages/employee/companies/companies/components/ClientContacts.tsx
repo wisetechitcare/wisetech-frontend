@@ -198,6 +198,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        defaultSorting={[{ id: "fullName", desc: false }]}
       />
 
       {/* Form for adding new contacts */}

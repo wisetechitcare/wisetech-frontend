@@ -126,7 +126,7 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
             <motion.button 
               whileHover={{ x: -3 }}
               className="btn btn-icon btn-sm btn-light-primary"
-              onClick={() => navigate("/qc/leads")}
+              onClick={() => navigate(-1)}
             >
               <KTIcon iconName="arrow-left" className="fs-2" />
             </motion.button>

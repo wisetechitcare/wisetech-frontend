@@ -416,6 +416,7 @@ const CompaniesProject = ({ companyId }: { companyId: string }) => {
         columns={columns}
         tableName="Projects"
         employeeId={employeeId}
+        defaultSorting={[{ id: "title", desc: false }]}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }) => {
             const status = row.original?.status ?? "";

@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import { Row, Col, Card, Button } from 'react-bootstrap';
 import { Formik, Form as FormikForm } from 'formik';
@@ -124,7 +125,7 @@ const OtherSettings: React.FC = () => {
       ]);
 
       // Parse lunch deduction config manually for initial values
-      const lunchConfig = JSON.parse(lunchConfigRes?.data?.configuration?.configuration || '{}');
+      const lunchConfig = safeJsonParse(lunchConfigRes?.data?.configuration?.configuration || '{}');
       // Priority: disableLaunchDeductionTime (correct) -> disableLunchDeductionTime (fallback) -> false
       const lunchEnabled = lunchConfig?.disableLaunchDeductionTime ?? lunchConfig?.disableLunchDeductionTime ?? false;
       console.log('[OtherSettings] Parsed lunch config:', lunchEnabled);
@@ -133,14 +134,14 @@ const OtherSettings: React.FC = () => {
       await loadLunchConfig();
 
       // Parse leave management config for on-site/holiday/weekend setting and monthly annual leave limit
-      const leaveManagementConfig = JSON.parse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
+      const leaveManagementConfig = safeJsonParse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
       const onSiteValue = leaveManagementConfig?.[onSiteAndHolidayWeekendSettingsOnOffName];
       const onSiteEnabled = onSiteValue === '1' || onSiteValue === 1;
       const monthlyAnnualLeaveLimit = leaveManagementConfig?.['Number of Annual Leaves allowed per month'] || '2';
       setLeaveManagementConfigId(leaveManagementConfigRes?.data?.configuration?.id || null);
 
       // Parse restrict attendance days config
-      const restrictConfig = JSON.parse(restrictConfigRes?.data?.configuration?.configuration || '{}');
+      const restrictConfig = safeJsonParse(restrictConfigRes?.data?.configuration?.configuration || '{}');
       let restrictDays = restrictConfig?.restrictAttendanceTo7Days;
       // Handle migration from boolean to number
       if (typeof restrictDays === 'boolean') {
@@ -151,7 +152,7 @@ const OtherSettings: React.FC = () => {
       setRestrictConfigId(restrictConfigRes?.data?.configuration?.id || null);
 
       // Parse date settings config
-      const dateConfig = JSON.parse(dateConfigRes?.data?.configuration?.configuration || '{}');
+      const dateConfig = safeJsonParse(dateConfigRes?.data?.configuration?.configuration || '{}');
       const dateSettingsEnabled = dateConfig?.useDateSettings ?? false;
       setDateConfigId(dateConfigRes?.data?.configuration?.id || null);
 
@@ -219,7 +220,7 @@ const OtherSettings: React.FC = () => {
       // 2. Save on-site/holiday/weekend setting and monthly annual leave limit (stored in LEAVE_MANAGEMENT)
       if (leaveManagementConfigId) {
         const leaveManagementConfigRes = await fetchConfiguration(LEAVE_MANAGEMENT);
-        const currentLeaveManagementConfig = JSON.parse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
+        const currentLeaveManagementConfig = safeJsonParse(leaveManagementConfigRes?.data?.configuration?.configuration || '{}');
 
         currentLeaveManagementConfig[onSiteAndHolidayWeekendSettingsOnOffName] = values.onSiteHolidayWeekendSettings === 'on' ? '1' : '0';
         currentLeaveManagementConfig['Number of Annual Leaves allowed per month'] = values.monthlyAnnualLeaveLimit;

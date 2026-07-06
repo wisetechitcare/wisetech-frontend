@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import Loader from "@app/modules/common/utils/Loader";
@@ -145,7 +146,7 @@ const OpenAttendanceRequests = () => {
     useEffect(() => {
         async function fetchLeaveConfig() {
             const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT);
-            const jsonObject = JSON.parse(configuration.configuration.configuration);
+            const jsonObject = safeJsonParse(configuration.configuration.configuration);
 
             setLeaveConfiguration(jsonObject);
         }

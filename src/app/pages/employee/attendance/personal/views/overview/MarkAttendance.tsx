@@ -1,8 +1,10 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import { KTIcon } from "@metronic/helpers";
 import { RootState, store } from "@redux/store";
 import { formatDate } from "@utils/date";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { Modal } from "react-bootstrap";
 import GoogleMaps from './GoogleMaps';
@@ -38,7 +40,7 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
         return {
             show: attendance.openModal,
             position: attendance.position,
-            userName: auth.currentUser.firstName,
+            userName: `${auth.currentUser.firstName || ""} ${auth.currentUser.lastName || ""}`.trim(),
             btnText: attendance.btnText,
             locationEnabled: attendance.locationEnabled,
         }
@@ -47,7 +49,7 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
     const [longitudeNew, setLongitudeNew] = useState(0)
     const workingAndOfDaysDetails = useSelector((state: RootState) => state.employee.currentEmployee?.branches?.workingAndOffDays);
     const workingAndOfDays = useMemo(() => {
-        return JSON.parse(workingAndOfDaysDetails || "{}");
+        return parseWorkingDays(workingAndOfDaysDetails);
       }, [workingAndOfDaysDetails]);
 
     const [offDaysForTheBranch, setOffDaysForTheBranch] = useState<string[]>([]);
@@ -62,6 +64,9 @@ function MarkAttendance({ variant = 'default' }: MarkAttendanceProps) {
     const [hasCheckin, setHasCheckin] = useState<string | null>(null);
     const [hasCheckout, setHasCheckout] = useState<string | null>(null);
     const [raiseRequest, setRaiseRequest] = useState(false);
+    // Realtime: reuse the existing raiseRequest trigger to re-run the status fetch
+    // when this user's attendance changes elsewhere (e.g. their biometric punch).
+    useAttendanceRealtime(() => setRaiseRequest(true));
     const DateOfJoining = useSelector((state:RootState)=> state?.employee?.currentEmployee?.dateOfJoining);
     const isFirstDay = dayjs().format('YYYY-MM-DD') === dayjs(DateOfJoining).format('YYYY-MM-DD');
     const [isLocationLoading, setIsLocationLoading] = useState(false);
@@ -875,20 +880,22 @@ const getBlockingMessage = async () => {
     return (
         <div className={isDashboard ? "d-flex flex-column h-100" : "mb-10 "}>
             {isDashboard ? (
-                <span>
-
-                <h5
-                    className="fw-semibold mb-2"
-                    style={{ fontSize: 'clamp(15px, 3.5vw, 18px)', fontFamily: 'Barlow', lineHeight: '1.3' }}
-                >
-                    Hello {userName}, mark attendance for today, {formattedDate}
-                </h5>
-                </span>
+                <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h4 className="fw-bold mb-1" style={{ fontSize: '1.25rem', color: '#181C32' }}>
+                            Hello, {userName?.trim()}!
+                        </h4>
+                        <p className="text-muted mb-0 fs-7">Let's record your hours for today.</p>
+                    </div>
+                    <span className="badge badge-light-primary fw-semibold px-3 py-2 fs-8 rounded-pill">
+                        {formattedDate}
+                    </span>
+                </div>
             ) : (
-                <>
-                    <h4 className="text-uppercase text-black-50 mb-4 fs-3">Hello, {userName}!</h4>
-                    <h3 className="fw-bold fs-2 mb-4 font-barlow">Mark attendance for today, {formattedDate}</h3>
-                </>
+                <div className="mb-6">
+                    <h4 className="text-uppercase text-black-50 mb-1 fs-4 fw-bold">Hello, {userName?.trim()}!</h4>
+                    <h2 className="fw-bolder fs-1 font-barlow text-dark">Mark attendance for today, {formattedDate}</h2>
+                </div>
             )}
 
             <div>
@@ -897,16 +904,17 @@ const getBlockingMessage = async () => {
                     if (!isDeviceNotDesktop) {
                         return (
                             <div
-                                className="alert"
-                                role="alert"
+                                className="d-flex align-items-center gap-3 p-3.5 mb-4 rounded-3 border-0"
                                 style={{
-                                    backgroundColor: "#FCEDDF",
+                                    backgroundColor: "#FFF8F2",
                                     color: "#DD700C",
-                                    borderColor: "#DD700C",
-                                    ...(isDashboard && { fontSize: 'clamp(11px, 2.5vw, 13px)' })
+                                    border: '1px solid #FFE4D0'
                                 }}
                             >
-                                Check-in from Desktop/Laptop is not allowed.
+                                <KTIcon iconName="information-5" className="fs-2 text-warning" />
+                                <div className="fs-7 fw-medium">
+                                    Check-in from Desktop/Laptop is not allowed.
+                                </div>
                             </div>
                         );
                     }
@@ -915,16 +923,17 @@ const getBlockingMessage = async () => {
                     if (!(latitudeNew && longitudeNew)) {
                         return (
                             <div
-                                className="alert"
-                                role="alert"
+                                className="d-flex align-items-center gap-3 p-3.5 mb-4 rounded-3 border-0"
                                 style={{
-                                    backgroundColor: "#FCEDDF",
+                                    backgroundColor: "#FFF8F2",
                                     color: "#DD700C",
-                                    borderColor: "#DD700C",
-                                    ...(isDashboard && { fontSize: 'clamp(11px, 2.5vw, 13px)' })
+                                    border: '1px solid #FFE4D0'
                                 }}
                             >
-                                Please enable your location to mark attendance.
+                                <KTIcon iconName="geolocation" className="fs-2 text-warning" />
+                                <div className="fs-7 fw-medium">
+                                    Please enable your location to mark attendance.
+                                </div>
                             </div>
                         );
                     }
@@ -933,17 +942,18 @@ const getBlockingMessage = async () => {
                     if (!previousAttendanceMarked && previousWorkingDay) {
                         return (
                             <div
-                                className="alert"
-                                role="alert"
+                                className="d-flex align-items-center gap-3 p-3.5 mb-4 rounded-3 border-0"
                                 style={{
-                                    backgroundColor: "#FCEDDF",
+                                    backgroundColor: "#FFF8F2",
                                     color: "#DD700C",
-                                    borderColor: "#DD700C",
-                                    ...(isDashboard && { fontSize: 'clamp(11px, 2.5vw, 13px)' })
+                                    border: '1px solid #FFE4D0'
                                 }}
                             >
-                                Please raise an attendance request for the previous day{" "}
-                                {previousWorkingDay && `(${dayjs(previousWorkingDay).format("DD-MM-YYYY")})`} including check out.
+                                <KTIcon iconName="shield-cross" className="fs-2 text-warning" />
+                                <div className="fs-7 fw-medium">
+                                    Please raise an attendance request for the previous day{" "}
+                                    {previousWorkingDay && `(${dayjs(previousWorkingDay).format("DD-MM-YYYY")})`} including check out.
+                                </div>
                             </div>
                         );
                     }
@@ -954,23 +964,39 @@ const getBlockingMessage = async () => {
 
             <div className={isDashboard ? "py-1 rounded-3 mb-2" : "py-1 rounded-3 mb-4"}>
                 <button
-                    className={`d-flex justify-content-between align-items-center bg-primary btn btn-primary w-100 ${isDashboard ? 'fs-6' : 'btn-lg fs-5'}`}
+                    className={`d-flex justify-content-between align-items-center w-100 border-0 rounded-3 transition-all ${
+                        hasCheckin && hasCheckin !== null && hasCheckin !== ""
+                            ? "attendance-checkout-btn text-white"
+                            : "attendance-checkin-btn text-white"
+                    } ${isDashboard ? 'fs-6 py-3 px-4' : 'btn-lg fs-5 py-4 px-5'}`}
                     onClick={handleCheckClick}
                     disabled={
                         !!isLocationLoading || 
                         !((!!latitudeNew && !!longitudeNew) && !!isDeviceNotDesktop) || 
                         (!previousAttendanceMarked && lengthOfAttendanceHistory > 0 && !isFirstDay)
                     }
-                    >
-                    <div className="d-flex justify-content-center">
-                        <Timer />
+                    style={{
+                        height: isDashboard ? '52px' : '60px',
+                        fontWeight: '600',
+                    }}
+                >
+                    <div className="d-flex align-items-center">
+                        {hasCheckin && hasCheckin !== null && hasCheckin !== "" && (
+                            <div className="d-flex align-items-center bg-white bg-opacity-20 px-3 py-1.5 rounded-pill me-3 fs-7" style={{ height: '34px' }}>
+                                <Timer />
+                            </div>
+                        )}
                     </div>
-                        <div className="d-flex align-items-center gap-2">
+                    <div className="d-flex align-items-center gap-2">
+                        <span>
                             {hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "Mark Checkout" : "Mark Attendance"}
-                            {isLocationLoading && (
-                                <span className='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span>
-                            )}
-                        </div>
+                        </span>
+                        {isLocationLoading ? (
+                            <span className='spinner-border spinner-border-sm text-white' role='status' aria-hidden='true'></span>
+                        ) : (
+                            <KTIcon iconName="arrow-right" className="fs-4 text-white" />
+                        )}
+                    </div>
                 </button>
             </div>
 
@@ -978,6 +1004,41 @@ const getBlockingMessage = async () => {
             <div className={isDashboard ? "flex-grow-1" : ""}>
                 <AttendanceOverview notificationToggle={notificationToggle} dashboard={!isDashboard} />
             </div>
+
+            <style>{`
+                .attendance-checkout-btn {
+                    background: linear-gradient(135deg, #E06C6C 0%, #C44343 100%) !important;
+                    box-shadow: 0 4px 15px rgba(196, 67, 67, 0.2);
+                    transition: all 0.2s ease-in-out;
+                }
+                .attendance-checkout-btn:hover:not(:disabled) {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(196, 67, 67, 0.35);
+                    background: linear-gradient(135deg, #E87A7A 0%, #D14D4D 100%) !important;
+                }
+                .attendance-checkout-btn:disabled, .attendance-checkin-btn:disabled {
+                    background: #E4E6EF !important;
+                    color: #A1A5B7 !important;
+                    box-shadow: none !important;
+                    cursor: not-allowed;
+                }
+                .attendance-checkout-btn:disabled .text-white, .attendance-checkin-btn:disabled .text-white {
+                    color: #A1A5B7 !important;
+                }
+                .attendance-checkin-btn {
+                    background: linear-gradient(135deg, #5B72EE 0%, #3850D6 100%) !important;
+                    box-shadow: 0 4px 15px rgba(56, 80, 214, 0.2);
+                    transition: all 0.2s ease-in-out;
+                }
+                .attendance-checkin-btn:hover:not(:disabled) {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(56, 80, 214, 0.35);
+                    background: linear-gradient(135deg, #6C81F2 0%, #465EDE 100%) !important;
+                }
+                .attendance-checkout-btn:active:not(:disabled), .attendance-checkin-btn:active:not(:disabled) {
+                    transform: translateY(0);
+                }
+            `}</style>
 
             <Modal show={show} onHide={handleClose} centered className='rounded-3 attendance-modal'>
                 <Modal.Header closeButton></Modal.Header>

@@ -1,4 +1,6 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
+import { parseWorkingDays } from '@utils/workingDays';
 import dayjs, { Dayjs } from "dayjs";
 import { resourseAndView } from "@models/company";
 import { useDispatch, useSelector } from "react-redux";
@@ -28,7 +30,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const workingAndOffDaysStr = fromAdmin
         ? (selectedEmployeeWorkingAndOffDaysStr || currentEmployeeWorkingAndOffDaysStr)
         : currentEmployeeWorkingAndOffDaysStr;
-    const workingAndOffDays = workingAndOffDaysStr ? JSON.parse(workingAndOffDaysStr) : undefined;
+    const workingAndOffDays = parseWorkingDays(workingAndOffDaysStr);
     const showBranchSetupGuide = shouldShowBranchSetupGuide(workingAndOffDays);
 
     // Resolve the viewed employee's org/branch so the display's per-day shifts match what
@@ -54,7 +56,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
     const weekends = fromAdmin
         ? store.getState().employee.selectedEmployee?.branches?.workingAndOffDays
         : store.getState().employee.currentEmployee.branches?.workingAndOffDays;
-    const allWeekends = JSON.parse(weekends || "{}");
+    const allWeekends = parseWorkingDays(weekends);
 
     // filter yearly stats according to DateOfJoining
     const yearlyStats = useSelector((state: RootState) => {
@@ -171,7 +173,7 @@ export const Custom = ({startDate, endDate, fromAdmin, resourseAndView, dateSett
         const fetchWorkingHours = async () => {
             try {
                 const { data: configuration } = await fetchConfiguration(LEAVE_MANAGEMENT, undefined, undefined, shiftScope);
-                const jsonObject = JSON.parse(configuration.configuration.configuration);
+                const jsonObject = safeJsonParse(configuration.configuration.configuration);
                 
                 const totalWorkingHoursString = jsonObject["Working time"];
                 // const workingHoursNumber = parseFloat(totalWorkingHoursString.split(" ")[0]); 

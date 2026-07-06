@@ -81,7 +81,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
         const active = status === "ACTIVE";
         return (
           <span className={`badge ${active ? "badge-light-success" : "badge-light-danger"}`}>
-            {active ? "Active" : status || "—"}
+            {active ? "Active" : status === "CLOSED" ? "Inactive" : (status || "—")}
           </span>
         );
       },

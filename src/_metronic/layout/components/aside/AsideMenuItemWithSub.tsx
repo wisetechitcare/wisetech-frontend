@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import {useLocation} from 'react-router'
 import {checkIsActive, KTIcon, WithChildren} from '../../../helpers'
 import {useLayout} from '../../core'
+import {useSidebarCollapse} from '../../core/SidebarCollapseContext'
 import SVG from 'react-inlinesvg'
 
 type Props = {
@@ -25,13 +26,21 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
   const isActive = checkIsActive(pathname, to)
   const {config} = useLayout()
   const {aside} = config
+  const {collapsed, setCollapsed} = useSidebarCollapse()
 
   return (
     <div
       className={clsx('menu-item menu-accordion', {'here show': isActive})}
       data-kt-menu-trigger='click'
     >
-      <span className='menu-link'>
+      <span
+        className='menu-link'
+        title={title}
+        onClick={() => {
+          // In the collapsed rail the sub-items are hidden — expand so they're reachable.
+          if (collapsed) setCollapsed(false)
+        }}
+      >
         {hasBullet && (
           <span className='menu-bullet'>
             <span className='bullet bullet-dot'></span>

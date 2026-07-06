@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import { useEffect, useState } from "react";
 import { Formik, Form } from "formik";
 import {
@@ -59,11 +60,11 @@ function SandwichLeave({ showSandWhichLeaveModal, readOnly = false }: SandwichLe
       ]);
 
       const sandwichConfig: SandwichConfig = sandwichConfigData?.configuration
-        ? JSON.parse(sandwichConfigData.configuration)
+        ? safeJsonParse(sandwichConfigData.configuration)
         : {};
 
       const dateConfig: DateConfig = dateConfigData?.configuration
-        ? JSON.parse(dateConfigData.configuration)
+        ? safeJsonParse(dateConfigData.configuration)
         : {};
 
       setSandwichConfigId(sandwichConfigData.id);

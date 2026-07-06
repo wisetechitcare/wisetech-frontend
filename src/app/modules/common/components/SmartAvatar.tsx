@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * SmartAvatar — premium, brand-aware avatar for companies and contacts.
@@ -26,6 +27,11 @@ interface Props {
   size?: number;
   status?: AvatarStatus | null;
   imageFit?: "contain" | "cover";
+  /** Outer shape. Defaults to a circle. */
+  shape?: "circle" | "rounded";
+  /** When true and a real image is present, clicking the avatar opens the full,
+   *  uncropped image in an on-screen lightbox (no new tab). */
+  enablePreview?: boolean;
   /** Fired once with "r, g, b" for optional header tinting by the parent. */
   onDominantColor?: (rgb: string) => void;
   className?: string;
@@ -201,10 +207,13 @@ const extractBrandPalette = (url: string): Promise<BrandPalette | null> =>
 // ── Component ─────────────────────────────────────────────────────────────────
 const SmartAvatar: React.FC<Props> = ({
   name, id, imageUrl, size = 56, status, imageFit = "contain",
+  shape = "circle", enablePreview = false,
   onDominantColor, className,
 }) => {
   const cleanUrl = imageUrl?.trim() || null;
   const [imageFailed, setImageFailed] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [imageAspect, setImageAspect] = useState<number | null>(null);
   const [brand, setBrand] = useState<BrandPalette | null>(() =>
     cleanUrl ? colorCache.get(cleanUrl) ?? null : null
   );
@@ -216,6 +225,7 @@ const SmartAvatar: React.FC<Props> = ({
 
   useEffect(() => {
     setImageFailed(false);
+    setImageAspect(null);
     setBrand(cleanUrl ? colorCache.get(cleanUrl) ?? null : null);
   }, [cleanUrl]);
 
@@ -235,7 +245,25 @@ const SmartAvatar: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanUrl, imageFailed, seed]);
 
+  const canPreview = enablePreview && hasImage;
+
+  // Close the lightbox on Escape and lock background scroll while it's open.
+  useEffect(() => {
+    if (!showPreview) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowPreview(false); };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showPreview]);
+
   const sz = Math.max(28, size);
+  const isCircle = shape === "circle";
+  const outerRadius = isCircle ? "50%" : Math.round(sz * 0.18);
+  const innerRadius = isCircle ? "50%" : Math.round(sz * 0.14);
   const ring = hasImage
     ? brand
       ? `linear-gradient(135deg, rgba(${brand.primary}, 0.82), rgba(${brand.secondary}, 0.52))`
@@ -244,31 +272,37 @@ const SmartAvatar: React.FC<Props> = ({
 
   const badge = status ? STATUS_COLORS[status] : null;
 
-  // Logos (contain mode) get inner padding so they don't touch the ring.
-  const innerPad = hasImage && imageFit === "contain" ? Math.max(4, Math.round(sz * 0.09)) : 0;
+  // Contain-mode logos get a small inset so the image doesn't press against the ring.
+  const innerPad = hasImage && imageFit === "contain" ? Math.max(3, Math.round(sz * 0.08)) : 0;
+
+  // Badge dimensions — large enough to be legible at small table sizes.
+  const badgeSz = Math.max(11, Math.round(sz * 0.24));
+  const badgeBorder = Math.max(2, Math.round(sz * 0.04));
 
   return (
     <div
       className={className}
-      role="img"
-      aria-label={`${name || "Record"} avatar${status ? `, ${status}` : ""}`}
-      title={name || undefined}
+      role={canPreview ? "button" : "img"}
+      aria-label={canPreview ? `View ${name || "record"} image` : `${name || "Record"} avatar${status ? `, ${status}` : ""}`}
+      title={canPreview ? "Click to view image" : (name || undefined)}
+      onClick={canPreview ? (e) => { e.stopPropagation(); setShowPreview(true); } : undefined}
       style={{
         position: "relative",
         width: sz,
         height: sz,
-        borderRadius: Math.round(sz * 0.18),
+        borderRadius: outerRadius,
         padding: 2.5,
         background: ring,
         flexShrink: 0,
         boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+        cursor: canPreview ? "pointer" : undefined,
       }}
     >
       <div
         style={{
           width: "100%",
           height: "100%",
-          borderRadius: Math.round(sz * 0.14),
+          borderRadius: innerRadius,
           overflow: "hidden",
           background: hasImage
             ? "linear-gradient(145deg, #ffffff, #f8fafc)"
@@ -288,15 +322,26 @@ const SmartAvatar: React.FC<Props> = ({
             src={cleanUrl || undefined}
             alt=""
             onError={() => setImageFailed(true)}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) {
+                setImageAspect(img.naturalWidth / img.naturalHeight);
+              }
+            }}
             draggable={false}
             style={{
               width: "100%",
               height: "100%",
-              objectFit: imageFit,
+              // Wide images (aspect > 1.5): use contain to show full image.
+              // Other images: use cover for tight circular fit.
+              objectFit: (imageAspect && imageAspect > 1.5) ? "contain" : imageFit === "cover" ? "cover" : "contain",
               objectPosition: "center",
               display: "block",
               borderRadius: 0,
-            }}
+              // High-quality rendering: preserve crisp pixels without smoothing
+              imageRendering: "-webkit-optimize-contrast",
+              backfaceVisibility: "hidden",
+            } as React.CSSProperties}
           />
         ) : (
           <span
@@ -322,8 +367,10 @@ const SmartAvatar: React.FC<Props> = ({
           title={status || undefined}
           style={{
             position: "absolute",
-            right: Math.round(sz * 0.01),
-            bottom: Math.round(sz * 0.01),
+            // On a circle the corner sits outside the visible disc, so pull the
+            // badge inward to rest on the bottom-right edge.
+            right: Math.round(sz * (isCircle ? 0.06 : 0.01)),
+            bottom: Math.round(sz * (isCircle ? 0.06 : 0.01)),
             width: Math.max(10, Math.round(sz * 0.21)),
             height: Math.max(10, Math.round(sz * 0.21)),
             borderRadius: "50%",
@@ -332,6 +379,71 @@ const SmartAvatar: React.FC<Props> = ({
             boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
           }}
         />
+      )}
+
+      {/* On-screen image lightbox (Instagram/Snapchat-style) — full, uncropped image
+          over a dimmed backdrop. Portalled to <body> so it overlays modals/overflow.
+          Closes on backdrop click, the ✕ button, or Escape. */}
+      {showPreview && canPreview && createPortal(
+        <div
+          onClick={() => setShowPreview(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${name || "Image"} preview`}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 20000,
+            padding: 24,
+            cursor: "zoom-out",
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowPreview(false); }}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: 18,
+              right: 24,
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.14)",
+              color: "#fff",
+              fontSize: 24,
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+          <img
+            src={cleanUrl || undefined}
+            alt={name || ""}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              // Display the full image without cropping, at maximum usable size.
+              maxWidth: "95vw",
+              maxHeight: "90vh",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              objectPosition: "center",
+              borderRadius: 8,
+              boxShadow: "0 12px 48px rgba(0,0,0,0.55)",
+              cursor: "default",
+              // High-quality image rendering — preserves clarity across zoom levels
+              imageRendering: "-webkit-optimize-contrast",
+            } as React.CSSProperties}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );

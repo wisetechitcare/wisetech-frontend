@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 import { Button } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import MyEmployeeTimeSheetToggle from './MyEmployeeTimeSheetToggle'
@@ -19,7 +20,7 @@ const MyEmployeeTimeSheetPage = ({ fromAdmin }: { fromAdmin: boolean }) => {
                 } = await fetchConfiguration(DATE_SETTINGS_KEY);
                 const parsed =
                     typeof configuration.configuration === "string"
-                        ? JSON.parse(configuration.configuration)
+                        ? safeJsonParse(configuration.configuration)
                         : configuration.configuration;
                 setDateSettingsEnabled(parsed?.useDateSettings ?? false);
             } catch (err) {

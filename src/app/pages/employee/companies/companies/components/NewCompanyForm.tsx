@@ -35,7 +35,7 @@ import { getRatingByCompanyId } from "@services/projects";
 import SubCompanyForm from "./SubCompanryForm";
 import { fetchAllEmployees } from "@services/employee";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
-import { transformToOptions, createNewCompanyService, createNewCompanyType } from "@app/modules/common/components/InlineCreateHelpers";
+import { transformToOptions, createNewCompanyService, createNewCompanyType, createNewServiceUnderType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
 import FormSchemaManager from "@app/modules/common/components/FormSchemaManager";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
@@ -80,6 +80,7 @@ interface FormValues {
   city: string;
   visibility: string;
   note: string;
+  blacklisted: boolean;
   latitude: string;
   longitude: string;
   reference?: string;
@@ -190,6 +191,7 @@ const NewCompanyForm: React.FC<Props> = ({
     city: "",
     visibility: "EVERYONE",
     note: "",
+    blacklisted: false,
     latitude: "",
     longitude: "",
     gstNumber: "",
@@ -495,6 +497,7 @@ const NewCompanyForm: React.FC<Props> = ({
               city: finalCityValue,
               visibility: company.visibility || "EVERYONE",
               note: company.note || "",
+              blacklisted: company.blacklisted || false,
               latitude: company.latitude || "",
               longitude: company.longitude || "",
               gmbProfileUrl: company.gmbProfileUrl || "",
@@ -579,6 +582,7 @@ const NewCompanyForm: React.FC<Props> = ({
           city: "",
           visibility: "EVERYONE",
           note: "",
+          blacklisted: false,
           latitude: "",
           longitude: "",
           gstNumber: "",
@@ -854,6 +858,8 @@ const NewCompanyForm: React.FC<Props> = ({
         address: addressLine1,
         logo: logoUrl,
         status: values.status.toUpperCase(),
+        // Status is the single source of truth for active/inactive: ACTIVE = active, CLOSED = inactive.
+        isActive: values.status.toUpperCase() === "ACTIVE",
         country: countries.find((c) => c.id === values.country)?.name,
         state: states.find((s) => s.id === values.state)?.name,
         city: cities.find((c) => c.id === values.city)?.name,
@@ -914,17 +920,15 @@ const NewCompanyForm: React.FC<Props> = ({
         onClose();
         eventBus.emit("companyCreated");
       }
-
-      // Trigger data refresh in parent component
-      // eventBus.emit('refreshCompanies');
-      onClose();
     } catch (err: any) {
       console.error(err);
       // Surface the real reason instead of failing silently (which looked like
       // "Save does nothing"). Handles both raw axios errors and unwrapped bodies.
       const message =
         err?.response?.data?.message ||
+        err?.response?.data?.detail ||
         err?.data?.message ||
+        err?.data?.detail ||
         err?.message ||
         "Failed to save the company. Please review the form and try again.";
       errorConfirmation(message);
@@ -1188,16 +1192,14 @@ const NewCompanyForm: React.FC<Props> = ({
                             </div>
                             <div className="col-md-4">
                               {/* Services — children of the selected company type(s). */}
-                              <label className="d-flex align-items-center fs-6 form-label mb-2">Services</label>
-                              <Select
-                                isMulti
+                              <MultiSelectWithInlineCreate
+                                formikField="subTypes"
+                                inputLabel="Services"
                                 placeholder={
                                   (values.companyTypes || []).length === 0
                                     ? "Select a company type first…"
                                     : "Select service(s)..."
                                 }
-                                classNamePrefix="react-select"
-                                className="react-select-styled"
                                 options={(() => {
                                   // Show sub-types whose parent is among the selected main types, grouped by parent.
                                   const selectedMains = (values.companyTypes || []) as string[];
@@ -1212,16 +1214,26 @@ const NewCompanyForm: React.FC<Props> = ({
                                       };
                                     })
                                     .filter(Boolean) as any[];
-                                })()}
-                                value={(companyTypes as any[])
-                                  .filter((t) => (values.subTypes || []).includes(t.id))
-                                  .map((t) => ({ value: t.id, label: t.name }))}
-                                onChange={(selected: any) =>
-                                  setFieldValue("subTypes", (selected || []).map((o: any) => o.value))
+                                })() as any}
+                                isRequired={false}
+                                onCreate={createNewServiceUnderType}
+                                onRefreshOptions={handleRefreshCompanyTypes}
+                                createModalTitle="Create New Service"
+                                createButtonText="Add New Service"
+                                createFieldLabel="Service Name"
+                                createFieldPlaceholder="Enter service name..."
+                                // A Service is filed under a Company Type — let the user pick which.
+                                parentSelectLabel="Company Type"
+                                parentPlaceholder="Select company type..."
+                                parentOptions={(values.companyTypes || []).map((id: string) => {
+                                  const t = (companyTypes as any[]).find((x) => x.id === id);
+                                  return { value: id, label: t?.name || id };
+                                })}
+                                defaultParentId={
+                                  (values.companyTypes || []).length === 1 ? values.companyTypes[0] : undefined
                                 }
-                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                                menuPosition="fixed"
-                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                                requireParent
+                                parentEmptyHint="Select a company type first to add a service under it."
                               />
                             </div>
                             <div className="col-md-4">
@@ -1251,6 +1263,18 @@ const NewCompanyForm: React.FC<Props> = ({
                                 createButtonText="Add New Sub-service"
                                 createFieldLabel="Sub-service Name"
                                 createFieldPlaceholder="Enter sub-service name..."
+                                // A Sub-service is filed under a Service — let the user pick which.
+                                parentSelectLabel="Service"
+                                parentPlaceholder="Select service..."
+                                parentOptions={(values.subTypes || []).map((id: string) => {
+                                  const t = (companyTypes as any[]).find((x) => x.id === id);
+                                  return { value: id, label: t?.name || id };
+                                })}
+                                defaultParentId={
+                                  (values.subTypes || []).length === 1 ? values.subTypes[0] : undefined
+                                }
+                                requireParent
+                                parentEmptyHint="Select a service first to add a sub-service under it."
                               />
                               {((values.companyTypes || []).length > 0 || (values.subTypes || []).length > 0) && (
                                 <small className="text-muted d-block mt-1">
@@ -1964,21 +1988,34 @@ const NewCompanyForm: React.FC<Props> = ({
                         </legend>
                         <div className="card-body card responsive-card p-md-10 p-3 ">
                           <div className="mb-3">
-                            <label className="form-label">Status</label>
-                            <div className="d-flex flex-wrap gap-4">
-                              {["ACTIVE", "CLOSED"].map((val) => (
-                                <label key={val} className="form-check">
-                                  <Field
-                                    type="radio"
-                                    name="status"
-                                    value={val}
-                                    className="form-check-input"
-                                  />
-                                  <span className="form-check-label">
-                                    {val.charAt(0) + val.slice(1).toLowerCase()}
-                                  </span>
-                                </label>
-                              ))}
+                            {/* Status drives the company's active/inactive state: ACTIVE = active,
+                                CLOSED = inactive. Styled like the contact form's status dropdown
+                                (colour dots) since both convey the same active/inactive meaning. */}
+                            <DropDownInput
+                              inputLabel="Status"
+                              placeholder="Select status"
+                              isRequired={false}
+                              formikField="status"
+                              showColor={true}
+                              options={[
+                                { value: "ACTIVE", label: "Active", color: "#50cd89" },
+                                { value: "CLOSED", label: "Inactive", color: "#f1416c" },
+                              ]}
+                            />
+                          </div>
+                          {/* Blacklist toggle — a blacklisted company is highlighted in the list. */}
+                          <div className="mb-3 d-flex align-items-center gap-3">
+                            <label className="form-label mb-0" htmlFor="blacklistedToggle">
+                              Is Blacklisted
+                            </label>
+                            <div className="form-check form-switch m-0">
+                              <Field
+                                type="checkbox"
+                                name="blacklisted"
+                                id="blacklistedToggle"
+                                className="form-check-input"
+                                role="switch"
+                              />
                             </div>
                           </div>
                           {/* <div className="mb-3">

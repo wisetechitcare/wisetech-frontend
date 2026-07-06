@@ -126,11 +126,22 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
                             ...dbColVis,                              // user's persisted choices win
                         };
 
+                        // A saved (possibly empty) sorting in the DB would otherwise clobber the
+                        // caller's defaultSorting. Only let the DB value win when the user actually
+                        // has an active sort; when it's empty/absent, fall back to defaultSorting so
+                        // tables like Contacts/Companies keep their A-Z default. Tables that pass no
+                        // defaultSorting are unaffected (both branches are []).
+                        const dbSorting = dbPreferences.data.preferences.sorting;
+                        const mergedSorting = (Array.isArray(dbSorting) && dbSorting.length > 0)
+                            ? dbSorting
+                            : defaultPreferences.sorting;
+
                         // Merge with defaults to ensure all properties exist; use deep-merged visibility
                         loadedPreferences = {
                             ...defaultPreferences,
                             ...dbPreferences.data.preferences,
-                            columnVisibility: mergedColumnVisibility
+                            columnVisibility: mergedColumnVisibility,
+                            sorting: mergedSorting
                         };
                     }
                 }

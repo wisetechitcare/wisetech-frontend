@@ -1,11 +1,12 @@
 import MaterialHeaderTab, { TabItem } from "@app/modules/common/components/MaterialHeaderTab";
 import { leadsIcons, projectsIcons, projectOverviewIcons, calenderIcons, worldIcons } from "@metronic/assets/sidepanelicons";
-import { useState, useEffect } from "react";
+import { useEffect, useCallback } from "react";
+import { useEventBus } from "@hooks/useEventBus";
 import ContactOverview from "./components/ContactOverview";
 import ContactLeadsOverview from "./components/ContactLeadsOverview";
 import ContactProject from "./components/ContactProject";
 import ContactConfigMain from "./config/ContactConfigMain";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { getAllClientContacts, getClientContactById } from "@services/companies";
 import { PageTitle } from "@metronic/layout/core";
 import Loader from "@app/modules/common/utils/Loader";
@@ -13,9 +14,21 @@ import ClientContactsMain from "./ClientContactsMain";
 import ContactsOverview from "./components/ContactsOverview";
 import CalenderMain from "../calender/CalenderMain";
 import Maps from "../companyOverview/components/Map";
+import { useState } from "react";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "@redux/store";
+import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
+
+const TAB_KEYS = ["overview", "contacts", "calendar", "map", "configure"] as const;
 
 const ContactsNavbar = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabKey = searchParams.get("tab") || "overview";
+  const activeTab = Math.max(0, TAB_KEYS.indexOf(tabKey as any));
+  const setActiveTab = (index: number) => {
+    setSearchParams({ tab: TAB_KEYS[index] ?? "overview" }, { replace: true });
+  };
+  const dispatch = useDispatch<AppDispatch>();
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number, id?: string}[]>([]);
@@ -24,20 +37,30 @@ const ContactsNavbar = () => {
   const { contactId } = useParams<{ contactId: string }>();
 
   useEffect(() => {
-    if (contactId) {
-      setLoading(true);
-      getClientContactById(contactId)
-        .then((response) => {
-          setContact(response?.data?.contact);
-        })
-        .catch((error) => {
-          console.error("Error loading contact:", error);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
+    dispatch(loadAllEmployeesIfNeeded());
+  }, [dispatch]);
+
+  const loadContact = useCallback(() => {
+    if (!contactId) return;
+    setLoading(true);
+    getClientContactById(contactId)
+      .then((response) => {
+        setContact(response?.data?.contact);
+      })
+      .catch((error) => {
+        console.error("Error loading contact:", error);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [contactId]);
+
+  useEffect(() => {
+    loadContact();
+  }, [loadContact]);
+
+  // Refetch so an edit made anywhere (e.g. the Contacts tab) reflects here without a page refresh.
+  useEventBus("clientContactUpdated", () => loadContact());
 
   useEffect(() => {
     getAllClientContacts({}, true).then((res) => {

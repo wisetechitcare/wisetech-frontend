@@ -216,6 +216,7 @@ export const EMPLOYEE = {
     DELETE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions/:permissionId",
     CREATE_NOTIFICATION: "api/employee/notification",
     GET_NOTIFICATIONS: "api/employee/notification",
+    UPDATE_NOTIFICATION: "api/employee/notification",
     GET_ALL_NOTIFICATIONS: "api/employee/allnotification",
     MARK_ALL_AS_READ: "api/employee/mark-all-read",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",

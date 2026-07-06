@@ -1,3 +1,4 @@
+import { safeJsonParse } from '@utils/safeJson';
 ﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
@@ -141,7 +142,7 @@ const GrossPayDistribution = () => {
 
   async function fetchPayrollConfiguration() {
     const { data: { configuration } } = await fetchConfiguration(GROSS_PAY);
-    const jsonObject = JSON.parse(configuration.configuration);
+    const jsonObject = safeJsonParse(configuration.configuration);
     setConfigurationRule(jsonObject);
     setConfigurationId(configuration.id);
     const tableData = Object.keys(jsonObject).map((gpd: string) => {

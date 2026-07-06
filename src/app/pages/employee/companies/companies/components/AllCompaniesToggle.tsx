@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { getClientCompanyById } from "@services/companies";
@@ -39,7 +39,9 @@ type TabType =
 const CompanyDetails = () => {
   const { companyId } = useParams<{ companyId: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || "overview";
+  const setActiveTab = (tab: TabType) => setSearchParams({ tab }, { replace: true });
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
@@ -250,7 +252,9 @@ const CompanyDetails = () => {
             id={company?.id}
             imageUrl={company?.logo}
             size={84}
+            imageFit="cover"
             status={company?.status === "ACTIVE" ? "active" : "inactive"}
+            enablePreview
           />
           <div className="flex-grow-1">
             <div className="text-muted small">Company #{company?.prefix || "N/A"}</div>

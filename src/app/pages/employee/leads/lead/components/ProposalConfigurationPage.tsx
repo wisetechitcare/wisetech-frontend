@@ -262,7 +262,7 @@ const ProposalConfigurationPage: React.FC = () => {
     setSelectedConfig({ ...selectedConfig, rules: updatedRules });
   };
 
-  const goBack = () => navigate("/qc/leads");
+  const goBack = () => navigate(-1);
 
   return (
     <div
