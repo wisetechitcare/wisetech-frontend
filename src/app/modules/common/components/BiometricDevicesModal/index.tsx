@@ -87,7 +87,7 @@ function LastSynced({ ts }: { ts: string | null }) {
 function StatTile({ label, value, tone, icon }: { label: string; value: ReactNode; tone: string; icon: ReactNode }) {
   return (
     <Paper variant="outlined" sx={{ minWidth: 0, p: 1.5, borderRadius: '12px', display: 'flex', alignItems: 'center', gap: 1.25, background: 'linear-gradient(180deg, #ffffff 0%, #FCFDFF 100%)' }}>
-      <Box sx={{ width: 42, height: 42, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${tone}14`, color: tone, flexShrink: 0 }}>{icon}</Box>
+      <Box sx={{ width: 42, height: 42, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${tone}1A`, color: tone, border: `1px solid ${tone}2E`, flexShrink: 0 }}>{icon}</Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography noWrap sx={{ fontSize: 19, fontWeight: 750, lineHeight: 1.15, color: 'text.primary' }}>{value}</Typography>
         <Typography noWrap sx={{ fontSize: 10.5, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{label}</Typography>
@@ -306,12 +306,12 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
   // Mobile/tablet card — a device shown as a self-contained card so nothing is clipped by a
   // horizontally-scrolling table on small screens.
   const renderDeviceCard = (d: IBiometricDevice) => (
-    <Paper key={d.id} variant="outlined" sx={{ p: 2, borderRadius: '14px', opacity: actionLoading[d.id] === 'delete' ? 0.5 : 1 }}>
-      <Stack spacing={1.5}>
+    <Paper key={d.id} variant="outlined" sx={{ p: 2.25, borderRadius: '14px', borderLeft: '4px solid', borderLeftColor: T.color.brand, fontFamily: T.font.family, opacity: actionLoading[d.id] === 'delete' ? 0.5 : 1 }}>
+      <Stack spacing={1.75}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: 15.5, lineHeight: 1.2, wordBreak: 'break-word' }}>{d.name}</Typography>
-            <Typography sx={{ fontFamily: 'monospace', fontSize: 12.5, color: 'text.secondary', mt: 0.25 }}>{d.deviceIp}:{d.devicePort}</Typography>
+            <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: 16, lineHeight: 1.25, color: T.color.ink, wordBreak: 'break-word' }}>{d.name}</Typography>
+            <Typography sx={{ fontFamily: 'monospace', fontSize: 12.5, color: T.color.inkSoft, mt: 0.4 }}>{d.deviceIp}:{d.devicePort}</Typography>
           </Box>
           <StatusChip device={d} />
         </Stack>
@@ -319,12 +319,15 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           <ModeChip mode={d.connectionMode} />
           <SyncChip status={d.lastSyncStatus} />
         </Stack>
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, p: 1.5, borderRadius: '10px', bgcolor: T.color.panel }}>
           <LabeledField label="Serial #" value={d.serialNumber} mono />
           <LabeledField label="Last synced" value={<LastSynced ts={d.lastSyncedAt} />} />
         </Box>
-        <Divider sx={{ mx: -0.5 }} />
-        {renderActions(d)}
+        <Divider sx={{ borderColor: T.color.line }} />
+        <Box>
+          <Typography sx={{ fontFamily: T.font.family, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: T.color.inkFaint, mb: 0.75 }}>Actions</Typography>
+          {renderActions(d)}
+        </Box>
       </Stack>
     </Paper>
   );
@@ -333,30 +336,40 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
     <>
     <Dialog open={show} onClose={onClose} maxWidth="lg" fullWidth fullScreen={isMobile} disableEnforceFocus PaperProps={{ sx: { borderRadius: isMobile ? 0 : '16px', fontFamily: T.font.family, display: 'flex', flexDirection: 'column' } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, px: 2.75, py: 1.75, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: { xs: 2, sm: 2.75 }, py: { xs: 1.5, sm: 1.75 }, background: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)', borderBottom: '3px solid #C0392B', color: '#fff', flexShrink: 0 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-          <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
+          <Box sx={{ width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', flexShrink: 0 }}>
             <KTIcon iconName="fingerprint-scanning" className="fs-1" />
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 750, fontSize: 16.5, color: '#fff', lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {branchName} — Biometric Devices
+            <Typography sx={{ fontFamily: T.font.family, fontWeight: 700, fontSize: { xs: 15.5, sm: 17 }, color: '#fff', lineHeight: 1.25 }}>
+              Biometric Devices
             </Typography>
-            <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.72)' }}>
-              {loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''} configured`}
+            <Typography sx={{ fontFamily: T.font.family, fontSize: 12.5, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {branchName} · {loading ? 'Loading…' : `${devices.length} device${devices.length !== 1 ? 's' : ''}`}
             </Typography>
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
-          {!showForm && (
-            <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}>Add Device</Button>
+          {!showForm && !isMobile && (
+            <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 600, borderRadius: '9px', bgcolor: '#fff', color: 'primary.main', '&:hover': { bgcolor: '#EAF0FA' } }}>Add Device</Button>
           )}
-          <IconButton onClick={onClose} size="small" aria-label="Close" sx={{ color: '#fff' }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
+          <IconButton onClick={onClose} aria-label="Close" sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.10)', width: 38, height: 38, '&:hover': { bgcolor: 'rgba(255,255,255,0.20)' } }}><KTIcon iconName="cross" className="fs-3" /></IconButton>
         </Stack>
       </Box>
 
       {/* Body */}
       <Box sx={{ bgcolor: T.color.panel, p: { xs: 1.5, sm: 2 }, maxHeight: isMobile ? 'none' : '74vh', flex: isMobile ? 1 : 'none', overflowY: 'auto' }}>
+        {/* Mobile: primary action lives in the body (header stays uncluttered). */}
+        {isMobile && !showForm && devices.length > 0 && (
+          <Button
+            fullWidth variant="contained" onClick={openCreate}
+            startIcon={<KTIcon iconName="plus" className="fs-5" />}
+            sx={{ fontFamily: T.font.family, textTransform: 'none', fontWeight: 700, fontSize: 14, borderRadius: '10px', py: 1.15, mb: 2, boxShadow: 'none' }}
+          >
+            Add Device
+          </Button>
+        )}
         {/* KPI stat strip — responsive: 2 columns on phones, 4 on wider screens. */}
         {!loading && devices.length > 0 && (
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1.5, mb: 2 }}>
