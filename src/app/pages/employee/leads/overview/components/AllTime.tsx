@@ -378,7 +378,7 @@ const AllTime = () => {
             "budget"
           ),
           cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
-            topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsApiRes?.data || [], {
+          topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsApiRes?.data || [], {
             groupBy: filters.topLeadsType,
             status: filters.topLeadsStatus,
             referralType: filters.topLeadsReferralType,
@@ -446,7 +446,7 @@ const AllTime = () => {
       setChartData((prevData: any) => ({
         ...prevData,
         cancellationReasonData: convertToChartData(cancellationApiRes?.data || [], "value", "name", ""),
-            topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsRes.data, {
+        topLeadsData: transformTopLeadsDataAdvanced(monthlyTopLeadsRes.data, {
           groupBy: filters.topLeadsType,
           status: filters.topLeadsStatus,
           referralType: filters.topLeadsReferralType,
@@ -504,7 +504,7 @@ const AllTime = () => {
           sourceData={chartData.sourceData}
           referralSourceData={chartData.referralSourceData}
           directSourceData={chartData.directSourceData}
-            cancellationReasonData={chartData.cancellationReasonData}
+          cancellationReasonData={chartData.cancellationReasonData}
           settings={settings}
           showKpis={false}
           onStatusSelect={handleStatusChartClick}
