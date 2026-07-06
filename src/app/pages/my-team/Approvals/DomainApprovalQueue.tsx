@@ -22,6 +22,12 @@ type RequestDetails = {
   halfDaySession?: string | null;
   totalAmount?: number | string | null;
   totalRequests?: number | null;
+  // Attendance (regularization) specifics — the requested punches.
+  checkIn?: string | null;
+  checkOut?: string | null;
+  checkInLocation?: string | null;
+  checkOutLocation?: string | null;
+  submittedAt?: string | null;
 };
 
 type ApprovalStep = {
@@ -67,7 +73,6 @@ type DisplayStep = ApprovalStep & {
   _splitAmount?: number;
 };
 
-const ATTENDANCE_BADGE_COLOR = '#f1bc00';
 const REIMBURSEMENT_BADGE_COLOR = '#50cd89';
 
 const MIN_REASON_LENGTH = 10;
@@ -81,6 +86,23 @@ function formatDate(dateStr?: string | null): string {
 function formatDateWithDay(dateStr?: string | null): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Time-only, e.g. "09:15 AM". Used for attendance punches where the time matters.
+function formatTimeOnly(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+// Worked span between check-in and check-out, e.g. "8h 45m". Empty if either is missing.
+function formatWorkedDuration(checkIn?: string | null, checkOut?: string | null): string {
+  if (!checkIn || !checkOut) return '';
+  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  if (Number.isNaN(ms) || ms <= 0) return '';
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${m}m`;
 }
 
 // Inclusive calendar-day count between two ISO dates. Parses the date-only portion as UTC
@@ -175,9 +197,114 @@ function RejectModal({ step, onClose, onConfirm, submitting }: RejectModalProps)
 
 // ─── Expanded row detail ───────────────────────────────────────────────────────
 
-function ExpandedDetail({ instanceId, splitStatus }: { instanceId: string; splitStatus?: 1 | 2 }) {
+// Detailed attendance-regularization view — shows the requested punch(es) so an approver can
+// judge the request without leaving the queue: which day, requested check-in/out times, the
+// resulting worked duration, capture locations, and the employee's remarks.
+// Premium, scannable punch display used in the Type cell. Aligned labels + semantic dots
+// (green = in, rose = out); a punch that wasn't requested reads as a muted "Not requested",
+// so the presence/times themselves communicate whether it's a Check-In, Check-Out, or both.
+function AttendancePunchStack({ checkIn, checkOut }: { checkIn?: string | null; checkOut?: string | null }) {
+  const Row = ({ label, time, color }: { label: string; time?: string | null; color: string }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, lineHeight: 1.35 }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, backgroundColor: time ? color : '#dbdfe9' }} />
+      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase', color: '#99a1b7', minWidth: 62 }}>
+        {label}
+      </span>
+      {time ? (
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#1c1f2b', fontVariantNumeric: 'tabular-nums' }}>
+          {formatTimeOnly(time)}
+        </span>
+      ) : (
+        <span style={{ fontSize: 11, fontStyle: 'italic', color: '#b5b9c9' }}>Not requested</span>
+      )}
+    </div>
+  );
+  return (
+    <div className='d-flex flex-column' style={{ gap: 5, paddingBlock: 2 }}>
+      <Row label='Check-In' time={checkIn} color='#17c653' />
+      <Row label='Check-Out' time={checkOut} color='#f1416c' />
+    </div>
+  );
+}
+
+function AttendanceDetailCard({ details }: { details: RequestDetails }) {
+  const { checkIn, checkOut, checkInLocation, checkOutLocation, reason, subType } = details;
+  const worked = formatWorkedDuration(checkIn, checkOut);
+  const kindLabel = checkIn && checkOut
+    ? 'Check-In & Check-Out'
+    : checkIn
+      ? 'Check-In'
+      : checkOut
+        ? 'Check-Out'
+        : (subType ?? 'Regularization');
+
+  const Punch = ({ label, at, location }: { label: string; at?: string | null; location?: string | null }) => (
+    <div style={{ flex: 1, minWidth: 180 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: '#a1a5b7' }}>
+        {label}
+      </div>
+      {at ? (
+        <>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#181c32', lineHeight: 1.3 }}>{formatTimeOnly(at)}</div>
+          <div style={{ fontSize: 12, color: '#5e6278' }}>{formatDateWithDay(at)}</div>
+          {location ? (
+            <div style={{ fontSize: 11, color: '#a1a5b7', marginTop: 2 }}>📍 {location}</div>
+          ) : null}
+        </>
+      ) : (
+        <div style={{ fontSize: 14, color: '#a1a5b7', fontStyle: 'italic' }}>Not requested</div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid #eff2f5', borderRadius: 10,
+      padding: '16px 18px', marginBottom: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#181c32' }}>
+          Attendance Request — {kindLabel}
+        </span>
+        {worked ? (
+          <span className='badge' style={{ backgroundColor: '#e8f5e9', color: '#1b5e20', fontWeight: 600, fontSize: 11, padding: '5px 10px', borderRadius: 12 }}>
+            Worked {worked}
+          </span>
+        ) : null}
+      </div>
+
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        <Punch label='Requested Check-In' at={checkIn} location={checkInLocation} />
+        <div style={{ width: 1, background: '#eff2f5', alignSelf: 'stretch' }} />
+        <Punch label='Requested Check-Out' at={checkOut} location={checkOutLocation} />
+      </div>
+
+      {reason ? (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #eff2f5' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: '#a1a5b7', marginBottom: 3 }}>
+            Remarks
+          </div>
+          <div style={{ fontSize: 13, color: '#3f4254' }}>{reason}</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExpandedDetail({
+  instanceId,
+  splitStatus,
+  workflowType,
+  details,
+}: {
+  instanceId: string;
+  splitStatus?: 1 | 2;
+  workflowType?: string;
+  details?: RequestDetails | null;
+}) {
   return (
     <div style={{ padding: '16px 20px', background: '#fafafa', borderTop: '1px solid #eff2f5' }}>
+      {workflowType === 'attendance' && details ? <AttendanceDetailCard details={details} /> : null}
       <ApprovalStatusTracker
         instanceId={instanceId}
         showAuditLog
@@ -375,7 +502,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     {
       accessorKey: 'workflowType',
       header: 'Type',
-      size: 170,
+      size: 185,
       Cell: ({ row }) => {
         const type = row.original.instance.workflowType;
         const subType = row.original.requestDetails?.subType;
@@ -383,12 +510,17 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         let label: string;
         let color: string;
 
+        // Attendance: a clean, labelled punch stack (Check-In / Check-Out + times) reads far
+        // better than a generic "Regularization" badge and tells the approver exactly what's
+        // requested at a glance.
+        if (type === 'attendance') {
+          const { checkIn, checkOut } = row.original.requestDetails ?? {};
+          return <AttendancePunchStack checkIn={checkIn} checkOut={checkOut} />;
+        }
+
         if (type === 'leave' && subType) {
           label = subType;
           color = getLeaveTypeColor(subType);
-        } else if (type === 'attendance') {
-          label = subType ?? 'Regularization';
-          color = ATTENDANCE_BADGE_COLOR;
         } else if (type === 'reimbursement') {
           const ds = row.original as DisplayStep;
           if (ds._splitStatus) {
@@ -421,7 +553,26 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       header: 'Duration',
       size: 180,
       Cell: ({ row }) => {
-        const { dateFrom, dateTo, isHalfDay, halfDaySession } = row.original.requestDetails ?? {};
+        const rd = row.original.requestDetails ?? {};
+        const { dateFrom, dateTo, isHalfDay, halfDaySession } = rd;
+
+        // Attendance regularization: show which day is being regularized + the worked span.
+        // (The requested In/Out times live in the Type column.)
+        if (row.original.instance.workflowType === 'attendance') {
+          const { checkIn, checkOut } = rd;
+          const worked = formatWorkedDuration(checkIn, checkOut);
+          const day = checkIn || checkOut;
+          if (!day) return <span className='text-muted fs-7'>—</span>;
+          return (
+            <div className='d-flex flex-column'>
+              <span className='text-dark fw-semibold fs-7'>{formatDateWithDay(day)}</span>
+              {worked && (
+                <span className='badge badge-light-success fw-bold fs-8 mt-1 align-self-start'>{worked}</span>
+              )}
+            </div>
+          );
+        }
+
         if (!dateFrom) return <span className='text-muted fs-7'>—</span>;
         const from = formatDateWithDay(dateFrom);
         const to = dateTo ? formatDateWithDay(dateTo) : null;
@@ -609,7 +760,12 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
         hideFilters={false}
         hideExportCenter
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
-          <ExpandedDetail instanceId={row.original.instance.id} splitStatus={(row.original as DisplayStep)._splitStatus} />
+          <ExpandedDetail
+            instanceId={row.original.instance.id}
+            splitStatus={(row.original as DisplayStep)._splitStatus}
+            workflowType={row.original.instance.workflowType}
+            details={row.original.requestDetails}
+          />
         )}
         muiTableProps={{
           muiTableBodyRowProps: ({ row }: any) => ({
