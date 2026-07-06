@@ -31,17 +31,25 @@ const MetaCard: React.FC<{ title: string; icon: string; accent: any; rows: KV[] 
  * Lead (master) and, when present, the Project extension. Replaces the old
  * History tab; full field-level audit needs an audit-log table (future).
  */
-const SystemSection: React.FC<{ vm: EntityVM }> = ({ vm }) => (
-  <div className="row g-5">
-    <div className={vm.projectSystemRows ? 'col-12 col-xl-6' : 'col-12'}>
-      <MetaCard title="Lead Record" icon="bi bi-gear" accent="primary" rows={vm.systemRows} />
-    </div>
-    {vm.projectSystemRows && (
-      <div className="col-12 col-xl-6">
-        <MetaCard title="Project Record" icon="bi bi-kanban" accent="green" rows={vm.projectSystemRows} />
+const SystemSection: React.FC<{ vm: EntityVM; variant?: 'lead' | 'project' }> = ({ vm, variant = 'lead' }) => {
+  // The Lead Record lives on the Leads sub-tab; the Project Record on Projects.
+  if (variant === 'project') {
+    if (!vm.projectSystemRows) return null;
+    return (
+      <div className="row g-5">
+        <div className="col-12">
+          <MetaCard title="Project Record" icon="bi bi-kanban" accent="green" rows={vm.projectSystemRows} />
+        </div>
       </div>
-    )}
-  </div>
-);
+    );
+  }
+  return (
+    <div className="row g-5">
+      <div className="col-12">
+        <MetaCard title="Lead Record" icon="bi bi-gear" accent="primary" rows={vm.systemRows} />
+      </div>
+    </div>
+  );
+};
 
 export default SystemSection;

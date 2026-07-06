@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
-import { DetailCard, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
+import { DetailCard, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import { C, FONT, RADIUS, ICON_COLORS } from '@app/modules/configuration/ConfigDesignSystem';
 import { HealthGauge, MissingInfoChip } from '../widgets';
 import SystemSection from './SystemSection';
@@ -13,11 +13,9 @@ import CommercialsSection from './CommercialsSection';
 import type { EntityVM } from '../facets';
 import {
   fmtDate,
-  compactMoney,
   employeeUserName,
   employeeNameById,
   projectManagerName,
-  sumLeadCommercials,
   computeHealth,
   computeMissingInfo,
   conversionProbability,
@@ -86,7 +84,7 @@ const SectionHeading: React.FC<{ icon: string; title: string; color?: string }> 
   </div>
 );
 
-type SubKey = 'overview' | 'client' | 'scope' | 'project';
+type SubKey = 'leads' | 'projects' | 'commercial';
 interface SubDef {
   key: SubKey;
   label: string;
@@ -94,10 +92,9 @@ interface SubDef {
   projectOnly?: boolean;
 }
 const SUB_PAGES: SubDef[] = [
-  { key: 'overview', label: 'Overview', icon: 'bi bi-speedometer2' },
-  { key: 'client', label: 'Client', icon: 'bi bi-buildings' },
-  { key: 'scope', label: 'Scope & Commercials', icon: 'bi bi-diagram-3' },
-  { key: 'project', label: 'Project', icon: 'bi bi-kanban', projectOnly: true },
+  { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
+  { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
+  { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
 ];
 
 /**
@@ -170,19 +167,15 @@ const SummarySection: React.FC<{
   // Lead-as-master: execution-only fields now come from the lead's 1:1 execution
   // extension. Fall back to the (transitional) project row when present.
   const exec = lead?.execution || {};
-  const [sub, setSub] = useState<SubKey>('overview');
+  const [sub, setSub] = useState<SubKey>('leads');
 
   const subPages = useMemo(() => SUB_PAGES.filter(s => !s.projectOnly || isProject), [isProject]);
-  const active = subPages.some(s => s.key === sub) ? sub : 'overview';
+  const active = subPages.some(s => s.key === sub) ? sub : 'leads';
 
   const owner = employeeUserName(lead?.assignedTo) || employeeNameById(allEmployees, lead?.assignedToId) || DASH;
   const missing = computeMissingInfo(lead);
   const health = computeHealth(lead, missing.length);
   const probability = conversionProbability(lead, health);
-  const commercials = sumLeadCommercials(lead);
-  const value = commercials.totalCost;
-  const totalArea = commercials.totalArea;
-  const totalRate = totalArea > 0 ? (value / totalArea).toFixed(2) : 0;
   // Dates live on the lead now (fallback to the project row during transition).
   const execStart = lead?.startDate || p?.startDate;
   const execEnd = lead?.endDate || p?.endDate;
@@ -193,8 +186,17 @@ const SummarySection: React.FC<{
     : employeeNameById(allEmployees, exec?.projectManagerId);
   const pmName = execManager || projectManagerName(p, allEmployees) || DASH;
   const execStatus = exec?.projectStatus || p?.status || null;
+  const leadSource =
+    lead?.leadDirectSource?.name ||
+    lead?.source?.name ||
+    (lead?.leadSourceType ? String(lead.leadSourceType).replace(/_/g, ' ') : '') ||
+    DASH;
+  const fl = vm.fileLocation || {};
+  const hasFileLocation = !!(fl.path || fl.company || fl.companyType);
 
-  const Overview = (
+  // ── LEADS ─ all lead master data: health, identity, client, specs, address,
+  //           notes, system metadata (everything that belongs to the lead). ─────
+  const Leads = (
     <div>
       <div style={{ position: 'relative', background: `linear-gradient(135deg, ${health.color}14 0%, ${C.bgCard} 58%)`, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl, boxShadow: C.shadowCard, padding: '14px 18px 14px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', overflow: 'visible' }}>
         <span style={{ position: 'absolute', left: 0, top: 10, bottom: 10, width: 5, borderRadius: '0 4px 4px 0', background: `linear-gradient(${health.color}, ${health.color}99)` }} aria-hidden />
@@ -214,34 +216,36 @@ const SummarySection: React.FC<{
         </div>
       </div>
 
+      {/* Primary lead identity — the "main things", lead number first. */}
       <StatGrid
         items={[
+          { label: 'Lead No.', value: lead?.prefix || DASH, icon: 'bi bi-hash', accent: 'primary' },
           { label: 'Status', value: <DetailStatusBadge status={lead?.status?.name || DASH} color={lead?.status?.color} />, icon: 'bi bi-activity', accent: 'blue' },
-          { label: 'Assigned To', value: owner, icon: 'bi bi-person-badge', accent: 'primary' },
+          { label: 'Assigned To', value: owner, icon: 'bi bi-person-badge', accent: 'purple' },
+          { label: 'Lead Type', value: lead?.leadType ? String(lead.leadType).replace(/_/g, ' ') : DASH, icon: 'bi bi-tag', accent: 'teal' },
+          { label: 'Priority', value: lead?.priority || DASH, icon: 'bi bi-flag', accent: 'warning' },
+          { label: 'Lead Source', value: leadSource, icon: 'bi bi-signpost-split', accent: 'info' },
           { label: 'Inquiry Date', value: fmtDate(lead?.inquiryDate), icon: 'bi bi-calendar-event', accent: 'teal' },
-          { label: 'Total Area', value: totalArea ? `${totalArea.toLocaleString('en-IN')} SFT` : DASH, icon: 'bi bi-diagram-2', accent: 'warning' },
-          { label: 'Total Rate', value: totalRate ? `₹${parseFloat(totalRate as any).toLocaleString('en-IN')}` : DASH, icon: 'bi bi-graph-up', accent: 'info' },
-          { label: 'Cost', value: compactMoney(value), icon: 'bi bi-currency-rupee', accent: 'green' },
+          { label: 'Next Follow-up', value: fmtDate(lead?.nextFollowUpDate), icon: 'bi bi-calendar-check', accent: 'amber' },
         ]}
       />
 
-      {isProject && (
-        <div className="mt-4">
-          <SectionHeading icon="bi bi-kanban" title="Project Snapshot" color={ICON_COLORS.green.color} />
-          <StatGrid
-            items={[
-              { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
-              { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
-              { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accent: delayed ? 'danger' : 'warning' },
-              { label: 'Start Date', value: fmtDate(execStart), icon: 'bi bi-calendar-event', accent: 'teal' },
-              { label: 'Expected Closure', value: fmtDate(execEnd), icon: 'bi bi-calendar-check', accent: 'green' },
-            ]}
-          />
-        </div>
-      )}
+      <div className="mt-5">
+        <SectionHeading icon="bi bi-buildings" title="Client & Contacts" color={ICON_COLORS.blue.color} />
+        <CardGrid>
+          {companyContactCards(company, contact, lead)}
+          <ServiceScopeCard vm={vm} />
+          {clientExtraCards(vm, lead?.companyId)}
+        </CardGrid>
+      </div>
+
+      <div className="mt-6">
+        <SectionHeading icon="bi bi-rulers" title="Specifications" color="#7c3aed" />
+        <ScopeSection vm={vm} />
+      </div>
 
       <div className="mt-5">
-        <AddressesCard vm={vm} />
+        <AddressesCard vm={vm} only="lead" title="Lead Address" />
       </div>
 
       {(vm.notes.remarks || vm.notes.description) && (
@@ -265,39 +269,80 @@ const SummarySection: React.FC<{
         </div>
       )}
 
+      {hasFileLocation && (
+        <div className="mt-5">
+          <DetailCard title="File Location" subtitle="Where this lead's files live" icon="bi bi-folder2-open" accentColor="amber">
+            <DetailRow label="Folder Path" value={fl.path || DASH} />
+            <DetailRow label="Company (Folder)" value={fl.company || DASH} />
+            <DetailRow label="Company Type (Folder)" value={fl.companyType || DASH} isLast />
+          </DetailCard>
+        </div>
+      )}
+
+      {lead?.isCancelled && (
+        <div className="mt-5">
+          <DetailCard title="Closure / Cancellation" subtitle="Why this lead was closed" icon="bi bi-x-octagon" accentColor="danger">
+            <DetailRow label="Reason" value={lead?.reasonForCancellation || lead?.reason?.name || DASH} />
+            <DetailRow label="Note" value={lead?.cancellationNote || DASH} />
+            <DetailRow label="Closed On" value={fmtDate(lead?.cancellationDate)} isLast />
+          </DetailCard>
+        </div>
+      )}
+
       <div className="mt-6">
         <SectionHeading icon="bi bi-gear" title="System & Metadata" color="#64748B" />
-        <SystemSection vm={vm} />
+        <SystemSection vm={vm} variant="lead" />
       </div>
     </div>
   );
 
-  const Client = (
-    <CardGrid>
-      {companyContactCards(company, contact, lead)}
-      <ServiceScopeCard vm={vm} />
-      {clientExtraCards(vm, lead?.companyId)}
-    </CardGrid>
+  // ── PROJECTS ─ execution snapshot + the full project execution cards.
+  //              Only rendered once the lead reaches a project-trigger status. ───
+  const Projects = (
+    <div>
+      <SectionHeading icon="bi bi-kanban" title="Project Snapshot" color={ICON_COLORS.green.color} />
+      <StatGrid
+        items={[
+          { label: 'Project Status', value: <DetailStatusBadge status={execStatus?.name || DASH} color={execStatus?.color} />, icon: 'bi bi-kanban', accent: 'blue' },
+          { label: 'Project Manager', value: pmName, icon: 'bi bi-person-workspace', accent: 'primary' },
+          { label: 'Progress', value: progress != null ? `${progress}%` : DASH, icon: 'bi bi-hourglass-split', accent: delayed ? 'danger' : 'warning' },
+          { label: 'Start Date', value: fmtDate(execStart), icon: 'bi bi-calendar-event', accent: 'teal' },
+          { label: 'Expected Closure', value: fmtDate(execEnd), icon: 'bi bi-calendar-check', accent: 'green' },
+        ]}
+      />
+      <div className="mt-5">
+        <ProjectDetailSection lead={lead} />
+      </div>
+
+      {vm.client.addresses.some(a => a.kind === 'project') && (
+        <div className="mt-5">
+          <AddressesCard vm={vm} only="project" title="Project Site Address" />
+        </div>
+      )}
+
+      {vm.projectSystemRows && (
+        <div className="mt-6">
+          <SectionHeading icon="bi bi-gear" title="Project Metadata" color="#64748B" />
+          <SystemSection vm={vm} variant="project" />
+        </div>
+      )}
+    </div>
   );
 
-  const ScopeCommercials = (
+  // ── COMMERCIAL ─ the quote / contract commercial breakdown (line items + totals).
+  const Commercial = (
     <div>
-      <SectionHeading icon="bi bi-rulers" title="Specifications" color="#7c3aed" />
-      <ScopeSection vm={vm} />
-      <div className="mt-6">
-        <SectionHeading icon="bi bi-cash-stack" title="Commercials" color="#16a34a" />
-        <CommercialsSection vm={vm} />
-      </div>
+      <SectionHeading icon="bi bi-cash-stack" title="Commercials" color="#16a34a" />
+      <CommercialsSection vm={vm} />
     </div>
   );
 
   return (
     <div>
       <SubNav items={subPages} active={active} onChange={setSub} />
-      {active === 'overview' && Overview}
-      {active === 'client' && Client}
-      {active === 'scope' && ScopeCommercials}
-      {active === 'project' && isProject && <ProjectDetailSection lead={lead} />}
+      {active === 'leads' && Leads}
+      {active === 'projects' && isProject && Projects}
+      {active === 'commercial' && Commercial}
     </div>
   );
 };

@@ -64,16 +64,23 @@ function CalendarConfigure() {
   const loadConfigs = async () => {
     setIsLoading(true);
     try {
+      // A module with no saved row yet makes the GET endpoint respond 400. With a bare
+      // Promise.all, that single rejection discards EVERY result — so one un-configured
+      // module would wipe all the already-saved settings back to their disabled defaults
+      // on each reload. Catch per request so missing modules fall back to defaults while
+      // the saved ones load correctly.
+      const safeFetch = (module: string) => fetchConfiguration(module).catch(() => null);
+
       const [resBdayInt, resBdayIntInact, resBdayExt, resAnnyInt, resAnnyIntInact, resAnnyExt, resSaturday, resSunday, resMeetings] = await Promise.all([
-        fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL),
-        fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL_INACTIVE),
-        fetchConfiguration(SHOW_BIRTHDAYS_EXTERNAL),
-        fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL),
-        fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL_INACTIVE),
-        fetchConfiguration(SHOW_ANNIVERSARIES_EXTERNAL),
-        fetchConfiguration(SHOW_SATURDAY_ON_CALENDAR),
-        fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR),
-        fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR)
+        safeFetch(SHOW_BIRTHDAYS_INTERNAL),
+        safeFetch(SHOW_BIRTHDAYS_INTERNAL_INACTIVE),
+        safeFetch(SHOW_BIRTHDAYS_EXTERNAL),
+        safeFetch(SHOW_ANNIVERSARIES_INTERNAL),
+        safeFetch(SHOW_ANNIVERSARIES_INTERNAL_INACTIVE),
+        safeFetch(SHOW_ANNIVERSARIES_EXTERNAL),
+        safeFetch(SHOW_SATURDAY_ON_CALENDAR),
+        safeFetch(SHOW_SUNDAY_ON_CALENDAR),
+        safeFetch(SHOW_MEETINGS_ON_CALENDAR)
       ]);
 
       const parseConfig = (res: any, defaultColor: string) => {
