@@ -4,8 +4,7 @@ import { createNewFaq, deleteFaqById, fetchAllFaqs, fetchCompanyOverview, update
 import { useEffect, useState, useCallback } from 'react';
 import { Card } from 'react-bootstrap';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
-import { hasPermission } from '@utils/authAbac';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { can } from '@utils/can';
 import FaqItem from './FaqItem';
 import FaqModal from './FaqModal';
 import FaqSection from './FaqSection';
@@ -163,6 +162,11 @@ const AttendanceAdminFaqs = () => {
         fetchFaqs();
     }, [fetchFaqs]);
 
+    // This FAQ manager is reached only from the "Employees" attendance tab, so its
+    // write actions follow that section's Write grant (attendance.employees.update.all) -
+    // Read shows the FAQs with no Add/Edit/Delete controls.
+    const canManageFaqs = can('attendance.employees.update.all');
+
     return (
         <div style={{ backgroundColor: '#f7f9fc', height: '100%', padding: '0px' }}>
             <div className="d-flex flex-column gap-4">
@@ -171,7 +175,7 @@ const AttendanceAdminFaqs = () => {
                     <h2 className="fw-semibold mb-0" style={{ fontSize: '24px', letterSpacing: '0.24px' }}>
                         Frequently Asked Questions
                     </h2>
-                    {/* {hasPermission(resourceNameMapWithCamelCase.attendance, permissionConstToUseWithHasPermission.create) && ( */}
+                    {canManageFaqs && (
                         <button
                             className="btn"
                             style={{
@@ -187,7 +191,7 @@ const AttendanceAdminFaqs = () => {
                         >
                             Add New
                         </button>
-                    {/* )} */}
+                    )}
                 </div>
 
                 {/* FAQ Sections */}
@@ -209,8 +213,8 @@ const AttendanceAdminFaqs = () => {
                                             key={faq.id}
                                             faq={faq}
                                             isLast={index === sectionFaqs.length - 1}
-                                            onEdit={handleEdit}
-                                            onDelete={handleDelete}
+                                            onEdit={canManageFaqs ? handleEdit : undefined}
+                                            onDelete={canManageFaqs ? handleDelete : undefined}
                                         />
                                     ))
                                 ) : (

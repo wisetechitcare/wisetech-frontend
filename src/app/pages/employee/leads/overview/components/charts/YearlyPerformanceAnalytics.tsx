@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { getMonthlyLeadAnalytics, getMonthlyTargets } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
+import { can } from "@utils/can";
 import dayjs from "dayjs";
 
 interface YearlyPerformanceAnalyticsProps {
@@ -382,7 +383,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
             </div>
             <div className="d-flex align-items-center gap-2">
               <div className="d-flex gap-2">
-                {viewMode === "inquiry" ? (
+                {can('crm.leads.update.all') && (viewMode === "inquiry" ? (
                   <Button
                     variant="outline-primary"
                     size="sm"
@@ -416,7 +417,7 @@ const YearlyPerformanceAnalytics: React.FC<YearlyPerformanceAnalyticsProps> = ({
                     <i className="bi bi-gear-fill"></i>
                     SET RECEIVED GOAL
                   </Button>
-                )}
+                ))}
               </div>
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"

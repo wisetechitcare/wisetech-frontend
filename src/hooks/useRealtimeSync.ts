@@ -69,6 +69,15 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       eventBus.emit(EVENT_KEYS.attendanceUpdated, payload || {});
     };
 
+    // This employee's effective permissions changed (role permissions edited, a role's
+    // section access changed, or their role assignment changed) - targeted to this
+    // employee's room only (see SocketGateway.emit on the backend). usePermissionsRealtime
+    // subscribes to refetch capabilities immediately, so a revoked/changed user's access
+    // updates without needing to log out or refresh.
+    const onPermissionsUpdated = (payload: { employeeId?: string }) => {
+      eventBus.emit(EVENT_KEYS.permissionsUpdated, payload || {});
+    };
+
     socket.on('connect', onConnect);
     socket.on('lead_project_synced', onLeadProjectSynced);
     socket.on('project_linked', onProjectLinked);
@@ -76,6 +85,7 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
     socket.on('biometric_device_updated', onBiometricDeviceUpdated);
     socket.on('reimbursement_changed', onReimbursementChanged);
     socket.on('attendance_updated', onAttendanceUpdated);
+    socket.on('permissions_updated', onPermissionsUpdated);
 
     return () => {
       socket.off('connect', onConnect);
@@ -85,6 +95,7 @@ export function useRealtimeSync(employeeId: string | null | undefined) {
       socket.off('biometric_device_updated', onBiometricDeviceUpdated);
       socket.off('reimbursement_changed', onReimbursementChanged);
       socket.off('attendance_updated', onAttendanceUpdated);
+      socket.off('permissions_updated', onPermissionsUpdated);
     };
   }, [employeeId]);
 }

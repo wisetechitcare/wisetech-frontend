@@ -6,6 +6,7 @@ import { formatBytes, getStatusConfig } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
 import * as dmsService from '../services/dmsService';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
+import { can } from '@utils/can';
 
 interface DocumentCardProps {
   file: DMSFile;
@@ -102,26 +103,30 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
     }
   };
 
+  const canManageLeads = can('crm.leads.update.all');
+
   const actions = [
     { icon: 'eye', label: 'Preview', action: () => { handlePreview(); onClose(); } },
     { icon: 'cloud-download', label: 'Download', action: handleDownload },
-    { icon: 'pencil', label: 'Rename', action: () => { onRename(); onClose(); } },
-    { icon: 'trash', label: 'Delete', action: async () => { 
-      try {
-        const confirmed = await genericConfirmation(
-          "Confirm Deletion",
-          "Are you sure you want to delete this file? This action cannot be undone.",
-          "Delete File"
-        );
-        if (confirmed) {
-          await deleteFiles([file.id]);
-          successConfirmation('File deleted successfully!');
-          onClose();
+    ...(canManageLeads ? [
+      { icon: 'pencil', label: 'Rename', action: () => { onRename(); onClose(); } },
+      { icon: 'trash', label: 'Delete', action: async () => {
+        try {
+          const confirmed = await genericConfirmation(
+            "Confirm Deletion",
+            "Are you sure you want to delete this file? This action cannot be undone.",
+            "Delete File"
+          );
+          if (confirmed) {
+            await deleteFiles([file.id]);
+            successConfirmation('File deleted successfully!');
+            onClose();
+          }
+        } catch (error) {
+          errorConfirmation('Failed to delete file.');
         }
-      } catch (error) {
-        errorConfirmation('Failed to delete file.');
-      }
-    }, danger: true },
+      }, danger: true },
+    ] : []),
   ];
 
   return (

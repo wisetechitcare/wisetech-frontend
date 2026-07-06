@@ -489,12 +489,12 @@ const AttendanceConfig: React.FC = () => {
                     description="Manage check-in, check-out, and total shift hours per day"
                     icon="bi-calendar-week"
                     iconColor="blue"
-                    primaryAction={{
+                    primaryAction={canEditConfig ? {
                       label: 'Configure',
                       icon: 'bi-pencil',
                       variant: 'outline',
                       onClick: () => { setShiftKey((k) => k + 1); setShowDailyShiftModal(true); },
-                    }}
+                    } : undefined}
                   >
                     {/* Column headers */}
                     <div style={{
@@ -561,12 +561,12 @@ const AttendanceConfig: React.FC = () => {
                     description="Control policies, distance limits, and request windows"
                     icon="bi-sliders2"
                     iconColor="primary"
-                    primaryAction={{
+                    primaryAction={canEditConfig ? {
                       label: 'Configure',
                       icon: 'bi-pencil',
                       variant: 'outline',
                       onClick: () => { setOtherSettingsKey((k) => k + 1); setShowOtherSettingsModal(true); },
-                    }}
+                    } : undefined}
                   >
                     <SettingToggleRow
                       label="Show Data Up to Today"
@@ -643,9 +643,9 @@ const AttendanceConfig: React.FC = () => {
                     description="Configure leave types and their balance for each branch"
                     icon="bi-calendar2-check"
                     iconColor="green"
-                    actionLabel="Configure"
+                    actionLabel={canEditConfig ? "Configure" : undefined}
                     actionIcon="bi-arrow-right"
-                    onAction={() => setShowLeaveTypesModal(true)}
+                    onAction={canEditConfig ? () => setShowLeaveTypesModal(true) : undefined}
                   />
                 </div>
                 <div className="col-12 col-md-6">
@@ -654,9 +654,9 @@ const AttendanceConfig: React.FC = () => {
                     description="Configure sandwich leave scenarios for payroll deductions"
                     icon="bi-layers"
                     iconColor="amber"
-                    actionLabel="Configure"
+                    actionLabel={canEditConfig ? "Configure" : undefined}
                     actionIcon="bi-arrow-right"
-                    onAction={() => setShowSandwichModal(true)}
+                    onAction={canEditConfig ? () => setShowSandwichModal(true) : undefined}
                   />
                 </div>
                 <div className="col-12 col-md-6">
@@ -665,9 +665,9 @@ const AttendanceConfig: React.FC = () => {
                     description="Extra leave days based on employee tenure and experience"
                     icon="bi-plus-square"
                     iconColor="purple"
-                    actionLabel="Configure"
+                    actionLabel={canEditConfig ? "Configure" : undefined}
                     actionIcon="bi-arrow-right"
-                    onAction={() => setShowAddonLeavesModal(true)}
+                    onAction={canEditConfig ? () => setShowAddonLeavesModal(true) : undefined}
                   />
                 </div>
               </div>

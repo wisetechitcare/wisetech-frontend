@@ -1,14 +1,8 @@
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
+import { evaluateCapability } from '@utils/can';
 
-export const usePermission = (permissionKey: string) => {
+export const usePermission = (permissionKey: string): boolean => {
   const capabilities = useSelector((state: RootState) => (state as any).authz?.capabilities || []);
-
-  if (capabilities.includes('*.*.global') || capabilities.includes('*.*.all')) return true;
-  if (capabilities.includes(permissionKey)) return true;
-
-  const [module, action] = permissionKey.split('.');
-  if (!module || !action) return false;
-
-  return capabilities.includes(`${module}.${action}.all`);
+  return evaluateCapability(capabilities, permissionKey);
 };

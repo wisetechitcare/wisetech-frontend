@@ -23,6 +23,7 @@ interface PrefixSettingsFormProps {
   typeLabel: string; // e.g. 'Lead', 'Project', 'Company'
   typeValue: string; // e.g. 'LEAD', 'PROJECT', 'COMPANY' (enum value)
   onSuccess?: () => void; // Optional callback on successful save
+  readOnly?: boolean; // hides the save action for viewers without write access
 }
 
 export interface PrefixSetting {
@@ -130,6 +131,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
   typeLabel,
   typeValue,
   onSuccess,
+  readOnly = false,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPrefix, setCurrentPrefix] = useState<PrefixSetting | null>(null);
@@ -295,6 +297,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
             </div>
           </div>
 
+          {!readOnly && (
           <div className="mt-4">
             <button
               type="submit"
@@ -304,6 +307,7 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
               {currentPrefix ? 'Update' : 'Create'} Prefix
             </button>
           </div>
+          )}
         </FormikForm>
       )}
     </Formik>

@@ -6,6 +6,7 @@ import * as dmsService from '../services/dmsService';
 import { formatBytes, formatDate, getStatusConfig, getExportTypeConfig } from '../utils/dmsUtils';
 import { successConfirmation, errorConfirmation, rejectConfirmation } from '@utils/modal';
 import type { DMSFile } from '../types/dms.types';
+import { can } from '@utils/can';
 
 interface FileDetailsSidebarProps {
   file: DMSFile | null;
@@ -169,17 +170,19 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
       <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
         {[
           { icon: 'cloud-download', label: 'Download', action: handleDownload },
-          { 
-            icon: 'eye', 
-            label: 'Preview', 
+          {
+            icon: 'eye',
+            label: 'Preview',
             action: () => {
               if (file.s3Url) {
                 dmsService.previewDocument(file.s3Url, file.name);
               }
             }
           },
-          { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
-          { icon: 'trash', label: 'Delete', action: handleDelete, danger: true },
+          ...(can('crm.leads.update.all') ? [
+            { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
+            { icon: 'trash', label: 'Delete', action: handleDelete, danger: true },
+          ] : []),
         ].map(a => (
           <motion.button 
             key={a.label} 

@@ -60,43 +60,6 @@ export const updateEmployeeRoles = async (employeeId: string, roleIds: string[])
 };
 
 /**
- * Create a per-employee permission override (allow grant or deny).
- * @api "api/employee/:id/permissions"
- */
-export const createEmployeeOverride = async (
-    employeeId: string,
-    payload: { resource: string; action: string; allow: boolean; condition?: string; expiresAt?: string | null }
-) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.CREATE_EMPLOYEE_PERMISSION.replace(":id", employeeId)}`;
-    const { data } = await axios.post(endpoint, payload);
-    return data;
-};
-
-/**
- * Update an existing per-employee override.
- * @api "api/employee/:id/permissions/:permissionId"
- */
-export const updateEmployeeOverride = async (
-    employeeId: string,
-    permissionId: string,
-    payload: { resource?: string; action?: string; allow?: boolean; condition?: string; expiresAt?: string | null }
-) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
-    const { data } = await axios.put(endpoint, payload);
-    return data;
-};
-
-/**
- * Delete a per-employee override (reverts to role-inherited behavior).
- * @api "api/employee/:id/permissions/:permissionId"
- */
-export const deleteEmployeeOverride = async (employeeId: string, permissionId: string) => {
-    const endpoint = `${API_BASE_URL}/${EMPLOYEE.DELETE_EMPLOYEE_PERMISSION.replace(":id", employeeId).replace(":permissionId", permissionId)}`;
-    const { data } = await axios.delete(endpoint);
-    return data;
-};
-
-/**
  * Fetch the RBAC audit trail (optionally scoped to a target).
  * @api "api/audit/rbac"
  */

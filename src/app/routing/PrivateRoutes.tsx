@@ -17,6 +17,7 @@ import { useSelector } from 'react-redux'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags'
 import { SectionGuard } from '@app/modules/common/components/SectionGuard'
 import { can } from '@utils/can'
+import { usePermissionsRealtime } from '@hooks/usePermissionsRealtime'
 
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
 const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
@@ -91,6 +92,27 @@ const PrivateRoutes = () => {
     fetchAndStore()
   }, [])
 
+  // Live permission updates: when an admin changes this employee's role
+  // permissions, section access, or role assignment, the backend pushes a
+  // targeted socket event and this refetches both permission systems
+  // immediately - so a revoked/changed user's access updates without them
+  // needing to log out or refresh.
+  //
+  // Refetching alone isn't enough: most permission checks in this app (can(),
+  // hasPermission()) read the store as a one-time snapshot at render time, not
+  // a reactive subscription - so an update to Redux doesn't by itself repaint
+  // buttons/sections that were already rendered. Bumping `routesKey` after the
+  // refetch resolves forces React to fully unmount and remount the entire
+  // routed tree (sidebar included), so every single permission-gated element
+  // re-evaluates fresh against the new data - instantly, without a hard
+  // page reload (which would also drop the socket connection and re-auth).
+  const [routesKey, setRoutesKey] = useState(0);
+  usePermissionsRealtime(async () => {
+    await store.dispatch(fetchRolesAndPermissions());
+    await store.dispatch(fetchAuthzCapabilities());
+    setRoutesKey((k) => k + 1);
+  })
+
   async function fetchEmployeeAppVisibility(employeeId: string) {
     const response = await fetchCurrentEmployeeByEmpId(employeeId);
     // console.log("response.data:: ",response);
@@ -105,7 +127,7 @@ const PrivateRoutes = () => {
   }, [employeeId])
 
   return (
-    isStored && <Routes>
+    isStored && <Routes key={routesKey}>
       <Route element={<MasterLayout />}>
         {/* Redirect to Dashboard after success login/registartion */}
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
@@ -140,9 +162,11 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/leads/documentation-builder'
           element={
-            <SuspensedView>
-              <TemplateDocumentationBuilderPage />
-            </SuspensedView>}
+            <SectionGuard module='crm.leads' requireGrant>
+              <SuspensedView>
+                <TemplateDocumentationBuilderPage />
+              </SuspensedView>
+            </SectionGuard>}
         />
         {/* Lazy Modules */}
         <Route
@@ -436,14 +460,16 @@ const PrivateRoutes = () => {
         <Route
           path='/qc/leads/configuration'
           element={
-            <SuspensedView>
-              <ProposalConfigurationPage />
-            </SuspensedView>}
+            <SectionGuard module='crm.leads' requireGrant>
+              <SuspensedView>
+                <ProposalConfigurationPage />
+              </SuspensedView>
+            </SectionGuard>}
         />
         <Route
           path='/qc/leads'
           element={
-            <SectionGuard module='crm.leads'>
+            <SectionGuard module='crm.leads' requireGrant>
               <SuspensedView>
                 <LeadsMain />
               </SuspensedView>
@@ -452,9 +478,11 @@ const PrivateRoutes = () => {
         <Route
           path='/leads/:id'
           element={
-            <SuspensedView>
-              <LeadDetails />
-            </SuspensedView>
+            <SectionGuard module='crm.leads' requireGrant>
+              <SuspensedView>
+                <LeadDetails />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route
@@ -511,9 +539,11 @@ const PrivateRoutes = () => {
         <Route
           path='/employee/lead/:leadId'
           element={
-            <SuspensedView>
-              <LeadDetails />
-            </SuspensedView>
+            <SectionGuard module='crm.leads' requireGrant>
+              <SuspensedView>
+                <LeadDetails />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
         <Route

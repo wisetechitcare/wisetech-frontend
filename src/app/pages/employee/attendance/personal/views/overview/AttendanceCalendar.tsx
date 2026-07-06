@@ -23,7 +23,7 @@ import { isValidTime } from '@utils/statistics';
 import { fetchCompanyOverview, fetchHolidays, fetchAllPublicHolidays } from "@services/company";
 import { fetchWorkingMethods } from "@services/options";
 import { fetchEmployeeLeaves } from "@services/employee";
-import { getDynamicRolesObject, getDynamicUserRolesObject } from "@utils/dynamicRoles";
+import { getDynamicRolesObject } from "@utils/dynamicRoles";
 import { hasPermission } from "@utils/authAbac";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { permissionConstToUseWithHasPermission, REQUEST_RAISE_DISABLE_MESSAGE, resourceNameMapWithCamelCase } from "@constants/statistics";

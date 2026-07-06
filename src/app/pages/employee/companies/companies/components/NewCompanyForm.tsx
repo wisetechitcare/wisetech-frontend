@@ -229,10 +229,17 @@ const NewCompanyForm: React.FC<Props> = ({
     () => companyTypes.map((ct) => ({ label: ct.name, value: ct.id })),
     [companyTypes],
   );
-  const contactOptions = useMemo(
-    () => contacts.map((c: any) => ({ label: c.fullName, value: c.id, avatar: c.profilePhoto })),
-    [contacts],
-  );
+  // companyId → its contact options (for the "Referral Contact" cascade, mirrors subCompaniesByCompanyId).
+  const contactsByCompanyId = useMemo(() => {
+    const m = new Map<string, { label: string; value: string; avatar?: string }[]>();
+    contacts.forEach((c: any) => {
+      if (!c.companyId) return;
+      const arr = m.get(c.companyId) || [];
+      arr.push({ label: c.fullName, value: c.id, avatar: c.profilePhoto });
+      m.set(c.companyId, arr);
+    });
+    return m;
+  }, [contacts]);
   const employeeOptions = useMemo(
     () =>
       allEmployees.map((e: any) => ({
@@ -1420,8 +1427,9 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 }
                                                 onChange={(option: any) => {
                                                   setFieldValue(`referenceType.${index}.externalReferenceCompanyId`, option?.value || "");
-                                                  // Clear sub company selection when company changes
+                                                  // Clear sub company and contact selections when company changes
                                                   setFieldValue(`referenceType.${index}.externalReferenceSubCompanyId`, "");
+                                                  setFieldValue(`referenceType.${index}.externalReferenceContactId`, "");
                                                 }}
                                                 value={
                                                   reference.externalReferenceCompanyId
@@ -1467,7 +1475,16 @@ const NewCompanyForm: React.FC<Props> = ({
                                                 formikField={`referenceType.${index}.externalReferenceContactId`}
                                                 inputLabel="Referral Contact"
                                                 isRequired={false}
-                                                options={contactOptions}
+                                                options={
+                                                  reference.externalReferenceCompanyId
+                                                    ? (contactsByCompanyId.get(reference.externalReferenceCompanyId) || [])
+                                                    : []
+                                                }
+                                                placeholder={
+                                                  !reference.externalReferenceCompanyId
+                                                    ? "Please select company first"
+                                                    : "Select Contact"
+                                                }
                                                 showColor={true}
                                               />
                                             </div>

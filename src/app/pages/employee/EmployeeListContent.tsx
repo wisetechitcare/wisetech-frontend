@@ -226,7 +226,7 @@ const EmployeeListContent = () => {
     }
   ], [handleEditClick, handleWhatsAppShare]);
 
-  const canManageEmployees = usePermission('employees.manage.all');
+  const canManageEmployees = usePermission('users.manage.all');
 
   const columns = useMemo(() =>
     canManageEmployees ? [...baseColumns, ...adminColumns] : baseColumns,

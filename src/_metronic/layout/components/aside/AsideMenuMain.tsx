@@ -8,7 +8,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac'
-import { can } from '@utils/can'
+import { can, canViewModule } from '@utils/can'
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas'
 import { fetchCurrentEmployeeByEmpId, fetchPendingApprovals } from '@services/employee'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
@@ -118,7 +118,7 @@ export function AsideMenuMain() {
               <span className='menu-section text-muted text-uppercase fs-5 ls-1 fw-semibold'>Project Management</span>
             </div>
           </div>
-            {!isSectionBlocked('crm.leads') && <AsideMenuItem to='/qc/leads' icon={sidePanelIcons.leads.default} activeIcon={sidePanelIcons.leads.active} title='Leads' fontIcon='bi-layers' />}
+            {!isSectionBlocked('crm.leads') && canViewModule('crm.leads') && <AsideMenuItem to='/qc/leads' icon={sidePanelIcons.leads.default} activeIcon={sidePanelIcons.leads.active} title='Leads' fontIcon='bi-layers' />}
             {!isSectionBlocked('projects') && <AsideMenuItem to='/qc/projects' icon={sidePanelIcons.projects.default} activeIcon={sidePanelIcons.projects.active} title='Projects' fontIcon='bi-layers' />}
             {!isSectionBlocked('crm.companies') && <AsideMenuItem to='/qc/companies' icon={sidePanelIcons.companiesIcon.default} activeIcon={sidePanelIcons.companiesIcon.active} title='Companies' fontIcon='bi-layers' />}
             {!isSectionBlocked('crm.contacts') && <AsideMenuItem to='/qc/contacts' icon={sidePanelIcons.contactsIcon.default} activeIcon={sidePanelIcons.contactsIcon.active} title='Contacts' fontIcon='bi-layers' />}

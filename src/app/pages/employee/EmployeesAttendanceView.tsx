@@ -13,9 +13,19 @@ import DailyShiftTime from './attendance/AttendanceConfig/component/DailyShiftTi
 import AttendanceConfig from './attendance/AttendanceConfig/AttendanceConfig';
 import AttendanceAdminFaqs from './adminFaqs/AttendaceAdminFaqs';
 import { hasPermission } from '@utils/authAbac';
+import { can } from '@utils/can';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch } from '@redux/store';
+
+// Configure/FAQS are sub-tabs of this same "Employees" attendance page, so their
+// visibility follows the same access.employees.view grant that unlocks the page
+// itself - not the unrelated "attendanceconfig"/settings resource these previously
+// (and incorrectly) checked. Kept as an OR so any role already relying on the old
+// resource for this stays working.
+const canViewEmployeesAttendanceConfig = () =>
+    can('attendance.employees.view.all') ||
+    hasPermission(resourceNameMapWithCamelCase.attendanceConfig, permissionConstToUseWithHasPermission.readOthers);
 
 const EmployeesAttendanceView = () => {
     const [activeTab, setActiveTab] = useState(0);
@@ -61,7 +71,7 @@ const EmployeesAttendanceView = () => {
         //     icon: activeTab === 3 ? faqsIcons.faqDefualtIcon?.active
         //               : faqsIcons.faqDefualtIcon?.default, // Can be SVG or Image URL
         // },
-         ...(hasPermission(resourceNameMapWithCamelCase.attendanceConfig, permissionConstToUseWithHasPermission.readOthers)
+         ...(canViewEmployeesAttendanceConfig()
             ? [{
                 title: 'Configure',
                 component: <AttendanceConfig/>,
@@ -69,8 +79,8 @@ const EmployeesAttendanceView = () => {
             }]
             : []
         ),
-        
-          ...(hasPermission(resourceNameMapWithCamelCase.attendanceConfig, permissionConstToUseWithHasPermission.readOthers)
+
+          ...(canViewEmployeesAttendanceConfig()
             ? [{
             title: 'FAQS',
             component: <AttendanceAdminFaqs />,

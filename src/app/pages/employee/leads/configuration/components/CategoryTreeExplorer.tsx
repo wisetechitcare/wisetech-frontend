@@ -94,7 +94,8 @@ const IconBtn: React.FC<{
 const SubRow: React.FC<{
   sub: ProjectItem; query: string;
   onEdit: () => void; onDelete: () => void;
-}> = ({ sub, query, onEdit, onDelete }) => {
+  readOnly?: boolean;
+}> = ({ sub, query, onEdit, onDelete, readOnly = false }) => {
   const [hov, setHov] = useState(false);
   return (
     <div
@@ -118,8 +119,12 @@ const SubRow: React.FC<{
         </span>
       </div>
       <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-        <IconBtn icon="bi-pencil" title="Edit subcategory" color="#4f82c4" hoverBg="#eff6ff" onClick={onEdit} />
-        <IconBtn icon="bi-trash" title="Delete subcategory" color={C.danger} hoverBg={C.dangerLight} onClick={onDelete} />
+        {!readOnly && (
+          <>
+            <IconBtn icon="bi-pencil" title="Edit subcategory" color="#4f82c4" hoverBg="#eff6ff" onClick={onEdit} />
+            <IconBtn icon="bi-trash" title="Delete subcategory" color={C.danger} hoverBg={C.dangerLight} onClick={onDelete} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -140,12 +145,13 @@ interface CategoryNodeProps {
   onSubcategoryEdit: (sub: ProjectItem) => void;
   onSubcategoryDelete: (id: string) => void;
   onKeyNav: (e: React.KeyboardEvent) => void;
+  readOnly?: boolean;
 }
 
 const CategoryNode: React.FC<CategoryNodeProps> = ({
   category, subs, expanded, query, totalSubCount,
   onToggle, onCategoryEdit, onCategoryDelete, onAddSubcategory,
-  onSubcategoryEdit, onSubcategoryDelete, onKeyNav,
+  onSubcategoryEdit, onSubcategoryDelete, onKeyNav, readOnly = false,
 }) => {
   const [hov, setHov] = useState(false);
   const color = category.color || '#9aa0ad';
@@ -198,9 +204,13 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
         </span>
 
         <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-          <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" hoverBg="#f0fdf4" onClick={() => onAddSubcategory(category.id)} />
-          <IconBtn icon="bi-pencil" title="Edit category" color="#4f82c4" hoverBg="#eff6ff" onClick={onCategoryEdit} />
-          <IconBtn icon="bi-trash" title="Delete category" color={C.danger} hoverBg={C.dangerLight} onClick={onCategoryDelete} />
+          {!readOnly && (
+            <>
+              <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" hoverBg="#f0fdf4" onClick={() => onAddSubcategory(category.id)} />
+              <IconBtn icon="bi-pencil" title="Edit category" color="#4f82c4" hoverBg="#eff6ff" onClick={onCategoryEdit} />
+              <IconBtn icon="bi-trash" title="Delete category" color={C.danger} hoverBg={C.dangerLight} onClick={onCategoryDelete} />
+            </>
+          )}
         </div>
       </div>
 
@@ -220,19 +230,25 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
               padding: '6px 10px', color: C.textMuted, fontFamily: FONT.body, fontSize: '12px',
             }}>
               <i className="bi bi-dash" style={{ opacity: 0.4 }} />
-              No subcategories —
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onAddSubcategory(category.id); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, fontFamily: FONT.body, fontSize: '12px', fontWeight: 600, padding: 0 }}
-              >
-                Add one
-              </button>
+              No subcategories
+              {!readOnly && (
+                <>
+                  {' — '}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onAddSubcategory(category.id); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, fontFamily: FONT.body, fontSize: '12px', fontWeight: 600, padding: 0 }}
+                  >
+                    Add one
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             subs.map(sub => (
               <SubRow
                 key={sub.id} sub={sub} query={query}
+                readOnly={readOnly}
                 onEdit={() => onSubcategoryEdit(sub)}
                 onDelete={() => onSubcategoryDelete(sub.id)}
               />
@@ -254,12 +270,14 @@ export interface CategoryTreeExplorerProps {
   onSubcategoryEdit: (sub: ProjectItem) => void;
   onSubcategoryDelete: (id: string) => void;
   onAddSubcategory: () => void;
+  readOnly?: boolean;
 }
 
 const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
   categories, subcategories,
   onCategoryEdit, onCategoryDelete,
   onSubcategoryEdit, onSubcategoryDelete, onAddSubcategory,
+  readOnly = false,
 }) => {
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -449,6 +467,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
               onSubcategoryEdit={onSubcategoryEdit}
               onSubcategoryDelete={onSubcategoryDelete}
               onKeyNav={(e) => handleKeyNav(e, node.cat.id, i)}
+              readOnly={readOnly}
             />
           ))}
         </div>

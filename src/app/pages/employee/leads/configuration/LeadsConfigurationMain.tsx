@@ -33,18 +33,20 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { ProjectPointsConfigSection } from '@app/modules/projectPoints';
+import { can } from '@utils/can';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
 interface ColorChipProps {
   name: string;
   color: string;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) => {
   const [hov, setHov] = useState(false);
+  const showActions = !!(onEdit || onDelete);
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -95,6 +97,7 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         </span>
       </div>
 
+      {showActions && (
       <div style={{
         display: 'flex',
         gap: '4px',
@@ -102,6 +105,7 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         opacity: hov ? 1 : 0.35,
         transition: 'opacity 0.15s ease',
       }}>
+        {onEdit && (
         <button
           onClick={onEdit}
           style={{
@@ -118,6 +122,8 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         >
           <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
         </button>
+        )}
+        {onDelete && (
         <button
           onClick={onDelete}
           style={{
@@ -134,7 +140,9 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         >
           <i className="bi bi-trash" style={{ fontSize: '11px' }} />
         </button>
+        )}
       </div>
+      )}
     </div>
   );
 };
@@ -186,6 +194,7 @@ const TABS: ConfigTab[] = [
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const LeadsConfigurationMain = () => {
+  const canManageLeads = can('crm.leads.update.all');
   const [activeTab, setActiveTab] = useState('lead');
   const [loading, setLoading] = useState(false);
 
@@ -513,12 +522,12 @@ const LeadsConfigurationMain = () => {
               description="Define the stages a lead moves through during the sales process."
               icon="bi-flag"
               iconColor="primary"
-              primaryAction={{
+              primaryAction={canManageLeads ? {
                 label: 'New Status',
                 icon: 'bi-plus-lg',
                 onClick: handleModalOpen,
                 variant: 'primary',
-              }}
+              } : undefined}
               loading={loading}
             >
               {leadStatus.length === 0
@@ -530,8 +539,8 @@ const LeadsConfigurationMain = () => {
                         key={s.id}
                         name={s.name}
                         color={s.color}
-                        onEdit={() => handleEdit(s)}
-                        onDelete={() => handleDelete(s.id!)}
+                        onEdit={canManageLeads ? () => handleEdit(s) : undefined}
+                        onDelete={canManageLeads ? () => handleDelete(s.id!) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -545,12 +554,12 @@ const LeadsConfigurationMain = () => {
               description="Specify why a lead may be cancelled to improve reporting and insights."
               icon="bi-x-circle"
               iconColor="danger"
-              primaryAction={{
+              primaryAction={canManageLeads ? {
                 label: 'New Reason',
                 icon: 'bi-plus-lg',
                 onClick: handleCancellationReasonModalOpen,
                 variant: 'primary',
-              }}
+              } : undefined}
               loading={loading}
             >
               {leadCancellationReasons.length === 0
@@ -562,8 +571,8 @@ const LeadsConfigurationMain = () => {
                         key={r.id}
                         name={r.reason}
                         color={r.color}
-                        onEdit={() => handleCancellationReasonEdit(r)}
-                        onDelete={() => handleCancellationReasonDelete(r.id!)}
+                        onEdit={canManageLeads ? () => handleCancellationReasonEdit(r) : undefined}
+                        onDelete={canManageLeads ? () => handleCancellationReasonDelete(r.id!) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -577,12 +586,12 @@ const LeadsConfigurationMain = () => {
               description="Track where leads are originating from to measure channel effectiveness."
               icon="bi-broadcast"
               iconColor="teal"
-              primaryAction={{
+              primaryAction={canManageLeads ? {
                 label: 'New Source',
                 icon: 'bi-plus-lg',
                 onClick: handleDirectSourceModalOpen,
                 variant: 'primary',
-              }}
+              } : undefined}
               loading={loading}
             >
               {leadDirectSource.length === 0
@@ -594,8 +603,8 @@ const LeadsConfigurationMain = () => {
                         key={s.id}
                         name={s.name}
                         color={s.color}
-                        onEdit={() => handleDirectSourceEdit(s)}
-                        onDelete={() => handleDirectSourceDelete(s.id!)}
+                        onEdit={canManageLeads ? () => handleDirectSourceEdit(s) : undefined}
+                        onDelete={canManageLeads ? () => handleDirectSourceDelete(s.id!) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -609,12 +618,12 @@ const LeadsConfigurationMain = () => {
               description="Categorize the type of referral that brought in a lead."
               icon="bi-people"
               iconColor="green"
-              primaryAction={{
+              primaryAction={canManageLeads ? {
                 label: 'New Referral Type',
                 icon: 'bi-plus-lg',
                 onClick: handleReferralTypeModalOpen,
                 variant: 'primary',
-              }}
+              } : undefined}
               loading={loading}
             >
               {leadReferralType.length === 0
@@ -626,8 +635,8 @@ const LeadsConfigurationMain = () => {
                         key={r.id}
                         name={r.name}
                         color={r.color}
-                        onEdit={() => handleReferralTypeEdit(r)}
-                        onDelete={() => handleReferralTypeDelete(r.id!)}
+                        onEdit={canManageLeads ? () => handleReferralTypeEdit(r) : undefined}
+                        onDelete={canManageLeads ? () => handleReferralTypeDelete(r.id!) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -646,6 +655,7 @@ const LeadsConfigurationMain = () => {
               <PrefixSettingsForm
                 typeLabel="Lead"
                 typeValue="LEAD"
+                readOnly={!canManageLeads}
               />
             </ConfigSectionCard>
           </div>
@@ -661,12 +671,12 @@ const LeadsConfigurationMain = () => {
               description="Define the service types that can be assigned to projects and leads."
               icon="bi-gear"
               iconColor="blue"
-              primaryAction={{
+              primaryAction={canManageLeads ? {
                 label: 'New Service',
                 icon: 'bi-plus-lg',
                 onClick: handleServiceModalOpen,
                 variant: 'primary',
-              }}
+              } : undefined}
               loading={loading}
             >
               {projectServices.length === 0
@@ -678,8 +688,8 @@ const LeadsConfigurationMain = () => {
                         key={s.id}
                         name={s.name}
                         color={s.color}
-                        onEdit={() => handleServiceEdit(s)}
-                        onDelete={() => handleServiceDelete(s.id!)}
+                        onEdit={canManageLeads ? () => handleServiceEdit(s) : undefined}
+                        onDelete={canManageLeads ? () => handleServiceDelete(s.id!) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -696,18 +706,18 @@ const LeadsConfigurationMain = () => {
               description="Each category expands to show its subcategories inline."
               icon="bi-diagram-3"
               iconColor="purple"
-              secondaryActions={[{
+              secondaryActions={canManageLeads ? [{
                 label: 'New Subcategory',
                 icon: 'bi-plus-lg',
                 onClick: handleSubcategoryModalOpen,
                 variant: 'secondary',
-              }]}
-              primaryAction={{
+              }] : []}
+              primaryAction={canManageLeads ? {
                 label: 'New Category',
                 icon: 'bi-plus-lg',
                 onClick: handleCategoryModalOpen,
                 variant: 'primary',
-              }}
+              } : undefined}
               loading={loading}
             >
               {projectCategories.length === 0
@@ -721,6 +731,7 @@ const LeadsConfigurationMain = () => {
                     onSubcategoryEdit={handleSubcategoryEdit}
                     onSubcategoryDelete={handleSubcategoryDelete}
                     onAddSubcategory={handleSubcategoryModalOpen}
+                    readOnly={!canManageLeads}
                   />
                 )
               }

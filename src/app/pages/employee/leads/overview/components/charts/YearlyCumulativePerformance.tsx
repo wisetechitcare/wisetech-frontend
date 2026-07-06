@@ -12,6 +12,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import ManageTargetModal from "../modals/ManageTargetModal";
+import { can } from "@utils/can";
 import dayjs from "dayjs";
 
 interface YearlyCumulativePerformanceProps {
@@ -303,7 +304,7 @@ const YearlyCumulativePerformance: React.FC<
           </div>
 
           <div className="d-flex align-items-center gap-3">
-            {viewMode === "inquiry" ? (
+            {can('crm.leads.update.all') && (viewMode === "inquiry" ? (
               <Button
                 variant="outline-primary"
                 size="sm"
@@ -335,7 +336,7 @@ const YearlyCumulativePerformance: React.FC<
                 <i className="bi bi-gear-fill"></i>
                 SET RECEIVED TARGET
               </Button>
-            )}
+            ))}
 
             <div className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm">
               <Button

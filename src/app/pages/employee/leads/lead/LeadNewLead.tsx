@@ -59,6 +59,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
+import { can } from "@utils/can";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -665,6 +666,8 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   // chartSettingsUpdated only changes visual config — no data re-fetch needed
   useEventBus(EVENT_KEYS.closeChartDialogModal, handleCloseChartSettingsModal);
 
+  const canManageLeads = can('crm.leads.update.all');
+
   const hideNewLeadButton =
     statusId ||
     serviceId ||
@@ -967,7 +970,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         return "N/A";
       },
     },
-    ...(hideNewLeadButton
+    ...(hideNewLeadButton || !canManageLeads
       ? []
       : [
         {
@@ -1010,6 +1013,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
     allemployees,
     rawLeadsData,
     hideNewLeadButton,
+    canManageLeads,
     fileLocCompanyMap,
     fileLocTypeMap,
   ]);
@@ -1403,7 +1407,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             marginTop: isMobile ? '8px' : '0'
           }}>
             {/* Primary Buttons */}
-            {!hideNewLeadButton && (
+            {!hideNewLeadButton && canManageLeads && (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1887,10 +1891,6 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
           />
         )}
         employeeId={currentEmployeeId}
-        resource="LEADS"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
         enableColumnResizing={true}
         layoutMode="semantic"
         muiTableContainerProps={{

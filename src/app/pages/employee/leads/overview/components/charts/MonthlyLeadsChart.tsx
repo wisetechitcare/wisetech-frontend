@@ -18,6 +18,7 @@ import {
   getDailyMonthlyRunRate,
 } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
+import { can } from "@utils/can";
 import dayjs from "dayjs";
 
 interface PerformanceData {
@@ -342,7 +343,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
             </div>
             <div className="d-flex align-items-center gap-2">
               {/* SET TARGET BUTTON */}
-              {viewMode === "inquiry" ? (
+              {can('crm.leads.update.all') && (viewMode === "inquiry" ? (
                 <Button
                   variant="outline-primary"
                   size="sm"
@@ -376,7 +377,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   <i className="bi bi-gear-fill"></i>
                   SET TARGET
                 </Button>
-              )}
+              ))}
 
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"

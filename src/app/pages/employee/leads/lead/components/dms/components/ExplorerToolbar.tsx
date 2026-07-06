@@ -5,12 +5,14 @@ import { useDMS } from '../store/DmsContext';
 import type { ViewMode, SortField, SortOrder } from '../types/dms.types';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
 import * as dmsService from '../services/dmsService';
+import { can } from '@utils/can';
 
 interface ExplorerToolbarProps {
   onUploadClick: () => void;
 }
 
 export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick }) => {
+  const canManageLeads = can('crm.leads.update.all');
   const { state, dispatch, deleteFiles } = useDMS();
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -199,7 +201,9 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
                 {state.selectedFiles.length} selected
               </span>
               <ToolbarButton icon="cloud-download" label="Download" onClick={handleBulkDownload} />
-              <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />
+              {canManageLeads && (
+                <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

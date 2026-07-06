@@ -28,6 +28,7 @@ const getLeaves = (area: AccessArea): string[] => {
 const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [levels, setLevels] = useState<Record<string, EffLevel>>({});
   const [origLevels, setOrigLevels] = useState<Record<string, EffLevel>>({});
@@ -38,6 +39,7 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
     try {
       setLoading(true);
       const data = await getRoleAccess(roleId);
+      setLoadError(false);
       setIsSuperAdmin(!!data?.isSuperAdmin);
       const sectionLevels = data?.sectionLevels || {};
       const lv: Record<string, EffLevel> = {};
@@ -45,6 +47,10 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
       setLevels(lv);
       setOrigLevels(lv);
     } catch {
+      // Distinguish "failed to load" from "role genuinely has no access granted" -
+      // without this, a transient network/server hiccup renders identically to an
+      // all-unchecked tree, which reads as real (and possibly incorrect) data.
+      setLoadError(true);
       toast.error("Couldn't load this role's access");
     } finally {
       setLoading(false);
@@ -83,6 +89,22 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
   };
 
   if (loading) return <Loader />;
+
+  if (loadError) {
+    return (
+      <div className="text-center py-10">
+        <i className="bi bi-exclamation-triangle-fill fs-3x text-danger mb-3 d-block" />
+        <div className="fw-bold fs-5">Couldn't load this role's access</div>
+        <div className="text-muted fs-7 mt-2 mb-4">
+          This is a connection/server issue, not a change to the role's actual permissions — nothing was reset.
+        </div>
+        <button className="btn btn-sm btn-outline-primary" type="button" onClick={load}>
+          <i className="bi bi-arrow-clockwise me-2" />
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (isSuperAdmin) {
     return (

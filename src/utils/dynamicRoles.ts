@@ -1,7 +1,5 @@
 // utils/dynamicRoles.ts
 import { fetchRoles,getRoleById, createRole, updateRoleById, deleteRoleById, getPermissionsForRoleById, createPermissionForRoleById, updatePermissionForRoleById, deletePermissionForRoleById  } from '@services/roles';
-import { getEmployeePermissionsById } from '@services/employee';
-import { store } from '@redux/store';
 
 /**
  * Fetches roles from the backend and constructs a dynamic ROLES object.
@@ -70,55 +68,6 @@ export async function getDynamicRolesObject() {
     // console.log("constructed: ",constructed);
     
     return constructed;
-  } catch (err) {
-    console.error('Failed to fetch roles from API', err);
-    throw err;
-  }
-}
-
-/**
- * Fetches roles from the backend and constructs a dynamic ROLES object.
- *
- * Expected backend response for each role:
- * {
- *    id: string,
- *    name: string,
- *    userPermissions: [
- *       {
- *         id: string,
- *         userId: string,
- *         resource: string,    // e.g., "attendanceRequests"
- *         action: string,      // e.g., "view", "create", etc.
- *         allow: boolean,      // e.g., true or false
- *         condition?: string   // e.g., "req.status === 0"
- *       },
- *       ...
- *    ]
- * }
- */
-export async function getDynamicUserRolesObject() {
-  try {
-    const employeeId = store.getState().employee?.currentEmployee?.id;
-    if(!employeeId){
-      return;
-    }
-    // instead here fetch the user from DB and store in slice as it is
-    const response = await getEmployeePermissionsById(employeeId);
-
-    // const userRolesData = undefined;
-    const userRolesData = response?.data?.data; // Array of roles with permissions
-    // console.log("responseFromGetDynamicUserRolesObject: ",userRolesData);
-    const finalUserRolesData: Record<string, any> = {};
-    userRolesData?.forEach((perm: any) => {
-      const resource = perm.resource;
-        const action = perm.action;
-      if (!finalUserRolesData[resource]) {
-        finalUserRolesData[resource] = {};
-      }
-      finalUserRolesData[resource][action] = perm.allow;
-    })
-
-    return finalUserRolesData;
   } catch (err) {
     console.error('Failed to fetch roles from API', err);
     throw err;

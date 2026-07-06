@@ -55,7 +55,7 @@ function Attendance() {
     const [locationPermission, setLocationPermission] = useState(false); // New state for location permission
     const [empNameOptions, setEmpNameOptions] = useState(undefined);
     const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-    const isAdmin = usePermission('employees.manage.all');
+    const isAdmin = usePermission('users.manage.all');
     const date = new Date();
     const [markerRef, marker] = useAdvancedMarkerRef();
 
