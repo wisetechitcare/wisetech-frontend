@@ -136,13 +136,80 @@ const toSegment = (leaveType: string, dates: string[], unit: number, isPaid: boo
     dateTo: dates[dates.length - 1],
 });
 
+/** Calendar-day gap (b − a) between two YYYY-MM-DD strings. Pure, timezone-free. */
+const dayGap = (a: string, b: string): number => {
+    const [ay, am, ad] = a.split('-').map(Number);
+    const [by, bm, bd] = b.split('-').map(Number);
+    return (Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000;
+};
+
+/**
+ * Rebuild segments into maximal CONTIGUOUS calendar runs of the same leave type, so every
+ * produced row's [dateFrom, dateTo] contains only its own dates.
+ *
+ * Without this, a segment whose dates are non-contiguous — sandwich weekends spanning two
+ * weeks, or paid days split from unpaid by a cumulative cap — collapses (via toSegment) to a
+ * min..max range that OVERLAPS other segments and inflates the day count. Persisted, those
+ * become overlapping LeaveTracker rows and corrupt balance/salary accounting.
+ *
+ * Segments carry disjoint date sets, so a per-date type map has no collisions. Rows come out
+ * in chronological order; adjacent same-type days merge into one row (a weekend booked Unpaid
+ * under the sandwich rule joins the surrounding Unpaid run, since both are the same type).
+ */
+function toContiguousRows(segments: AllocationSegment[], unit: number): AllocationSegment[] {
+    const typeByDate = new Map<string, { leaveType: string; isPaid: boolean }>();
+    for (const seg of segments) {
+        for (const d of seg.dates) typeByDate.set(d, { leaveType: seg.leaveType, isPaid: seg.isPaid });
+    }
+    const rows: AllocationSegment[] = [];
+    for (const date of [...typeByDate.keys()].sort()) {
+        const info = typeByDate.get(date)!;
+        const last = rows[rows.length - 1];
+        if (
+            last &&
+            last.leaveType === info.leaveType &&
+            last.isPaid === info.isPaid &&
+            dayGap(last.dateTo, date) === 1
+        ) {
+            last.dates.push(date);
+            last.days += unit;
+            last.dateTo = date;
+        } else {
+            rows.push({ leaveType: info.leaveType, dates: [date], days: unit, isPaid: info.isPaid, dateFrom: date, dateTo: date });
+        }
+    }
+    return rows;
+}
+
+/**
+ * Normalize the raw allocation into contiguous, non-overlapping rows and recompute totals from
+ * them. Every return path funnels through here so the invariant holds everywhere.
+ */
+function finalize(
+    segments: AllocationSegment[],
+    unit: number,
+    notes: string[],
+    blocked?: { reason: string },
+): AllocationResult {
+    const rows = toContiguousRows(segments, unit);
+    const paidDays = rows.filter((s) => s.isPaid).reduce((s, seg) => s + seg.days, 0);
+    const unpaidDays = rows.filter((s) => !s.isPaid).reduce((s, seg) => s + seg.days, 0);
+    return {
+        segments: rows,
+        paidDays,
+        unpaidDays,
+        totalDays: paidDays + unpaidDays,
+        notes,
+        ...(blocked ? { blocked } : {}),
+    };
+}
+
 export function allocateLeave(input: AllocationInput): AllocationResult {
     const unit = input.unit ?? 1;
     const unpaidLabel = input.unpaidLabel ?? UNPAID_LEAVE_LABEL;
     const notes: string[] = [];
     const chargeable = [...input.chargeableDates];
     const sandwichDates = input.sandwichDates ?? [];
-    const totalDays = chargeable.length * unit;
 
     if (chargeable.length === 0) {
         return { segments: [], paidDays: 0, unpaidDays: 0, totalDays: 0, notes };
@@ -155,8 +222,7 @@ export function allocateLeave(input: AllocationInput): AllocationResult {
             notes.push(`${sandwichDates.length} sandwich day(s) booked as Unpaid Leave.`);
             probationSegs.push(toSegment(unpaidLabel, sandwichDates, 1, false));
         }
-        const totalUnpaid = totalDays + sandwichDates.length;
-        return { segments: probationSegs, paidDays: 0, unpaidDays: totalUnpaid, totalDays: totalUnpaid, notes };
+        return finalize(probationSegs, unit, notes);
     }
 
     const balanceByType = new Map(input.balances.map((b) => [b.leaveType, b]));
@@ -193,18 +259,11 @@ export function allocateLeave(input: AllocationInput): AllocationResult {
             if (paidDays > allowedRemaining) {
                 const excessDays = paidDays - allowedRemaining;
                 if (overflow === 'block') {
-                    return {
-                        segments,
-                        paidDays,
-                        unpaidDays: segments.filter((s) => !s.isPaid).reduce((s, seg) => s + seg.days, 0),
-                        totalDays,
-                        notes,
-                        blocked: {
-                            reason:
-                                `Cumulative limit: only ${allowedRemaining} more paid leave(s) allowed ` +
-                                `through this period (used/pending ${usedPlusPendingPaid} of ${allowedTillNow}).`,
-                        },
-                    };
+                    return finalize(segments, unit, notes, {
+                        reason:
+                            `Cumulative limit: only ${allowedRemaining} more paid leave(s) allowed ` +
+                            `through this period (used/pending ${usedPlusPendingPaid} of ${allowedTillNow}).`,
+                    });
                 }
                 const moved = spillPaidToUnpaid(segments, excessDays, unit, unpaidLabel);
                 if (moved > 0) {
@@ -221,8 +280,7 @@ export function allocateLeave(input: AllocationInput): AllocationResult {
         segments.push(toSegment(unpaidLabel, sandwichDates, 1, false));
     }
 
-    const unpaidDays = segments.filter((s) => !s.isPaid).reduce((s, seg) => s + seg.days, 0);
-    return { segments, paidDays, unpaidDays, totalDays: totalDays + sandwichDates.length, notes };
+    return finalize(segments, unit, notes);
 }
 
 function spillPaidToUnpaid(
