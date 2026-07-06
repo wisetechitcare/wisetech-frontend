@@ -1,6 +1,6 @@
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
-import LeadFormModal from "./LeadFormModal";
+import LeadWizardModal from "./LeadWizardModal";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 
 interface DetailsModalProps {
@@ -209,7 +209,7 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
 
       {/* Lead Form Modal */}
       {currentTemplate && (
-        <LeadFormModal
+        <LeadWizardModal
           key={`new-lead-${currentTemplate.id}`}
           leadTemplateId={currentTemplate.id}
           open={showLeadForm}

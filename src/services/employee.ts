@@ -1291,6 +1291,20 @@ export const markAllAsRead = async (employeeId: string) => {
     }
 };
 
+export const updateNotificationStatus = async (
+    employeeId: string,
+    notificationId: string,
+    isRead: boolean
+) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${EMPLOYEE.UPDATE_NOTIFICATION}`;
+        const { data } = await axios.put(endpoint, { employeeId, notificationId, isRead });
+        return data;
+    } catch (err) {
+        throw err;
+    }
+};
+
 
 /**
  * Fetches the permissions for a specific employee by their ID.

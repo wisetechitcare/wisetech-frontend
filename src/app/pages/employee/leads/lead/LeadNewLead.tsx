@@ -1,5 +1,6 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
+import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
 import {
   Box,
   Button,
@@ -28,7 +29,7 @@ import {
   rejectConfirmation,
   successConfirmation,
 } from "@utils/modal";
-import LeadFormModal from "./LeadFormModal";
+import LeadWizardModal from "./LeadWizardModal";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -50,7 +51,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { mapLeadToFormInitialValues } from "./utils";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
+import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import { Modal } from "react-bootstrap";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
@@ -1071,30 +1072,32 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
   ];
 
   const leadsExportColumns = useMemo(() => [
-    { key: 'inquiryDate',  header: 'Inquiry Date',   type: 'text'     as const },
-    { key: 'prefix',       header: 'Inquiry ID',     type: 'text'     as const },
-    { key: 'projectName',  header: 'Project Name',   type: 'text'     as const },
-    { key: 'totalCost',    header: 'Total Cost',     type: 'currency' as const, showTotal: true },
-    { key: 'client',       header: 'Client',         type: 'text'     as const },
-    { key: 'service',      header: 'Service',        type: 'text'     as const },
-    { key: 'category',     header: 'Category',       type: 'text'     as const },
-    { key: 'subCategory',  header: 'Sub Category',   type: 'text'     as const },
-    { key: 'status',       header: 'Lead Status',    type: 'text'     as const,
-      format: (val: any) => val?.name || String(val || '') },
-    { key: 'receivedDate', header: 'Received Date',  type: 'text'     as const },
-    { key: 'poStatus',     header: 'PO Status',      type: 'text'     as const },
-    { key: 'assignedTo',   header: 'Assigned To',    type: 'text'     as const },
-    { key: 'startDate',    header: 'Start Date',     type: 'text'     as const },
-    { key: 'duration',     header: 'Duration',       type: 'text'     as const },
-    { key: 'contact',      header: 'Contact',        type: 'text'     as const },
-    { key: 'cost',         header: 'Cost',           type: 'currency' as const, showTotal: true },
-    { key: 'country',      header: 'Country',        type: 'text'     as const },
-    { key: 'city',         header: 'City',           type: 'text'     as const },
-    { key: 'state',        header: 'State',          type: 'text'     as const },
-    { key: 'area',         header: 'Area',           type: 'text'     as const },
-    { key: 'createdAt',    header: 'Created Date',   type: 'text'     as const },
-    { key: 'createdBy',    header: 'Created By',     type: 'text'     as const },
-    { key: 'updatedBy',    header: 'Edited By',      type: 'text'     as const },
+    { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
+    { key: 'prefix', header: 'Inquiry ID', type: 'text' as const },
+    { key: 'projectName', header: 'Project Name', type: 'text' as const },
+    { key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
+    { key: 'client', header: 'Client', type: 'text' as const },
+    { key: 'service', header: 'Service', type: 'text' as const },
+    { key: 'category', header: 'Category', type: 'text' as const },
+    { key: 'subCategory', header: 'Sub Category', type: 'text' as const },
+    {
+      key: 'status', header: 'Lead Status', type: 'text' as const,
+      format: (val: any) => val?.name || String(val || '')
+    },
+    { key: 'receivedDate', header: 'Received Date', type: 'text' as const },
+    { key: 'poStatus', header: 'PO Status', type: 'text' as const },
+    { key: 'assignedTo', header: 'Assigned To', type: 'text' as const },
+    { key: 'startDate', header: 'Start Date', type: 'text' as const },
+    { key: 'duration', header: 'Duration', type: 'text' as const },
+    { key: 'contact', header: 'Contact', type: 'text' as const },
+    { key: 'cost', header: 'Cost', type: 'currency' as const, showTotal: true },
+    { key: 'country', header: 'Country', type: 'text' as const },
+    { key: 'city', header: 'City', type: 'text' as const },
+    { key: 'state', header: 'State', type: 'text' as const },
+    { key: 'area', header: 'Area', type: 'text' as const },
+    { key: 'createdAt', header: 'Created Date', type: 'text' as const },
+    { key: 'createdBy', header: 'Created By', type: 'text' as const },
+    { key: 'updatedBy', header: 'Edited By', type: 'text' as const },
   ], []);
 
   // ── Prop-driven filters ───────────────────────────────────────────────────────
@@ -1501,51 +1504,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
               width: isMobile ? '100%' : 'auto'
             }}>
               {/* Period Selector Tabs */}
-              <div style={{
-                display: "flex",
-                background: "#F1F5F9",
-                borderRadius: "6px",
-                padding: "2px",
-                gap: "2px",
-                width: isMobile ? "100%" : "fit-content",
-                overflowX: "auto",
-                scrollbarWidth: "none",
-                marginRight: "4px"
-              }}>
-                {["daily", "weekly", "monthly", "yearly", "allyear", "custom"].map((mode) => {
-                  const isActive = alignment === mode;
-                  const labels: Record<string, string> = {
-                    daily: "Daily",
-                    weekly: "Weekly",
-                    monthly: "Monthly",
-                    yearly: "Yearly",
-                    allyear: "All Year",
-                    custom: "Custom"
-                  };
-                  return (
-                    <button
-                      key={mode}
-                      onClick={(e) => handleAlignmentChange(e, mode)}
-                      style={{
-                        background: isActive ? "#ffffff" : "transparent",
-                        color: isActive ? "#AA393D" : "#64748B",
-                        border: "none",
-                        borderRadius: "4px",
-                        padding: "4px 10px",
-                        fontSize: "12px",
-                        fontWeight: isActive ? 600 : 500,
-                        fontFamily: "Inter, sans-serif",
-                        boxShadow: isActive ? "0 1px 2px rgba(16, 24, 40, 0.06)" : "none",
-                        transition: "all 0.2s ease",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flex: isMobile ? 1 : "none"
-                      }}
-                    >
-                      {labels[mode]}
-                    </button>
-                  );
-                })}
+              <div style={{ marginRight: "4px" }}>
+                <TimePeriodSelector
+                  value={alignment as TimePeriodMode}
+                  onChange={(mode) => handleAlignmentChange({} as any, mode)}
+                  isMobile={isMobile}
+                  variant="boxed"
+                />
               </div>
 
               {/* Date Nav placed next to Period Tabs */}
@@ -1875,7 +1840,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
-        tableName="LeadsTablesMain"
+        tableName="LeadsTablesMainV2"
         defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
@@ -1957,7 +1922,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
         Datas={templateData}
       />
       {formValues && (
-        <LeadFormModal
+        <LeadWizardModal
           key={formValues?.id || "new-lead-modal"}
           leadTemplateId={formValues?.leadTemplateId}
           open={true}
@@ -2001,7 +1966,7 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
             >
               Customize Cards Visibility
             </span>
-            <LeadsProjectCompanyChartSettings
+            <ChartVisibilitySettings
               type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD}
             />
           </div>

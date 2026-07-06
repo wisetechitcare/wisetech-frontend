@@ -154,7 +154,7 @@ const DashboardAnnouncements = () => {
 
   return (
     <>
-      <div className="col-lg-7 col-md-12 mb-3 mb-lg-0 h-100">
+      <div className="col-lg-7 col-md-12 mb-3 mb-lg-0 d-flex flex-column">
         <div className="card border-0 rounded-3 h-100 announcement-card-hover" style={{ boxShadow: '12px 12px 44px 0px rgba(0,0,0,0.08)' }}>
           <div className="card-body p-3 p-md-4">
             {/* Header */}

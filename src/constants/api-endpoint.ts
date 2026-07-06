@@ -216,6 +216,7 @@ export const EMPLOYEE = {
     DELETE_EMPLOYEE_PERMISSION: "api/employee/:id/permissions/:permissionId",
     CREATE_NOTIFICATION: "api/employee/notification",
     GET_NOTIFICATIONS: "api/employee/notification",
+    UPDATE_NOTIFICATION: "api/employee/notification",
     GET_ALL_NOTIFICATIONS: "api/employee/allnotification",
     MARK_ALL_AS_READ: "api/employee/mark-all-read",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
@@ -500,6 +501,8 @@ export const LEAD_PROJECT_COMPANY = {
     GET_LEAD_BRANCHES_BY_COMPANY_ID: 'api/lead-project-companies/lead-branches/company/:companyId',
 
     GET_LEADS_BY_STATUS_ANALYTICS: "api/lead-project-companies/lead-analytics/status",
+    GET_LEADS_BY_CANCELLATION_REASON_ANALYTICS: "api/lead-project-companies/lead-analytics/cancellation-reason",
+    GET_PROJECTS_BY_STATUS_ANALYTICS: "api/lead-project-companies/lead-analytics/project-status",
     GET_LEADS_BY_SERVICE_ANALYTICS: "api/lead-project-companies/lead-analytics/service",
     GET_LEADS_BY_PROJECT_CATEGORY_ANALYTICS: "api/lead-project-companies/lead-analytics/project-category",
     GET_LEADS_BY_SUBCATEGORY_ANALYTICS: "api/lead-project-companies/lead-analytics/subcategory",
@@ -537,6 +540,7 @@ export const CLIENT_COMPANIES = {
     GET_LEAD_BY_ID: "api/lead-project-companies/client-companies/leads/:id",
     CREATE_LEAD: "api/lead-project-companies/client-companies/leads",
     UPDATE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
+    UPDATE_LEAD_SECTION: "api/lead-project-companies/client-companies/leads/:id/section",
     DELETE_LEAD: "api/lead-project-companies/client-companies/leads/:id",
 
     GET_ALL_CLIENT_COMPANIES: "api/lead-project-companies/client-companies",

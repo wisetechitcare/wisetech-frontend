@@ -207,6 +207,9 @@ export function mapLeadToFormInitialValues(
               company: lead.company?.companyName || "",
               contactRoleId: lead.contactRoleId || lead.contact?.contactRoleId || "",
               leadInquiryDate: lead.inquiryDate || "",
+              nextFollowUpDate: lead.nextFollowUpDate
+                ? dayjs(lead.nextFollowUpDate).format("YYYY-MM-DD")
+                : "",
               leadAssignedTo: lead.assignedToId || "",
               leadSource: lead.leadSource || "",
               leadSourceType: lead.leadSourceType || 'DIRECT',

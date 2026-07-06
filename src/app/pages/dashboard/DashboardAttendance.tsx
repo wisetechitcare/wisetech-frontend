@@ -37,7 +37,7 @@ function DashboardAttendance() {
         return {
             show: attendance.openModal,
             position: attendance.position,
-            userName: auth.currentUser.firstName,
+            userName: `${auth.currentUser.firstName || ""} ${auth.currentUser.lastName || ""}`.trim(),
             btnText: attendance.btnText,
             locationEnabled: attendance.locationEnabled,
         }
@@ -395,7 +395,7 @@ useEffect(() => {
 
     return (
         <>
-          <div className="h-100">
+          <div className="h-100 d-flex flex-column">
                 <MarkAttendance variant="dashboard" />
           </div>
         </>

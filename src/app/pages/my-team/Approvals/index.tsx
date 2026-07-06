@@ -186,6 +186,21 @@ function Approvals() {
     delegated: stats.delegated,
   };
 
+  // Pending counts per tab, using the same workflow-type buckets each tab filters by.
+  // Mirrors the include/exclude logic in DomainApprovalQueue so badges match the tables.
+  const pendingByTab = useMemo(() => {
+    const counts = { attendance: 0, leave: 0, reimbursement: 0, taskProject: 0, others: 0 };
+    for (const s of pending) {
+      const type = (s.instance?.workflowType || '').toLowerCase();
+      if (type === 'attendance') counts.attendance++;
+      else if (type === 'leave') counts.leave++;
+      else if (type === 'reimbursement') counts.reimbursement++;
+      else if (type === 'task' || type === 'project') counts.taskProject++;
+      else counts.others++;
+    }
+    return counts;
+  }, [pending]);
+
   const handleKpiReorder = (newOrder: string[]) => {
     setKpiOrder(newOrder);
     try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(newOrder)); } catch { /* ignore */ }
@@ -208,11 +223,11 @@ function Approvals() {
   );
 
   const tabItems: TabItem[] = [
-    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: activeTab === 0 ? navbarIcon.overview.active       : navbarIcon.overview.default },
-    { title: 'Leaves',        component: <LeaveApprovals />,             icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default },
-    { title: 'Reimbursements',component: <ReimbursementApprovals />,     icon: activeTab === 2 ? navbarIcon.overview.active       : navbarIcon.overview.default },
-    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: activeTab === 3 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default },
-    { title: 'Others',        component: <OtherApprovals />,             icon: activeTab === 4 ? navbarIcon.overview.active       : navbarIcon.overview.default },
+    { title: 'Attendance',    component: <AttendanceApprovals />,        icon: activeTab === 0 ? navbarIcon.overview.active       : navbarIcon.overview.default,       badge: pendingByTab.attendance },
+    { title: 'Leaves',        component: <LeaveApprovals />,             icon: activeTab === 1 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default, badge: pendingByTab.leave },
+    { title: 'Reimbursements',component: <ReimbursementApprovals />,     icon: activeTab === 2 ? navbarIcon.overview.active       : navbarIcon.overview.default,       badge: pendingByTab.reimbursement },
+    { title: 'Tasks/Projects',component: <TaskApprovals />,              icon: activeTab === 3 ? navbarIcon.individualIcon.active : navbarIcon.individualIcon.default, badge: pendingByTab.taskProject },
+    { title: 'Others',        component: <OtherApprovals />,             icon: activeTab === 4 ? navbarIcon.overview.active       : navbarIcon.overview.default,       badge: pendingByTab.others },
   ];
 
   return (

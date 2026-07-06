@@ -17,6 +17,15 @@ export const RESTRICT_ATTENDANCE_TO_7_DAYS_KEY = 'restrictAttendanceTo7Days';
 export const ON_SITE_HOLIDAY_WEEKEND_KEY = 'onSiteHolidayWeekendSettings';
 export const SHOW_BIRTHDAY_ON_CALENDAR='showBirthdaysOnCalendar';
 export const SHOW_WORK_ANIVERSARY_ON_CALENDAR='showWorkAniversaryOnCalendar';
+export const SHOW_BIRTHDAYS_INTERNAL='showBirthdaysInternal';
+export const SHOW_BIRTHDAYS_INTERNAL_INACTIVE='showBirthdaysInternalInactive';
+export const SHOW_BIRTHDAYS_EXTERNAL='showBirthdaysExternal';
+export const SHOW_ANNIVERSARIES_INTERNAL='showAnniversariesInternal';
+export const SHOW_ANNIVERSARIES_INTERNAL_INACTIVE='showAnniversariesInternalInactive';
+export const SHOW_ANNIVERSARIES_EXTERNAL='showAnniversariesExternal';
+export const SHOW_SATURDAY_ON_CALENDAR='showSaturdayOnCalendar';
+export const SHOW_SUNDAY_ON_CALENDAR='showSundayOnCalendar';
+export const SHOW_MEETINGS_ON_CALENDAR='showMeetingsOnCalendar';
 
 
 // Leads
@@ -54,8 +63,6 @@ export const PROJECT_CHART_SETTINGS_MODAL_TYPE = {
     PROJECT: "project",
     COMPANY: "company"
 }
-
-export const SHOW_PROJECT_BUTTONS='showProjectButtons';
 
 // Dashboard
 export const DASHBOARD_SETTINGS='dashboardSettings';

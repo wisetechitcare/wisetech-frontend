@@ -4,8 +4,9 @@ import MaterialHeaderTab, {
 import { leadsIcons, projectsIcons } from "@metronic/assets/sidepanelicons";
 import { useEffect, useState } from "react";
 import ProjectConfigure from "./configure/ProjectConfigure";
-import ProjectsOverviewMain from "./overview/ProjectsOverviewMain";
-import ProjectsMainTable from "./project/ProjectsMainTable";
+
+import ProjectTablePage from "./table/ProjectTablePage";
+import ProjectOverview from "./overview/ProjectOverview";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@redux/store";
 import { initializeChartSettings } from "@redux/slices/leadProjectCompanies";
@@ -57,15 +58,15 @@ const ProjectsMain = () => {
   const tabItems: TabItem[] = [
     {
       title: "Overview",
-      component: <ProjectsOverviewMain />,
+      component: <ProjectOverview />,
       icon:
         activeTab === 0
-          ? leadsIcons.leadsOverviewIcon.active
-          : leadsIcons.leadsOverviewIcon.default,
+          ? projectsIcons.projectsIcon.active
+          : projectsIcons.projectsIcon.default,
     },
     {
       title: "Projects",
-      component: <ProjectsMainTable />,
+      component: <ProjectTablePage />,
       icon:
         activeTab === 1
           ? projectsIcons.projectsIcon.active

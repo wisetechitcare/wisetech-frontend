@@ -12,10 +12,12 @@ import { can, canViewModule } from '@utils/can'
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas'
 import { fetchCurrentEmployeeByEmpId, fetchPendingApprovals } from '@services/employee'
 import { NEW_MY_TEAM_IA } from '@utils/featureFlags';
+import { usePinnedMenu } from '../../core/PinnedMenuContext'
 
 export function AsideMenuMain() {
   const intl = useIntl()
   const dispatch = useDispatch();
+  const { pinned } = usePinnedMenu();
   const [showAppSettings, setShowAppSettings] = useState(false);
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const employeeId = useSelector(
@@ -56,6 +58,27 @@ export function AsideMenuMain() {
 
   return (
     <>
+      {pinned.length > 0 && (
+        <>
+          <div className='menu-item'>
+            <div className='menu-content py-2'>
+              <span className='menu-section text-muted text-uppercase fs-5 ls-1 fw-semibold'>Pinned</span>
+            </div>
+          </div>
+          {pinned.map((item) => (
+            <AsideMenuItem
+              key={item.to}
+              to={item.to}
+              title={item.title}
+              icon={item.icon}
+              activeIcon={item.activeIcon}
+              fontIcon='bi-layers'
+            />
+          ))}
+          <div className='separator my-2 mx-4'></div>
+        </>
+      )}
+
       <AsideMenuItem
         to='/dashboard'
         icon={sidePanelIcons.dashboard.default}

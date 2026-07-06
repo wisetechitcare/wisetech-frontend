@@ -6,6 +6,13 @@ import { getAllLeadStatus } from "@services/lead";
 import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import { getAllClientContacts } from "@services/companies";
+import {
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+} from '@app/modules/configuration';
 
 type Lead = {
   budget: string;
@@ -24,10 +31,10 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
     (s: RootState) => s.auth?.currentUser?.id
   );
   const companies = contact?.company;
-  
+
 
   const allEmplooyees = useSelector((state:RootState)=>state.allEmployees?.list)
-  
+
   useEffect(()=>{
     setLoading(true);
     getAllClientContacts({}, true)
@@ -176,72 +183,89 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
   
   
 
+  const leadCount = contact?.leads?.length || 0;
+
   if (loading) return <Loader />;
 
-  
-
   return (
-<MaterialTable
-  data={contact?.leads || []}
-  columns={columns}
-  tableName="Contact Leads"
-  employeeId={employeeId}
-  muiTableProps={{
-    sx: {
-      borderCollapse: "separate",
-      borderSpacing: "0 20px !important", // 20px vertical spacing between rows
-    },
-    muiTableBodyRowProps: ({ row }: any) => {
-      const status = statuses?.find((s: any) => s.id === row.original.statusId);
-      if (!status) return {};
+    <div style={{ backgroundColor: C.bgPage, minHeight: 'auto', padding: `${SP.lg} 0` }}>
+      <ConfigSectionCard
+        title="Lead Opportunities"
+        description={`${leadCount} lead${leadCount !== 1 ? 's' : ''} associated with this contact`}
+        icon="bi-graph-up"
+        iconColor="primary"
+        badge={{ label: `${leadCount}`, bg: C.primaryLight, color: C.primary }}
+        variant="default"
+        compact={false}
+      >
+        <div style={{ marginTop: SP.md }}>
+          <MaterialTable
+            data={contact?.leads || []}
+            columns={columns}
+            tableName="Contact Leads"
+            employeeId={employeeId}
+            muiTableProps={{
+              sx: {
+                borderCollapse: "separate",
+                borderSpacing: "0 8px !important",
+                '& .MuiTableHead-root': {
+                  '& .MuiTableCell-root': {
+                    backgroundColor: C.bgSection,
+                    borderRadius: `${RADIUS.sm} ${RADIUS.sm} 0 0`,
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    color: C.textPrimary,
+                    fontFamily: FONT.body,
+                    borderBottom: `1px solid ${C.border}`,
+                    padding: '12px 16px !important',
+                  },
+                },
+              },
+              muiTableBodyRowProps: ({ row }: any) => {
+                const status = statuses?.find((s: any) => s.id === row.original.statusId);
+                if (!status) return {};
 
-      const hex = status.color?.startsWith("#")
-        ? status.color
-        : `#${status.color}`;
+                const hex = status.color?.startsWith("#")
+                  ? status.color
+                  : `#${status.color}`;
 
-      return {
-        sx: {
-          cursor: "pointer",
-          backgroundColor: `${hex}40`, // original color logic
-          color: "#333",
-          padding: "10px !important",
+                return {
+                  sx: {
+                    cursor: "pointer",
+                    backgroundColor: `${hex}25`,
+                    color: C.textPrimary,
+                    padding: "8px !important",
+                    borderRadius: RADIUS.lg,
+                    border: `1px solid ${hex}40`,
+                    transition: 'all 0.2s ease',
 
-          "& .MuiTableCell-root": {
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            fontSize: "14px",
-            fontFamily: "Inter",
-            fontWeight: "400",
-            padding: "8px 16px !important",
-            borderBottom: "2px solid white",
-            borderTop: "2px solid white",
-          },
+                    "& .MuiTableCell-root": {
+                      fontSize: "13px",
+                      fontFamily: FONT.body,
+                      fontWeight: "400",
+                      padding: "10px 14px !important",
+                      border: 'none',
+                      color: C.textPrimary,
+                    },
 
-          "& .MuiTableCell-root:first-of-type": {
-            borderTopLeftRadius: "12px",
-            borderBottomLeftRadius: "12px",
-            borderLeft: "3px solid white",
-          },
-
-          "& .MuiTableCell-root:last-of-type": {
-            borderTopRightRadius: "12px",
-            borderBottomRightRadius: "12px",
-            borderRight: "3px solid white",
-          },
-
-          "&:hover": {
-            backgroundColor: `${hex}99`,
-            "& td": {
-              color: "black",
-            },
-          },
-        },
-      };
-    },
-  }}
-/>
-
+                    "&:hover": {
+                      backgroundColor: `${hex}40`,
+                      boxShadow: `0 4px 12px ${hex}30`,
+                      border: `1px solid ${hex}60`,
+                      transform: 'translateY(-1px)',
+                      "& td": {
+                        color: C.textPrimary,
+                        fontWeight: 500,
+                      },
+                    },
+                  },
+                };
+              },
+            }}
+          />
+        </div>
+      </ConfigSectionCard>
+    </div>
   );
 };
 

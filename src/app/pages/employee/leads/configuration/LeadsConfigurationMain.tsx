@@ -40,11 +40,12 @@ import { can } from '@utils/can';
 interface ColorChipProps {
   name: string;
   color: string;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  badge?: string;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
-const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) => {
+const ColorChip: React.FC<ColorChipProps> = ({ name, color, badge, onEdit, onDelete }) => {
   const [hov, setHov] = useState(false);
   const showActions = !!(onEdit || onDelete);
   return (
@@ -95,6 +96,24 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         }}>
           {name}
         </span>
+        {badge && (
+          <span style={{
+            fontFamily: FONT.body,
+            fontSize: '9px',
+            fontWeight: 700,
+            color: '#0A5C2A',
+            background: '#EDFDF3',
+            border: '1px solid #17C96433',
+            borderRadius: '999px',
+            padding: '2px 7px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            textTransform: 'uppercase',
+            letterSpacing: '0.4px',
+          }}>
+            {badge}
+          </span>
+        )}
       </div>
 
       {showActions && (
@@ -539,8 +558,9 @@ const LeadsConfigurationMain = () => {
                         key={s.id}
                         name={s.name}
                         color={s.color}
-                        onEdit={canManageLeads ? () => handleEdit(s) : undefined}
-                        onDelete={canManageLeads ? () => handleDelete(s.id!) : undefined}
+                        badge={s.isProjectTrigger ? 'Project Trigger' : undefined}
+                        onEdit={() => handleEdit(s)}
+                        onDelete={() => handleDelete(s.id!)}
                       />
                     ))}
                   </ChipGrid>

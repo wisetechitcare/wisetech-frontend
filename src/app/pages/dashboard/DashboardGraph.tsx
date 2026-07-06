@@ -16,7 +16,8 @@ import CustomPieCharts from "@pages/employee/leads/overview/commonComponents/Lea
 import Loader from "@app/modules/common/utils/Loader";
 import { convertToChartData } from "@utils/leadsProjectCompaniesStatistics";
 import { ChartDialogModal } from "@pages/employee/leads/overview/components/ChartDialogModal";
-import { ProjectDialogModal } from "@pages/employee/projects/overview/components/ProjectDialogModal";
+import { LeadAnalyticsPanel } from "./leadAnalytics";
+
 
 interface DashboardGraphProps {
   isAdmin?: boolean;
@@ -43,21 +44,12 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
   const [leadStatusesID, setLeadStatusesID] = useState<any>([]);
   const [serviceData, setServiceData] = useState<any>([]);
   const [categoryData, setCategoryData] = useState<any>([]);
-  const [projectStatusData, setProjectStatusData] = useState<any>([]);
-  const [projectTeamData, setProjectTeamData] = useState<any>([]);
-  const [projectCategoryDataRaw, setProjectCategoryDataRaw] = useState<any>([]);
   const [openStatus, setOpenStatus] = useState(false);
   const [openService, setOpenService] = useState(false);
   const [openCategory, setOpenCategory] = useState(false);
-  const [openProjectStatus, setOpenProjectStatus] = useState(false);
-  const [openProjectTeam, setOpenProjectTeam] = useState(false);
-  const [openProjectCategory, setOpenProjectCategory] = useState(false);
   const [statusId, setStatusId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [projectStatusId, setProjectStatusId] = useState("");
-  const [projectTeamId, setProjectTeamId] = useState("");
-  const [projectCategoryId, setProjectCategoryId] = useState("");
 
   const settings = useSelector((state: any) => state.chartSettings);
 
@@ -106,42 +98,6 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
       setCategoryId(selectedLabel);
     }
     setOpenCategory(true);
-  };
-
-  const handleProjectStatusChartClick = (selectedLabel: string) => {
-    const selectedStatus = projectStatusData.find(
-      (status: any) => status.name === selectedLabel
-    );
-    if (selectedStatus) {
-      setProjectStatusId(selectedStatus.id.toString());
-    } else {
-      setProjectStatusId(selectedLabel);
-    }
-    setOpenProjectStatus(true);
-  };
-
-  const handleProjectTeamChartClick = (selectedLabel: string) => {
-    const selectedTeam = projectTeamData.find(
-      (team: any) => team.name === selectedLabel
-    );
-    if (selectedTeam) {
-      setProjectTeamId(selectedTeam.id);
-    } else {
-      setProjectTeamId(selectedLabel);
-    }
-    setOpenProjectTeam(true);
-  };
-
-  const handleProjectCategoryChartClick = (selectedLabel: string) => {
-    const selectedCategory = projectCategoryDataRaw.find(
-      (category: any) => category.name === selectedLabel
-    );
-    if (selectedCategory) {
-      setProjectCategoryId(selectedCategory.id);
-    } else {
-      setProjectCategoryId(selectedLabel);
-    }
-    setOpenProjectCategory(true);
   };
 
   useEffect(() => {
@@ -198,12 +154,6 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
         } else {
           [projectStatusRes, projectTeamRes, projectCategoryRes] = results;
         }
-
-        setProjectStatusData(projectStatusRes?.projectCountByStatus || []);
-        setProjectTeamData(projectTeamRes?.projectCountByTeams || []);
-        setProjectCategoryDataRaw(
-          projectCategoryRes?.projectCountByAllCategories || []
-        );
 
         const convertProjectData = (apiData: any[], countKey: string) => {
           return apiData.map((item) => ({
@@ -322,50 +272,17 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
       {/* Charts */}
       <div className="row g-3">
         {/* Lead Charts - Only for Admin */}
-       
-            {/* Lead By Status */}
-            <div className="col-12 col-md-6 col-lg-6">
-              <CustomPieCharts
-                data={chartData.statusData}
-                title="This Month Leads By Status"
-                height={250}
-                width={250}
-                chartType="pie"
-                showFilter={true}
-                filterOptions={chartData.statusData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.status || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("status", value)
-                }
-                onChartClick={handleStatusChartClick}
-                filterPlaceholder="All Status"
-                key="status-chart"
-              />
-            </div>
-
-            {/* Lead By Service */}
-            <div className="col-12 col-md-6 col-lg-6">
-              <CustomPieCharts
-                data={chartData.serviceData}
-                title="This Month Leads by Service"
-                height={250}
-                width={250}
-                chartType="donut"
-                showFilter={true}
-                filterOptions={chartData.serviceData
-                  .map((item: any) => item.label)
-                  .sort((a: string, b: string) => a.localeCompare(b))}
-                filterValue={filters.service || ""}
-                onFilterChange={(value: string) =>
-                  handleFilterChange("service", value)
-                }
-                onChartClick={handleServiceChartClick}
-                filterPlaceholder="All Services"
-                key="service-chart"
-              />
-            </div>
+            {/* Lead By Status (funnel) + Lead By Service (treemap) — premium analytics */}
+            {isAdmin && (
+              <div className="col-12">
+                <LeadAnalyticsPanel
+                  statusData={chartData.statusData}
+                  serviceData={chartData.serviceData}
+                  onStatusSelect={handleStatusChartClick}
+                  onServiceSelect={handleServiceChartClick}
+                />
+              </div>
+            )}
 
             {/* Lead By Project Category */}
             <div className="col-12 col-md-6 col-lg-6">
@@ -407,7 +324,6 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             onFilterChange={(value: string) =>
               handleFilterChange("projectStatus", value)
             }
-            onChartClick={handleProjectStatusChartClick}
             filterPlaceholder="All Status"
             key="project-status-chart"
           />
@@ -429,7 +345,6 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             onFilterChange={(value: string) =>
               handleFilterChange("projectTeam", value)
             }
-            onChartClick={handleProjectTeamChartClick}
             filterPlaceholder="All Teams"
             key="project-team-chart"
           />
@@ -451,7 +366,6 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             onFilterChange={(value: string) =>
               handleFilterChange("projectCategory", value)
             }
-            onChartClick={handleProjectCategoryChartClick}
             filterPlaceholder="All Categories"
             key="project-category-chart"
           />
@@ -483,27 +397,6 @@ const DashboardGraph: React.FC<DashboardGraphProps> = ({ isAdmin = false }) => {
             endDate={today || undefined}
           />
 
-      <ProjectDialogModal
-        open={openProjectStatus}
-        onClose={() => setOpenProjectStatus(false)}
-        statusId={projectStatusId || undefined}
-        startDate={today.startOf("month") || undefined}
-        endDate={today || undefined}
-      />
-      <ProjectDialogModal
-        open={openProjectTeam}
-        onClose={() => setOpenProjectTeam(false)}
-        teamId={projectTeamId || undefined}
-        startDate={today.startOf("month") || undefined}
-        endDate={today || undefined}
-      />
-      <ProjectDialogModal
-        open={openProjectCategory}
-        onClose={() => setOpenProjectCategory(false)}
-        categoryId={projectCategoryId || undefined}
-        startDate={today.startOf("month") || undefined}
-        endDate={today || undefined}
-      />
     </div>
   );
 };

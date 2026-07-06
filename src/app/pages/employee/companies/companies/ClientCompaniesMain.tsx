@@ -159,7 +159,7 @@ const ClientCompaniesMain = ({
           internalReferenceEmployeeId: internalRefs,
           externalReferenceContactId: externalRefs,
           totalBudget: totalBudget,
-          projectCount: (company as any)._count?.projectCompanyMappings ?? 0,
+          projectCount: (company as any)._count?.leads ?? 0,
         };
       });
 

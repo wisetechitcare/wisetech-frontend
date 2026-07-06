@@ -22,6 +22,8 @@ export interface ConfigItem {
   color: string;
   isDefault?: boolean; // Added: Field to mark default status
   isInternal?: boolean; // Added: Field to distinguish internal vs external referral types
+  isProjectTrigger?: boolean; // Leads in this status are treated as Projects (unified entity)
+  isLostOutcome?: boolean; // Leads in this status are a terminal "lost" closure (require a reason)
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -42,6 +44,8 @@ const validationSchema = Yup.object().shape({
   color: Yup.string().required('Color is required'),
   isInternal: Yup.boolean().optional(), // Only for referral types
   isDefault: Yup.boolean().optional(), // Only for status types
+  isProjectTrigger: Yup.boolean().optional(), // Only for status types
+  isLostOutcome: Yup.boolean().optional(), // Only for status types
   isActive: Yup.boolean().required()
 });
 
@@ -55,6 +59,8 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
     color: initialData?.color || "#8B4444",
     ...(type === "referral" && { isInternal: initialData?.isInternal ?? false }), // Only for referral types
     ...(type === "status" && { isDefault: initialData?.isDefault ?? false }), // Only for status types
+    ...(type === "status" && { isProjectTrigger: initialData?.isProjectTrigger ?? false }),
+    ...(type === "status" && { isLostOutcome: initialData?.isLostOutcome ?? false }),
     isActive: initialData?.isActive ?? true,
   };
 
@@ -111,6 +117,16 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
         // Add isDefault only for status types
         if (type === "status" && "isDefault" in values) {
           submitValues.isDefault = values.isDefault;
+        }
+
+        // Add isProjectTrigger only for status types (unified Lead = Project rule)
+        if (type === "status" && "isProjectTrigger" in values) {
+          submitValues.isProjectTrigger = values.isProjectTrigger;
+        }
+
+        // Add isLostOutcome only for status types (terminal "lost" closure rule)
+        if (type === "status" && "isLostOutcome" in values) {
+          submitValues.isLostOutcome = (values as any).isLostOutcome;
         }
       }
 
@@ -282,6 +298,74 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess, 
                     </label>
                   </div>
                   <ErrorMessage name="isDefault" component="div" className="text-danger mt-1" />
+                </div>
+              )}
+
+              {/* Project Trigger Checkbox - Show only for status type */}
+              {type === "status" && (
+                <div className="mb-4">
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      id="isProjectTrigger"
+                      name="isProjectTrigger"
+                      className="form-check-input"
+                      checked={(values as any).isProjectTrigger}
+                      onChange={(e) => setFieldValue("isProjectTrigger", e.target.checked)}
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor="isProjectTrigger"
+                      style={{
+                        fontWeight: '500',
+                        color: '#1a1a1a',
+                        fontSize: '14px',
+                        fontFamily: 'Inter, sans-serif',
+                      }}
+                    >
+                      Treat leads in this status as Projects
+                    </label>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px', fontFamily: 'Inter, sans-serif' }}>
+                    Moving a lead into this status creates its project record and reveals the
+                    Project view (tasks, timesheets, reimbursements, financials). Moving it out
+                    removes the project record.
+                  </div>
+                  <ErrorMessage name="isProjectTrigger" component="div" className="text-danger mt-1" />
+                </div>
+              )}
+
+              {/* Lost Outcome Checkbox - Show only for status type */}
+              {type === "status" && (
+                <div className="mb-4">
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      id="isLostOutcome"
+                      name="isLostOutcome"
+                      className="form-check-input"
+                      checked={(values as any).isLostOutcome}
+                      onChange={(e) => setFieldValue("isLostOutcome", e.target.checked)}
+                    />
+                    <label
+                      className="form-check-label"
+                      htmlFor="isLostOutcome"
+                      style={{
+                        fontWeight: '500',
+                        color: '#1a1a1a',
+                        fontSize: '14px',
+                        fontFamily: 'Inter, sans-serif',
+                      }}
+                    >
+                      Treat leads in this status as Lost
+                    </label>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px', fontFamily: 'Inter, sans-serif' }}>
+                    Marks the lead as a terminal negative outcome (lost to competitor, no
+                    budget, etc.). The lead form will require a closure reason and note, and
+                    the lead is flagged as cancelled. Use this for "Lost" / "Canceled" statuses.
+                  </div>
+                  <ErrorMessage name="isLostOutcome" component="div" className="text-danger mt-1" />
                 </div>
               )}
 

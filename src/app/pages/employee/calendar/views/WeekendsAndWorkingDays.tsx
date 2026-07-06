@@ -1,7 +1,6 @@
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { parseWorkingDays } from '@utils/workingDays';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
-import { KTIcon } from '@metronic/helpers';
 import { IWeekend } from '@models/company';
 import { saveCurrentEmployee } from '@redux/slices/employee';
 import { RootState, store } from '@redux/store';
@@ -15,6 +14,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Modal } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import * as Yup from 'yup';
+import {
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from '@app/modules/configuration';
 
 interface weekends {
     id: string,
@@ -121,39 +128,47 @@ function WeekendsAndWorkingDays() {
         getBranchDetails();
     }, [refetch]);
 
-    const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => [
-        {
-            accessorKey: 'orgName',
-            header: 'Organisation',
-            Cell: ({ renderedCellValue }) => renderedCellValue,
-        },
-        {
-            accessorKey: 'branchName',
-            header: 'Branch Name',
-            Cell: ({ renderedCellValue }) => renderedCellValue,
-        },
-        {
-            accessorKey: 'type',
-            header: 'Type',
-            Cell: ({ renderedCellValue }) => renderedCellValue,
-        },
-        ...(isAdmin ? [{
-            accessorKey: 'actions',
-            header: 'Actions',
-            Cell: ({ row }: any) => {
-                return ( hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers) ?
-                <div className="flex items-center justify-center space-x-4">
-                    {" "}
-                    <button
-                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
-                        onClick={() => handleEdit(row.original)}
-                    >
-                        <KTIcon iconName="pencil" className=" inline fs-4 text-red-500" />
-                    </button>
-                </div>: "Not Allowed")
+    const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => {
+        const cols: MRT_ColumnDef<weekends>[] = [
+            {
+                accessorKey: 'branchName',
+                header: 'Branch Name',
+                Cell: ({ renderedCellValue }) => <span>{renderedCellValue}</span>,
             },
-        }] : []),
-    ], [weekends]);
+            {
+                accessorKey: 'type',
+                header: 'Holiday Schedule',
+                Cell: ({ renderedCellValue }) => <span>{renderedCellValue}</span>,
+            },
+        ];
+
+        if (isAdmin && hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)) {
+            cols.push({
+                accessorKey: 'actions',
+                header: 'Actions',
+                Cell: ({ row }: any) => (
+                    <button
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: C.primary,
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                        }}
+                        onClick={() => handleEdit(row.original)}
+                        onMouseEnter={(e) => e.currentTarget.style.color = C.primaryMid}
+                        onMouseLeave={(e) => e.currentTarget.style.color = C.primary}
+                    >
+                        <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
+                    </button>
+                ),
+            });
+        }
+
+        return cols;
+    }, [weekends, isAdmin]);
 
     const formik = useFormik<IWeekend>({
         initialValues: { ...currWeekendValues },
@@ -209,76 +224,153 @@ function WeekendsAndWorkingDays() {
 
     return (
         <>
-            <div className='p-lg-0 px-1 mt-5'>
-                <h2>Weekends</h2>
-                {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.readOthers) && 
-                <MaterialTable columns={columns} data={weekends} tableName="Weekends And Working Days" enableBottomToolbar={false} employeeId={employeeIdCurrent}/>}
-                <Modal show={showWeekendDaysModal} onHide={() => {
-                    setShowWeekendDaysModal(false);
-                    setCurrWeekendId('');
-                    setCurrWeekendValues({
-                        monday: false,
-                        tuesday: false,
-                        wednesday: false,
-                        thursday: false,
-                        friday: false,
-                        saturday: false,
-                        sunday: false,
-                    })
-                    formik.resetForm();
-                }} centered>
-                    <Modal.Header closeButton>
-                        <Modal.Title>Customize Weekends</Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body>
-                        <form onSubmit={formik.handleSubmit} noValidate className='form'>
-                            <div className='row mb-9 w-100 d-flex flex-wrap align-items-center justify-content-center'>
-                                <div className='mb-5'>
-                                    <p className='h6'>Choose Repeat Days</p>
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="monday" className=''>Monday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="monday" checked={formik.values.monday} {...formik.getFieldProps('monday')} />
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="tuesday" className=''>Tuesday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="tuesday" checked={formik.values.tuesday} {...formik.getFieldProps('tuesday')} />
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="wednesday">Wednesday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="wednesday" checked={formik.values.wednesday} {...formik.getFieldProps('wednesday')} />
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="thursday">Thursday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="thursday" checked={formik.values.thursday} {...formik.getFieldProps('thursday')} />
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="friday">Friday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="friday" checked={formik.values.friday} {...formik.getFieldProps('friday')} />
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="saturday">Saturday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="saturday" checked={formik.values.saturday} {...formik.getFieldProps('saturday')} />
-                                </div>
-                                <div className='d-flex w-auto align-items-center justify-content-between gap-2'>
-                                    <label htmlFor="sunday">Sunday</label>
-                                    <input className='form-check-input rounded-circle'
-                                        type='checkbox' id="sunday" checked={formik.values.sunday} {...formik.getFieldProps('sunday')} />
+            <style>{KEYFRAMES}</style>
+            <ConfigSectionCard
+                title="Weekends & Working Days"
+                description="Configure working days and weekend schedules for each branch"
+                icon="bi-calendar-week"
+                iconColor="teal"
+                badge={{ label: `${weekends.length}`, color: C.teal, bg: C.tealLight }}
+                loading={loading}
+            >
+                <div style={{ marginTop: SP.md }}>
+                    {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.readOthers) &&
+                        <MaterialTable
+                            columns={columns}
+                            data={weekends}
+                            tableName="Weekends And Working Days"
+                            enableBottomToolbar={false}
+                            employeeId={employeeIdCurrent}
+                            muiTableProps={{
+                                sx: {
+                                    '& .MuiTableCell-head': {
+                                        backgroundColor: C.bgSection,
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        color: C.textPrimary,
+                                        fontFamily: FONT.body,
+                                    },
+                                },
+                            }}
+                        />
+                    }
+                </div>
+            </ConfigSectionCard>
+
+            <Modal show={showWeekendDaysModal} onHide={() => {
+                setShowWeekendDaysModal(false);
+                setCurrWeekendId('');
+                setCurrWeekendValues({
+                    monday: false,
+                    tuesday: false,
+                    wednesday: false,
+                    thursday: false,
+                    friday: false,
+                    saturday: false,
+                    sunday: false,
+                })
+                formik.resetForm();
+            }} centered backdropClassName="modal-backdrop-blur">
+                <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
+                    <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
+                        Customize Weekend Days
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body style={{ padding: SP.lg }}>
+                        <form onSubmit={formik.handleSubmit} noValidate>
+                            <div style={{ marginBottom: SP.lg }}>
+                                <p style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary, marginBottom: SP.md }}>
+                                    Select Days Off (Weekend Days)
+                                </p>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: SP.md }}>
+                                    {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                                        <label key={day} style={{ display: 'flex', alignItems: 'center', gap: SP.sm, cursor: 'pointer' }}>
+                                            <input
+                                                type='checkbox'
+                                                id={day}
+                                                checked={(formik.values as any)[day]}
+                                                {...formik.getFieldProps(day)}
+                                                style={{
+                                                    width: '18px',
+                                                    height: '18px',
+                                                    cursor: 'pointer',
+                                                    accentColor: C.primary,
+                                                    borderRadius: '4px',
+                                                }}
+                                            />
+                                            <span style={{ fontFamily: FONT.body, fontSize: '13px', color: C.textPrimary, fontWeight: 500 }}>
+                                                {day.charAt(0).toUpperCase() + day.slice(1)}
+                                            </span>
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
-                            <div className='card-footer d-flex justify-content-start'>
-                                <button type='submit' className='btn btn-primary' disabled={loading || !formik.isValid}>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg, borderTop: `1px solid ${C.border}` }}>
+                                <button
+                                    type='button'
+                                    onClick={() => {
+                                        setShowWeekendDaysModal(false);
+                                        setCurrWeekendId('');
+                                        formik.resetForm();
+                                    }}
+                                    style={{
+                                        backgroundColor: C.bgCard,
+                                        color: C.textSecondary,
+                                        border: `1px solid ${C.border}`,
+                                        borderRadius: RADIUS.md,
+                                        padding: '8px 16px',
+                                        fontFamily: FONT.body,
+                                        fontWeight: 500,
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = C.bgSection;
+                                        e.currentTarget.style.borderColor = C.borderDark;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = C.bgCard;
+                                        e.currentTarget.style.borderColor = C.border;
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type='submit'
+                                    disabled={loading || !formik.isValid}
+                                    style={{
+                                        backgroundColor: loading || !formik.isValid ? `${C.primary}80` : C.primary,
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: RADIUS.md,
+                                        padding: '8px 16px',
+                                        fontFamily: FONT.body,
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        cursor: loading || !formik.isValid ? 'not-allowed' : 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!loading && formik.isValid) {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                    }}
+                                >
                                     {!loading && 'Save Changes'}
                                     {loading && (
-                                        <span className='indicator-progress' style={{ display: 'block' }}>
-                                            Please wait...{' '}
-                                            <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
+                                            Saving...
                                         </span>
                                     )}
                                 </button>
@@ -286,7 +378,16 @@ function WeekendsAndWorkingDays() {
                         </form>
                     </Modal.Body>
                 </Modal>
-            </div>
+
+            <style>{`
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+              .modal-backdrop-blur {
+                background-color: rgba(0, 0, 0, 0.2);
+                backdrop-filter: blur(2px);
+              }
+            `}</style>
         </>
     )
 }

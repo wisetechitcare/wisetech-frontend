@@ -1,0 +1,800 @@
+/*
+ * Floating notification center — premium visual system.
+ *
+ * Theme-agnostic by design: every colour is a Metronic `--bs-*` token (or a
+ * semantic hex shared with utils/notificationStyles.ts), so the whole surface
+ * tracks light/dark automatically via [data-bs-theme] with no JS — matching the
+ * sibling BottomNavigation it floats above.
+ */
+
+.wt-noti-root {
+  --wt-radius: 22px;
+  --wt-card-radius: 15px;
+  --wt-brand: #9d4141;
+  --wt-brand-2: #b94a4a;
+  --wt-brand-3: #8c3232;
+  --wt-surface: var(--bs-app-header-base-bg-color, var(--bs-card-bg, var(--bs-body-bg)));
+  --wt-elevated: var(--bs-body-bg);
+  --wt-border: var(--bs-border-color);
+  --wt-border-soft: color-mix(in srgb, var(--bs-border-color) 55%, transparent);
+  --wt-muted: var(--bs-gray-600, #99a1b7);
+  --wt-heading: var(--bs-gray-900, #071437);
+  --wt-body: var(--bs-gray-700, #5e6278);
+  --wt-hover: color-mix(in srgb, var(--bs-gray-500, #99a1b7) 10%, transparent);
+
+  position: fixed;
+  z-index: 1090; /* above bottom-nav (105) & its More sheet (1080); below Swal (2000) */
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: 24px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  pointer-events: none;
+  font-family: var(--bs-font-sans-serif, 'Inter', Helvetica, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 991.98px) {
+  .wt-noti-root {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-width: 520px;
+    bottom: calc(var(--bn-content-offset, 82px) + env(safe-area-inset-bottom, 0px) + 2px);
+  }
+}
+
+.wt-noti-root * {
+  box-sizing: border-box;
+}
+
+/* ══ Collapsed snackbar ══════════════════════════════════════════════════════ */
+
+.wt-snack {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;   /* line up with the bottom-nav bar it floats above */
+  margin: 0 auto;
+  padding: 9px 10px 9px 12px;
+  background: var(--wt-surface);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--wt-radius);
+  /* Same elevation recipe as .bottom-nav__bar so they read as one family. */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-bs-theme='dark'] .wt-snack,
+[data-bs-theme='dark'] .wt-panel {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.wt-snack:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--wt-brand) 45%, var(--wt-border));
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.05),
+    0 16px 38px rgba(16, 24, 40, 0.18);
+}
+
+.wt-snack:focus-visible {
+  outline: 2px solid var(--wt-brand);
+  outline-offset: 2px;
+}
+
+.wt-snack__logo {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(140deg, var(--wt-brand-2) 0%, var(--wt-brand-3) 100%);
+  box-shadow:
+    0 4px 12px rgba(157, 65, 65, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.wt-snack__logo .ki-duotone,
+.wt-snack__logo .ki-outline,
+.wt-snack__logo .ki-solid {
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #ffffff !important;
+}
+
+.wt-snack__logo .ki-duotone [class^="path"]:before,
+.wt-snack__logo .ki-duotone [class^="path"]::before {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.wt-snack__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wt-snack__heading {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--wt-heading);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.wt-snack__count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--wt-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Critical folded into the count line as coloured text — no separate pill. */
+.wt-snack__crit {
+  font-weight: 700;
+  color: var(--bs-danger, #dc2626);
+}
+
+.wt-snack__dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.wt-snack__chevron {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--wt-hover);
+  color: var(--wt-body);
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.wt-snack__chevron .ki-duotone,
+.wt-snack__chevron .ki-outline,
+.wt-snack__chevron .ki-solid {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.wt-snack:hover .wt-snack__chevron {
+  background: var(--wt-hover);
+  color: var(--wt-brand);
+  transform: translateY(-1px);
+}
+
+/* ══ Count badge (shared) ════════════════════════════════════════════════════ */
+
+.wt-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: var(--bs-danger, #f1416c);
+  border: 1.5px solid var(--wt-surface);
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(241, 65, 108, 0.4);
+}
+
+.wt-badge--pulse {
+  animation: wt-noti-pulse 2s infinite;
+}
+
+@keyframes wt-noti-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(241, 65, 108, 0.5); }
+  70%  { box-shadow: 0 0 0 7px rgba(241, 65, 108, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(241, 65, 108, 0); }
+}
+
+/* ══ Expanded panel ══════════════════════════════════════════════════════════ */
+
+.wt-panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: min(74vh, 640px);
+  background: var(--wt-surface);
+  border: 1px solid var(--wt-border-soft);
+  border-radius: var(--wt-radius);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 24px 56px rgba(16, 24, 40, 0.22);
+  overflow: hidden;
+}
+
+@media (max-width: 991.98px) {
+  .wt-panel {
+    max-height: min(72vh, 580px);
+  }
+}
+
+/* Slim single-row header */
+.wt-panel__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid var(--wt-border-soft);
+}
+
+.wt-panel__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--wt-heading);
+  line-height: 1.1;
+}
+
+.wt-panel__hcount {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bs-danger, #f1416c);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.wt-iconbtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--wt-muted);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.wt-iconbtn:hover {
+  background: var(--wt-hover);
+  color: var(--wt-heading);
+}
+
+.wt-iconbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.wt-iconbtn--danger:hover {
+  background: color-mix(in srgb, var(--bs-danger, #f1416c) 12%, transparent);
+  color: var(--bs-danger, #f1416c);
+}
+
+.wt-iconbtn--active {
+  background: color-mix(in srgb, var(--wt-brand) 14%, transparent);
+  color: var(--wt-brand);
+}
+
+/* Collapse button — filled so it's clearly a tappable affordance */
+.wt-iconbtn--collapse {
+  background: var(--wt-hover);
+  color: var(--wt-body);
+}
+
+.wt-iconbtn--collapse:hover {
+  background: color-mix(in srgb, var(--wt-brand) 14%, transparent);
+  color: var(--wt-brand);
+}
+
+.wt-iconbtn:focus-visible {
+  outline: 2px solid var(--wt-brand);
+  outline-offset: 1px;
+}
+
+/* Action toolbar */
+.wt-panel__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--wt-border-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.wt-panel__toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.wt-textbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--wt-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.wt-textbtn:hover {
+  background: var(--wt-hover);
+  color: var(--wt-heading);
+}
+
+.wt-textbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.wt-textbtn--danger:hover {
+  background: color-mix(in srgb, var(--bs-danger, #f1416c) 12%, transparent);
+  color: var(--bs-danger, #f1416c);
+}
+
+.wt-textbtn--accent {
+  color: var(--wt-brand);
+}
+
+.wt-toolbar-spacer {
+  flex: 1;
+}
+
+/* Search + filters area */
+.wt-panel__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--wt-border-soft);
+  background: color-mix(in srgb, var(--wt-muted) 4%, transparent);
+}
+
+.wt-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.wt-search__icon {
+  position: absolute;
+  left: 11px;
+  color: var(--wt-muted);
+  pointer-events: none;
+}
+
+.wt-search__input {
+  width: 100%;
+  padding: 9px 32px 9px 34px;
+  border: 1px solid var(--wt-border);
+  border-radius: 11px;
+  background: var(--wt-elevated);
+  color: var(--wt-heading);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.wt-search__input::placeholder {
+  color: var(--wt-muted);
+}
+
+.wt-search__input:focus {
+  border-color: var(--wt-brand);
+  box-shadow: 0 0 0 3px rgba(157, 65, 65, 0.15);
+}
+
+.wt-search__clear {
+  position: absolute;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--wt-muted);
+  cursor: pointer;
+}
+
+.wt-search__clear:hover {
+  color: var(--wt-heading);
+}
+
+.wt-chiprow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Segmented read filter */
+.wt-segment {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--wt-hover);
+  gap: 2px;
+}
+
+.wt-segment__btn {
+  border: 0;
+  background: transparent;
+  padding: 5px 13px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--wt-muted);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.wt-segment__btn--active {
+  background: var(--wt-elevated);
+  color: var(--wt-heading);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* List body — sizes to the virtualized list's own (capped) height */
+.wt-panel__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wt-list-scroll {
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  padding: 4px 0 8px;
+}
+
+.wt-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wt-list-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--wt-brand) 40%, transparent);
+  border-radius: 10px;
+}
+
+.wt-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wt-group-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px 3px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--wt-muted);
+  background: var(--wt-surface);
+}
+
+.wt-group-header__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--wt-hover);
+  color: var(--wt-body);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+/* ══ Notification card ═══════════════════════════════════════════════════════ */
+
+.wt-card {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  margin: 4px 9px;
+  padding: 9px 10px 9px 14px;
+  border-radius: var(--wt-card-radius);
+  background: var(--wt-elevated);
+  border: 1px solid var(--wt-border-soft);
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+/* Left priority rail — sits flush against the card edge. */
+.wt-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--wt-card-accent, var(--wt-brand));
+}
+
+.wt-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--wt-card-accent, var(--wt-brand)) 40%, var(--wt-border));
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.12);
+}
+
+.wt-card:focus-visible {
+  outline: 2px solid var(--wt-brand);
+  outline-offset: 1px;
+}
+
+/*
+ * Unread cards stay on a clean neutral surface — the wider accent rail (and full
+ * opacity) carries the "unread" signal, so the panel no longer reads as one
+ * alarming block of colour.
+ */
+.wt-card--unread::before {
+  width: 5px;
+}
+
+.wt-card--read {
+  opacity: 0.6;
+}
+
+.wt-card--read::before {
+  opacity: 0.5;
+}
+
+.wt-card--read:hover {
+  opacity: 1;
+}
+
+.wt-card__icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  background: var(--wt-card-soft, rgba(157, 65, 65, 0.1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wt-card-accent, var(--wt-brand)) 16%, transparent);
+}
+
+.wt-card__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wt-card__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Category — plain inline label (no pill) to keep the meta row light. */
+.wt-card__cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--wt-body);
+  font-size: 0.66rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dot separator between category and time. */
+.wt-card__meta > .wt-card__cat + .wt-card__meta-item::before {
+  content: '';
+  flex-shrink: 0;
+  width: 3px;
+  height: 3px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.wt-card__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--wt-heading);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wt-card__message {
+  font-size: 0.72rem;
+  color: var(--wt-body);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wt-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+  font-size: 0.65rem;
+  color: var(--wt-muted);
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.wt-card__meta > .wt-card__meta-item {
+  flex-shrink: 0;
+}
+
+.wt-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.wt-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.wt-card:hover .wt-card__actions,
+.wt-card:focus-within .wt-card__actions {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Keep actions reachable on touch (no hover). */
+@media (hover: none) {
+  .wt-card__actions {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.wt-card__actbtn {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--wt-surface);
+  color: var(--wt-muted);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  transition: color 0.16s ease, background 0.16s ease;
+}
+
+.wt-card__actbtn:hover {
+  color: var(--wt-heading);
+  background: var(--wt-hover);
+}
+
+.wt-card__actbtn--danger:hover {
+  color: var(--bs-danger, #f1416c);
+}
+
+/* Empty / loading / error states */
+.wt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--wt-muted);
+}
+
+.wt-empty__glyph {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: var(--wt-hover);
+  font-size: 1.8rem;
+}
+
+.wt-empty__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--wt-body);
+}
+
+.wt-empty__hint {
+  font-size: 0.77rem;
+  max-width: 240px;
+}
+
+.wt-skel {
+  height: 70px;
+  margin: 7px 11px;
+  border-radius: var(--wt-card-radius);
+  background: linear-gradient(
+    90deg,
+    var(--wt-hover) 25%,
+    color-mix(in srgb, var(--wt-hover) 55%, var(--wt-elevated)) 50%,
+    var(--wt-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: wt-noti-shimmer 1.3s infinite;
+}
+
+@keyframes wt-noti-shimmer {
+  to { background-position: -200% 0; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .wt-snack,
+  .wt-card,
+  .wt-card__actions,
+  .wt-snack__chevron,
+  .wt-badge--pulse,
+  .wt-skel {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Hide notification snackbar in desktop view (992px and above) */
+@media (min-width: 992px) {
+  .wt-snack {
+    display: none !important;
+  }
+}

@@ -11,8 +11,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
+import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
 import { fetchAppSettings } from "@redux/slices/appSettings";
 import Loader from "@app/modules/common/utils/Loader";
 import { AppDispatch } from "@redux/store";
@@ -286,42 +285,11 @@ const [weekEnd, setWeekEnd] = useState(() => {
 
 
           {isMobile ? (
-            <Select
+            <TimePeriodDropdown
               value={alignment}
               onChange={(e) => handleChange(e as any, e.target.value)}
               fullWidth
-              displayEmpty
-              variant="outlined"
-              size="small"
-              sx={{
-                borderRadius: "20px",
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "20px",
-
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderRadius: "20px",
-                  borderColor: "#D2B48C",
-                  borderWidth: "3px",
-                },'& .Mui-selected': {
-                  borderColor: '#9D4141 !important',
-                  color: '#9D4141 !important',
-                },
-                '& .MuiToggleButton-root:hover': {
-                  borderColor: '#9D4141 !important',
-                  color: '#9D4141 !important',
-                }
-
-
-              }}
-
-            >
-              <MenuItem value="daily">Daily</MenuItem>
-              <MenuItem value="weekly">Weekly</MenuItem>
-              <MenuItem value="monthly">Monthly</MenuItem>
-              <MenuItem value="yearly">Yearly</MenuItem>
-              <MenuItem value="custom">Custom</MenuItem>
-            </Select>
+            />
           ) : (
             <ToggleButtonGroup
               value={alignment}

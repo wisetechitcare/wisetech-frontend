@@ -25,6 +25,7 @@ export const C = {
   dangerLight: '#fff5f8',
   info: '#0085db',
   infoLight: '#e1f0fa',
+  infoShadowMd: 'rgba(0, 133, 219, 0.3)',
   purple: '#7c3aed',
   purpleLight: '#f5f3ff',
   teal: '#0d9488',

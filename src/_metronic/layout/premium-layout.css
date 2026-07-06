@@ -242,13 +242,65 @@ body[data-aside-collapsed='true'] {
   transform: translateY(-1px);
 }
 
+/* -----------------------------------------------------------------------------
+   Pin (favourite) toggle — reveals on row hover, stays visible once pinned.
+   Absolutely positioned so it sits over the row without nesting in the <a>.
+   -------------------------------------------------------------------------- */
+.aside .menu-item-pinnable {
+  position: relative;
+}
+.aside .menu-item-pinnable > .menu-link {
+  /* leave room so long titles don't run under the pin button */
+  padding-right: 38px;
+}
+.aside .menu-pin-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 1;
+  color: var(--wt-ink-soft);
+  opacity: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: opacity 0.15s var(--wt-ease), color 0.15s var(--wt-ease),
+    background 0.15s var(--wt-ease);
+}
+.aside .menu-pin-btn i {
+  font-size: 15px;
+  vertical-align: middle;
+}
+.aside .menu-item-pinnable:hover .menu-pin-btn,
+.aside .menu-pin-btn:focus-visible {
+  opacity: 1;
+}
+.aside .menu-pin-btn:hover {
+  color: var(--wt-accent);
+  background: rgba(var(--wt-accent-rgb), 0.12);
+}
+/* Pinned rows keep the filled pin visible as an on-state indicator. */
+.aside .menu-pin-btn.pinned {
+  opacity: 1;
+  color: var(--wt-accent);
+}
+
 /* =============================================================================
    COLLAPSED RAIL (desktop only)
    ========================================================================== */
 @media (min-width: 992px) {
   body[data-aside-collapsed='true'] .aside .menu-title,
   body[data-aside-collapsed='true'] .aside .menu-arrow,
-  body[data-aside-collapsed='true'] .aside .menu-section {
+  body[data-aside-collapsed='true'] .aside .menu-section,
+  body[data-aside-collapsed='true'] .aside .menu-pin-btn {
     opacity: 0;
     width: 0;
     display: none !important;
@@ -404,12 +456,17 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
   background: #181824 !important;
 }
 
+.header-user-menu-wrapper .menu-item {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .header-user-menu-wrapper .menu-item .menu-link {
-  border-radius: 8px;
-  padding: 10px 16px !important;
-  margin: 4px 10px;
+  border-radius: 6px;
+  padding: 6px 12px !important;
+  margin: 2px 8px !important;
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: 13px;
   transition: all 0.2s var(--wt-ease);
 }
 
@@ -686,5 +743,118 @@ body[data-aside-collapsed='true'] .wt-aside-toggle svg {
 
 [data-bs-theme="dark"] .announcement-card-hover:hover {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* =============================================================================
+   RESPONSIVE HEADER  (tablet + mobile, < 992px)
+   Keeps the top bar tidy: hamburger on the left, a single row of matching
+   circular action chips (search · bell · profile) on the right that never
+   overflow the viewport.
+   ========================================================================== */
+@media (max-width: 991.98px) {
+  /* Set exact matching compact height for header and header-brand to fit compact layout */
+  .header {
+    height: 54px !important;
+  }
+  .header .header-brand {
+    height: 54px !important;
+    padding: 0 !important;
+  }
+
+  /* The mobile row wrapper: give it breathing room and a consistent height. */
+  .header .header-brand > .d-flex.w-100 {
+    height: 54px !important;
+    min-height: 54px !important;
+    gap: 10px;
+  }
+
+  /* Action cluster: even, compact spacing between every chip. */
+  .header .wt-header-actions {
+    gap: 10px !important;
+    align-items: center;
+  }
+  .header .wt-header-actions > div {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Drop the decorative vertical dividers on small screens — they read as
+     clutter when the chips are already tightly grouped. */
+  .header .wt-header-actions > .cursor-pointer::before,
+  .header .wt-header-actions > .d-flex.align-items-end::before {
+    display: none;
+  }
+
+  /* Compact matching circles (38px instead of 42px) on mobile */
+  .header [title='Notifications'],
+  .global-search-container.mobile-mode > button,
+  .header a[data-kt-menu-trigger] {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  /* Mobile search trigger styling */
+  .global-search-container.mobile-mode > button {
+    border-radius: 50% !important;
+    background: #ffffff !important;
+    border: 1px solid var(--wt-line) !important;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04) !important;
+    transition: background 0.18s var(--wt-ease), border-color 0.18s var(--wt-ease);
+  }
+  .global-search-container.mobile-mode > button:hover {
+    background: rgba(var(--wt-accent-rgb), 0.09) !important;
+    border-color: rgba(var(--wt-accent-rgb), 0.35) !important;
+  }
+  .global-search-container.mobile-mode > button i,
+  .global-search-container.mobile-mode > button .svg-icon {
+    color: var(--wt-ink-soft) !important;
+    font-size: 1.15rem !important;
+  }
+  .global-search-container.mobile-mode > button:hover i,
+  .global-search-container.mobile-mode > button:hover .svg-icon {
+    color: var(--wt-accent) !important;
+  }
+
+  [data-bs-theme="dark"] .global-search-container.mobile-mode > button {
+    background: #1c1c28 !important;
+    border-color: #2d2d3a !important;
+  }
+
+  /* The employee name is hidden below lg, so render the profile trigger as a
+     clean circle instead of an oval with empty right padding. */
+  .header a[data-kt-menu-trigger] {
+    justify-content: center;
+    border-radius: 50%;
+    padding: 2px !important;
+  }
+
+  /* Position Scroll-to-Top button above the mobile bottom nav bar */
+  .scrolltop {
+    bottom: 90px !important;
+    right: 20px !important;
+  }
+}
+
+/* Very small phones: scale the chips down a touch so hamburger + 3 actions
+   always fit on one line without horizontal scrolling. */
+@media (max-width: 400px) {
+  .header .header-brand > .d-flex.w-100 {
+    gap: 6px;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  .header .wt-header-actions {
+    gap: 6px !important;
+  }
+  .header [title='Notifications'],
+  .header a[data-kt-menu-trigger],
+  .global-search-container.mobile-mode > button {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  .header a[data-kt-menu-trigger] {
+    height: 38px !important;
+    padding: 2px !important;
+  }
 }
 

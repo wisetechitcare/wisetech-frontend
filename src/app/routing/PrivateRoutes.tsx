@@ -1,4 +1,4 @@
-import { FC, lazy, Suspense, useEffect, useState } from 'react'
+1import { FC, lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
@@ -45,11 +45,15 @@ const LoanDetails = lazy(() => import('@pages/employee/loans/personal/views/Loan
 const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/EmployeesLoanMain'))
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
+// Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
+const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
 const CompaniesMain = lazy(() => import('@pages/employee/companies/CompaniesMain'))
 const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companies/components/AllCompaniesToggle'))
-const AllProjectMainToggle = lazy(() => import('@pages/employee/projects/project/components/AllProjectMainToggle'))
-const LeadDetails = lazy(() => import('@pages/employee/leads/lead/LeadDetails'))
+// Unified Entity (Lead = Project): one detail page for both; legacy
+// /projects/:id URLs resolve to the owning lead via ProjectEntityRedirect.
+const EntityDetailPage = lazy(() => import('@pages/employee/entity/EntityDetailPage'))
+const ProjectEntityRedirect = lazy(() => import('@pages/employee/entity/ProjectEntityRedirect'))
 const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
 const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
@@ -475,6 +479,21 @@ const PrivateRoutes = () => {
               </SuspensedView>
             </SectionGuard>}
         />
+        {/* Opt-in beta: migrated EnterpriseForm wizard UI (classic flow stays default) */}
+        <Route
+          path='/qc/leads/wizard-beta'
+          element={
+            <SuspensedView>
+              <LeadWizardBetaPage />
+            </SuspensedView>}
+        />
+        <Route
+          path='/qc/leads/wizard-beta/:id'
+          element={
+            <SuspensedView>
+              <LeadWizardBetaPage />
+            </SuspensedView>}
+        />
         <Route
           path='/leads/:id'
           element={
@@ -588,7 +607,7 @@ const PrivateRoutes = () => {
           path='/projects/:projectId'
           element={
             <SuspensedView>
-              <AllProjectMainToggle />
+              <ProjectEntityRedirect />
             </SuspensedView>
           }
         />

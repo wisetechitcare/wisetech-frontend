@@ -41,7 +41,7 @@ function VirtualizedMenuList(props: any) {
 
 interface DropDownInputProps {
     isRequired: boolean;
-    inputLabel: string;
+    inputLabel: string | React.ReactNode;
     options: any;
     formikField: string;
     placeholder?: string;
