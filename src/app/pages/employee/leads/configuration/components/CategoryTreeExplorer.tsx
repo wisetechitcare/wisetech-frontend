@@ -262,7 +262,10 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
   onSubcategoryEdit, onSubcategoryDelete, onAddSubcategory,
 }) => {
   const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const hasSubs = new Set(subcategories.map(s => s.categoryId));
+    return new Set(categories.filter(c => hasSubs.has(c.id)).map(c => c.id!));
+  });
 
   const q = query.trim().toLowerCase();
 

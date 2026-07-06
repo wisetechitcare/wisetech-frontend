@@ -256,10 +256,33 @@ export const getLeadsByCompanyId = async (companyId: string) => {
     }
 }
 
-// Get Leads By Status Analytics
-export const getLeadsByStatusAnalytics = async (startDate: string, endDate: string) => {
+// Get Leads By Cancellation Reason Analytics
+export const getLeadsByCancellationReasonAnalytics = async (startDate: string, endDate: string) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_STATUS_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_CANCELLATION_REASON_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Get Leads By Status Analytics
+// receivedOnly=true restricts to project-trigger ("Received") leads — used by the Project section.
+export const getLeadsByStatusAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_STATUS_ANALYTICS}?startDate=${startDate}&endDate=${endDate}${receivedOnly ? "&receivedOnly=true" : ""}`;
+        const { data } = await axios.get(endpoint);
+        return data;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// Get Projects By Project-Status Analytics (received leads grouped by execution.projectStatus)
+export const getProjectsByStatusAnalytics = async (startDate: string, endDate: string) => {
+    try {
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_PROJECTS_BY_STATUS_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -268,9 +291,9 @@ export const getLeadsByStatusAnalytics = async (startDate: string, endDate: stri
 }
 
 // Get Leads By Service Analytics
-export const getLeadsByServiceAnalytics = async (startDate: string, endDate: string) => {
+export const getLeadsByServiceAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_SERVICE_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_SERVICE_ANALYTICS}?startDate=${startDate}&endDate=${endDate}${receivedOnly ? "&receivedOnly=true" : ""}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -279,9 +302,9 @@ export const getLeadsByServiceAnalytics = async (startDate: string, endDate: str
 }
 
 // Get Leads By Project Category Analytics
-export const getLeadsByProjectCategoryAnalytics = async (startDate: string, endDate: string, statusId: string) => {
+export const getLeadsByProjectCategoryAnalytics = async (startDate: string, endDate: string, statusId: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_PROJECT_CATEGORY_ANALYTICS}?startDate=${startDate}&endDate=${endDate}&statusId=${statusId}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_PROJECT_CATEGORY_ANALYTICS}?startDate=${startDate}&endDate=${endDate}&statusId=${statusId}${receivedOnly ? "&receivedOnly=true" : ""}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -323,9 +346,9 @@ export const getLeadsByReferralSourceAnalytics = async (startDate: string, endDa
 }
 
 // Get Leads By Source Analytics
-export const getLeadsBySourceAnalytics = async (startDate: string, endDate: string) => {
+export const getLeadsBySourceAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_SOURCE_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_SOURCE_ANALYTICS}?startDate=${startDate}&endDate=${endDate}${receivedOnly ? "&receivedOnly=true" : ""}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -335,9 +358,9 @@ export const getLeadsBySourceAnalytics = async (startDate: string, endDate: stri
 
 
 // Get Leads By Company Type Analytics
-export const getLeadsByCompanyTypeAnalytics = async (startDate: string, endDate: string) => {
+export const getLeadsByCompanyTypeAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_COMPANY_TYPE_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_COMPANY_TYPE_ANALYTICS}?startDate=${startDate}&endDate=${endDate}${receivedOnly ? "&receivedOnly=true" : ""}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -357,9 +380,9 @@ export const getMonthlyTopLeads = async (startDate: string, endDate: string, typ
 }
 
 // Get Monthly Lead Analytics
-export const getMonthlyLeadAnalytics = async (startDate: string, endDate: string) => {
+export const getMonthlyLeadAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_MONTHLY_LEAD_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_MONTHLY_LEAD_ANALYTICS}?startDate=${startDate}&endDate=${endDate}${receivedOnly ? "&receivedOnly=true" : ""}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {
@@ -420,9 +443,9 @@ export const getMonthlyLeadsByDirectSources = async (startDate: string, endDate:
 }
 
 // Get Leads By Location Analytics
-export const getLeadsByLocationAnalytics = async (startDate: string, endDate: string) => {
+export const getLeadsByLocationAnalytics = async (startDate: string, endDate: string, receivedOnly: boolean = false) => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_LOCATION_ANALYTICS}?startDate=${startDate}&endDate=${endDate}`;
+        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_LEADS_BY_LOCATION_ANALYTICS}?startDate=${startDate}&endDate=${endDate}${receivedOnly ? "&receivedOnly=true" : ""}`;
         const { data } = await axios.get(endpoint);
         return data;
     } catch (err) {

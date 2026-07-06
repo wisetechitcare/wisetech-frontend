@@ -88,7 +88,11 @@ function TextInput({
             const isInvalid = !!(meta.touched && meta.error);
 
             const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-              const raw = e.target.value;
+              // Neutralize newlines/tabs (e.g. pasted content) only. Trimming and
+              // space-collapsing are deferred to blur so spaces can be typed
+              // normally — trimming on every keystroke eats trailing spaces.
+              const raw = e.target.value.replace(/[\n\r\t]/g, ' ');
+
               const parsedValue = parser ? parser(raw) : raw;
 
               if (inputValidation) {
@@ -106,12 +110,24 @@ function TextInput({
               }
             };
 
+            // On blur: collapse runs of whitespace and trim the edges, then commit
+            // the cleaned value. Keeps Formik's own onBlur (touched) intact.
+            const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+              field.onBlur(e);
+              const current = typeof field.value === "string" ? field.value : "";
+              const cleaned = current.replace(/\s+/g, " ").trim();
+              if (cleaned !== current) {
+                form.setFieldValue(field.name, parser ? parser(cleaned) : cleaned);
+              }
+            };
+
             return (
               <input
                 {...field}
                 type={type}
                 value={displayValue ?? ""}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 placeholder={placeholder ?? ""}
                 readOnly={readonly}
                 disabled={readonly}

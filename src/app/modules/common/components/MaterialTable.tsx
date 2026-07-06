@@ -396,12 +396,21 @@ function MaterialTable({
 
   // Surface the visible column keys to the parent once preferences resolve and on every
   // toggle. A column is visible unless its visibility flag is explicitly false.
+  //
+  // Gate on the *content* of the visible-key set, not on object identity. finalColumns
+  // gets a fresh identity whenever a page's `columns` memo recomputes (e.g. after a data
+  // fetch that repopulates lookup lists), which would otherwise re-emit an identical set
+  // on every fetch and, for pages that refetch on this callback, spin a feedback loop.
+  const lastVisibleKeysSigRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isInitialized || !onVisibleColumnsChange) return;
     const vis = preferences.columnVisibility || {};
     const visibleKeys = finalColumns
       .map((c: any) => c.accessorKey)
       .filter((k: any) => k && vis[k] !== false);
+    const sig = [...visibleKeys].sort().join(",");
+    if (sig === lastVisibleKeysSigRef.current) return;
+    lastVisibleKeysSigRef.current = sig;
     onVisibleColumnsChange(visibleKeys);
   }, [isInitialized, preferences.columnVisibility, finalColumns, onVisibleColumnsChange]);
 

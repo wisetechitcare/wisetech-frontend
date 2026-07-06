@@ -48,6 +48,31 @@ export const createLead = (data: any) =>
 export const updateLead = (id: string, data: any) =>
     api.put(CLIENT_COMPANIES.UPDATE_LEAD.replace(':id', id), data);
 
+/**
+ * Section-scoped inline edit used by the Project cards on the Entity detail page.
+ * `section` selects which field group to update; `data` carries only that
+ * section's fields. `expectedRevisionCount` drives optimistic concurrency — the
+ * backend returns 409 (rejected promise) if the loaded snapshot is stale.
+ */
+export type LeadSectionKey =
+    | 'ownership'
+    | 'financials'
+    | 'timeline'
+    | 'purchaseOrder'
+    | 'handledBy';
+
+export const updateLeadSection = (
+    id: string,
+    section: LeadSectionKey,
+    data: any,
+    expectedRevisionCount?: number | null,
+) =>
+    api.patch(CLIENT_COMPANIES.UPDATE_LEAD_SECTION.replace(':id', id), {
+        section,
+        data,
+        expectedRevisionCount: expectedRevisionCount ?? null,
+    });
+
 export const deleteLead = (id: string) =>
     api.delete(CLIENT_COMPANIES.DELETE_LEAD.replace(':id', id));
 

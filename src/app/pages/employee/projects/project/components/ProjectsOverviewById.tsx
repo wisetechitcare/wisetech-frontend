@@ -12,6 +12,8 @@ import { getAllTimeSheetWithCostByProjectId } from "@services/tasks";
 import { getProjectProjectPoints, type ProjectPointValue } from "@services/projectPoints";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
+// Audit (change history)
+import { VersionHistory } from "@modules/audit/VersionHistory";
 
 const ProjectOverviewById = ({
   projectId,
@@ -1290,6 +1292,18 @@ const ProjectOverviewById = ({
           </div>
         </div>
       </div>
+
+      {/* Revision History Section */}
+      {projectId && (
+        <div className="mt-6" style={{ marginTop: "2rem" }}>
+          <h5 style={{ marginBottom: "1rem", fontWeight: "600", fontSize: "16px" }}>
+            Revision History & Audit Trail
+          </h5>
+          {/* Lead-as-master: a project IS a Received lead — its audit history lives
+              under the LEAD entity (the PROJECT audit entity type was retired). */}
+          <VersionHistory type="LEAD" id={projectId} isAdmin={false} />
+        </div>
+      )}
 
       <NewCompanyForm
         show={showCompany}

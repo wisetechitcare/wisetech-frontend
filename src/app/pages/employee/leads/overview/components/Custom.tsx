@@ -12,6 +12,7 @@ import {
   getMonthlyLeadsByDirectSources,
   getMonthlyTopLeads,
   getLeadsByLocationAnalytics,
+  getLeadsByCancellationReasonAnalytics,
   getAllLeadStatus,
 } from "@services/lead";
 import dayjs from "dayjs";
@@ -59,6 +60,7 @@ const Custom = ({ startDate, endDate }: Props) => {
     yearlyDirectSourceData: [],
     locationData: [],
     topLeadsData: [],
+    cancellationReasonData: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -87,6 +89,7 @@ const Custom = ({ startDate, endDate }: Props) => {
   const [yearlyReferralSourceData, setYearlyRefferalSourceData] =
     useState<any>(null);
   const [locationRes, setLocationRes] = useState<any>(null);
+  const [cancellationRes, setCancellationRes] = useState<any>(null);
   const [leadStatusesID, setLeadStatusesID] = useState<any>([]);
   const [monthlyTopLeadsRes, setMonthlyTopLeadsRes] = useState<any>(null);
 
@@ -442,6 +445,7 @@ const Custom = ({ startDate, endDate }: Props) => {
           yearlyDirectSourceRes,
           monthlyTopLeadsRes,
           locationRes,
+          cancellationRes,
         ] = await Promise.all([
           getLeadsByStatusAnalytics(startDates, endDates),
           getLeadsByServiceAnalytics(startDates, endDates),
@@ -460,6 +464,7 @@ const Custom = ({ startDate, endDate }: Props) => {
           getMonthlyLeadsByDirectSources(startDates, endDates),
           getMonthlyTopLeads(startDates, endDates, filters.topLeadsType),
           getLeadsByLocationAnalytics(startDates, endDates),
+          getLeadsByCancellationReasonAnalytics(startDates, endDates),
         ]);
 
         setDirectSourceRes(directSourceApiRes);
@@ -471,6 +476,7 @@ const Custom = ({ startDate, endDate }: Props) => {
         setYearlyRefferalSourceData(yearlyReferralSourceRes);
         setMonthlyTopLeadsRes(monthlyTopLeadsRes);
         setLocationRes(locationRes);
+        setCancellationRes(cancellationRes);
         setCategoryData(categoryRes?.data || []);
         setServiceData(serviceRes?.data || []),
           setChartData({
@@ -530,6 +536,12 @@ const Custom = ({ startDate, endDate }: Props) => {
               yearlyDirectSourceRes?.data || []
             ),
             topLeadsData: getFilteredTopLeadsData(),
+            cancellationReasonData: convertToChartData(
+              cancellationRes?.data || [],
+              "value",
+              "name",
+              ""
+            ),
           });
       } catch (error) {
         console.error("Error fetching chart data:", error);

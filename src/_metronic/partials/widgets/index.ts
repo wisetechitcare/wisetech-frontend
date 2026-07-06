@@ -68,7 +68,6 @@ export * from './tables/TablesWidget13'
 // engage
 export * from './engage/EngageWidget1'
 export * from './engage/EngageWidget2'
-export * from './engage/EngageWidget3'
 
 // feeds
 export * from './feeds/FeedsWidget2'

@@ -9,26 +9,15 @@ import { deleteConfirmation } from "@utils/modal";
 import EmployeeConfigureForm from "./EmployeeConfigureForm";
 import Loader from "@app/modules/common/utils/Loader";
 import EmployeeTypes from "@pages/company/masters/EmployeeTypes";
-
-// Common button styles
-const buttonStyles = {
-  base: {
-    border: "1px solid #9D4141",
-    fontWeight: 500,
-    color: "#9D4141",
-    backgroundColor: "transparent",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "all 0.3s ease-in-out",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    height: "40px",
-  },
-  hover: {
-    color: "white",
-    backgroundColor: "#9D4141",
-  },
-};
+import {
+  ConfigPageLayout,
+  ConfigSectionCard,
+  C,
+  FONT,
+  SP,
+  RADIUS,
+  KEYFRAMES,
+} from "@app/modules/configuration";
 
 interface EmployeeConfigItem {
   id: string;
@@ -229,375 +218,331 @@ const EmployeeConfigure = () => {
     return <Loader />;
   }
 
+  // ItemChip helper component
+  const ItemChip = ({ item, onEdit, onDelete }: any) => (
+    <div
+      style={{
+        backgroundColor: C.bgCard,
+        border: `1px solid ${C.border}`,
+        borderRadius: RADIUS.md,
+        padding: `${SP.sm} ${SP.md}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        transition: 'all 0.2s ease',
+        cursor: 'pointer',
+        marginBottom: SP.md,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadowMd}`;
+        e.currentTarget.style.transform = 'translateY(-2px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = 'none';
+        e.currentTarget.style.transform = 'translateY(0)';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
+        {item.color && (
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              backgroundColor: item.color,
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <span
+          style={{
+            fontFamily: FONT.body,
+            fontSize: '14px',
+            color: C.textPrimary,
+            fontWeight: 500,
+            maxWidth: '200px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={item.name}
+        >
+          {item.name}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: SP.md, alignItems: 'center' }}>
+        <button
+          onClick={() => onEdit(item)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: C.primary,
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'color 0.2s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = C.primaryMid)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = C.primary)}
+        >
+          <i className="bi bi-pencil" style={{ fontSize: '16px' }} />
+        </button>
+        <button
+          onClick={() => onDelete(item.id)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#dc3545',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'color 0.2s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#c82333')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#dc3545')}
+        >
+          <i className="bi bi-trash" style={{ fontSize: '16px' }} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div>
-      {/* Job Profile Card */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
+    <>
+      <style>{KEYFRAMES}</style>
+      <ConfigPageLayout
+        title="Employee Configuration"
+        subtitle="Manage job profiles, employee types, levels, and statuses"
+        icon="bi-person-badge"
       >
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5
-              className="card-title"
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontWeight: 600,
-                fontStyle: "normal",
-                fontSize: "16px",
-                lineHeight: "100%",
-                letterSpacing: "0",
-              }}
-            >
-              Job Profile
-            </h5>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
+          {/* Job Profiles Section */}
+          <ConfigSectionCard
+            title="Job Profiles"
+            description="Define different job profiles for employees"
+            icon="bi-briefcase"
+            iconColor="blue"
+            badge={{ label: `${jobProfiles.length}`, color: C.info, bg: '#dbeafe' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {jobProfiles.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No job profiles created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {jobProfiles.map((jobProfile) => (
+                    <ItemChip
+                      key={jobProfile.id}
+                      item={jobProfile}
+                      onEdit={handleJobProfileEdit}
+                      onDelete={(id: string) => handleDelete(id, 'JOB_PROFILE')}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleJobProfileModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Job Profile
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {jobProfiles.map((jobProfile) => (
-              <div key={jobProfile.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    {jobProfile.color && (
-                      <div
-                        className="rounded-circle"
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          backgroundColor: jobProfile.color,
-                        }}
-                      ></div>
-                    )}
-                    <div
-                      style={{
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 400,
-                        fontStyle: "normal",
-                        fontSize: "14px",
-                        lineHeight: "100%",
-                        letterSpacing: "0",
-                        cursor: "pointer",
-                      }}
-                      title={jobProfile.name}
-                    >
-                      {jobProfile.name.length > 20
-                        ? `${jobProfile.name.slice(0, 20)}...`
-                        : jobProfile.name}
-                    </div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleJobProfileEdit(jobProfile)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(jobProfile.id, "JOB_PROFILE")}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Employee Type Card */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5
-              className="card-title"
               style={{
-                fontFamily: "'Inter', sans-serif",
+                backgroundColor: C.info,
+                color: '#fff',
+                border: 'none',
+                borderRadius: RADIUS.md,
+                padding: `${SP.sm} ${SP.lg}`,
+                fontFamily: FONT.body,
                 fontWeight: 600,
-                fontStyle: "normal",
-                fontSize: "16px",
-                lineHeight: "100%",
-                letterSpacing: "0",
+                fontSize: '13px',
+                cursor: 'pointer',
+                marginTop: SP.lg,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#0066b3';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 18px ${C.infoShadowMd || 'rgba(0, 133, 219, 0.3)'}`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = C.info;
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              Employee Type
-            </h5>
+              <i className="bi bi-plus me-2" /> New Job Profile
+            </button>
+          </ConfigSectionCard>
+
+          {/* Employee Types Section */}
+          <ConfigSectionCard
+            title="Employee Types"
+            description="Classify employees by type (e.g., Full-time, Part-time)"
+            icon="bi-people"
+            iconColor="green"
+            badge={{ label: `${employeeTypes.length}`, color: C.success, bg: '#dcfce7' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {employeeTypes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No employee types created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {employeeTypes.map((employeeType) => (
+                    <ItemChip
+                      key={employeeType.id}
+                      item={employeeType}
+                      onEdit={handleEmployeeTypeEdit}
+                      onDelete={(id: string) => handleDelete(id, 'EMPLOYEE_TYPE')}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleEmployeeTypeModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Employee Type
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {employeeTypes.map((employeeType) => (
-              <div key={employeeType.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    {employeeType.color && (
-                      <div
-                        className="rounded-circle"
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          backgroundColor: employeeType.color,
-                        }}
-                      ></div>
-                    )}
-                    <div
-                      style={{
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 400,
-                        fontStyle: "normal",
-                        fontSize: "14px",
-                        lineHeight: "100%",
-                        letterSpacing: "0",
-                        cursor: "pointer",
-                      }}
-                      title={employeeType.name}
-                    >
-                      {employeeType.name.length > 20
-                        ? `${employeeType.name.slice(0, 20)}...`
-                        : employeeType.name}
-                    </div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleEmployeeTypeEdit(employeeType)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(employeeType.id, "EMPLOYEE_TYPE")}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Employee Level Card */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5
-              className="card-title"
               style={{
-                fontFamily: "'Inter', sans-serif",
+                backgroundColor: C.success,
+                color: '#fff',
+                border: 'none',
+                borderRadius: RADIUS.md,
+                padding: `${SP.sm} ${SP.lg}`,
+                fontFamily: FONT.body,
                 fontWeight: 600,
-                fontStyle: "normal",
-                fontSize: "16px",
-                lineHeight: "100%",
-                letterSpacing: "0",
+                fontSize: '13px',
+                cursor: 'pointer',
+                marginTop: SP.lg,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#15803d';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 18px rgba(34, 197, 94, 0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = C.success;
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              Employee Level
-            </h5>
+              <i className="bi bi-plus me-2" /> New Employee Type
+            </button>
+          </ConfigSectionCard>
+
+          {/* Employee Levels Section */}
+          <ConfigSectionCard
+            title="Employee Levels"
+            description="Define organizational hierarchy levels"
+            icon="bi-diagram-3"
+            iconColor="purple"
+            badge={{ label: `${employeeLevels.length}`, color: '#7c3aed', bg: '#ede9fe' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {employeeLevels.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No employee levels created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {employeeLevels.map((employeeLevel) => (
+                    <ItemChip
+                      key={employeeLevel.id}
+                      item={employeeLevel}
+                      onEdit={handleEmployeeLevelEdit}
+                      onDelete={(id: string) => handleDelete(id, 'EMPLOYEE_LEVEL')}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleEmployeeLevelModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
-            >
-              New Employee Level
-            </button>
-          </div>
-
-          <div className="row mt-4">
-            {employeeLevels.map((employeeLevel) => (
-              <div key={employeeLevel.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    {employeeLevel.color && (
-                      <div
-                        className="rounded-circle"
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          backgroundColor: employeeLevel.color,
-                        }}
-                      ></div>
-                    )}
-                    <div
-                      style={{
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 400,
-                        fontStyle: "normal",
-                        fontSize: "14px",
-                        lineHeight: "100%",
-                        letterSpacing: "0",
-                        cursor: "pointer",
-                      }}
-                      title={employeeLevel.name}
-                    >
-                      {employeeLevel.name.length > 20
-                        ? `${employeeLevel.name.slice(0, 20)}...`
-                        : employeeLevel.name}
-                    </div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleEmployeeLevelEdit(employeeLevel)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(employeeLevel.id, "EMPLOYEE_LEVEL")}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Employee Status Card */}
-      <div
-        className="card mt-5"
-        style={{ fontFamily: "Inter", fontSize: "16px", fontWeight: "400" }}
-      >
-        <div className="card-body">
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <h5
-              className="card-title"
               style={{
-                fontFamily: "'Inter', sans-serif",
+                backgroundColor: '#7c3aed',
+                color: '#fff',
+                border: 'none',
+                borderRadius: RADIUS.md,
+                padding: `${SP.sm} ${SP.lg}`,
+                fontFamily: FONT.body,
                 fontWeight: 600,
-                fontStyle: "normal",
-                fontSize: "16px",
-                lineHeight: "100%",
-                letterSpacing: "0",
+                fontSize: '13px',
+                cursor: 'pointer',
+                marginTop: SP.lg,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#6d28d9';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 18px rgba(124, 58, 237, 0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#7c3aed';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              Employee Status
-            </h5>
+              <i className="bi bi-plus me-2" /> New Employee Level
+            </button>
+          </ConfigSectionCard>
+
+          {/* Employee Status Section */}
+          <ConfigSectionCard
+            title="Employee Status"
+            description="Track employee employment status"
+            icon="bi-check-circle"
+            iconColor="amber"
+            badge={{ label: `${employeeStatuses.length}`, color: '#d97706', bg: '#fef3c7' }}
+          >
+            <div style={{ marginTop: SP.md }}>
+              {employeeStatuses.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: SP.lg, color: C.textMuted }}>
+                  <p style={{ fontFamily: FONT.body, fontSize: '14px' }}>No employee statuses created yet</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: SP.md }}>
+                  {employeeStatuses.map((employeeStatus) => (
+                    <ItemChip
+                      key={employeeStatus.id}
+                      item={employeeStatus}
+                      onEdit={handleEmployeeStatusEdit}
+                      onDelete={(id: string) => handleDelete(id, 'EMPLOYEE_STATUS')}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={handleEmployeeStatusModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.hover)
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, buttonStyles.base)
-              }
+              style={{
+                backgroundColor: '#d97706',
+                color: '#fff',
+                border: 'none',
+                borderRadius: RADIUS.md,
+                padding: `${SP.sm} ${SP.lg}`,
+                fontFamily: FONT.body,
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer',
+                marginTop: SP.lg,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#b45309';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = `0 6px 18px rgba(217, 119, 6, 0.3)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#d97706';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
-              New Employee Status
+              <i className="bi bi-plus me-2" /> New Employee Status
             </button>
-          </div>
-
-          <div className="row mt-4">
-            {employeeStatuses.map((employeeStatus) => (
-              <div key={employeeStatus.id} className="col-12 col-md-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-between"
-                  style={{
-                    backgroundColor: "#F2F5F8",
-                    padding: "0 15px",
-                    height: "40px",
-                    borderRadius: "5px",
-                  }}
-                >
-                  <div className="d-flex align-items-center gap-2">
-                    {employeeStatus.color && (
-                      <div
-                        className="rounded-circle"
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          backgroundColor: employeeStatus.color,
-                        }}
-                      ></div>
-                    )}
-                    <div
-                      style={{
-                        fontFamily: "Inter, sans-serif",
-                        fontWeight: 400,
-                        fontStyle: "normal",
-                        fontSize: "14px",
-                        lineHeight: "100%",
-                        letterSpacing: "0",
-                        cursor: "pointer",
-                      }}
-                      title={employeeStatus.name}
-                    >
-                      {employeeStatus.name.length > 20
-                        ? `${employeeStatus.name.slice(0, 20)}...`
-                        : employeeStatus.name}
-                    </div>
-                  </div>
-                  <div className="ms-4 d-flex gap-3">
-                    <i
-                      className="fa fa-pencil cursor-pointer"
-                      onClick={() => handleEmployeeStatusEdit(employeeStatus)}
-                    ></i>
-                    <i
-                      className="fa fa-trash cursor-pointer"
-                      onClick={() => handleDelete(employeeStatus.id, "EMPLOYEE_STATUS")}
-                    ></i>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          </ConfigSectionCard>
         </div>
-      </div>
+      </ConfigPageLayout>
 
       {/* Modals */}
       {/* Job Profile Modal */}
@@ -645,7 +590,7 @@ const EmployeeConfigure = () => {
       />
 
       <EmployeeTypes/>
-    </div>
+    </>
   );
 };
 

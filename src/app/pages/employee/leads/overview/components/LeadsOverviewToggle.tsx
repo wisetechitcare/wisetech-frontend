@@ -7,19 +7,23 @@ import { useDispatch } from "react-redux";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import Monthly from "./Monthly";
 import Yearly from "./Yearly";
 import Custom from "./Custom";
-import LeadsProjectCompanyChartSettings from "@pages/company/settings/LeadsProjectCompanyChartSettings";
+import AllTime from "./AllTime";
+import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
 import { PROJECT_CHART_SETTINGS_MODAL_TYPE } from "@constants/configurations-key";
 import { Modal } from "react-bootstrap";
 import { Typography } from "@mui/material";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
-import LeadFormModal from "../../lead/LeadFormModal";
+import LeadWizardModal from "../../lead/LeadWizardModal";
 
 export type ToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs, endDate: Dayjs) => void;
@@ -150,6 +154,9 @@ const LeadsOverviewToggle = ({
           toggleItemsActions?.yearly(yearStart, yearEnd);
         }
         break;
+      case "alltime":
+        // All-time view doesn't need date parameters
+        break;
       case "custom":
         if (customStartDate && customEndDate) {
           toggleItemsActions?.custom(customStartDate, customEndDate);
@@ -272,6 +279,12 @@ const LeadsOverviewToggle = ({
             />
           )}
 
+          {alignment === "alltime" && (
+            <div style={{ textAlign: "center", opacity: 0.7, fontSize: "14px" }}>
+              All-Time Summary
+            </div>
+          )}
+
           {alignment === "custom" && (
             <div className="d-flex align-items-center gap-4 mt-6 pt-6">
               <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -311,6 +324,9 @@ const LeadsOverviewToggle = ({
       {alignment === "yearly" && yearStart && yearEnd && (
         <Yearly startDate={yearStart} endDate={yearEnd} key={`yearly-${refreshTrigger}`} />
       )}
+      {alignment === "alltime" && (
+        <AllTime key={`alltime-${refreshTrigger}`} />
+      )}
       {alignment === "custom" ? (
         customStartDate && customEndDate ? (
           <Custom startDate={customStartDate} endDate={customEndDate} key={`custom-${refreshTrigger}`} />
@@ -339,7 +355,7 @@ const LeadsOverviewToggle = ({
 
       
 
-      <LeadFormModal
+      <LeadWizardModal
         key={formValues ? `new-${formValues.leadTemplateId}` : "new-lead-modal"}
         open={!!formValues}
         onClose={() => setFormValues(null)}
@@ -390,7 +406,7 @@ const LeadsOverviewToggle = ({
               >
                 Customize Cards Visisbility
               </Typography>
-              <LeadsProjectCompanyChartSettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD} />
+              <ChartVisibilitySettings type={PROJECT_CHART_SETTINGS_MODAL_TYPE.LEAD} />
             </div>
         </Modal.Body>
       </Modal>

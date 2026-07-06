@@ -2,6 +2,9 @@ export interface LeadStatus {
   id: string;
   name: string;
   color: string;
+  isDefault?: boolean;
+  /** Leads in this status are treated as Projects (unified entity rule). */
+  isProjectTrigger?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

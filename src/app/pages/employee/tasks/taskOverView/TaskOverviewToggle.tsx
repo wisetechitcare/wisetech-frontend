@@ -10,8 +10,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
+import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
 import Monthly from "./components/Monthly";
 import Yearly from "./components/Yearly";
 import Custom from "./components/Custom";
@@ -228,39 +227,12 @@ const TaskOverviewToggle = ({
         <div className="d-flex flex-column align-items-center d-md-block">
 
           {isMobile ? (
-            <Select
+            <TimePeriodDropdown
               value={alignment}
               onChange={(e) => handleChange(e as any, e.target.value)}
               fullWidth
-              displayEmpty
-              variant="outlined"
-              size="small"
-              sx={{
-                borderRadius: "20px",
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "20px",
-                  backgroundColor: "transparent", // Ensure no background
-                  "&:hover": {
-                    backgroundColor: "transparent", // Remove hover background
-                  },
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderRadius: "20px",
-                  borderColor: "#D2B48C",
-                  borderWidth: "3px",
-                },
-                "& .Mui-selected": {
-                  borderColor: "#9D4141 !important",
-                  color: "#9D4141 !important",
-                  backgroundColor: "transparent !important", // Remove selection background
-                },
-              }}
-            >
-              <MenuItem value="weekly">Weekly</MenuItem>
-              <MenuItem value="monthly">Monthly</MenuItem>
-              <MenuItem value="yearly">Yearly</MenuItem>
-              <MenuItem value="custom">Custom</MenuItem>
-            </Select>
+              modes={["weekly", "monthly", "yearly"]}
+            />
           ) : (
             <ToggleButtonGroup
               value={alignment}
