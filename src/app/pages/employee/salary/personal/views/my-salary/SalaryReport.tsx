@@ -797,8 +797,9 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         console.log("totalGrossPayEarned:: ", totalGrossPayEarned);
         console.log("totalGrossPayFixed:: ", totalGrossPayFixed);
         totalGrossPayFixed?.map((fixed, index) => {
-            if (fixed?.name?.toLowerCase?.() !== "basic salary") {
-                finalAmount += Number((fixed?.earned ?? '').replace(/[₹,]/g, ""));
+            if (fixed?.name.toLowerCase() != "basic salary") {
+                (fixed?.earned).replace(/[₹,]/g, "")
+                finalAmount += Number((fixed?.earned).replace(/[₹,]/g, ""))
             }
         })
         setTotalGrossPayEarned2(finalAmount);
@@ -1799,32 +1800,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             let filteredUnpaidLeaves = Number(unpaidLeaves) || 0;
             let filteredPaidLeaves = Number(paidLeavesResult) || 0;
 
-            // Half-day adjustment: the leave-count utilities count each half-day leave as a
-            // full day. A half-day leave is always a single working day, so subtract 0.5 per
-            // approved half-day leave in the period (split by paid/unpaid leave type).
-            try {
-                const allLeaves: any[] = store.getState().attendanceStats.leaves || [];
-                let paidHalfAdj = 0;
-                let unpaidHalfAdj = 0;
-                allLeaves.forEach((l: any) => {
-                    const statusNum = typeof l.statusNumber === 'number' ? l.statusNumber : l.status;
-                    if (statusNum !== LeaveStatus.Approved) return;
-                    if (!l.isHalfDay) return;
-                    const d = dayjs(l.date || l.dateFrom);
-                    const inPeriod = isYearly
-                        ? d.isBetween(fiscalStartDate, fiscalEndDate, 'day', '[]')
-                        : d.format('YYYY-MM') === `${year}-${month}`;
-                    if (!inPeriod) return;
-                    const type = (l.leaveOptions?.leaveType || l.type || '').toLowerCase();
-                    if (type.includes('unpaid')) unpaidHalfAdj += 0.5;
-                    else paidHalfAdj += 0.5;
-                });
-                filteredPaidLeaves = Math.max(0, filteredPaidLeaves - paidHalfAdj);
-                filteredUnpaidLeaves = Math.max(0, filteredUnpaidLeaves - unpaidHalfAdj);
-            } catch (halfDayErr) {
-                console.error('Half-day leave adjustment failed (non-fatal):', halfDayErr);
-            }
-
             if (employee?.dateOfExit) {
                 const exitDate = dayjs(employee.dateOfExit);
                 // The leave calculation functions already consider date ranges,
@@ -2066,40 +2041,9 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // console.log("SalarySlippaidLeaves:: ",paidLeaves);
 
     // Fetch payment history
-    // const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
-    // const salaryId = (apiSalaryData as any)?.salaryId;
-
-    // useEffect(() => {
-    //     if (!salaryId) return;
-    //     fetchSalaryPaymentHistory(salaryId)
-    //         .then((history: any) => setPaymentHistory(history))
-    //         .catch((err: any) => {
-    //             console.warn('Failed to fetch payment history:', err);
-    //             setPaymentHistory(null);
-    //         });
-    // }, [salaryId]);
-
-    // // Transform API data to SalarySlipTemplate props format
-    // const salarySlipProps = useMemo((): SalarySlipProps | null => {
-    //     if (!isApiDataLoaded || !apiSalaryData) {
-    //         console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
-    //         return null;
-    //     }
-
-    //     console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
-    //     try {
-    //         return transformApiDataToSalarySlipProps(apiSalaryData, employee, paymentHistory, salaryId);
-    //     } catch (error) {
-    //         console.error('📊 [SalaryReport] Error transforming API data:', error);
-    //         return null;
-    //     }
-    // }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
-
-    // Fetch payment history - MOVED TO TOP
     const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
     const salaryId = (apiSalaryData as any)?.salaryId;
 
-    // Move useEffect to top
     useEffect(() => {
         if (!salaryId) return;
         fetchSalaryPaymentHistory(salaryId)
@@ -2110,11 +2054,11 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             });
     }, [salaryId]);
 
-    // Move useMemo to top
+    // Transform API data to SalarySlipTemplate props format
     const salarySlipProps = useMemo((): SalarySlipProps | null => {
         if (!isApiDataLoaded || !apiSalaryData) {
             console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
-            return null;  // ← Can be null
+            return null;
         }
 
         console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
@@ -2125,14 +2069,6 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             return null;
         }
     }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
-
-
-    // Then rest of component render logic...
-    return (
-        <>
-            {/* ... */}
-        </>
-    );
 
     return (
         <>
@@ -2500,8 +2436,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                             const url = window.URL.createObjectURL(new Blob([blob]));
                                             const link = document.createElement('a');
                                             link.href = url;
-                                            link.setAttribute('download', `${salarySlipProps?.employee?.users?.firstName || ''} ${salarySlipProps?.employee?.users?.lastName || ''} Salary Slip ${dayjs().format('YYYY-MM')}.pdf`
-                                                .trim());
+                                            link.setAttribute('download', `${salarySlipProps.employee?.users?.firstName || ''} ${salarySlipProps.employee?.users?.lastName || ''} Salary Slip ${salarySlipProps.date || ''}.pdf`.trim());
                                             document.body.appendChild(link);
                                             link.click();
                                             link.parentNode?.removeChild(link);
