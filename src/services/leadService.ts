@@ -62,6 +62,7 @@ export type LeadSectionKey =
     | 'handledBy'
     | 'internalTeam'
     | 'externalTeam'
+    | 'executionTeam'
     | 'projectStatus';
 
 export const updateLeadSection = (

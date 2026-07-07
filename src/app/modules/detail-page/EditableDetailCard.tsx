@@ -1,4 +1,5 @@
 import React, { useState, type CSSProperties } from 'react';
+import Select from 'react-select';
 import { C, FONT, RADIUS } from '../configuration/ConfigDesignSystem';
 import { DetailCard, type AccentColor } from './DetailPageComponents';
 
@@ -200,6 +201,62 @@ export const SelectEditor: React.FC<{
       <option key={o.value} value={o.value}>{o.label}</option>
     ))}
   </select>
+);
+
+/**
+ * SearchableSelectEditor — same string-in/string-out contract as SelectEditor,
+ * but backed by react-select so the user can TYPE to filter a large option list
+ * (e.g. hundreds of client contacts). Menu is portalled to <body> so it escapes
+ * the card's overflow. Use this in place of SelectEditor whenever the option
+ * list is long enough that type-ahead matters.
+ */
+const searchableSelectStyles: any = {
+  control: (base: any, state: any) => ({
+    ...base,
+    minHeight: 34,
+    fontFamily: FONT.body,
+    fontSize: 13,
+    borderRadius: RADIUS.md,
+    borderColor: state.isFocused ? '#94A3B8' : C.border,
+    boxShadow: 'none',
+    ':hover': { borderColor: '#94A3B8' },
+  }),
+  valueContainer: (base: any) => ({ ...base, padding: '0 8px' }),
+  input: (base: any) => ({ ...base, margin: 0, padding: 0, fontSize: 13 }),
+  indicatorsContainer: (base: any) => ({ ...base, height: 32 }),
+  dropdownIndicator: (base: any) => ({ ...base, padding: 4 }),
+  clearIndicator: (base: any) => ({ ...base, padding: 4 }),
+  indicatorSeparator: (base: any) => ({ ...base, marginTop: 6, marginBottom: 6 }),
+  placeholder: (base: any) => ({ ...base, color: C.textMuted, fontSize: 13 }),
+  singleValue: (base: any) => ({ ...base, color: C.textPrimary, fontSize: 13 }),
+  menu: (base: any) => ({ ...base, fontFamily: FONT.body, fontSize: 13, zIndex: 9999 }),
+  menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+  option: (base: any, state: any) => ({
+    ...base,
+    fontSize: 13,
+    color: C.textPrimary,
+    backgroundColor: state.isSelected ? '#E2E8F0' : state.isFocused ? '#F1F5F9' : '#fff',
+  }),
+};
+
+export const SearchableSelectEditor: React.FC<{
+  value: any;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}> = ({ value, onChange, options, placeholder = 'Select…' }) => (
+  <Select
+    options={options}
+    value={options.find(o => String(o.value) === String(value ?? '')) ?? null}
+    onChange={(opt: any) => onChange(opt?.value ?? '')}
+    placeholder={placeholder}
+    isSearchable
+    isClearable
+    menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+    menuPosition="fixed"
+    styles={searchableSelectStyles}
+    classNamePrefix="react-select"
+  />
 );
 
 export const DateEditor: React.FC<{ value: any; onChange: (v: string) => void }> = ({ value, onChange }) => (
