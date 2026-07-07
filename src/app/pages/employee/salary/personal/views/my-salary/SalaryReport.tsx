@@ -2114,7 +2114,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const salarySlipProps = useMemo((): SalarySlipProps | null => {
         if (!isApiDataLoaded || !apiSalaryData) {
             console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
-            return null;
+            return null;  // ← Can be null
         }
 
         console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
@@ -2125,6 +2125,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             return null;
         }
     }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
+
 
     // Then rest of component render logic...
     return (
@@ -2499,7 +2500,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                             const url = window.URL.createObjectURL(new Blob([blob]));
                                             const link = document.createElement('a');
                                             link.href = url;
-                                            link.setAttribute('download', `${salarySlipProps.employee?.users?.firstName || ''} ${salarySlipProps.employee?.users?.lastName || ''} Salary Slip ${salarySlipProps.date || ''}.pdf`.trim());
+                                            link.setAttribute('download', `${salarySlipProps?.employee?.users?.firstName || ''} ${salarySlipProps?.employee?.users?.lastName || ''} Salary Slip ${dayjs().format('YYYY-MM')}.pdf`
+                                                .trim());
                                             document.body.appendChild(link);
                                             link.click();
                                             link.parentNode?.removeChild(link);
