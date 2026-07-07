@@ -17,6 +17,7 @@ import { hasPermission } from "@utils/authAbac";
 import { getEmployeeStatus, getEmployeeStatusString } from "@utils/employeeStatus";
 import { usePermission } from "@hooks/usePermission";
 import EmployeeAccessTab from "./EmployeeAccessTab";
+import EmployeeProject from "./EmployeeProject";
 
 const ShowEmployeeDetailsToggle = () => {
   const { employeeId } = useParams<{ employeeId: string }>();
@@ -227,6 +228,7 @@ const ShowEmployeeDetailsToggle = () => {
           }}
         >
           <ToggleButton value="details">Details</ToggleButton>
+          <ToggleButton value="projects">Projects</ToggleButton>
           {canManageAccess && <ToggleButton value="access">Access</ToggleButton>}
           {/* <ToggleButton value="configure">Configure</ToggleButton> */}
         </ToggleButtonGroup>
@@ -237,6 +239,11 @@ const ShowEmployeeDetailsToggle = () => {
         {activeTab === "details" && (
           <div className="tab-pane fade show active">
             <ShowEmployeeDetailsById employeeId={employeeId!} />
+          </div>
+        )}
+        {activeTab === "projects" && (
+          <div className="tab-pane fade show active">
+            <EmployeeProject employeeId={employeeId!} />
           </div>
         )}
         {activeTab === "access" && canManageAccess && (

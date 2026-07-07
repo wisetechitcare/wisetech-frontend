@@ -1,15 +1,16 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Modal } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
 import {
-  EditableDetailCard, SelectEditor, DateEditor, ToggleEditor,
+  EditableDetailCard, SelectEditor, SearchableSelectEditor, DateEditor, ToggleEditor,
 } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection } from '@services/leadService';
-import { getAllCompanyTypes, getAllClientCompanies, getClientContactsByCompanyId } from '@services/companies';
-import { fetchSubCompaniesByMainCompanyId } from '@services/company';
+import { getAllCompanyTypes, getAllClientCompanies, getAllClientContacts, getAllSubCompanies } from '@services/companies';
+import { getAllTeams } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 
@@ -75,10 +76,46 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   // After a save, ask the detail page to refetch the lead (it listens on this bus)
   // so read-mode values + a fresh revisionCount reflect the change.
-  const saveSection = (section: 'internalTeam' | 'externalTeam', data: any) =>
+  const saveSection = (section: 'internalTeam' | 'externalTeam' | 'executionTeam', data: any) =>
     updateLeadSection(leadId, section, data, rev).then(() => {
       if (leadId) eventBus.emit(EVENT_KEYS.leadUpdated, { id: leadId });
     });
+
+  // ── Execution team picker (also settable from Summary → Ownership). A button
+  //    opens a dialog with its own explicit Save — nothing is written until the
+  //    user confirms. Writes ONLY leadExecution.teamId via the dedicated
+  //    `executionTeam` section (so PM/status are untouched); the refetch then
+  //    re-seeds the roster from the new team's members. ──────────────────────────
+  const [teams, setTeams] = useState<any[]>([]);
+  const [savingTeam, setSavingTeam] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [draftTeamId, setDraftTeamId] = useState<string>(ex.teamId || '');
+
+  useEffect(() => {
+    getAllTeams(1, 9999).then((r: any) => setTeams(r?.data?.teams || r?.teams || [])).catch(() => {});
+  }, []);
+
+  const teamOptions = useMemo(
+    () => (teams || []).map((t: any) => ({ value: t.id, label: t.name || t.teamName || 'Unnamed Team' })),
+    [teams],
+  );
+
+  const openTeamModal = () => {
+    setDraftTeamId(ex.teamId || '');
+    setShowTeamModal(true);
+  };
+
+  const confirmTeamChange = () => {
+    if (draftTeamId === (ex.teamId || '') || savingTeam) return;
+    setSavingTeam(true);
+    saveSection('executionTeam', { teamId: draftTeamId || null })
+      .then(() => setShowTeamModal(false))
+      .catch((e: any) => {
+        // eslint-disable-next-line no-alert
+        alert(e?.response?.data?.message || 'Could not update the execution team. Please try again.');
+      })
+      .finally(() => setSavingTeam(false));
+  };
 
   // ── Internal roster: persisted members win; otherwise fall back to the live
   //    execution-team roster so the team's employees show up automatically the
@@ -106,49 +143,53 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     [leadTeams],
   );
 
-  // Cascade option sources (mirrors the lead form's Address To widget).
+  // Cascade option sources (mirrors the lead form's Address To widget). We load
+  // the FULL contact + sub-company masters up front (like the lead form) so any
+  // field can drive the others *in reverse*: pick a Contact — or a Sub Company —
+  // and its Company + Company Type back-fill automatically. Each carries the FK
+  // (contact.companyId/subCompanyId, subCompany.mainCompanyId, company.companyTypeId)
+  // that makes the reverse lookup possible.
   const [companyTypes, setCompanyTypes] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
-  const [subCompaniesByCompany, setSubCompaniesByCompany] = useState<Record<string, any[]>>({});
-  const [contactsByCompany, setContactsByCompany] = useState<Record<string, any[]>>({});
+  const [allSubCompanies, setAllSubCompanies] = useState<any[]>([]);
+  const [allContacts, setAllContacts] = useState<any[]>([]);
 
   useEffect(() => {
     getAllCompanyTypes().then((r: any) => setCompanyTypes(r?.companyTypes || [])).catch(() => {});
     getAllClientCompanies(true).then((r: any) => setCompanies(r?.data?.companies || [])).catch(() => {});
+    getAllSubCompanies().then((r: any) => setAllSubCompanies(r?.data?.subCompanies || r?.subCompanies || [])).catch(() => {});
+    getAllClientContacts({}, true).then((r: any) => setAllContacts(r?.data?.contacts || [])).catch(() => {});
   }, []);
 
-  // Lazily load a company's sub-companies + contacts (cached per company id).
-  const ensureCompanyDeps = useCallback((companyId?: string) => {
-    if (!companyId) return;
-    setSubCompaniesByCompany(prev => {
-      if (prev[companyId]) return prev;
-      fetchSubCompaniesByMainCompanyId(companyId)
-        .then((r: any) => setSubCompaniesByCompany(p => ({ ...p, [companyId]: r?.data?.subCompanies || r?.subCompanies || [] })))
-        .catch(() => setSubCompaniesByCompany(p => ({ ...p, [companyId]: [] })));
-      return { ...prev, [companyId]: [] };
-    });
-    setContactsByCompany(prev => {
-      if (prev[companyId]) return prev;
-      getClientContactsByCompanyId(companyId)
-        .then((r: any) => setContactsByCompany(p => ({ ...p, [companyId]: r?.data?.contacts || [] })))
-        .catch(() => setContactsByCompany(p => ({ ...p, [companyId]: [] })));
-      return { ...prev, [companyId]: [] };
-    });
-  }, []);
-
-  // Preload deps for companies already on the lead so the edit dropdowns are ready.
-  useEffect(() => {
-    leadTeams.forEach((t: any) => ensureCompanyDeps(t?.company?.id || t?.companyId));
-  }, [leadTeams, ensureCompanyDeps]);
+  // Reverse-lookup maps (id → record) that power the auto-fill handlers below.
+  const companyById = useMemo(() => new Map(companies.map((c: any) => [String(c.id), c])), [companies]);
+  const subCompanyById = useMemo(() => new Map(allSubCompanies.map((s: any) => [String(s.id), s])), [allSubCompanies]);
+  const contactById = useMemo(() => new Map(allContacts.map((c: any) => [String(c.id), c])), [allContacts]);
+  const companyNameById = useMemo(() => new Map(companies.map((c: any) => [String(c.id), c.companyName])), [companies]);
 
   const companyTypeOptions = useMemo(() => companyTypes.map((t: any) => ({ value: t.id, label: t.name })), [companyTypes]);
   const companyOptionsFor = (typeId?: string) => companies
     .filter((c: any) => !typeId || c.companyTypeId === typeId)
     .map((c: any) => ({ value: c.id, label: c.companyName }));
-  const subCompanyOptionsFor = (companyId?: string) => (subCompaniesByCompany[companyId || ''] || [])
-    .map((s: any) => ({ value: s.id, label: s.subCompanyName || s.name }));
-  const contactOptionsFor = (companyId?: string) => (contactsByCompany[companyId || ''] || [])
-    .map((c: any) => ({ value: c.id, label: c.fullName || c.name }));
+  // Sub-companies/contacts are filtered to the chosen company when one is set,
+  // but list EVERYTHING (tagged with its company name) when it isn't — so the
+  // user can pick one first and let it back-fill the company.
+  const subCompanyOptionsFor = (companyId?: string) => (companyId
+    ? allSubCompanies.filter((s: any) => String(s.mainCompanyId) === String(companyId))
+    : allSubCompanies)
+    .map((s: any) => {
+      const base = s.subCompanyName || s.name;
+      const cn = companyNameById.get(String(s.mainCompanyId));
+      return { value: s.id, label: (!companyId && cn) ? `${base} — ${cn}` : base };
+    });
+  const contactOptionsFor = (companyId?: string) => (companyId
+    ? allContacts.filter((c: any) => String(c.companyId) === String(companyId))
+    : allContacts)
+    .map((c: any) => {
+      const base = c.fullName || c.name || 'Unnamed Contact';
+      const cn = companyNameById.get(String(c.companyId));
+      return { value: c.id, label: cn ? `${base} — ${cn}` : base };
+    });
 
   return (
     <div>
@@ -172,7 +213,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       </div>
 
       {/* ── Internal Team ─────────────────────────────────────────────────── */}
-      <div className="row g-5 mb-2">
+      <div className="row mb-4">
         <div className="col-12">
           <EditableDetailCard
             title="Internal Team"
@@ -207,19 +248,34 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 if (toAdd.length) set({ internalMembers: [...rows, ...toAdd] });
               };
 
+              // Execution-team control — a button that opens a dialog with its own
+              // explicit Save (same target as Summary → Ownership). Shown in read
+              // mode above the roster; nothing is written until Save is clicked.
+              const teamPicker = (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '12px 14px', marginBottom: 14, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: '#2563eb14', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <i className="bi bi-diagram-3" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5 }}>Execution Team</div>
+                    <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2 }}>{team?.name || 'No team selected'}</div>
+                  </div>
+                  <button type="button" onClick={openTeamModal} style={{ ...addBtn, marginTop: 0 }}>
+                    <i className="bi bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
+                  </button>
+                </div>
+              );
+
               if (!editing) {
-                if (displayMembers.length === 0) {
-                  return (
-                    <EmptyState
-                      icon="bi bi-people"
-                      title="No internal members yet"
-                      message={team?.name
-                        ? `The ${team.name} team has no members. Click Edit to add people individually.`
-                        : 'No execution team is selected. Pick one in Summary → Project → Ownership, or click Edit to add members individually.'}
-                    />
-                  );
-                }
-                return (
+                const readBody = displayMembers.length === 0 ? (
+                  <EmptyState
+                    icon="bi bi-people"
+                    title="No internal members yet"
+                    message={team?.name
+                      ? `The ${team.name} team has no members. Click Edit to add people individually.`
+                      : 'No execution team is selected. Pick one above, or click Edit to add members individually.'}
+                  />
+                ) : (
                   <div>
                     {!persisted && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 10, borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontFamily: 'Inter', fontSize: 12.5, color: '#1e40af' }}>
@@ -247,6 +303,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     </div>
                   </div>
                 );
+                return <div>{teamPicker}{readBody}</div>;
               }
 
               return (
@@ -286,8 +343,39 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         </div>
       </div>
 
+      {/* Execution-team dialog: opened by the "Assign/Change Team" button above.
+          Nothing is written until Save is clicked. */}
+      <Modal show={showTeamModal} onHide={() => !savingTeam && setShowTeamModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>Assign Execution Team</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ padding: 16 }}>
+          <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+            Execution Team
+          </div>
+          <SearchableSelectEditor value={draftTeamId} options={teamOptions} onChange={setDraftTeamId} placeholder="Select execution team" />
+          <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
+            Changing the team re-seeds the Internal Team roster from the new team's members. Project Manager and Status are unaffected.
+          </div>
+        </Modal.Body>
+        <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
+          <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={confirmTeamChange}
+            disabled={savingTeam || draftTeamId === (ex.teamId || '')}
+            style={{ backgroundColor: '#AA393D', borderColor: '#AA393D' }}
+          >
+            {savingTeam ? 'Saving...' : 'Save'}
+          </button>
+        </Modal.Footer>
+      </Modal>
+
       {/* ── External Team ─────────────────────────────────────────────────── */}
-      <div className="row g-5 mb-2">
+      <div className="row mb-4">
         <div className="col-12">
           <EditableDetailCard
             title="External Team"
@@ -312,8 +400,40 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               const update = (i: number, patch: any) => { const next = [...rows]; next[i] = { ...next[i], ...patch }; set({ leadTeams: next }); };
               const remove = (i: number) => set({ leadTeams: rows.filter((_, idx) => idx !== i) });
               const add = () => set({ leadTeams: [...rows, { companyTypeId: '', companyId: '', subCompanyId: '', contactId: '' }] });
-              // Changing a company resets its dependent selects and lazy-loads options.
-              const onCompanyChange = (i: number, companyId: string) => { update(i, { companyId, subCompanyId: '', contactId: '' }); ensureCompanyDeps(companyId); };
+              // Forward cascade: picking a company back-fills its type and resets dependents.
+              const onCompanyChange = (i: number, companyId: string) => {
+                const company = companyById.get(String(companyId));
+                update(i, {
+                  companyId,
+                  subCompanyId: '',
+                  contactId: '',
+                  ...(company?.companyTypeId ? { companyTypeId: String(company.companyTypeId) } : {}),
+                });
+              };
+              // Reverse cascade: picking a sub company back-fills its company (+ type).
+              const onSubCompanyChange = (i: number, subCompanyId: string) => {
+                const sc = subCompanyById.get(String(subCompanyId));
+                const companyId = sc?.mainCompanyId ? String(sc.mainCompanyId) : rows[i]?.companyId;
+                const company = companyById.get(String(companyId));
+                update(i, {
+                  subCompanyId,
+                  ...(companyId ? { companyId } : {}),
+                  ...(company?.companyTypeId ? { companyTypeId: String(company.companyTypeId) } : {}),
+                });
+              };
+              // Reverse cascade: picking a contact back-fills company, sub company & type.
+              const onContactChange = (i: number, contactId: string) => {
+                const contact = contactById.get(String(contactId));
+                if (!contact) { update(i, { contactId }); return; }
+                const companyId = contact.companyId ? String(contact.companyId) : rows[i]?.companyId;
+                const company = companyById.get(String(companyId));
+                update(i, {
+                  contactId,
+                  ...(companyId ? { companyId } : {}),
+                  subCompanyId: contact.subCompanyId ? String(contact.subCompanyId) : (rows[i]?.subCompanyId || ''),
+                  ...(company?.companyTypeId ? { companyTypeId: String(company.companyTypeId) } : {}),
+                });
+              };
 
               if (!editing) {
                 return stakeholders.length === 0 ? (
@@ -354,10 +474,10 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   )}
                   {rows.map((t, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                      <div style={{ flex: 1, minWidth: 140 }}><SelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
-                      <div style={{ flex: 1, minWidth: 150 }}><SelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" /></div>
-                      <div style={{ flex: 1, minWidth: 150 }}><SelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => update(i, { subCompanyId: v })} placeholder={t.companyId ? 'Sub company' : '—'} /></div>
-                      <div style={{ flex: 1, minWidth: 150 }}><SelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => update(i, { contactId: v })} placeholder={t.companyId ? 'Contact' : '—'} /></div>
+                      <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
+                      <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" /></div>
+                      <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
+                      <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" /></div>
                       <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><i className="bi bi-trash" /></button>
                     </div>
                   ))}
