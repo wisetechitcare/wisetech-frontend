@@ -20,6 +20,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { useApplyLeave, type ApplyLeaveState } from './useApplyLeave';
 import { expandSandwichDates } from '@utils/leaveAllocation';
+import { parseWorkingDays } from '@utils/workingDays';
 import { formatCurrencyDecimal } from '@utils/currency';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
@@ -98,10 +99,16 @@ export default function ApplyLeave({ onClose }: { onClose: () => void }) {
     const overviewColors  = useSelector((s: RootState) => (s as any).customColors?.attendanceOverview);
 
     const dateOfJoining = dateOfJoiningRaw ? String(dateOfJoiningRaw).slice(0, 10) : null;
-    const workingAndOffDays = useMemo<Record<string, string>>(() => {
-        try { return workingAndOffDaysRaw ? JSON.parse(workingAndOffDaysRaw as string) : {}; }
-        catch { return {}; }
-    }, [workingAndOffDaysRaw]);
+    // Use the shared parseWorkingDays() helper (same as every other consumer of this value)
+    // so a working-Saturday config survives whether the API delivers workingAndOffDays as a
+    // JSON string or an already-parsed object. A raw JSON.parse threw on the object shape and
+    // silently fell back to {}, which made the calendar treat every Saturday as an off-day.
+    // Off-day/sandwich semantics are governed by wisetech-backend/src/utils/SANDWICH_RULES.md
+    // (§2 "Off-day", Invariant I-9) — keep this parse path in lockstep with that spec.
+    const workingAndOffDays = useMemo<Record<string, string>>(
+        () => parseWorkingDays(workingAndOffDaysRaw),
+        [workingAndOffDaysRaw],
+    );
     const holidays = useMemo(
         () => (publicHolidays || []).map((h: any) => String(h?.date ?? '').slice(0, 10)).filter(Boolean),
         [publicHolidays],
