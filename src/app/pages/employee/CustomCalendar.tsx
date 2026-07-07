@@ -24,7 +24,7 @@ import PublicHoliday from '@app/pages/company/PublicHoliday';
 import { KTIcon } from '@metronic/helpers';
 import LeaveRequestForm from './attendance/personal/views/my-leaves/LeaveRequestForm';
 import Holiday from '@pages/company/Holiday';
-import PublicHolidaysListNew from './PublicHolidaysListNew';
+import './CustomCalendar.premium.css';
 import MeetingsForm from './attendance/personal/views/my-leaves/MeetingsForm';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
@@ -44,9 +44,54 @@ import {
 } from '@constants/configurations-key';
 import { getUpcomingContactsBirthdays } from '@services/companies';
 import { fetchColorAndStoreInSlice } from '@utils/file';
-import { Box, Button } from '@mui/material';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+
+// ---- Premium outline icon set (consistent, no emoji) ----
+const ICONS: Record<string, JSX.Element> = {
+    plus: <path d="M12 5v14M5 12h14" />,
+    x: <path d="M18 6L6 18M6 6l12 12" />,
+    chevL: <path d="M15 18l-6-6 6-6" />,
+    chevR: <path d="M9 18l6-6-6-6" />,
+    calendar: <><rect x="3" y="4.5" width="18" height="16" rx="3" /><path d="M3 9h18M8 2.5v4M16 2.5v4" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>,
+    video: <><rect x="2" y="6" width="14" height="12" rx="2.5" /><path d="M22 8l-6 4 6 4V8z" /></>,
+    cake: <><path d="M4 21v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8" /><path d="M3 21h18" /><path d="M4 16.5s1-1 2.7-1 2.6 1.4 4 1.4 2.3-1.4 4-1.4 2.6 1 2.6 1" /><path d="M8 10.5V8M12 10.5V7.5M16 10.5V8" /></>,
+    award: <><circle cx="12" cy="9" r="6" /><path d="M8.5 14L7 22l5-3 5 3-1.5-8" /></>,
+    sun: <><circle cx="12" cy="12" r="4.5" /><path d="M12 1.5v2.5M12 20v2.5M3.5 12H1M23 12h-2.5M5 5l1.8 1.8M17.2 17.2L19 19M5 19l1.8-1.8M17.2 6.8L19 5" /></>,
+    users: <><path d="M16 20v-1.5A3.5 3.5 0 0 0 12.5 15h-6A3.5 3.5 0 0 0 3 18.5V20" /><circle cx="9.5" cy="8" r="3.5" /></>,
+    flag: <><path d="M4 15s1-.8 3.5-.8S12 15.8 15 15.8 19 15 19 15V4s-1 .8-4 .8S9.5 3 6.5 3 4 3.8 4 3.8z" /><path d="M4 21v-6" /></>,
+    spark: <path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16l-1.8-4.5L5 9.7l5.2-1.8z" />,
+    gift: <><rect x="3.5" y="8.5" width="17" height="12" rx="2" /><path d="M3.5 12.5h17M12 8.5v12" /><path d="M12 8.5S10.5 4 8 4a2 2 0 0 0 0 4h4zM12 8.5S13.5 4 16 4a2 2 0 0 1 0 4h-4z" /></>,
+    file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>,
+    eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
+    eyeOff: <><path d="M9.9 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.7 8.2 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.2-.9M3 3l18 18M9.9 9.9a3 3 0 0 0 4.2 4.2" /></>,
+};
+const Ico = ({ n, cls = '' }: { n: string; cls?: string }) => (
+    <svg className={`mrd-ico ${cls}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">{ICONS[n]}</svg>
+);
+
+// Category → premium look (icon / accent / soft tint / label). Keeps the palette
+// consistent regardless of the arbitrary configured event colours.
+const CAT: Record<string, { color: string; tint: string; icon: string; label: string }> = {
+    holiday: { color: 'var(--mrd-accent)', tint: 'var(--mrd-accent-tint)', icon: 'sun', label: 'Public holiday' },
+    meeting: { color: 'var(--mrd-violet)', tint: 'var(--mrd-violet-tint)', icon: 'video', label: 'Meeting' },
+    birthday: { color: 'var(--mrd-rose)', tint: 'var(--mrd-rose-tint)', icon: 'cake', label: 'Birthday' },
+    'contact-birthday': { color: 'var(--mrd-rose)', tint: 'var(--mrd-rose-tint)', icon: 'cake', label: 'Birthday · contact' },
+    anniversary: { color: 'var(--mrd-blue)', tint: 'var(--mrd-blue-tint)', icon: 'award', label: 'Work anniversary' },
+    'contact-anniversary': { color: 'var(--mrd-blue)', tint: 'var(--mrd-blue-tint)', icon: 'award', label: 'Anniversary · contact' },
+    event: { color: 'var(--mrd-primary)', tint: 'var(--mrd-primary-tint)', icon: 'calendar', label: 'Event' },
+};
+
+// Calendar legend groups → drive the visibility toggles in the right panel.
+// Each row maps a friendly label to one or more underlying event `type`s.
+const LEGEND: { key: string; label: string; color: string; types: string[] }[] = [
+    { key: 'event', label: 'My Calendar', color: 'var(--mrd-primary)', types: ['event'] },
+    { key: 'meeting', label: 'Meetings', color: 'var(--mrd-violet)', types: ['meeting'] },
+    { key: 'birthday', label: 'Birthdays', color: 'var(--mrd-rose)', types: ['birthday', 'contact-birthday'] },
+    { key: 'anniversary', label: 'Anniversaries', color: 'var(--mrd-blue)', types: ['anniversary', 'contact-anniversary'] },
+    { key: 'holiday', label: 'Holidays', color: 'var(--mrd-accent)', types: ['holiday'] },
+];
 
 // View options shown in the shared PeriodTabs (same control used app-wide).
 const CALENDAR_VIEW_OPTIONS = [
@@ -112,6 +157,7 @@ function CustomCalendar() {
     const [colorExternalAnny, setColorExternalAnny] = useState('#f57c00');
     const [colorSaturday, setColorSaturday] = useState('#FFB300');
     const [colorSunday, setColorSunday] = useState('#F44336');
+    const [hiddenCats, setHiddenCats] = useState<Set<string>>(new Set());
     const [showOptionsModal, setShowOptionsModal] = useState(false);
     const [showEventForm, setShowEventForm] = useState(false);
     const [showHolidayForm, setShowHolidayForm] = useState(false);
@@ -132,6 +178,8 @@ function CustomCalendar() {
     const [selectedStartDate, setSelectedStartDate] = useState('');
     const [selectedEndDate, setSelectedEndDate] = useState('');
     const [maxColumns, setMaxColumns] = useState(2);
+    // Day selected in the right-hand detail panel (independent of the create flow).
+    const [panelDate, setPanelDate] = useState<Date>(new Date());
     const [branchWorkingAndOffDays, setBranchWorkingAndOffDays] = useState<any>({});
     // console.log("branchWorkingAndOffDays =>",branchWorkingAndOffDays)
     const selectRef = useRef(null);
@@ -283,15 +331,19 @@ function CustomCalendar() {
           ] = await Promise.all([
             fetchAllColors(),
             fetchAllUsers(),
-            fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL),
-            fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL_INACTIVE),
-            fetchConfiguration(SHOW_BIRTHDAYS_EXTERNAL),
-            fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL),
-            fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL_INACTIVE),
-            fetchConfiguration(SHOW_ANNIVERSARIES_EXTERNAL),
-            fetchConfiguration(SHOW_SATURDAY_ON_CALENDAR),
-            fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR),
-            fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR),
+            // A not-yet-configured module makes the GET endpoint respond 400. Catch each
+            // config request so one missing module can't reject the whole batch and blank
+            // out birthdays / anniversaries / meetings / weekends on the calendar. A null
+            // result simply parses to `{}` (defaults) downstream.
+            fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL).catch(() => null),
+            fetchConfiguration(SHOW_BIRTHDAYS_INTERNAL_INACTIVE).catch(() => null),
+            fetchConfiguration(SHOW_BIRTHDAYS_EXTERNAL).catch(() => null),
+            fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL).catch(() => null),
+            fetchConfiguration(SHOW_ANNIVERSARIES_INTERNAL_INACTIVE).catch(() => null),
+            fetchConfiguration(SHOW_ANNIVERSARIES_EXTERNAL).catch(() => null),
+            fetchConfiguration(SHOW_SATURDAY_ON_CALENDAR).catch(() => null),
+            fetchConfiguration(SHOW_SUNDAY_ON_CALENDAR).catch(() => null),
+            fetchConfiguration(SHOW_MEETINGS_ON_CALENDAR).catch(() => null),
             fetchAllEmployees(true),
             getMeetings(employeeId)
           ]);
@@ -652,191 +704,366 @@ function CustomCalendar() {
         return () => window.removeEventListener('resize', updateColumns);
     }, []);
 
+    /* -----------------------------------------------------------------
+       Derived, presentation-only data. Built entirely from state that is
+       already fetched above (holidays / calendarEvents / meetings), so the
+       premium panel + cards stay perfectly in sync with the calendar.
+       ----------------------------------------------------------------- */
+    const dkey = (d: any) => dayjs(d).format('YYYY-MM-DD');
+    const mergedEvents = [...holidays, ...calendarEvents];
+    const evDateOf = (e: any) => e.date || e.start;
+    const evType = (e: any): string => e.extendedProps?.type || (e.date ? 'holiday' : 'event');
+    const evMeta = (e: any) => CAT[evType(e)] || CAT.event;
+    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'holiday'];
+    const evTimeOf = (e: any) => {
+        const s = e.start;
+        if (!s || allDayTypes.includes(evType(e))) return '';
+        const d = dayjs(s);
+        if (!d.isValid() || d.format('HH:mm') === '00:00') return '';
+        return d.format('h:mm A');
+    };
+    // Events currently visible after applying the legend visibility toggles.
+    const visibleEvents = mergedEvents.filter((e) => !hiddenCats.has(evType(e)));
+    const toggleCat = (types: string[]) => setHiddenCats((prev) => {
+        const next = new Set(prev);
+        const allHidden = types.every((t) => next.has(t));
+        types.forEach((t) => (allHidden ? next.delete(t) : next.add(t)));
+        return next;
+    });
+
+    const eventsOn = (d: Date) => visibleEvents
+        .filter((e) => dkey(evDateOf(e)) === dkey(d))
+        .sort((a, b) => (evTimeOf(a) || 'zz').localeCompare(evTimeOf(b) || 'zz'));
+
+    const panelEvents = eventsOn(panelDate);
+    const todayEvents = eventsOn(new Date());
+
+    /* Distinct configured category icons present on a given day. An event only
+       carries an `icon` (in extendedProps) when that category has one selected
+       in its "Configure …" modal, so we simply skip events without one. Icons
+       are de-duplicated per category, so a day with e.g. a birthday + an
+       anniversary shows the two icons side by side. */
+    const iconsOn = (d: Date): string[] => {
+        const seen = new Set<string>();
+        const out: string[] = [];
+        eventsOn(d).forEach((e: any) => {
+            const ic: string | undefined = e?.extendedProps?.icon;
+            if (ic && !seen.has(ic)) { seen.add(ic); out.push(ic); }
+        });
+        return out;
+    };
+    const renderDayIcon = (icon: string, i: number) => (
+        icon.startsWith('kt:')
+            ? <span className="mrd-daybadge" key={i}><KTIcon iconName={icon.slice(3)} className="mrd-daybadge__kt" /></span>
+            : <img className="mrd-daybadge mrd-daybadge__img" src={icon} alt="" key={i} />
+    );
+    // Rendered into FullCalendar's day-number anchor; the icon cluster is
+    // absolutely positioned to the bottom-right of the cell frame via CSS.
+    const renderDayCellContent = (arg: any) => {
+        const vt: string = arg?.view?.type || '';
+        const icons = vt.startsWith('multiMonth') ? [] : iconsOn(arg.date);   // skip the tiny year-view cells
+        return (
+            <>
+                {arg.dayNumberText}
+                {icons.length > 0 && (
+                    <span className="mrd-daybadges">
+                        {icons.slice(0, 4).map((ic, i) => renderDayIcon(ic, i))}
+                        {icons.length > 4 && <span className="mrd-daybadge mrd-daybadge__more">+{icons.length - 4}</span>}
+                    </span>
+                )}
+            </>
+        );
+    };
+
+    const startOfToday = dayjs().startOf('day');
+    const upcomingMeetings = [...meetings]
+        .filter((m: any) => m?.startDate && dayjs(m.startDate).isValid() && !dayjs(m.startDate).startOf('day').isBefore(startOfToday))
+        .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+        .slice(0, 5);
+
+    const celebrations = calendarEvents
+        .filter((e: any) => ['birthday', 'contact-birthday', 'anniversary', 'contact-anniversary'].includes(e.extendedProps?.type))
+        .filter((e: any) => e.start && dayjs(e.start).isValid())
+        .sort((a: any, b: any) => new Date(a.start).getTime() - new Date(b.start).getTime())
+        .slice(0, 6);
+
+    const holidayList = holidays
+        .filter((h: any) => { const t = (h.title || '').toLowerCase(); return t !== 'saturday' && t !== 'sunday'; })
+        .filter((h: any) => h.date && dayjs(h.date).format('YYYY') === currentYear)
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const thisMonthCount = mergedEvents.filter((e) => dayjs(evDateOf(e)).format('YYYY-MM') === dayjs().format('YYYY-MM')).length;
+
+    const relLabel = (d: any) => {
+        const diff = dayjs(d).startOf('day').diff(startOfToday, 'day');
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Tomorrow';
+        if (diff > 1 && diff < 7) return dayjs(d).format('ddd');
+        return dayjs(d).format('MMM D');
+    };
+    const panelLabel = relLabel(panelDate) === 'Today' || relLabel(panelDate) === 'Tomorrow'
+        ? relLabel(panelDate)
+        : dayjs(panelDate).startOf('day').diff(startOfToday, 'day') === -1 ? 'Yesterday' : 'Selected day';
+
+    // Upcoming, forward-looking feed for the right panel — from today onward,
+    // respecting the legend visibility toggles.
+    const upcomingEvents = visibleEvents
+        .filter((e) => { const d = dayjs(evDateOf(e)); return d.isValid() && !d.startOf('day').isBefore(startOfToday); })
+        .sort((a, b) => new Date(evDateOf(a)).getTime() - new Date(evDateOf(b)).getTime())
+        .slice(0, 6);
+
+    const panelPrev = () => setPanelDate((d) => dayjs(d).subtract(1, 'day').toDate());
+    const panelNext = () => setPanelDate((d) => dayjs(d).add(1, 'day').toDate());
+    const panelToday = () => setPanelDate(new Date());
+    const openCreateFor = (d: Date) => { setSelectedDateTimeInfo({ startStr: dayjs(d).format('YYYY-MM-DD') } as any); setShowOptionsModal(true); };
+
+    // Quick-action shortcuts — open the same forms as the "Select Event Type"
+    // modal, pre-seeded with the currently selected panel day.
+    const canHoliday = hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers);
+    const canLeave = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create);
+    const canMeeting = hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.create);
+    const qaNewEvent = () => { formik.setFieldValue('startDate', dayjs(panelDate).format('YYYY-MM-DD')); setShowEventForm(true); };
+    const qaNewMeeting = () => setShowMeetingsForm(true);
+    const qaNewHoliday = () => setShowHolidayForm(true);
+    const qaLeave = () => setShowLeaveRequestForm(true);
+    const emptyInline = (t: string) => (<div style={{ padding: '22px 6px', textAlign: 'center', color: 'var(--mrd-ink-3)', fontSize: 12.5 }}>{t}</div>);
+
     return (
         <>
-            <div id="fullcalendar__wrapper" className='d-flex flex-column'>
-                <div className='w-100 pl-10 pr-10'>
+            <div className="mrd">
                     <PageTitle breadcrumbs={calendarBreadcrumbs}>Calendar</PageTitle>
 
-                    {/* Calendar header built from the shared Period components
-                        (PeriodTabs + PeriodNavigator) used across the app, so the
-                        controls look and behave consistently everywhere. */}
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            flexDirection: { xs: 'column', md: 'row' },
-                            alignItems: { xs: 'stretch', md: 'center' },
-                            justifyContent: 'space-between',
-                            gap: 1.5,
-                            mb: 2,
-                        }}
-                    >
-                        <PeriodTabs
-                            value={selectedViewForCalendar}
-                            options={CALENDAR_VIEW_OPTIONS}
-                            onChange={handleViewChangeByValue}
-                            ariaLabel="calendar view selection"
-                            sx={{ width: { xs: '100%', md: 'fit-content' } }}
-                        />
-
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: { xs: 'space-between', md: 'flex-end' },
-                                gap: 1.5,
-                            }}
-                        >
-                            <Button
-                                onClick={handleToday}
-                                disableElevation
-                                sx={{
-                                    height: 32,
-                                    minWidth: 'fit-content',
-                                    px: 1.75,
-                                    borderRadius: '4px',
-                                    backgroundColor: '#ffffff',
-                                    border: '1px solid #eef2f7',
-                                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
-                                    color: '#9d4141',
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    lineHeight: '32px',
-                                    textTransform: 'none',
-                                    '&:hover': { backgroundColor: '#f8fafc' },
-                                }}
-                            >
-                                Today
-                            </Button>
-
+                    {/* Premium toolbar — reuses the shared PeriodTabs + PeriodNavigator
+                        so behaviour stays consistent with the rest of the app. */}
+                    <div className="mrd-toolbar">
+                        <div className="mrd-toolbar__left">
+                            <div className="mrd-eyebrow">Workspace calendar</div>
+                            <PeriodTabs
+                                value={selectedViewForCalendar}
+                                options={CALENDAR_VIEW_OPTIONS}
+                                onChange={handleViewChangeByValue}
+                                ariaLabel="calendar view selection"
+                            />
+                        </div>
+                        <div className="mrd-toolbar__right">
+                            <button type="button" className="mrd-btn" onClick={handleToday}>Today</button>
                             <PeriodNavigator
                                 label={periodTitle}
                                 onPrevious={handlePrevPeriod}
                                 onNext={handleNextPeriod}
                                 previousTitle="Previous"
                                 nextTitle="Next"
-                                minWidth={180}
-                                sx={{ flex: { xs: 1, md: 'unset' } }}
+                                minWidth={170}
                             />
-                        </Box>
-                    </Box>
+                            <button type="button" className="mrd-btn mrd-btn--primary" onClick={() => openCreateFor(panelDate)}>
+                                <Ico n="plus" cls="sm" /> New
+                            </button>
+                        </div>
+                    </div>
 
-                    <FullCalendar
-                        dayCellClassNames={(e) => handleDayCellClassNames(e)}
-                        locale={enGbLocale}
-                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
-                        headerToolbar={false}
-                        views={{
-                            multiMonthYear: {
-                                type: "multiMonthYear",
-                                multiMonthMaxColumns: maxColumns,
-                                multiMonthMinWidth: 300,
-                            },
-                        }}
-                        initialView="dayGridMonth"
-                        weekends={true}
-                        events={[...holidays, ...calendarEvents]}
-                        eventContent={renderEventContent}
-                        eventDisplay='block'
-                        selectable={true}
-                        // editable={true}
-                        select={handleDateSelect}
-                        longPressDelay={1}
-                        // eventClick={handleEventClick}
-                        ref={calendarRef}
-                        datesSet={handleDatesSet}
-                        height={"auto"}
-                        contentHeight={"auto"}
-                    />
+                    <div className="mrd-main">
+                        {/* ---- Main calendar card (FullCalendar engine, restyled) ---- */}
+                        <section className="mrd-card mrd-cal">
+                            <FullCalendar
+                                dayCellClassNames={(e) => handleDayCellClassNames(e)}
+                                locale={enGbLocale}
+                                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, bootstrapPlugin, multiMonthPlugin]}
+                                headerToolbar={false}
+                                views={{
+                                    multiMonthYear: {
+                                        type: "multiMonthYear",
+                                        multiMonthMaxColumns: maxColumns,
+                                        multiMonthMinWidth: 300,
+                                    },
+                                }}
+                                initialView="dayGridMonth"
+                                weekends={true}
+                                events={visibleEvents}
+                                eventContent={renderEventContent}
+                                dayCellContent={renderDayCellContent}
+                                eventDisplay='block'
+                                selectable={true}
+                                // editable={true}
+                                select={handleDateSelect}
+                                dateClick={(info: any) => setPanelDate(info.date)}
+                                longPressDelay={1}
+                                // eventClick={handleEventClick}
+                                ref={calendarRef}
+                                datesSet={handleDatesSet}
+                                height={"auto"}
+                                contentHeight={"auto"}
+                            />
+                        </section>
 
-                    <Modal className='custom-modal-dialog container' show={showOptionsModal} onHide={() => setShowOptionsModal(false)} centered>
-                        <Modal.Header closeButton >
-                            <Modal.Title>Select Event Type</Modal.Title>
-                        </Modal.Header>
-                        <Modal.Body>
-                            <div className="d-flex flex-column">
-                                {(() => {
-                                    let isPastDate = false;
-                                    if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
-                                        const selectedDate = dayjs(selectedDateTimeInfo.startStr).startOf('day');
-                                        const today = dayjs().startOf('day');
-                                        isPastDate = selectedDate.isBefore(today);
-                                    }
-                                    if (isPastDate) {
-                                        return (<>
-                                            <div className="alert alert-warning mb-3">
-                                                You have selected a past date. You cannot create events, holidays, or meetings for past dates.<br />
-                                                <strong>Note:</strong> You can still create a leave request for a past date.
-                                            </div>
-                                            {hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create) && <label
-                                                className='btn btn-outline btn-outline-dashed btn-outline-default mb-3 p-3 d-flex align-items-center'
-                                                onClick={handleShowLeaveRequestForm}
-                                            >
-                                                <KTIcon iconName='bi bi-file-earmark-text fs-2x' className='fs-3x me-5' />
-                                                <span className='d-block fw-bold text-start'>
-                                                    <span className='text-gray-900 fw-bolder d-block fs-4 mb-2'>Create a Leave Request</span>
-                                                    <span className='text-gray-500 fw-bold fs-6'>
-                                                        Fill in the leave request form
-                                                    </span>
-                                                </span>
-                                            </label>}
-                                        </>);
-                                    } else {
-                                        return (<>
-                                            <label
-                                                className='btn btn-outline btn-outline-dashed btn-outline-default p-3 d-flex align-items-center mb-3'
-                                                onClick={() => { setShowOptionsModal(false); handleShowEventForm(); }}
-                                            >
-                                                <KTIcon iconName='bi bi-calendar-check fs-2x' className='fs-3x me-5' />
-                                                <span className='d-block fw-bold text-start'>
-                                                    <span className='text-gray-900 fw-bolder d-block fs-4 mb-2'>Create New Event</span>
-                                                    <span className='text-gray-500 fw-bold fs-6'>
-                                                        Fill in the event form
-                                                    </span>
-                                                </span>
-                                            </label>
-                                            {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.editOthers) && <label
-                                                className='btn btn-outline btn-outline-dashed btn-outline-default p-3 d-flex align-items-center mb-3'
-                                                onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }}
-                                            >
-                                                <KTIcon iconName='calendar' className='fs-3x me-5' />
-                                                <span className='d-block fw-bold text-start'>
-                                                    <span className='text-gray-900 fw-bolder d-block fs-4 mb-2'>Create a Holiday</span>
-                                                    <span className='text-gray-500 fw-bold fs-6'>
-                                                        Fill in the holiday form
-                                                    </span>
-                                                </span>
-                                            </label>}
-                                            {hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.create) && <label
-                                                className='btn btn-outline btn-outline-dashed btn-outline-default mb-3 p-3 d-flex align-items-center'
-                                                onClick={handleShowLeaveRequestForm}
-                                            >
-                                                <KTIcon iconName='bi bi-file-earmark-text fs-2x' className='fs-3x me-5' />
-                                                <span className='d-block fw-bold text-start'>
-                                                    <span className='text-gray-900 fw-bolder d-block fs-4 mb-2'>Create a Leave Request</span>
-                                                    <span className='text-gray-500 fw-bold fs-6'>
-                                                        Fill in the leave request form
-                                                    </span>
-                                                </span>
-                                            </label>}
-                                            {hasPermission(resourceNameMapWithCamelCase.meeting, permissionConstToUseWithHasPermission.create) && <label
-                                                className='btn btn-outline btn-outline-dashed btn-outline-default p-3 d-flex align-items-center'
-                                                onClick={handleshowMeetingForm}
-                                            >
-                                                <KTIcon iconName='bi bi-file-earmark-text fs-2x' className='fs-3x me-5' />
-                                                <span className='d-block fw-bold text-start'>
-                                                    <span className='text-gray-900 fw-bolder d-block fs-4 mb-2'>Create Meetings</span>
-                                                    <span className='text-gray-500 fw-bold fs-6'>
-                                                        Fill in the meetings form
-                                                    </span>
-                                                </span>
-                                            </label>}
-                                        </>);
-                                    }
-                                })()}
+                        {/* ---- Right-hand day detail panel (Linear/Notion style) ---- */}
+                        <aside className="mrd-card mrd-panel">
+                            <div className="mrd-panel__head">
+                                <div className="mrd-panel__top">
+                                    <span className="mrd-eyebrow">{panelLabel}</span>
+                                    <span className="mrd-spacer" />
+                                    <button type="button" className="mrd-navbtn" onClick={panelPrev} aria-label="Previous day"><Ico n="chevL" cls="sm" /></button>
+                                    <button type="button" className="mrd-navbtn" onClick={panelToday} title="Jump to today" style={{ width: 'auto', padding: '0 11px', fontSize: 12, fontWeight: 600 }}>Today</button>
+                                    <button type="button" className="mrd-navbtn" onClick={panelNext} aria-label="Next day"><Ico n="chevR" cls="sm" /></button>
+                                </div>
+                                <div className="mrd-panel__date">
+                                    <h2>{dayjs(panelDate).format('MMM D')}</h2>
+                                    <span className="wd">{dayjs(panelDate).format('dddd, YYYY')}</span>
+                                </div>
                             </div>
-                        </Modal.Body>
-                    </Modal>
+                            <div className="mrd-panel__body">
+                              {showOptionsModal ? (
+                                /* ---- Inline "Select Event Type" chooser (replaces the old modal) ---- */
+                                <div className="mrd-chooser">
+                                    <div className="mrd-chooser__head">
+                                        <span className="mrd-sect__t">Select Event Type</span>
+                                        <button type="button" className="mrd-navbtn" onClick={() => setShowOptionsModal(false)} aria-label="Close" style={{ width: 30, height: 30 }}>
+                                            <Ico n="x" cls="sm" />
+                                        </button>
+                                    </div>
+                                    {(() => {
+                                        let isPastDate = false;
+                                        if (selectedDateTimeInfo && selectedDateTimeInfo.startStr) {
+                                            isPastDate = dayjs(selectedDateTimeInfo.startStr).startOf('day').isBefore(dayjs().startOf('day'));
+                                        }
+                                        const Opt = ({ icon, tint, color, title, sub, onClick }: any) => (
+                                            <button type="button" className="mrd-opt" onClick={onClick}>
+                                                <span className="mrd-opt__ic" style={{ background: tint, color }}><Ico n={icon} /></span>
+                                                <span className="mrd-opt__txt">
+                                                    <span className="mrd-opt__t">{title}</span>
+                                                    <span className="mrd-opt__s">{sub}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                        if (isPastDate) {
+                                            return (<>
+                                                <div className="mrd-opt__note">
+                                                    You've selected a past date — events, holidays and meetings can't be created for past dates. You can still submit a leave request.
+                                                </div>
+                                                {canLeave && <Opt icon="file" tint="var(--mrd-blue-tint)" color="var(--mrd-blue)" title="Create a Leave Request" sub="Fill in the leave request form" onClick={handleShowLeaveRequestForm} />}
+                                            </>);
+                                        }
+                                        return (<>
+                                            <Opt icon="calendar" tint="var(--mrd-accent-tint)" color="var(--mrd-accent)" title="Create New Event" sub="Fill in the event form" onClick={() => { setShowOptionsModal(false); handleShowEventForm(); }} />
+                                            {canHoliday && <Opt icon="gift" tint="var(--mrd-amber-tint)" color="var(--mrd-amber)" title="Create a Holiday" sub="Fill in the holiday form" onClick={() => { setShowOptionsModal(false); handleShowHolidayForm(); }} />}
+                                            {canLeave && <Opt icon="file" tint="var(--mrd-blue-tint)" color="var(--mrd-blue)" title="Create a Leave Request" sub="Fill in the leave request form" onClick={handleShowLeaveRequestForm} />}
+                                            {canMeeting && <Opt icon="users" tint="var(--mrd-violet-tint)" color="var(--mrd-violet)" title="Create Meetings" sub="Fill in the meetings form" onClick={handleshowMeetingForm} />}
+                                        </>);
+                                    })()}
+                                </div>
+                              ) : (
+                                <>
+                                {/* Selected-day summary — timeline when busy, or a clean
+                                    "no events" card with a Create Event CTA when clear. */}
+                                {panelEvents.length ? (
+                                    <div className="mrd-tl">
+                                        {panelEvents.map((e: any, i: number) => {
+                                            const m = evMeta(e);
+                                            return (
+                                                <div className="mrd-tl__item" key={i}>
+                                                    <span className="mrd-tl__node" style={{ borderColor: m.color }} />
+                                                    <div className="mrd-tl__time">{evTimeOf(e) || 'All day'}</div>
+                                                    <div className="mrd-tl__card">
+                                                        <span className="mrd-tl__ic" style={{ background: m.tint, color: m.color }}><Ico n={m.icon} cls="sm" /></span>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div className="mrd-tl__title">{e.title}</div>
+                                                            <div className="mrd-tl__sub">{m.label}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="mrd-noev">
+                                        <span className="mrd-noev__ic"><Ico n="calendar" /></span>
+                                        <div className="mrd-noev__txt">
+                                            <div className="mrd-noev__t">No events scheduled</div>
+                                            <div className="mrd-noev__s">Enjoy your free day!</div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button type="button" className="mrd-createbtn" onClick={() => openCreateFor(panelDate)}>
+                                    <span className="mrd-createbtn__main"><Ico n="plus" cls="sm" /> Create Event</span>
+                                    <span className="mrd-createbtn__chev"><Ico n="chevR" cls="xs" /></span>
+                                </button>
+
+                                {/* ---- Upcoming Events ---- */}
+                                <div className="mrd-sect">
+                                    <div className="mrd-sect__head">
+                                        <span className="mrd-sect__t">Upcoming Events</span>
+                                        <button type="button" className="mrd-sect__act" onClick={panelToday}>View all</button>
+                                    </div>
+                                    {upcomingEvents.length ? (
+                                        <div className="mrd-up">
+                                            {upcomingEvents.map((e: any, i: number) => {
+                                                const m = evMeta(e);
+                                                return (
+                                                    <button type="button" className="mrd-up__row" key={i} onClick={() => setPanelDate(new Date(evDateOf(e)))}>
+                                                        <span className="mrd-up__dot" style={{ background: m.color }} />
+                                                        <span className="mrd-up__main">
+                                                            <span className="mrd-up__t">{e.title}</span>
+                                                            <span className="mrd-up__s">{relLabel(evDateOf(e))} · {evTimeOf(e) || 'All day'}</span>
+                                                        </span>
+                                                        <Ico n="chevR" cls="xs" />
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="mrd-sect__empty">No upcoming events</div>
+                                    )}
+                                </div>
+
+                                {/* ---- Quick Actions ---- */}
+                                <div className="mrd-sect">
+                                    <div className="mrd-sect__head"><span className="mrd-sect__t">Quick Actions</span></div>
+                                    <div className="mrd-qa">
+                                        <button type="button" className="mrd-qa__btn mrd-qa--event" onClick={qaNewEvent}>
+                                            <span className="mrd-qa__ic"><Ico n="calendar" cls="sm" /></span> New Event
+                                        </button>
+                                        {canMeeting && (
+                                            <button type="button" className="mrd-qa__btn mrd-qa--meet" onClick={qaNewMeeting}>
+                                                <span className="mrd-qa__ic"><Ico n="users" cls="sm" /></span> New Meeting
+                                            </button>
+                                        )}
+                                        {canHoliday && (
+                                            <button type="button" className="mrd-qa__btn mrd-qa--holiday" onClick={qaNewHoliday}>
+                                                <span className="mrd-qa__ic"><Ico n="gift" cls="sm" /></span> New Holiday
+                                            </button>
+                                        )}
+                                        {canLeave && (
+                                            <button type="button" className="mrd-qa__btn mrd-qa--leave" onClick={qaLeave}>
+                                                <span className="mrd-qa__ic"><Ico n="file" cls="sm" /></span> Leave Request
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ---- Calendar Legend (visibility toggles) ---- */}
+                                <div className="mrd-sect">
+                                    <div className="mrd-sect__head"><span className="mrd-sect__t">Calendar Legend</span></div>
+                                    <div className="mrd-lg">
+                                        {LEGEND.map((l) => {
+                                            const hidden = l.types.every((t) => hiddenCats.has(t));
+                                            return (
+                                                <button type="button" className={`mrd-lg__row${hidden ? ' is-off' : ''}`} key={l.key} onClick={() => toggleCat(l.types)} title={hidden ? 'Show on calendar' : 'Hide from calendar'}>
+                                                    <span className="mrd-lg__sw" style={{ background: l.color }} />
+                                                    <span className="mrd-lg__t">{l.label}</span>
+                                                    <span className="mrd-lg__eye"><Ico n={hidden ? 'eyeOff' : 'eye'} cls="sm" /></span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                </>
+                              )}
+                            </div>
+                        </aside>
+                    </div>
+
+                    {/* "Select Event Type" is now rendered inline inside the right panel
+                        (see .mrd-chooser above) instead of a centered modal. */}
 
             {/* Holiday Form Modal */}
             <Modal show={showHolidayForm} onHide={handleCloseHolidayForm} centered>
@@ -980,39 +1207,143 @@ function CustomCalendar() {
                             </form>
                         </Modal.Body>
                     </Modal>
-                </div>
-                <div className='w-100 mt-3'>
-                    <div className="">
-                        <div className="">
-                            {/* <h3 className="card-title">Holidays List</h3> */}
+                <div className="mrd-cards">
+                    {/* Today's schedule */}
+                    <section className="mrd-card mrd-card--hover mrd-col-4">
+                        <div className="mrd-card__head">
+                            <div className="mrd-card__title"><span className="mrd-thumb"><Ico n="clock" cls="sm" /></span>Today's schedule</div>
+                            <span className="mrd-spacer" />
+                            <span className="mrd-card__meta">{dayjs().format('MMM D')}</span>
                         </div>
-                        <div>
-                            <PublicHolidaysListNew selectedYear={currentYear} selectedStartDate={selectedStartDate} selectedEndDate={selectedEndDate} selectedView={selectedViewForCalendar} holidaysToShow={[...holidays, ...calendarEvents]} />
+                        <div className="mrd-card__body">
+                            {todayEvents.length ? todayEvents.map((e: any, i: number) => {
+                                const m = evMeta(e);
+                                return (
+                                    <div className="mrd-row" key={i}>
+                                        <span className="mrd-av" style={{ background: m.tint, color: m.color }}><Ico n={m.icon} cls="sm" /></span>
+                                        <div className="mrd-row__main"><div className="mrd-row__t">{e.title}</div><div className="mrd-row__s">{(evTimeOf(e) || 'All day')} · {m.label}</div></div>
+                                        <span className={`mrd-tag ${evTimeOf(e) ? 'mrd-tag--today' : 'mrd-tag--wk'}`}>{evTimeOf(e) || 'All day'}</span>
+                                    </div>
+                                );
+                            }) : emptyInline('No events scheduled today')}
                         </div>
-                    </div>
+                    </section>
+
+                    {/* Upcoming meetings */}
+                    <section className="mrd-card mrd-card--hover mrd-col-4">
+                        <div className="mrd-card__head">
+                            <div className="mrd-card__title"><span className="mrd-thumb" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)', borderColor: 'transparent' }}><Ico n="video" cls="sm" /></span>Upcoming meetings</div>
+                            <span className="mrd-spacer" />
+                            <span className="mrd-card__meta">{upcomingMeetings.length} scheduled</span>
+                        </div>
+                        <div className="mrd-card__body">
+                            {upcomingMeetings.length ? upcomingMeetings.map((mtg: any, i: number) => (
+                                <div className="mrd-row" key={i}>
+                                    <span className="mrd-av" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="video" cls="sm" /></span>
+                                    <div className="mrd-row__main"><div className="mrd-row__t">{mtg.title || 'Meeting'}</div><div className="mrd-row__s">{dayjs(mtg.startDate).format('MMM D · h:mm A')}</div></div>
+                                    <span className="mrd-tag mrd-tag--wk">{relLabel(mtg.startDate)}</span>
+                                </div>
+                            )) : emptyInline('No upcoming meetings')}
+                        </div>
+                    </section>
+
+                    {/* Celebrations */}
+                    <section className="mrd-card mrd-card--hover mrd-col-4">
+                        <div className="mrd-card__head">
+                            <div className="mrd-card__title"><span className="mrd-thumb" style={{ background: 'var(--mrd-rose-tint)', color: 'var(--mrd-rose)', borderColor: 'transparent' }}><Ico n="cake" cls="sm" /></span>Celebrations</div>
+                            <span className="mrd-spacer" />
+                            <span className="mrd-card__meta">Birthdays &amp; anniversaries</span>
+                        </div>
+                        <div className="mrd-card__body">
+                            {celebrations.length ? celebrations.map((e: any, i: number) => {
+                                const m = evMeta(e);
+                                return (
+                                    <div className="mrd-row" key={i}>
+                                        <span className="mrd-av" style={{ background: m.tint, color: m.color }}><Ico n={m.icon} cls="sm" /></span>
+                                        <div className="mrd-row__main"><div className="mrd-row__t">{e.title}</div><div className="mrd-row__s">{m.label}</div></div>
+                                        <span className="mrd-tag mrd-tag--wk">{relLabel(e.start)}</span>
+                                    </div>
+                                );
+                            }) : emptyInline('No celebrations coming up')}
+                        </div>
+                    </section>
+
+                    {/* Holidays list */}
+                    <section className="mrd-card mrd-card--hover mrd-col-7">
+                        <div className="mrd-card__head">
+                            <div className="mrd-card__title"><span className="mrd-thumb" style={{ background: 'var(--mrd-accent-tint)', color: 'var(--mrd-accent)', borderColor: 'transparent' }}><Ico n="sun" cls="sm" /></span>Public holidays</div>
+                            <span className="mrd-spacer" />
+                            <span className="mrd-card__meta">{currentYear} · {holidayList.length} days</span>
+                        </div>
+                        <div className="mrd-card__body">
+                            <div style={{ maxHeight: 296, overflowY: 'auto', scrollbarWidth: 'thin' }}>
+                                {holidayList.length ? holidayList.map((h: any, i: number) => (
+                                    <div className="mrd-row" key={i}>
+                                        <span className="mrd-av" style={{ background: 'var(--mrd-accent-tint)', color: 'var(--mrd-accent)' }}><Ico n="sun" cls="sm" /></span>
+                                        <div className="mrd-row__main"><div className="mrd-row__t">{h.title}</div><div className="mrd-row__s">{dayjs(h.date).format('dddd')}</div></div>
+                                        <span className="mrd-tag mrd-tag--soon">{dayjs(h.date).format('DD MMM')}</span>
+                                    </div>
+                                )) : emptyInline('No holidays found for this year')}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Overview stats */}
+                    <section className="mrd-card mrd-card--hover mrd-col-5">
+                        <div className="mrd-card__head">
+                            <div className="mrd-card__title"><span className="mrd-thumb"><Ico n="spark" cls="sm" /></span>Overview</div>
+                            <span className="mrd-spacer" />
+                            <span className="mrd-card__meta">{dayjs().format('MMMM YYYY')}</span>
+                        </div>
+                        <div className="mrd-card__body">
+                            <div className="mrd-stats">
+                                <div className="mrd-stat">
+                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-primary-tint)', color: 'var(--mrd-primary)' }}><Ico n="calendar" cls="sm" /></span>
+                                    <div className="mrd-stat__val tnum">{thisMonthCount}</div>
+                                    <div className="mrd-stat__lbl">Events this month</div>
+                                </div>
+                                <div className="mrd-stat">
+                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="video" cls="sm" /></span>
+                                    <div className="mrd-stat__val tnum">{upcomingMeetings.length}</div>
+                                    <div className="mrd-stat__lbl">Upcoming meetings</div>
+                                </div>
+                                <div className="mrd-stat">
+                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-accent-tint)', color: 'var(--mrd-accent)' }}><Ico n="sun" cls="sm" /></span>
+                                    <div className="mrd-stat__val tnum">{holidayList.length}</div>
+                                    <div className="mrd-stat__lbl">Holidays in {currentYear}</div>
+                                </div>
+                                <div className="mrd-stat">
+                                    <span className="mrd-stat__ic" style={{ background: 'var(--mrd-rose-tint)', color: 'var(--mrd-rose)' }}><Ico n="cake" cls="sm" /></span>
+                                    <div className="mrd-stat__val tnum">{celebrations.length}</div>
+                                    <div className="mrd-stat__lbl">Celebrations soon</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </>
     );
 }
 function renderEventContent(eventInfo: any) {
-    const icon = eventInfo.event.extendedProps?.icon;
-    const isKtIcon = icon?.startsWith("kt:");
-    
+    const ev = eventInfo.event;
+    const type: string = ev.extendedProps?.type || (ev.allDay ? 'holiday' : 'event');
+    const dotColor = ev.backgroundColor || eventInfo.backgroundColor || '#295D8E';
+    const allDayTypes = ['birthday', 'anniversary', 'contact-birthday', 'contact-anniversary', 'holiday'];
+
+    let time = '';
+    if (ev.start && !ev.allDay && !allDayTypes.includes(type)) {
+        const d = dayjs(ev.start);
+        if (d.isValid() && d.format('HH:mm') !== '00:00') time = d.format('h:mm');
+    }
+
     return (
-        <div className='fullcalendar__event__wrapper d-flex align-items-center gap-1' style={{ backgroundColor: eventInfo.backgroundColor }}>
-            {icon && (
-                isKtIcon ? (
-                    <span style={{ color: eventInfo.textColor || '#fff', marginRight: '4px', display: 'flex', alignItems: 'center' }}>
-                        <KTIcon iconName={icon.slice(3)} className="fs-6" />
-                    </span>
-                ) : (
-                    <img src={icon} alt="icon" style={{ width: 14, height: 14, objectFit: 'contain', marginRight: '4px' }} />
-                )
-            )}
-            <span>{eventInfo.event.title}</span>
+        <div className='fullcalendar__event__wrapper'>
+            <span className='mrd-ev__dot' style={{ background: dotColor }} />
+            {time && <span className='mrd-ev__time'>{time}</span>}
+            <span className='mrd-ev__t'>{ev.title}</span>
         </div>
-    )
+    );
 }
 
 export default CustomCalendar;

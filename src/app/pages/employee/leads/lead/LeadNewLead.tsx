@@ -781,11 +781,13 @@ const LeadNewLead: React.FC<LeadNewLeadProps> = ({
       Cell: ({ row }: any) => {
         const st = row?.original?.status;
         return st?.name ? (
-          <div
-            className="badge badge-light"
-            style={{ backgroundColor: st.color, color: "white" }}
-          >
-            {st.name}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            backgroundColor: st.color || '#64748B',
+            borderRadius: '16px', padding: '4px 10px 4px 8px',
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
           </div>
         ) : (
           "N/A"

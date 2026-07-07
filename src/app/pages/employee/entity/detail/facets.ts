@@ -53,6 +53,8 @@ export interface AddressVM {
   zip?: string;
   lat?: any;
   lng?: any;
+  /** Whether this address belongs to the lead itself or a project site. */
+  kind?: 'lead' | 'project';
 }
 export interface PointVM {
   heading: string;
@@ -170,6 +172,7 @@ export const buildEntityVM = (lead: any): EntityVM => {
       zip: ad.zipCode,
       lat: ad.latitude,
       lng: ad.longitude,
+      kind: 'lead',
     });
   }
   (p?.addresses || []).forEach((a: any) => {
@@ -180,6 +183,7 @@ export const buildEntityVM = (lead: any): EntityVM => {
       zip: a?.zipcode,
       lat: a?.latitude,
       lng: a?.longitude,
+      kind: 'project',
     });
   });
   // dedup identical lead/project addresses
@@ -326,4 +330,6 @@ export const ENTITY_TABS: TabDef[] = [
   { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },
   { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },
   { key: 'audit', label: 'Audit', icon: 'bi bi-file-earmark-diff' },
+  { key: 'teams', label: 'Teams', icon: 'bi bi-people', projectOnly: true },
+  { key: 'billing', label: 'Billing', icon: 'bi bi-receipt', projectOnly: true },
 ];

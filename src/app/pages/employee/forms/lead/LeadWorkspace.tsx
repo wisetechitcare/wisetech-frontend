@@ -88,6 +88,7 @@ interface LeadWorkspaceProps {
   handleCompanyTypeChange: (index: number, typeId: string, setFieldValue: Function) => void;
   handleCompanyChange: (index: number, companyId: string, setFieldValue: Function) => void;
   handleSubCompanyChange: (index: number, subCompanyId: string, companyId: string, setFieldValue: Function) => void;
+  handleContactChange: (index: number, contactId: string, setFieldValue: Function) => void;
   teamFilteredContacts: any;
 
   // ── Misc ───────────────────────────────────────────────────────────────────
@@ -292,24 +293,13 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       component: L.AddressSection,
     },
 
-    // ── STEP 7: Meeting Schedule ────────────────────────────────────────────
-    {
-      id: "meeting-schedule",
-      label: "Meeting Schedule",
-      title: "Meeting Schedule",
-      subtitle: "Schedule and manage project meetings",
-      fields: [],
-      icon: <EventNote />,
-      render: (p) => <L.MeetingDetailsSection {...p} />,
-    },
-
-    // ── STEP 8: Follow-up & Documents ───────────────────────────────────────
+    // ── STEP 7: Follow-up & Documents ───────────────────────────────────────
     {
       id: "remarks-docs",
-      label: "Follow-up & Documents",
-      title: "Follow-up, Description & Documents",
-      subtitle: "Set the follow-up, add a detailed description, and document attachments",
-      fields: ["nextFollowUpDate", "description", "fileLocation"],
+      label: "Follow-up",
+      title: "Follow-up & Description",
+      subtitle: "Set the follow-up and add a detailed description",
+      fields: ["nextFollowUpDate", "description"],
       icon: <DescriptionOutlined />,
       render: (p) => <L.RemarksAndDocumentsSection {...p} />,
     },

@@ -12,10 +12,13 @@ import type { EntityVM } from '../facets';
 
 /** Addresses card — lead & project-site locations with map links. Surfaced on the
  *  Overview sub-page (the lead address belongs with the at-a-glance summary). */
-export const AddressesCard: React.FC<{ vm: EntityVM }> = ({ vm }) => {
-  const { addresses } = vm.client;
+export const AddressesCard: React.FC<{ vm: EntityVM; only?: 'lead' | 'project'; title?: string }> = ({ vm, only, title }) => {
+  // Lead-only vs project-site addresses (untagged legacy rows count as lead).
+  const addresses = only
+    ? vm.client.addresses.filter(a => (a.kind || 'lead') === only)
+    : vm.client.addresses;
   return (
-    <DetailCard title="Address & Location" subtitle={`${addresses.length} location${addresses.length === 1 ? '' : 's'}`} icon="bi bi-geo-alt" accentColor="teal">
+    <DetailCard title={title || 'Address & Location'} subtitle={`${addresses.length} location${addresses.length === 1 ? '' : 's'}`} icon="bi bi-geo-alt" accentColor="teal">
       {addresses.length === 0 ? (
         <EmptyState icon="bi bi-geo" title="No address" message="No lead or project-site address is linked to this record." />
       ) : (
