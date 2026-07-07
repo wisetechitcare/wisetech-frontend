@@ -221,7 +221,7 @@ const DeductionPanel = ({
                             )}
                             {fixedEntries.map(([key, item]: [string, any]) => {
                                 const isPct = String(item.type).toLowerCase() === 'percentage';
-                                    const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
+                                const rate = isPct ? `${item.value}%` : formatINRDecimal(Number(item.value || 0));
                                 const typeLabel = isPct ? 'Percentage' : 'Fixed';
                                 const extraAmount = Number(item.extraAmount || 0);
                                 const calculatedAmount = Number(item.calculatedAmount || 0);
@@ -238,7 +238,7 @@ const DeductionPanel = ({
                                         </td>
                                         <td style={{ textAlign: 'right' }} className={sensitiveCls}>
                                             <div className="d-flex flex-column align-items-end">
-                                                        <span>{formatINRDecimal(earnedAmount)}</span>
+                                                <span>{formatINRDecimal(earnedAmount)}</span>
                                                 {extraAmount !== 0 && (
                                                     <span className="text-muted" style={{ fontSize: 10 }}>
                                                         {formatAdjustmentFormula(calculatedAmount, extraAmount)}
@@ -246,7 +246,7 @@ const DeductionPanel = ({
                                                 )}
                                             </div>
                                         </td>
-                                        
+
                                     </tr>
                                 );
                             })}
@@ -270,30 +270,30 @@ const DeductionPanel = ({
                         </tbody>
                     </table>
                     <div
-                className="mb-4 p-3 rounded-3"
-                style={{ backgroundColor: '#FBF0F1', border: '1px solid #E5C8CA' }}
-            >
-                <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div className="fw-bold" style={{ color: '#AA393D' }}>
-                            Total Salary After Attendance Adjustments (B)
-                        </div>
-                        <div className="text-muted" style={{ fontSize: 11 }}>
-                            (Total Earnings − Total Government Deductions)
-                        </div>
-                    </div>
-                    <div
-                        className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
-                        style={{
-                            color: '#AA393D',
-                            backgroundColor: '#FFFFFF',
-                            border: '1px solid #E5C8CA',
-                        }}
+                        className="mb-4 p-3 rounded-3"
+                        style={{ backgroundColor: '#FBF0F1', border: '1px solid #E5C8CA' }}
                     >
-                        {formatINRDecimal(intermediateSalary)}
+                        <div className="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div className="fw-bold" style={{ color: '#AA393D' }}>
+                                    Total Salary After Attendance Adjustments (B)
+                                </div>
+                                <div className="text-muted" style={{ fontSize: 11 }}>
+                                    (Total Earnings − Total Government Deductions)
+                                </div>
+                            </div>
+                            <div
+                                className={`fw-bolder fs-5 px-3 py-1 rounded-2 ${sensitiveCls}`}
+                                style={{
+                                    color: '#AA393D',
+                                    backgroundColor: '#FFFFFF',
+                                    border: '1px solid #E5C8CA',
+                                }}
+                            >
+                                {formatINRDecimal(intermediateSalary)}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
                 </div>
             </div>
         </div>
@@ -560,10 +560,10 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                         const dailySalaryVal = apiSalaryData?.employeeCardDetails?.dailySalary ?? (hourlySalaryVal ? hourlySalaryVal * 8 : undefined);
                                         const rateValue = isHourly ? hourlySalaryVal : dailySalaryVal;
                                         const displayRateValue = rateValue ? Math.floor(rateValue * 100) / 100 : undefined;
-                                        const rateLabel = displayRateValue && typeof displayRateValue === 'number' && displayRateValue > 0 
+                                        const rateLabel = displayRateValue && typeof displayRateValue === 'number' && displayRateValue > 0
                                             ? `${formatCurrency(displayRateValue)} / ${isHourly ? 'Hour' : 'Day'}`
                                             : '-';
-                                        
+
                                         return (
                                             <tr key={key} style={{ fontSize: '11px' }}>
                                                 <td>{item.name || key}</td>
@@ -797,9 +797,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
         console.log("totalGrossPayEarned:: ", totalGrossPayEarned);
         console.log("totalGrossPayFixed:: ", totalGrossPayFixed);
         totalGrossPayFixed?.map((fixed, index) => {
-            if (fixed?.name.toLowerCase() != "basic salary") {
-                (fixed?.earned).replace(/[₹,]/g, "")
-                finalAmount += Number((fixed?.earned).replace(/[₹,]/g, ""))
+            if (fixed?.name?.toLowerCase?.() !== "basic salary") {
+                finalAmount += Number((fixed?.earned ?? '').replace(/[₹,]/g, ""));
             }
         })
         setTotalGrossPayEarned2(finalAmount);
@@ -1006,21 +1005,21 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     const lateAttendance = multipleRadialBarData(stats, dayWiseShifts).get(LATE_CHECKIN);
     const amountToDeductForLateCheckinBasedOnPercentage = Math.floor(dailySalary * (multiLateCheckinDeductionPercent / 100));
     const multipleLateCheckinEarned = parseInt(((Math.floor((lateAttendance || 0) / multipleLateCheckinCountLimit)) * amountToDeductForLateCheckinBasedOnPercentage).toString());
-    
+
     // ------------------ Fixed Deductions (Calculated on Intermediate Salary) ------------------------
     const countOfMonthsEmployeePresentInAYear = getCountOfMonthsEmployeePresentOrOnLeaveInAYear(stats);
-    
+
     // Intermediate Salary Base for calculations
     const intermediateSalaryBase = Math.max(0, (isApiDataLoaded ? (apiTotalGrossPayAmount || 0) : totalGrossPayEarnedFinal) - multipleLateCheckinEarned);
 
     let taxes = salaryCalculationsForDays(
-        totalDaysOfMonthOrYear, 
-        allDaysForMonthOrYear, 
-        deductionsRule, 
-        intermediateSalaryBase, 
-        isYearly, 
-        countOfMonthsEmployeePresentInAYear, 
-        true, 
+        totalDaysOfMonthOrYear,
+        allDaysForMonthOrYear,
+        deductionsRule,
+        intermediateSalaryBase,
+        isYearly,
+        countOfMonthsEmployeePresentInAYear,
+        true,
         totalListOfMonthsPresent.size
     );
 
@@ -1394,9 +1393,9 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             Object.entries(grossDistributionData)
                 .filter(([key]) => !deletedFields.includes(key) && key?.toLowerCase() !== 'basic salary')
                 .forEach(([key, fieldData]: [string, any]) => {
-                    console.log("key.toLowerCase:: ",key.toLowerCase());
-                    console.log("key no lowercase:: ",key);
-                    
+                    console.log("key.toLowerCase:: ", key.toLowerCase());
+                    console.log("key no lowercase:: ", key);
+
                     transformedData[key] = {
                         ...fieldData,
                         value: Number(values[key]),
@@ -1406,17 +1405,17 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
 
             // Handle new dynamic fields
             dynamicFields
-            .filter((ele) => ele?.name?.toLowerCase() !== 'basic salary')
-            .forEach(field => {
-                // const newKey = field.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, ''); // Remove spaces and special chars for key
-                const newKey = field.name;
-                transformedData[newKey] = {
-                    name: field.name,
-                    value: Number(values[field.id]),
-                    type: "number",
-                    isActive: true
-                };
-            });
+                .filter((ele) => ele?.name?.toLowerCase() !== 'basic salary')
+                .forEach(field => {
+                    // const newKey = field.name.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, ''); // Remove spaces and special chars for key
+                    const newKey = field.name;
+                    transformedData[newKey] = {
+                        name: field.name,
+                        value: Number(values[field.id]),
+                        type: "number",
+                        isActive: true
+                    };
+                });
 
             console.log("=== TRANSFORMED DATA FOR API ===");
             console.log("Final transformed data:", transformedData);
@@ -1655,7 +1654,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             console.warn('⚠️ [SalaryReport] Cannot fetch payments: Employee ID is missing');
             return;
         }
-        
+
         try {
             const { data: { salaries } } = await fetchAllPayments(employee.id, month, year);
 
@@ -1672,7 +1671,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             console.warn('⚠️ [SalaryReport] Cannot fetch gross pay deductions: Employee ID is missing');
             return;
         }
-        
+
         try {
             const { data: { gpd } } = await fetchGrossPayDeductions(employee.id, month, year);
 
@@ -1902,8 +1901,8 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // }, [employeeId, year, month, fromAdmin, dispatch, isYearly, startDateOfMonthOrYear, employee?.dateOfExit, fiscalEndDate, fiscalStartDate]);
 
     // Fetch leave encashments when fiscal dates change
-    
-    
+
+
     useEffect(() => {
         if (!fiscalStartDate || !fiscalEndDate || !employeeId) return;
         fetchLeaveEncashments();
@@ -2067,9 +2066,40 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
     // console.log("SalarySlippaidLeaves:: ",paidLeaves);
 
     // Fetch payment history
+    // const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
+    // const salaryId = (apiSalaryData as any)?.salaryId;
+
+    // useEffect(() => {
+    //     if (!salaryId) return;
+    //     fetchSalaryPaymentHistory(salaryId)
+    //         .then((history: any) => setPaymentHistory(history))
+    //         .catch((err: any) => {
+    //             console.warn('Failed to fetch payment history:', err);
+    //             setPaymentHistory(null);
+    //         });
+    // }, [salaryId]);
+
+    // // Transform API data to SalarySlipTemplate props format
+    // const salarySlipProps = useMemo((): SalarySlipProps | null => {
+    //     if (!isApiDataLoaded || !apiSalaryData) {
+    //         console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
+    //         return null;
+    //     }
+
+    //     console.log('📊 [SalaryReport] Using API data for SalarySlipTemplate');
+    //     try {
+    //         return transformApiDataToSalarySlipProps(apiSalaryData, employee, paymentHistory, salaryId);
+    //     } catch (error) {
+    //         console.error('📊 [SalaryReport] Error transforming API data:', error);
+    //         return null;
+    //     }
+    // }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
+
+    // Fetch payment history - MOVED TO TOP
     const [paymentHistory, setPaymentHistory] = useState<any | null>(null);
     const salaryId = (apiSalaryData as any)?.salaryId;
 
+    // Move useEffect to top
     useEffect(() => {
         if (!salaryId) return;
         fetchSalaryPaymentHistory(salaryId)
@@ -2080,7 +2110,7 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             });
     }, [salaryId]);
 
-    // Transform API data to SalarySlipTemplate props format
+    // Move useMemo to top
     const salarySlipProps = useMemo((): SalarySlipProps | null => {
         if (!isApiDataLoaded || !apiSalaryData) {
             console.warn('📊 [SalaryReport] No API data available for SalarySlipTemplate');
@@ -2095,6 +2125,13 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
             return null;
         }
     }, [isApiDataLoaded, apiSalaryData, employee, paymentHistory, salaryId]);
+
+    // Then rest of component render logic...
+    return (
+        <>
+            {/* ... */}
+        </>
+    );
 
     return (
         <>
@@ -2398,14 +2435,12 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                     </span>
                                                 </td>
                                                 <td className="text-center">
-                                                    <span className={`status-badge ${
-                                                        row.calculatedStatus === 'Paid' ? 'status-badge-paid' : 
+                                                    <span className={`status-badge ${row.calculatedStatus === 'Paid' ? 'status-badge-paid' :
                                                         row.calculatedStatus === 'Partial' ? 'status-badge-partial' : 'status-badge-none'
-                                                    }`}>
-                                                        <span className={`status-dot ${
-                                                            row.calculatedStatus === 'Paid' ? 'status-dot-paid' : 
+                                                        }`}>
+                                                        <span className={`status-dot ${row.calculatedStatus === 'Paid' ? 'status-dot-paid' :
                                                             row.calculatedStatus === 'Partial' ? 'status-dot-partial' : 'status-dot-none'
-                                                        }`} />
+                                                            }`} />
                                                         {row.calculatedStatus}
                                                     </span>
                                                 </td>
@@ -2418,14 +2453,14 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                                     <div className="d-flex justify-content-center gap-2">
                                                         {fromAdmin && (
                                                             <>
-                                                                <button 
+                                                                <button
                                                                     className="payroll-action-btn"
                                                                     onClick={() => handlePaymentEdit(row.item as any)}
                                                                     title="Edit Payment"
                                                                 >
                                                                     <KTIcon iconName="pencil" className="fs-5" />
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     className="payroll-action-btn payroll-action-btn-danger"
                                                                     onClick={() => handlePaymentDelete(row.item as any)}
                                                                     title="Delete Payment"
@@ -2485,67 +2520,67 @@ const SalaryReport = ({ stats, keyword, date, employee, year, month = dayjs().fo
                                 </Button>
                             )}
                             {salarySlipProps && <Button className="wt-btn-primary" disabled={loading} onClick={
-                                async ()=> {
-                                setLoading(true);
-                                if (!salarySlipProps) {
-                                    alert('No salary data available for PDF generation');
-                                    setLoading(false);
-                                    return;
-                                }
-                                const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
-                                const form = new FormData();
-                                const fileFinal = new File([blob], `${userId}-SalarySlip-${Date.now()}.pdf`, { type: 'application/pdf' });
-                                form.append("file", fileFinal);
-                                let fileUploadedUrl;
-                                try {
-                                    const {
-                                        data: { path },
-                                    } = await uploadUserAsset(form, userId, "salaryreport", "salary-docs");
-                                    fileUploadedUrl = path;
-                                } catch (error) {
-                                    console.error("Failed to upload file. Please try again.");
-                                }
-                                try {
-                                    const data = {
-                                        path: fileUploadedUrl,
-                                        employeeId : employee?.id,
-                                        salaryData: salarySlipProps
-                                    };
-                                    const res = await sendSalarySlipToEmployee(data);
-                                    if(res?.statusCode==200 && !res.hasError){
-                                        const email = salarySlipProps.employee?.companyEmailId || 'Employee';
-                                        toast.success(
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                    <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
-                                                        <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
-                                                        {email}
-                                                    </div>
-                                                </div>
-                                            </div>,
-                                            {
-                                                position: 'bottom-right',
-                                                autoClose: 6000,
-                                                style: {
-                                                    borderRadius: '12px',
-                                                    padding: '16px',
-                                                    border: '1px solid #e2e8f0',
-                                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                                                }
-                                            }
-                                        );
+                                async () => {
+                                    setLoading(true);
+                                    if (!salarySlipProps) {
+                                        alert('No salary data available for PDF generation');
+                                        setLoading(false);
+                                        return;
                                     }
-                                    else{
+                                    const blob = await payrollService.downloadSalarySlip(monthlyApiData?.salaryData?.[0]?.id as string);
+                                    const form = new FormData();
+                                    const fileFinal = new File([blob], `${userId}-SalarySlip-${Date.now()}.pdf`, { type: 'application/pdf' });
+                                    form.append("file", fileFinal);
+                                    let fileUploadedUrl;
+                                    try {
+                                        const {
+                                            data: { path },
+                                        } = await uploadUserAsset(form, userId, "salaryreport", "salary-docs");
+                                        fileUploadedUrl = path;
+                                    } catch (error) {
+                                        console.error("Failed to upload file. Please try again.");
+                                    }
+                                    try {
+                                        const data = {
+                                            path: fileUploadedUrl,
+                                            employeeId: employee?.id,
+                                            salaryData: salarySlipProps
+                                        };
+                                        const res = await sendSalarySlipToEmployee(data);
+                                        if (res?.statusCode == 200 && !res.hasError) {
+                                            const email = salarySlipProps.employee?.companyEmailId || 'Employee';
+                                            toast.success(
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '0.95rem' }}>Email Sent Successfully</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>Salary slip delivered to:</div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#334155', fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                                                            <span style={{ marginRight: '8px', fontSize: '1.1em' }}>✉️</span>
+                                                            {email}
+                                                        </div>
+                                                    </div>
+                                                </div>,
+                                                {
+                                                    position: 'bottom-right',
+                                                    autoClose: 6000,
+                                                    style: {
+                                                        borderRadius: '12px',
+                                                        padding: '16px',
+                                                        border: '1px solid #e2e8f0',
+                                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                                    }
+                                                }
+                                            );
+                                        }
+                                        else {
+                                            errorConfirmation("Failed to send salary slip. Please try again.");
+                                        }
+                                    } catch (error) {
+                                        console.error("Failed to send salary slip. Please try again.");
                                         errorConfirmation("Failed to send salary slip. Please try again.");
                                     }
-                                } catch (error) {
-                                    console.error("Failed to send salary slip. Please try again.");
-                                    errorConfirmation("Failed to send salary slip. Please try again.");
-                                }
-                                setLoading(false);
-                            }}
+                                    setLoading(false);
+                                }}
                             >
                                 {loading ? "Please wait..." : "Email Salary Slip"}
                             </Button>}
